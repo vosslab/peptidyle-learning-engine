@@ -1,0 +1,206 @@
+# Propagation manifests: single source of propagation config.
+#
+# This file is template-meta. It lives under meta/ and NEVER ships to consumer
+# repos. repolib.manifests.load_manifests() reads it at import time and
+# repolib.model assigns the loaded values to its module-level manifest names
+# (ROUTING_OVERRIDES, META_FILES, etc.), so this YAML is the one place to edit
+# propagation routing config.
+#
+# Values here must match the Python literals that repolib.model previously
+# defined. This is data only; the loader applies the correct Python types
+# (frozenset for sets, tuple for meta_test_prefixes, dict for routing_overrides
+# and conditional_overlays).
+#
+# WHEN TO ADD A FILE HERE: only when file LOCATION cannot express the file's
+# routing fate. This is a folder-based propagation system -- prefer placing a
+# file so its folder routes it, and touch this manifest only for genuinely
+# special cases:
+#   - universal file (ships to every type) -> put it in devel/, docs/, or
+#     tests/ at the template root. NO manifest entry.
+#   - single-type file -> put it under templates/<type>/. NO manifest entry.
+#   - one-type-conditional file -> templates/<type>/_<name>/ (conditional_overlays).
+#   - SUBSET of types (more than one, fewer than all), one canonical copy ->
+#     templates/shared/<path> + a shared_overlays rule (this is the ONLY thing
+#     shared_overlays is for).
+#   - root-level file whose fate location cannot encode (repo root holds the
+#     template's own README/VERSION/REPO_TYPE alongside files meant to ship) ->
+#     root_propagate_allowlist / universal_noexist / merge_files / meta_files.
+# Do not add a filename to a list just to "register" it. If a folder already
+# routes it, adding it here is redundant and creates a stale entry when the file
+# is renamed or deleted.
+
+# Routing overrides: per-file exceptions layered on location-based routing.
+# Location (which template folder a file lives in) is the PRIMARY determinant;
+# the only remaining exception encoded here is exclude_repos.
+# exclude_repos blocks a file when the destination repo basename is listed
+# (used for docs sourced FROM a specific repo that must never ship back to it).
+routing_overrides:
+  # CLAUDE_HOOK_USAGE_GUIDE.md is sourced from claude-code-permissions-hook;
+  # never copy the mirror back over that repo's source of truth.
+  "docs/CLAUDE_HOOK_USAGE_GUIDE.md":
+    exclude_repos:
+      - claude-code-permissions-hook
+
+# Conditional overlays: underscore-prefixed template folders selected per consumer.
+# Shape: repo_type -> { overlay_name -> {when, path, description} }.
+# overlay_name is the underscore folder under templates/<repo_type>/.
+# Supported 'when' verbs: has_file (apply overlay when <path> exists at consumer).
+conditional_overlays:
+  python:
+    # _pypi layers PyPI packaging files onto python repos that ship a
+    # pyproject.toml at their root (templates/python/_pypi/).
+    _pypi:
+      when: has_file
+      path: pyproject.toml
+      description: >-
+        PyPI packaging overlay: ships submit_to_pypi.py and a pyproject.toml
+        seed only to python repos that are packaged for PyPI.
+
+# Shared overlays: canonical files under templates/shared/ routed to a chosen SET
+# of repo types via named rules. Unlike conditional_overlays (one repo_type via an
+# underscore folder), a shared overlay names an explicit repo_types list plus an
+# optional presence condition, so one canonical file reaches several types.
+# Shape: rule_name -> { paths: [...], repo_types: [...], optional when: <verb>, path: <file> }.
+#   paths      : template-relative paths under templates/shared/ this rule ships.
+#                A bare path (e.g. devel/make_release.py) lands in the overwrite bucket.
+#                A noexist/ prefix (e.g. noexist/docs/RELEASE_HISTORY.md) routes to the
+#                noexist-only bucket: written only if the consumer lacks that file.
+#   repo_types : consumer REPO_TYPE tokens that receive the paths.
+#   when       : optional condition verb. Supported: lacks_file (ship only when
+#                <path> is ABSENT at the consumer root). Omit 'when' to ship
+#                unconditionally to every listed repo_type.
+#   path       : marker file path (relative to the consumer root) the verb tests.
+# Every file under templates/shared/ must be named by at least one rule's paths;
+# the shared walk raises on an uncovered file.
+shared_overlays:
+  source_release:
+    # Base-targeted: the scripted and compiled families inherit release tooling,
+    # so any future scripted/compiled language receives it with no further manifest
+    # edit. The website family (website, typescript) stays out because a docs or
+    # game site publishes builds, not GitHub source releases.
+    paths:
+      - devel/make_release.py
+    repo_types:
+      - scripted
+      - compiled
+      - other
+
+# Root-level files repolib propagates (ships) to every consumer repo's root.
+# ROOT_PROPAGATE_ALLOWLIST says a root file MAY ship; universal_noexist refines
+# HOW it ships (overwrite vs noexist-only). Overlap with universal_noexist is
+# intentional (AGENTS.md, source_me.sh).
+root_propagate_allowlist:
+  - CLAUDE.md
+  - AGENTS.md
+  - source_me.sh
+  - pip_requirements-dev.txt
+
+# Files that ship only when absent at the consumer (universal noexist).
+# Overrides the docs/ universal-overwrite default; repo-root-relative paths.
+universal_noexist:
+  - AGENTS.md
+  - source_me.sh
+  - docs/AUTHORS.md
+  - tests/TESTS_README.md
+  - pip_requirements-dev.txt
+
+# Files routed to the MERGE bucket (set-union @-import merge).
+merge_files:
+  - CLAUDE.md
+
+# Files that NEVER ship (template-meta).
+meta_files:
+  - propagate_style_guides.py
+  - reset_repo.py
+  - README.md
+  - VERSION
+  - .gitignore
+  - REPO_TYPE
+  - pip_extras.txt
+  - pip_requirements-meta.txt
+  - docs/CHANGELOG.md
+  # A repo's backlog is its own. This file previously landed in overwrite_files
+  # for every repo type, so each propagation replaced a consumer's TODO list
+  # with this template's. Never ship it; each repo writes its own.
+  - docs/TODO.md
+
+# Glob patterns (template-root-relative) that NEVER ship. Rotation archives like
+# docs/CHANGELOG-2026-06a.md must not propagate; the active docs/CHANGELOG.md stays
+# in meta_files above.
+meta_file_patterns:
+  - docs/CHANGELOG-*.md
+
+# Dirs that NEVER ship. Walked but never produce routing entries.
+meta_dirs:
+  - LICENSES
+  - templates
+  - meta
+  - repolib
+  - tools
+  - docs/active_plans
+  - docs/archive
+  - experiment_reports
+  - __pycache__
+  - .git
+
+# Dirs skipped during os.walk of the source template.
+skip_walk_dirs:
+  - .git
+  - .mypy_cache
+  - .pytest_cache
+  - old_shell_folder
+  - .venv
+  - .system
+  - __pycache__
+  - build
+  - dist
+  - node_modules
+  - venv
+  - meta
+  - tools
+
+# Docs excluded from auto-discovery.
+auto_discover_docs_exclude:
+  - AUTHORS.md
+  - CHANGELOG.md
+
+# Template-meta test filename prefixes (loaded as a tuple).
+meta_test_prefixes:
+  - test_repolib_
+  - test_reset_repo_
+  - test_detect_repo_type
+
+# Default skip list for repo discovery.
+default_repo_skip_names:
+  - starter-repo-template
+  - vosslab-skills
+
+# Recognized consumer REPO_TYPE marker tokens, in canonical display order
+# (loaded as an ordered tuple, NOT a frozenset). This is the single source of
+# truth for valid marker tokens: prompts and docs use the order, while a derived
+# frozenset (KNOWN_REPO_TYPES in repolib.model) handles membership checks. Order
+# matters here; do not sort. Internal routing pseudo-types (universal, unknown)
+# are NOT consumer tokens and are added at their own guard in repolib.files.
+known_repo_types:
+  - python
+  - typescript
+  - rust
+  - swift
+  - other
+  - scripted
+  - website
+  - compiled
+  - all
+
+# REPO_TYPE inheritance: child token -> parent (base) token. A concrete type
+# inherits every ancestor overlay in addition to its own, so a routing rule that
+# targets a base reaches every descendant. Root types (scripted, website,
+# compiled, other) have NO entry here; REPO_TYPE_PARENTS.get(root) returns None,
+# which effective_type_chain() reads as "no further ancestors". The graph must
+# stay acyclic and every parent must be a known_repo_types token; the loader
+# validates both at import time.
+repo_type_inherits:
+  python: scripted
+  rust: compiled
+  swift: compiled
+  typescript: website

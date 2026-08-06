@@ -1,0 +1,17 @@
+# macOS desktop
+.DS_Store
+
+# pytest reports
+report_*.txt
+
+# Generated release/build outputs
+output*/
+
+# AI agent temp scripts
+_temp*.?*
+
+# Sibling repos checked out for local cross-repo work
+/OTHER_REPOS/
+
+# Local-only scratch, never committed
+/LOCAL_ONLY/
