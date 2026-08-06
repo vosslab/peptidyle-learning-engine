@@ -1,11 +1,13 @@
 # === UNIVERSAL ===
 .DS_Store
 report_*.txt
+output*/
 _temp*.?*
-# === LOCAL ===
-# Template-only ignores.
 /OTHER_REPOS/
 /LOCAL_ONLY/
+
+# === LOCAL ===
+# Template-only ignores.
 # === PYTHON ===
 build/
 dist/
@@ -13,3 +15,25 @@ sdist/
 *.egg
 *.egg-info/
 site/
+
+# === TYPESCRIPT ===
+node_modules/
+dist_*/
+_site/
+*.tsbuildinfo
+.eslintcache
+.prettiercache
+test-results/
+playwright-report/
+blob-report/
+coverage/
+meta.json
+stats.html
+
+# === RUST ===
+/target/
+**/target/
+**/*.rs.bk
+.rust_analyzer/
+
+
