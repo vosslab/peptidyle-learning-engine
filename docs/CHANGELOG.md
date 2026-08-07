@@ -212,6 +212,25 @@
 
 ### Fixes and Maintenance
 
+- Removed the vulnerable `rustls-webpki` 0.101.7 dependency path reported by
+  three GitHub security alerts. The S3 dependency now selects only the modern
+  HTTP 1.x TLS client, and the all-features graph resolves `rustls-webpki`
+  0.103.13 with no legacy Rustls 0.21 client.
+- Refreshed direct Rust and TypeScript dependencies to current stable releases
+  with open minimum-version requirements. Major migrations include axum 0.8,
+  rand_core/rand_chacha 0.10, SHA-2 0.11, syn 3, and SQLx 0.9; TypeScript uses
+  the compatible open range `>=6.0.3 <7`.
+- Moved the Rust toolchain to the floating stable channel and made the
+  wasm-bindgen test setup derive its matching runner version from Cargo rather
+  than carrying a static version.
+- Synchronized all Cargo workspace packages to the repository's `26.08`
+  CalVer release, represented as SemVer `26.8.0` in Cargo and npm metadata.
+- Updated current container configuration to floating Rust, Debian, and
+  PostgreSQL images. The PostgreSQL volume now mounts `/var/lib/postgresql`,
+  the path required by PostgreSQL 18 and later official images, and SQLx uses
+  its current Rustls/AWS-LC TLS backend.
+- Added a lockfile boundary test requiring every resolved `rustls-webpki`
+  release to include all three reported fixes.
 - Moved the pure route table into `src/route_contract.ts` so Node contract tests
   do not import Solid Router's client-only implementation. `src/routes.ts`
   derives the executable browser definitions from that single table.
@@ -232,6 +251,16 @@
 
 ### Decisions and Failures
 
+- npm initially selected TypeScript 7 because it is the registry's latest
+  release, but the current frontend toolchain requires TypeScript 6. The
+  manifest now permits every compatible 6.x release instead of pinning 6.0.3.
+- SQLx 0.9 removed the combined `runtime-tokio-native-tls` feature; selecting
+  its separate Tokio and Rustls/AWS-LC features restored the intended runtime
+  and removed the old native-TLS dependency path.
+- rand_core 0.10 renamed the generator's imported trait to `Rng`, and SHA-2
+  0.11 removed hexadecimal formatting from its output array. Focused API
+  migrations preserved the existing seed vectors and exact lowercase fixture
+  checksums.
 - MOD-DEPLOY is an implicit whole-system consumer in the register rather than
   being repeated in every consumer cell. Reserved paths for schema, worker,
   statistics, retention, LTI, and production deployment are explicit ownership
@@ -282,6 +311,11 @@
 
 ### Developer Tests and Notes
 
+- The dependency refresh passes all 11 `check_codebase.sh` stages, including
+  TypeScript checks, ESLint, Prettier, Node tests, WebAssembly dependency
+  closure, rustfmt, Clippy with warnings denied, all workspace tests, and doc
+  tests. `npm audit` reports zero vulnerabilities, and static compose expansion
+  confirms the current PostgreSQL volume path and required run-time secrets.
 - MOD-CAP's committed table covers all eight capability variants, no-requirement
   behavior, multiple simultaneous gaps, deterministic ordering, and duplicate
   suppression. The published fixture returns exactly `algorithmicGeneration`

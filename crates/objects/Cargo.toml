@@ -12,8 +12,14 @@ async-trait.workspace = true
 serde.workspace = true
 sha2.workspace = true
 
-# Enabled by the `s3` feature so the memory backend needs no AWS types.
-aws-sdk-s3 = { version = "1", optional = true }
+# Enabled by the `s3` feature so the memory backend needs no AWS types. Select
+# the modern HTTP 1.x client explicitly: the SDK's default feature set also
+# enables its legacy Rustls 0.21 client and its vulnerable rustls-webpki line.
+aws-sdk-s3 = { version = ">=1.141.0", default-features = false, features = [
+    "behavior-version-latest",
+    "default-https-client",
+    "rt-tokio",
+], optional = true }
 
 [features]
 default = []

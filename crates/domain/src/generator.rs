@@ -13,7 +13,7 @@ use question_model::generation::{
     GeneratorReference, ParameterSpec, RandomizationDefinition, Seed,
 };
 use rand_chacha::ChaCha20Rng;
-use rand_core::{RngCore, SeedableRng};
+use rand_core::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 

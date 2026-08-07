@@ -19,6 +19,30 @@ def _read_toml(path: pathlib.Path) -> dict[str, object]:
 
 
 #============================================
+def _locked_versions(package_name: str) -> list[str]:
+	"""Return every resolved version for one Cargo package."""
+	lock = _read_toml(REPO_ROOT / "Cargo.lock")
+	packages = lock["package"]
+	assert isinstance(packages, list)
+	versions = []
+	for package in packages:
+		assert isinstance(package, dict)
+		if package["name"] == package_name:
+			version = package["version"]
+			assert isinstance(version, str)
+			versions.append(version)
+	return versions
+
+
+#============================================
+def _numeric_version(version: str) -> tuple[int, ...]:
+	"""Convert the numeric release portion of a semantic version to a tuple."""
+	release = version.split("-", maxsplit=1)[0]
+	parsed = tuple(int(part) for part in release.split("."))
+	return parsed
+
+
+#============================================
 def _workspace_members() -> dict[str, dict[str, object]]:
 	"""Map workspace package names to their parsed manifests."""
 	root_manifest = _read_toml(REPO_ROOT / "Cargo.toml")
@@ -125,3 +149,10 @@ def test_wasm_dependency_closure_is_key_free() -> None:
 	closure = _workspace_closure("wasm_bridge")
 	assert "grading" not in closure, f"server-only grading reached WASM: {sorted(closure)}"
 	assert closure == {"wasm_bridge", "domain", "question_model"}
+
+
+#============================================
+def test_resolved_webpki_includes_all_three_security_fixes() -> None:
+	"""Reject the legacy rustls-webpki line reported by GitHub security alerts."""
+	versions = _locked_versions("rustls-webpki")
+	assert versions and min(map(_numeric_version, versions)) >= (0, 103, 13)

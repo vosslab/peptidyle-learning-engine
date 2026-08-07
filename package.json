@@ -16,26 +16,25 @@
 		"test:playwright": "./run_playwright_tests.sh"
 	},
 	"dependencies": {
-		"@solidjs/router": ">=0.15.3",
+		"@solidjs/router": ">=1.0.0",
 		"solid-js": ">=1.9.14"
 	},
 	"devDependencies": {
 		"@eslint/js": ">=10.0.1",
-		"@playwright/test": ">=1.61.1",
-		"@types/node": ">=26.0.1",
+		"@playwright/test": ">=1.62.1",
+		"@types/node": ">=26.2.0",
 		"esbuild": ">=0.28.1",
 		"esbuild-plugin-solid": ">=0.6.0",
-		"eslint": ">=10.6.0",
-		"globals": ">=17.7.0",
-		"playwright": ">=1.61.1",
-		"prettier": ">=3.9.4",
-		"tsx": ">=4.22.4",
-		"typescript": ">=6.0.3",
-		"typescript-eslint": ">=8.62.1"
+		"eslint": ">=10.8.1",
+		"globals": ">=17.9.0",
+		"playwright": ">=1.62.1",
+		"prettier": ">=3.9.6",
+		"tsx": ">=4.23.11",
+		"typescript": ">=6.0.3 <7",
+		"typescript-eslint": ">=8.66.0"
 	},
 	"allowScripts": {
-		"esbuild@0.28.1": true,
-		"fsevents@2.3.2": true,
-		"fsevents@2.3.3": true
+		"esbuild": true,
+		"fsevents": true
 	}
 }

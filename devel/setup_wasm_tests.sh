@@ -4,7 +4,8 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-RUNNER_VERSION="0.2.126"
+RUNNER_PACKAGE_ID="$(cargo pkgid wasm-bindgen)"
+RUNNER_VERSION="${RUNNER_PACKAGE_ID##*@}"
 RUNNER_ROOT="target/tooling/wasm-bindgen-cli"
 RUNNER="$RUNNER_ROOT/bin/wasm-bindgen-test-runner"
 

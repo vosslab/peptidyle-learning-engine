@@ -22,4 +22,4 @@ serde_json.workspace = true
 sha2.workspace = true
 syn.workspace = true
 uuid.workspace = true
-wasm-bindgen-cli-support = "0.2"
+wasm-bindgen-cli-support = ">=0.2.126"

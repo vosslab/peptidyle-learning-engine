@@ -13,7 +13,7 @@ macOS setup for the Podman virtual machine lives in
 | Service | Image | Purpose | Local port |
 | --- | --- | --- | --- |
 | `api` | built from `containers/Containerfile.api` | axum API server | 127.0.0.1:3000 |
-| `postgres` | `postgres:17-alpine` | shared content and tenant-owned records | 127.0.0.1:5432 |
+| `postgres` | `postgres:latest` | shared content and tenant-owned records | 127.0.0.1:5432 |
 | `minio` | `quay.io/minio/minio` | S3-compatible object storage | 127.0.0.1:9000, console 9001 |
 | `createbuckets` | `quay.io/minio/mc` | one-shot bucket creation, then exits | none |
 
@@ -92,22 +92,23 @@ podman compose -f containers/compose.yaml build api          # rebuild after Rus
 podman compose -f containers/compose.yaml down               # stop, keep volumes
 ```
 
-Named volumes `ple_pgdata` and `ple_miniodata` survive `down`. Removing them
-destroys local data, so it is a deliberate step rather than part of the normal
-stop command.
+Named volumes `ple_pgdata` and `ple_miniodata` survive `down`. PostgreSQL 18
+and later store versioned data below the mounted `/var/lib/postgresql` path.
+Removing either volume destroys local data, so it is a deliberate step rather
+than part of the normal stop command.
 
 ## Image shape
 
 `Containerfile.api` is a two-stage build. The first stage compiles the Cargo
 workspace with `--locked`, so the image cannot quietly resolve a different
 dependency set than `Cargo.lock` records. The second stage carries only the
-binary, `ca-certificates`, and `libssl3`, and runs as a non-root user.
+binary and `ca-certificates`, and runs as a non-root user.
 
 Manifests are copied before sources so dependency compilation caches
 separately from source edits.
 
-The Rust version in the builder stage is pinned to the same compiler as
-[rust-toolchain.toml](../rust-toolchain.toml). Raise both together.
+The builder follows the current stable Rust channel declared by
+[rust-toolchain.toml](../rust-toolchain.toml).
 
 ## Health check inside the image
 

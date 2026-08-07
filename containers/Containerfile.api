@@ -4,12 +4,12 @@
 #   podman build -f containers/Containerfile.api -t peptidyle-api .
 #
 # Two stages, because a Rust toolchain is roughly 1.5 GB and the running
-# service needs none of it. The final image carries the binary, the TLS trust
-# store, and libssl -- nothing else.
+# service needs none of it. The final image carries the binary and TLS trust
+# store -- nothing else.
 
 # ---------- stage 1: build ----------
-# Pinned to the same compiler as rust-toolchain.toml. Raise both together.
-FROM docker.io/library/rust:1.96-bookworm AS builder
+# Follow the same current stable channel as rust-toolchain.toml.
+FROM docker.io/library/rust:latest AS builder
 
 WORKDIR /build
 
@@ -23,12 +23,11 @@ COPY crates crates
 RUN cargo build --release --locked --bin server_core
 
 # ---------- stage 2: runtime ----------
-FROM docker.io/library/debian:bookworm-slim AS runtime
+FROM docker.io/library/debian:stable-slim AS runtime
 
 # ca-certificates: TLS trust for S3 and PostgreSQL.
-# libssl3: required by the native-tls path sqlx is built against.
 RUN apt-get update \
-	&& apt-get install --no-install-recommends --yes ca-certificates libssl3 \
+	&& apt-get install --no-install-recommends --yes ca-certificates \
 	&& rm -rf /var/lib/apt/lists/*
 
 # Run as a non-root user. A compromised web process should not own its own

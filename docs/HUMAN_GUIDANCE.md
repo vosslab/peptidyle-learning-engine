@@ -51,6 +51,12 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   response-format validation, timer display, and state transitions may run in
   WebAssembly; answers, keys, and correctness decisions remain server-only.
 
+## Dependency versions
+
+- Focus on the latest versions of all code because many security bugs are being
+  fixed.
+- Never pin versions; `>=` version requirements are acceptable.
+
 ## Generated artifacts
 
 - Put reproducible generated content under the repository-root `generated/`

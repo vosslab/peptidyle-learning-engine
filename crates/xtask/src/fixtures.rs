@@ -5,6 +5,7 @@
 //! root `generated/` for mock handlers to import.
 
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -530,7 +531,12 @@ fn write_artifact(path: &Path, bytes: &[u8]) -> Result<()> {
 }
 
 fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    let digest = Sha256::digest(bytes);
+    let mut hex = String::with_capacity(64);
+    for byte in digest {
+        let _ = write!(hex, "{byte:02x}");
+    }
+    hex
 }
 
 fn parsed_uuid(value: &str) -> Uuid {

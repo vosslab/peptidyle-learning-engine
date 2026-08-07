@@ -95,7 +95,7 @@ caller-supplied string. Checksums are computed on write and verified on read.
 | Service | Image | Purpose |
 | --- | --- | --- |
 | `api` | built from `containers/Containerfile.api` | axum API server |
-| `postgres` | `postgres:17-alpine` | shared content and tenant-owned records |
+| `postgres` | `postgres:latest` | shared content and tenant-owned records |
 | `minio` | `quay.io/minio/minio` | S3-compatible object storage |
 | `createbuckets` | `quay.io/minio/mc` | one-shot bucket creation |
 

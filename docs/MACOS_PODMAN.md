@@ -39,10 +39,9 @@ podman machine start
 
 ## Architecture notes
 
-Apple Silicon runs `arm64` images natively. The images this stack uses
-(`postgres:17-alpine`, `quay.io/minio/minio`, `rust:1.96-bookworm`,
-`debian:bookworm-slim`) all publish `arm64` variants, so no emulation is
-involved.
+Apple Silicon runs `arm64` images natively. The floating current images this
+stack uses (`postgres:latest`, `quay.io/minio/minio:latest`, `rust:latest`, and
+`debian:stable-slim`) publish `arm64` variants, so no emulation is involved.
 
 If you need to reproduce an `amd64` deployment locally, pass the platform
 explicitly and expect it to run slowly under emulation:
@@ -62,7 +61,7 @@ name (`postgres`, `minio`), not `localhost`.
 
 Podman does not assume Docker Hub. Image references in
 [containers/compose.yaml](../containers/compose.yaml) are fully qualified
-(`docker.io/library/postgres:17-alpine`, `quay.io/minio/minio:latest`) so a
+(`docker.io/library/postgres:latest`, `quay.io/minio/minio:latest`) so a
 pull never depends on local registry search order.
 
 ## Cleaning up
