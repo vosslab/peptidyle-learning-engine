@@ -1,0 +1,12 @@
+# MOD-EXPORT: print model, DOCX and PDF writers.
+[package]
+name = "export_crate"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+question_model.workspace = true
+# Rendered exam artifacts are written to the object store.
+objects.workspace = true
+serde.workspace = true

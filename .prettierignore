@@ -16,6 +16,18 @@ _site/
 generated/
 coverage/
 
+# ...but the generated client types are an exception: M1 requires them to pass
+# tsc, ESLint, and Prettier unchanged, so they are formatted like hand-written
+# code rather than exempted from review.
+!src/api/generated/
+
+# The Rust workspace and its build artifacts are not TypeScript source.
+# A .ts file under crates/ is stale generator output, not client code; the
+# generated client types are written to src/api/generated/ instead, where they
+# are formatted and linted like everything else.
+crates/
+target/
+
 # Agent scratch files and directories.
 _temp*
 

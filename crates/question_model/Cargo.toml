@@ -1,0 +1,19 @@
+# MOD-QM: question types, capabilities, identity, and taxonomy.
+# Boundary rule: depends on external crates only, never on another member.
+[package]
+name = "question_model"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+ts-rs.workspace = true
+uuid.workspace = true
+
+# Optional so the WASM bridge can enable it without forcing it on the server.
+wasm-bindgen = { workspace = true, optional = true }
+
+[features]
+default = []
+wasm = ["dep:wasm-bindgen"]

@@ -1,0 +1,43 @@
+/* style.css - base styling for the app shell.
+ *
+ * Deliberately small for M0. The visual system lands in M3 with MOD-UI-SHELL.
+ * Two rules here are not cosmetic and should survive that work:
+ * the color scheme declaration (so the browser paints form controls and
+ * scrollbars correctly in dark mode) and the readable base size.
+ */
+
+:root {
+	color-scheme: light dark;
+	--ple-surface: #ffffff;
+	--ple-ink: #1a1a1a;
+	--ple-accent: #1f5f8b;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--ple-surface: #14181d;
+		--ple-ink: #e8e8e8;
+		--ple-accent: #7fb6dd;
+	}
+}
+
+body {
+	margin: 0;
+	background: var(--ple-surface);
+	color: var(--ple-ink);
+	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+	font-size: 16px;
+	line-height: 1.5;
+}
+
+.shell {
+	max-width: 46rem;
+	margin: 0 auto;
+	padding: 2rem 1.25rem;
+}
+
+.shell h1 {
+	color: var(--ple-accent);
+	font-size: 1.75rem;
+	margin-bottom: 0.5rem;
+}

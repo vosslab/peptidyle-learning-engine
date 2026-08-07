@@ -1,0 +1,22 @@
+# MOD-DOMAIN: attempt state, runs, timing, generation, capability validation.
+# Boundary rule: reaches `question_model` only, so it carries no clock and no
+# database and can run unchanged in the browser.
+[package]
+name = "domain"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+question_model.workspace = true
+serde.workspace = true
+
+# Clock-free by construction; see the workspace declaration.
+chrono.workspace = true
+
+# Optional so the WASM bridge can enable it without forcing it on the server.
+wasm-bindgen = { workspace = true, optional = true }
+
+[features]
+default = []
+wasm = ["dep:wasm-bindgen", "question_model/wasm"]

@@ -63,8 +63,8 @@ fi
 # cache is effectively invalidated every run. PORT env var overrides.
 PORT="${PORT:-$((8000 + RANDOM % 1000))}"
 
-# Build the GitHub Pages artifact into dist/ (no args; contract is stable).
-./build_github_pages.sh
+# Build everything into dist/ (no args; contract is stable).
+./build.sh
 
 # Open the browser after a short delay when interactive. Capture the
 # helper subshell PID so cleanup can kill only this helper, never the

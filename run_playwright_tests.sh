@@ -86,10 +86,10 @@ fi
 # Build gate: rebuild dist/ when forced or when expected outputs are missing.
 if [ "$FORCE_BUILD" -eq 1 ]; then
 	echo "==> --build flag set: rebuilding dist/..."
-	bash build_github_pages.sh
+	bash build.sh
 elif [ ! -f dist/index.html ] || [ ! -f dist/main.js ]; then
-	echo "==> dist/index.html or dist/main.js missing: running build_github_pages.sh..."
-	bash build_github_pages.sh
+	echo "==> dist/index.html or dist/main.js missing: running build.sh..."
+	bash build.sh
 fi
 
 # Run Playwright; capture exit code so we can print the summary line.

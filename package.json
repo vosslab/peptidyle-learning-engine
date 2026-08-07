@@ -1,30 +1,37 @@
 {
-	"name": "__REPO_NAME__",
-	"version": "__REPO_VERSION__",
+	"name": "peptidyle-learning-engine",
+	"version": "26.8.0",
 	"type": "module",
 	"private": true,
 	"scripts": {
 		"setup": "./devel/setup_typescript.sh",
 		"setup:playwright": "./devel/setup_playwright.sh",
-		"build": "./build_github_pages.sh",
+		"build": "./build.sh",
+		"build:wasm": "./pipeline/build_wasm.sh",
 		"serve": "./run_web_server.sh",
 		"check": "./check_codebase.sh",
-		"clean": "./dist_clean.sh",
+		"clean": "./devel/clean_build.sh",
+		"clean:dist": "./devel/dist_clean.sh",
 		"format:write": "npx prettier --write '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'",
 		"test:playwright": "./run_playwright_tests.sh"
 	},
+	"dependencies": {
+		"@solidjs/router": ">=0.15.3",
+		"solid-js": ">=1.9.14"
+	},
 	"devDependencies": {
+		"@eslint/js": ">=10.0.1",
+		"@playwright/test": ">=1.61.1",
 		"@types/node": ">=26.0.1",
 		"esbuild": ">=0.28.1",
-		"typescript": ">=6.0.3",
+		"esbuild-plugin-solid": ">=0.6.0",
 		"eslint": ">=10.6.0",
-		"@eslint/js": ">=10.0.1",
-		"typescript-eslint": ">=8.62.1",
 		"globals": ">=17.7.0",
 		"playwright": ">=1.61.1",
 		"prettier": ">=3.9.4",
 		"tsx": ">=4.22.4",
-		"@playwright/test": ">=1.61.1"
+		"typescript": ">=6.0.3",
+		"typescript-eslint": ">=8.62.1"
 	},
 	"allowScripts": {
 		"esbuild@0.28.1": true,

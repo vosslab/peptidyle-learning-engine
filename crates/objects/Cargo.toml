@@ -1,0 +1,18 @@
+# MOD-OBJ: ObjectStore trait, key construction, checksums, S3 and MinIO backends.
+[package]
+name = "objects"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Identity types build every object key; callers never supply a key.
+question_model.workspace = true
+serde.workspace = true
+
+# Enabled by the `s3` feature so the memory backend needs no AWS types.
+aws-sdk-s3 = { version = "1", optional = true }
+
+[features]
+default = []
+s3 = ["dep:aws-sdk-s3"]

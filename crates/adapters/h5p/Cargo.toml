@@ -1,0 +1,12 @@
+# MOD-ADP-H5P: H5P adapter for ungraded practice. Declares serverGrading: false,
+# so it never reaches `grading`.
+[package]
+name = "adapter_h5p"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+question_model.workspace = true
+domain.workspace = true
+serde.workspace = true

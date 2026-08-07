@@ -1,0 +1,12 @@
+# MOD-ADP-NAT: first-party algorithmic question adapter.
+[package]
+name = "adapter_native"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+question_model.workspace = true
+domain.workspace = true
+grading.workspace = true
+serde.workspace = true

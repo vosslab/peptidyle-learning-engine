@@ -1,0 +1,14 @@
+# MOD-ADP-WW: WeBWorK PG adapter, renderer client, deterministic render cache.
+[package]
+name = "adapter_webwork"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+question_model.workspace = true
+domain.workspace = true
+grading.workspace = true
+# The render cache stores renderer output as objects.
+objects.workspace = true
+serde.workspace = true

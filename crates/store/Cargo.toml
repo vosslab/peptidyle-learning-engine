@@ -1,0 +1,20 @@
+# MOD-STO, MOD-SCHEMA: Store trait, PostgreSQL backend, migrations, RLS context.
+# This crate owns the database driver; no other member declares `sqlx`.
+[package]
+name = "store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+question_model.workspace = true
+domain.workspace = true
+objects.workspace = true
+serde.workspace = true
+
+# Enabled by the `postgres` feature so `MemoryStore` builds without a database.
+sqlx = { workspace = true, optional = true }
+
+[features]
+default = []
+postgres = ["dep:sqlx"]

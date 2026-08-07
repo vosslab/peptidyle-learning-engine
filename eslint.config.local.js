@@ -16,6 +16,22 @@
 //       languageOptions: { globals: { ...globals.browser } },
 //     },
 //   ];
-//
-// Default: no local overrides.
-export default [];
+
+export default [
+  {
+    // The Rust workspace is not TypeScript source. Nothing under crates/ is
+    // part of the browser client, and typed linting fails on any .ts found
+    // there because those files are outside every tsconfig project.
+    //
+    // This matters because ts-rs writes generated TypeScript, and its default
+    // output directory is inside the crate that declares the type. This repo
+    // redirects that output to src/api/generated/ via .cargo/config.toml, so
+    // a .ts file under crates/ is stale output from a run that predates that
+    // setting, or from a crate built with the variable unset. Either way it is
+    // not client code and must not gate the build.
+    //
+    // Container build context and Rust artifacts are excluded for the same
+    // reason: they are not the app.
+    ignores: ["crates/**", "target/**", "dist_wasm/**", "containers/**"],
+  },
+];

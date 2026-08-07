@@ -12,6 +12,9 @@
 #   4. Prettier --check.
 #   5. Node unit tests under tests/ (node --import tsx --test
 #      tests/test_*.mjs). The --import flag loads the tsx npm package
+#   6. cargo fmt --check (Rust formatting).
+#   7. cargo clippy --workspace --all-targets -- -D warnings.
+#   8. cargo test --workspace (unit, integration, and doc tests).
 #      (https://www.npmjs.com/package/tsx) as a runtime loader so .mjs
 #      tests can import .ts source modules directly. Note: tsx is the
 #      runtime loader npm package; tsc is the TypeScript compiler binary
@@ -23,7 +26,7 @@
 # "check" alias just points back at this script, and every individual step
 # is owned by the shell script.
 #
-# Build is not part of this gate. Run ./build_github_pages.sh for that
+# Build is not part of this gate. Run ./build.sh for that
 # (npm run build mirrors it). Playwright is not part of this gate either;
 # run ./run_playwright_tests.sh (which handles build + run internally).
 #
@@ -209,6 +212,24 @@ if compgen -G 'tests/test_*.mjs' >/dev/null; then
 	step_run test:node node --import tsx --test 'tests/test_*.mjs'
 else
 	step_skip test:node "no tests/test_*.mjs files present"
+fi
+
+# 6-8. Rust gates (WP-F5).
+# This repo is REPO_TYPE=typescript,rust, so the check gate owns both
+# toolchains. Same honesty convention as the steps above: a missing cargo emits
+# a loud SKIP rather than passing silently, because a green summary that never
+# compiled the Rust half is worse than no summary at all.
+#
+# --all-targets covers tests and examples, not just the library build, so a
+# warning in test code fails the gate too. Doc tests run under cargo test.
+if command -v cargo >/dev/null 2>&1; then
+	step_run cargo:fmt cargo fmt --check
+	step_run cargo:clippy cargo clippy --workspace --all-targets -- -D warnings
+	step_run cargo:test cargo test --workspace
+else
+	step_skip cargo:fmt "cargo not found on PATH"
+	step_skip cargo:clippy "cargo not found on PATH"
+	step_skip cargo:test "cargo not found on PATH"
 fi
 
 # All steps complete; summary prints via EXIT trap. Exit 0 (no failures

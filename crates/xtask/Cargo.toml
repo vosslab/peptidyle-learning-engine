@@ -1,0 +1,19 @@
+# xtask: repo automation that needs to be a Rust program rather than a shell
+# script. Not part of the product boundary in docs/CODE_ARCHITECTURE.md and
+# never a dependency of any shipped crate.
+#
+# The one job today is generating the wasm-bindgen JavaScript glue. Doing it
+# through the library rather than an installed `wasm-bindgen` binary means the
+# generator and the `wasm-bindgen` crate compiled into the module come from the
+# same Cargo.lock entry, so they cannot drift apart. A mismatched pair fails at
+# load time with an error that names neither version.
+[package]
+name = "xtask"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+anyhow.workspace = true
+wasm-bindgen-cli-support = "0.2"

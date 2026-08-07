@@ -1,0 +1,53 @@
+# Containerfile.api - multi-stage image for the Peptidyle API server (WP-F4).
+#
+# Build from the repo root so the whole Cargo workspace is in context:
+#   podman build -f containers/Containerfile.api -t peptidyle-api .
+#
+# Two stages, because a Rust toolchain is roughly 1.5 GB and the running
+# service needs none of it. The final image carries the binary, the TLS trust
+# store, and libssl -- nothing else.
+
+# ---------- stage 1: build ----------
+# Pinned to the same compiler as rust-toolchain.toml. Raise both together.
+FROM docker.io/library/rust:1.96-bookworm AS builder
+
+WORKDIR /build
+
+# Copy manifests first so dependency compilation caches independently of source
+# edits. Without this split, every source change rebuilds every dependency.
+COPY Cargo.toml Cargo.lock ./
+COPY crates crates
+
+# --locked fails the build if Cargo.lock would need to change, which is what
+# makes a container build reproducible rather than "whatever resolved today".
+RUN cargo build --release --locked --bin server_core
+
+# ---------- stage 2: runtime ----------
+FROM docker.io/library/debian:bookworm-slim AS runtime
+
+# ca-certificates: TLS trust for S3 and PostgreSQL.
+# libssl3: required by the native-tls path sqlx is built against.
+RUN apt-get update \
+	&& apt-get install --no-install-recommends --yes ca-certificates libssl3 \
+	&& rm -rf /var/lib/apt/lists/*
+
+# Run as a non-root user. A compromised web process should not own its own
+# filesystem.
+RUN useradd --system --create-home --uid 10001 peptidyle
+USER peptidyle
+WORKDIR /home/peptidyle
+
+COPY --from=builder /build/target/release/server_core /usr/local/bin/peptidyle-api
+
+# Configuration and credentials arrive from the environment at run time. No
+# credential is baked into this image, and there is no default that would let
+# the server reach an unintended database.
+ENV PLE_BIND_ADDR=0.0.0.0:3000
+EXPOSE 3000
+
+# The health check is the same endpoint the orchestrator uses: it returns 200
+# only after a real SELECT 1 and a real bucket probe.
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=5 \
+	CMD ["/usr/local/bin/peptidyle-api", "--health-probe"]
+
+ENTRYPOINT ["/usr/local/bin/peptidyle-api"]

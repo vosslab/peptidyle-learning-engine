@@ -1,0 +1,14 @@
+# Cargo configuration for this workspace.
+
+[env]
+# Where ts-rs writes the generated TypeScript definitions.
+#
+# It points into the browser client's source tree on purpose: the generated
+# types are what the client compiles against, so they must sit inside
+# tsconfig.json's include list and pass the same typecheck, ESLint, and
+# Prettier gates as hand-written code. Generated code that lives outside the
+# gates is generated code nobody notices breaking.
+#
+# Regenerate with: cargo test --workspace
+# `relative = true` resolves against this file's parent directory, the repo root.
+TS_RS_EXPORT_DIR = { value = "src/api/generated", relative = true }

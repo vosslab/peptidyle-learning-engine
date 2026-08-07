@@ -1,0 +1,111 @@
+# compose.yaml - local development stack: api, postgres, minio (WP-F4).
+#
+# Run from the repo root:
+#   podman compose -f containers/compose.yaml --env-file containers/env.local up -d
+#
+# Copy containers/env.example to containers/env.local first and set real
+# values. Every credential below is required with no default: a stack that
+# silently starts on a well-known password is the kind of convenience that
+# ships to a server one day.
+#
+# Bring-up order is enforced by health, not by sleep. The api container waits
+# for postgres to accept queries and for the buckets to exist, so its own
+# /health can be trusted the moment it reports ready.
+
+services:
+  postgres:
+    image: docker.io/library/postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in the env file}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the env file}
+      POSTGRES_DB: ${POSTGRES_DB:-peptidyle}
+    volumes:
+      - ple_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # Published only on loopback: this database holds educational records, and
+    # a development container should not be reachable from the local network.
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  minio:
+    image: quay.io/minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in the env file}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in the env file}
+    volumes:
+      - ple_miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+
+  # One-shot: creates the three buckets, then exits. Separate from minio itself
+  # so the bucket layout is declared in this file rather than hidden in an
+  # image entrypoint.
+  #
+  # The three buckets exist because they have different rules, not for tidiness:
+  #   content          immutable shared assets and cached renders, CDN-served
+  #   student-records  educational records, short-lived authorized URLs, deletable
+  #   temp-processing  extraction workspaces, never served, lifecycle-expired
+  createbuckets:
+    image: quay.io/minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in the env file}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in the env file}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
+        mc mb --ignore-existing local/content
+        mc mb --ignore-existing local/student-records
+        mc mb --ignore-existing local/temp-processing
+        echo "buckets ready: content, student-records, temp-processing"
+
+  api:
+    build:
+      context: ..
+      dockerfile: containers/Containerfile.api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+    environment:
+      PLE_BIND_ADDR: 0.0.0.0:3000
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-peptidyle}
+      PLE_S3_ENDPOINT: http://minio:9000
+      PLE_S3_REGION: us-east-1
+      PLE_CONTENT_BUCKET: content
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+    # Declared here as well as in the Containerfile: podman compose does not
+    # always carry an image-level HEALTHCHECK onto the container, and a health
+    # check that silently is not running is worse than none.
+    #
+    # The binary probes its own /health, so the image needs no curl or wget.
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/peptidyle-api", "--health-probe"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  ple_pgdata:
+  ple_miniodata:

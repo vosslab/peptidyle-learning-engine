@@ -1,0 +1,21 @@
+# MOD-SRV: axum routes, auth, worker mode, composition root.
+# The only member allowed to depend on every crate above it.
+[package]
+name = "server_core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+axum.workspace = true
+tokio.workspace = true
+serde_json.workspace = true
+
+question_model.workspace = true
+domain.workspace = true
+grading.workspace = true
+# Feature flags, not direct dependencies: the sqlx driver stays inside `store`
+# and the AWS SDK stays inside `objects`, so this crate never names either.
+objects = { workspace = true, features = ["s3"] }
+store = { workspace = true, features = ["postgres"] }

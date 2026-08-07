@@ -3,6 +3,8 @@
 		"target": "es2020",
 		"module": "esnext",
 		"moduleResolution": "bundler",
+		"jsx": "preserve",
+		"jsxImportSource": "solid-js",
 		"strict": true,
 		"noImplicitAny": true,
 		"noUncheckedIndexedAccess": true,
@@ -21,5 +23,6 @@
 		"sourceMap": true,
 		"lib": ["es2020", "dom", "dom.iterable"]
 	},
-	"include": ["**/*.ts"]
+	"include": ["src/**/*.ts", "src/**/*.tsx"],
+	"exclude": ["node_modules", "dist", "dist_wasm", "target", "OTHER_REPOS"]
 }

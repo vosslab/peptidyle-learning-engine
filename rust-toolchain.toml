@@ -1,0 +1,15 @@
+# Pinned toolchain (WP-F2).
+#
+# Pinned to an exact version, not "stable", so the WASM artifact a developer
+# builds and the one CI builds come from the same compiler. `wasm-bindgen`
+# output is sensitive to this: the CLI version and the crate version must
+# agree, and a floating channel silently breaks that pairing on upgrade day.
+#
+# Raising this pin is a deliberate change: bump it, run the full gate
+# (cargo fmt --check, cargo clippy -- -D warnings, cargo test --workspace,
+# ./check_codebase.sh), then record the move in docs/CHANGELOG.md.
+[toolchain]
+channel = "1.96.0"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]
+profile = "minimal"
