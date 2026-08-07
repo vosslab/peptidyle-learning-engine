@@ -1,6 +1,6 @@
 //! Identity types (WP-C1, WP-C2, MOD-ID).
 //!
-//! The four identifiers are distinct types, not aliases for one another. A
+//! The published-content identifiers are distinct types, not aliases for one another. A
 //! function taking a [`VersionId`] cannot be handed a [`ProblemId`], so the
 //! class of bug where a draft identifier reaches a published-content lookup
 //! cannot compile.
@@ -48,6 +48,14 @@ pub struct VersionId(Uuid);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct AssetId(Uuid);
 
+/// One immutable object-store record.
+///
+/// An asset may point at an object, but the two identities stay distinct so a
+/// later physical deduplication scheme can change object placement without
+/// changing the logical asset referenced by content.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct ObjectId(Uuid);
+
 /// Gives an identifier newtype its shared behavior.
 ///
 /// Written once so the four identifiers stay identical in how they wrap,
@@ -87,6 +95,7 @@ impl_identifier!(WorkspaceId);
 impl_identifier!(ProblemId);
 impl_identifier!(VersionId);
 impl_identifier!(AssetId);
+impl_identifier!(ObjectId);
 
 #[cfg(test)]
 mod tests {

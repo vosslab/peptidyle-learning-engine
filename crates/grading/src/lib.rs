@@ -8,3 +8,5 @@
 pub mod checker;
 /// Gated access to grading materials and answer keys.
 pub mod key;
+
+pub use crate::key::AnswerKey;

@@ -1,0 +1,67 @@
+[
+  {
+    "name": "static ungraded question needs no implicit capability",
+    "features": [],
+    "requiredCapabilities": [],
+    "supportedCapabilities": [],
+    "expectedViolations": []
+  },
+  {
+    "name": "seeded question needs algorithmic generation",
+    "features": ["seeded"],
+    "requiredCapabilities": [],
+    "supportedCapabilities": [],
+    "expectedViolations": ["algorithmicGeneration"]
+  },
+  {
+    "name": "graded question needs server grading",
+    "features": ["allOrNothing"],
+    "requiredCapabilities": [],
+    "supportedCapabilities": [],
+    "expectedViolations": ["serverGrading"]
+  },
+  {
+    "name": "partial credit adds its own requirement",
+    "features": ["partialCredit"],
+    "requiredCapabilities": [],
+    "supportedCapabilities": ["serverGrading"],
+    "expectedViolations": ["partialCredit"]
+  },
+  {
+    "name": "immediate correctness feedback needs hints",
+    "features": ["allOrNothing", "hints"],
+    "requiredCapabilities": [],
+    "supportedCapabilities": ["serverGrading"],
+    "expectedViolations": ["hints"]
+  },
+  {
+    "name": "question timer needs per-question timing",
+    "features": ["perQuestionTiming"],
+    "requiredCapabilities": [],
+    "supportedCapabilities": [],
+    "expectedViolations": ["perQuestionTiming"]
+  },
+  {
+    "name": "assignment delivery requirements apply to every question",
+    "features": [],
+    "requiredCapabilities": ["clientRendering", "printExport", "offlinePreview"],
+    "supportedCapabilities": [],
+    "expectedViolations": ["clientRendering", "printExport", "offlinePreview"]
+  },
+  {
+    "name": "validator returns every missing capability in declaration order",
+    "features": ["seeded", "partialCredit", "hints", "perQuestionTiming"],
+    "requiredCapabilities": ["clientRendering", "printExport", "offlinePreview"],
+    "supportedCapabilities": [],
+    "expectedViolations": [
+      "algorithmicGeneration",
+      "clientRendering",
+      "serverGrading",
+      "partialCredit",
+      "hints",
+      "perQuestionTiming",
+      "printExport",
+      "offlinePreview"
+    ]
+  }
+]

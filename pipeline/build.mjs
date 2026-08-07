@@ -15,7 +15,7 @@
 //   1. build the WASM bridge first, because dist/ is assembled from its output
 //   2. type-check, so a broken build fails before it writes anything
 //   3. bundle with esbuild + solid plugin
-//   4. copy static assets, fingerprinting the script URL so browsers and
+//   4. copy static assets, fingerprinting script and stylesheet URLs so browsers and
 //      GitHub Pages cannot serve yesterday's bundle
 //
 // Run: node pipeline/build.mjs [--skip-wasm]
@@ -109,13 +109,14 @@ function copyWasmBridge() {
  * than it costs to prevent.
  *
  * @param {string} bundleHash short content hash of the built bundle
+ * @param {string} stylesheetHash short content hash of the authored stylesheet
  * @returns {void}
  */
-function copyIndexHtml(bundleHash) {
+function copyIndexHtml(bundleHash, stylesheetHash) {
   const source = fs.readFileSync(path.join(srcDir, "index.html"), "utf8");
   const fingerprinted = source
     .replace(/(src=")(\.?\/?main\.js)(")/, `$1main.js?v=${bundleHash}$3`)
-    .replace(/(href=")(\.?\/?style\.css)(")/, `$1style.css?v=${bundleHash}$3`);
+    .replace(/(href=")(\.?\/?style\.css)(")/, `$1style.css?v=${stylesheetHash}$3`);
   fs.writeFileSync(path.join(distDir, "index.html"), fingerprinted);
 }
 
@@ -158,8 +159,14 @@ async function main() {
 
   const bundleBytes = fs.readFileSync(path.join(distDir, "main.js"));
   const bundleHash = crypto.createHash("sha256").update(bundleBytes).digest("hex").slice(0, 8);
+  const stylesheetBytes = fs.readFileSync(path.join(srcDir, "style.css"));
+  const stylesheetHash = crypto
+    .createHash("sha256")
+    .update(stylesheetBytes)
+    .digest("hex")
+    .slice(0, 8);
 
-  copyIndexHtml(bundleHash);
+  copyIndexHtml(bundleHash, stylesheetHash);
   fs.copyFileSync(path.join(srcDir, "style.css"), path.join(distDir, "style.css"));
   // GitHub Pages runs Jekyll unless this file exists, and Jekyll drops any
   // directory whose name starts with an underscore.

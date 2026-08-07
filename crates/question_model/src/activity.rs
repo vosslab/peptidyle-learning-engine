@@ -1,0 +1,346 @@
+//! Tenant-owned enrollment, run, attempt, and summary records (WP-C3, MOD-RUN).
+//!
+//! Completion of one run does not end an enrollment. A student can start new
+//! runs for practice, and each run owns its question attempts. The explicit
+//! three-level model keeps post-completion practice from rewriting the run
+//! that first completed an assignment.
+//!
+//! These records are educational records. Every one carries a [`TenantId`]
+//! directly so the future PostgreSQL schema can enforce row-level security on
+//! each table without relying on a join through its parent.
+
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+use crate::generation::GeneratorReference;
+use crate::identity::{ObjectId, ProblemId, VersionId};
+use crate::response::StudentResponse;
+use crate::run_policy::VariationPolicy;
+
+/// An institution whose educational records share one RLS boundary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct TenantId(Uuid);
+
+/// A tenant-owned assignment offered to students.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct AssignmentId(Uuid);
+
+/// A student enrolled in an assignment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct StudentId(Uuid);
+
+/// One student's durable relationship with one assignment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct EnrollmentId(Uuid);
+
+/// One pass through an assignment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct RunId(Uuid);
+
+/// One issued question inside a run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct QuestionAttemptId(Uuid);
+
+/// Gives an activity identifier its shared storage and display behavior.
+macro_rules! impl_activity_identifier {
+    ($name:ident) => {
+        impl $name {
+            /// Wraps a UUID read from storage or an authenticated boundary.
+            pub fn from_uuid(value: Uuid) -> Self {
+                Self(value)
+            }
+
+            /// Returns the UUID used by storage and logging.
+            pub fn as_uuid(&self) -> Uuid {
+                self.0
+            }
+
+            /// Mints a fresh server-owned identifier.
+            #[cfg(feature = "generate")]
+            pub fn generate() -> Self {
+                Self(Uuid::now_v7())
+            }
+        }
+
+        impl std::fmt::Display for $name {
+            fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(formatter, "{}", self.0)
+            }
+        }
+    };
+}
+
+impl_activity_identifier!(TenantId);
+impl_activity_identifier!(AssignmentId);
+impl_activity_identifier!(StudentId);
+impl_activity_identifier!(EnrollmentId);
+impl_activity_identifier!(RunId);
+impl_activity_identifier!(QuestionAttemptId);
+
+/// A timestamp supplied by the server as Unix milliseconds.
+///
+/// The value is carried rather than read from a process clock. PostgreSQL is
+/// the authoritative clock when these records are created or transitioned.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
+)]
+pub struct ActivityTimestamp(i64);
+
+impl ActivityTimestamp {
+    /// Wraps server-supplied Unix milliseconds.
+    pub fn from_unix_millis(value: i64) -> Self {
+        Self(value)
+    }
+
+    /// Returns the server-supplied Unix millisecond value.
+    pub fn as_unix_millis(&self) -> i64 {
+        self.0
+    }
+}
+
+/// Cross-run completion state for an enrollment.
+///
+/// This is derived from `first_completed_at`; it is not another stored field
+/// that can disagree with the completion record.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum EnrollmentStatus {
+    /// No run has yet satisfied the completion requirement.
+    InProgress,
+    /// At least one run has satisfied the completion requirement.
+    Completed,
+}
+
+/// One student's tenant-owned relationship with one assignment.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssignmentEnrollment {
+    /// Durable enrollment identity.
+    pub id: EnrollmentId,
+    /// RLS boundary carried directly on this educational record.
+    pub tenant: TenantId,
+    /// Assignment the student may run repeatedly.
+    pub assignment: AssignmentId,
+    /// Student who owns the activity.
+    pub student: StudentId,
+    /// First server time at which a run satisfied completion.
+    pub first_completed_at: Option<ActivityTimestamp>,
+    /// Run currently selected by the assignment's grade policy.
+    pub current_grade_run: Option<RunId>,
+    /// Highest-scoring completed run.
+    pub best_grade_run: Option<RunId>,
+}
+
+impl AssignmentEnrollment {
+    /// Derives the enrollment's cross-run completion state.
+    pub fn status(&self) -> EnrollmentStatus {
+        if self.first_completed_at.is_some() {
+            EnrollmentStatus::Completed
+        } else {
+            EnrollmentStatus::InProgress
+        }
+    }
+}
+
+/// Whether a run is initial assigned work or continued practice.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RunMode {
+    /// Work performed before the assignment is first completed.
+    Assigned,
+    /// A new run started after completion for continued learning.
+    Practice,
+}
+
+/// One pass through an assignment.
+///
+/// There is deliberately no stored `complete` boolean. The domain derives
+/// within-run completion from current question states, then records the
+/// resulting completion timestamp and score as one transition.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssignmentRun {
+    /// Durable run identity.
+    pub id: RunId,
+    /// RLS boundary carried directly on this educational record.
+    pub tenant: TenantId,
+    /// Enrollment that owns this run.
+    pub enrollment: EnrollmentId,
+    /// One-based run number within the enrollment.
+    pub run_number: u32,
+    /// Server time at which the run began.
+    pub started_at: ActivityTimestamp,
+    /// Server time at which derived completion was recorded, if complete.
+    pub completed_at: Option<ActivityTimestamp>,
+    /// Score fraction recorded on completion, if complete.
+    pub score: Option<f64>,
+    /// Whether this is assigned work or post-completion practice.
+    pub mode: RunMode,
+    /// Variation policy applied when this run was issued.
+    pub variation: VariationPolicy,
+}
+
+/// Server-recorded timing inputs for one issued question.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AttemptTimerRecord {
+    /// Server time at which the question became available.
+    pub issued_at: ActivityTimestamp,
+    /// Server-owned base deadline before authorized pauses, or `None` when untimed.
+    pub deadline: Option<ActivityTimestamp>,
+    /// Server time at which the response arrived, if submitted.
+    pub submitted_at: Option<ActivityTimestamp>,
+}
+
+/// A grading result without an answer key.
+///
+/// The server may disclose this according to the assignment feedback policy;
+/// the correct response and grading implementation remain in `grading`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AttemptResult {
+    /// Whether the submitted response was correct.
+    pub correct: bool,
+    /// Points awarded by server-side grading.
+    pub points_earned: f64,
+    /// Maximum points available for this question.
+    pub points_possible: f64,
+}
+
+/// A named implementation and the version needed to execute it again.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImplementationVersion {
+    /// Stable implementation identifier.
+    pub id: String,
+    /// Additive implementation version.
+    pub version: String,
+}
+
+/// Source artifact identity captured for a reproducible attempt.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceArtifact {
+    /// Immutable object-store record containing the source bytes.
+    pub object: ObjectId,
+    /// SHA-256 of those bytes at attempt issue time.
+    pub sha256: String,
+}
+
+/// Versions and object identities required to reproduce one attempt.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AttemptProvenance {
+    /// Adapter that loaded and interpreted the question.
+    pub adapter: ImplementationVersion,
+    /// Renderer used for supplied markup, when the backend has one.
+    pub renderer: Option<ImplementationVersion>,
+    /// Generator used for parameterized content, when the backend has one.
+    pub generator: Option<GeneratorReference>,
+    /// Original source artifact, when the backend stores one.
+    pub source_artifact: Option<SourceArtifact>,
+    /// Objects referenced by the rendered question.
+    pub asset_objects: Vec<ObjectId>,
+    /// Server-only grading implementation that produced the result.
+    pub grading: ImplementationVersion,
+    /// SHA-256 of the rendered question delivered for this attempt.
+    pub rendered_question_sha256: String,
+}
+
+/// One question issued inside an assignment run.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionAttempt {
+    /// Durable question-attempt identity.
+    pub id: QuestionAttemptId,
+    /// RLS boundary carried directly on this educational record.
+    pub tenant: TenantId,
+    /// Run that owns this attempt.
+    pub run: RunId,
+    /// Stable published problem containing the attempted version.
+    pub problem: ProblemId,
+    /// Immutable published question version used for this attempt.
+    pub question_version: VersionId,
+    /// Seed used to regenerate the exact question variant.
+    pub seed: u64,
+    /// SHA-256 of the generated parameters.
+    pub parameter_hash: String,
+    /// Student response, once submitted.
+    pub response: Option<StudentResponse>,
+    /// Server grading result, once graded.
+    pub result: Option<AttemptResult>,
+    /// Server-owned timing record.
+    pub timer: AttemptTimerRecord,
+    /// Versions and object identities required to reproduce this attempt.
+    pub provenance: AttemptProvenance,
+}
+
+/// Compact projection read by course pages and the gradebook.
+///
+/// Historical runs remain separate. Updating this projection from the same
+/// run transition lets storage commit the history and summary atomically.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudentAssignmentSummary {
+    /// RLS boundary carried directly on this educational record.
+    pub tenant: TenantId,
+    /// Enrollment summarized by this row.
+    pub enrollment: EnrollmentId,
+    /// Score selected by the assignment's grade policy.
+    pub current_score: Option<f64>,
+    /// Highest completed-run score seen so far.
+    pub best_score: Option<f64>,
+    /// Most recently completed-run score.
+    pub latest_score: Option<f64>,
+    /// Number of completed runs, including continued practice runs.
+    pub completed_run_count: u32,
+    /// Number of question responses recorded across all runs.
+    pub total_question_attempts: u64,
+    /// Latest server-supplied activity timestamp.
+    pub last_activity_at: Option<ActivityTimestamp>,
+}
+
+impl StudentAssignmentSummary {
+    /// Creates the empty projection for a new enrollment.
+    pub fn empty(tenant: TenantId, enrollment: EnrollmentId) -> Self {
+        Self {
+            tenant,
+            enrollment,
+            current_score: None,
+            best_score: None,
+            latest_score: None,
+            completed_run_count: 0,
+            total_question_attempts: 0,
+            last_activity_at: None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn enrollment_status_comes_from_first_completion() {
+        let enrollment = AssignmentEnrollment {
+            id: EnrollmentId::from_uuid(Uuid::from_u128(1)),
+            tenant: TenantId::from_uuid(Uuid::from_u128(2)),
+            assignment: AssignmentId::from_uuid(Uuid::from_u128(3)),
+            student: StudentId::from_uuid(Uuid::from_u128(4)),
+            first_completed_at: Some(ActivityTimestamp::from_unix_millis(1_000)),
+            current_grade_run: None,
+            best_grade_run: None,
+        };
+
+        assert_eq!(enrollment.status(), EnrollmentStatus::Completed);
+    }
+
+    #[test]
+    fn every_activity_identifier_stays_distinct_but_round_trips() {
+        let raw = Uuid::from_u128(7);
+        let run = RunId::from_uuid(raw);
+        let attempt = QuestionAttemptId::from_uuid(raw);
+
+        assert_eq!((run.as_uuid(), attempt.as_uuid()), (raw, raw));
+    }
+}

@@ -14,6 +14,19 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+/// A generator implementation pinned by a published problem version.
+///
+/// Versions are additive: changing an implementation requires a new version
+/// while existing published definitions continue to resolve to the old one.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeneratorReference {
+    /// Stable generator identifier.
+    pub id: String,
+    /// Additive generator version.
+    pub version: String,
+}
+
 /// The value that selects one variant of a question.
 ///
 /// Stored with every attempt so the exact variant a student saw can be
@@ -88,8 +101,8 @@ pub enum RandomizationDefinition {
     Static,
     /// Content is generated from the seed.
     Seeded {
-        /// Generator name the backend adapter dispatches on.
-        generator: String,
+        /// Exact generator implementation the backend adapter dispatches on.
+        generator: GeneratorReference,
         /// Parameters the generator reads, keyed by name.
         ///
         /// A `BTreeMap` because iteration order reaches generated output, and
@@ -121,7 +134,10 @@ mod tests {
             },
         );
         let definition = RandomizationDefinition::Seeded {
-            generator: "molar_mass".to_string(),
+            generator: GeneratorReference {
+                id: "molar_mass".to_string(),
+                version: "1".to_string(),
+            },
             parameters,
         };
         let json = serde_json::to_string(&definition).expect("serialization should succeed");
@@ -130,5 +146,6 @@ mod tests {
         let element_at = json.find(r#""element""#).expect("element key present");
         let mass_at = json.find(r#""mass""#).expect("mass key present");
         assert!(element_at < mass_at);
+        assert!(json.contains(r#""generator":{"id":"molar_mass","version":"1"}"#));
     }
 }

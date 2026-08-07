@@ -21,14 +21,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum FeedbackDisclosure {
-    /// Correctness appears as soon as a response is submitted.
-    Immediate,
-    /// Correctness appears once the whole attempt is submitted.
-    AfterAttempt,
-    /// Correctness appears after the assignment's due date passes.
-    AfterDueDate,
-    /// Correctness stays withheld from the student view.
-    Withheld,
+    /// The response, correct answer, and teaching explanation appear at once.
+    ImmediateFull,
+    /// Correctness and a hint appear at once, without revealing the answer.
+    ImmediateCorrectness,
+    /// Feedback stays hidden until the whole run is submitted.
+    Deferred,
+    /// Feedback stays hidden until the instructor releases it.
+    OnRelease,
 }
 
 /// How many times a student may answer one question, and what they learn.
@@ -106,16 +106,25 @@ pub enum GradePolicy {
     Latest,
     /// The best run's score.
     Highest,
-    /// The mean across runs.
-    Average,
+    /// A run explicitly selected by the instructor.
+    InstructorSelected,
 }
 
 /// What a student may do after completing an assignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum ContinuedPractice {
-    /// Further runs are available and leave the recorded grade untouched.
-    Allowed,
+    /// Any number of new runs may be started after completion.
+    Unlimited,
+    /// A bounded number of new runs may be started after completion.
+    Capped {
+        /// Runs allowed after the first completed run.
+        max_additional_runs: u32,
+    },
     /// The assignment closes once complete.
     Closed,
 }
@@ -126,10 +135,10 @@ pub enum ContinuedPractice {
 pub enum VariationPolicy {
     /// Same questions, fresh seeds, so the numbers change.
     NewSeeds,
-    /// Questions redrawn from the pool as well as reseeded.
+    /// Instructor-selected problem variants are used for the next run.
+    SelectedProblemVariants,
+    /// Questions are redrawn from the pool as well as reseeded.
     FullRegeneration,
-    /// Identical content to the previous run.
-    Identical,
 }
 
 /// The four run policies an assignment chooses, gathered for convenience.
@@ -157,7 +166,7 @@ mod tests {
     fn unlimited_attempts_are_expressed_as_none() {
         let policy = AttemptPolicy {
             max_attempts: None,
-            feedback: FeedbackDisclosure::Immediate,
+            feedback: FeedbackDisclosure::ImmediateFull,
         };
         let json = serde_json::to_string(&policy).expect("serialization should succeed");
         assert!(json.contains(r#""maxAttempts":null"#));
@@ -168,7 +177,7 @@ mod tests {
         let mastery_with_practice = RunPolicies {
             completion: CompletionRequirement::AllCorrect,
             grade: GradePolicy::Highest,
-            continued_practice: ContinuedPractice::Allowed,
+            continued_practice: ContinuedPractice::Unlimited,
             variation: VariationPolicy::NewSeeds,
         };
         let json =

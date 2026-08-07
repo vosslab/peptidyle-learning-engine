@@ -1,6 +1,149 @@
-//! `MemoryObjectStore`: the in-memory backend (MOD-OBJ stub).
-//!
-//! Implemented in M1 (WP-C4). This backend exists so adapter and API lanes can
-//! start before MinIO or S3 is wired. It runs the same conformance suite the
-//! MinIO and S3 backends later run unchanged -- that shared suite is the
-//! contract, not this implementation.
+//! In-memory object backend (WP-C4, MOD-OBJ).
+
+use std::collections::BTreeMap;
+use std::sync::{Arc, RwLock};
+
+use async_trait::async_trait;
+
+use crate::{
+    Bucket, ObjectKey, ObjectRecord, ObjectStore, ObjectStoreError, PutObject, Sha256Digest,
+    SignedUrl, StoredObject,
+};
+use question_model::ActivityTimestamp;
+
+/// Object backend used by contract tests and lanes waiting for MinIO.
+#[derive(Debug, Clone, Default)]
+pub struct MemoryObjectStore {
+    entries: Arc<RwLock<BTreeMap<ObjectKey, StoredObject>>>,
+}
+
+#[async_trait]
+impl ObjectStore for MemoryObjectStore {
+    async fn put(&self, request: PutObject) -> Result<ObjectRecord, ObjectStoreError> {
+        let size_bytes =
+            u64::try_from(request.bytes.len()).map_err(|_| ObjectStoreError::NumericOverflow)?;
+        let record = ObjectRecord {
+            id: request.key.object_id(),
+            bucket: request.key.bucket(),
+            version: request.key.version_id(),
+            sha256: Sha256Digest::compute(&request.bytes),
+            size_bytes,
+            media_type: request.media_type,
+            category: request.key.category(),
+            license: request.license,
+            provenance: request.provenance,
+            created_at: request.created_at,
+            key: request.key.clone(),
+        };
+        let stored = StoredObject {
+            record: record.clone(),
+            bytes: request.bytes,
+        };
+        let mut entries = self
+            .entries
+            .write()
+            .map_err(|error| ObjectStoreError::Unavailable(error.to_string()))?;
+        if entries.contains_key(&request.key) {
+            return Err(ObjectStoreError::AlreadyExists);
+        }
+        entries.insert(request.key, stored);
+        Ok(record)
+    }
+
+    async fn get(&self, key: &ObjectKey) -> Result<StoredObject, ObjectStoreError> {
+        let entries = self
+            .entries
+            .read()
+            .map_err(|error| ObjectStoreError::Unavailable(error.to_string()))?;
+        let stored = entries
+            .get(key)
+            .cloned()
+            .ok_or(ObjectStoreError::NotFound)?;
+        if Sha256Digest::compute(&stored.bytes) != stored.record.sha256 {
+            return Err(ObjectStoreError::ChecksumMismatch);
+        }
+        Ok(stored)
+    }
+
+    async fn delete(&self, key: &ObjectKey) -> Result<(), ObjectStoreError> {
+        let mut entries = self
+            .entries
+            .write()
+            .map_err(|error| ObjectStoreError::Unavailable(error.to_string()))?;
+        entries.remove(key).ok_or(ObjectStoreError::NotFound)?;
+        Ok(())
+    }
+
+    async fn signed_url(
+        &self,
+        key: &ObjectKey,
+        now: ActivityTimestamp,
+    ) -> Result<SignedUrl, ObjectStoreError> {
+        {
+            let entries = self
+                .entries
+                .read()
+                .map_err(|error| ObjectStoreError::Unavailable(error.to_string()))?;
+            if !entries.contains_key(key) {
+                return Err(ObjectStoreError::NotFound);
+            }
+        }
+        let lifetime_millis = match key.bucket() {
+            Bucket::Content => 60_i64 * 60 * 1_000,
+            Bucket::StudentRecords => 5_i64 * 60 * 1_000,
+            Bucket::TempProcessing => return Err(ObjectStoreError::NotSignable),
+        };
+        let expires_millis = now
+            .as_unix_millis()
+            .checked_add(lifetime_millis)
+            .ok_or(ObjectStoreError::NumericOverflow)?;
+        let expires_at = ActivityTimestamp::from_unix_millis(expires_millis);
+        Ok(SignedUrl {
+            url: format!(
+                "memory://{}/{}?expires={expires_millis}",
+                key.bucket().as_str(),
+                key.path()
+            ),
+            expires_at,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use question_model::ObjectId;
+    use uuid::Uuid;
+
+    #[tokio::test]
+    async fn read_refuses_bytes_that_no_longer_match_the_record() {
+        let store = MemoryObjectStore::default();
+        let key = ObjectKey::Temporary {
+            object: ObjectId::from_uuid(Uuid::from_u128(1)),
+        };
+        store
+            .put(PutObject {
+                key: key.clone(),
+                bytes: b"original".to_vec(),
+                media_type: "application/octet-stream".to_string(),
+                license: "private".to_string(),
+                provenance: "test".to_string(),
+                created_at: ActivityTimestamp::from_unix_millis(1),
+            })
+            .await
+            .expect("put should succeed");
+
+        store
+            .entries
+            .write()
+            .expect("test lock should be available")
+            .get_mut(&key)
+            .expect("test object should exist")
+            .bytes = b"tampered".to_vec();
+
+        assert_eq!(
+            store.get(&key).await,
+            Err(ObjectStoreError::ChecksumMismatch)
+        );
+    }
+}

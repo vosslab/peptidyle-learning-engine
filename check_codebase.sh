@@ -6,15 +6,18 @@
 # optional mirror that points right back at this script.
 #
 # Runs (in order):
-#   1. TypeScript typecheck via tsconfig.json (src/).
-#   2. Wider typecheck via tsconfig.lint.json (tests/, tools/).
-#   3. ESLint (zero warnings).
-#   4. Prettier --check.
-#   5. Node unit tests under tests/ (node --import tsx --test
+#   1. Regenerate ignored TypeScript API definitions from the Rust model.
+#   2. Check tracked fixtures and regenerate their ignored TypeScript view.
+#   3. TypeScript typecheck via tsconfig.json (src/, generated/).
+#   4. Wider typecheck via tsconfig.lint.json (tests/, tools/).
+#   5. ESLint (zero warnings).
+#   6. Prettier --check.
+#   7. Node unit tests under tests/ (node --import tsx --test
 #      tests/test_*.mjs). The --import flag loads the tsx npm package
-#   6. cargo fmt --check (Rust formatting).
-#   7. cargo clippy --workspace --all-targets -- -D warnings.
-#   8. cargo test --workspace (unit, integration, and doc tests).
+#   8. WASM workspace dependency-closure boundary via focused pytest.
+#   9. cargo fmt --check (Rust formatting).
+#  10. cargo clippy --workspace --all-targets -- -D warnings.
+#  11. cargo test --workspace (unit, integration, and doc tests).
 #      (https://www.npmjs.com/package/tsx) as a runtime loader so .mjs
 #      tests can import .ts source modules directly. Note: tsx is the
 #      runtime loader npm package; tsc is the TypeScript compiler binary
@@ -26,9 +29,11 @@
 # "check" alias just points back at this script, and every individual step
 # is owned by the shell script.
 #
-# Build is not part of this gate. Run ./build.sh for that
-# (npm run build mirrors it). Playwright is not part of this gate either;
-# run ./run_playwright_tests.sh (which handles build + run internally).
+# A product build is not part of this gate. It regenerates the ignored API
+# definitions and the processed WASM module used only for the export allowlist.
+# Run ./build.sh for product artifacts (npm run build mirrors it). Playwright is
+# not part of this gate; run ./run_playwright_tests.sh, which handles build and
+# run internally.
 #
 # Flags:
 #   -h, --help          Print usage and exit 0.
@@ -175,10 +180,30 @@ trap print_summary EXIT
 # Steps
 SUMMARY_ENABLED=1
 
-# 1. typecheck (always)
+# 1. Generated API definitions. A missing Rust toolchain is a loud skip rather
+# than a pass over missing output.
+if command -v cargo >/dev/null 2>&1; then
+	step_run tsgen cargo run --quiet -p xtask -- tsgen
+else
+	step_skip tsgen "cargo not found on PATH"
+fi
+
+# 2. Tracked fixtures are deliberate compatibility evidence; compare them to
+# the Rust-owned generator, then format only the ignored TypeScript projection.
+generate_fixture_projection() {
+	cargo run --quiet -p xtask -- fixtures --check &&
+		npx prettier --write --ignore-path .prettierignore generated/fixtures/published_problem.ts
+}
+if command -v cargo >/dev/null 2>&1; then
+	step_run fixtures generate_fixture_projection
+else
+	step_skip fixtures "cargo not found on PATH"
+fi
+
+# 3. typecheck (always)
 step_run typecheck npx tsc --noEmit -p tsconfig.json
 
-# 2. typecheck:lint
+# 4. typecheck:lint
 # Wider typecheck covers tests/ and tools/ via tsconfig.lint.json.
 # That file ships from the template's noexist/ bucket so every typescript
 # consumer has it at bootstrap; no SKIP fallback needed.
@@ -188,7 +213,7 @@ step_run typecheck npx tsc --noEmit -p tsconfig.json
 # list locally in the consumer-owned tsconfig.lint.json.
 step_run typecheck:lint npx tsc --noEmit -p tsconfig.lint.json
 
-# 3. lint
+# 5. lint
 # Single recursive glob covers every JS/TS extension from cwd: catches src/,
 # tests/, tests/playwright/, tools/, root-level files, and any deeper monorepo
 # layout (packages/*/src/, etc.) without code changes. --no-error-on-unmatched-pattern
@@ -196,10 +221,11 @@ step_run typecheck:lint npx tsc --noEmit -p tsconfig.lint.json
 # silently passing -- false-confidence prevention.
 step_run lint npx eslint --max-warnings 0 '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'
 
-# 4. format:check
-step_run format:check npx prettier --check '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'
+# 6. format:check. Pin .prettierignore explicitly so root generated/ remains
+# visible even though Git ignores it; disposable bindgen glue stays excluded.
+step_run format:check npx prettier --ignore-path .prettierignore --check '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'
 
-# 5. test:node
+# 7. test:node
 # Loads the tsx npm package as a runtime loader so .mjs tests can import
 # .ts source modules. Not to be confused with tsc, which is the
 # TypeScript compiler binary shipped inside the typescript package.
@@ -214,7 +240,19 @@ else
 	step_skip test:node "no tests/test_*.mjs files present"
 fi
 
-# 6-8. Rust gates (WP-F5).
+# 8. The static workspace graph must keep server-only grading outside WASM.
+# source_me.sh is sourced because that is the repository's Python execution
+# contract; the focused test stays well inside pytest's fast-lane budget.
+run_crate_boundary_test() {
+	source source_me.sh && python3 -m pytest -q tests/test_crate_boundaries.py
+}
+if command -v python3 >/dev/null 2>&1; then
+	step_run crate:boundary run_crate_boundary_test
+else
+	step_skip crate:boundary "python3 not found on PATH"
+fi
+
+# 9-11. Rust gates (WP-F5).
 # This repo is REPO_TYPE=typescript,rust, so the check gate owns both
 # toolchains. Same honesty convention as the steps above: a missing cargo emits
 # a loud SKIP rather than passing silently, because a green summary that never

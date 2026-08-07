@@ -10,9 +10,11 @@
 //!
 //! ```text
 //! cargo run -p xtask -- bindgen <input.wasm> <web|node> <out-dir> <out-name>
+//! cargo run -p xtask -- fixtures <--check|--write>
 //! cargo run -p xtask -- tsgen [model-dir] [out-dir]
 //! ```
 
+mod fixtures;
 mod tsgen;
 
 use std::path::{Path, PathBuf};
@@ -25,22 +27,49 @@ const DEFAULT_MODEL_DIR: &str = "crates/question_model/src";
 
 /// Where the generated TypeScript goes, relative to the repo root.
 ///
-/// Inside the client's source tree on purpose: generated types are what the
-/// client compiles against, so they sit inside tsconfig's include list and face
-/// the same typecheck, ESLint, and Prettier gates as hand-written code.
-const DEFAULT_TS_OUT_DIR: &str = "src/api/generated";
+/// Root-level build output, ignored by Git and regenerated before every build
+/// and check. It remains in the TypeScript, ESLint, and Prettier validation
+/// scopes even though it is not authored source.
+const DEFAULT_TS_OUT_DIR: &str = "generated/api";
+
+/// Where intentional, tracked fixture evidence lives.
+const DEFAULT_FIXTURE_DIR: &str = "tests/fixtures/published_problem";
+
+/// Where the derivative TypeScript fixture projection is generated.
+const DEFAULT_FIXTURE_TS: &str = "generated/fixtures/published_problem.ts";
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some(command) = args.first() else {
-        bail!("usage: xtask <bindgen|tsgen> ...");
+        bail!("usage: xtask <bindgen|fixtures|tsgen> ...");
     };
 
     match command.as_str() {
         "bindgen" => run_bindgen(&args[1..]),
+        "fixtures" => run_fixtures(&args[1..]),
         "tsgen" => run_tsgen(&args[1..]),
         other => bail!("unknown command: {other}"),
     }
+}
+
+/// Checks or deliberately refreshes the WP-C7 fixture corpus.
+fn run_fixtures(args: &[String]) -> Result<()> {
+    let mode = match args {
+        [flag] if flag == "--check" => fixtures::Mode::Check,
+        [flag] if flag == "--write" => fixtures::Mode::Write,
+        _ => bail!("usage: xtask fixtures <--check|--write>"),
+    };
+
+    let report = fixtures::run(
+        Path::new(DEFAULT_FIXTURE_DIR),
+        Path::new(DEFAULT_FIXTURE_TS),
+        mode,
+    )?;
+    println!(
+        "fixtures: {} {} tracked file(s); wrote {}",
+        report.action, report.tracked_files, DEFAULT_FIXTURE_TS
+    );
+    Ok(())
 }
 
 /// Regenerates the TypeScript definitions for the question model.

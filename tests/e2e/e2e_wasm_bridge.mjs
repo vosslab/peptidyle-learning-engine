@@ -1,4 +1,4 @@
-// e2e_wasm_bridge.mjs - WP-F2 gate: a Rust export is callable from Node.
+// e2e_wasm_bridge.mjs - WP-F2/WP-C6 gate: Rust exports are callable from Node.
 //
 // This is the whole point of the WASM path. `crates/domain` logic has to
 // produce identical results on the server and in the browser, and this test is
@@ -49,4 +49,52 @@ assert.equal(
   `bridge_version() returned ${actualVersion}, expected ${expectedVersion}`,
 );
 
-console.log(`PASS: wasm bridge_version() returned ${actualVersion} from Node`);
+const report = JSON.parse(
+  bridge.validate_response_format(
+    JSON.stringify({ kind: "shortText", matchMode: "normalized", maxLength: 2 }),
+    JSON.stringify({ kind: "shortText", text: "abc" }),
+  ),
+);
+assert.deepEqual(report, {
+  violations: [{ kind: "textTooLong", maxLength: 2, actualLength: 3 }],
+});
+
+const timerVerdict = JSON.parse(
+  bridge.timer_verdict(
+    JSON.stringify({
+      policy: { kind: "perAttempt", seconds: 60, graceSeconds: 2 },
+      timer: { issuedAt: 1_000, deadline: 10_000, submittedAt: 11_500 },
+      evaluatedAt: 11_500,
+      pauseExtensionMillis: 0,
+    }),
+  ),
+);
+assert.equal(timerVerdict, "submittedWithinGrace");
+
+const fixture = JSON.parse(
+  fs.readFileSync(
+    path.join(repoRoot, "tests", "fixtures", "published_problem", "corpus.json"),
+    "utf8",
+  ),
+);
+const capabilityViolations = JSON.parse(
+  bridge.validate_assignment_config(
+    JSON.stringify({
+      questions: [
+        {
+          question: fixture.publishedProblem,
+          backendCapabilities: [],
+        },
+      ],
+      requiredCapabilities: [],
+    }),
+  ),
+);
+assert.deepEqual(
+  capabilityViolations.map((violation) => violation.capability),
+  ["algorithmicGeneration", "serverGrading"],
+);
+
+console.log(
+  `PASS: WASM bridge ${actualVersion} returned camelCase format, timer, and capability results`,
+);

@@ -12,3 +12,6 @@ rust-version.workspace = true
 question_model.workspace = true
 domain.workspace = true
 serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

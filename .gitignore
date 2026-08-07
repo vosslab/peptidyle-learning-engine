@@ -21,6 +21,7 @@ site/
 
 # === TYPESCRIPT ===
 node_modules/
+/generated/
 dist_*/
 _site/
 *.tsbuildinfo
@@ -38,5 +39,4 @@ stats.html
 **/target/
 **/*.rs.bk
 .rust_analyzer/
-
 

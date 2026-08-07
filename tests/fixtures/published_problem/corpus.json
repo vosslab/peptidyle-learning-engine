@@ -1,0 +1,525 @@
+{
+  "fixtureSchemaVersion": 1,
+  "modelSchemaVersion": 1,
+  "publishedProblem": {
+    "version": "0198e000-0000-7000-8000-000000000004",
+    "problem": "0198e000-0000-7000-8000-000000000003",
+    "workspace": "0198e000-0000-7000-8000-000000000002",
+    "source": {
+      "backend": "native",
+      "family": "peptide_bond_geometry"
+    },
+    "prompt": [
+      {
+        "kind": "text",
+        "markdown": "Which bond has restricted rotation because resonance gives it partial double-bond character?"
+      },
+      {
+        "kind": "image",
+        "asset": {
+          "asset": "0198e000-0000-7000-8000-000000000010",
+          "checksum": "9d6816fe63b5a1410e9e94c132c42029445cc26e0310bcb468c0d14aa218801b"
+        },
+        "description": "Structural formula highlighting the carbonyl carbon-to-nitrogen bond."
+      },
+      {
+        "kind": "image",
+        "asset": {
+          "asset": "0198e000-0000-7000-8000-000000000012",
+          "checksum": "bdb2582fd499b6d020e3d972f0c1bfcb5124977ecfe9a9f87e3a7e554543623b"
+        },
+        "description": "The six atoms of a peptide group shown in one plane."
+      }
+    ],
+    "response": {
+      "kind": "multipleChoice",
+      "choices": [
+        {
+          "id": "amide",
+          "body": [
+            {
+              "kind": "text",
+              "markdown": "The carbonyl carbon-to-nitrogen bond"
+            }
+          ]
+        },
+        {
+          "id": "carbonyl",
+          "body": [
+            {
+              "kind": "text",
+              "markdown": "The carbonyl carbon-to-oxygen bond"
+            }
+          ]
+        },
+        {
+          "id": "alpha-carbon",
+          "body": [
+            {
+              "kind": "text",
+              "markdown": "The nitrogen-to-alpha-carbon bond"
+            }
+          ]
+        }
+      ],
+      "selection": {
+        "kind": "exactlyOne"
+      }
+    },
+    "attemptPolicy": {
+      "maxAttempts": null,
+      "feedback": "immediateFull"
+    },
+    "timingPolicy": {
+      "kind": "untimed"
+    },
+    "randomization": {
+      "kind": "seeded",
+      "generator": {
+        "id": "peptide-bond-choice",
+        "version": "1"
+      },
+      "parameters": {
+        "residue": {
+          "kind": "choice",
+          "options": [
+            "glycine",
+            "alanine",
+            "proline"
+          ]
+        }
+      }
+    },
+    "grading": {
+      "mode": "allOrNothing",
+      "points": 1.0
+    },
+    "metadata": {
+      "title": "Peptide bond resonance and planarity",
+      "tags": [
+        "biochemistry",
+        "protein-structure"
+      ],
+      "taxonomy": [
+        {
+          "scheme": "Peptidyle",
+          "code": "BIOCHEM.PEPTIDE_BOND",
+          "label": "Peptide bond structure"
+        }
+      ],
+      "license": {
+        "kind": "ccBy"
+      },
+      "language": "en-US"
+    }
+  },
+  "draft": {
+    "version": "0198e000-0000-7000-8000-000000000005",
+    "problem": null,
+    "workspace": "0198e000-0000-7000-8000-000000000002",
+    "source": {
+      "backend": "native",
+      "family": "peptide_bond_geometry"
+    },
+    "prompt": [
+      {
+        "kind": "text",
+        "markdown": "Which bond has restricted rotation because resonance gives it partial double-bond character?"
+      },
+      {
+        "kind": "image",
+        "asset": {
+          "asset": "0198e000-0000-7000-8000-000000000010",
+          "checksum": "9d6816fe63b5a1410e9e94c132c42029445cc26e0310bcb468c0d14aa218801b"
+        },
+        "description": "Structural formula highlighting the carbonyl carbon-to-nitrogen bond."
+      },
+      {
+        "kind": "image",
+        "asset": {
+          "asset": "0198e000-0000-7000-8000-000000000012",
+          "checksum": "bdb2582fd499b6d020e3d972f0c1bfcb5124977ecfe9a9f87e3a7e554543623b"
+        },
+        "description": "The six atoms of a peptide group shown in one plane."
+      }
+    ],
+    "response": {
+      "kind": "multipleChoice",
+      "choices": [
+        {
+          "id": "amide",
+          "body": [
+            {
+              "kind": "text",
+              "markdown": "The carbonyl carbon-to-nitrogen bond"
+            }
+          ]
+        },
+        {
+          "id": "carbonyl",
+          "body": [
+            {
+              "kind": "text",
+              "markdown": "The carbonyl carbon-to-oxygen bond"
+            }
+          ]
+        },
+        {
+          "id": "alpha-carbon",
+          "body": [
+            {
+              "kind": "text",
+              "markdown": "The nitrogen-to-alpha-carbon bond"
+            }
+          ]
+        }
+      ],
+      "selection": {
+        "kind": "exactlyOne"
+      }
+    },
+    "attemptPolicy": {
+      "maxAttempts": null,
+      "feedback": "immediateFull"
+    },
+    "timingPolicy": {
+      "kind": "untimed"
+    },
+    "randomization": {
+      "kind": "seeded",
+      "generator": {
+        "id": "peptide-bond-choice",
+        "version": "1"
+      },
+      "parameters": {
+        "residue": {
+          "kind": "choice",
+          "options": [
+            "glycine",
+            "alanine",
+            "proline"
+          ]
+        }
+      }
+    },
+    "grading": {
+      "mode": "allOrNothing",
+      "points": 1.0
+    },
+    "metadata": {
+      "title": "Draft: peptide resonance wording revision",
+      "tags": [
+        "biochemistry",
+        "protein-structure"
+      ],
+      "taxonomy": [
+        {
+          "scheme": "Peptidyle",
+          "code": "BIOCHEM.PEPTIDE_BOND",
+          "label": "Peptide bond structure"
+        }
+      ],
+      "license": {
+        "kind": "ccBy"
+      },
+      "language": "en-US"
+    }
+  },
+  "assets": [
+    {
+      "id": "0198e000-0000-7000-8000-000000000010",
+      "object": "0198e000-0000-7000-8000-000000000011",
+      "filename": "peptide_bond.svg",
+      "mediaType": "image/svg+xml",
+      "sha256": "9d6816fe63b5a1410e9e94c132c42029445cc26e0310bcb468c0d14aa218801b"
+    },
+    {
+      "id": "0198e000-0000-7000-8000-000000000012",
+      "object": "0198e000-0000-7000-8000-000000000013",
+      "filename": "peptide_plane.svg",
+      "mediaType": "image/svg+xml",
+      "sha256": "bdb2582fd499b6d020e3d972f0c1bfcb5124977ecfe9a9f87e3a7e554543623b"
+    }
+  ],
+  "course": {
+    "id": "0198e000-0000-7000-8000-000000000014",
+    "tenant": "0198e000-0000-7000-8000-000000000001",
+    "title": "BIOC 301: Biochemistry"
+  },
+  "assignment": {
+    "id": "0198e000-0000-7000-8000-000000000006",
+    "tenant": "0198e000-0000-7000-8000-000000000001",
+    "courseId": "0198e000-0000-7000-8000-000000000014",
+    "title": "Peptide bond mastery",
+    "problems": [
+      {
+        "problem": "0198e000-0000-7000-8000-000000000003",
+        "version": "0198e000-0000-7000-8000-000000000004"
+      }
+    ],
+    "policies": {
+      "completion": {
+        "kind": "allCorrect"
+      },
+      "grade": "highest",
+      "continuedPractice": {
+        "kind": "unlimited"
+      },
+      "variation": "newSeeds"
+    }
+  },
+  "enrollment": {
+    "id": "0198e000-0000-7000-8000-000000000007",
+    "tenant": "0198e000-0000-7000-8000-000000000001",
+    "assignment": "0198e000-0000-7000-8000-000000000006",
+    "student": "0198e000-0000-7000-8000-000000000008",
+    "firstCompletedAt": 1786000001300,
+    "currentGradeRun": "0198e000-0000-7000-8000-000000000021",
+    "bestGradeRun": "0198e000-0000-7000-8000-000000000021"
+  },
+  "runs": [
+    {
+      "id": "0198e000-0000-7000-8000-000000000020",
+      "tenant": "0198e000-0000-7000-8000-000000000001",
+      "enrollment": "0198e000-0000-7000-8000-000000000007",
+      "runNumber": 1,
+      "startedAt": 1786000001000,
+      "completedAt": 1786000001300,
+      "score": 0.0,
+      "mode": "assigned",
+      "variation": "newSeeds"
+    },
+    {
+      "id": "0198e000-0000-7000-8000-000000000021",
+      "tenant": "0198e000-0000-7000-8000-000000000001",
+      "enrollment": "0198e000-0000-7000-8000-000000000007",
+      "runNumber": 2,
+      "startedAt": 1786000002000,
+      "completedAt": 1786000002300,
+      "score": 1.0,
+      "mode": "practice",
+      "variation": "newSeeds"
+    },
+    {
+      "id": "0198e000-0000-7000-8000-000000000022",
+      "tenant": "0198e000-0000-7000-8000-000000000001",
+      "enrollment": "0198e000-0000-7000-8000-000000000007",
+      "runNumber": 3,
+      "startedAt": 1786000003000,
+      "completedAt": 1786000003300,
+      "score": 0.0,
+      "mode": "practice",
+      "variation": "newSeeds"
+    },
+    {
+      "id": "0198e000-0000-7000-8000-000000000023",
+      "tenant": "0198e000-0000-7000-8000-000000000001",
+      "enrollment": "0198e000-0000-7000-8000-000000000007",
+      "runNumber": 4,
+      "startedAt": 1786000004000,
+      "completedAt": null,
+      "score": null,
+      "mode": "practice",
+      "variation": "newSeeds"
+    }
+  ],
+  "attempts": [
+    {
+      "id": "0198e000-0000-7000-8000-000000000030",
+      "tenant": "0198e000-0000-7000-8000-000000000001",
+      "run": "0198e000-0000-7000-8000-000000000020",
+      "problem": "0198e000-0000-7000-8000-000000000003",
+      "questionVersion": "0198e000-0000-7000-8000-000000000004",
+      "seed": 1001,
+      "parameterHash": "9fde48ed6a7d62c12323da06d64f3edf9bd32930cd8819bc864ec52ec7670b22",
+      "response": {
+        "kind": "multipleChoice",
+        "selected": [
+          "carbonyl"
+        ]
+      },
+      "result": {
+        "correct": false,
+        "pointsEarned": 0.0,
+        "pointsPossible": 1.0
+      },
+      "timer": {
+        "issuedAt": 1786000001100,
+        "deadline": null,
+        "submittedAt": 1786000001200
+      },
+      "provenance": {
+        "adapter": {
+          "id": "native-adapter",
+          "version": "1"
+        },
+        "renderer": null,
+        "generator": {
+          "id": "peptide-bond-choice",
+          "version": "1"
+        },
+        "sourceArtifact": {
+          "object": "0198e000-0000-7000-8000-000000000009",
+          "sha256": "f27ea4281f90ef5a1fbacd0bade47a3bf2a5fb9eb07517b903792b71b81233ef"
+        },
+        "assetObjects": [
+          "0198e000-0000-7000-8000-000000000011",
+          "0198e000-0000-7000-8000-000000000013"
+        ],
+        "grading": {
+          "id": "multiple-choice",
+          "version": "1"
+        },
+        "renderedQuestionSha256": "34b20a91c10b3e101cf8615e914c71552380a30c92a81a4fa7e5a1de728664f3"
+      }
+    },
+    {
+      "id": "0198e000-0000-7000-8000-000000000031",
+      "tenant": "0198e000-0000-7000-8000-000000000001",
+      "run": "0198e000-0000-7000-8000-000000000021",
+      "problem": "0198e000-0000-7000-8000-000000000003",
+      "questionVersion": "0198e000-0000-7000-8000-000000000004",
+      "seed": 1002,
+      "parameterHash": "024406973c4ac408281bd713a99b58634801180177abca0e29ffa37f5daf8c43",
+      "response": {
+        "kind": "multipleChoice",
+        "selected": [
+          "amide"
+        ]
+      },
+      "result": {
+        "correct": true,
+        "pointsEarned": 1.0,
+        "pointsPossible": 1.0
+      },
+      "timer": {
+        "issuedAt": 1786000002100,
+        "deadline": null,
+        "submittedAt": 1786000002200
+      },
+      "provenance": {
+        "adapter": {
+          "id": "native-adapter",
+          "version": "1"
+        },
+        "renderer": null,
+        "generator": {
+          "id": "peptide-bond-choice",
+          "version": "1"
+        },
+        "sourceArtifact": {
+          "object": "0198e000-0000-7000-8000-000000000009",
+          "sha256": "f27ea4281f90ef5a1fbacd0bade47a3bf2a5fb9eb07517b903792b71b81233ef"
+        },
+        "assetObjects": [
+          "0198e000-0000-7000-8000-000000000011",
+          "0198e000-0000-7000-8000-000000000013"
+        ],
+        "grading": {
+          "id": "multiple-choice",
+          "version": "1"
+        },
+        "renderedQuestionSha256": "91c80c4c365291ad1554075ed49a84df71186a5f0882471a176457a871a3d77e"
+      }
+    },
+    {
+      "id": "0198e000-0000-7000-8000-000000000032",
+      "tenant": "0198e000-0000-7000-8000-000000000001",
+      "run": "0198e000-0000-7000-8000-000000000022",
+      "problem": "0198e000-0000-7000-8000-000000000003",
+      "questionVersion": "0198e000-0000-7000-8000-000000000004",
+      "seed": 1003,
+      "parameterHash": "45a935f3d69d3af80e097ccea443daeadddd2c1ca4c4693ab07496d74998f5a2",
+      "response": {
+        "kind": "multipleChoice",
+        "selected": [
+          "carbonyl"
+        ]
+      },
+      "result": {
+        "correct": false,
+        "pointsEarned": 0.0,
+        "pointsPossible": 1.0
+      },
+      "timer": {
+        "issuedAt": 1786000003100,
+        "deadline": null,
+        "submittedAt": 1786000003200
+      },
+      "provenance": {
+        "adapter": {
+          "id": "native-adapter",
+          "version": "1"
+        },
+        "renderer": null,
+        "generator": {
+          "id": "peptide-bond-choice",
+          "version": "1"
+        },
+        "sourceArtifact": {
+          "object": "0198e000-0000-7000-8000-000000000009",
+          "sha256": "f27ea4281f90ef5a1fbacd0bade47a3bf2a5fb9eb07517b903792b71b81233ef"
+        },
+        "assetObjects": [
+          "0198e000-0000-7000-8000-000000000011",
+          "0198e000-0000-7000-8000-000000000013"
+        ],
+        "grading": {
+          "id": "multiple-choice",
+          "version": "1"
+        },
+        "renderedQuestionSha256": "217adf9ba955657ee06fc80c63ed25a7ca603614f306abd72ac439d18286dddc"
+      }
+    },
+    {
+      "id": "0198e000-0000-7000-8000-000000000033",
+      "tenant": "0198e000-0000-7000-8000-000000000001",
+      "run": "0198e000-0000-7000-8000-000000000023",
+      "problem": "0198e000-0000-7000-8000-000000000003",
+      "questionVersion": "0198e000-0000-7000-8000-000000000004",
+      "seed": 1004,
+      "parameterHash": "7a2d159306c2fa58984c5fc648789d6f76ffd1f13294960d0119ec6744e837ad",
+      "response": null,
+      "result": null,
+      "timer": {
+        "issuedAt": 1786000004100,
+        "deadline": null,
+        "submittedAt": null
+      },
+      "provenance": {
+        "adapter": {
+          "id": "native-adapter",
+          "version": "1"
+        },
+        "renderer": null,
+        "generator": {
+          "id": "peptide-bond-choice",
+          "version": "1"
+        },
+        "sourceArtifact": {
+          "object": "0198e000-0000-7000-8000-000000000009",
+          "sha256": "f27ea4281f90ef5a1fbacd0bade47a3bf2a5fb9eb07517b903792b71b81233ef"
+        },
+        "assetObjects": [
+          "0198e000-0000-7000-8000-000000000011",
+          "0198e000-0000-7000-8000-000000000013"
+        ],
+        "grading": {
+          "id": "multiple-choice",
+          "version": "1"
+        },
+        "renderedQuestionSha256": "36e0ca843c532b6f4eb556f7f8ac2c575c8f5996090a4b94b25f71bb75d261e6"
+      }
+    }
+  ],
+  "summary": {
+    "tenant": "0198e000-0000-7000-8000-000000000001",
+    "enrollment": "0198e000-0000-7000-8000-000000000007",
+    "currentScore": 1.0,
+    "bestScore": 1.0,
+    "latestScore": 0.0,
+    "completedRunCount": 3,
+    "totalQuestionAttempts": 4,
+    "lastActivityAt": 1786000004100
+  }
+}

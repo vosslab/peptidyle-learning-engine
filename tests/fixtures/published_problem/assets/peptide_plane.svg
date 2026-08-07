@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="180" viewBox="0 0 480 180" role="img" aria-labelledby="title description">
+  <title id="title">Peptide plane</title>
+  <desc id="description">Six peptide-group atoms lie in one shaded plane.</desc>
+  <rect width="480" height="180" fill="#ffffff"/>
+  <polygon points="70,145 135,35 405,35 340,145" fill="#dce9f7" stroke="#356a9a" stroke-width="3"/>
+  <g fill="#172033" font-family="sans-serif" font-size="25" text-anchor="middle">
+    <text x="115" y="125">Ca</text>
+    <text x="195" y="88">C</text>
+    <text x="245" y="58">O</text>
+    <text x="300" y="105">N</text>
+    <text x="360" y="72">H</text>
+    <text x="355" y="130">Ca</text>
+  </g>
+</svg>

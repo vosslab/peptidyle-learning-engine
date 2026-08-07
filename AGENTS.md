@@ -4,6 +4,7 @@
 
 Use the active implementation plan as the source of truth for architecture, scope, milestone order,
 contracts, security boundaries, storage rules, frontend behavior, testing, and acceptance criteria.
+Apply the durable owner decisions in `docs/HUMAN_GUIDANCE.md`.
 Complete work in the documented dependency order.
 Finish one defined task before starting the next.
 Use the acceptance criteria and validation gates for the current task before proceeding.

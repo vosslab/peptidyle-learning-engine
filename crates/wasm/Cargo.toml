@@ -20,3 +20,8 @@ wasm-bindgen.workspace = true
 [features]
 default = []
 web = ["domain/wasm", "question_model/wasm"]
+
+[dev-dependencies]
+serde.workspace = true
+serde_json.workspace = true
+wasm-bindgen-test.workspace = true

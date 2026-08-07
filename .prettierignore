@@ -7,24 +7,26 @@
 # Dependencies and installed package state.
 node_modules/
 package-lock.json
+OTHER_REPOS/
 
 # Build outputs and bundler artifacts.
 dist/
 dist_*/
 dist-single/
 _site/
-generated/
 coverage/
 
-# ...but the generated client types are an exception: M1 requires them to pass
-# tsc, ESLint, and Prettier unchanged, so they are formatted like hand-written
-# code rather than exempted from review.
-!src/api/generated/
+# Root generated/ is ignored by Git but deliberately remains in Prettier's
+# scope. The check gate regenerates the client types before validating them, so
+# reproducible output faces the same tsc, ESLint, and Prettier checks as source.
+# The WASM export gate's bindgen glue is disposable inspection output rather
+# than the maintained browser API contract.
+generated/wasm-export-check/
 
 # The Rust workspace and its build artifacts are not TypeScript source.
 # A .ts file under crates/ is stale generator output, not client code; the
-# generated client types are written to src/api/generated/ instead, where they
-# are formatted and linted like everything else.
+# generated client types are written to root generated/ instead, where the
+# check gate formats and lints them without treating them as authored source.
 crates/
 target/
 

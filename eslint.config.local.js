@@ -25,13 +25,19 @@ export default [
     //
     // This matters because ts-rs writes generated TypeScript, and its default
     // output directory is inside the crate that declares the type. This repo
-    // redirects that output to src/api/generated/ via .cargo/config.toml, so
-    // a .ts file under crates/ is stale output from a run that predates that
-    // setting, or from a crate built with the variable unset. Either way it is
-    // not client code and must not gate the build.
+    // writes browser boundary types to root generated/, so a .ts file under
+    // crates/ is stale output from a different generator invocation. Either
+    // way it is not client code and must not gate the build.
     //
-    // Container build context and Rust artifacts are excluded for the same
-    // reason: they are not the app.
-    ignores: ["crates/**", "target/**", "dist_wasm/**", "containers/**"],
+    // Container build context, Rust artifacts, and disposable wasm-bindgen
+    // export-inspection glue are excluded for the same reason: they are not
+    // authored app code. Root generated/api remains linted after tsgen.
+    ignores: [
+      "crates/**",
+      "target/**",
+      "dist_wasm/**",
+      "containers/**",
+      "generated/wasm-export-check/**",
+    ],
   },
 ];

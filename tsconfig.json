@@ -23,6 +23,6 @@
 		"sourceMap": true,
 		"lib": ["es2020", "dom", "dom.iterable"]
 	},
-	"include": ["src/**/*.ts", "src/**/*.tsx"],
+	"include": ["src/**/*.ts", "src/**/*.tsx", "generated/**/*.ts"],
 	"exclude": ["node_modules", "dist", "dist_wasm", "target", "OTHER_REPOS"]
 }

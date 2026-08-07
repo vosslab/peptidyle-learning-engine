@@ -171,7 +171,7 @@ mod tests {
             },
             attempt_policy: AttemptPolicy {
                 max_attempts: None,
-                feedback: FeedbackDisclosure::Immediate,
+                feedback: FeedbackDisclosure::ImmediateFull,
             },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,

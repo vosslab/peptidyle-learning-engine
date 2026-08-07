@@ -1,5 +1,66 @@
-//! Answer-key storage and access (MOD-GRD).
+//! Server-only answer-key types (WP-C6, MOD-GRD).
 //!
-//! Implemented in M2. Two gates protect this module: the student-facing
-//! database role has no grant on any answer-key table, and `grading` is absent
-//! from the WASM dependency closure. Both are tested, not assumed.
+//! These values decide correctness or guide manual grading. They therefore
+//! stay in `grading`, outside the generated browser types and the WASM
+//! dependency closure.
+
+use std::collections::BTreeSet;
+
+use question_model::response::ChoiceId;
+use serde::{Deserialize, Serialize};
+
+/// Correct response material for one question version.
+///
+/// An ungraded question has no `AnswerKey`; it does not use a non-secret
+/// placeholder variant. Keeping every value here server-only makes the crate
+/// boundary easy to audit.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum AnswerKey {
+    /// Expected numeric value before the public tolerance is applied.
+    Numeric {
+        /// Correct numeric value.
+        expected: f64,
+    },
+    /// Correct selection identifiers.
+    MultipleChoice {
+        /// Exact correct set; order is irrelevant.
+        correct: BTreeSet<ChoiceId>,
+    },
+    /// Accepted short-text values before the public match mode is applied.
+    ShortText {
+        /// Accepted answers in authoring order.
+        accepted: Vec<String>,
+    },
+    /// Correct ordering of item identifiers.
+    Ordering {
+        /// Expected identifiers from first to last.
+        correct: Vec<ChoiceId>,
+    },
+    /// Private rubric for a server-routed manual review.
+    FileUpload {
+        /// Instructions visible to the grader, not the student client.
+        rubric: String,
+    },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn answer_values_serialize_only_inside_the_server_crate() {
+        let key = AnswerKey::MultipleChoice {
+            correct: BTreeSet::from([ChoiceId::new("peptide-bond")]),
+        };
+
+        assert_eq!(
+            serde_json::to_string(&key).expect("answer key should serialize"),
+            r#"{"kind":"multipleChoice","correct":["peptide-bond"]}"#
+        );
+    }
+}

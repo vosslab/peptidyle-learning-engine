@@ -7,7 +7,8 @@
 #   1. rust     cargo build for the workspace (the API server and every crate)
 #   2. wasm     crates/wasm compiled to WebAssembly, plus generated JS glue
 #   3. tsgen    TypeScript definitions generated from the Rust question model
-#   4. client   the Solid browser client bundled into dist/
+#   4. fixtures check tracked typed fixtures and generate the ignored TS view
+#   5. client   the Solid browser client bundled into dist/
 #
 # The order is not arbitrary. The client imports the generated types and the
 # WASM bridge, so both must exist before it bundles. Running a later stage
@@ -109,7 +110,14 @@ run_stage wasm ./pipeline/build_wasm.sh $WASM_PROFILE_FLAG
 #    compile against a stale shape.
 run_stage tsgen cargo run --quiet -p xtask -- tsgen
 
-# 4. The browser client. --skip-wasm because stage 2 already built the bridge.
+# 4. Verify intentional fixture evidence and refresh its derivative TS module.
+generate_fixture_projection() {
+	cargo run --quiet -p xtask -- fixtures --check &&
+		npx prettier --write --ignore-path .prettierignore generated/fixtures/published_problem.ts
+}
+run_stage fixtures generate_fixture_projection
+
+# 5. The browser client. --skip-wasm because stage 2 already built the bridge.
 run_stage client node pipeline/build.mjs --skip-wasm
 
 BUILD_END="$(now_seconds)"

@@ -5,7 +5,7 @@
 //! the same code run on the server and in the browser through `wasm_bridge`
 //! and makes the seed-parity test meaningful.
 
-/// Attempt lifecycle and data structures (MOD-RUN).
+/// Attempt state machine (MOD-STATE).
 pub mod attempt;
 /// Completion derivation within a run (MOD-STATE).
 pub mod completion;
@@ -13,7 +13,11 @@ pub mod completion;
 pub mod generator;
 /// Assignment configuration validation (MOD-CAP).
 pub mod policy;
-/// Score aggregation and grade display (MOD-SCORE).
+/// Continued-practice eligibility and shared run-model errors (MOD-RUN).
+pub mod run;
+/// Completed-run score selection and summary projection (MOD-SCORE).
 pub mod scoring;
 /// Timer verdict for time-limited attempts (MOD-TIME).
 pub mod timing;
+/// Browser-safe student-response format validation (MOD-GRD boundary).
+pub mod validation;

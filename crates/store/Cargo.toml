@@ -10,6 +10,7 @@ rust-version.workspace = true
 question_model.workspace = true
 domain.workspace = true
 objects.workspace = true
+async-trait.workspace = true
 serde.workspace = true
 
 # Enabled by the `postgres` feature so `MemoryStore` builds without a database.
@@ -18,3 +19,7 @@ sqlx = { workspace = true, optional = true }
 [features]
 default = []
 postgres = ["dep:sqlx"]
+
+[dev-dependencies]
+tokio.workspace = true
+uuid.workspace = true

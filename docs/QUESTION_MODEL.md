@@ -16,12 +16,12 @@ runs server-side and sits outside the WebAssembly dependency closure.
 
 Applied to answers, the split is:
 
-| Belongs here | Belongs in `crates/grading` |
-| --- | --- |
-| The tolerance a number is compared within | The expected value |
-| How text is compared (exact, case-insensitive, normalized) | The accepted text |
-| How many choices may be selected | Which choices are correct |
-| Whether partial credit applies, and the points available | The per-part weighting of a key |
+| Belongs here                                               | Belongs in `crates/grading`     |
+| ---------------------------------------------------------- | ------------------------------- |
+| The tolerance a number is compared within                  | The expected value              |
+| How text is compared (exact, case-insensitive, normalized) | The accepted text               |
+| How many choices may be selected                           | Which choices are correct       |
+| Whether partial credit applies, and the points available   | The per-part weighting of a key |
 
 Everything in the left column is shown to students anyway. Everything in the
 right column decides correctness.
@@ -59,23 +59,46 @@ An enum rather than eight booleans means a violation can name the capability it
 is about, and adding a ninth makes every exhaustive match stop compiling until
 it is handled.
 
+`domain::policy::validate_assignment_config` receives selected key-free
+question definitions, each adapter's declared capabilities, and any
+assignment-wide delivery requirements. It returns every missing
+question/capability pair in question order and capability declaration order.
+The editor calls it through WebAssembly and the publish route calls the same
+Rust function.
+
+Question definitions imply these requirements:
+
+| Question feature                  | Required backend capability         |
+| --------------------------------- | ----------------------------------- |
+| Seeded randomization              | `algorithmicGeneration`             |
+| All-or-nothing grading            | `serverGrading`                     |
+| Partial-credit grading            | `serverGrading` and `partialCredit` |
+| Immediate correctness with a hint | `hints`                             |
+| Per-question timer                | `perQuestionTiming`                 |
+| Untimed, ungraded static question | None                                |
+
+Assignment delivery can additionally require `clientRendering`, `printExport`,
+or `offlinePreview` from every selected backend. Duplicate requirements produce
+one violation. `crates/domain/tests/capability_violation_cases.json` is the
+reviewed table covering all eight capabilities and the return-all behavior.
+
 ### Question definition
 
 `QuestionDefinition` carries the fields the specification names:
 
-| Field | Type | Purpose |
-| --- | --- | --- |
-| `version` | `VersionId` | This immutable version |
-| `problem` | `Option<ProblemId>` | Present once published |
-| `workspace` | `WorkspaceId` | Authoring workspace |
-| `source` | `QuestionSource` | Which engine, and where to find it there |
-| `prompt` | `Vec<ContentBlock>` | Renderable content, in order |
-| `response` | `ResponseDefinition` | Expected response shape |
-| `attemptPolicy` | `AttemptPolicy` | Attempts allowed, feedback disclosure |
-| `timingPolicy` | `TimingPolicy` | Time limits, with grace |
-| `randomization` | `RandomizationDefinition` | How content varies |
-| `grading` | `GradingDefinition` | How a response is judged |
-| `metadata` | `QuestionMetadata` | Title, tags, taxonomy, license, language |
+| Field           | Type                      | Purpose                                  |
+| --------------- | ------------------------- | ---------------------------------------- |
+| `version`       | `VersionId`               | This immutable version                   |
+| `problem`       | `Option<ProblemId>`       | Present once published                   |
+| `workspace`     | `WorkspaceId`             | Authoring workspace                      |
+| `source`        | `QuestionSource`          | Which engine, and where to find it there |
+| `prompt`        | `Vec<ContentBlock>`       | Renderable content, in order             |
+| `response`      | `ResponseDefinition`      | Expected response shape                  |
+| `attemptPolicy` | `AttemptPolicy`           | Attempts allowed, feedback disclosure    |
+| `timingPolicy`  | `TimingPolicy`            | Time limits, with grace                  |
+| `randomization` | `RandomizationDefinition` | How content varies                       |
+| `grading`       | `GradingDefinition`       | How a response is judged                 |
+| `metadata`      | `QuestionMetadata`        | Title, tags, taxonomy, license, language |
 
 ### Response shapes
 
@@ -84,11 +107,10 @@ multiple choice, short text, ordering, file upload. Within a variant, invalid
 field combinations are unrepresentable, so a multiple-choice response carries
 choice identifiers and nothing else.
 
-Agreement *between* the two is one function, `StudentResponse::matches_shape`,
-which lives in this crate and runs identically in the browser and on the
-server. The browser catches a shape mismatch without issuing a request; the
-server repeats the check before grading, because a client-side check is a
-convenience rather than an authority.
+Agreement _between_ the two and variant-specific format rules live in
+`domain::validation::validate_response_format`. The browser calls that pure
+function through WebAssembly, and the server repeats it before grading. A
+client-side check is a convenience rather than an authority.
 
 Choices are compared by identifier, not by displayed label, so presenting them
 in a shuffled order leaves a submitted response meaningful.
@@ -109,6 +131,9 @@ error.
 Question-level policies are authored with the question: `AttemptPolicy`
 (attempts allowed, when feedback appears) and `TimingPolicy` (untimed, per
 question, or per attempt, each with a grace period for network delay).
+For timed work, `AttemptTimerRecord.deadline` is the server-issued base
+deadline. MOD-TIME applies any authorized, audited pause extension before it
+evaluates the inclusive grace boundary.
 
 The four run policies are chosen per assignment and are independent enums:
 `CompletionRequirement`, `GradePolicy`, `ContinuedPractice`, and
@@ -119,14 +144,22 @@ mode enum would offer a fixed menu instead.
 
 ### Generation
 
-`Seed` plus `RandomizationDefinition` fully determine a variant. Parameters are
-declared as `ParameterSpec` values rather than computed inline, so a preview
-can show an instructor the space a question draws from and the seed-vector
-corpus can cover every branch.
+`Seed` plus `RandomizationDefinition` fully determine a variant. A seeded
+definition pins a `GeneratorReference` containing both the generator ID and its
+additive version. Changing generator behavior therefore creates a new generator
+version instead of changing an existing published question underneath its
+assignments and historical attempts.
+
+Parameters are declared as `ParameterSpec` values rather than computed inline,
+so a preview can show an instructor the space a question draws from and the
+seed-vector corpus can cover every branch.
 
 `BTreeMap` holds parameters because iteration order reaches generated output,
 and byte-identical output on server and browser is what the WP-C5 parity gate
 requires.
+
+The exact sampling and parity rules are documented in
+`docs/DETERMINISM_CONTRACT.md`.
 
 ### Taxonomy and licensing
 
@@ -151,15 +184,15 @@ Unit-only enums serialize as plain strings:
 ```
 
 Two serde rules are in play and are easy to confuse. On an enum, `rename_all`
-renames the *variants*, while `rename_all_fields` renames the fields *inside*
+renames the _variants_, while `rename_all_fields` renames the fields _inside_
 variants. Both are set on every tagged enum here so the whole wire format is
 camelCase.
 
 ## Generated TypeScript
 
-`crates/xtask` reads this crate's source and writes TypeScript into
-`src/api/generated/`, one file per type. Regenerate with `./build.sh`, or
-`cargo tsgen` while iterating.
+`crates/xtask` reads this crate's source and writes TypeScript into the ignored
+root `generated/api/` directory, one file per type. Regenerate with `./build.sh`,
+or `cargo tsgen` while iterating.
 
 The rule for what gets exported is the boundary rule stated above: every public
 struct or enum that derives `Serialize` or `Deserialize`. A type that must stay
@@ -167,17 +200,17 @@ server-side stays out of the client bundle by not being serializable here.
 
 Mapping:
 
-| Rust | TypeScript |
-| --- | --- |
-| unit-only enum | string union |
-| tagged enum with data | discriminated union on the tag |
-| struct with named fields | object type |
-| newtype struct | alias to the inner type |
-| `Option<T>` | `T \| null` |
-| `Vec<T>`, `BTreeSet<T>` | `Array<T>` |
-| `BTreeMap<K, V>` | `Record<K, V>` |
-| `Uuid`, `String` | `string` |
-| integer and float types | `number` |
+| Rust                     | TypeScript                     |
+| ------------------------ | ------------------------------ |
+| unit-only enum           | string union                   |
+| tagged enum with data    | discriminated union on the tag |
+| struct with named fields | object type                    |
+| newtype struct           | alias to the inner type        |
+| `Option<T>`              | `T \| null`                    |
+| `Vec<T>`, `BTreeSet<T>`  | `Array<T>`                     |
+| `BTreeMap<K, V>`         | `Record<K, V>`                 |
+| `Uuid`, `String`         | `string`                       |
+| integer and float types  | `number`                       |
 
 The generated files pass `tsc --noEmit`, ESLint, and `prettier --check`
 unchanged, which is why the generator emits Prettier-shaped output rather than

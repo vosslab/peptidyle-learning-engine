@@ -1,9 +1,27 @@
-//! Row-level security policies and tenant context (MOD-SCHEMA).
-//!
-//! Implemented in M2. This module owns the one path that sets the tenant
-//! context for a connection, so there is exactly one place to audit.
-//!
-//! The context is derived from the authenticated session. It is never read
-//! from a request parameter, a header, or a JSON body -- a client that can
-//! name its own tenant has no isolation at all. The M2 gate is a foreign
-//! tenant context returning zero rows.
+//! Explicit tenant context for every educational-record operation (WP-C4).
+
+use question_model::TenantId;
+
+/// Tenant identity derived from an authenticated server-side session.
+///
+/// There is no `Default` implementation. Every tenant-owned store operation
+/// requires a context value, so omitting tenancy cannot compile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TenantContext {
+    tenant: TenantId,
+}
+
+impl TenantContext {
+    /// Creates context at the authenticated session boundary.
+    ///
+    /// Request parameters, headers, and JSON bodies must never call this. The
+    /// server auth module is the sole production construction site.
+    pub fn from_authenticated_session(tenant: TenantId) -> Self {
+        Self { tenant }
+    }
+
+    /// Tenant supplied to storage and PostgreSQL RLS session state.
+    pub fn tenant_id(&self) -> TenantId {
+        self.tenant
+    }
+}
