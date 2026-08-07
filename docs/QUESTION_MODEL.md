@@ -1,0 +1,197 @@
+# Question model
+
+The backend-neutral representation every question engine maps into (MOD-QM,
+WP-C1). It lives in `crates/question_model` and is the root contract: adapters
+translate into it, and everything downstream reads only it.
+
+One shared shape is what lets a WeBWorK problem, a QTI item, an H5P activity,
+and a first-party algorithmic question flow through the same attempt loop,
+gradebook, and export path.
+
+## The rule for what belongs here
+
+A type belongs in this crate when a browser may safely see it. A type that
+would let a caller learn a correct response belongs in `crates/grading`, which
+runs server-side and sits outside the WebAssembly dependency closure.
+
+Applied to answers, the split is:
+
+| Belongs here | Belongs in `crates/grading` |
+| --- | --- |
+| The tolerance a number is compared within | The expected value |
+| How text is compared (exact, case-insensitive, normalized) | The accepted text |
+| How many choices may be selected | Which choices are correct |
+| Whether partial credit applies, and the points available | The per-part weighting of a key |
+
+Everything in the left column is shown to students anyway. Everything in the
+right column decides correctness.
+
+## Types
+
+### Identity
+
+`WorkspaceId`, `ProblemId`, `VersionId`, and `AssetId` are distinct newtypes
+over `Uuid`. They cannot substitute for one another, so passing a draft
+identifier where published content is expected fails to compile.
+
+Identifiers are UUIDv7: random enough that a catalog number reveals no volume
+information, time-ordered enough to index well, never sequential. Minting sits
+behind the `generate` feature, which the server enables and the WebAssembly
+bridge leaves off, because identifiers are created server-side on the publish
+transition.
+
+The draft rule is carried by the type rather than a flag:
+`QuestionDefinition::problem` is `Option<ProblemId>`, and `is_draft()` reads
+that option. There is no separate boolean to fall out of sync with it.
+
+### Capabilities
+
+`Capability` has the specification's eight variants, and `BackendCapabilities`
+is a set of them. The support question has exactly one implementation,
+`supports`, and `missing_from` returns every gap rather than the first, because
+an instructor fixing an assignment wants the whole list.
+
+The eight: `algorithmicGeneration`, `clientRendering`, `serverGrading`,
+`partialCredit`, `hints`, `perQuestionTiming`, `printExport`,
+`offlinePreview`.
+
+An enum rather than eight booleans means a violation can name the capability it
+is about, and adding a ninth makes every exhaustive match stop compiling until
+it is handled.
+
+### Question definition
+
+`QuestionDefinition` carries the fields the specification names:
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `version` | `VersionId` | This immutable version |
+| `problem` | `Option<ProblemId>` | Present once published |
+| `workspace` | `WorkspaceId` | Authoring workspace |
+| `source` | `QuestionSource` | Which engine, and where to find it there |
+| `prompt` | `Vec<ContentBlock>` | Renderable content, in order |
+| `response` | `ResponseDefinition` | Expected response shape |
+| `attemptPolicy` | `AttemptPolicy` | Attempts allowed, feedback disclosure |
+| `timingPolicy` | `TimingPolicy` | Time limits, with grace |
+| `randomization` | `RandomizationDefinition` | How content varies |
+| `grading` | `GradingDefinition` | How a response is judged |
+| `metadata` | `QuestionMetadata` | Title, tags, taxonomy, license, language |
+
+### Response shapes
+
+`ResponseDefinition` and `StudentResponse` are parallel enums: numeric,
+multiple choice, short text, ordering, file upload. Within a variant, invalid
+field combinations are unrepresentable, so a multiple-choice response carries
+choice identifiers and nothing else.
+
+Agreement *between* the two is one function, `StudentResponse::matches_shape`,
+which lives in this crate and runs identically in the browser and on the
+server. The browser catches a shape mismatch without issuing a request; the
+server repeats the check before grading, because a client-side check is a
+convenience rather than an authority.
+
+Choices are compared by identifier, not by displayed label, so presenting them
+in a shuffled order leaves a submitted response meaningful.
+
+### Content blocks
+
+`ContentBlock` is a closed set: text, math, image, code, table. Closed so the
+renderer's match is exhaustive and adding a kind points the compiler at the
+renderer.
+
+Every variant carrying visual content also carries a required description.
+Required rather than optional: a figure with no description is unusable with a
+screen reader, and MOD-UI-RENDER surfaces a missing description as an authoring
+error.
+
+### Policies
+
+Question-level policies are authored with the question: `AttemptPolicy`
+(attempts allowed, when feedback appears) and `TimingPolicy` (untimed, per
+question, or per attempt, each with a grace period for network delay).
+
+The four run policies are chosen per assignment and are independent enums:
+`CompletionRequirement`, `GradePolicy`, `ContinuedPractice`, and
+`VariationPolicy`. They stay independent so an instructor can express "mastery
+required, highest score kept, practice allowed after completion with fresh
+seeds", which is the behavior students were observed using. A single combined
+mode enum would offer a fixed menu instead.
+
+### Generation
+
+`Seed` plus `RandomizationDefinition` fully determine a variant. Parameters are
+declared as `ParameterSpec` values rather than computed inline, so a preview
+can show an instructor the space a question draws from and the seed-vector
+corpus can cover every branch.
+
+`BTreeMap` holds parameters because iteration order reaches generated output,
+and byte-identical output on server and browser is what the WP-C5 parity gate
+requires.
+
+### Taxonomy and licensing
+
+`Tag` for free-form search labels, `TaxonomyTerm` for controlled vocabularies
+that survive export, and `License` as an enum so an export can decide in code
+whether redistribution is permitted. `License::Other` carries an SPDX
+identifier, which keeps unusual terms representable as themselves.
+
+## Wire format
+
+Serialization is JSON with camelCase field names. Enums carrying data are
+internally tagged, so a client can switch on one discriminant:
+
+```json
+{ "kind": "perAttempt", "seconds": 1800, "graceSeconds": 30 }
+```
+
+Unit-only enums serialize as plain strings:
+
+```json
+"caseInsensitive"
+```
+
+Two serde rules are in play and are easy to confuse. On an enum, `rename_all`
+renames the *variants*, while `rename_all_fields` renames the fields *inside*
+variants. Both are set on every tagged enum here so the whole wire format is
+camelCase.
+
+## Generated TypeScript
+
+`crates/xtask` reads this crate's source and writes TypeScript into
+`src/api/generated/`, one file per type. Regenerate with `./build.sh`, or
+`cargo tsgen` while iterating.
+
+The rule for what gets exported is the boundary rule stated above: every public
+struct or enum that derives `Serialize` or `Deserialize`. A type that must stay
+server-side stays out of the client bundle by not being serializable here.
+
+Mapping:
+
+| Rust | TypeScript |
+| --- | --- |
+| unit-only enum | string union |
+| tagged enum with data | discriminated union on the tag |
+| struct with named fields | object type |
+| newtype struct | alias to the inner type |
+| `Option<T>` | `T \| null` |
+| `Vec<T>`, `BTreeSet<T>` | `Array<T>` |
+| `BTreeMap<K, V>` | `Record<K, V>` |
+| `Uuid`, `String` | `string` |
+| integer and float types | `number` |
+
+The generated files pass `tsc --noEmit`, ESLint, and `prettier --check`
+unchanged, which is why the generator emits Prettier-shaped output rather than
+relying on a reformatting pass.
+
+An enum carrying data is required to declare `#[serde(tag = "...")]`. The
+generator refuses an untagged one, because serde's externally tagged form
+produces TypeScript a client cannot switch on cleanly.
+
+## Related documents
+
+- [active_plans/implementation_plan.md](active_plans/implementation_plan.md):
+  the milestone plan and the module catalog.
+- [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md): crate boundaries and the two
+  guarantees the structure enforces.
+- [RUST_STYLE.md](RUST_STYLE.md): section 9 on encoding invalid states out of
+  existence, which is the rule the capability and policy types follow.

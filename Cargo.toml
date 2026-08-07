@@ -41,7 +41,14 @@ syn = { version = "2", features = ["full", "extra-traits"] }
 
 # UUIDv7 for external identifiers: random enough that a catalog number leaks no
 # volume information, time-ordered enough to index well. Never sequential.
-uuid = { version = "1", features = ["v7", "serde"] }
+#
+# No `v7` feature here on purpose. `v7` pulls a random number generator, and on
+# wasm32 that fails to build without an explicit browser randomness source.
+# That build error is telling the truth: the browser does not mint identifiers.
+# A ProblemId is constructed on the publish transition, server-side. Generation
+# is therefore gated behind `question_model/generate`, which the server enables
+# and the WASM bridge does not.
+uuid = { version = "1", default-features = false, features = ["serde", "std"] }
 
 # `chrono` is deliberately clock-free: `default-features = false` drops the
 # `clock` and `now` features, so no member can read the wall clock. Time enters

@@ -12,7 +12,9 @@ axum.workspace = true
 tokio.workspace = true
 serde_json.workspace = true
 
-question_model.workspace = true
+# `generate` turns on identifier minting, which happens on the publish
+# transition and nowhere else. The WASM bridge deliberately does not enable it.
+question_model = { workspace = true, features = ["generate"] }
 domain.workspace = true
 grading.workspace = true
 # Feature flags, not direct dependencies: the sqlx driver stays inside `store`

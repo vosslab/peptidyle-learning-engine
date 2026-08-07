@@ -15,8 +15,12 @@
 #
 # Timing: each stage is measured and reported at the end. The numbers are ours
 # rather than cargo's because cargo only sees its own stage, and the useful
-# question is where the whole build spends its time. Treat the summary as data:
-# when a stage grows, that is evidence about the design, not just a slow day.
+# question is where the whole build spends its time.
+#
+# Treat the timings as information. They report where time went so a stage that
+# grows becomes visible and can be investigated. Build time varies with cache
+# state, machine load, and what changed, so read the numbers as a trend across
+# runs on one machine. Correctness gates live in ./check_codebase.sh.
 #
 # Flags:
 #   --release    optimized build (slower to build, what you ship)

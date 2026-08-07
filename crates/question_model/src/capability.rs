@@ -4,26 +4,24 @@
 //! declaration to refuse an assignment configuration *before* publication,
 //! rather than failing in front of a student.
 //!
-//! Design rule from `docs/RUST_STYLE.md` section 9: a capability is not a bare
-//! `bool` that two call sites have to re-check. It is a variant of
-//! [`Capability`], and the question "does this backend support it?" has exactly
-//! one implementation, [`BackendCapabilities::supports`]. Adding a capability
-//! means adding a variant, and every exhaustive `match` over it stops
-//! compiling until it is handled.
+//! Design rule from `docs/RUST_STYLE.md` section 9: a capability is a variant
+//! of [`Capability`], and the question "does this backend support it?" has
+//! exactly one implementation, [`BackendCapabilities::supports`]. Adding a
+//! capability means adding a variant, and every exhaustive `match` over it
+//! stops compiling until it is handled, so the compiler finds the call sites
+//! that need updating.
 
 use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 /// One thing a question backend either can or cannot do.
 ///
 /// The eight variants are the specification's capability set. They are an enum
 /// rather than eight struct fields so a caller cannot invent a ninth, and so
 /// violations can name the capability they are about.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
 pub enum Capability {
     /// Generates fresh parameters per seed, so each student sees a variant.
     AlgorithmicGeneration,
@@ -84,6 +82,10 @@ impl Capability {
 /// deterministic, which matters because these values are serialized into the
 /// reproducibility record and compared.
 ///
+/// It is a newtype rather than a struct with a named field so serde and the
+/// TypeScript generator both treat it as the underlying set: the generated
+/// type is `Array<Capability>`, not `{ supported: Array<Capability> }`.
+///
 /// # Examples
 ///
 /// ```
@@ -99,11 +101,7 @@ impl Capability {
 ///     vec![Capability::ServerGrading],
 /// );
 /// ```
-/// A newtype rather than a struct with a named field so both serde and ts-rs
-/// treat it as the underlying set: the generated TypeScript is
-/// `Capability[]`, not `{ supported: Capability[] }`.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BackendCapabilities(BTreeSet<Capability>);
 
 impl BackendCapabilities {
@@ -126,10 +124,7 @@ impl BackendCapabilities {
     /// Returns every missing capability rather than the first, because an
     /// instructor fixing an assignment wants the whole list, not one error per
     /// save.
-    pub fn missing_from(
-        &self,
-        required: impl IntoIterator<Item = Capability>,
-    ) -> Vec<Capability> {
+    pub fn missing_from(&self, required: impl IntoIterator<Item = Capability>) -> Vec<Capability> {
         required
             .into_iter()
             .filter(|capability| !self.supports(*capability))

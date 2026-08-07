@@ -16,4 +16,5 @@ publish = false
 
 [dependencies]
 anyhow.workspace = true
+syn.workspace = true
 wasm-bindgen-cli-support = "0.2"

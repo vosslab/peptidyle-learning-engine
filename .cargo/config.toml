@@ -1,14 +1,10 @@
 # Cargo configuration for this workspace.
+#
+# Committed, not ignored: this is project configuration in the same sense as
+# tsconfig.json. Cargo's caches live in ~/.cargo, never in the repository.
 
-[env]
-# Where ts-rs writes the generated TypeScript definitions.
-#
-# It points into the browser client's source tree on purpose: the generated
-# types are what the client compiles against, so they must sit inside
-# tsconfig.json's include list and pass the same typecheck, ESLint, and
-# Prettier gates as hand-written code. Generated code that lives outside the
-# gates is generated code nobody notices breaking.
-#
-# Regenerate with: cargo test --workspace
-# `relative = true` resolves against this file's parent directory, the repo root.
-TS_RS_EXPORT_DIR = { value = "src/api/generated", relative = true }
+[alias]
+# Regenerate the TypeScript definitions from the Rust question model.
+# ./build.sh runs this as its tsgen stage; the alias is for running it alone
+# while iterating on the model.
+tsgen = "run --quiet -p xtask -- tsgen"
