@@ -1,7 +1,9 @@
 //! Typed bucket and key construction (WP-C4, MOD-OBJ).
 
 use question_model::generation::Seed;
-use question_model::{AssetId, ObjectId, ProblemId, TenantId, VersionId};
+use question_model::{
+    AssetId, ObjectId, ProblemId, TenantId, VersionId, WorkspaceId, WorkspaceImportId,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::ObjectCategory;
@@ -40,6 +42,37 @@ impl Bucket {
     rename_all_fields = "camelCase"
 )]
 pub enum ObjectKey {
+    /// Original bytes for a private workspace import.
+    ///
+    /// This intentionally uses the content bucket for immutable durable bytes,
+    /// but it is not a catalog asset and must never be exposed through CDN or
+    /// catalog asset delivery.
+    WorkspaceSource {
+        /// Tenant which owns the private workspace.
+        tenant: TenantId,
+        /// Private authoring workspace.
+        workspace: WorkspaceId,
+        /// Staged import identity.
+        import: WorkspaceImportId,
+        /// Physical object-record identity.
+        object: ObjectId,
+    },
+    /// A verified logical asset extracted from a private workspace import.
+    ///
+    /// Like [`Self::WorkspaceSource`], this is durable content-bucket storage
+    /// but not a CDN or catalog-delivery candidate.
+    WorkspaceAsset {
+        /// Tenant which owns the private workspace.
+        tenant: TenantId,
+        /// Private authoring workspace.
+        workspace: WorkspaceId,
+        /// Staged import identity.
+        import: WorkspaceImportId,
+        /// Logical asset referenced by imported draft content.
+        asset: AssetId,
+        /// Physical object-record identity.
+        object: ObjectId,
+    },
     /// An original source package for a published version.
     ProblemSource {
         /// Published problem identity.
@@ -89,9 +122,11 @@ impl ObjectKey {
     /// Bucket selected by this semantic key.
     pub fn bucket(&self) -> Bucket {
         match self {
-            Self::ProblemSource { .. } | Self::ProblemAsset { .. } | Self::ProblemRender { .. } => {
-                Bucket::Content
-            }
+            Self::WorkspaceSource { .. }
+            | Self::WorkspaceAsset { .. }
+            | Self::ProblemSource { .. }
+            | Self::ProblemAsset { .. }
+            | Self::ProblemRender { .. } => Bucket::Content,
             Self::StudentRecord { .. } => Bucket::StudentRecords,
             Self::Temporary { .. } => Bucket::TempProcessing,
         }
@@ -100,6 +135,21 @@ impl ObjectKey {
     /// Immutable path derived only from typed identity components.
     pub fn path(&self) -> String {
         match self {
+            Self::WorkspaceSource {
+                tenant,
+                workspace,
+                import,
+                object,
+            } => format!("workspaces/{tenant}/{workspace}/imports/{import}/source/{object}"),
+            Self::WorkspaceAsset {
+                tenant,
+                workspace,
+                import,
+                asset,
+                object,
+            } => {
+                format!("workspaces/{tenant}/{workspace}/imports/{import}/assets/{asset}/{object}")
+            }
             Self::ProblemSource {
                 problem,
                 version,
@@ -130,7 +180,9 @@ impl ObjectKey {
     /// Object-record identity embedded in the key.
     pub fn object_id(&self) -> ObjectId {
         match self {
-            Self::ProblemSource { object, .. }
+            Self::WorkspaceSource { object, .. }
+            | Self::WorkspaceAsset { object, .. }
+            | Self::ProblemSource { object, .. }
             | Self::ProblemAsset { object, .. }
             | Self::ProblemRender { object, .. }
             | Self::StudentRecord { object, .. }
@@ -141,6 +193,8 @@ impl ObjectKey {
     /// Semantic category implied by the key shape.
     pub fn category(&self) -> ObjectCategory {
         match self {
+            Self::WorkspaceSource { .. } => ObjectCategory::Source,
+            Self::WorkspaceAsset { .. } => ObjectCategory::Asset,
             Self::ProblemSource { .. } => ObjectCategory::Source,
             Self::ProblemAsset { .. } => ObjectCategory::Asset,
             Self::ProblemRender { .. } => ObjectCategory::Render,
@@ -155,7 +209,26 @@ impl ObjectKey {
             Self::ProblemSource { version, .. }
             | Self::ProblemAsset { version, .. }
             | Self::ProblemRender { version, .. } => Some(*version),
-            Self::StudentRecord { .. } | Self::Temporary { .. } => None,
+            Self::WorkspaceSource { .. }
+            | Self::WorkspaceAsset { .. }
+            | Self::StudentRecord { .. }
+            | Self::Temporary { .. } => None,
         }
+    }
+
+    /// Whether this semantic object may receive a direct delivery URL.
+    ///
+    /// Workspace imports remain private staging records even though their
+    /// immutable bytes live in the content bucket. Only a separately
+    /// authorized workspace-preview service may read them; generic catalog or
+    /// CDN URL issuance must reject them.
+    pub fn may_issue_signed_url(&self) -> bool {
+        matches!(
+            self,
+            Self::ProblemSource { .. }
+                | Self::ProblemAsset { .. }
+                | Self::ProblemRender { .. }
+                | Self::StudentRecord { .. }
+        )
     }
 }

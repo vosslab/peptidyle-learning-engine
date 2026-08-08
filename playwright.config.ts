@@ -14,7 +14,7 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: `python3 -m http.server ${PORT} --directory dist`,
+    command: `node tools/mock_preview_server.mjs ${PORT}`,
     url: `http://127.0.0.1:${PORT}/`,
     reuseExistingServer: false,
     timeout: 30_000,

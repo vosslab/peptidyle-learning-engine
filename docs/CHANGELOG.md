@@ -1,9 +1,186 @@
 # Changelog
 
+## 2026-08-08
+
+### Additions and New Features
+
+- Added the MOD-RETENTION R1-R4.1 foundation: configurable 30/100/365-day
+  course-end snapshots behind stored-session, broker-only authority; an
+  authoritative scheduler that binds each due current-generation stage to one
+  closed queue job; a due/lease/generation-fenced, key-free worker; and exact
+  `StudentRecord` cleanup that prevents queued exports from resurrecting
+  delivery. Administrators may extend only future unstarted stages, while an
+  instructor or administrator may choose the archive-time assignment
+  disposition before archive work begins. The durable in-app
+  archive/delete/extend intent contains no learner data, and lifecycle remains
+  Active until later R4 slices perform access gating and whole-record purge.
+- Added the revisioned MOD-RETENTION R4.2 management API. Authorized course
+  instructors can end retention tracking and request archive or deletion,
+  while tenant administrators can also extend the schedule. Strong ETags,
+  Store-owned compare-and-swap, durable replay receipts, strict request bodies,
+  fixed notification copy, non-enumerating authorization, and `no-store`
+  responses keep retries safe without exposing learner, job, object, or lease
+  state. Course lifecycle deliberately remains Active until the later access
+  and purge slices complete their real transitions.
+- Added instructor-created frozen assignment export snapshots. The worker
+  atomically leases, produces, and commits four prompt-only DOCX, PDF, and
+  accessibility artifacts; requester-only protected downloads and RLS keep
+  each export tenant-owned.
+- Added opt-in production QTI runtime registration. It requires the exact
+  `PLE_QTI_RUNTIME_ENABLED=1` and separate `PLE_GRADER_DATABASE_URL` pair,
+  constructs a dedicated `ple_qti_grader` pool before routing, and dispatches
+  only persisted QTI sources through the immutable-archive backend. Partial
+  configuration fails closed; disabled, foreign, and non-QTI dispatches cannot
+  reach private grading material.
+- Added a private, bytes-first QTI staging pipeline. A closed queue payload
+  binds tenant, workspace, import, and source-object IDs; the worker parses
+  only that durable ZIP, stores deterministic-key extracted assets, and keeps
+  answer bindings in the dedicated grader boundary. PostgreSQL exposes the
+  registry and grading material only through an exact active-lease atomic
+  promotion capability, leaving failed preparation as reconciliable object
+  orphans rather than visible educational records. The dedicated authenticated
+  QTI publication route validates committed staging before minting identities,
+  copies source and selected-asset bytes to candidate published keys, and
+  leaves generic catalog publication QTI-closed.
+- Added the production-independent published QTI run backend. It reparses the
+  exact checksum-pinned archive and revalidates every referenced asset before
+  issuing, replaying, or grading through normal server run semantics; answer
+  bindings are read only through the separately injected dedicated grader
+  handle. Browser receipts remain key-free, and production composition/
+  registration is the next QTI task.
+- Added tenant-owned, server-private teaching feedback beside the first
+  submission receipt. Immediate-full and immediate-correctness responses are
+  projected through one disclosure policy, while deferred and on-release
+  feedback remain absent until the server authorizes disclosure; browser
+  contracts never contain private feedback, answer keys, or grading material.
+- Added immutable receipt-time run and summary snapshots for PostgreSQL
+  idempotency replay. A deferred first submission now replays byte-for-byte
+  unchanged after a later question completes the run, matching the MemoryStore
+  behavior instead of recalculating disclosure from newer state.
+- Added bounded catalog search and immutable version detail routes with
+  server-supplied taxonomy, capability, license, and statistics-availability
+  facets. Memory and PostgreSQL share query-bound keyset behavior, tenant
+  visibility, safe hot-metadata projections, and explicit unavailable
+  statistics until the aggregate subsystem lands.
+- Replaced the library placeholder with the live, cursor-paged catalog route
+  and exact immutable detail/lineage page. The virtualized browser keeps a
+  bounded DOM, preserves server facets across later-page recovery, discards
+  stale searches, and never fetches the whole catalog to derive counts.
+- Added durable private workspace ownership and optimistic revisions for
+  authoring drafts. Owners may publish or delete; explicitly bound
+  collaborators may read and revise; other instructors in the same tenant see
+  no workspace. Strong ETag/If-Match checks prevent stale tabs from silently
+  overwriting or deleting newer edits, and legacy drafts with no trustworthy
+  owner remain inaccessible until an authorized migration resolves them.
+  Server validation and semantic diff bind the saved draft revision; publish
+  requires that exact reviewed strong `If-Match` value and rechecks it
+  atomically. The editor saves before review, shows the exact proposed title,
+  and requires a fresh review after a conflict.
+- Added an explicit protected instructor author-preview for saved workspace
+  drafts. It binds owner/collaborator access and the exact saved ETag before
+  returning reviewed display-ready correct-response and rationale blocks for
+  supported native families. Unsupported and external sources are explicitly
+  unavailable; the ordinary browser/WASM preview remains key-free.
+- Added the authoritative assignment editor and revisioned course-assignment
+  API. Instructors select ordered immutable catalog versions and edit the four
+  assignment-level run policies; question timing and attempt policies remain
+  immutable version properties. The server re-resolves catalog visibility,
+  lifecycle, and persisted capabilities before an atomic `If-Match` update,
+  returns every safe capability violation, and preserves edits through stale,
+  validation, and network recovery.
+- Added durable next-question prefetch without starting question N+1 early.
+  The Store reserves a key-free server-owned variation, submission atomically
+  promotes it into the real attempt and timer, and the immutable first receipt
+  carries only a minimal successor descriptor. Replica recovery heals only an
+  exact pending predecessor. The browser keeps the envelope in memory, warms
+  at most 12 same-origin logical assets, and uses it only after an exact receipt
+  match; mismatch, outage, and route teardown fall back without losing feedback.
+- Added immutable, content-free instructor feedback-release records for
+  `onRelease` questions. Both stores derive direct course-instructor authority,
+  retain the original POST receipt unchanged, and expose current release state
+  only inside the tenant boundary; tenant-administrator release remains a
+  later authenticated server-composition task rather than a caller assertion.
+- Added the current-state run summary route and learner page. The server alone
+  applies all four feedback policies and release records, while the browser
+  consumes a recursively strict, cursor-paged projection with no question
+  source, provenance, private feedback, or grading key. The completed-run view
+  survives page and practice-start failures and can start a server-authorized
+  31st practice run without altering an earlier submission receipt.
+- Added an adapter-owned contracted iMathAS scored-embed provider boundary.
+  It revalidates the immutable source, signs an exact per-launch nonce and
+  attempt binding, retrieves bounded results through a protected transport,
+  and refuses generic hosted MyOpenMath or unbound provider/source pairs.
+- Added the learner external-tool response surface. It fetches a protected
+  same-origin launch only after activation, accepts only an exact
+  attempt-bound readiness message from the current frame, and submits the
+  empty external-tool marker; browser messages cannot supply a score,
+  provider identity, token, answer, or correctness decision.
+- Added the protected iMathAS launch route. Provider session state stays
+  encrypted and server-held behind a fixed HttpOnly cookie; every activity
+  request rechecks tenant, owner, attempt, immutable source, and provenance.
+  Only a successful nonce-protected activity document can emit the exact
+  readiness handshake, while expired, revoked, copied, tampered, and outage
+  responses remain opaque and cannot report a false ready state.
+- Added optional production registration for an explicitly contracted,
+  self-hosted iMathAS provider. Startup validates all provider settings and
+  constructs only private redirect-free clients; absent configuration leaves
+  iMathAS routes unregistered, while provider outages remain question-local.
+- Added the tenant-safe course gradebook summary boundary: a cursor-paged
+  `GradebookSummaryRow` joins only assignments, enrollments, and maintained
+  `StudentAssignmentSummary` records. The API, strict browser decoder, and
+  mock return no attempt history, responses, feedback, grading material, or
+  question content. Course instructors and tenant administrators may read it;
+  students receive 403 and unrelated courses remain absent.
+- Gradebook cursors now encode the native assignment/enrollment UUID tuple.
+  PostgreSQL compares and orders that tuple directly, keeping the cursor path
+  aligned with its assignment and enrollment page indexes instead of sorting
+  text-concatenated identifiers.
+
+### Developer Tests and Notes
+
+- Added all-four-policy native submission and browser feedback matrices,
+  recursive strict receipt decoding, raw-JSON secrecy checks, foreign-tenant
+  refusal, and a two-question deferred replay test that remains identical
+  after run completion. Live PostgreSQL execution remains an opt-in gate.
+- Added a 51-attempt Store paging gate and a mounted 31-outcome run-summary
+  gate. They prove tenant/run-bound cursor integrity, exact continuation with
+  no duplicates, retained rows across a failed later page, and recovery from a
+  failed fresh-practice request without client-side disclosure inference.
+- Added a 10,000-problem catalog behavior gate covering bounded pages, stable
+  opaque cursors, tamper and query-mismatch refusal, aggregate facets, no
+  duplicates, and tenant isolation. Static PostgreSQL checks prohibit
+  `OFFSET`; a representative live `EXPLAIN` remains an environment-dependent
+  release-readiness check.
+- Added mounted external-tool behavior tests for lazy launch, copied and
+  foreign-frame messages, unknown fields, outage/retry isolation, and exact
+  marker-only submission through its launch-scoped child route. The mock
+  boundary enforces the same strict marker and idempotency grammar without
+  fabricating a provider grade.
+- Added memory and PostgreSQL-feature scale gates for the summary-only query,
+  including tenant/course isolation, stable cursors, empty summaries, and a
+  static SQL guard against history scans or aggregates. The representative
+  PostgreSQL EXPLAIN/index inspection remains a one-time check pending a
+  configured `PLE_POSTGRES_TEST_URL`.
+- Added assignment-editor conformance and mounted browser gates covering
+  revisioned create/read/update, wrong-course and foreign non-enumeration,
+  published/deprecated versus archived lifecycle handling, strict nested JSON,
+  ordered immutable references, all capability violations, stale-write
+  recovery, keyboard operation, and the 420-pixel layout.
+- Added Store, HTTP, WebWork, mock, and mounted-browser prefetch gates. They
+  cover concurrent idempotent reservation, exact predecessor promotion,
+  immutable replay after later progress, process-crash healing, foreign and RLS
+  isolation, backend-owned rendered hashes, 204 exhaustion, strict body and JSON
+  boundaries, cache-hit zero-fanout advance, online retry, bounded asset warming,
+  storage secrecy, and late-abort isolation across the 31st run.
+
 ## 2026-08-07
 
 ### Additions and New Features
 
+- Added one shared, non-mutating learner-title policy for published question
+  metadata and issued envelopes: titles require non-whitespace content and at
+  most 512 Unicode scalar values. Draft persistence, publication, adapters,
+  render caches, and the strict browser decoder now enforce the same boundary.
 - Completed MOD-CLIENT with a strict same-origin HTTP implementation of the
   browser `ApiClient`. Successful response bodies enter as `unknown` and pass
   exhaustive field-by-field decoders; malformed UUIDs, timestamps, numeric

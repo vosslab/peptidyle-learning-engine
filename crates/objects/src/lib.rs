@@ -46,6 +46,14 @@ impl Sha256Digest {
         Self(Sha256::digest(bytes).into())
     }
 
+    /// Rebuilds a digest from its already-verified fixed-width representation.
+    ///
+    /// Storage adapters use this when decoding a `bytea` checksum; hashing the
+    /// checksum bytes again would silently change the authenticated value.
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+
     /// Returns the fixed 32-byte digest.
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.0

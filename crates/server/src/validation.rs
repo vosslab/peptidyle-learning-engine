@@ -128,7 +128,7 @@ mod tests {
     use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
     use question_model::taxonomy::License;
     use question_model::{
-        ActivityTimestamp, BackendCapabilities, GradingDefinition, QuestionDefinition,
+        ActivityTimestamp, BackendCapabilities, GradingDefinition, ProblemId, QuestionDefinition,
         QuestionMetadata, QuestionSource, TenantId, UserId, UserRole, VersionId, WorkspaceId,
     };
     use store::memory::MemoryStore;
@@ -169,7 +169,7 @@ mod tests {
     fn question() -> QuestionDefinition {
         QuestionDefinition {
             version: VersionId::from_uuid(id(10)),
-            problem: None,
+            problem: ProblemId::from_uuid(id(9)),
             workspace: WorkspaceId::from_uuid(id(11)),
             source: QuestionSource::Native {
                 family: "validation-fixture".to_string(),

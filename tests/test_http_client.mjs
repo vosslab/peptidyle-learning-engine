@@ -5,8 +5,17 @@ import test from "node:test";
 
 import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
 import { DecodeError } from "../src/api/decoder.ts";
+import {
+  decodeDraftQuestionDefinition,
+  decodeExternalToolLaunch,
+  decodeGradebookPage,
+  decodeQuestionAttempt,
+  decodeQuestionDefinition,
+  decodeQuestionEnvelope,
+} from "../src/api/decoders.ts";
 import { ApiProtocolError, ApiRequestError, createHttpApiClient } from "../src/api/http_client.ts";
-import { createMockFetch } from "../src/api/mock/handlers.ts";
+import { createMockFetch, issuedEnvelopeForAttempt } from "../src/api/mock/handlers.ts";
+import { validateResponseFormatInMock } from "../src/api/mock/format_validation.ts";
 
 function jsonResponse(value, status = 200) {
   return new Response(JSON.stringify(value), {
@@ -44,6 +53,288 @@ function createFixtureFetch() {
   return { fixtureFetch, requests };
 }
 
+test("question decoders reject published, grading, and provider-secret fields instead of dropping them", () => {
+  const draft = publishedProblemFixture.draft;
+  assert.deepEqual(decodeDraftQuestionDefinition(draft).source, draft.source);
+
+  for (const forbidden of [
+    "problem",
+    "version",
+    "answer",
+    "answerKey",
+    "sourceArtifact",
+    "launch",
+  ]) {
+    assert.throws(
+      () => decodeDraftQuestionDefinition({ ...draft, [forbidden]: "server-only" }),
+      DecodeError,
+      `draft must reject ${forbidden}`,
+    );
+  }
+  assert.throws(
+    () =>
+      decodeDraftQuestionDefinition({
+        ...draft,
+        source: { backend: "imathas", provider: "institution", itemRef: "42", token: "secret" },
+      }),
+    DecodeError,
+    "draft source must reject a provider secret",
+  );
+  assert.throws(
+    () =>
+      decodeQuestionDefinition({ ...publishedProblemFixture.publishedProblem, answer: "secret" }),
+    DecodeError,
+    "published definition must reject an answer field",
+  );
+});
+
+test("external-tool response markers are exact and cannot carry browser provider material", () => {
+  const envelope = {
+    version: "0198e000-0000-7000-8000-000000000004",
+    seed: 2,
+    title: "External practice item",
+    prompt: [],
+    response: { kind: "externalTool" },
+  };
+  assert.deepEqual(decodeQuestionEnvelope(envelope).response, { kind: "externalTool" });
+
+  for (const invalidTitle of ["", " \t\n", "x".repeat(513), "🧬".repeat(513)]) {
+    assert.throws(
+      () => decodeQuestionEnvelope({ ...envelope, title: invalidTitle }),
+      DecodeError,
+      "issued titles must be present and bounded",
+    );
+  }
+
+  for (const forbidden of ["score", "correct", "result", "provider", "token", "launchUrl"]) {
+    assert.throws(
+      () =>
+        decodeQuestionEnvelope({
+          ...envelope,
+          response: { kind: "externalTool", [forbidden]: true },
+        }),
+      DecodeError,
+      `external response definition must reject ${forbidden}`,
+    );
+  }
+
+  const attempt = structuredClone(publishedProblemFixture.attempts[0]);
+  attempt.response = { kind: "externalTool" };
+  assert.deepEqual(decodeQuestionAttempt(attempt).response, { kind: "externalTool" });
+  for (const forbidden of ["score", "correct", "result", "provider", "token", "launchUrl"]) {
+    attempt.response = { kind: "externalTool", [forbidden]: true };
+    assert.throws(
+      () => decodeQuestionAttempt(attempt),
+      DecodeError,
+      `external submission marker must reject ${forbidden}`,
+    );
+  }
+
+  attempt.response = { kind: "numeric", value: 1, score: 1 };
+  assert.throws(
+    () => decodeQuestionAttempt(attempt),
+    DecodeError,
+    "all response variants are exact",
+  );
+});
+
+test("external-tool launch projection is exact and cannot redirect outside the origin", () => {
+  const expected = {
+    launchUrl: "/api/attempts/0198e000-0000-7000-8000-000000000030/external-tool/launch",
+  };
+  assert.deepEqual(decodeExternalToolLaunch(expected), expected);
+
+  for (const invalid of [
+    { launchUrl: "https://provider.example/launch" },
+    { launchUrl: "//provider.example/launch" },
+    { launchUrl: "/\\provider.example/launch" },
+    { launchUrl: "/api/launch?token=secret" },
+    { launchUrl: "/api/launch#fragment" },
+    { launchUrl: "/api/launch", token: "secret" },
+  ]) {
+    assert.throws(() => decodeExternalToolLaunch(invalid), DecodeError);
+  }
+});
+
+test("external-tool submissions use the protected child route and validate outbound markers", async () => {
+  const requests = [];
+  const receipt = {
+    accepted: true,
+    attempt: {
+      ...publishedProblemFixture.attempts[3],
+      id: "0198e000-0000-7000-8000-000000000034",
+      response: { kind: "externalTool" },
+      result: null,
+    },
+    feedback: null,
+    nextIssued: null,
+  };
+  const client = createHttpApiClient({
+    fetch: async (input, init) => {
+      const request = new Request(new URL(input.toString(), "https://client.example.test"), init);
+      requests.push(request);
+      const requestPath = new URL(request.url).pathname;
+      const requestAttemptId = requestPath.split("/").at(-1);
+      return jsonResponse({
+        ...receipt,
+        attempt: requestPath.includes("/external-tool/")
+          ? receipt.attempt
+          : { ...receipt.attempt, id: requestAttemptId },
+      });
+    },
+  });
+  const externalAttemptId = "0198e000-0000-7000-8000-000000000034";
+  await client.submitResponse(externalAttemptId, { kind: "externalTool" }, "external-key");
+  await client.submitResponse(
+    publishedProblemFixture.attempts[0].id,
+    { kind: "multipleChoice", selected: ["carbonyl"] },
+    "ordinary-key",
+  );
+
+  assert.equal(requests.length, 2);
+  const external = requests[0];
+  const ordinary = requests[1];
+  assert.notEqual(external, undefined);
+  assert.notEqual(ordinary, undefined);
+  assert.equal(
+    new URL(external.url).pathname,
+    `/api/attempts/${externalAttemptId}/external-tool/launch/submission`,
+  );
+  assert.equal(
+    new URL(ordinary.url).pathname,
+    `/api/submissions/${publishedProblemFixture.attempts[0].id}`,
+  );
+  assert.equal(external.headers.get("idempotency-key"), "external-key");
+  assert.equal(external.headers.get("cookie"), null);
+  assert.equal(external.credentials, "same-origin");
+  assert.equal(await external.text(), JSON.stringify({ response: { kind: "externalTool" } }));
+  assert.equal(external.url.includes("token"), false);
+  assert.equal(external.url.includes("provider"), false);
+
+  for (const field of ["score", "provider", "token"]) {
+    await assert.rejects(
+      () =>
+        client.submitResponse(
+          externalAttemptId,
+          { kind: "externalTool", [field]: "forged" },
+          "bad",
+        ),
+      DecodeError,
+    );
+  }
+  assert.equal(requests.length, 2, "invalid external payloads must not reach fetch");
+});
+
+test("prefetch transport is a body-free same-origin POST and treats no successor as a cache miss", async () => {
+  const attempt = publishedProblemFixture.attempts[0];
+  assert.notEqual(attempt, undefined, "fixture must include an attempt");
+  const requests = [];
+  const controller = new AbortController();
+  const client = createHttpApiClient({
+    fetch: async (input, init) => {
+      const request = new Request(new URL(input.toString(), "https://client.example.test"), init);
+      requests.push(request);
+      return new Response(null, { status: 204 });
+    },
+  });
+
+  assert.equal(await client.prefetchNextQuestion(attempt.id, controller.signal), null);
+  assert.equal(requests.length, 1);
+  const request = requests[0];
+  assert.notEqual(request, undefined);
+  assert.equal(new URL(request.url).pathname, `/api/attempts/${attempt.id}/prefetch-next`);
+  assert.equal(request.method, "POST");
+  assert.equal(request.credentials, "same-origin");
+  assert.equal(request.cache, "no-store");
+  assert.equal(request.headers.get("accept"), "application/json");
+  assert.equal(request.headers.get("content-type"), null);
+  assert.equal(await request.text(), "");
+  assert.equal(request.signal.aborted, false);
+  controller.abort();
+  assert.equal(
+    request.signal.aborted,
+    true,
+    "the request must remain abortable through its caller signal",
+  );
+});
+
+test("prefetch transport rejects hostile descriptors before a page may cache them", async () => {
+  const predecessor = publishedProblemFixture.attempts[0];
+  assert.notEqual(predecessor, undefined, "fixture must include an attempt");
+  const envelope = issuedEnvelopeForAttempt(predecessor);
+  const valid = {
+    predecessor: predecessor.id,
+    run: predecessor.run,
+    assignmentPosition: predecessor.assignmentPosition + 1,
+    questionVersion: envelope.version,
+    seed: envelope.seed,
+    renderedQuestionSha256: "a".repeat(64),
+    envelope,
+  };
+  const hostilePayloads = [
+    {
+      name: "an envelope from another version",
+      value: { ...valid, questionVersion: "0198e000-0000-7000-8000-000000000099" },
+    },
+    { name: "an envelope with a forged seed", value: { ...valid, seed: envelope.seed + 1 } },
+    { name: "private provenance", value: { ...valid, provenance: { source: "secret" } } },
+  ];
+
+  for (const hostile of hostilePayloads) {
+    const client = createHttpApiClient({
+      fetch: () => Promise.resolve(jsonResponse(hostile.value)),
+    });
+    await assert.rejects(client.prefetchNextQuestion(predecessor.id), DecodeError, hostile.name);
+  }
+
+  const anotherAttempt = publishedProblemFixture.attempts[1];
+  assert.notEqual(anotherAttempt, undefined, "fixture must include an unrelated predecessor");
+  const client = createHttpApiClient({
+    fetch: () => Promise.resolve(jsonResponse({ ...valid, predecessor: anotherAttempt.id })),
+  });
+  await assert.rejects(
+    client.prefetchNextQuestion(predecessor.id),
+    ApiProtocolError,
+    "a well-formed descriptor for another predecessor must not escape the transport",
+  );
+});
+
+test("gradebook decoder accepts only compact, internally consistent summary rows", () => {
+  const fixtureRow = publishedProblemFixture.gradebook[0];
+  assert.notEqual(fixtureRow, undefined, "fixture must include a gradebook summary row");
+  const page = { items: [fixtureRow], nextCursor: null };
+  assert.deepEqual(decodeGradebookPage(page), page);
+
+  const inconsistentTenant = structuredClone(page);
+  inconsistentTenant.items[0].summary.tenant = "0198e000-0000-7000-8000-000000000099";
+  assert.throws(() => decodeGradebookPage(inconsistentTenant), DecodeError);
+
+  const inconsistentEnrollment = structuredClone(page);
+  inconsistentEnrollment.items[0].summary.enrollment = "0198e000-0000-7000-8000-000000000099";
+  assert.throws(() => decodeGradebookPage(inconsistentEnrollment), DecodeError);
+
+  const nonFiniteScore = structuredClone(page);
+  nonFiniteScore.items[0].summary.bestScore = Infinity;
+  assert.throws(() => decodeGradebookPage(nonFiniteScore), DecodeError);
+
+  const extraHistory = structuredClone(page);
+  extraHistory.items[0].runs = [];
+  assert.throws(() => decodeGradebookPage(extraHistory), DecodeError);
+
+  assert.throws(() => decodeGradebookPage({ ...page, offset: 0 }), DecodeError);
+});
+
+test("mock format validation accepts only the external-tool marker pair", async () => {
+  assert.deepEqual(
+    await validateResponseFormatInMock({ kind: "externalTool" }, { kind: "externalTool" }),
+    { violations: [] },
+  );
+  assert.deepEqual(
+    await validateResponseFormatInMock({ kind: "externalTool" }, { kind: "numeric", value: 1 }),
+    { violations: [{ kind: "responseKindMismatch" }] },
+  );
+});
+
 test("the HTTP client decodes every implemented route and composes a run screen", async () => {
   const { fixtureFetch, requests } = createFixtureFetch();
   const client = createHttpApiClient({ fetch: fixtureFetch, basePath: "/ple/" });
@@ -74,6 +365,8 @@ test("the HTTP client decodes every implemented route and composes a run screen"
   assert.deepEqual((await client.listTaxonomy()).items, fixture.publishedProblem.metadata.taxonomy);
   assert.equal((await client.listCourses()).items[0].id, fixture.course.id);
   assert.equal((await client.getCourse(fixture.course.id)).role, "student");
+  const gradebook = await client.listGradebook(fixture.course.id, "next page", 25);
+  assert.deepEqual(gradebook.items, fixture.gradebook);
   assert.equal(
     (await client.listAssignments(fixture.course.id)).items[0].id,
     fixture.assignment.id,
@@ -89,6 +382,15 @@ test("the HTTP client decodes every implemented route and composes a run screen"
   assert.equal((await client.getRun(activeRun.id)).id, activeRun.id);
   const attempts = await client.listAttempts(activeRun.id);
   assert.equal((await client.getAttempt(attempts.items[0].id)).run, activeRun.id);
+  const externalToolAttemptId = "0198e000-0000-7000-8000-000000000034";
+  assert.deepEqual(await client.getExternalToolLaunch(externalToolAttemptId), {
+    launchUrl: `/api/attempts/${externalToolAttemptId}/external-tool/launch`,
+  });
+  await assert.rejects(
+    client.getExternalToolLaunch("0198e000-0000-7000-8000-000000000030"),
+    (error) => error instanceof ApiRequestError && error.status === 404,
+    "HTTP client must not receive launch material for a non-external fixture attempt",
+  );
   assert.equal(
     (
       await client.submitResponse(
@@ -104,7 +406,10 @@ test("the HTTP client decodes every implemented route and composes a run screen"
   assert.equal(screen.course.id, fixture.course.id);
   assert.equal(screen.assignment.id, fixture.assignment.id);
   assert.equal(screen.attempt.run, activeRun.id);
-  assert.equal(screen.question.version, screen.attempt.questionVersion);
+  assert.equal(screen.issuedQuestion.version, screen.attempt.questionVersion);
+  assert.equal(screen.issuedQuestion.seed, screen.attempt.seed);
+  assert.equal(screen.issuedQuestion.title, fixture.publishedProblem.metadata.title);
+  assert.ok(!JSON.stringify(screen.issuedQuestion).includes('"grading"'));
 
   assert.deepEqual(
     await client.validateResponseFormatOnServer(fixture.publishedProblem.response, {
@@ -134,10 +439,30 @@ test("the HTTP client decodes every implemented route and composes a run screen"
   assert.ok(requests.every((request) => request.credentials === "same-origin"));
   assert.ok(requests.every((request) => request.cache === "no-store"));
   assert.ok(requests.some((request) => request.url.endsWith("?cursor=next+page")));
+  assert.ok(
+    requests.some(
+      (request) =>
+        request.url.endsWith(
+          `/api/courses/${fixture.course.id}/gradebook?cursor=next+page&pageSize=25`,
+        ) && !request.url.includes("offset="),
+    ),
+    "gradebook must use the cursor-only route without an offset",
+  );
   const submission = requests.find((request) => request.url.includes("/api/submissions/"));
   assert.notEqual(submission, undefined);
   assert.equal(submission.headers.get("idempotency-key"), "stable-retry-key");
   assert.equal(submission.headers.get("content-type"), "application/json");
+});
+
+test("gradebook pageSize rejects fractional, zero, and negative client input", () => {
+  const client = createHttpApiClient({ fetch: createFixtureFetch().fixtureFetch });
+  const courseId = publishedProblemFixture.course.id;
+  for (const pageSize of [0, -1, 1.5]) {
+    assert.throws(
+      () => client.listGradebook(courseId, undefined, pageSize),
+      /positive safe integer/,
+    );
+  }
 });
 
 test("the HTTP boundary rejects malformed success bodies without a cast", async () => {
@@ -202,4 +527,266 @@ test("run-screen composition rejects inconsistent resource relationships", async
       error instanceof ApiProtocolError &&
       error.message === "Run screen enrollment records are inconsistent",
   );
+});
+
+test("a refresh heals one pending successor on its exact incomplete run without regrading", async () => {
+  const { fixtureFetch } = createFixtureFetch();
+  const run = publishedProblemFixture.runs.find((candidate) => candidate.completedAt === null);
+  assert.notEqual(run, undefined, "fixture must include one incomplete run");
+  const attempts = publishedProblemFixture.attempts.filter((candidate) => candidate.run === run.id);
+  assert.ok(attempts.length > 0, "incomplete run must have a fixture attempt after healing");
+  let healed = false;
+  let resumeCalls = 0;
+  const client = createHttpApiClient({
+    fetch: async (input, init) => {
+      const url = new URL(input.toString(), "https://client.example.test");
+      if (url.pathname === `/api/runs/${run.id}/attempts`) {
+        return jsonResponse({ items: healed ? attempts : [], nextCursor: null });
+      }
+      if (url.pathname === "/api/runs" && (init?.method ?? "GET") === "POST") {
+        resumeCalls += 1;
+        healed = true;
+        return jsonResponse(run);
+      }
+      if (url.pathname.includes("/api/submissions/")) {
+        throw new Error("refresh recovery must never submit or regrade");
+      }
+      return fixtureFetch(input, init);
+    },
+  });
+
+  const screen = await client.getRunScreen(run.id);
+  assert.equal(screen.run.id, run.id);
+  assert.equal(screen.attempt.run, run.id);
+  assert.equal(resumeCalls, 1, "one bounded resume call heals the pending successor");
+});
+
+test("hostile run enrollment data is rejected before pending-successor recovery mutates anything", async () => {
+  const { fixtureFetch } = createFixtureFetch();
+  const run = publishedProblemFixture.runs.find((candidate) => candidate.completedAt === null);
+  assert.notEqual(run, undefined, "fixture must include one incomplete run");
+  let resumeCalls = 0;
+  const client = createHttpApiClient({
+    fetch: async (input, init) => {
+      const url = new URL(input.toString(), "https://client.example.test");
+      if (url.pathname === `/api/runs/${run.id}/attempts`)
+        return jsonResponse({ items: [], nextCursor: null });
+      if (url.pathname === `/api/enrollments/${run.enrollment}`) {
+        const response = await fixtureFetch(input, init);
+        const value = await response.json();
+        value.summary.tenant = "0198e000-0000-7000-8000-000000000099";
+        return jsonResponse(value);
+      }
+      if (url.pathname === "/api/runs" && (init?.method ?? "GET") === "POST") resumeCalls += 1;
+      return fixtureFetch(input, init);
+    },
+  });
+  await assert.rejects(client.getRunScreen(run.id), ApiProtocolError);
+  assert.equal(resumeCalls, 0, "untrusted enrollment data must not reach start/resume");
+});
+
+test("run-screen composition rejects an issued variant for another version or seed", async () => {
+  const { fixtureFetch } = createFixtureFetch();
+  for (const change of ["version", "seed"]) {
+    const client = createHttpApiClient({
+      fetch: async (input, init) => {
+        const response = await fixtureFetch(input, init);
+        if (input.toString().includes("/question")) {
+          const value = await response.json();
+          value[change] = change === "seed" ? 99_999 : "0198e000-0000-7000-8000-000000000099";
+          return jsonResponse(value);
+        }
+        return response;
+      },
+    });
+    await assert.rejects(
+      client.getRunScreen(publishedProblemFixture.runs.at(-1).id),
+      (error) =>
+        error instanceof ApiProtocolError &&
+        error.message === "Run screen issued question does not match its attempt",
+    );
+  }
+});
+
+test("issued-question transport rejects a response that carries a server-only field", async () => {
+  const { fixtureFetch } = createFixtureFetch();
+  const client = createHttpApiClient({
+    fetch: async (input, init) => {
+      const response = await fixtureFetch(input, init);
+      if (input.toString().includes("/question")) {
+        const value = await response.json();
+        value.grading = { mode: "allOrNothing", points: 1 };
+        return jsonResponse(value);
+      }
+      return response;
+    },
+  });
+  await assert.rejects(
+    client.getIssuedQuestion(publishedProblemFixture.attempts.at(-1).id),
+    (error) =>
+      error instanceof DecodeError &&
+      error.message === "response.grading must be a field allowed by this response contract",
+  );
+});
+
+test("issued-question transport rejects answer material at every nested envelope record", async () => {
+  const hostileEnvelopes = [
+    {
+      name: "prompt text",
+      mutate: (envelope) => {
+        envelope.prompt[0].solution = "carbonyl";
+      },
+      path: "response.prompt[0].solution",
+    },
+    {
+      name: "math prompt",
+      mutate: (envelope) => {
+        envelope.prompt = [
+          {
+            kind: "math",
+            latex: "x",
+            description: "A variable.",
+            grading: { answer: "x" },
+          },
+        ];
+      },
+      path: "response.prompt[0].grading",
+    },
+    {
+      name: "code prompt",
+      mutate: (envelope) => {
+        envelope.prompt = [
+          { kind: "code", language: "text", source: "x", checker: "private-checker" },
+        ];
+      },
+      path: "response.prompt[0].checker",
+    },
+    {
+      name: "table prompt",
+      mutate: (envelope) => {
+        envelope.prompt = [
+          {
+            kind: "table",
+            headers: ["A"],
+            rows: [["x"]],
+            description: "A table.",
+            arbitrary: true,
+          },
+        ];
+      },
+      path: "response.prompt[0].arbitrary",
+    },
+    {
+      name: "image asset reference",
+      mutate: (envelope) => {
+        envelope.prompt = [
+          {
+            kind: "image",
+            asset: {
+              asset: "0198e000-0000-7000-8000-000000000010",
+              checksum: "0".repeat(64),
+              objectKey: "private/answer-key",
+            },
+            description: "A diagram.",
+          },
+        ];
+      },
+      path: "response.prompt[0].asset.objectKey",
+    },
+    {
+      name: "multiple-choice response",
+      mutate: (envelope) => {
+        envelope.response.correctChoiceId = "carbonyl";
+      },
+      path: "response.response.correctChoiceId",
+    },
+    {
+      name: "multiple-choice choice",
+      mutate: (envelope) => {
+        envelope.response.choices[0].answer = true;
+      },
+      path: "response.response.choices[0].answer",
+    },
+    {
+      name: "multiple-choice choice content",
+      mutate: (envelope) => {
+        envelope.response.choices[0].body[0].solution = "private";
+      },
+      path: "response.response.choices[0].body[0].solution",
+    },
+    {
+      name: "selection rule",
+      mutate: (envelope) => {
+        envelope.response.selection.grading = "allOrNothing";
+      },
+      path: "response.response.selection.grading",
+    },
+    {
+      name: "numeric response and tolerance",
+      mutate: (envelope) => {
+        envelope.response = {
+          kind: "numeric",
+          tolerance: { kind: "absolute", epsilon: 0.1, answer: 4 },
+          unit: null,
+        };
+      },
+      path: "response.response.tolerance.answer",
+    },
+    {
+      name: "short-text response",
+      mutate: (envelope) => {
+        envelope.response = {
+          kind: "shortText",
+          matchMode: "exact",
+          maxLength: 20,
+          checker: "private-checker",
+        };
+      },
+      path: "response.response.checker",
+    },
+    {
+      name: "ordering item",
+      mutate: (envelope) => {
+        envelope.response = {
+          kind: "ordering",
+          items: [{ id: "first", body: [], solution: 0 }],
+        };
+      },
+      path: "response.response.items[0].solution",
+    },
+    {
+      name: "file-upload response",
+      mutate: (envelope) => {
+        envelope.response = {
+          kind: "fileUpload",
+          maxBytes: 1,
+          acceptedExtensions: [".txt"],
+          arbitrary: "private",
+        };
+      },
+      path: "response.response.arbitrary",
+    },
+  ];
+
+  for (const hostile of hostileEnvelopes) {
+    const { fixtureFetch } = createFixtureFetch();
+    const client = createHttpApiClient({
+      fetch: async (input, init) => {
+        const response = await fixtureFetch(input, init);
+        if (input.toString().includes("/question")) {
+          const value = await response.json();
+          hostile.mutate(value);
+          return jsonResponse(value);
+        }
+        return response;
+      },
+    });
+    await assert.rejects(
+      client.getIssuedQuestion(publishedProblemFixture.attempts.at(-1).id),
+      (error) =>
+        error instanceof DecodeError &&
+        error.message === `${hostile.path} must be a field allowed by this response contract`,
+      hostile.name,
+    );
+  }
 });

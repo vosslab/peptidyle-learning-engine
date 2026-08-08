@@ -7,28 +7,14 @@
 # Dependencies and installed package state.
 node_modules/
 package-lock.json
-OTHER_REPOS/
 
 # Build outputs and bundler artifacts.
 dist/
 dist_*/
 dist-single/
 _site/
+generated/
 coverage/
-
-# Root generated/ is ignored by Git but deliberately remains in Prettier's
-# scope. The check gate regenerates the client types before validating them, so
-# reproducible output faces the same tsc, ESLint, and Prettier checks as source.
-# The WASM export gate's bindgen glue is disposable inspection output rather
-# than the maintained browser API contract.
-generated/wasm-export-check/
-
-# The Rust workspace and its build artifacts are not TypeScript source.
-# A .ts file under crates/ is stale generator output, not client code; the
-# generated client types are written to root generated/ instead, where the
-# check gate formats and lints them without treating them as authored source.
-crates/
-target/
 
 # Agent scratch files and directories.
 _temp*

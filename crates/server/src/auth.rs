@@ -62,6 +62,12 @@ impl SessionConfig {
         self.lifetime
     }
 
+    /// Selected deployment transport; local identity is only paired with
+    /// [`CookieTransport::LocalHttp`] by the composition root.
+    pub fn transport(self) -> CookieTransport {
+        self.transport
+    }
+
     fn secure(self) -> bool {
         !matches!(self.transport, CookieTransport::LocalHttp)
     }
@@ -100,12 +106,22 @@ pub enum IdentityProviderError {
 }
 
 /// Issued database session and the header value sent to the browser.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct IssuedSession {
     /// Persisted session metadata, containing only the token hash.
     pub record: SessionRecord,
     /// Complete `Set-Cookie` value; the only returned value containing the token.
     pub set_cookie: String,
+}
+
+impl std::fmt::Debug for IssuedSession {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("IssuedSession")
+            .field("record", &self.record)
+            .field("set_cookie", &"[redacted]")
+            .finish()
+    }
 }
 
 /// Authenticated principal and its derived tenant boundary.
@@ -608,6 +624,20 @@ mod tests {
             resolve_session(&issuer, Some(header)).await,
             Err(AuthError::Unauthenticated)
         ));
+    }
+
+    #[tokio::test]
+    async fn issued_session_debug_redacts_the_set_cookie_credential() {
+        let issued = issue_session(
+            &MemoryStore::default(),
+            subject(),
+            config(CookieTransport::FirstPartyHttps),
+        )
+        .await
+        .expect("session should issue");
+        let debug = format!("{issued:?}");
+        assert!(!debug.contains(&issued.set_cookie));
+        assert!(debug.contains("[redacted]"));
     }
 
     #[test]

@@ -1,0 +1,43 @@
+/* library_page.css - styles scoped to the injected catalog browse surface. */
+
+.library-page .catalog-controls {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  margin-block: 1.25rem;
+}
+
+.library-page .catalog-controls label {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+.library-page .catalog-window {
+  block-size: min(68vh, 35rem);
+  max-block-size: 35rem;
+  min-block-size: 18rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.library-page .catalog-window:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 3px;
+}
+
+.library-page .catalog-window-slice {
+  inset-inline: 0;
+  position: absolute;
+}
+
+.library-page .catalog-row {
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 0.75rem 0.25rem;
+}
+
+.library-page .catalog-row h2,
+.library-page .catalog-row p {
+  margin-block: 0 0.3rem;
+}

@@ -4,7 +4,10 @@ use objects::memory::MemoryObjectStore;
 use objects::{
     Bucket, ObjectCategory, ObjectKey, ObjectStore, ObjectStoreError, PutObject, Sha256Digest,
 };
-use question_model::{ActivityTimestamp, ObjectId, ProblemId, TenantId, VersionId};
+use question_model::{
+    ActivityTimestamp, AssetId, ObjectId, ProblemId, TenantId, VersionId, WorkspaceId,
+    WorkspaceImportId,
+};
 use uuid::Uuid;
 
 fn id(value: u128) -> Uuid {
@@ -73,6 +76,41 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .await
         .expect("temporary put should succeed");
 
+    let workspace_source = ObjectKey::WorkspaceSource {
+        tenant: TenantId::from_uuid(id(7)),
+        workspace: WorkspaceId::from_uuid(id(8)),
+        import: WorkspaceImportId::from_uuid(id(9)),
+        object: ObjectId::from_uuid(id(10)),
+    };
+    let workspace_asset = ObjectKey::WorkspaceAsset {
+        tenant: TenantId::from_uuid(id(7)),
+        workspace: WorkspaceId::from_uuid(id(8)),
+        import: WorkspaceImportId::from_uuid(id(9)),
+        asset: AssetId::from_uuid(id(11)),
+        object: ObjectId::from_uuid(id(12)),
+    };
+    for key in [workspace_source.clone(), workspace_asset.clone()] {
+        let record = store
+            .put(PutObject {
+                key: key.clone(),
+                bytes: b"private workspace import".to_vec(),
+                media_type: "application/zip".to_string(),
+                license: "private".to_string(),
+                provenance: "fixture".to_string(),
+                created_at: ActivityTimestamp::from_unix_millis(1_000),
+            })
+            .await
+            .expect("workspace import put should succeed");
+        assert_eq!(record.bucket, Bucket::Content);
+        assert_eq!(record.version, None);
+        assert_eq!(
+            store
+                .signed_url(&key, ActivityTimestamp::from_unix_millis(2_000))
+                .await,
+            Err(ObjectStoreError::NotSignable)
+        );
+    }
+
     assert_eq!(
         (
             record.sha256,
@@ -117,6 +155,37 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .delete(&temporary_key)
         .await
         .expect("temporary cleanup should succeed");
+    store
+        .delete(&workspace_source)
+        .await
+        .expect("workspace source cleanup");
+    store
+        .delete(&workspace_asset)
+        .await
+        .expect("workspace asset cleanup");
+}
+
+#[test]
+fn workspace_object_paths_bind_tenant_workspace_and_import_identity() {
+    let source = ObjectKey::WorkspaceSource {
+        tenant: TenantId::from_uuid(id(20)),
+        workspace: WorkspaceId::from_uuid(id(21)),
+        import: WorkspaceImportId::from_uuid(id(22)),
+        object: ObjectId::from_uuid(id(23)),
+    };
+    let other_tenant = ObjectKey::WorkspaceSource {
+        tenant: TenantId::from_uuid(id(24)),
+        workspace: WorkspaceId::from_uuid(id(21)),
+        import: WorkspaceImportId::from_uuid(id(22)),
+        object: ObjectId::from_uuid(id(23)),
+    };
+    assert_ne!(source, other_tenant);
+    assert_ne!(source.path(), other_tenant.path());
+    assert_eq!(source.bucket(), Bucket::Content);
+    assert_eq!(source.category(), ObjectCategory::Source);
+    assert_eq!(source.version_id(), None);
+    assert!(source.path().starts_with("workspaces/"));
+    assert!(!source.path().starts_with("problems/"));
 }
 
 #[tokio::test]

@@ -43,8 +43,6 @@ export const AssignmentEditorPage = contractPage(
   "Assignment editor",
   "the editor lane",
 );
-export const GradebookPage = contractPage("gradebook", "Gradebook", "the gradebook lane");
-
 export function NotFoundPage(): JSX.Element {
   const params = useParams();
   return (

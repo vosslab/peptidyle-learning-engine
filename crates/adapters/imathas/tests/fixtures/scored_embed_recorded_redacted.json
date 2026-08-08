@@ -1,0 +1,32 @@
+{
+  "profile": "imathas_scored_embed_broker_v1",
+  "provider": "institution-imathas",
+  "snapshot": {
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "objectId": "redacted",
+    "questionIdentity": "17"
+  },
+  "launch": {
+    "pleSeed": 10001,
+    "providerSeed": 3,
+    "expiresAt": "redacted",
+    "correlation": "redacted"
+  },
+  "safeRender": {
+    "html": "redacted-safe-fragment",
+    "sha256": "redacted"
+  },
+  "providerScoreResponse": {
+    "resultJwt": "redacted",
+    "questionIdentity": "17",
+    "score": 0.75,
+    "pleNonce": "redacted",
+    "pleBinding": "redacted"
+  },
+  "expected": {
+    "verified": true,
+    "idempotentReplay": true,
+    "browserMessageGrades": false,
+    "crossLedgerReplayRejected": true
+  }
+}

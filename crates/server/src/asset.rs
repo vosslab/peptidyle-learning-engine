@@ -15,7 +15,9 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
-use objects::{Bucket, ObjectRecord, ObjectStore, ObjectStoreError, SignedUrl};
+use objects::{
+    Bucket, ObjectCategory, ObjectKey, ObjectRecord, ObjectStore, ObjectStoreError, SignedUrl,
+};
 use store::{AssetDeliveryId, AssetStore, SessionStore, StoreError};
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
@@ -52,7 +54,21 @@ impl PublicAssetBaseUrl {
 
 impl PublicAssetUrlResolver for PublicAssetBaseUrl {
     fn public_url(&self, record: &ObjectRecord) -> Result<String, PublicAssetUrlError> {
-        if record.bucket != Bucket::Content {
+        // The content bucket is deliberately broader than the public CDN:
+        // it also holds private workspace imports and non-deliverable source
+        // or render records. Require the complete trusted record shape, not
+        // merely its bucket or category, before constructing a public URL.
+        let ObjectKey::ProblemAsset {
+            object, version, ..
+        } = &record.key
+        else {
+            return Err(PublicAssetUrlError);
+        };
+        if record.id != *object
+            || record.bucket != Bucket::Content
+            || record.category != ObjectCategory::Asset
+            || record.version != Some(*version)
+        {
             return Err(PublicAssetUrlError);
         }
         Ok(format!("{}/{}", self.0, record.key.path()))
@@ -270,7 +286,7 @@ mod tests {
     use axum::body::Body;
     use axum::http::Request;
     use objects::memory::MemoryObjectStore;
-    use objects::{ObjectKey, PutObject};
+    use objects::{ObjectCategory, ObjectKey, PutObject, Sha256Digest};
     use question_model::answer::NumericTolerance;
     use question_model::envelope::ContentBlock;
     use question_model::generation::RandomizationDefinition;
@@ -278,9 +294,10 @@ mod tests {
     use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
     use question_model::taxonomy::License;
     use question_model::{
-        ActivityTimestamp, AssetId, BackendCapabilities, Capability, GradingDefinition, ObjectId,
-        ProblemId, ProblemVersionRef, PublicationScope, QuestionDefinition, QuestionMetadata,
-        QuestionSource, TenantId, UserId, UserRole, VersionId, WorkspaceId,
+        ActivityTimestamp, AssetId, BackendCapabilities, Capability, DraftQuestionDefinition,
+        DraftQuestionSource, GradingDefinition, ObjectId, ProblemId, ProblemVersionRef,
+        PublicationScope, QuestionMetadata, QuestionSource, TenantId, UserId, UserRole, VersionId,
+        WorkspaceId, WorkspaceImportId,
     };
     use store::memory::MemoryStore;
     use store::{
@@ -294,12 +311,10 @@ mod tests {
         Uuid::from_u128(value)
     }
 
-    fn question(version: VersionId, workspace: WorkspaceId) -> QuestionDefinition {
-        QuestionDefinition {
-            version,
-            problem: None,
+    fn question(_version: VersionId, workspace: WorkspaceId) -> DraftQuestionDefinition {
+        DraftQuestionDefinition {
             workspace,
-            source: QuestionSource::Native {
+            source: DraftQuestionSource::Native {
                 family: "asset-fixture".to_string(),
             },
             prompt: vec![ContentBlock::Text {
@@ -341,16 +356,23 @@ mod tests {
             revises: None,
             derived_from: None,
         };
-        store
-            .upsert_draft(context, draft.clone())
+        let saved = store
+            .upsert_draft(context, publisher, None, draft.clone())
             .await
             .expect("draft");
         store
             .publish_draft(
                 context,
+                publisher,
                 PublishDraftCommand {
                     expected_draft: draft,
-                    problem,
+                    expected_revision: saved.revision,
+                    publication: ProblemVersionRef { problem, version },
+                    published_source: QuestionSource::Native {
+                        family: "asset-fixture".to_string(),
+                    },
+                    source_artifact: None,
+                    qti_promotion: None,
                     publisher,
                     scope,
                     capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
@@ -662,5 +684,82 @@ mod tests {
         ] {
             assert_eq!(PublicAssetBaseUrl::new(value), Err(PublicAssetUrlError));
         }
+    }
+
+    fn object_record(key: ObjectKey) -> ObjectRecord {
+        ObjectRecord {
+            id: key.object_id(),
+            bucket: key.bucket(),
+            category: key.category(),
+            version: key.version_id(),
+            key,
+            sha256: Sha256Digest::compute(b"public resolver fixture"),
+            size_bytes: 23,
+            media_type: "image/png".to_string(),
+            license: "fixture".to_string(),
+            provenance: "fixture".to_string(),
+            created_at: ActivityTimestamp::from_unix_millis(1),
+        }
+    }
+
+    #[test]
+    fn public_base_url_requires_an_exact_published_problem_asset_record() {
+        let resolver =
+            PublicAssetBaseUrl::new("https://cdn.example.test/content").expect("CDN base");
+        let problem = ProblemId::from_uuid(id(700));
+        let version = VersionId::from_uuid(id(701));
+        let public = object_record(ObjectKey::ProblemAsset {
+            problem,
+            version,
+            asset: AssetId::from_uuid(id(702)),
+            object: ObjectId::from_uuid(id(703)),
+        });
+        assert!(resolver.public_url(&public).is_ok());
+
+        let tenant = TenantId::from_uuid(id(704));
+        let workspace = WorkspaceId::from_uuid(id(705));
+        let import = WorkspaceImportId::from_uuid(id(706));
+        let rejected = [
+            object_record(ObjectKey::WorkspaceSource {
+                tenant,
+                workspace,
+                import,
+                object: ObjectId::from_uuid(id(707)),
+            }),
+            object_record(ObjectKey::WorkspaceAsset {
+                tenant,
+                workspace,
+                import,
+                asset: AssetId::from_uuid(id(708)),
+                object: ObjectId::from_uuid(id(709)),
+            }),
+            object_record(ObjectKey::ProblemSource {
+                problem,
+                version,
+                object: ObjectId::from_uuid(id(710)),
+            }),
+            object_record(ObjectKey::ProblemRender {
+                problem,
+                version,
+                seed: question_model::generation::Seed::new(1),
+                object: ObjectId::from_uuid(id(711)),
+            }),
+            object_record(ObjectKey::StudentRecord {
+                tenant,
+                object: ObjectId::from_uuid(id(712)),
+            }),
+            object_record(ObjectKey::Temporary {
+                object: ObjectId::from_uuid(id(713)),
+            }),
+        ];
+        assert!(
+            rejected
+                .iter()
+                .all(|record| resolver.public_url(record) == Err(PublicAssetUrlError))
+        );
+
+        let mut forged = public;
+        forged.category = ObjectCategory::Source;
+        assert_eq!(resolver.public_url(&forged), Err(PublicAssetUrlError));
     }
 }

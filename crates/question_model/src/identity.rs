@@ -28,6 +28,14 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct WorkspaceId(Uuid);
 
+/// One tenant-workspace-owned staged import.
+///
+/// This is deliberately neither a catalog number nor an object-store key. It
+/// identifies an import while it remains private to an instructor workspace;
+/// publication resolves the import into fresh immutable published identities.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct WorkspaceImportId(Uuid);
+
 /// A published problem, stable across every version of it.
 ///
 /// Constructed only on the publish transition (WP-C2). A draft has no
@@ -92,6 +100,7 @@ macro_rules! impl_identifier {
 }
 
 impl_identifier!(WorkspaceId);
+impl_identifier!(WorkspaceImportId);
 impl_identifier!(ProblemId);
 impl_identifier!(VersionId);
 impl_identifier!(AssetId);

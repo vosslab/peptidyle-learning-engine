@@ -9,6 +9,7 @@ members = [
     "crates/adapters/webwork",
     "crates/adapters/qti",
     "crates/adapters/h5p",
+    "crates/adapters/imathas",
     "crates/export",
     "crates/wasm",
     "crates/server",
@@ -31,6 +32,7 @@ axum = { version = ">=0.8.9", features = ["macros"] }
 base64 = { version = ">=0.23.1", default-features = false, features = ["std"] }
 cookie = ">=0.18.1"
 getrandom = ">=0.4.3"
+hmac = ">=0.13.0"
 rand_chacha = ">=0.10.0"
 rand_core = ">=0.10.1"
 serde = { version = ">=1.0.229", features = ["derive"] }
@@ -64,6 +66,7 @@ uuid = { version = ">=1.24.0", default-features = false, features = ["serde", "s
 # `crates/domain` as a parameter, which is what makes the seed-parity test
 # meaningful and lets the crate run in a browser.
 chrono = { version = ">=0.4.45", default-features = false, features = ["serde", "std"] }
+chacha20poly1305 = ">=0.10.1"
 
 # PostgreSQL access belongs to `crates/store`, which owns the Store trait,
 # migrations, and RLS context. No other member declares it.
@@ -86,6 +89,7 @@ adapter_native = { path = "./crates/adapters/native" }
 adapter_webwork = { path = "./crates/adapters/webwork" }
 adapter_qti = { path = "./crates/adapters/qti" }
 adapter_h5p = { path = "./crates/adapters/h5p" }
+adapter_imathas = { path = "./crates/adapters/imathas" }
 export_crate = { path = "./crates/export" }
 wasm_bridge = { path = "./crates/wasm" }
 server_core = { path = "./crates/server" }

@@ -216,6 +216,9 @@ impl ObjectStore for S3ObjectStore {
         key: &ObjectKey,
         now: ActivityTimestamp,
     ) -> Result<SignedUrl, ObjectStoreError> {
+        if !key.may_issue_signed_url() {
+            return Err(ObjectStoreError::NotSignable);
+        }
         self.head_record(key).await?;
         let lifetime = signed_url_lifetime(key.bucket())?;
         let lifetime_millis =

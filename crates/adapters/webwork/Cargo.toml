@@ -12,3 +12,15 @@ grading.workspace = true
 # The render cache stores renderer output as objects.
 objects.workspace = true
 serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+uuid.workspace = true
+async-trait.workspace = true
+base64.workspace = true
+# This private-service client deliberately owns its HTTP dialect here rather
+# than leaking a renderer protocol into the adapter's shared contracts.
+reqwest = { version = ">=0.12.28", default-features = false, features = ["json", "rustls-tls-native-roots"] }
+tokio.workspace = true
+url = ">=2.5.8"
+
+[dev-dependencies]

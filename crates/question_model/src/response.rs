@@ -49,7 +49,8 @@ pub struct ChoiceOption {
 #[serde(
     tag = "kind",
     rename_all = "camelCase",
-    rename_all_fields = "camelCase"
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
 )]
 pub enum ResponseDefinition {
     /// A number, compared within a tolerance.
@@ -85,6 +86,11 @@ pub enum ResponseDefinition {
         /// Accepted extensions, lowercase and without a leading dot.
         accepted_extensions: Vec<String>,
     },
+    /// A server-brokered external learning tool.
+    ///
+    /// This marker deliberately contains no provider, launch, answer, score,
+    /// token, or completion data. The server owns the later provider exchange.
+    ExternalTool {},
 }
 
 /// What a student submitted.
@@ -95,7 +101,8 @@ pub enum ResponseDefinition {
 #[serde(
     tag = "kind",
     rename_all = "camelCase",
-    rename_all_fields = "camelCase"
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
 )]
 pub enum StudentResponse {
     /// A numeric entry, as typed, before tolerance is applied.
@@ -123,6 +130,11 @@ pub enum StudentResponse {
         /// Storage key of the uploaded object.
         object_key: String,
     },
+    /// The learner used the ordinary submission action for an external tool.
+    ///
+    /// It is intentionally a marker only; browser-supplied provider material
+    /// can never enter the generic submission record through this variant.
+    ExternalTool {},
 }
 
 #[cfg(test)]
@@ -138,5 +150,55 @@ mod tests {
         let restored: StudentResponse =
             serde_json::from_str(&json).expect("deserialization should succeed");
         assert_eq!(restored, response);
+    }
+
+    #[test]
+    fn external_tool_markers_round_trip_as_kind_only() {
+        let definition = ResponseDefinition::ExternalTool {};
+        let response = StudentResponse::ExternalTool {};
+
+        assert_eq!(
+            serde_json::to_value(&definition).unwrap(),
+            serde_json::json!({"kind": "externalTool"})
+        );
+        assert_eq!(
+            serde_json::to_value(&response).unwrap(),
+            serde_json::json!({"kind": "externalTool"})
+        );
+        assert_eq!(
+            serde_json::from_value::<ResponseDefinition>(
+                serde_json::json!({"kind": "externalTool"})
+            )
+            .unwrap(),
+            definition
+        );
+        assert_eq!(
+            serde_json::from_value::<StudentResponse>(serde_json::json!({"kind": "externalTool"}))
+                .unwrap(),
+            response
+        );
+    }
+
+    #[test]
+    fn response_enums_reject_unknown_fields() {
+        for extra in [
+            "score",
+            "correct",
+            "result",
+            "provider",
+            "token",
+            "launchUrl",
+        ] {
+            let value = serde_json::json!({"kind": "externalTool", extra: true});
+            assert!(serde_json::from_value::<ResponseDefinition>(value.clone()).is_err());
+            assert!(serde_json::from_value::<StudentResponse>(value).is_err());
+        }
+
+        assert!(
+            serde_json::from_value::<StudentResponse>(serde_json::json!({
+                "kind": "numeric", "value": 1.0, "score": 1
+            }))
+            .is_err()
+        );
     }
 }

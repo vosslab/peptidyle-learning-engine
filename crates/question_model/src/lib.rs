@@ -24,11 +24,15 @@ pub mod catalog;
 pub mod course;
 pub mod definition;
 pub mod envelope;
+/// Private teaching material and policy-redacted browser feedback.
+pub mod feedback;
 pub mod generation;
 pub mod identity;
 pub mod lifecycle;
 pub mod response;
 pub mod run_policy;
+/// Browser-safe anonymous-statistics projections and disclosure policy.
+pub mod statistics;
 pub mod taxonomy;
 
 // The crate's front door. These are the types a caller reaches for first, so
@@ -43,19 +47,34 @@ pub use crate::activity::{
 pub use crate::auth::{UserId, UserRole};
 pub use crate::capability::{BackendCapabilities, Capability};
 pub use crate::catalog::{
-    CatalogLifecycle, CatalogProblemSummary, ProblemVersionRef, PublicationScope, QuestionBackend,
+    CatalogCapabilityFacet, CatalogLicenseFacet, CatalogLicenseValue, CatalogLifecycle,
+    CatalogProblemDetail, CatalogProblemSummary, CatalogSearchFacets, CatalogSearchPage,
+    CatalogSearchQuery, CatalogSearchQueryError, CatalogStatisticsAvailability,
+    CatalogStatisticsFacet, CatalogStatisticsStatus, CatalogTaxonomyFacet, CatalogTaxonomyFilter,
+    MAX_CATALOG_TAXONOMY_FACETS, ProblemVersionRef, PublicationScope, QuestionBackend,
 };
 pub use crate::course::{
     AssignmentSummary, CourseMembership, CourseMembershipRole, CourseRole, CourseSummary,
+    GradebookSummaryRow,
 };
 pub use crate::definition::{
-    GradingDefinition, QuestionDefinition, QuestionMetadata, QuestionSource,
+    DraftQuestionDefinition, DraftQuestionSource, DraftSourcePublicationError, GradingDefinition,
+    MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionDefinition, QuestionMetadata, QuestionSource,
+    QuestionSourceValidationError, QuestionTitleError, WorkspaceDraftSummary,
+    validate_question_title,
 };
 pub use crate::envelope::QuestionEnvelope;
+pub use crate::feedback::{DisclosedFeedback, FeedbackContent};
 pub use crate::generation::GeneratorReference;
-pub use crate::identity::{AssetId, ObjectId, ProblemId, VersionId, WorkspaceId};
+pub use crate::identity::{
+    AssetId, ObjectId, ProblemId, VersionId, WorkspaceId, WorkspaceImportId,
+};
 pub use crate::lifecycle::{Lifecycle, LifecycleError, LifecycleEvent};
 pub use crate::response::{ResponseDefinition, StudentResponse};
 pub use crate::run_policy::{
     CompletionRequirement, ContinuedPractice, GradePolicy, RunPolicies, VariationPolicy,
+};
+pub use crate::statistics::{
+    DEFAULT_STATISTICS_MINIMUM_COHORT_SIZE, QuestionStatisticsDisclosure, QuestionStatisticsView,
+    StatisticsDisclosurePolicy, StatisticsDisclosurePolicyError,
 };

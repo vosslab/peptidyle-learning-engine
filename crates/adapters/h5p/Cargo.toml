@@ -7,6 +7,11 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+async-trait.workspace = true
 question_model.workspace = true
-domain.workspace = true
 serde.workspace = true
+sha2.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true

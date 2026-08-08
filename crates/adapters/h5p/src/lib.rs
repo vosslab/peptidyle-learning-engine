@@ -7,3 +7,9 @@
 
 /// Import path from an H5P package into the internal question model.
 pub mod import_stub;
+
+pub use import_stub::{
+    ArchivedH5pPackage, H5pArchiveError, H5pArchiveResolver, H5pChoice, H5pImportError,
+    H5pImportRequest, H5pImporter, H5pSourceIdentity, H5pSourceReference, H5pUnsupportedFeature,
+    IMPORT_SCHEMA_VERSION, ImportedH5pQuestion,
+};

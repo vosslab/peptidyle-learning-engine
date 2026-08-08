@@ -20,10 +20,15 @@ COPY crates crates
 
 # --locked fails the build if Cargo.lock would need to change, which is what
 # makes a container build reproducible rather than "whatever resolved today".
+# The default production target deliberately has no E2E-only features.
+FROM builder AS e2e-observability-builder
+RUN cargo build --release --locked --bin server_core --features e2e-observability
+
+FROM builder AS production-builder
 RUN cargo build --release --locked --bin server_core
 
 # ---------- stage 2: runtime ----------
-FROM docker.io/library/debian:stable-slim AS runtime
+FROM docker.io/library/debian:stable-slim AS runtime-base
 
 # ca-certificates: TLS trust for S3 and PostgreSQL.
 RUN apt-get update \
@@ -36,8 +41,6 @@ RUN useradd --system --create-home --uid 10001 peptidyle
 USER peptidyle
 WORKDIR /home/peptidyle
 
-COPY --from=builder /build/target/release/server_core /usr/local/bin/peptidyle-api
-
 # Configuration and credentials arrive from the environment at run time. No
 # credential is baked into this image, and there is no default that would let
 # the server reach an unintended database.
@@ -49,4 +52,12 @@ EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=5 \
 	CMD ["/usr/local/bin/peptidyle-api", "--health-probe"]
 
+FROM runtime-base AS e2e-observability
+COPY --from=e2e-observability-builder /build/target/release/server_core /usr/local/bin/peptidyle-api
+ENTRYPOINT ["/usr/local/bin/peptidyle-api"]
+
+# Keep this final target production-safe for direct `podman build` use. The
+# replica E2E Compose override selects the named target above explicitly.
+FROM runtime-base AS production
+COPY --from=production-builder /build/target/release/server_core /usr/local/bin/peptidyle-api
 ENTRYPOINT ["/usr/local/bin/peptidyle-api"]

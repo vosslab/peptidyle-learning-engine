@@ -9,6 +9,8 @@
 pub mod attempt;
 /// Completion derivation within a run (MOD-STATE).
 pub mod completion;
+/// Key-free deterministic workspace-draft prompt preview (MOD-WASM).
+pub mod draft_preview;
 /// Seeded question generation (MOD-GEN).
 pub mod generator;
 /// Assignment configuration validation (MOD-CAP).
@@ -17,6 +19,8 @@ pub mod policy;
 pub mod run;
 /// Completed-run score selection and summary projection (MOD-SCORE).
 pub mod scoring;
+/// Retention-safe anonymous question-statistics aggregation (MOD-STATS).
+pub mod statistics;
 /// Timer verdict for time-limited attempts (MOD-TIME).
 pub mod timing;
 /// Browser-safe student-response format validation (MOD-GRD boundary).

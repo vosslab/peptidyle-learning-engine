@@ -118,5 +118,9 @@ export function validateResponseFormatInMock(
       return Promise.resolve({
         violations: response.objectKey.trim() === "" ? [{ kind: "missingUploadReference" }] : [],
       });
+    case "externalTool":
+      return Promise.resolve(
+        response.kind === "externalTool" ? { violations: [] } : responseKindMismatch(),
+      );
   }
 }

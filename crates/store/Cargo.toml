@@ -14,6 +14,8 @@ async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
+getrandom.workspace = true
+base64.workspace = true
 
 # Enabled by the `postgres` feature so `MemoryStore` builds without a database.
 sqlx = { workspace = true, optional = true }
@@ -21,6 +23,9 @@ sqlx = { workspace = true, optional = true }
 [features]
 default = []
 postgres = ["dep:sqlx"]
+# Enables test-only legacy-record injection for server boundary tests. Production
+# compositions never enable it, so it cannot create a persistence bypass.
+test-support = []
 
 [dev-dependencies]
 tokio.workspace = true

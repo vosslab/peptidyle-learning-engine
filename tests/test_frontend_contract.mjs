@@ -7,6 +7,7 @@ import test from "node:test";
 
 import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
 import { createMockApiClient } from "../src/api/mock/client.ts";
+import { createSessionBootstrap, sessionFailureState } from "../src/auth/session_context.tsx";
 import { ROUTE_CONTRACT } from "../src/route_contract.ts";
 
 const EXPECTED_ROUTE_PATHS = [
@@ -31,6 +32,32 @@ test("the product route data matches the frozen eleven-route contract", () => {
   assert.equal(new Set(ROUTE_CONTRACT.map((route) => route.id)).size, ROUTE_CONTRACT.length);
 });
 
+test("session bootstrap exposes only safe loading, authenticated, and recovery states", async () => {
+  const client = createMockApiClient();
+  const bootstrap = createSessionBootstrap(client.getSession);
+
+  assert.deepEqual(bootstrap.state(), { kind: "loading" });
+  await bootstrap.retry();
+  assert.equal(bootstrap.state().kind, "authenticated");
+  assert.equal("credential" in bootstrap.state(), false);
+  assert.equal("answer" in bootstrap.state(), false);
+
+  assert.deepEqual(sessionFailureState({ status: 401 }), { kind: "expired" });
+  assert.deepEqual(sessionFailureState({ status: 403 }), { kind: "expired" });
+  assert.deepEqual(sessionFailureState(new Error("offline")), { kind: "error" });
+});
+
+test("the shell keeps client navigation role-aware and never echoes route exceptions", () => {
+  const source = fs.readFileSync("src/app.tsx", "utf8");
+
+  assert.match(source, /useSessionBootstrap/);
+  assert.match(source, /canUseAuthoringTools/);
+  assert.match(source, /queueMicrotask\(focusMainContent\)/);
+  assert.match(source, /<Show when={location\.pathname} keyed>/);
+  assert.doesNotMatch(source, /String\(error\)/);
+  assert.doesNotMatch(source, /error\.message/);
+});
+
 test("the typed mock client loads a complete run screen with no backend", async () => {
   const client = createMockApiClient();
   const activeRun = await client.startRun(publishedProblemFixture.assignment.id);
@@ -39,8 +66,25 @@ test("the typed mock client loads a complete run screen with no backend", async 
   assert.equal(screen.run.completedAt, null);
   assert.equal(screen.attempt.run, activeRun.id);
   assert.equal(screen.attempt.seed, 1004);
-  assert.equal(screen.question.version, screen.attempt.questionVersion);
-  assert.equal(screen.question.response.kind, "multipleChoice");
+  assert.equal(screen.issuedQuestion.version, screen.attempt.questionVersion);
+  assert.equal(screen.issuedQuestion.seed, screen.attempt.seed);
+  assert.equal(screen.issuedQuestion.response.kind, "multipleChoice");
+  assert.deepEqual(Object.keys(screen.issuedQuestion).sort(), [
+    "prompt",
+    "response",
+    "seed",
+    "title",
+    "version",
+  ]);
+  assert.equal(
+    screen.issuedQuestion.title,
+    publishedProblemFixture.publishedProblem.metadata.title,
+  );
+  assert.equal("question" in screen, false);
+  assert.equal("source" in screen.issuedQuestion, false);
+  assert.equal("grading" in screen.issuedQuestion, false);
+  assert.equal("answer" in screen.issuedQuestion, false);
+  assert.equal("answerKey" in screen.issuedQuestion, false);
 });
 
 test("the typed mock client exposes cursor-ready assignment run history", async () => {
@@ -201,4 +245,65 @@ test("the generated browser surface contains no answer-bearing type", () => {
     assert.doesNotMatch(source, forbiddenType, filename);
     assert.doesNotMatch(source, forbiddenBoundary, filename);
   }
+});
+
+test("the learner route renders only its issued envelope through question-agnostic boundaries", () => {
+  const source = fs.readFileSync("src/pages/run_page.tsx", "utf8");
+
+  assert.match(source, /<QuestionRenderer/);
+  assert.match(source, /<ResponseWidget/);
+  assert.match(source, /createAttemptStateMachine/);
+  assert.match(source, /runtime\.queries\.runScreen/);
+  assert.doesNotMatch(source, /MultipleChoiceResponse/);
+  assert.doesNotMatch(source, /QuestionDefinition/);
+  assert.doesNotMatch(source, /answerKey|correctResponse|grading/iu);
+});
+
+test("the learner route binds stable recovery rather than creating a key for each click", () => {
+  const source = fs.readFileSync("src/pages/run_page.tsx", "utf8");
+
+  assert.match(source, /attemptStorage\(\)/);
+  assert.match(source, /retryWhenOnline/);
+  assert.match(source, /ApiRequestError/);
+  assert.match(source, /status === 401/);
+  assert.match(source, /Start another practice run/);
+  assert.doesNotMatch(source, /onSubmit={[\s\S]{0,300}crypto\.randomUUID/);
+});
+
+test("the learner consumes a prefetched envelope only when the committed receipt binds it", () => {
+  const source = fs.readFileSync("src/pages/run_page.tsx", "utf8");
+
+  assert.match(
+    source,
+    /const receiptNext = feedbackState\(\)\?\.acknowledgement\.nextIssued \?\? null/,
+  );
+  assert.match(source, /cached\.predecessor === machine\.state\(\)\.context\.attemptId/);
+  assert.match(source, /cached\.run === receiptNext\.run/);
+  assert.match(source, /cached\.assignmentPosition === receiptNext\.assignmentPosition/);
+  assert.match(source, /cached\.questionVersion === receiptNext\.questionVersion/);
+  assert.match(source, /cached\.seed === receiptNext\.seed/);
+  assert.match(source, /cached\.renderedQuestionSha256 === receiptNext\.renderedQuestionSha256/);
+  assert.match(source, /runtime\.queries\.runScreen\(screen\(\)\.run\.id\)/);
+});
+
+test("a cache-hit successor keeps summary projection bound to the advanced attempt context", () => {
+  const source = fs.readFileSync("src/pages/run_page.tsx", "utf8");
+
+  assert.match(
+    source,
+    /const currentAttemptId = \(\): string =>\s*currentState\(\)\?\.context\.attemptId \?\? screen\(\)\.attempt\.id/,
+  );
+  assert.match(source, /outcome\.attempt === currentAttemptId\(\)/);
+  assert.doesNotMatch(source, /outcome\.attempt === screen\(\)\.attempt\.id/);
+});
+
+test("a prefetch response cannot warm assets unless its transport and page bindings hold", () => {
+  const source = fs.readFileSync("src/pages/run_page.tsx", "utf8");
+  const transport = fs.readFileSync("src/api/http_client.ts", "utf8");
+
+  assert.match(transport, /decoded\.predecessor !== attemptId/);
+  assert.match(source, /value\.run !== machine\.state\(\)\.context\.runId/);
+  assert.match(source, /const MAX_PREFETCH_ASSETS = 12/);
+  assert.match(source, /new Set\(/);
+  assert.match(source, /\.slice\(0, MAX_PREFETCH_ASSETS\)/);
 });

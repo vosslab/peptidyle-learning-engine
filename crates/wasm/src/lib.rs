@@ -5,7 +5,8 @@
 //! both targets. The allowlist of exports is frozen in M1; `grading` is outside
 //! this crate's dependency closure and must stay there.
 
-use domain::{policy, timing, validation};
+use domain::{draft_preview, policy, timing, validation};
+use question_model::generation::Seed;
 use question_model::response::{ResponseDefinition, StudentResponse};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -91,6 +92,23 @@ pub fn validate_assignment_config(config_json: &str) -> Result<String, JsValue> 
     })
 }
 
+/// Materializes one key-free, unversioned native workspace-draft preview.
+///
+/// Non-native sources return the explicit `unavailable` capability result.
+/// The bridge never imports an adapter or grading implementation: it can only
+/// generate disclosed parameters and apply them to safe prompt fields.
+#[wasm_bindgen]
+pub fn preview_native_draft(draft_json: &str, seed_json: &str) -> Result<String, JsValue> {
+    let request: draft_preview::DraftPreviewRequest = serde_json::from_str(draft_json)
+        .map_err(|error| JsValue::from_str(&format!("invalid draft preview request: {error}")))?;
+    let seed: Seed = serde_json::from_str(seed_json)
+        .map_err(|error| JsValue::from_str(&format!("invalid draft preview seed: {error}")))?;
+    let preview = draft_preview::preview_native_draft(&request, seed)
+        .map_err(|error| JsValue::from_str(&format!("invalid draft preview: {error}")))?;
+    serde_json::to_string(&preview)
+        .map_err(|error| JsValue::from_str(&format!("could not serialize draft preview: {error}")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -119,5 +137,18 @@ mod tests {
         .expect("valid server timestamps should produce a verdict");
 
         assert_eq!(verdict, r#""submittedWithinGrace""#);
+    }
+
+    #[test]
+    fn native_draft_preview_stays_key_free() {
+        let preview = preview_native_draft(
+            r#"{"workspace":"00000000-0000-0000-0000-000000000001","source":{"backend":"native","family":"fixture"},"title":"Fixture","prompt":[{"kind":"text","markdown":"Value {{value}}"}],"response":{"kind":"shortText","matchMode":"normalized","maxLength":20},"randomization":{"kind":"seeded","generator":{"id":"fixture","version":"1"},"parameters":{"value":{"kind":"fixed","value":"safe"}}}}"#,
+            "4",
+        )
+        .expect("native draft preview");
+        assert_eq!(
+            preview,
+            r#"{"kind":"ready","preview":{"workspace":"00000000-0000-0000-0000-000000000001","seed":4,"title":"Fixture","prompt":[{"kind":"text","markdown":"Value safe"}],"response":{"kind":"shortText","matchMode":"normalized","maxLength":20}}}"#
+        );
     }
 }

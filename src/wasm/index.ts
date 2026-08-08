@@ -7,10 +7,15 @@ import type { BackendCapabilities } from "../../generated/api/BackendCapabilitie
 import type { Capability } from "../../generated/api/Capability";
 import type { ResponseDefinition } from "../../generated/api/ResponseDefinition";
 import type { QuestionDefinition } from "../../generated/api/QuestionDefinition";
+import type { QuestionBackend } from "../../generated/api/QuestionBackend";
+import type { ContentBlock } from "../../generated/api/ContentBlock";
+import type { DraftQuestionSource } from "../../generated/api/DraftQuestionSource";
+import type { RandomizationDefinition } from "../../generated/api/RandomizationDefinition";
 import type { SelectionCardinality } from "../../generated/api/SelectionCardinality";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { TimingPolicy } from "../../generated/api/TimingPolicy";
 import type { VersionId } from "../../generated/api/VersionId";
+import { decodeKeyFreeDraftPreview } from "../api/decoders";
 
 export type ResponseFormatViolation =
   | { readonly kind: "responseKindMismatch" }
@@ -70,12 +75,45 @@ export type CapabilityValidator = (
   config: AssignmentConfig,
 ) => Promise<ReadonlyArray<CapabilityViolation>>;
 
+/** Key-free browser inputs for deterministic workspace-draft preview. */
+export interface NativeDraftPreviewRequest {
+  readonly workspace: string;
+  readonly source: DraftQuestionSource;
+  readonly title: string;
+  readonly prompt: ReadonlyArray<ContentBlock>;
+  readonly response: ResponseDefinition;
+  readonly randomization: RandomizationDefinition;
+}
+
+/** Identity-free preview material returned only for local native sources. */
+export interface NativeDraftPreview {
+  readonly workspace: string;
+  readonly seed: number;
+  readonly title: string;
+  readonly prompt: ReadonlyArray<ContentBlock>;
+  readonly response: ResponseDefinition;
+}
+
+export type NativeDraftPreviewResult =
+  | { readonly kind: "ready"; readonly preview: NativeDraftPreview }
+  | {
+      readonly kind: "unavailable";
+      readonly backend: QuestionBackend;
+      readonly capability: "offlinePreview";
+    };
+
+export type NativeDraftPreviewer = (
+  request: NativeDraftPreviewRequest,
+  seed: number,
+) => Promise<NativeDraftPreviewResult>;
+
 export interface WasmFacade {
   readonly mode: "wasm" | "serverFallback";
   readonly degradedReason?: string;
   readonly validateResponseFormat: FormatValidator;
   readonly timerVerdict: TimerEvaluator;
   readonly validateAssignmentConfig: CapabilityValidator;
+  readonly previewNativeDraft: NativeDraftPreviewer;
 }
 
 interface WasmBindgenModule {
@@ -83,6 +121,7 @@ interface WasmBindgenModule {
   readonly timer_verdict: (evaluationJson: string) => string;
   readonly validate_assignment_config: (configJson: string) => string;
   readonly validate_response_format: (definitionJson: string, responseJson: string) => string;
+  readonly preview_native_draft: (draftJson: string, seedJson: string) => string;
 }
 
 let sharedFacade: Promise<WasmFacade> | undefined;
@@ -99,8 +138,69 @@ function isWasmBindgenModule(value: unknown): value is WasmBindgenModule {
     typeof value["default"] === "function" &&
     typeof value["timer_verdict"] === "function" &&
     typeof value["validate_assignment_config"] === "function" &&
-    typeof value["validate_response_format"] === "function"
+    typeof value["validate_response_format"] === "function" &&
+    typeof value["preview_native_draft"] === "function"
   );
+}
+
+function rejectUnknownFields(
+  record: Record<string, unknown>,
+  allowed: ReadonlySet<string>,
+  shape: string,
+): void {
+  for (const key of Object.keys(record)) {
+    if (!allowed.has(key)) throw new Error(`${shape} has unknown field ${key}`);
+  }
+}
+
+function parseQuestionBackend(value: unknown): QuestionBackend {
+  switch (value) {
+    case "native":
+    case "webwork":
+    case "qti":
+    case "h5p":
+    case "imathas":
+      return value;
+    default:
+      throw new Error("WASM draft preview has an unknown backend");
+  }
+}
+
+/** Strictly decodes the reviewed, key-free WebAssembly draft-preview result. */
+export function decodeNativeDraftPreviewResult(json: string): NativeDraftPreviewResult {
+  const value: unknown = JSON.parse(json);
+  if (!isRecord(value)) throw new Error("WASM draft preview result must be an object");
+  const kind = requiredString(value, "kind");
+  if (kind === "unavailable") {
+    rejectUnknownFields(
+      value,
+      new Set(["kind", "backend", "capability"]),
+      "WASM unavailable preview",
+    );
+    if (value["capability"] !== "offlinePreview")
+      throw new Error("WASM unavailable preview must name offlinePreview");
+    return { kind, backend: parseQuestionBackend(value["backend"]), capability: "offlinePreview" };
+  }
+  if (kind !== "ready") throw new Error(`Unknown WASM draft preview kind ${kind}`);
+  rejectUnknownFields(value, new Set(["kind", "preview"]), "WASM ready preview");
+  if (!isRecord(value["preview"]))
+    throw new Error("WASM ready preview must contain a preview object");
+  const preview = value["preview"];
+  rejectUnknownFields(
+    preview,
+    new Set(["workspace", "seed", "title", "prompt", "response"]),
+    "WASM preview",
+  );
+  for (const forbidden of ["problem", "version", "answer", "key", "grading", "correct", "score"]) {
+    if (forbidden in preview) throw new Error(`WASM preview must not contain ${forbidden}`);
+  }
+  const decoded = decodeKeyFreeDraftPreview(preview, "wasmPreview");
+  return {
+    kind,
+    preview: {
+      ...decoded,
+    },
+  };
 }
 
 function requiredString(record: Record<string, unknown>, key: string): string {
@@ -252,7 +352,19 @@ async function initializeWasmFacade(
       Promise.resolve(
         parseCapabilityViolations(loaded.validate_assignment_config(JSON.stringify(config))),
       );
-    return { mode: "wasm", validateResponseFormat, timerVerdict, validateAssignmentConfig };
+    const previewNativeDraft: NativeDraftPreviewer = (request, seed) =>
+      Promise.resolve(
+        decodeNativeDraftPreviewResult(
+          loaded.preview_native_draft(JSON.stringify(request), JSON.stringify(seed)),
+        ),
+      );
+    return {
+      mode: "wasm",
+      validateResponseFormat,
+      timerVerdict,
+      validateAssignmentConfig,
+      previewNativeDraft,
+    };
   } catch (error: unknown) {
     return {
       mode: "serverFallback",
@@ -260,6 +372,12 @@ async function initializeWasmFacade(
       validateResponseFormat: formatFallback,
       timerVerdict: timerFallback,
       validateAssignmentConfig: capabilityFallback,
+      previewNativeDraft: (request) =>
+        Promise.resolve({
+          kind: "unavailable",
+          backend: request.source.backend,
+          capability: "offlinePreview",
+        }),
     };
   }
 }

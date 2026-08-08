@@ -22,14 +22,15 @@
 //! | Rust | TypeScript |
 //! | --- | --- |
 //! | unit-only enum | string union |
+//! | externally tagged enum with data | string/object union |
 //! | enum with data, `#[serde(tag = "...")]` | discriminated union |
 //! | struct with named fields | object type |
 //! | newtype struct | alias to the inner type |
 //!
-//! Enums carrying data must declare `#[serde(tag = "...")]`. serde's default
-//! externally-tagged form produces awkward TypeScript (`{ Variant: {...} }`),
-//! and an internally-tagged union is what a client can switch on. The
-//! generator refuses an untagged data enum rather than guessing.
+//! Untagged data enums use serde's externally tagged form. Unit variants stay
+//! strings, while data variants become a one-key object (`{ variant: value }`).
+//! This preserves established scalar variants when an additive safe payload is
+//! introduced without forcing a wire-breaking enum migration.
 
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
@@ -93,6 +94,31 @@ pub fn run(model_dir: &Path, out_dir: &Path) -> Result<usize> {
                         generate_enum(&item)
                             .with_context(|| format!("generating {}", item.ident))?,
                     );
+                }
+                Item::Const(item)
+                    if matches!(item.vis, syn::Visibility::Public(_))
+                        && matches!(*item.ty, syn::Type::Path(ref path) if path.path.is_ident("usize"))
+                        && matches!(
+                            &*item.expr,
+                            syn::Expr::Lit(syn::ExprLit {
+                                lit: syn::Lit::Int(_),
+                                ..
+                            })
+                        ) =>
+                {
+                    let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Int(value),
+                        ..
+                    }) = &*item.expr
+                    else {
+                        unreachable!()
+                    };
+                    generated.push(Generated {
+                        name: item.ident.to_string(),
+                        dependencies: BTreeSet::new(),
+                        docs: doc_lines(&item.attrs),
+                        body: format!("__CONST__ {}", value.base10_digits()),
+                    });
                 }
                 _ => {}
             }
@@ -268,6 +294,15 @@ fn is_skipped(attrs: &[Attribute]) -> bool {
     skipped
 }
 
+/// Whether serde omits a field when its value is `None`.
+///
+/// The generated TypeScript must model this as an optional property rather
+/// than `T | null`: the public JSON contract intentionally proves restricted
+/// feedback fields are absent, not merely null.
+fn skips_when_none(attrs: &[Attribute]) -> bool {
+    serde_string_value(attrs, "skip_serializing_if").is_some_and(|value| value == "Option::is_none")
+}
+
 /// Applies a serde `rename_all` rule to one identifier.
 ///
 /// Only the cases this repo uses are implemented. An unrecognized rule is an
@@ -403,7 +438,14 @@ fn generate_struct(item: &syn::ItemStruct) -> Result<Generated> {
                 };
                 let name = apply_rename(&ident.to_string(), rule.as_deref())?;
                 let mapped = map_type(&field.ty, &mut dependencies)?;
-                lines.push(format!("  {name}: {mapped};"));
+                let optional = skips_when_none(&field.attrs);
+                let mapped = if optional {
+                    option_inner_type(&field.ty, &mut dependencies)?
+                } else {
+                    mapped
+                };
+                let marker = if optional { "?" } else { "" };
+                lines.push(format!("  {name}{marker}: {mapped};"));
             }
             format!("{{\n{}\n}}", lines.join("\n"))
         }
@@ -419,6 +461,31 @@ fn generate_struct(item: &syn::ItemStruct) -> Result<Generated> {
     })
 }
 
+/// Maps the inner type of `Option<T>` for an omitted JSON field.
+fn option_inner_type(rust_type: &Type, dependencies: &mut BTreeSet<String>) -> Result<String> {
+    let Type::Path(path) = rust_type else {
+        bail!("skip_serializing_if Option::is_none needs Option<T>");
+    };
+    let Some(segment) = path.path.segments.last() else {
+        bail!("type path with no segments");
+    };
+    if segment.ident != "Option" {
+        bail!("skip_serializing_if Option::is_none needs Option<T>");
+    }
+    let arguments: Vec<&Type> = match &segment.arguments {
+        syn::PathArguments::AngleBracketed(bracketed) => bracketed
+            .args
+            .iter()
+            .filter_map(|arg| match arg {
+                syn::GenericArgument::Type(inner) => Some(inner),
+                _ => None,
+            })
+            .collect(),
+        _ => Vec::new(),
+    };
+    first_argument(&arguments, "Option", dependencies)
+}
+
 /// Generates the declaration for an enum.
 fn generate_enum(item: &syn::ItemEnum) -> Result<Generated> {
     let mut dependencies = BTreeSet::new();
@@ -426,19 +493,6 @@ fn generate_enum(item: &syn::ItemEnum) -> Result<Generated> {
     // Variant fields follow their own serde rule; see rename_all_fields.
     let field_rule = rename_all_fields(&item.attrs);
     let tag = serde_tag(&item.attrs);
-
-    let carries_data = item
-        .variants
-        .iter()
-        .any(|variant| !matches!(variant.fields, Fields::Unit));
-
-    if carries_data && tag.is_none() {
-        bail!(
-            "enum {} carries data but has no #[serde(tag = \"...\")]; \
-             externally tagged enums produce unusable TypeScript",
-            item.ident
-        );
-    }
 
     let mut members = Vec::new();
     for variant in &item.variants {
@@ -448,6 +502,25 @@ fn generate_enum(item: &syn::ItemEnum) -> Result<Generated> {
         let name = apply_rename(&variant.ident.to_string(), rule.as_deref())?;
         match (&variant.fields, &tag) {
             (Fields::Unit, None) => members.push(format!("\"{name}\"")),
+            (Fields::Unnamed(fields), None) if fields.unnamed.len() == 1 => {
+                let mapped = map_type(&fields.unnamed[0].ty, &mut dependencies)?;
+                members.push(format!("{{ {name}: {mapped} }}"));
+            }
+            (Fields::Named(fields), None) => {
+                let mut lines = Vec::new();
+                for field in &fields.named {
+                    if is_skipped(&field.attrs) {
+                        continue;
+                    }
+                    let Some(ident) = &field.ident else {
+                        bail!("named field without an identifier");
+                    };
+                    let field_name = apply_rename(&ident.to_string(), field_rule.as_deref())?;
+                    let mapped = map_type(&field.ty, &mut dependencies)?;
+                    lines.push(format!("    {field_name}: {mapped};"));
+                }
+                members.push(format!("{{ {name}: {{\n{}\n  }} }}", lines.join("\n")));
+            }
             (Fields::Unit, Some(tag_name)) => {
                 members.push(format!("{{ {tag_name}: \"{name}\" }}"));
             }
@@ -540,6 +613,14 @@ fn render(type_definition: &Generated) -> String {
         out.push_str(" */\n");
     }
 
+    if let Some(value) = type_definition.body.strip_prefix("__CONST__ ") {
+        let _ = writeln!(
+            out,
+            "export const {} = {value} as const;",
+            type_definition.name
+        );
+        return out;
+    }
     // A wrapped union already starts with its own newline, so the space after
     // `=` would be trailing whitespace. Prettier strips that, and a file it
     // would reformat is a file that fails `prettier --check`.
@@ -633,14 +714,57 @@ mod tests {
     }
 
     #[test]
-    fn a_data_enum_without_a_tag_is_refused() {
-        let item: syn::ItemEnum = syn::parse_quote! {
+    fn omitted_option_becomes_an_optional_property() {
+        let item: syn::ItemStruct = syn::parse_quote! {
             #[derive(Serialize)]
-            pub enum Shape {
-                Circle { radius: f64 },
+            #[serde(rename_all = "camelCase")]
+            pub struct Holder {
+                #[serde(skip_serializing_if = "Option::is_none")]
+                pub secret: Option<String>,
             }
         };
-        assert!(generate_enum(&item).is_err());
+        let generated = generate_struct(&item).expect("generation should succeed");
+        assert!(generated.body.contains("secret?: string;"));
+        assert!(!generated.body.contains("null"));
+    }
+
+    #[test]
+    fn nonserializable_server_contract_is_not_emitted_to_typescript() {
+        let model_dir = temporary_output_dir("private-model");
+        let out_dir = temporary_output_dir("private-output");
+        fs::create_dir_all(&model_dir).expect("temporary model directory should be created");
+        fs::write(
+            model_dir.join("feedback.rs"),
+            "pub struct FeedbackContent { pub hidden: String }\n",
+        )
+        .expect("private feedback fixture should be written");
+
+        run(&model_dir, &out_dir).expect("generation should accept private Rust types");
+        assert!(
+            !out_dir.join("FeedbackContent.ts").exists(),
+            "a non-serializable server contract must not become a browser type"
+        );
+
+        fs::remove_dir_all(model_dir).expect("temporary model directory should be removed");
+        fs::remove_dir_all(out_dir).expect("temporary output directory should be removed");
+    }
+
+    #[test]
+    fn an_externally_tagged_newtype_variant_preserves_scalar_siblings() {
+        let item: syn::ItemEnum = syn::parse_quote! {
+            #[derive(Serialize)]
+            #[serde(rename_all = "camelCase")]
+            pub enum Shape {
+                Unavailable,
+                Available(Statistics),
+            }
+        };
+        let generated = generate_enum(&item).expect("generation should support external tagging");
+        assert_eq!(
+            generated.body,
+            "\"unavailable\" | { available: Statistics }"
+        );
+        assert!(generated.dependencies.contains("Statistics"));
     }
 
     #[test]

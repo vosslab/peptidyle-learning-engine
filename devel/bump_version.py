@@ -47,6 +47,12 @@ SKIP_DIRS = {
 	"node_modules",
 	"site-packages",
 }
+# Skipped only at the repo root, matching the root-anchored /OTHER_REPOS/ rule in
+# templates/gitignore.universal. Vendored sibling repos there carry their own
+# unrelated versions and must never be rewritten by a bump of this repo.
+ROOT_SKIP_DIRS = {
+	"OTHER_REPOS",
+}
 CANDIDATE_FILENAMES = {
 	"Cargo.lock",
 	"Cargo.toml",
@@ -58,6 +64,29 @@ CANDIDATE_FILENAMES = {
 }
 CARGO_PACKAGE_HEADER_PATTERN = re.compile(r"^\[\[package\]\]\s*$")
 CARGO_NAME_PATTERN = re.compile(r"^\s*name\s*=\s*['\"](?P<name>[^'\"]+)['\"]\s*$")
+# Prerelease tag vocabularies, one per direction. Previously rebuilt inside
+# parse_version_details (twice), format_version, and normalize_cargo_version.
+# PRE_TAG_NAMES: PEP 440 short tag as written -> internal long name.
+PRE_TAG_NAMES = {
+	"a": "alpha",
+	"b": "beta",
+	"rc": "rc",
+}
+# PRE_TAG_SHORT: internal long name -> PEP 440 short tag (the inverse).
+PRE_TAG_SHORT = {
+	"alpha": "a",
+	"beta": "b",
+	"rc": "rc",
+}
+# CARGO_PRE_TAG_NAMES: Cargo emits long names and accepts either spelling,
+# since parse_version_details keeps dash-style tags in their source form.
+CARGO_PRE_TAG_NAMES = {
+	"a": "alpha",
+	"alpha": "alpha",
+	"b": "beta",
+	"beta": "beta",
+	"rc": "rc",
+}
 SHORT_BUMP_ALIASES = {
 	"M": "major",
 	"m": "minor",
@@ -213,6 +242,9 @@ def advanced_help(show_advanced: bool, help_text: str) -> str:
 def current_calver_month() -> str:
 	"""Return the current month in repo CalVer format.
 
+	Kept local rather than imported from devel/changelog_lib.py: that module
+	pulls in rich, and this tool stays stdlib-only.
+
 	Returns:
 		str: Current YY.MM value.
 	"""
@@ -294,9 +326,11 @@ def iter_candidate_files(base_dir: str, max_depth: int) -> list[str]:
 			dirs[:] = []
 			continue
 
+		# ROOT_SKIP_DIRS applies only to the top-level scan directory
+		skip_names = SKIP_DIRS | ROOT_SKIP_DIRS if depth == 0 else SKIP_DIRS
 		dirs[:] = [
 			d for d in dirs
-			if d not in SKIP_DIRS and not d.startswith(".")
+			if d not in skip_names and not d.startswith(".")
 		]
 
 		for filename in files:
@@ -332,8 +366,10 @@ def parse_toml_version(
 		for key in section_path:
 			section_data = section_data.get(key, {})
 		version = section_data.get("version")
-		if version:
-			versions.append(str(version))
+		# Inherited versions parse as tables (Cargo's version.workspace = true).
+		# They are not literal versions and must not be stringified or rewritten.
+		if isinstance(version, str) and version:
+			versions.append(version)
 			sections.append(section_name)
 
 	if not versions:
@@ -369,28 +405,41 @@ def parse_pyproject(path: str) -> dict | None:
 
 #============================================
 
-def parse_cargo_toml(path: str) -> dict | None:
+def parse_cargo_toml(path: str) -> tuple[dict | None, str]:
 	"""Parse version metadata from a Cargo.toml manifest.
+
+	A manifest owns a literal version in [package] version, in
+	[workspace.package] version, or in neither. Members that inherit with
+	version.workspace = true own no version and yield no entry, while their
+	package name is still reported so Cargo.lock stanzas can be matched.
 
 	Args:
 		path (str): Cargo.toml path.
 
 	Returns:
-		dict | None: Entry describing the version, or None if missing.
+		tuple[dict | None, str]: Version entry (None when inherited or absent)
+		and the manifest's package name ("" when the manifest declares none).
 	"""
 	with open(path, "rb") as handle:
 		data = tomllib.load(handle)
 
 	package_data = data.get("package", {})
+	package_name = package_data.get("name", "")
+	if not isinstance(package_name, str):
+		package_name = ""
+
 	entry = parse_toml_version(
 		data,
 		path,
 		"cargo_toml",
-		{"package": ("package",)},
+		{
+			"package": ("package",),
+			"workspace.package": ("workspace", "package"),
+		},
 	)
 	if entry:
-		entry["package_name"] = str(package_data.get("name", ""))
-	return entry
+		entry["package_name"] = package_name
+	return entry, package_name
 
 #============================================
 
@@ -437,6 +486,7 @@ def parse_cargo_lock(path: str, package_names: set[str]) -> list[dict]:
 				"kind": "cargo_lock",
 				"version": package_version,
 				"package_index": package_index,
+				"package_name": package_name,
 			})
 
 	return entries
@@ -560,9 +610,11 @@ def parse_versions(base_dir: str, max_depth: int) -> list[dict]:
 		if filename == "pyproject.toml":
 			entry = parse_pyproject(path)
 		elif filename == "Cargo.toml":
-			entry = parse_cargo_toml(path)
-			if entry and entry["package_name"]:
-				cargo_package_names.add(entry["package_name"])
+			entry, package_name = parse_cargo_toml(path)
+			# Collect the name even when the manifest inherits its version, so
+			# inheriting members are still matched in Cargo.lock.
+			if package_name:
+				cargo_package_names.add(package_name)
 		elif filename == "version.py":
 			entry = parse_version_py(path)
 		elif filename == "Cargo.lock":
@@ -598,6 +650,28 @@ def ensure_version_file_entry(entries: list[dict], base_dir: str) -> list[dict]:
 	if os.path.exists(version_path):
 		return entries
 	return entries + [build_version_file_entry(base_dir)]
+
+#============================================
+
+def format_entry_label(entry: dict, base_dir: str) -> str:
+	"""Return an unambiguous repository-relative entry label.
+
+	Cargo.lock contributes one entry per local package stanza, so the package
+	name is included to keep those repeated paths distinguishable.
+
+	Args:
+		entry (dict): Version entry.
+		base_dir (str): Repository root.
+
+	Returns:
+		str: Path, including a Cargo package name when the path repeats.
+	"""
+	rel_path = os.path.relpath(entry["path"], base_dir)
+	if entry["kind"] == "cargo_lock":
+		label = f"{rel_path} [{entry['package_name']}]"
+	else:
+		label = rel_path
+	return label
 
 #============================================
 
@@ -682,6 +756,38 @@ def bump_version(version: str, bump: str, pre_style: str) -> str:
 
 #============================================
 
+def version_number_parts(
+	major_text: str,
+	minor_text: str,
+	patch_text: str | None=None,
+) -> dict:
+	"""Convert version segment text into numeric values plus original widths.
+
+	The width fields are the zero-padding filter: they record that "08" was
+	two characters so 26.08 can be rebuilt as 26.08 rather than 26.8, while
+	the numeric fields drive arithmetic and the unpadded Cargo form. A version
+	with no patch segment reports patch 0 at width 1.
+
+	Args:
+		major_text (str): Major segment as written.
+		minor_text (str): Minor segment as written.
+		patch_text (str | None): Patch segment as written, or None when absent.
+
+	Returns:
+		dict: Numeric major/minor/patch and their source widths.
+	"""
+	parts = {
+		"major": int(major_text),
+		"minor": int(minor_text),
+		"patch": int(patch_text) if patch_text is not None else 0,
+		"major_width": len(major_text),
+		"minor_width": len(minor_text),
+		"patch_width": len(patch_text) if patch_text is not None else 1,
+	}
+	return parts
+
+#============================================
+
 def parse_version_details(version: str) -> dict:
 	"""Parse a version string into parts.
 
@@ -693,137 +799,95 @@ def parse_version_details(version: str) -> dict:
 	"""
 	match = PEP440_PATTERN.match(version)
 	if match:
-		major_text = match.group("major")
-		minor_text = match.group("minor")
-		patch_text = match.group("patch")
-		tag = match.group("tag")
-		tag_map = {"a": "alpha", "b": "beta", "rc": "rc"}
-		details = {
-			"major": int(major_text),
-			"minor": int(minor_text),
-			"patch": int(patch_text),
-			"major_width": len(major_text),
-			"minor_width": len(minor_text),
-			"patch_width": len(patch_text),
-			"pre_tag": tag_map[tag],
+		details = version_number_parts(
+			match.group("major"),
+			match.group("minor"),
+			match.group("patch"),
+		)
+		details.update({
+			"pre_tag": PRE_TAG_NAMES[match.group("tag")],
 			"pre_num": int(match.group("num")),
 			"style": "pep440",
-		}
+		})
 		return details
 
 	match = SHORT_PEP440_PATTERN.match(version)
 	if match:
-		major_text = match.group("major")
-		minor_text = match.group("minor")
-		tag = match.group("tag")
-		tag_map = {"a": "alpha", "b": "beta", "rc": "rc"}
-		details = {
-			"major": int(major_text),
-			"minor": int(minor_text),
-			"patch": 0,
-			"major_width": len(major_text),
-			"minor_width": len(minor_text),
-			"patch_width": 1,
-			"pre_tag": tag_map[tag],
+		details = version_number_parts(match.group("major"), match.group("minor"))
+		details.update({
+			"pre_tag": PRE_TAG_NAMES[match.group("tag")],
 			"pre_num": int(match.group("num")),
 			"style": "pep440",
 			"patch_optional": True,
-		}
+		})
 		return details
 
 	match = DASH_PATTERN.match(version)
 	if match:
-		major_text = match.group("major")
-		minor_text = match.group("minor")
-		patch_text = match.group("patch")
 		num_text = match.group("num")
-		pre_num = int(num_text) if num_text else 0
-		details = {
-			"major": int(major_text),
-			"minor": int(minor_text),
-			"patch": int(patch_text),
-			"major_width": len(major_text),
-			"minor_width": len(minor_text),
-			"patch_width": len(patch_text),
+		details = version_number_parts(
+			match.group("major"),
+			match.group("minor"),
+			match.group("patch"),
+		)
+		details.update({
 			"pre_tag": match.group("tag"),
-			"pre_num": pre_num,
+			"pre_num": int(num_text) if num_text else 0,
 			"style": "dash",
-		}
+		})
 		return details
 
 	match = YY_MM_PATCH_PATTERN.match(version)
 	if match:
-		major_text = match.group("major")
-		minor_text = match.group("minor")
-		patch_text = match.group("patch")
-		details = {
-			"major": int(major_text),
-			"minor": int(minor_text),
-			"patch": int(patch_text),
-			"major_width": len(major_text),
-			"minor_width": len(minor_text),
-			"patch_width": len(patch_text),
+		num_text = match.group("num")
+		details = version_number_parts(
+			match.group("major"),
+			match.group("minor"),
+			match.group("patch"),
+		)
+		details.update({
 			"pre_tag": match.group("tag"),
-			"pre_num": int(match.group("num")) if match.group("num") else None,
+			"pre_num": int(num_text) if num_text else None,
 			"style": "pep440",
 			"patch_optional": False,
-		}
+		})
 		return details
 
 	match = YY_MM_SHORT_PATTERN.match(version)
 	if match:
-		major_text = match.group("major")
-		minor_text = match.group("minor")
-		tag = match.group("tag")
-		details = {
-			"major": int(major_text),
-			"minor": int(minor_text),
-			"patch": 0,
-			"major_width": len(major_text),
-			"minor_width": len(minor_text),
-			"patch_width": 1,
-			"pre_tag": tag,
+		details = version_number_parts(match.group("major"), match.group("minor"))
+		details.update({
+			"pre_tag": match.group("tag"),
 			"pre_num": int(match.group("num")),
 			"style": "pep440",
 			"patch_optional": True,
-		}
+		})
 		return details
 
 	match = YY_MM_BARE_PATTERN.match(version)
 	if match:
-		major_text = match.group("major")
-		minor_text = match.group("minor")
-		details = {
-			"major": int(major_text),
-			"minor": int(minor_text),
-			"patch": 0,
-			"major_width": len(major_text),
-			"minor_width": len(minor_text),
-			"patch_width": 1,
+		details = version_number_parts(match.group("major"), match.group("minor"))
+		details.update({
 			"pre_tag": None,
 			"pre_num": None,
 			"style": "pep440",
 			"patch_optional": True,
-		}
+		})
 		return details
 
 	match = BASE_VERSION_PATTERN.match(version)
 	if match:
-		major_text = match.group("major")
-		minor_text = match.group("minor")
-		patch_text = match.group("patch")
-		details = {
-			"major": int(major_text),
-			"minor": int(minor_text),
-			"patch": int(patch_text),
-			"major_width": len(major_text),
-			"minor_width": len(minor_text),
-			"patch_width": len(patch_text),
+		details = version_number_parts(
+			match.group("major"),
+			match.group("minor"),
+			match.group("patch"),
+		)
+		details.update({
 			"pre_tag": None,
 			"pre_num": None,
 			"style": "none",
 			"patch_optional": False,
-		}
+		})
 		return details
 
 	raise ValueError(f"Unsupported version format: {version}")
@@ -869,8 +933,7 @@ def format_version(details: dict) -> str:
 
 	pre_num = details["pre_num"] if details["pre_num"] is not None else 1
 	if details["style"] == "pep440":
-		tag_map = {"alpha": "a", "beta": "b", "rc": "rc"}
-		return f"{base}{tag_map[details['pre_tag']]}{pre_num}"
+		return f"{base}{PRE_TAG_SHORT[details['pre_tag']]}{pre_num}"
 
 	return f"{base}-{details['pre_tag']}.{pre_num}"
 
@@ -972,14 +1035,7 @@ def normalize_cargo_version(version: str) -> str:
 	if not details["pre_tag"]:
 		return base
 
-	tag_map = {
-		"a": "alpha",
-		"alpha": "alpha",
-		"b": "beta",
-		"beta": "beta",
-		"rc": "rc",
-	}
-	tag = tag_map[details["pre_tag"]]
+	tag = CARGO_PRE_TAG_NAMES[details["pre_tag"]]
 	pre_num = details["pre_num"] if details["pre_num"] is not None else 0
 	cargo_version = f"{base}-{tag}.{pre_num}"
 	return cargo_version
@@ -1186,11 +1242,11 @@ def main() -> None:
 
 	print("Discovered versions:")
 	for entry in entries:
-		rel_path = os.path.relpath(entry["path"], base_dir)
+		entry_label = format_entry_label(entry, base_dir)
 		version_display = entry["version"] if entry["version"] else "(empty)"
 		if entry.get("create"):
 			version_display = "(missing)"
-		print(f"- {rel_path}: {version_display} ({entry['kind']})")
+		print(f"- {entry_label}: {version_display} ({entry['kind']})")
 
 	base_version_display = ""
 	if base_version_override:
@@ -1237,7 +1293,8 @@ def main() -> None:
 			return
 
 	if explicit_version or args.update_all:
-		selected = list(entries)
+		# Entries already at the target need no rewrite and stay out of the plan.
+		selected = [entry for entry in entries if not entry_matches_target(entry, new_version)]
 		skipped = []
 	else:
 		selected = [entry for entry in entries if entry["version"] == base_version]
@@ -1246,22 +1303,23 @@ def main() -> None:
 	if skipped:
 		print("Skipping entries with different versions:")
 		for entry in skipped:
-			rel_path = os.path.relpath(entry["path"], base_dir)
-			print(f"- {rel_path}: {entry['version']}")
+			entry_label = format_entry_label(entry, base_dir)
+			print(f"- {entry_label}: {entry['version']}")
 
 	print("Planned updates:")
 	for entry in selected:
-		rel_path = os.path.relpath(entry["path"], base_dir)
-		print(f"- {rel_path}")
+		entry_label = format_entry_label(entry, base_dir)
+		print(f"- {entry_label}")
 
-	changed = 0
+	# Count distinct files: one Cargo.lock holds many package stanzas.
+	changed_paths = set()
 	for entry in selected:
 		result = update_entry(entry, new_version, args.apply)
 		if result["changed"]:
-			changed += 1
+			changed_paths.add(result["path"])
 
 	if args.apply:
-		print(f"Updated {changed} file(s).")
+		print(f"Updated {len(changed_paths)} file(s).")
 	else:
 		print("Dry run only. Use --apply to write changes.")
 

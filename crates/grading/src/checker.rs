@@ -277,7 +277,7 @@ mod tests {
     fn question(response: ResponseDefinition, grading: GradingDefinition) -> QuestionDefinition {
         QuestionDefinition {
             version: VersionId::from_uuid(Uuid::from_u128(2)),
-            problem: Some(ProblemId::from_uuid(Uuid::from_u128(1))),
+            problem: ProblemId::from_uuid(Uuid::from_u128(1)),
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
             source: QuestionSource::Native {
                 family: "grading-fixture".to_string(),

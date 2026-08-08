@@ -10,7 +10,8 @@ use std::collections::BTreeSet;
 use question_model::generation::RandomizationDefinition;
 use question_model::run_policy::{FeedbackDisclosure, TimingPolicy};
 use question_model::{
-    BackendCapabilities, Capability, GradingDefinition, QuestionDefinition, VersionId,
+    BackendCapabilities, Capability, DraftQuestionDefinition, GradingDefinition,
+    QuestionDefinition, VersionId,
 };
 use serde::{Deserialize, Serialize};
 
@@ -48,6 +49,18 @@ pub struct Violation {
     pub capability: Capability,
 }
 
+/// Capability diagnostic for unpublished workspace content.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicationViolation {
+    /// Workspace-local label; a draft intentionally has no published version.
+    pub workspace: question_model::WorkspaceId,
+    /// Human-facing draft title to make the repair location clear.
+    pub title: String,
+    /// Capability required by the draft but absent from its trusted backend.
+    pub capability: Capability,
+}
+
 /// Returns every unsupported capability in deterministic display order.
 ///
 /// The function has no storage or adapter dependency. API routes resolve the
@@ -77,16 +90,73 @@ pub fn validate_assignment_config(config: &AssignmentConfig) -> Vec<Violation> {
     violations
 }
 
+/// Validates a draft at the publication boundary without inventing a version ID.
+pub fn validate_draft_for_publication(
+    question: &DraftQuestionDefinition,
+    backend_capabilities: &BackendCapabilities,
+) -> Vec<PublicationViolation> {
+    required_by_content(question)
+        .into_iter()
+        .filter(|capability| !backend_capabilities.supports(*capability))
+        .map(|capability| PublicationViolation {
+            workspace: question.workspace,
+            title: question.metadata.title.clone(),
+            capability,
+        })
+        .collect()
+}
+
 fn required_by_question(question: &QuestionDefinition) -> BTreeSet<Capability> {
+    required_by_content(question)
+}
+
+trait QuestionContentView {
+    fn randomization(&self) -> &question_model::generation::RandomizationDefinition;
+    fn grading(&self) -> &GradingDefinition;
+    fn attempt_policy(&self) -> &question_model::run_policy::AttemptPolicy;
+    fn timing_policy(&self) -> &TimingPolicy;
+}
+
+impl QuestionContentView for QuestionDefinition {
+    fn randomization(&self) -> &question_model::generation::RandomizationDefinition {
+        &self.randomization
+    }
+    fn grading(&self) -> &GradingDefinition {
+        &self.grading
+    }
+    fn attempt_policy(&self) -> &question_model::run_policy::AttemptPolicy {
+        &self.attempt_policy
+    }
+    fn timing_policy(&self) -> &TimingPolicy {
+        &self.timing_policy
+    }
+}
+
+impl QuestionContentView for DraftQuestionDefinition {
+    fn randomization(&self) -> &question_model::generation::RandomizationDefinition {
+        &self.randomization
+    }
+    fn grading(&self) -> &GradingDefinition {
+        &self.grading
+    }
+    fn attempt_policy(&self) -> &question_model::run_policy::AttemptPolicy {
+        &self.attempt_policy
+    }
+    fn timing_policy(&self) -> &TimingPolicy {
+        &self.timing_policy
+    }
+}
+
+fn required_by_content(question: &impl QuestionContentView) -> BTreeSet<Capability> {
     let mut required = BTreeSet::new();
 
     if matches!(
-        question.randomization,
+        question.randomization(),
         RandomizationDefinition::Seeded { .. }
     ) {
         required.insert(Capability::AlgorithmicGeneration);
     }
-    match question.grading {
+    match question.grading() {
         GradingDefinition::AllOrNothing { .. } => {
             required.insert(Capability::ServerGrading);
         }
@@ -96,10 +166,10 @@ fn required_by_question(question: &QuestionDefinition) -> BTreeSet<Capability> {
         }
         GradingDefinition::Ungraded => {}
     }
-    if question.attempt_policy.feedback == FeedbackDisclosure::ImmediateCorrectness {
+    if question.attempt_policy().feedback == FeedbackDisclosure::ImmediateCorrectness {
         required.insert(Capability::Hints);
     }
-    if matches!(question.timing_policy, TimingPolicy::PerQuestion { .. }) {
+    if matches!(question.timing_policy(), TimingPolicy::PerQuestion { .. }) {
         required.insert(Capability::PerQuestionTiming);
     }
 
@@ -117,7 +187,7 @@ mod tests {
     use question_model::response::ResponseDefinition;
     use question_model::run_policy::AttemptPolicy;
     use question_model::taxonomy::{License, Tag};
-    use question_model::{QuestionMetadata, QuestionSource, WorkspaceId};
+    use question_model::{ProblemId, QuestionMetadata, QuestionSource, WorkspaceId};
     use uuid::Uuid;
 
     #[derive(Debug, Deserialize)]
@@ -143,7 +213,7 @@ mod tests {
     fn base_question(version: VersionId) -> QuestionDefinition {
         QuestionDefinition {
             version,
-            problem: None,
+            problem: ProblemId::from_uuid(Uuid::from_u128(99)),
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(100)),
             source: QuestionSource::Native {
                 family: "capability-fixture".to_string(),

@@ -7,7 +7,10 @@
     "backend": "native",
     "capabilities": [
       "algorithmicGeneration",
-      "serverGrading"
+      "clientRendering",
+      "serverGrading",
+      "hints",
+      "perQuestionTiming"
     ],
     "metadata": {
       "title": "Peptide bond resonance and planarity",
@@ -39,8 +42,8 @@
     "publishedAt": 1786000000000
   },
   "publishedProblem": {
-    "version": "0198e000-0000-7000-8000-000000000004",
     "problem": "0198e000-0000-7000-8000-000000000003",
+    "version": "0198e000-0000-7000-8000-000000000004",
     "workspace": "0198e000-0000-7000-8000-000000000002",
     "source": {
       "backend": "native",
@@ -49,7 +52,7 @@
     "prompt": [
       {
         "kind": "text",
-        "markdown": "Which bond has restricted rotation because resonance gives it partial double-bond character?"
+        "markdown": "In the {{residue}} peptide example, which bond has restricted rotation because resonance gives it partial double-bond character?"
       },
       {
         "kind": "image",
@@ -151,8 +154,6 @@
     }
   },
   "draft": {
-    "version": "0198e000-0000-7000-8000-000000000005",
-    "problem": null,
     "workspace": "0198e000-0000-7000-8000-000000000002",
     "source": {
       "backend": "native",
@@ -161,7 +162,7 @@
     "prompt": [
       {
         "kind": "text",
-        "markdown": "Which bond has restricted rotation because resonance gives it partial double-bond character?"
+        "markdown": "In the {{residue}} peptide example, which bond has restricted rotation because resonance gives it partial double-bond character?"
       },
       {
         "kind": "image",
@@ -371,7 +372,7 @@
       "questionVersion": "0198e000-0000-7000-8000-000000000004",
       "assignmentPosition": 0,
       "seed": 1001,
-      "parameterHash": "9fde48ed6a7d62c12323da06d64f3edf9bd32930cd8819bc864ec52ec7670b22",
+      "parameterHash": "33c6a11b3eadacaac5d49a752148884e27c8815c803ace157c9f58ac9dbe416d",
       "response": {
         "kind": "multipleChoice",
         "selected": [
@@ -398,19 +399,16 @@
           "id": "peptide-bond-choice",
           "version": "1"
         },
-        "sourceArtifact": {
-          "object": "0198e000-0000-7000-8000-000000000009",
-          "sha256": "f27ea4281f90ef5a1fbacd0bade47a3bf2a5fb9eb07517b903792b71b81233ef"
-        },
+        "sourceArtifact": null,
         "assetObjects": [
           "0198e000-0000-7000-8000-000000000011",
           "0198e000-0000-7000-8000-000000000013"
         ],
         "grading": {
-          "id": "multiple-choice",
+          "id": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "34b20a91c10b3e101cf8615e914c71552380a30c92a81a4fa7e5a1de728664f3"
+        "renderedQuestionSha256": "4cddff550d3e53f980baab609ada99a57ca7854edbfd2426f2c8db7cd43a6c01"
       }
     },
     {
@@ -421,7 +419,7 @@
       "questionVersion": "0198e000-0000-7000-8000-000000000004",
       "assignmentPosition": 0,
       "seed": 1002,
-      "parameterHash": "024406973c4ac408281bd713a99b58634801180177abca0e29ffa37f5daf8c43",
+      "parameterHash": "5b19c155569205c9bda96ab6ca1058f70cd06121238e1ff198dd9d6cada2adce",
       "response": {
         "kind": "multipleChoice",
         "selected": [
@@ -448,19 +446,16 @@
           "id": "peptide-bond-choice",
           "version": "1"
         },
-        "sourceArtifact": {
-          "object": "0198e000-0000-7000-8000-000000000009",
-          "sha256": "f27ea4281f90ef5a1fbacd0bade47a3bf2a5fb9eb07517b903792b71b81233ef"
-        },
+        "sourceArtifact": null,
         "assetObjects": [
           "0198e000-0000-7000-8000-000000000011",
           "0198e000-0000-7000-8000-000000000013"
         ],
         "grading": {
-          "id": "multiple-choice",
+          "id": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "91c80c4c365291ad1554075ed49a84df71186a5f0882471a176457a871a3d77e"
+        "renderedQuestionSha256": "23a3ae175d3410dc23aa1ea3e923fb4dc2b734774fca9323d02ccb83fc80be68"
       }
     },
     {
@@ -471,7 +466,7 @@
       "questionVersion": "0198e000-0000-7000-8000-000000000004",
       "assignmentPosition": 0,
       "seed": 1003,
-      "parameterHash": "45a935f3d69d3af80e097ccea443daeadddd2c1ca4c4693ab07496d74998f5a2",
+      "parameterHash": "fed7321b1bbd81c51f4bf57347c8bb535f2b7faf3eac5b50dd7267bd857d001a",
       "response": {
         "kind": "multipleChoice",
         "selected": [
@@ -498,19 +493,16 @@
           "id": "peptide-bond-choice",
           "version": "1"
         },
-        "sourceArtifact": {
-          "object": "0198e000-0000-7000-8000-000000000009",
-          "sha256": "f27ea4281f90ef5a1fbacd0bade47a3bf2a5fb9eb07517b903792b71b81233ef"
-        },
+        "sourceArtifact": null,
         "assetObjects": [
           "0198e000-0000-7000-8000-000000000011",
           "0198e000-0000-7000-8000-000000000013"
         ],
         "grading": {
-          "id": "multiple-choice",
+          "id": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "217adf9ba955657ee06fc80c63ed25a7ca603614f306abd72ac439d18286dddc"
+        "renderedQuestionSha256": "2263b63aad876ef681e007114c7a8ae9a8cc9e458c33338704e999251938b21b"
       }
     },
     {
@@ -521,7 +513,7 @@
       "questionVersion": "0198e000-0000-7000-8000-000000000004",
       "assignmentPosition": 0,
       "seed": 1004,
-      "parameterHash": "7a2d159306c2fa58984c5fc648789d6f76ffd1f13294960d0119ec6744e837ad",
+      "parameterHash": "fed7321b1bbd81c51f4bf57347c8bb535f2b7faf3eac5b50dd7267bd857d001a",
       "response": null,
       "result": null,
       "timer": {
@@ -539,19 +531,16 @@
           "id": "peptide-bond-choice",
           "version": "1"
         },
-        "sourceArtifact": {
-          "object": "0198e000-0000-7000-8000-000000000009",
-          "sha256": "f27ea4281f90ef5a1fbacd0bade47a3bf2a5fb9eb07517b903792b71b81233ef"
-        },
+        "sourceArtifact": null,
         "assetObjects": [
           "0198e000-0000-7000-8000-000000000011",
           "0198e000-0000-7000-8000-000000000013"
         ],
         "grading": {
-          "id": "multiple-choice",
+          "id": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "36e0ca843c532b6f4eb556f7f8ac2c575c8f5996090a4b94b25f71bb75d261e6"
+        "renderedQuestionSha256": "7e2bd04cd5fa748568b7f567b008501696771c3afb4df2f055241081d8cd1d54"
       }
     }
   ],
@@ -564,5 +553,25 @@
     "completedRunCount": 3,
     "totalQuestionAttempts": 4,
     "lastActivityAt": 1786000004100
-  }
+  },
+  "gradebook": [
+    {
+      "tenant": "0198e000-0000-7000-8000-000000000001",
+      "courseId": "0198e000-0000-7000-8000-000000000014",
+      "enrollmentId": "0198e000-0000-7000-8000-000000000007",
+      "studentId": "0198e000-0000-7000-8000-000000000008",
+      "assignmentId": "0198e000-0000-7000-8000-000000000006",
+      "assignmentTitle": "Peptide bond mastery",
+      "summary": {
+        "tenant": "0198e000-0000-7000-8000-000000000001",
+        "enrollment": "0198e000-0000-7000-8000-000000000007",
+        "currentScore": 1.0,
+        "bestScore": 1.0,
+        "latestScore": 0.0,
+        "completedRunCount": 3,
+        "totalQuestionAttempts": 4,
+        "lastActivityAt": 1786000004100
+      }
+    }
+  ]
 }

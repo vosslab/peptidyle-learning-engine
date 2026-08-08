@@ -12,10 +12,17 @@ grading.workspace = true
 # The original imported ZIP is archived so the package stays re-importable.
 objects.workspace = true
 serde.workspace = true
+serde_json.workspace = true
+base64.workspace = true
+# ZIP parsing is deliberately confined to this hostile-input adapter.  The
+# adapter applies its own path, entry-count, and expanded-size policy before
+# any QTI XML is inspected.
+zip = { version = ">=6.0.0", default-features = false, features = ["deflate"] }
+# `xmlparser` is a tokenizing XML parser.  The importer builds a deliberately
+# small tree on top of it so QTI support remains explicit while malformed XML,
+# DTDs, and entities are rejected before conversion.
+xmlparser = "0.13.6"
+uuid.workspace = true
 
-# No XML parsing crate. QTI parsing is written here, in this crate, so the
-# rejection rules for hostile input are ours to state and test rather than
-# inherited from a general-purpose parser's defaults. See parser_stub.rs for
-# what that obliges us to handle, and the M4 hostile-corpus gate that proves
-# it. Reference material: ~/nsh/PROBLEMS/qti-package-maker/ (consult at
-# MOD-ADP-QTI entry, not before).
+[dev-dependencies]
+tokio.workspace = true

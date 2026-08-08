@@ -32,6 +32,7 @@ This is a library module: no shebang, no executable bit, no
 # Standard Library
 import os
 import re
+import time
 import dataclasses
 import subprocess
 
@@ -686,6 +687,59 @@ def find_duplicate_dates(blocks: list) -> list:
 			continue
 		seen.add(date_str)
 	return dup_order
+
+#============================================
+#============================================
+# CalVer helpers
+#============================================
+#============================================
+#
+# Lifted out of devel/bump_version.py, devel/commit_changelog.py, and
+# templates/shared/devel/make_release.py to eliminate three-way duplication
+# of the current-month probe and two-way duplication of the YY.MM prefix
+# extract. Sharing them here follows the git-trio precedent below rather
+# than adding a separate devel/calver_lib.py module.
+#
+# Version SHAPE validation stays in devel/bump_version.py
+# (validate_yy_mm_patch), which is the version authority. These two helpers
+# cover only "what month is it" and "what month does this version claim",
+# which is all the freshness checks need.
+
+def current_calver_month() -> str:
+	"""Return the current calendar month in repo CalVer format (YY.MM).
+
+	Returns:
+		Current month as a zero-padded string, for example "26.05".
+	"""
+	month_text = time.strftime("%y.%m")
+	return month_text
+
+#============================================
+
+def calver_month_prefix(version: str) -> str:
+	"""Extract the leading YY.MM month prefix from a version string.
+
+	Accepts any version whose first two dotted segments are numeric, so
+	YY.MM, YY.MM.PATCH, and prerelease forms all resolve to their month.
+
+	Args:
+		version: Version string to inspect.
+
+	Returns:
+		The YY.MM prefix, for example "26.05" from "26.05.3rc1".
+
+	Raises:
+		RuntimeError: When the first two dotted segments are not numeric.
+	"""
+	version_parts = version.split(".")
+	if len(version_parts) < 2:
+		raise RuntimeError(f"Malformed CalVer version: {version!r}")
+	year_part = version_parts[0]
+	month_part = version_parts[1]
+	if not (year_part.isdigit() and month_part.isdigit()):
+		raise RuntimeError(f"Malformed CalVer version: {version!r}")
+	month_prefix = f"{year_part}.{month_part}"
+	return month_prefix
 
 #============================================
 #============================================

@@ -13,6 +13,15 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Finish and validate one work package before advancing to its dependency-order
   successor.
 
+## Retention defaults
+
+- Ship the privacy-first course lifecycle defaults: notify after 30 days,
+  archive student records after 100 days, and permanently delete them after
+  365 days. Institutions may later configure their own ordered policy.
+- Retain tenant-owned assignment definitions by default when student records
+  archive or delete. A later archive workflow may offer an explicit owner
+  choice without following references into shared published content.
+
 ## Agent-specific guidance
 
 - Codex follows `AGENTS.md` and the repository style documents.

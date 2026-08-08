@@ -112,6 +112,7 @@ pub fn validate_response_format(
                 violations.push(ResponseFormatViolation::MissingUploadReference);
             }
         }
+        (ResponseDefinition::ExternalTool {}, StudentResponse::ExternalTool {}) => {}
         _ => violations.push(ResponseFormatViolation::ResponseKindMismatch),
     }
 
@@ -292,6 +293,38 @@ mod tests {
         assert_eq!(
             validate_response_format(&definition, &response).violations,
             vec![ResponseFormatViolation::MissingUploadReference]
+        );
+    }
+
+    #[test]
+    fn external_tool_accepts_only_its_marker_response() {
+        let external = ResponseDefinition::ExternalTool {};
+        assert!(validate_response_format(&external, &StudentResponse::ExternalTool {}).is_valid());
+
+        for response in [
+            StudentResponse::Numeric { value: 1.0 },
+            StudentResponse::MultipleChoice { selected: vec![] },
+            StudentResponse::ShortText {
+                text: String::new(),
+            },
+            StudentResponse::Ordering { order: vec![] },
+            StudentResponse::FileUpload {
+                object_key: "object".to_string(),
+            },
+        ] {
+            assert_eq!(
+                validate_response_format(&external, &response).violations,
+                vec![ResponseFormatViolation::ResponseKindMismatch]
+            );
+        }
+
+        let numeric = ResponseDefinition::Numeric {
+            tolerance: NumericTolerance::Exact,
+            unit: None,
+        };
+        assert_eq!(
+            validate_response_format(&numeric, &StudentResponse::ExternalTool {}).violations,
+            vec![ResponseFormatViolation::ResponseKindMismatch]
         );
     }
 }

@@ -313,6 +313,95 @@ h2 {
   font-weight: 660;
 }
 
+.gradebook-page {
+  width: min(100%, 72rem);
+}
+
+.gradebook-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--ple-border);
+  border-radius: 1rem;
+  background: white;
+  box-shadow: var(--ple-shadow);
+}
+
+.gradebook-table {
+  width: 100%;
+  min-width: 55rem;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.gradebook-table th,
+.gradebook-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--ple-border);
+  vertical-align: top;
+}
+
+.gradebook-table thead th {
+  background: var(--ple-surface-soft);
+  color: var(--ple-accent-strong);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.gradebook-table tbody > tr:last-child > td,
+.gradebook-table tbody > tr:last-child > th {
+  border-bottom: 0;
+}
+
+.gradebook-table code {
+  overflow-wrap: anywhere;
+  color: var(--ple-ink);
+  font-size: 0.82rem;
+}
+
+.gradebook-history-control {
+  white-space: nowrap;
+}
+
+.gradebook-history-row td {
+  padding: 0;
+  background: color-mix(in srgb, #174f78 4%, white);
+}
+
+.gradebook-history-row section {
+  padding: 1rem 1.25rem;
+}
+
+.gradebook-history-row p {
+  margin: 0;
+}
+
+.run-history-list {
+  margin: 0 0 1rem;
+  padding-left: 1.2rem;
+}
+
+.gradebook-empty {
+  padding: 2rem;
+  border: 1px solid var(--ple-border);
+  border-radius: 1rem;
+  background: white;
+}
+
+.gradebook-empty h2 {
+  margin-top: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .run-page {
   width: min(100%, 64rem);
 }
@@ -345,6 +434,52 @@ h2 {
   grid-template-columns: minmax(0, 0.9fr) minmax(20rem, 1.1fr);
   gap: clamp(1.5rem, 4vw, 3rem);
   padding: clamp(1.25rem, 4vw, 2.5rem);
+}
+
+.attempt-response {
+  min-width: 0;
+}
+
+.attempt-feedback,
+.attempt-recovery,
+.attempt-summary {
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 2px solid var(--ple-success);
+  border-radius: 1rem;
+  background: color-mix(in srgb, #176b3a 7%, white);
+}
+
+.attempt-feedback h2,
+.attempt-summary h2 {
+  margin-top: 0;
+}
+
+.attempt-feedback .primary-action,
+.attempt-summary .primary-action,
+.attempt-recovery .primary-action,
+.attempt-recovery .quiet-action {
+  width: 100%;
+  margin-top: 0.75rem;
+}
+
+.attempt-recovery {
+  margin-bottom: 1rem;
+  border-color: var(--ple-focus);
+  background: color-mix(in srgb, #7a4b00 7%, white);
+}
+
+.saved-notice {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-left: 4px solid var(--ple-accent);
+  background: var(--ple-surface-soft);
+  color: var(--ple-accent-strong);
+  font-weight: 680;
+}
+
+.attempt-summary {
+  max-width: 42rem;
+  margin: 0 auto;
 }
 
 .prompt-copy {
@@ -559,6 +694,78 @@ h2 {
   .assignment-facts,
   .question-card {
     grid-template-columns: 1fr;
+  }
+
+  .gradebook-table-wrap {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .gradebook-table,
+  .gradebook-table tbody,
+  .gradebook-table tr,
+  .gradebook-table th,
+  .gradebook-table td {
+    display: block;
+    min-width: 0;
+  }
+
+  .gradebook-table thead {
+    display: none;
+  }
+
+  .gradebook-row {
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--ple-border);
+    border-radius: 1rem;
+    background: white;
+    box-shadow: var(--ple-shadow);
+  }
+
+  .gradebook-table th,
+  .gradebook-table td {
+    display: grid;
+    grid-template-columns: minmax(7.5rem, 0.7fr) minmax(0, 1.3fr);
+    gap: 0.75rem;
+    padding: 0.65rem 1rem;
+  }
+
+  .gradebook-table td::before {
+    color: var(--ple-muted);
+    content: attr(data-label);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .gradebook-table th::before {
+    color: var(--ple-muted);
+    content: attr(data-label);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .gradebook-history-control::before {
+    content: "Run history";
+  }
+
+  .gradebook-history-row {
+    margin: -0.5rem 0 0.75rem;
+  }
+
+  .gradebook-history-row td {
+    display: block;
+    border: 1px solid var(--ple-border);
+    border-radius: 0 0 1rem 1rem;
+  }
+
+  .gradebook-history-row td::before {
+    content: none;
   }
 }
 

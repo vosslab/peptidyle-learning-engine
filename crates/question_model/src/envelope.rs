@@ -92,6 +92,10 @@ pub struct QuestionEnvelope {
     pub version: VersionId,
     /// The seed that produced this variant.
     pub seed: Seed,
+    /// A bounded learner-facing title from published metadata or a safe imported
+    /// provider label. This deliberately excludes authored source and grading
+    /// material while letting the learner identify the issued question.
+    pub title: String,
     /// The prompt, in render order.
     pub prompt: Vec<ContentBlock>,
     /// The shape of response this variant expects.

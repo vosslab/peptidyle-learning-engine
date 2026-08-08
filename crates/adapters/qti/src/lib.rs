@@ -7,3 +7,9 @@
 
 /// QTI XML parsing and the import pipeline.
 pub mod parser_stub;
+
+pub use crate::parser_stub::{
+    ImportedQtiPackage, ImportedQtiQuestion, QtiAssetObject, QtiAssetReferenceError,
+    QtiImportError, QtiImportLimits, QtiImporter, QtiManifest, QtiResource, UnsupportedFeature,
+    qti_question_asset_checksums,
+};

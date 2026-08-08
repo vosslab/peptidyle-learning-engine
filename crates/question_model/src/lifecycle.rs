@@ -7,6 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::catalog::ProblemVersionRef;
 use crate::identity::{ProblemId, VersionId, WorkspaceId};
 
 /// Where a question sits in the required one-way content lifecycle.
@@ -21,15 +22,11 @@ pub enum Lifecycle {
     Draft {
         /// Tenant-owned workspace authoring the question.
         workspace: WorkspaceId,
-        /// Version candidate being edited.
-        version: VersionId,
     },
     /// Validation passed, but publication has not minted a catalog identifier.
     Validated {
         /// Tenant-owned workspace authoring the question.
         workspace: WorkspaceId,
-        /// Validated version candidate.
-        version: VersionId,
     },
     /// Immutable version available for discovery and new assignments.
     Published {
@@ -70,8 +67,8 @@ pub enum LifecycleEvent {
     Validate,
     /// Publish a validated candidate with a server-minted catalog identifier.
     Publish {
-        /// Fresh ID for a new problem, or the owned problem for a new version.
-        problem: ProblemId,
+        /// Complete immutable reference minted by publication.
+        publication: ProblemVersionRef,
     },
     /// Hide a published version from discovery while keeping exact references.
     Deprecate {
@@ -118,31 +115,34 @@ impl std::error::Error for LifecycleError {}
 /// # Examples
 ///
 /// ```
-/// use question_model::{Lifecycle, LifecycleEvent, ProblemId, VersionId, WorkspaceId};
+/// use question_model::{Lifecycle, LifecycleEvent, ProblemId, ProblemVersionRef, VersionId, WorkspaceId};
 /// use uuid::Uuid;
 ///
 /// let draft = Lifecycle::Draft {
 ///     workspace: WorkspaceId::from_uuid(Uuid::from_u128(1)),
-///     version: VersionId::from_uuid(Uuid::from_u128(2)),
 /// };
 /// let validated = question_model::lifecycle::apply(draft, LifecycleEvent::Validate)
 ///     .expect("validation transition");
 /// let published = question_model::lifecycle::apply(
 ///     validated,
-///     LifecycleEvent::Publish {
+///     LifecycleEvent::Publish { publication: ProblemVersionRef {
 ///         problem: ProblemId::from_uuid(Uuid::from_u128(3)),
-///     },
+///         version: VersionId::from_uuid(Uuid::from_u128(2)),
+///     } },
 /// )
 /// .expect("publish transition");
 /// assert!(published.is_assignable());
 /// ```
 pub fn apply(state: Lifecycle, event: LifecycleEvent) -> Result<Lifecycle, LifecycleError> {
     match (state, event) {
-        (Lifecycle::Draft { workspace, version }, LifecycleEvent::Validate) => {
-            Ok(Lifecycle::Validated { workspace, version })
+        (Lifecycle::Draft { workspace }, LifecycleEvent::Validate) => {
+            Ok(Lifecycle::Validated { workspace })
         }
-        (Lifecycle::Validated { version, .. }, LifecycleEvent::Publish { problem }) => {
-            Ok(Lifecycle::Published { problem, version })
+        (Lifecycle::Validated { .. }, LifecycleEvent::Publish { publication }) => {
+            Ok(Lifecycle::Published {
+                problem: publication.problem,
+                version: publication.version,
+            })
         }
         (Lifecycle::Published { problem, version }, LifecycleEvent::Deprecate { reason }) => {
             let reason = reason.trim();
@@ -182,14 +182,13 @@ impl Lifecycle {
         }
     }
 
-    /// Version carried through every lifecycle state.
-    pub fn version(&self) -> VersionId {
+    /// Version present only after successful publication.
+    pub fn version(&self) -> Option<VersionId> {
         match self {
-            Self::Draft { version, .. }
-            | Self::Validated { version, .. }
-            | Self::Published { version, .. }
+            Self::Draft { .. } | Self::Validated { .. } => None,
+            Self::Published { version, .. }
             | Self::Deprecated { version, .. }
-            | Self::Archived { version, .. } => *version,
+            | Self::Archived { version, .. } => Some(*version),
         }
     }
 
@@ -212,7 +211,6 @@ mod tests {
     fn draft() -> Lifecycle {
         Lifecycle::Draft {
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(1)),
-            version: VersionId::from_uuid(Uuid::from_u128(2)),
         }
     }
 
@@ -222,14 +220,31 @@ mod tests {
 
     fn published() -> Lifecycle {
         let validated = apply(draft(), LifecycleEvent::Validate).expect("validation works");
-        apply(validated, LifecycleEvent::Publish { problem: problem() }).expect("publish works")
+        apply(
+            validated,
+            LifecycleEvent::Publish {
+                publication: ProblemVersionRef {
+                    problem: problem(),
+                    version: VersionId::from_uuid(Uuid::from_u128(2)),
+                },
+            },
+        )
+        .expect("publish works")
     }
 
     #[test]
     fn publication_requires_validation_and_is_the_only_id_minting_transition() {
         assert_eq!(draft().problem(), None);
         assert_eq!(
-            apply(draft(), LifecycleEvent::Publish { problem: problem() }),
+            apply(
+                draft(),
+                LifecycleEvent::Publish {
+                    publication: ProblemVersionRef {
+                        problem: problem(),
+                        version: VersionId::from_uuid(Uuid::from_u128(2))
+                    }
+                }
+            ),
             Err(LifecycleError::IllegalTransition)
         );
         let published = published();
@@ -277,7 +292,10 @@ mod tests {
         let archived = apply(deprecated, LifecycleEvent::Archive).expect("archive works");
 
         assert_eq!(archived.problem(), Some(problem()));
-        assert_eq!(archived.version(), VersionId::from_uuid(Uuid::from_u128(2)));
+        assert_eq!(
+            archived.version(),
+            Some(VersionId::from_uuid(Uuid::from_u128(2)))
+        );
         assert!(!archived.is_discoverable());
         assert!(!archived.is_assignable());
         assert_eq!(

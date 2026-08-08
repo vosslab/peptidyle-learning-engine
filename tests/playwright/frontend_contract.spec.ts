@@ -3,6 +3,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 
+declare global {
+  interface Window {
+    __PLE_ROUTE_FAILURE_TEST__?: () => boolean;
+  }
+}
+
 const IDS = {
   course: "0198e000-0000-7000-8000-000000000014",
   assignment: "0198e000-0000-7000-8000-000000000006",
@@ -48,14 +54,103 @@ test("all eleven product routes resolve inside the persistent shell", async ({ p
 
   for (const route of routes) {
     await navigateWithinSpa(page, route.path);
-    await expect(page.locator(`[data-route-surface="${route.surface}"]`)).toBeVisible();
+    if (route.surface.startsWith("workspace")) {
+      await expect(
+        page.getByRole("heading", {
+          name: "Workspace authoring is not available for this account",
+        }),
+      ).toBeVisible();
+    } else {
+      await expect(page.locator(`[data-route-surface="${route.surface}"]`)).toBeVisible();
+    }
     await expect(page.locator("header.site-header")).toBeVisible();
   }
 });
 
-test("a student reaches, validates, and submits the reference response without an API server", async ({
+test("student navigation stays learner-focused and link navigation focuses main content", async ({
   page,
 }) => {
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: "Workspace" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Courses" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Library" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Library" }).click();
+  await expect(page.locator("#main-content")).toBeFocused();
+  await expect(page.locator('[data-route-surface="library"]')).toBeVisible();
+
+  await page.getByRole("link", { name: "Skip to learning content" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
+});
+
+test("manual student workspace navigation mounts no authoring transport", async ({ page }) => {
+  const requests: string[] = [];
+  page.on("request", (request) => requests.push(new URL(request.url()).pathname));
+
+  await page.goto("/");
+  requests.length = 0;
+  await navigateWithinSpa(page, `/workspace/${IDS.workspace}`);
+
+  await expect(
+    page.getByRole("heading", { name: "Workspace authoring is not available for this account" }),
+  ).toBeVisible();
+  expect(
+    requests.filter(
+      (path) => path.startsWith("/api/workspaces") || path.includes("author-preview"),
+    ),
+  ).toEqual([]);
+});
+
+test("a route failure keeps the shell usable and omits raw exception details", async ({ page }) => {
+  await page.addInitScript(() => {
+    let shouldFail = true;
+    window.__PLE_ROUTE_FAILURE_TEST__ = (): boolean => {
+      const requested = shouldFail;
+      shouldFail = false;
+      return requested;
+    };
+  });
+  await page.goto("/");
+
+  await expect(page.locator("header.site-header")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try this page again" })).toBeVisible();
+  await expect(page.getByText("route-boundary-test-sentinel")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Try this page again" }).click();
+  await expect(page.getByRole("heading", { name: "Pick up where you left off" })).toBeVisible();
+});
+
+test("header navigation leaves a failed route and renders the selected surface", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    let shouldFail = true;
+    window.__PLE_ROUTE_FAILURE_TEST__ = (): boolean => {
+      const requested = shouldFail;
+      shouldFail = false;
+      return requested;
+    };
+  });
+  await page.goto("/");
+
+  await expect(page.getByRole("button", { name: "Try this page again" })).toBeVisible();
+  await page.getByRole("link", { name: "Library" }).click();
+  await expect(page.locator("header.site-header")).toBeVisible();
+  await expect(page.locator('[data-route-surface="library"]')).toBeVisible();
+});
+
+test("a student reaches, validates, submits, and advances through the generated reference response", async ({
+  page,
+}) => {
+  const failedAssetRequests: string[] = [];
+  page.on("response", (response) => {
+    if (new URL(response.url()).pathname.startsWith("/api/assets/") && !response.ok()) {
+      failedAssetRequests.push(`${response.status()} ${response.url()}`);
+    }
+  });
+
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Pick up where you left off" })).toBeVisible();
 
@@ -66,15 +161,29 @@ test("a student reaches, validates, and submits the reference response without a
   await page.getByRole("button", { name: "Start or resume practice" }).click();
 
   await expect(
-    page.getByRole("heading", { name: "Peptide bond resonance and planarity" }),
+    page.getByRole("heading", { name: "Peptide bond resonance and planarity", exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Question", exact: true })).toBeVisible();
+  await expect(page.getByText("Question content ready.")).toBeVisible();
+  const images = page.locator("img.question-renderer__image");
+  await expect(images).toHaveCount(2);
+  await expect
+    .poll(async () =>
+      images.evaluateAll((nodes) =>
+        nodes.every((image) => (image as HTMLImageElement).naturalWidth > 0),
+      ),
+    )
+    .toBe(true);
+  expect(failedAssetRequests).toEqual([]);
   const radios = page.getByRole("radio");
   await expect(radios).toHaveCount(3);
   await radios.first().focus();
   await page.keyboard.press("2");
   await expect(radios.nth(1)).toBeChecked();
   await expect(radios.nth(1)).toBeFocused();
-  await expect(page.getByRole("status")).toContainText("ready to submit");
+  await expect(page.getByRole("status", { name: "Response format" })).toContainText(
+    "ready to submit",
+  );
 
   if (process.env["PLE_CAPTURE_VISUALS"] === "1") {
     fs.mkdirSync("generated/ui", { recursive: true });
@@ -86,8 +195,39 @@ test("a student reaches, validates, and submits the reference response without a
   expect(box?.height).toBeGreaterThanOrEqual(56);
 
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("status")).toContainText("Answer submitted");
-  await expect(page.locator(".response-widget")).toHaveAttribute("data-phase", "submitted");
+  // Feedback focus timing is covered by the component acceptance fixture; the
+  // integrated run flow verifies the panel mounts and remains actionable.
+  await expect(page.getByRole("heading", { name: "Feedback", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Keep practicing with a fresh variation" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start another practice run" })).toBeVisible();
+});
+
+test("a saved multiple-choice response is restored visibly and remains editable", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "ple:attempt:0198e000-0000-7000-8000-000000000001:0198e000-0000-7000-8000-000000000023:0198e000-0000-7000-8000-000000000033",
+      JSON.stringify({
+        response: { kind: "multipleChoice", selected: ["carbonyl"] },
+        idempotencyKey: "saved-response-key",
+      }),
+    );
+  });
+
+  await page.goto("/");
+  await navigateWithinSpa(page, `/runs/${IDS.run}`);
+  const radios = page.getByRole("radio");
+  await expect(radios.nth(1)).toBeChecked();
+  await radios.nth(2).check();
+  await expect(radios.nth(2)).toBeChecked();
+  await expect(radios.nth(1)).not.toBeChecked();
+  await expect(page.getByRole("status", { name: "Response format" })).toContainText(
+    "ready to submit",
+  );
 });
 
 test("the reference response remains usable at the 320 CSS-pixel baseline", async ({ page }) => {

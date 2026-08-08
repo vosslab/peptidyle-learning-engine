@@ -1,0 +1,15 @@
+DejaVu Sans is licensed under the Bitstream Vera and DejaVu font licenses.
+
+This repository carries a deterministic subset of DejaVu Sans in
+DejaVuSansPLE.ttf. It was made from the DejaVu Sans distribution
+with fonttools/pyftsubset for the Unicode ranges used in ordinary scientific
+exam content (ASCII, Latin-1, Greek, superscripts/subscripts, arrows and
+mathematical operators).  The font file is embedded in every generated PDF;
+no host font is used at build or runtime.
+
+Bundled font SHA-256:
+56d0092e2a6260d764e8a8a1a1b21a76a4e600d72af4ab2fafdb0f64f49c8742
+
+Copyright 2003 Bitstream, Inc. and 2012 DejaVu Fonts contributors.
+The bundled subset retains the upstream licensing terms. The full texts are
+available at https://dejavu-fonts.github.io/License.html.

@@ -5,7 +5,13 @@ import { createContext, useContext, type JSX } from "solid-js";
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { CourseId } from "../../generated/api/CourseId";
+import type { CatalogProblemDetail } from "../../generated/api/CatalogProblemDetail";
+import type { CatalogSearchPage } from "../../generated/api/CatalogSearchPage";
+import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery";
+import type { ProblemId } from "../../generated/api/ProblemId";
+import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
 import type { RunId } from "../../generated/api/RunId";
+import type { VersionId } from "../../generated/api/VersionId";
 import type { ApiClient } from "./client";
 import type { AssignmentSummary, CourseSummary, CursorPage, RunScreenData } from "./contracts";
 
@@ -19,6 +25,9 @@ export interface ApiRuntime {
   readonly client: ApiClient;
   readonly queries: {
     readonly courses: QueryFunction<[], CursorPage<CourseSummary>>;
+    readonly catalogSearch: QueryFunction<[CatalogSearchQuery], CatalogSearchPage>;
+    readonly catalogDetail: QueryFunction<[ProblemId, VersionId], CatalogProblemDetail>;
+    readonly gradebook: QueryFunction<[CourseId], CursorPage<GradebookSummaryRow>>;
     readonly assignments: QueryFunction<[CourseId], CursorPage<AssignmentSummary>>;
     readonly assignment: QueryFunction<[AssignmentId], AssignmentSummary>;
     readonly runScreen: QueryFunction<[RunId], RunScreenData>;
@@ -31,6 +40,16 @@ export function createApiRuntime(client: ApiClient): ApiRuntime {
     client,
     queries: {
       courses: query(() => client.listCourses(), "course-list"),
+      catalogSearch: query(
+        (search: CatalogSearchQuery) => client.searchCatalog(search),
+        "catalog-search",
+      ),
+      catalogDetail: query(
+        (problemId: ProblemId, versionId: VersionId) =>
+          client.getCatalogProblemDetail(problemId, versionId),
+        "catalog-detail",
+      ),
+      gradebook: query((courseId: CourseId) => client.listGradebook(courseId), "course-gradebook"),
       assignments: query(
         (courseId: CourseId) => client.listAssignments(courseId),
         "course-assignments",

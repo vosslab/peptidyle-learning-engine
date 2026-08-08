@@ -6,6 +6,8 @@ import type { AssignmentRun } from "../../../generated/api/AssignmentRun";
 import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
 import type { ObjectId } from "../../../generated/api/ObjectId";
 import type { QuestionAttempt } from "../../../generated/api/QuestionAttempt";
+import type { DraftQuestionDefinition } from "../../../generated/api/DraftQuestionDefinition";
+import type { GradebookSummaryRow } from "../../../generated/api/GradebookSummaryRow";
 import type { QuestionDefinition } from "../../../generated/api/QuestionDefinition";
 import type { StudentAssignmentSummary } from "../../../generated/api/StudentAssignmentSummary";
 import type { AssignmentSummary, CourseSummary } from "../contracts";
@@ -25,7 +27,7 @@ export interface MockFixtureCorpus {
   readonly modelSchemaVersion: 1;
   readonly catalogProblem: CatalogProblemSummary;
   readonly publishedProblem: QuestionDefinition;
-  readonly draft: QuestionDefinition;
+  readonly draft: DraftQuestionDefinition;
   readonly assets: ReadonlyArray<MockFixtureAsset>;
   readonly course: CourseSummary;
   readonly assignment: AssignmentSummary;
@@ -33,4 +35,5 @@ export interface MockFixtureCorpus {
   readonly runs: ReadonlyArray<AssignmentRun>;
   readonly attempts: ReadonlyArray<QuestionAttempt>;
   readonly summary: StudentAssignmentSummary;
+  readonly gradebook: ReadonlyArray<GradebookSummaryRow>;
 }

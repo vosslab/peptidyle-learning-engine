@@ -17,6 +17,7 @@ const EXPECTED_EXPORTS = [
   { name: "__wbindgen_start", kind: "function" },
   { name: "bridge_version", kind: "function" },
   { name: "memory", kind: "memory" },
+  { name: "preview_native_draft", kind: "function" },
   { name: "timer_verdict", kind: "function" },
   { name: "validate_assignment_config", kind: "function" },
   { name: "validate_response_format", kind: "function" },

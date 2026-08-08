@@ -1,0 +1,13 @@
+# Test-only override for e2e_replica_restart.mjs.  It selects the API binary
+# whose compile-time observability feature is intentionally absent from the
+# normal image, then turns that feature on at runtime for this isolated stack.
+#
+# Invoke only together with containers/compose.yaml.  The runner supplies a
+# unique Compose project name and loopback ports, and starts named services;
+# this file never creates credentials, educational data, or a seed endpoint.
+services:
+  api:
+    build:
+      target: e2e-observability
+    environment:
+      PLE_ENABLE_E2E_OBSERVABILITY: "1"

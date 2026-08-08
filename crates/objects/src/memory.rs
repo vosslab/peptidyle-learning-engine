@@ -79,6 +79,9 @@ impl ObjectStore for MemoryObjectStore {
         key: &ObjectKey,
         now: ActivityTimestamp,
     ) -> Result<SignedUrl, ObjectStoreError> {
+        if !key.may_issue_signed_url() {
+            return Err(ObjectStoreError::NotSignable);
+        }
         {
             let entries = self
                 .entries

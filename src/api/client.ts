@@ -4,32 +4,75 @@ import type { AssetId } from "../../generated/api/AssetId";
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { AssignmentRun } from "../../generated/api/AssignmentRun";
 import type { CatalogProblemSummary } from "../../generated/api/CatalogProblemSummary";
+import type { CatalogProblemDetail } from "../../generated/api/CatalogProblemDetail";
+import type { CatalogSearchPage } from "../../generated/api/CatalogSearchPage";
+import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery";
 import type { CourseId } from "../../generated/api/CourseId";
+import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
 import type { EnrollmentId } from "../../generated/api/EnrollmentId";
 import type { ProblemId } from "../../generated/api/ProblemId";
 import type { QuestionAttempt } from "../../generated/api/QuestionAttempt";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { QuestionDefinition } from "../../generated/api/QuestionDefinition";
+import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
 import type { RunId } from "../../generated/api/RunId";
 import type { StudentAssignmentSummary } from "../../generated/api/StudentAssignmentSummary";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { TaxonomyTerm } from "../../generated/api/TaxonomyTerm";
 import type { VersionId } from "../../generated/api/VersionId";
+import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
+import type { WorkspaceId } from "../../generated/api/WorkspaceId";
+import type { PublicationScope } from "../../generated/api/PublicationScope";
 import type { CapabilityValidator, FormatValidator, TimerEvaluator } from "../wasm/index";
 import type {
+  AssignmentEditorDetail,
+  AssignmentEditorInput,
   AssignmentSummary,
   AuthSession,
   CourseSummary,
   CursorPage,
   EnrollmentView,
+  ExternalToolLaunch,
+  FeedbackReleaseResponse,
   RunScreenData,
+  RunSummaryResponse,
   SubmissionReceipt,
+  WorkspaceDraftDetail,
+  WorkspaceDraftPage,
+  PublicationDiff,
+  PublicationResult,
+  PublicationValidationResponse,
+  PrefetchedNextQuestion,
 } from "./contracts";
 
 /** Browser-safe client contract. A future HTTP transport implements this interface. */
 export interface ApiClient {
   readonly getSession: () => Promise<AuthSession>;
+  readonly listWorkspaceDrafts: (cursor?: string) => Promise<WorkspaceDraftPage>;
+  readonly getWorkspaceDraft: (workspace: WorkspaceId) => Promise<WorkspaceDraftDetail>;
+  readonly saveWorkspaceDraft: (
+    workspace: WorkspaceId,
+    draft: DraftQuestionDefinition,
+    revision?: string,
+  ) => Promise<WorkspaceDraftDetail>;
+  readonly deleteWorkspaceDraft: (workspace: WorkspaceId, revision: string) => Promise<void>;
+  readonly validateWorkspacePublication: (
+    workspace: WorkspaceId,
+  ) => Promise<PublicationValidationResponse>;
+  readonly getWorkspacePublicationDiff: (workspace: WorkspaceId) => Promise<PublicationDiff>;
+  readonly publishWorkspace: (
+    workspace: WorkspaceId,
+    scope: PublicationScope,
+    revision: string,
+  ) => Promise<PublicationResult>;
   readonly listProblems: (cursor?: string) => Promise<CursorPage<CatalogProblemSummary>>;
+  /** Searches immutable hot catalog metadata with server-computed facets. */
+  readonly searchCatalog: (query: CatalogSearchQuery) => Promise<CatalogSearchPage>;
+  /** Gets the safe immutable library projection, never a question definition. */
+  readonly getCatalogProblemDetail: (
+    problemId: ProblemId,
+    versionId: VersionId,
+  ) => Promise<CatalogProblemDetail>;
   readonly getProblemVersion: (
     problemId: ProblemId,
     versionId: VersionId,
@@ -37,11 +80,34 @@ export interface ApiClient {
   readonly listTaxonomy: (cursor?: string) => Promise<CursorPage<TaxonomyTerm>>;
   readonly listCourses: (cursor?: string) => Promise<CursorPage<CourseSummary>>;
   readonly getCourse: (courseId: CourseId) => Promise<CourseSummary>;
+  /**
+   * Instructor gradebook projection. This cursor-paged route never loads
+   * historical runs or question attempts.
+   */
+  readonly listGradebook: (
+    courseId: CourseId,
+    cursor?: string,
+    pageSize?: number,
+  ) => Promise<CursorPage<GradebookSummaryRow>>;
   readonly listAssignments: (
     courseId: CourseId,
     cursor?: string,
   ) => Promise<CursorPage<AssignmentSummary>>;
   readonly getAssignment: (assignmentId: AssignmentId) => Promise<AssignmentSummary>;
+  /** Instructor-only revisioned assignment projection for the policy editor. */
+  readonly getAssignmentEditor: (assignmentId: AssignmentId) => Promise<AssignmentEditorDetail>;
+  /** Creates a tenant-owned assignment in the course named only by the path. */
+  readonly createAssignment: (
+    courseId: CourseId,
+    input: AssignmentEditorInput,
+  ) => Promise<AssignmentEditorDetail>;
+  /** Replaces an assignment using its most recently observed strong ETag. */
+  readonly saveAssignment: (
+    courseId: CourseId,
+    assignmentId: AssignmentId,
+    input: AssignmentEditorInput,
+    revision: string,
+  ) => Promise<AssignmentEditorDetail>;
   readonly getEnrollment: (enrollmentId: EnrollmentId) => Promise<EnrollmentView>;
   readonly listRuns: (
     enrollmentId: EnrollmentId,
@@ -49,13 +115,31 @@ export interface ApiClient {
   ) => Promise<CursorPage<AssignmentRun>>;
   readonly startRun: (assignmentId: AssignmentId) => Promise<AssignmentRun>;
   readonly getRun: (runId: RunId) => Promise<AssignmentRun>;
+  readonly getRunSummary: (
+    runId: RunId,
+    cursor?: string,
+    pageSize?: number,
+  ) => Promise<RunSummaryResponse>;
   readonly listAttempts: (runId: RunId, cursor?: string) => Promise<CursorPage<QuestionAttempt>>;
   readonly getAttempt: (attemptId: QuestionAttemptId) => Promise<QuestionAttempt>;
+  /** Returns only the regenerated renderable variant; grading stays server-side. */
+  readonly getIssuedQuestion: (attemptId: QuestionAttemptId) => Promise<QuestionEnvelope>;
+  /** Best-effort key-free preparation; null means no deterministic successor. */
+  readonly prefetchNextQuestion: (
+    attemptId: QuestionAttemptId,
+    signal?: AbortSignal,
+  ) => Promise<PrefetchedNextQuestion | null>;
+  /** Returns the protected same-origin broker path for an eligible attempt. */
+  readonly getExternalToolLaunch: (attemptId: QuestionAttemptId) => Promise<ExternalToolLaunch>;
   readonly submitResponse: (
     attemptId: QuestionAttemptId,
     response: StudentResponse,
     idempotencyKey: string,
   ) => Promise<SubmissionReceipt>;
+  /** Instructor command only; current feedback is read through a later summary GET. */
+  readonly releaseAttemptFeedback: (
+    attemptId: QuestionAttemptId,
+  ) => Promise<FeedbackReleaseResponse>;
   readonly getSummary: (enrollmentId: EnrollmentId) => Promise<StudentAssignmentSummary>;
   readonly getRunScreen: (runId: RunId) => Promise<RunScreenData>;
   readonly assetUrl: (assetId: AssetId) => string;

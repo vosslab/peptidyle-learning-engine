@@ -9,13 +9,19 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use adapter_native::peptide_bond_geometry::{GENERATOR_ID, GENERATOR_VERSION};
+use adapter_native::{AssetObjectBinding, NativeAdapter};
 use anyhow::{Context, Result, bail};
+use grading::GradeOutcome;
 use question_model::answer::SelectionCardinality;
 use question_model::definition::{
-    GradingDefinition, QuestionDefinition, QuestionMetadata, QuestionSource,
+    DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionDefinition,
+    QuestionMetadata, QuestionSource,
 };
 use question_model::envelope::{AssetRef, ContentBlock};
-use question_model::generation::{GeneratorReference, ParameterSpec, RandomizationDefinition};
+use question_model::generation::{
+    GeneratorReference, ParameterSpec, RandomizationDefinition, Seed,
+};
 use question_model::identity::{AssetId, ObjectId, ProblemId, VersionId, WorkspaceId};
 use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition, StudentResponse};
 use question_model::run_policy::{
@@ -25,11 +31,10 @@ use question_model::run_policy::{
 use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
     ActivityTimestamp, AssignmentEnrollment, AssignmentId, AssignmentRun, AssignmentSummary,
-    AttemptProvenance, AttemptResult, AttemptTimerRecord, BackendCapabilities, Capability,
-    CatalogLifecycle, CatalogProblemSummary, CourseId, CourseRole, CourseSummary, EnrollmentId,
-    ImplementationVersion, ProblemVersionRef, PublicationScope, QuestionAttempt, QuestionAttemptId,
-    QuestionBackend, RunId, RunMode, SourceArtifact, StudentAssignmentSummary, StudentId, TenantId,
-    UserId,
+    AttemptTimerRecord, CatalogLifecycle, CatalogProblemSummary, CourseId, CourseRole,
+    CourseSummary, EnrollmentId, GradebookSummaryRow, ProblemVersionRef, PublicationScope,
+    QuestionAttempt, QuestionAttemptId, QuestionBackend, RunId, RunMode, StudentAssignmentSummary,
+    StudentId, TenantId, UserId,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -89,7 +94,7 @@ pub struct Report {
     pub tracked_files: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FixtureAsset {
     id: AssetId,
@@ -99,14 +104,14 @@ struct FixtureAsset {
     sha256: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FixtureCorpus {
     fixture_schema_version: u32,
     model_schema_version: u32,
     catalog_problem: CatalogProblemSummary,
     published_problem: QuestionDefinition,
-    draft: QuestionDefinition,
+    draft: DraftQuestionDefinition,
     assets: Vec<FixtureAsset>,
     course: CourseSummary,
     assignment: AssignmentSummary,
@@ -114,6 +119,7 @@ struct FixtureCorpus {
     runs: Vec<AssignmentRun>,
     attempts: Vec<QuestionAttempt>,
     summary: StudentAssignmentSummary,
+    gradebook: Vec<GradebookSummaryRow>,
 }
 
 struct TrackedArtifact {
@@ -123,7 +129,7 @@ struct TrackedArtifact {
 
 /// Checks tracked evidence and always refreshes the ignored TypeScript view.
 pub fn run(fixture_dir: &Path, typescript_path: &Path, mode: Mode) -> Result<Report> {
-    let corpus = build_corpus();
+    let corpus = build_corpus()?;
     let artifacts = tracked_artifacts(&corpus)?;
 
     for artifact in &artifacts {
@@ -147,18 +153,15 @@ pub fn run(fixture_dir: &Path, typescript_path: &Path, mode: Mode) -> Result<Rep
     })
 }
 
-fn build_corpus() -> FixtureCorpus {
+fn build_corpus() -> Result<FixtureCorpus> {
     let tenant = tenant_id("0198e000-0000-7000-8000-000000000001");
     let workspace = workspace_id("0198e000-0000-7000-8000-000000000002");
     let problem = problem_id("0198e000-0000-7000-8000-000000000003");
     let version = version_id("0198e000-0000-7000-8000-000000000004");
-    let draft_version = version_id("0198e000-0000-7000-8000-000000000005");
     let assignment_id = assignment_id("0198e000-0000-7000-8000-000000000006");
     let enrollment_id = enrollment_id("0198e000-0000-7000-8000-000000000007");
     let student = student_id("0198e000-0000-7000-8000-000000000008");
     let user = UserId::from_uuid(parsed_uuid("0198e000-0000-7000-8000-000000000016"));
-    let source_object = object_id("0198e000-0000-7000-8000-000000000009");
-
     let asset_specs = [
         (
             asset_id("0198e000-0000-7000-8000-000000000010"),
@@ -184,15 +187,20 @@ fn build_corpus() -> FixtureCorpus {
         })
         .collect();
 
-    let published_problem = question(Some(problem), version, workspace, &assets);
+    let published_problem = QuestionDefinition::from_draft(
+        draft_question(workspace, &assets),
+        problem,
+        version,
+        QuestionSource::Native {
+            family: "peptide_bond_geometry".to_string(),
+        },
+    );
+    let adapter = NativeAdapter::new();
     let catalog_problem = CatalogProblemSummary {
         problem,
         version,
         backend: QuestionBackend::Native,
-        capabilities: BackendCapabilities::from_iter([
-            Capability::AlgorithmicGeneration,
-            Capability::ServerGrading,
-        ]),
+        capabilities: adapter.capabilities(&published_problem.source)?,
         metadata: published_problem.metadata.clone(),
         scope: PublicationScope::Public,
         lifecycle: CatalogLifecycle::Published,
@@ -203,7 +211,7 @@ fn build_corpus() -> FixtureCorpus {
         derived_from: None,
         published_at: timestamp(1_786_000_000_000),
     };
-    let mut draft = question(None, draft_version, workspace, &assets);
+    let mut draft = draft_question(workspace, &assets);
     draft.metadata.title = "Draft: peptide resonance wording revision".to_string();
 
     let course_id = course_id("0198e000-0000-7000-8000-000000000014");
@@ -254,19 +262,29 @@ fn build_corpus() -> FixtureCorpus {
         .map(|(index, run)| {
             let seed = 1_001 + u64::try_from(index).expect("fixture index fits u64");
             question_attempt(
+                &adapter,
                 index,
                 tenant,
                 *run,
-                problem,
-                version,
+                &published_problem,
                 seed,
-                source_object,
                 &assets,
             )
         })
-        .collect();
+        .collect::<Result<Vec<_>>>()?;
 
-    FixtureCorpus {
+    let summary = StudentAssignmentSummary {
+        tenant,
+        enrollment: enrollment_id,
+        current_score: Some(1.0),
+        best_score: Some(1.0),
+        latest_score: Some(0.0),
+        completed_run_count: 3,
+        total_question_attempts: 4,
+        last_activity_at: Some(timestamp(1_786_000_004_100)),
+    };
+
+    Ok(FixtureCorpus {
         fixture_schema_version: 4,
         model_schema_version: 1,
         catalog_problem,
@@ -299,25 +317,20 @@ fn build_corpus() -> FixtureCorpus {
         },
         runs,
         attempts,
-        summary: StudentAssignmentSummary {
+        gradebook: vec![GradebookSummaryRow {
             tenant,
-            enrollment: enrollment_id,
-            current_score: Some(1.0),
-            best_score: Some(1.0),
-            latest_score: Some(0.0),
-            completed_run_count: 3,
-            total_question_attempts: 4,
-            last_activity_at: Some(timestamp(1_786_000_004_100)),
-        },
-    }
+            course_id,
+            enrollment_id,
+            student_id: student,
+            assignment_id,
+            assignment_title: "Peptide bond mastery".to_string(),
+            summary: summary.clone(),
+        }],
+        summary,
+    })
 }
 
-fn question(
-    problem: Option<ProblemId>,
-    version: VersionId,
-    workspace: WorkspaceId,
-    assets: &[FixtureAsset],
-) -> QuestionDefinition {
+fn draft_question(workspace: WorkspaceId, assets: &[FixtureAsset]) -> DraftQuestionDefinition {
     let mut parameters = BTreeMap::new();
     parameters.insert(
         "residue".to_string(),
@@ -330,16 +343,14 @@ fn question(
         },
     );
 
-    QuestionDefinition {
-        version,
-        problem,
+    DraftQuestionDefinition {
         workspace,
-        source: QuestionSource::Native {
+        source: DraftQuestionSource::Native {
             family: "peptide_bond_geometry".to_string(),
         },
         prompt: vec![
             ContentBlock::Text {
-                markdown: "Which bond has restricted rotation because resonance gives it partial double-bond character?".to_string(),
+                markdown: "In the {{residue}} peptide example, which bond has restricted rotation because resonance gives it partial double-bond character?".to_string(),
             },
             image_block(&assets[0], "Structural formula highlighting the carbonyl carbon-to-nitrogen bond."),
             image_block(&assets[1], "The six atoms of a peptide group shown in one plane."),
@@ -359,8 +370,8 @@ fn question(
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Seeded {
             generator: GeneratorReference {
-                id: "peptide-bond-choice".to_string(),
-                version: "1".to_string(),
+                id: GENERATOR_ID.to_string(),
+                version: GENERATOR_VERSION.to_string(),
             },
             parameters,
         },
@@ -389,6 +400,16 @@ fn image_block(asset: &FixtureAsset, description: &str) -> ContentBlock {
     }
 }
 
+fn asset_bindings(assets: &[FixtureAsset]) -> Vec<AssetObjectBinding> {
+    assets
+        .iter()
+        .map(|asset| AssetObjectBinding {
+            asset: asset.id,
+            object: asset.object,
+        })
+        .collect()
+}
+
 fn choice(id: &str, markdown: &str) -> ChoiceOption {
     ChoiceOption {
         id: ChoiceId::new(id),
@@ -400,21 +421,39 @@ fn choice(id: &str, markdown: &str) -> ChoiceOption {
 
 #[allow(clippy::too_many_arguments)]
 fn question_attempt(
+    adapter: &NativeAdapter,
     index: usize,
     tenant: TenantId,
     run: RunId,
-    problem: ProblemId,
-    version: VersionId,
+    question: &QuestionDefinition,
     seed: u64,
-    source_object: ObjectId,
     assets: &[FixtureAsset],
-) -> QuestionAttempt {
+) -> Result<QuestionAttempt> {
     let completed = index < 3;
-    let correct = index == 1;
     let issued_at = 1_786_000_001_100 + i64::try_from(index).expect("index fits") * 1_000;
-    let selected = if correct { "amide" } else { "carbonyl" };
+    let selected = if index == 1 { "amide" } else { "carbonyl" };
 
-    QuestionAttempt {
+    let asset_bindings = asset_bindings(assets);
+    let issued = adapter.issue(question, Seed::new(seed), &asset_bindings)?;
+    let response = completed.then(|| StudentResponse::MultipleChoice {
+        selected: vec![ChoiceId::new(selected)],
+    });
+    let result = match response.as_ref() {
+        Some(response) => match adapter.grade(
+            question,
+            Seed::new(seed),
+            &issued.parameter_hash,
+            &issued.provenance,
+            &asset_bindings,
+            response,
+        )? {
+            GradeOutcome::Graded(result) => Some(result),
+            GradeOutcome::Ungraded => bail!("fixture native question must be graded"),
+        },
+        None => None,
+    };
+
+    Ok(QuestionAttempt {
         id: question_attempt_id(match index {
             0 => "0198e000-0000-7000-8000-000000000030",
             1 => "0198e000-0000-7000-8000-000000000031",
@@ -423,49 +462,20 @@ fn question_attempt(
         }),
         tenant,
         run,
-        problem,
-        question_version: version,
+        problem: question.problem,
+        question_version: question.version,
         assignment_position: 0,
         seed,
-        parameter_hash: sha256(format!("peptide-bond-choice:1:{seed}").as_bytes()),
-        response: completed.then(|| StudentResponse::MultipleChoice {
-            selected: vec![ChoiceId::new(selected)],
-        }),
-        result: completed.then_some(AttemptResult {
-            correct,
-            points_earned: if correct { 1.0 } else { 0.0 },
-            points_possible: 1.0,
-        }),
+        parameter_hash: issued.parameter_hash,
+        response,
+        result,
         timer: AttemptTimerRecord {
             issued_at: timestamp(issued_at),
             deadline: None,
             submitted_at: completed.then(|| timestamp(issued_at + 100)),
         },
-        provenance: AttemptProvenance {
-            adapter: implementation("native-adapter", "1"),
-            renderer: None,
-            generator: Some(GeneratorReference {
-                id: "peptide-bond-choice".to_string(),
-                version: "1".to_string(),
-            }),
-            source_artifact: Some(SourceArtifact {
-                object: source_object,
-                sha256: sha256(b"native:peptide-bond-choice:1"),
-            }),
-            asset_objects: assets.iter().map(|asset| asset.object).collect(),
-            grading: implementation("multiple-choice", "1"),
-            rendered_question_sha256: sha256(
-                format!("rendered:peptide-bond-choice:1:{seed}").as_bytes(),
-            ),
-        },
-    }
-}
-
-fn implementation(id: &str, version: &str) -> ImplementationVersion {
-    ImplementationVersion {
-        id: id.to_string(),
-        version: version.to_string(),
-    }
+        provenance: issued.provenance,
+    })
 }
 
 fn tracked_artifacts(corpus: &FixtureCorpus) -> Result<Vec<TrackedArtifact>> {
@@ -576,7 +586,8 @@ mod tests {
 
     #[test]
     fn corpus_meets_the_wp_c7_learning_history_contract() {
-        let corpus = build_corpus();
+        let corpus =
+            build_corpus().expect("fixture corpus should build through the native adapter");
         let completed = corpus
             .runs
             .iter()
@@ -592,7 +603,7 @@ mod tests {
         assert!(corpus.enrollment.first_completed_at.is_some());
         assert!(corpus.attempts.iter().all(|attempt| {
             attempt.provenance.generator.is_some()
-                && attempt.provenance.source_artifact.is_some()
+                && attempt.provenance.source_artifact.is_none()
                 && attempt.provenance.asset_objects.len() == 2
                 && attempt.parameter_hash.len() == 64
                 && attempt.provenance.rendered_question_sha256.len() == 64
@@ -601,8 +612,55 @@ mod tests {
 
     #[test]
     fn browser_projection_names_no_answer_key() {
-        let projection =
-            generated_typescript(&build_corpus()).expect("projection should serialize");
+        let corpus =
+            build_corpus().expect("fixture corpus should build through the native adapter");
+        let projection = generated_typescript(&corpus).expect("projection should serialize");
         assert!(!projection.contains("AnswerKey"));
+    }
+
+    #[test]
+    fn committed_corpus_reproduces_and_grades_through_the_native_adapter() {
+        let corpus: FixtureCorpus = serde_json::from_slice(include_bytes!(
+            "../../../tests/fixtures/published_problem/corpus.json"
+        ))
+        .expect("committed fixture corpus should deserialize");
+        let adapter = NativeAdapter::new();
+        let asset_bindings = asset_bindings(&corpus.assets);
+
+        assert!(matches!(
+            &corpus.published_problem.source,
+            QuestionSource::Native { .. }
+        ));
+        for attempt in &corpus.attempts {
+            assert!(attempt.provenance.source_artifact.is_none());
+            let envelope = adapter
+                .reproduce(
+                    &corpus.published_problem,
+                    Seed::new(attempt.seed),
+                    &attempt.parameter_hash,
+                    &attempt.provenance,
+                    &asset_bindings,
+                )
+                .expect("committed attempt should reproduce without an answer key");
+            assert_eq!(envelope.version, corpus.published_problem.version);
+
+            match (&attempt.response, &attempt.result) {
+                (Some(response), Some(recorded_result)) => {
+                    let outcome = adapter
+                        .grade(
+                            &corpus.published_problem,
+                            Seed::new(attempt.seed),
+                            &attempt.parameter_hash,
+                            &attempt.provenance,
+                            &asset_bindings,
+                            response,
+                        )
+                        .expect("committed response should grade through the native adapter");
+                    assert_eq!(outcome, GradeOutcome::Graded(*recorded_result));
+                }
+                (None, None) => {}
+                _ => panic!("fixture attempt must carry both response and result or neither"),
+            }
+        }
     }
 }

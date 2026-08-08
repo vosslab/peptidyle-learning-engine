@@ -6,6 +6,12 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
+[features]
+# Compiles the strictly opt-in response attribution used only by the
+# container-replica E2E harness.  Production images deliberately do not
+# enable it, and enabling the feature alone still exposes nothing.
+e2e-observability = []
+
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true
@@ -16,12 +22,21 @@ cookie.workspace = true
 getrandom.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
+subtle = ">=2.6.1"
+chacha20poly1305.workspace = true
+uuid.workspace = true
 
 # `generate` turns on identifier minting, which happens on the publish
 # transition and nowhere else. The WASM bridge deliberately does not enable it.
 question_model = { workspace = true, features = ["generate"] }
 domain.workspace = true
 grading.workspace = true
+adapter_native.workspace = true
+adapter_webwork.workspace = true
+adapter_imathas = { workspace = true, features = ["http-transport"] }
+adapter_qti.workspace = true
+export_crate.workspace = true
 # Feature flags, not direct dependencies: the sqlx driver stays inside `store`
 # and the AWS SDK stays inside `objects`, so this crate never names either.
 objects = { workspace = true, features = ["s3"] }
@@ -29,4 +44,5 @@ store = { workspace = true, features = ["postgres"] }
 
 [dev-dependencies]
 tower.workspace = true
-uuid.workspace = true
+store = { workspace = true, features = ["test-support"] }
+adapter_imathas = { workspace = true, features = ["test-support"] }

@@ -1,4 +1,4 @@
-# compose.yaml - local development stack: api, postgres, minio (WP-F4).
+# compose.yaml - local development stack: api, postgres, minio, renderer (WP-F4, MOD-ADP-WW).
 #
 # Run from the repo root:
 #   podman compose -f containers/compose.yaml --env-file containers/env.local up -d
@@ -29,7 +29,7 @@ services:
     # Published only on loopback: this database holds educational records, and
     # a development container should not be reachable from the local network.
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${PLE_POSTGRES_HOST_PORT:-5432}:5432"
 
   minio:
     image: quay.io/minio/minio:latest
@@ -45,8 +45,8 @@ services:
       timeout: 3s
       retries: 10
     ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
+      - "127.0.0.1:${PLE_MINIO_API_HOST_PORT:-9000}:9000"
+      - "127.0.0.1:${PLE_MINIO_CONSOLE_HOST_PORT:-9001}:9001"
 
   # One-shot: creates the three buckets, then exits. Separate from minio itself
   # so the bucket layout is declared in this file rather than hidden in an
@@ -86,12 +86,45 @@ services:
         condition: service_completed_successfully
     environment:
       PLE_BIND_ADDR: 0.0.0.0:3000
+      # The binary's only pre-deployment identity provider is explicit local
+      # development mode. The provider sees the in-container path only; the
+      # operator-selected host path remains a mount detail rather than process
+      # environment or application logging data.
+      PLE_AUTH_PROVIDER: local-file
+      PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH: "1"
+      PLE_LOCAL_AUTH_FILE: /run/ple/local-identities.json
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-peptidyle}
       PLE_S3_ENDPOINT: http://minio:9000
       PLE_S3_REGION: us-east-1
       PLE_CONTENT_BUCKET: content
+      PLE_STUDENT_RECORDS_BUCKET: student-records
+      PLE_TEMP_PROCESSING_BUCKET: temp-processing
+      PLE_PUBLIC_ASSET_BASE_URL: ${PLE_PUBLIC_ASSET_BASE_URL:?set PLE_PUBLIC_ASSET_BASE_URL in the env file}
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      # The adapter reads this server-only URL.  The renderer has no public
+      # port: this service name resolves only on renderer_private.
+      PLE_WEBWORK_RENDERER_BASE_URL: ${PLE_WEBWORK_RENDERER_BASE_URL:?set PLE_WEBWORK_RENDERER_BASE_URL to the private renderer URL}
+      # Bounded HTTP settings are deliberately server configuration, never
+      # browser input.  The adapter uses one deadline for connection and the
+      # complete request; it is also passed to the renderer so both ends
+      # enforce the same workload budget.
+      PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:?set PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS in the env file}
+      PLE_WEBWORK_MAX_RESPONSE_BYTES: ${PLE_WEBWORK_MAX_RESPONSE_BYTES:?set PLE_WEBWORK_MAX_RESPONSE_BYTES in the env file}
+      # The adapter rejects a renderer response whose implementation identity
+      # differs from these operator-selected compatibility values.
+      PLE_WEBWORK_RENDERER_ID: ${PLE_WEBWORK_RENDERER_ID:?set PLE_WEBWORK_RENDERER_ID in the env file}
+      PLE_WEBWORK_RENDERER_VERSION: ${PLE_WEBWORK_RENDERER_VERSION:?set PLE_WEBWORK_RENDERER_VERSION in the env file}
+    volumes:
+      # This is intentionally an operator-created, untracked file. Compose
+      # stops with the named setting when it is absent, rather than creating an
+      # empty file that could make identity setup appear to work.
+      - type: bind
+        source: ${PLE_LOCAL_AUTH_HOST_FILE:?set PLE_LOCAL_AUTH_HOST_FILE to an operator-created local identities JSON file}
+        target: /run/ple/local-identities.json
+        read_only: true
+        bind:
+          create_host_path: false
     # Declared here as well as in the Containerfile: podman compose does not
     # always carry an image-level HEALTHCHECK onto the container, and a health
     # check that silently is not running is worse than none.
@@ -103,9 +136,127 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
+    # API replicas are intentionally not published.  `gateway` is the only
+    # loopback listener, so `podman compose ... up --scale api=2` cannot create
+    # a host-port collision and every replica has the same persistent backing
+    # services rather than local session state.
+    #
+    # The API can reach the private renderer. It retains the default network
+    # for PostgreSQL and MinIO, while the renderer never joins that network and
+    # never receives their credentials. A future render-cache worker may join
+    # renderer_private under the same credential-free boundary.
+    networks:
+      - default
+      - renderer_private
+      - gateway_api
+
+  # This is the sole host-facing listener.  Caddy discovers every `api`
+  # replica through Compose DNS on each refresh; do not replace this with a
+  # container name or a fixed replica count.  That would make restart and
+  # multi-replica behavior depend on whichever container happened to start
+  # first.
+  gateway:
+    # The official Linux Caddy image installs curl in its published image
+    # contract. Pin the exact manifest below; the readiness probe relies on
+    # that tool rather than assuming a utility in an arbitrary proxy image.
+    image: docker.io/library/caddy@sha256:${PLE_GATEWAY_IMAGE_SHA256:?set PLE_GATEWAY_IMAGE_SHA256 to the selected official Caddy Linux image manifest digest}
+    depends_on:
+      api:
+        condition: service_started
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${PLE_GATEWAY_HOST_PORT:-3000}:8080"
+    volumes:
+      - type: bind
+        source: ./Caddyfile
+        target: /etc/caddy/Caddyfile
+        read_only: true
+        bind:
+          create_host_path: false
+    # A fixed non-root identity plus writable ephemeral Caddy state is safer
+    # than allowing the gateway to modify its image filesystem. The selected
+    # digest must support this standard Caddy identity and these paths.
+    user: "1000:1000"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /config:rw,noexec,nosuid,size=16m
+      - /data:rw,noexec,nosuid,size=16m
+      - /tmp:rw,noexec,nosuid,size=16m
+    cpus: "0.50"
+    mem_limit: 128m
+    pids_limit: 64
+    restart: on-failure
+    stop_grace_period: 10s
+    healthcheck:
+      # Probe through Caddy, rather than only parsing its config. curl --fail
+      # rejects 502 when no dynamic API upstream exists and 503 when every
+      # discovered API replica reports a degraded health state.
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--max-time", "2", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    # The gateway receives neither database/object-store/auth/renderer
+    # configuration nor a persistent mount. It can speak only to API replicas.
+    networks:
+      - gateway_api
+
+  # The WeBWorK renderer is a separately shipped HTTP service.  PLE does not
+  # execute PG itself or select an upstream image for the operator: the image
+  # must be an immutable digest published by the renderer maintainer.  The
+  # required health command makes an unknown upstream HTTP contract fail at
+  # compose configuration time instead of assuming a path or a bundled tool.
+  #
+  # PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS is the shared deployment boundary for
+  # the server-side renderer client and this service.  Its value is deliberately
+  # runtime configuration so a local workload can be measured before a deploy.
+  webwork-renderer:
+    # Compose assembles `repository@sha256:digest`, so a mutable tag cannot be
+    # supplied in place of the immutable renderer artifact.
+    image: ${PLE_WEBWORK_RENDERER_IMAGE_REPOSITORY:?set PLE_WEBWORK_RENDERER_IMAGE_REPOSITORY in the env file}@sha256:${PLE_WEBWORK_RENDERER_IMAGE_SHA256:?set PLE_WEBWORK_RENDERER_IMAGE_SHA256 to the 64-character image manifest digest}
+    environment:
+      PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:?set PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS in the env file}
+    # This is an immutable non-root numeric identity, not an operator override.
+    # The pinned renderer image must support this identity and writable /tmp.
+    user: "65532:65532"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cpus: "1.0"
+    mem_limit: 512m
+    pids_limit: 128
+    restart: on-failure
+    stop_grace_period: 20s
+    healthcheck:
+      test: ["CMD-SHELL", "${PLE_WEBWORK_RENDERER_HEALTHCHECK:?set PLE_WEBWORK_RENDERER_HEALTHCHECK for the pinned renderer image}"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    # No ports, volumes, database endpoint, or object-store credential belong
+    # here.  The renderer receives trusted source bytes only through its
+    # private HTTP request contract.
+    networks:
+      - renderer_private
 
 volumes:
   ple_pgdata:
   ple_miniodata:
+
+networks:
+  # Only API replicas and the host-facing gateway join this network. It keeps
+  # gateway containers unable to route to PostgreSQL, MinIO, or the renderer.
+  gateway_api:
+    internal: true
+  # Compose prevents this network from being published outside the stack.  The
+  # renderer has no default-network attachment, so postgres and minio are not
+  # even routable from its container.
+  renderer_private:
+    internal: true

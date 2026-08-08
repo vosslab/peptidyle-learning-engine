@@ -39,6 +39,7 @@ const skipWasm = process.argv.includes("--skip-wasm");
 const distDir = path.join(repoRoot, "dist");
 const srcDir = path.join(repoRoot, "src");
 const wasmWebDir = path.join(repoRoot, "dist_wasm", "web");
+const fixtureProjectionPath = path.join(repoRoot, "generated", "fixtures", "published_problem.ts");
 
 //============================================
 
@@ -96,6 +97,42 @@ function copyWasmBridge() {
   fs.mkdirSync(targetDir, { recursive: true });
   for (const entry of fs.readdirSync(wasmWebDir)) {
     fs.copyFileSync(path.join(wasmWebDir, entry), path.join(targetDir, entry));
+  }
+}
+
+//============================================
+
+/**
+ * The browser reference app uses the same logical asset endpoint as production.  Its static
+ * preview therefore emits the generated fixture bytes at that route so asset-bearing questions
+ * exercise a real image load instead of silently accepting an HTTP 404.
+ *
+ * The generated projection intentionally stores this map as a TypeScript object literal. Reading
+ * it here avoids adding a second hand-maintained asset corpus solely for the static mock preview.
+ *
+ * @returns {void}
+ */
+function copyMockFixtureAssets() {
+  const projection = fs.readFileSync(fixtureProjectionPath, "utf8");
+  const marker = "export const publishedProblemAssetBodies: Readonly<Record<string, string>> = ";
+  const start = projection.indexOf(marker);
+  if (start < 0) throw new Error("generated fixture asset map is missing");
+  const objectStart = start + marker.length;
+  const objectEnd = projection.indexOf("\n};", objectStart) + 2;
+  if (objectEnd < objectStart) throw new Error("generated fixture asset map is incomplete");
+  const expression = projection.slice(objectStart, objectEnd);
+  // This file is generated from the checked fixture corpus in the preceding build stage. Its
+  // string literals may use either quote style after Prettier, so JSON.parse is not sufficient.
+  const evaluateFixtureMap = Function(`"use strict"; return (${expression});`);
+  const bodies = evaluateFixtureMap();
+  if (typeof bodies !== "object" || bodies === null || Array.isArray(bodies)) {
+    throw new Error("generated fixture asset map must be an object");
+  }
+  const assetDir = path.join(distDir, "api", "assets");
+  fs.mkdirSync(assetDir, { recursive: true });
+  for (const [assetId, body] of Object.entries(bodies)) {
+    if (typeof body !== "string") throw new Error(`fixture asset ${assetId} is not text`);
+    fs.writeFileSync(path.join(assetDir, assetId), body);
   }
 }
 
@@ -173,6 +210,7 @@ async function main() {
   fs.writeFileSync(path.join(distDir, ".nojekyll"), "");
 
   copyWasmBridge();
+  copyMockFixtureAssets();
 
   for (const required of ["index.html", "main.js", "style.css"]) {
     if (!fs.existsSync(path.join(distDir, required))) {
