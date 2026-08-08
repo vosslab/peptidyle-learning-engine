@@ -15,6 +15,8 @@ sha2.workspace = true
 # Enabled by the `s3` feature so the memory backend needs no AWS types. Select
 # the modern HTTP 1.x client explicitly: the SDK's default feature set also
 # enables its legacy Rustls 0.21 client and its vulnerable rustls-webpki line.
+base64 = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 aws-sdk-s3 = { version = ">=1.141.0", default-features = false, features = [
     "behavior-version-latest",
     "default-https-client",
@@ -23,7 +25,7 @@ aws-sdk-s3 = { version = ">=1.141.0", default-features = false, features = [
 
 [features]
 default = []
-s3 = ["dep:aws-sdk-s3"]
+s3 = ["dep:aws-sdk-s3", "dep:base64", "dep:serde_json"]
 
 [dev-dependencies]
 tokio.workspace = true

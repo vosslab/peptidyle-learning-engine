@@ -35,23 +35,26 @@ WebAssembly bridge leaves it off, so the browser bundle has no way to create an
 identifier. `from_uuid` stays available for rehydrating values read back from
 storage.
 
-## Draft versus published
+## Lifecycle states
 
-`Lifecycle` has three states:
+`Lifecycle` has five one-way states:
 
-| State | Holds a `ProblemId` | Appears in the catalog | New assignments |
-| --- | --- | --- | --- |
-| `Draft` | No | No | No |
-| `Published` | Yes | Yes | Yes |
-| `Withdrawn` | Yes | No | No |
+| State | Holds a `ProblemId` | Catalog browse | New assignments | Exact resolution |
+| --- | --- | --- | --- | --- |
+| `Draft` | No | No | No | No |
+| `Validated` | No | No | No | No |
+| `Published` | Yes | Yes | Yes | Yes |
+| `Deprecated` | Yes | No | Yes, by exact reference | Yes |
+| `Archived` | Yes | No | No | Yes |
 
 "Is this a draft" is answered by the absence of a `ProblemId`, not by a stored
 flag. A flag can disagree with the identifier beside it; an absent value
 cannot.
 
-Withdrawal exists because deletion would break the record. A course that
-assigned a problem mid-term keeps working after the problem is withdrawn, and
-the withdrawal only stops it appearing to new assignments.
+Deprecation and archival preserve historical references because deletion would
+break the record. A deprecated version disappears from discovery but remains
+assignable by an exact reference; archival additionally blocks new references.
+Deprecation carries an author explanation, and archival retains it.
 
 ## Transitions
 
@@ -61,7 +64,6 @@ Every change passes through one fallible function:
 pub fn apply(
     state: Lifecycle,
     event: LifecycleEvent,
-    minted: ProblemId,
 ) -> Result<Lifecycle, LifecycleError>
 ```
 
@@ -69,18 +71,31 @@ Legal moves:
 
 | From | Event | To |
 | --- | --- | --- |
-| `Draft` | `Publish` | `Published`, carrying the minted `ProblemId` |
-| `Published` | `Withdraw` | `Withdrawn` |
-| `Withdrawn` | `Restore` | `Published` |
+| `Draft` | `Validate` | `Validated` |
+| `Validated` | `Publish { problem }` | `Published`, carrying the server-minted `ProblemId` |
+| `Published` | `Deprecate { reason }` | `Deprecated` |
+| `Deprecated` | `Archive` | `Archived` |
 
-Anything else returns `LifecycleError::IllegalTransition`. The common case is
-republishing a published version: that version is immutable, so a change means
-publishing a *new* version.
+Anything else returns `LifecycleError::IllegalTransition`; an empty
+deprecation explanation returns `LifecycleError::EmptyDeprecationReason`.
+There is no restore transition. Correcting published content means publishing
+a new immutable version and deprecating the superseded one when appropriate.
 
-The caller supplies the minted identifier rather than the function creating one
-internally. That keeps minting server-side, where the `generate` feature is on,
-while leaving `apply` callable from the browser so an editor can preview what a
-transition would do.
+The caller places the minted identifier in the publish event rather than the
+function creating one internally. That keeps minting server-side, where the
+`generate` feature is on, while leaving the pure transition callable in
+key-free clients.
+
+## Version ownership and forks
+
+A problem has a nonempty author set and a linear version chain. An author may
+publish one successor whose `previousVersion` points to the version it revises.
+The store locks that base version and refuses a second successor, so conflicting
+branches cannot silently form under one `ProblemId`.
+
+A third party creates a new `ProblemId` instead. Its first version records the
+exact source in `derivedFrom`, preserving attribution and license lineage
+without granting write access to another author's chain.
 
 ## Why immutability pays for itself
 

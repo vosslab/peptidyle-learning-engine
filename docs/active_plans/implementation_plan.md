@@ -1007,7 +1007,7 @@ contracts, every module can be dispatched to a fresh subagent.
 | MOD-SCORE | Scoring and grade policies | `score(...)`, summary projection | MOD-QM, MOD-RUN | n/a | First/latest/highest agree with a hand-computed fixture |
 | MOD-CAP | Capability validation | `validate_assignment_config -> Vec<Violation>` | MOD-QM | n/a | Committed violation table |
 | MOD-GEN | Seeded generation | `generate(seed, spec)` | MOD-QM | n/a | Seed-vector parity (WP-C4) |
-| MOD-GRD | Grading (server-only) | `grade(attempt, response, key)` | MOD-QM, MOD-STATE | n/a | Absent from the `wasm32` closure (WP-C5) |
+| MOD-GRD | Grading (server-only) | `grade(question, response, key)` | MOD-QM, MOD-STATE | n/a | Checker behavior tests; absent from the `wasm32` closure (WP-C5) |
 | MOD-OBJ | Object store | `ObjectStore` trait | MOD-ID | `MemoryObjectStore` | Conformance suite on memory, MinIO, S3 |
 | MOD-STO | Persistence and RLS context | `Store` trait | MOD-QM, MOD-ID, MOD-RUN | `MemoryStore` | Conformance suite on memory and PostgreSQL; cursor pagination only |
 | MOD-SCHEMA | Migrations, RLS policies, partitions | Shared and tenant schema | MOD-ID, MOD-RUN | n/a | Fresh apply; foreign tenant context returns zero rows |

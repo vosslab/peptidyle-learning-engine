@@ -51,6 +51,46 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   response-format validation, timer display, and state transitions may run in
   WebAssembly; answers, keys, and correctness decisions remain server-only.
 
+## Software design
+
+- Focus software design on adaptability, allowing systems to evolve with
+  changing requirements and insights over time.
+- Use adaptability to maintain functionality and relevance in a dynamic usage
+  environment.
+
+## Authentication storage and compliance
+
+- Store the opaque authentication credential in one host-only HttpOnly cookie,
+  not in `localStorage`. JavaScript must never be able to read the bearer
+  credential.
+- Use the cookie only for authentication, session security, expiration, and
+  revocation needed to provide the signed-in service. Do not attach analytics,
+  advertising, cross-site tracking, or unrelated preference data to it.
+- Treat `localStorage` and similar browser mechanisms as storage/access
+  technologies too; changing the browser API is not a way around European
+  storage-consent rules.
+- Classify the authentication cookie as strictly necessary only while it is
+  essential to the service explicitly requested by the user and has no
+  secondary purpose. Clearly disclose its name, purpose, deployment context,
+  and lifetime even when prior opt-in consent is not required.
+- Make ordinary authentication a browser-session cookie by default while the
+  server retains an authoritative, bounded expiration. Do not assume that a
+  persistent login cookie is exempt: any `remember me` behavior requires an
+  explicit user choice and a jurisdiction-specific consent and legal review
+  before implementation.
+- Require separate consent handling before adding any nonessential browser
+  storage or tracking. Recheck the deployed behavior against the target
+  jurisdiction; this engineering rule is not a substitute for legal review.
+- Keep the technical controls narrow: `Secure; SameSite=Lax` for ordinary
+  HTTPS, explicit `SameSite=None; Secure` only for configured LTI embedding,
+  explicit insecure mode only for local HTTP development, and immediate
+  server-side revocation on sign-out.
+
+The durable regulatory references for this decision are Article 5(3) of the
+[consolidated EU ePrivacy Directive](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02002L0058-20091219), the
+[Article 29 Working Party Opinion 04/2012](https://ec.europa.eu/justice/article-29/documentation/opinion-recommendation/files/2012/wp194_en.pdf),
+and current [ICO guidance on strictly necessary storage/access](https://ico.org.uk/for-organisations/direct-marketing-and-privacy-and-electronic-communications/guidance-on-the-use-of-storage-and-access-technologies/what-are-the-exceptions/).
+
 ## Dependency versions
 
 - Focus on the latest versions of all code because many security bugs are being

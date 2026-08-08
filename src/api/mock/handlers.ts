@@ -84,8 +84,9 @@ function respondAuth(request: Request): Response {
       authenticated: true,
       tenant: publishedProblemFixture.enrollment.tenant,
       user: {
-        id: publishedProblemFixture.enrollment.student,
+        id: publishedProblemFixture.enrollment.user,
         displayName: "Fixture Student",
+        roles: ["student"],
       },
     });
   }
@@ -100,7 +101,7 @@ function respondCatalog(request: Request): Response {
   const segments = pathSegments(request);
   const resource = segments[1];
   if (request.method === "GET" && resource === "problems" && segments.length === 2) {
-    return jsonResponse({ items: [publishedProblemFixture.publishedProblem], nextCursor: null });
+    return jsonResponse({ items: [publishedProblemFixture.catalogProblem], nextCursor: null });
   }
   if (
     request.method === "GET" &&
@@ -115,13 +116,16 @@ function respondCatalog(request: Request): Response {
     return jsonResponse(publishedProblemFixture.publishedProblem, 201);
   }
   if (request.method === "GET" && resource === "taxonomy") {
-    return jsonResponse({ items: publishedProblemFixture.publishedProblem.metadata.taxonomy });
+    return jsonResponse({
+      items: publishedProblemFixture.publishedProblem.metadata.taxonomy,
+      nextCursor: null,
+    });
   }
   return routeNotFound(request);
 }
 
 function canHandleCourse(request: Request): boolean {
-  return handlesResource(request, ["courses", "assignments", "enrollments"]);
+  return handlesResource(request, ["courses", "assignments"]);
 }
 
 function respondCourse(request: Request): Response {
@@ -135,6 +139,13 @@ function respondCourse(request: Request): Response {
   }
   if (
     resource === "courses" &&
+    segments.length === 3 &&
+    segments[2] === publishedProblemFixture.course.id
+  ) {
+    return jsonResponse(publishedProblemFixture.course);
+  }
+  if (
+    resource === "courses" &&
     segments[2] === publishedProblemFixture.course.id &&
     segments[3] === "assignments"
   ) {
@@ -143,17 +154,11 @@ function respondCourse(request: Request): Response {
   if (resource === "assignments" && segments[2] === publishedProblemFixture.assignment.id) {
     return jsonResponse(publishedProblemFixture.assignment);
   }
-  if (resource === "enrollments" && segments[2] === publishedProblemFixture.enrollment.id) {
-    return jsonResponse({
-      enrollment: publishedProblemFixture.enrollment,
-      summary: publishedProblemFixture.summary,
-    });
-  }
   return routeNotFound(request);
 }
 
 function canHandleRun(request: Request): boolean {
-  return handlesResource(request, ["runs", "attempts", "submissions", "grading"]);
+  return handlesResource(request, ["runs", "attempts", "submissions", "grading", "enrollments"]);
 }
 
 function responseForRun(request: Request, runId: string | undefined): Response {
@@ -183,6 +188,22 @@ function responseForAttempt(attemptId: string | undefined): Response {
 function respondRun(request: Request): Response {
   const segments = pathSegments(request);
   const resource = segments[1];
+  if (
+    resource === "enrollments" &&
+    segments[2] === publishedProblemFixture.enrollment.id &&
+    request.method === "GET"
+  ) {
+    if (segments[3] === "runs") {
+      const runs = publishedProblemFixture.runs.filter(
+        (run) => run.enrollment === publishedProblemFixture.enrollment.id,
+      );
+      return jsonResponse({ items: runs, nextCursor: null });
+    }
+    return jsonResponse({
+      enrollment: publishedProblemFixture.enrollment,
+      summary: publishedProblemFixture.summary,
+    });
+  }
   if (resource === "runs" && segments[3] === "attempts" && request.method === "GET") {
     const runAttempts = publishedProblemFixture.attempts.filter(
       (attempt) => attempt.run === segments[2],

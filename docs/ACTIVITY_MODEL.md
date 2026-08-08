@@ -27,10 +27,20 @@ The browser never chooses this value. The server supplies tenant context from
 the authenticated session, and storage later verifies that context under its
 conformance suite.
 
+Courses and assignments sit immediately above this activity hierarchy. A
+course is tenant-owned and grants explicit course-local membership to
+authenticated `UserId` values. An assignment belongs to exactly one course and
+stores ordered `(ProblemId, VersionId)` references to shared immutable content;
+it never owns or copies the question payload. Enrollment then links a student
+record to that tenant-owned assignment.
+
 ## Enrollment
 
 `AssignmentEnrollment` owns cross-run state:
 
+- `user` is the authenticated person authorized to act on the enrollment;
+- `student` is the institution's pedagogical record identity and is not
+  inferred to be the same identifier as `user`;
 - `first_completed_at` records the first server time a run met completion.
 - `current_grade_run` points to the run selected by grade policy.
 - `best_grade_run` points to the highest-scoring completed run.
@@ -53,6 +63,8 @@ the server records the completion timestamp and score as a transition.
 `QuestionAttempt` belongs to one run and records:
 
 - its tenant and run IDs;
+- its zero-based assignment position, which distinguishes repeated references
+  to the same published problem version and groups retries correctly;
 - the immutable published `ProblemId` and `VersionId`;
 - the generation seed and parameter hash;
 - the student response and server-side result when available;
@@ -77,7 +89,36 @@ data on hundreds of millions of rows.
 Seed replay is secondary to fresh practice. The server gives every newly issued
 parameterized question instance a fresh seed. Resuming or re-rendering that
 same `QuestionAttempt` uses its stored seed so the question does not change
-mid-attempt.
+mid-attempt. Seeds minted for the JSON API come directly from the operating
+system random source and are masked to 53 bits, the exact nonnegative integer
+range shared by Rust and JavaScript. The internal generator contract remains
+`u64`, so committed vectors and non-browser callers retain its full domain.
+
+The run service issues at most one unresolved `QuestionAttempt` at a time. A
+resume returns that same record and seed. After its response commits, the
+service advances to the first never-attempted assignment position; only after
+every position has a response may it issue an allowed retry. The store locks
+the run and enforces the same invariant so concurrent requests cannot start two
+question timers.
+
+## Run API persistence
+
+MOD-API-RUN starts or resumes the enrollment owner's active run, lists run and
+attempt history with bounded cursors, records submissions, and reads the
+transactionally maintained summary. PostgreSQL supplies run numbers, issue and
+submission timestamps, deadlines, and completion timestamps. The browser does
+not submit any of those values.
+
+Every submission carries a bounded idempotency key. Repeating the exact key and
+response returns the first committed receipt without grading twice. Reusing
+either the attempt with a different key or the key with a different response
+is a conflict. Response, grade event, run completion, enrollment pointers, and
+summary projection commit in one transaction.
+
+The server repeats key-free response-format validation before invoking a
+trusted grading backend. Storage independently rejects malformed point values.
+Student routes return the response and only policy-permitted correctness and
+points; answer keys and checker state never enter the activity model.
 
 ## Attempt lifecycle
 

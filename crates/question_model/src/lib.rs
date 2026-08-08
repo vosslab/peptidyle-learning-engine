@@ -16,7 +16,12 @@
 
 pub mod activity;
 pub mod answer;
+pub mod auth;
 pub mod capability;
+/// Shared catalog metadata, visibility, lineage, and browse projections.
+pub mod catalog;
+/// Tenant-owned course and assignment browser projections.
+pub mod course;
 pub mod definition;
 pub mod envelope;
 pub mod generation;
@@ -31,11 +36,18 @@ pub mod taxonomy;
 // available under its module.
 pub use crate::activity::{
     ActivityTimestamp, AssignmentEnrollment, AssignmentId, AssignmentRun, AttemptProvenance,
-    AttemptResult, AttemptTimerRecord, EnrollmentId, EnrollmentStatus, ImplementationVersion,
-    QuestionAttempt, QuestionAttemptId, RunId, RunMode, SourceArtifact, StudentAssignmentSummary,
-    StudentId, TenantId,
+    AttemptResult, AttemptTimerRecord, CourseId, EnrollmentId, EnrollmentStatus,
+    ImplementationVersion, QuestionAttempt, QuestionAttemptId, RunId, RunMode, SourceArtifact,
+    StudentAssignmentSummary, StudentId, TenantId,
 };
+pub use crate::auth::{UserId, UserRole};
 pub use crate::capability::{BackendCapabilities, Capability};
+pub use crate::catalog::{
+    CatalogLifecycle, CatalogProblemSummary, ProblemVersionRef, PublicationScope, QuestionBackend,
+};
+pub use crate::course::{
+    AssignmentSummary, CourseMembership, CourseMembershipRole, CourseRole, CourseSummary,
+};
 pub use crate::definition::{
     GradingDefinition, QuestionDefinition, QuestionMetadata, QuestionSource,
 };

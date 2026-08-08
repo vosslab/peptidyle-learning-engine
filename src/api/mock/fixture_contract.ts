@@ -3,6 +3,7 @@
 import type { AssetId } from "../../../generated/api/AssetId";
 import type { AssignmentEnrollment } from "../../../generated/api/AssignmentEnrollment";
 import type { AssignmentRun } from "../../../generated/api/AssignmentRun";
+import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
 import type { ObjectId } from "../../../generated/api/ObjectId";
 import type { QuestionAttempt } from "../../../generated/api/QuestionAttempt";
 import type { QuestionDefinition } from "../../../generated/api/QuestionDefinition";
@@ -20,8 +21,9 @@ export interface MockFixtureAsset {
 
 /** Complete typed data set shared by every WP-C7 mock route group. */
 export interface MockFixtureCorpus {
-  readonly fixtureSchemaVersion: 1;
+  readonly fixtureSchemaVersion: 4;
   readonly modelSchemaVersion: 1;
+  readonly catalogProblem: CatalogProblemSummary;
   readonly publishedProblem: QuestionDefinition;
   readonly draft: QuestionDefinition;
   readonly assets: ReadonlyArray<MockFixtureAsset>;

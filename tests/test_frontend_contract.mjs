@@ -43,6 +43,61 @@ test("the typed mock client loads a complete run screen with no backend", async 
   assert.equal(screen.question.response.kind, "multipleChoice");
 });
 
+test("the typed mock client exposes cursor-ready assignment run history", async () => {
+  const client = createMockApiClient();
+  const history = await client.listRuns(publishedProblemFixture.enrollment.id);
+
+  assert.deepEqual(history.items, publishedProblemFixture.runs);
+  assert.equal(history.nextCursor, null);
+});
+
+test("activity wire fields keep authenticated identity and assignment position explicit", () => {
+  assert.notEqual(
+    publishedProblemFixture.enrollment.user,
+    publishedProblemFixture.enrollment.student,
+  );
+  assert.ok(publishedProblemFixture.attempts.every((attempt) => attempt.assignmentPosition === 0));
+});
+
+test("catalog browse returns hot metadata and cursor-paged taxonomy", async () => {
+  const client = createMockApiClient();
+  const catalog = await client.listProblems();
+  const summary = catalog.items[0];
+
+  assert.notEqual(summary, undefined);
+  assert.equal(summary.problem, publishedProblemFixture.publishedProblem.problem);
+  assert.equal(summary.backend, "native");
+  assert.equal("prompt" in summary, false);
+  assert.equal("response" in summary, false);
+  assert.equal(catalog.nextCursor, null);
+
+  const taxonomy = await client.listTaxonomy();
+  assert.deepEqual(taxonomy.items, publishedProblemFixture.publishedProblem.metadata.taxonomy);
+  assert.equal(taxonomy.nextCursor, null);
+});
+
+test("course browse carries membership role and exact version references only", async () => {
+  const client = createMockApiClient();
+  const courses = await client.listCourses();
+  const course = courses.items[0];
+
+  assert.notEqual(course, undefined);
+  assert.equal(course.role, "student");
+
+  const assignments = await client.listAssignments(course.id);
+  const assignment = assignments.items[0];
+  assert.notEqual(assignment, undefined);
+  assert.equal(assignment.courseId, course.id);
+  assert.deepEqual(assignment.problems, [
+    {
+      problem: publishedProblemFixture.publishedProblem.problem,
+      version: publishedProblemFixture.publishedProblem.version,
+    },
+  ]);
+  assert.equal("prompt" in assignment, false);
+  assert.equal("response" in assignment, false);
+});
+
 test("mock fallback validation reports shape only and never correctness", async () => {
   const client = createMockApiClient();
   const definition = publishedProblemFixture.publishedProblem.response;

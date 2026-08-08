@@ -30,9 +30,10 @@ right column decides correctness.
 
 ### Identity
 
-`WorkspaceId`, `ProblemId`, `VersionId`, and `AssetId` are distinct newtypes
-over `Uuid`. They cannot substitute for one another, so passing a draft
-identifier where published content is expected fails to compile.
+`WorkspaceId`, `ProblemId`, `VersionId`, `AssetId`, `CourseId`, and the activity
+identifiers are distinct newtypes over `Uuid`. They cannot substitute for one
+another, so passing a draft identifier where published content is expected or
+an assignment identifier where a course is required fails to compile.
 
 Identifiers are UUIDv7: random enough that a catalog number reveals no volume
 information, time-ordered enough to index well, never sequential. Minting sits
@@ -43,6 +44,24 @@ transition.
 The draft rule is carried by the type rather than a flag:
 `QuestionDefinition::problem` is `Option<ProblemId>`, and `is_draft()` reads
 that option. There is no separate boolean to fall out of sync with it.
+
+`ProblemVersionRef` carries the exact `(ProblemId, VersionId)` pair used by
+assignments and lineage. `PublicationScope` distinguishes institution-visible
+and public immutable versions; private content remains a draft and therefore
+has no publication-scope variant or `ProblemId`.
+
+`CatalogProblemSummary` is the hot browse projection. It contains identity,
+backend family, capabilities, metadata, scope, lifecycle, authors, lineage,
+and publication time, but not prompt, response, or private source-locator
+fields. Exact version lookup loads the separate `QuestionDefinition` payload.
+
+`CourseMembershipRole` represents only the student and instructor values that
+may be stored on a direct membership. `CourseRole` adds the effective
+administrator value returned when tenant-wide authority is applied; using two
+types makes an administrator membership unrepresentable. `CourseSummary` and
+`AssignmentSummary` are Rust-owned browser projections. Assignment summaries
+carry an ordered list of exact `ProblemVersionRef` values and never embed a
+question payload.
 
 ### Capabilities
 
@@ -114,6 +133,11 @@ client-side check is a convenience rather than an authority.
 
 Choices are compared by identifier, not by displayed label, so presenting them
 in a shuffled order leaves a submitted response meaningful.
+
+Server-side grading loads the attempt's exact published `QuestionDefinition`
+and calls `grading::grade(question, response, key)`. The definition supplies
+the response comparison and point policy that are intentionally absent from
+the compact attempt row; the key remains in the server-only grading boundary.
 
 ### Content blocks
 

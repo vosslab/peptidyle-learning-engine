@@ -1,6 +1,43 @@
 {
-  "fixtureSchemaVersion": 1,
+  "fixtureSchemaVersion": 4,
   "modelSchemaVersion": 1,
+  "catalogProblem": {
+    "problem": "0198e000-0000-7000-8000-000000000003",
+    "version": "0198e000-0000-7000-8000-000000000004",
+    "backend": "native",
+    "capabilities": [
+      "algorithmicGeneration",
+      "serverGrading"
+    ],
+    "metadata": {
+      "title": "Peptide bond resonance and planarity",
+      "tags": [
+        "biochemistry",
+        "protein-structure"
+      ],
+      "taxonomy": [
+        {
+          "scheme": "Peptidyle",
+          "code": "BIOCHEM.PEPTIDE_BOND",
+          "label": "Peptide bond structure"
+        }
+      ],
+      "license": {
+        "kind": "ccBy"
+      },
+      "language": "en-US"
+    },
+    "scope": "public",
+    "lifecycle": {
+      "state": "published"
+    },
+    "authors": [
+      "0198e000-0000-7000-8000-000000000015"
+    ],
+    "previousVersion": null,
+    "derivedFrom": null,
+    "publishedAt": 1786000000000
+  },
   "publishedProblem": {
     "version": "0198e000-0000-7000-8000-000000000004",
     "problem": "0198e000-0000-7000-8000-000000000003",
@@ -244,7 +281,8 @@
   "course": {
     "id": "0198e000-0000-7000-8000-000000000014",
     "tenant": "0198e000-0000-7000-8000-000000000001",
-    "title": "BIOC 301: Biochemistry"
+    "title": "BIOC 301: Biochemistry",
+    "role": "student"
   },
   "assignment": {
     "id": "0198e000-0000-7000-8000-000000000006",
@@ -272,6 +310,7 @@
     "id": "0198e000-0000-7000-8000-000000000007",
     "tenant": "0198e000-0000-7000-8000-000000000001",
     "assignment": "0198e000-0000-7000-8000-000000000006",
+    "user": "0198e000-0000-7000-8000-000000000016",
     "student": "0198e000-0000-7000-8000-000000000008",
     "firstCompletedAt": 1786000001300,
     "currentGradeRun": "0198e000-0000-7000-8000-000000000021",
@@ -330,6 +369,7 @@
       "run": "0198e000-0000-7000-8000-000000000020",
       "problem": "0198e000-0000-7000-8000-000000000003",
       "questionVersion": "0198e000-0000-7000-8000-000000000004",
+      "assignmentPosition": 0,
       "seed": 1001,
       "parameterHash": "9fde48ed6a7d62c12323da06d64f3edf9bd32930cd8819bc864ec52ec7670b22",
       "response": {
@@ -379,6 +419,7 @@
       "run": "0198e000-0000-7000-8000-000000000021",
       "problem": "0198e000-0000-7000-8000-000000000003",
       "questionVersion": "0198e000-0000-7000-8000-000000000004",
+      "assignmentPosition": 0,
       "seed": 1002,
       "parameterHash": "024406973c4ac408281bd713a99b58634801180177abca0e29ffa37f5daf8c43",
       "response": {
@@ -428,6 +469,7 @@
       "run": "0198e000-0000-7000-8000-000000000022",
       "problem": "0198e000-0000-7000-8000-000000000003",
       "questionVersion": "0198e000-0000-7000-8000-000000000004",
+      "assignmentPosition": 0,
       "seed": 1003,
       "parameterHash": "45a935f3d69d3af80e097ccea443daeadddd2c1ca4c4693ab07496d74998f5a2",
       "response": {
@@ -477,6 +519,7 @@
       "run": "0198e000-0000-7000-8000-000000000023",
       "problem": "0198e000-0000-7000-8000-000000000003",
       "questionVersion": "0198e000-0000-7000-8000-000000000004",
+      "assignmentPosition": 0,
       "seed": 1004,
       "parameterHash": "7a2d159306c2fa58984c5fc648789d6f76ffd1f13294960d0119ec6744e837ad",
       "response": null,

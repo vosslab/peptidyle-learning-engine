@@ -2,6 +2,7 @@
 
 import { publishedProblemFixture } from "../../../generated/fixtures/published_problem";
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
+import type { CourseId } from "../../../generated/api/CourseId";
 import type { EnrollmentId } from "../../../generated/api/EnrollmentId";
 import type { ProblemId } from "../../../generated/api/ProblemId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
@@ -15,7 +16,6 @@ import type {
   EnrollmentView,
   RunScreenData,
   SubmissionReceipt,
-  TaxonomyPage,
 } from "../contracts";
 import { validateAssignmentConfigInMock } from "./capability_validation";
 import { validateResponseFormatInMock } from "./format_validation";
@@ -45,17 +45,18 @@ export function createMockApiClient(): ApiClient {
         authenticated: true,
         tenant: publishedProblemFixture.enrollment.tenant,
         user: {
-          id: publishedProblemFixture.enrollment.student,
+          id: publishedProblemFixture.enrollment.user,
           displayName: "Fixture Student",
+          roles: ["student"],
         },
       };
       return expectSerialized(mockFetch("/api/auth/session"), expected);
     },
     listProblems: (cursor?: string) => {
       const expected = {
-        items: [publishedProblemFixture.publishedProblem],
+        items: [publishedProblemFixture.catalogProblem],
         nextCursor: null,
-      } satisfies CursorPage<(typeof publishedProblemFixture)["publishedProblem"]>;
+      } satisfies CursorPage<(typeof publishedProblemFixture)["catalogProblem"]>;
       const suffix = cursor === undefined ? "" : `?cursor=${encodeURIComponent(cursor)}`;
       return expectSerialized(mockFetch(`/api/problems${suffix}`), expected);
     },
@@ -64,11 +65,15 @@ export function createMockApiClient(): ApiClient {
         mockFetch(`/api/problems/${problemId}/versions/${versionId}`),
         publishedProblemFixture.publishedProblem,
       ),
-    listTaxonomy: () => {
-      const expected: TaxonomyPage = {
+    listTaxonomy: (cursor?: string) => {
+      const expected = {
         items: publishedProblemFixture.publishedProblem.metadata.taxonomy,
-      };
-      return expectSerialized(mockFetch("/api/taxonomy"), expected);
+        nextCursor: null,
+      } satisfies CursorPage<
+        (typeof publishedProblemFixture)["publishedProblem"]["metadata"]["taxonomy"][number]
+      >;
+      const suffix = cursor === undefined ? "" : `?cursor=${encodeURIComponent(cursor)}`;
+      return expectSerialized(mockFetch(`/api/taxonomy${suffix}`), expected);
     },
     listCourses: (cursor?: string) => {
       const expected = {
@@ -78,7 +83,16 @@ export function createMockApiClient(): ApiClient {
       const suffix = cursor === undefined ? "" : `?cursor=${encodeURIComponent(cursor)}`;
       return expectSerialized(mockFetch(`/api/courses${suffix}`), expected);
     },
-    listAssignments: (courseId: string, cursor?: string) => {
+    getCourse: (courseId: CourseId) => {
+      if (courseId !== publishedProblemFixture.course.id) {
+        return Promise.reject(new Error(`Fixture has no course ${courseId}`));
+      }
+      return expectSerialized(
+        mockFetch(`/api/courses/${courseId}`),
+        publishedProblemFixture.course,
+      );
+    },
+    listAssignments: (courseId: CourseId, cursor?: string) => {
       const expected = {
         items: [publishedProblemFixture.assignment],
         nextCursor: null,
@@ -98,6 +112,17 @@ export function createMockApiClient(): ApiClient {
       };
       return expectSerialized(mockFetch(`/api/enrollments/${enrollmentId}`), expected);
     },
+    listRuns: (enrollmentId: EnrollmentId, cursor?: string) => {
+      const expected = {
+        items: publishedProblemFixture.runs.filter((run) => run.enrollment === enrollmentId),
+        nextCursor: null,
+      } satisfies CursorPage<(typeof publishedProblemFixture)["runs"][number]>;
+      const suffix = cursor === undefined ? "" : `?cursor=${encodeURIComponent(cursor)}`;
+      return expectSerialized(
+        mockFetch(`/api/enrollments/${enrollmentId}/runs${suffix}`),
+        expected,
+      );
+    },
     startRun: (assignmentId: AssignmentId) => {
       if (assignmentId !== publishedProblemFixture.assignment.id) {
         return Promise.reject(new Error(`Fixture has no assignment ${assignmentId}`));
@@ -106,7 +131,14 @@ export function createMockApiClient(): ApiClient {
       if (run === undefined) {
         return Promise.reject(new Error("Fixture has no active run"));
       }
-      return expectSerialized(mockFetch("/api/runs", { method: "POST" }), run);
+      return expectSerialized(
+        mockFetch("/api/runs", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ assignmentId }),
+        }),
+        run,
+      );
     },
     getRun: (runId: RunId) => {
       const run = publishedProblemFixture.runs.find((candidate) => candidate.id === runId);
@@ -115,12 +147,13 @@ export function createMockApiClient(): ApiClient {
       }
       return expectSerialized(mockFetch(`/api/runs/${runId}`), run);
     },
-    listAttempts: (runId: RunId) => {
+    listAttempts: (runId: RunId, cursor?: string) => {
       const expected = {
         items: publishedProblemFixture.attempts.filter((attempt) => attempt.run === runId),
         nextCursor: null,
       } satisfies CursorPage<(typeof publishedProblemFixture)["attempts"][number]>;
-      return expectSerialized(mockFetch(`/api/runs/${runId}/attempts`), expected);
+      const suffix = cursor === undefined ? "" : `?cursor=${encodeURIComponent(cursor)}`;
+      return expectSerialized(mockFetch(`/api/runs/${runId}/attempts${suffix}`), expected);
     },
     getAttempt: (attemptId: QuestionAttemptId) => {
       const attempt = publishedProblemFixture.attempts.find(

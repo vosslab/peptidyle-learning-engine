@@ -12,6 +12,8 @@ domain.workspace = true
 objects.workspace = true
 async-trait.workspace = true
 serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
 
 # Enabled by the `postgres` feature so `MemoryStore` builds without a database.
 sqlx = { workspace = true, optional = true }

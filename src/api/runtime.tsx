@@ -4,6 +4,7 @@ import { query } from "@solidjs/router";
 import { createContext, useContext, type JSX } from "solid-js";
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
+import type { CourseId } from "../../generated/api/CourseId";
 import type { RunId } from "../../generated/api/RunId";
 import type { ApiClient } from "./client";
 import type { AssignmentSummary, CourseSummary, CursorPage, RunScreenData } from "./contracts";
@@ -18,7 +19,7 @@ export interface ApiRuntime {
   readonly client: ApiClient;
   readonly queries: {
     readonly courses: QueryFunction<[], CursorPage<CourseSummary>>;
-    readonly assignments: QueryFunction<[string], CursorPage<AssignmentSummary>>;
+    readonly assignments: QueryFunction<[CourseId], CursorPage<AssignmentSummary>>;
     readonly assignment: QueryFunction<[AssignmentId], AssignmentSummary>;
     readonly runScreen: QueryFunction<[RunId], RunScreenData>;
   };
@@ -31,7 +32,7 @@ export function createApiRuntime(client: ApiClient): ApiRuntime {
     queries: {
       courses: query(() => client.listCourses(), "course-list"),
       assignments: query(
-        (courseId: string) => client.listAssignments(courseId),
+        (courseId: CourseId) => client.listAssignments(courseId),
         "course-assignments",
       ),
       assignment: query(

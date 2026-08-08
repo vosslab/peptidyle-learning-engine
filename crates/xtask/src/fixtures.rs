@@ -24,10 +24,12 @@ use question_model::run_policy::{
 };
 use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
-    ActivityTimestamp, AssignmentEnrollment, AssignmentId, AssignmentRun, AttemptProvenance,
-    AttemptResult, AttemptTimerRecord, EnrollmentId, ImplementationVersion, QuestionAttempt,
-    QuestionAttemptId, RunId, RunMode, SourceArtifact, StudentAssignmentSummary, StudentId,
-    TenantId,
+    ActivityTimestamp, AssignmentEnrollment, AssignmentId, AssignmentRun, AssignmentSummary,
+    AttemptProvenance, AttemptResult, AttemptTimerRecord, BackendCapabilities, Capability,
+    CatalogLifecycle, CatalogProblemSummary, CourseId, CourseRole, CourseSummary, EnrollmentId,
+    ImplementationVersion, ProblemVersionRef, PublicationScope, QuestionAttempt, QuestionAttemptId,
+    QuestionBackend, RunId, RunMode, SourceArtifact, StudentAssignmentSummary, StudentId, TenantId,
+    UserId,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -99,40 +101,15 @@ struct FixtureAsset {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct FixtureCourse {
-    id: String,
-    tenant: TenantId,
-    title: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct FixturePublishedVersionRef {
-    problem: ProblemId,
-    version: VersionId,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct FixtureAssignment {
-    id: AssignmentId,
-    tenant: TenantId,
-    course_id: String,
-    title: String,
-    problems: Vec<FixturePublishedVersionRef>,
-    policies: RunPolicies,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 struct FixtureCorpus {
     fixture_schema_version: u32,
     model_schema_version: u32,
+    catalog_problem: CatalogProblemSummary,
     published_problem: QuestionDefinition,
     draft: QuestionDefinition,
     assets: Vec<FixtureAsset>,
-    course: FixtureCourse,
-    assignment: FixtureAssignment,
+    course: CourseSummary,
+    assignment: AssignmentSummary,
     enrollment: AssignmentEnrollment,
     runs: Vec<AssignmentRun>,
     attempts: Vec<QuestionAttempt>,
@@ -179,6 +156,7 @@ fn build_corpus() -> FixtureCorpus {
     let assignment_id = assignment_id("0198e000-0000-7000-8000-000000000006");
     let enrollment_id = enrollment_id("0198e000-0000-7000-8000-000000000007");
     let student = student_id("0198e000-0000-7000-8000-000000000008");
+    let user = UserId::from_uuid(parsed_uuid("0198e000-0000-7000-8000-000000000016"));
     let source_object = object_id("0198e000-0000-7000-8000-000000000009");
 
     let asset_specs = [
@@ -207,10 +185,28 @@ fn build_corpus() -> FixtureCorpus {
         .collect();
 
     let published_problem = question(Some(problem), version, workspace, &assets);
+    let catalog_problem = CatalogProblemSummary {
+        problem,
+        version,
+        backend: QuestionBackend::Native,
+        capabilities: BackendCapabilities::from_iter([
+            Capability::AlgorithmicGeneration,
+            Capability::ServerGrading,
+        ]),
+        metadata: published_problem.metadata.clone(),
+        scope: PublicationScope::Public,
+        lifecycle: CatalogLifecycle::Published,
+        authors: vec![UserId::from_uuid(parsed_uuid(
+            "0198e000-0000-7000-8000-000000000015",
+        ))],
+        previous_version: None,
+        derived_from: None,
+        published_at: timestamp(1_786_000_000_000),
+    };
     let mut draft = question(None, draft_version, workspace, &assets);
     draft.metadata.title = "Draft: peptide resonance wording revision".to_string();
 
-    let course_id = "0198e000-0000-7000-8000-000000000014".to_string();
+    let course_id = course_id("0198e000-0000-7000-8000-000000000014");
     let run_ids = [
         run_id("0198e000-0000-7000-8000-000000000020"),
         run_id("0198e000-0000-7000-8000-000000000021"),
@@ -271,28 +267,31 @@ fn build_corpus() -> FixtureCorpus {
         .collect();
 
     FixtureCorpus {
-        fixture_schema_version: 1,
+        fixture_schema_version: 4,
         model_schema_version: 1,
+        catalog_problem,
         published_problem,
         draft,
         assets,
-        course: FixtureCourse {
-            id: course_id.clone(),
+        course: CourseSummary {
+            id: course_id,
             tenant,
             title: "BIOC 301: Biochemistry".to_string(),
+            role: CourseRole::Student,
         },
-        assignment: FixtureAssignment {
+        assignment: AssignmentSummary {
             id: assignment_id,
             tenant,
             course_id,
             title: "Peptide bond mastery".to_string(),
-            problems: vec![FixturePublishedVersionRef { problem, version }],
+            problems: vec![ProblemVersionRef { problem, version }],
             policies,
         },
         enrollment: AssignmentEnrollment {
             id: enrollment_id,
             tenant,
             assignment: assignment_id,
+            user,
             student,
             first_completed_at: Some(timestamp(1_786_000_001_300)),
             current_grade_run: Some(run_ids[1]),
@@ -426,6 +425,7 @@ fn question_attempt(
         run,
         problem,
         question_version: version,
+        assignment_position: 0,
         seed,
         parameter_hash: sha256(format!("peptide-bond-choice:1:{seed}").as_bytes()),
         response: completed.then(|| StudentResponse::MultipleChoice {
@@ -557,6 +557,7 @@ macro_rules! id_constructor {
 
 id_constructor!(asset_id, AssetId);
 id_constructor!(assignment_id, AssignmentId);
+id_constructor!(course_id, CourseId);
 id_constructor!(enrollment_id, EnrollmentId);
 id_constructor!(object_id, ObjectId);
 id_constructor!(problem_id, ProblemId);

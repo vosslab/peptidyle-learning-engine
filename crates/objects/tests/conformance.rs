@@ -34,6 +34,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .get(&key)
         .await
         .expect("conforming get should succeed");
+    assert_eq!(stored.record, record);
     let signed = store
         .signed_url(&key, ActivityTimestamp::from_unix_millis(2_000))
         .await
@@ -108,9 +109,36 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .await
         .expect("conforming delete should succeed");
     assert_eq!(store.get(&key).await, Err(ObjectStoreError::NotFound));
+    store
+        .delete(&student_key)
+        .await
+        .expect("student record cleanup should succeed");
+    store
+        .delete(&temporary_key)
+        .await
+        .expect("temporary cleanup should succeed");
 }
 
 #[tokio::test]
 async fn memory_object_store_conforms() {
     exercise_object_store(&MemoryObjectStore::default()).await;
+}
+
+#[cfg(feature = "s3")]
+#[tokio::test]
+#[ignore = "requires a running MinIO stack and explicit credentials"]
+async fn minio_object_store_conforms() {
+    use objects::minio::{EndpointConfig, client};
+    use objects::s3::{BucketNames, S3ObjectStore};
+
+    let settings = EndpointConfig {
+        endpoint_url: std::env::var("PLE_S3_ENDPOINT").expect("PLE_S3_ENDPOINT must be set"),
+        region: std::env::var("PLE_S3_REGION").expect("PLE_S3_REGION must be set"),
+        access_key_id: std::env::var("AWS_ACCESS_KEY_ID").expect("AWS_ACCESS_KEY_ID must be set"),
+        secret_access_key: std::env::var("AWS_SECRET_ACCESS_KEY")
+            .expect("AWS_SECRET_ACCESS_KEY must be set"),
+    };
+    let store = S3ObjectStore::new(client(&settings), BucketNames::default());
+
+    exercise_object_store(&store).await;
 }

@@ -4,6 +4,133 @@
 
 ### Additions and New Features
 
+- Completed MOD-CLIENT with a strict same-origin HTTP implementation of the
+  browser `ApiClient`. Successful response bodies enter as `unknown` and pass
+  exhaustive field-by-field decoders; malformed UUIDs, timestamps, numeric
+  ranges, nested records, and discriminants fail before reaching application
+  state without `any` or unchecked assertions.
+- Added authenticated, bounded HTTP fallbacks for key-free response-format,
+  timer, and assignment-capability evaluation. They delegate to the same pure
+  Rust domain functions as WebAssembly while trusted publication, database-time
+  enforcement, and correctness decisions remain on their authoritative server
+  paths.
+- Added exact course lookup and guarded run-screen composition across the run,
+  active attempt, enrollment, assignment, course, and immutable question
+  resources. The client rejects inconsistent identifiers, tenants, or repeated
+  attempt cursors instead of combining independently valid but unrelated data.
+- Restricted newly issued API attempt seeds to JavaScript's exact 53-bit
+  integer range while retaining operating-system randomness and the internal
+  generator's full `u64` contract.
+- Completed MOD-API-ASSET with an immutable database registry that maps one
+  route identifier to an exact typed `ObjectRecord`. Catalog assets reuse
+  their logical `AssetId`; tenant-owned student-record artifacts reuse their
+  `ObjectId`, preserving both model identities behind one stable route.
+- Added public-CDN and protected asset delivery in
+  `crates/server/src/asset.rs`. Public catalog requests bypass authentication
+  and object-store signing, while protected content resolves the HttpOnly
+  session, authorizes in the session-derived tenant, appends a URL-free audit
+  event, and redirects to the exact stored key.
+- Added the forced-RLS `asset_delivery` migration plus shared MemoryStore and
+  PostgreSQL `AssetStore` implementations. Registration accepts only matching
+  published `ProblemAsset` records or tenant-matching `StudentRecord` exports;
+  source packages, render caches, and temporary-processing objects are not
+  deliverable through the route.
+- Completed MOD-API-RUN with authenticated start-or-resume, run history,
+  question-attempt history, idempotent submission, enrollment, and grading
+  summary routes. Students mutate only their own enrollment; course
+  instructors and tenant administrators receive scoped read access.
+- Added one-question-at-a-time issue and resume behavior. Each new attempt gets
+  a fresh operating-system-random seed, the unresolved attempt retains its
+  seed, repeated problem references remain distinct by assignment position,
+  and the store lock prevents concurrent requests from starting two timers.
+- Added atomic MemoryStore and PostgreSQL submission paths. Database-owned
+  timestamps drive timer verdicts and completion; response, grade event, run,
+  enrollment, and compact summary changes commit together, while exact retries
+  return the immutable first result without grading or counting twice.
+- Added the cursor-paged `listRuns` and `listAttempts` client contracts and
+  aligned the run mock with the real `{ assignmentId }` start body and
+  enrollment-owned route group.
+- Completed MOD-GRD with the server-only
+  `grading::grade(question, response, key)` contract. The generic checker
+  supports all-or-nothing numeric, multiple-choice, short-text, and ordering
+  questions after repeating shared response-format validation.
+- Added explicit grader outcomes and errors for ungraded practice, missing or
+  mismatched keys, invalid public parameters, backend-owned partial credit,
+  and file uploads requiring manual review. The public result contains only
+  correctness and points, never answer-bearing material.
+- Completed MOD-API-COURSE with authenticated cursor-paged course and
+  assignment reads plus server-owned course and assignment creation. Course
+  access uses explicit course-local membership; tenant administrators use a
+  separate derived authority path rather than a persisted membership value.
+- Added Rust-owned `CourseId`, `CourseMembershipRole`, `CourseRole`,
+  `CourseSummary`, and `AssignmentSummary` contracts. The generated TypeScript
+  client now uses `CourseId` instead of an untyped string, and fixture schema 3
+  records the signed-in student's course role.
+- Added normalized `course` and `course_member` PostgreSQL tables, forced RLS,
+  membership and assignment paging indexes, and hot `course_id` and title
+  columns on assignments. Memory and PostgreSQL stores now share course-local
+  visibility, assignment scoping, and validation behavior.
+- Completed MOD-API-CAT with authenticated catalog browse, exact version,
+  taxonomy, publication, deprecation, and archival routes. Every route derives
+  its tenant from the shared session store and every list uses a bounded
+  stable-key cursor.
+- Expanded the initial identity contract to the plan's five one-way lifecycle
+  states: draft, validated, published, deprecated, and archived. Added
+  institution and public scopes, trusted backend summaries, nonempty author
+  ownership, linear revision lineage, attributed forks, and database-owned
+  publication timestamps.
+- Added a dedicated `CatalogStore` contract with memory and PostgreSQL
+  implementations. Publication locks and compares the exact validated draft,
+  installs any institution visibility grant, writes hot metadata and immutable
+  payload, and removes the draft in one transaction.
+- Added the server-owned `BackendRegistry` and configurable
+  `PublicReviewGate`. The publish route returns every capability violation,
+  permits institution publishing for instructors, and restricts public
+  publishing to publishers or administrators plus any configured review.
+- Added Rust-owned `CatalogProblemSummary` browser types and fixture schema 2.
+  Catalog and taxonomy mocks now match the cursor-paged route shapes while
+  browse results omit prompts, responses, and private backend locators.
+- Implemented the provider-neutral MOD-API-AUTH route group for login, current
+  session, and logout. A typed `IdentityProvider` boundary permits later OIDC,
+  institutional SSO, LTI, or explicit local-development integration without
+  coupling credential verification to session mechanics.
+- Added distinct Rust-owned `UserId` and multi-role `UserRole` contracts, with
+  lower-camel serialized role names and regenerated browser types. Authenticated
+  users are no longer incorrectly represented by assignment `StudentId`.
+- Added a separate replica-safe `SessionStore` contract with memory and
+  PostgreSQL implementations. Sessions use a 256-bit OS-random opaque cookie,
+  persist only its SHA-256 hash, use backend-authoritative expiration and
+  revocation, and derive tenant context only after resolving the session row.
+- Added the forced-RLS `auth_session` migration and narrowly scoped `ple_auth`
+  role. Route tests prove login on one replica, session use on another, and
+  immediate cross-replica revocation; the PostgreSQL conformance gate reuses
+  the same behavior when a dedicated test database is configured.
+- Recorded permanent session-storage compliance guidance in
+  `docs/HUMAN_GUIDANCE.md` and kept authentication state in an HttpOnly cookie
+  rather than `localStorage`. HTTPS defaults to `Secure; SameSite=Lax`, LTI
+  embedding has an explicit `SameSite=None; Secure` mode, and plain HTTP
+  requires the explicit local development policy. The cookie now omits
+  `Max-Age` and `Expires` so ordinary authentication ends with the browser
+  session; persistent `remember me` behavior requires a separate consent and
+  legal review.
+- Completed MOD-SCHEMA and MOD-STO with an embedded, checksummed PostgreSQL
+  migration runner and a full `PostgresStore` implementation of the frozen
+  backend-neutral persistence contract.
+- Added shared catalog tables, forced-RLS tenant tables, a 16-way hash split
+  for problem-version payloads, and monthly partitions for question attempts,
+  submissions, grade events, and audit events.
+- Added an opt-in PostgreSQL execution of the reusable store conformance suite.
+  It also proves an unfiltered foreign-tenant query returns zero rows and the
+  student role receives PostgreSQL permission error `42501` on `answer_key`.
+- Recorded adaptability as an owner design priority in
+  `docs/HUMAN_GUIDANCE.md`: the system must evolve with changing requirements
+  and insights while remaining functional and relevant.
+- Completed MOD-OBJ with one replica-safe `S3ObjectStore` implementation shared
+  by AWS S3 and MinIO, explicit three-bucket name mapping, and no SDK types in
+  the backend-neutral trait.
+- Added an opt-in MinIO execution of the reusable object-store conformance
+  suite. The normal offline gate continues to run the same behavior against
+  `MemoryObjectStore` without requiring services or credentials.
 - Completed MOD-CAP with `domain::policy::validate_assignment_config`, returning
   every missing immutable-question/backend capability pair in deterministic
   question and capability order.
@@ -120,6 +247,75 @@
 
 ### Behavior or Interface Changes
 
+- Public asset redirects now carry an immutable one-year cache policy and the
+  object's SHA-256 ETag. Protected redirects are `no-store`, suppress the
+  referrer, and are independently rejected if the object backend exceeds the
+  60-minute `content` or 5-minute `student-records` lifetime.
+- Missing, cross-tenant, and unauthorized protected assets share the same
+  not-found response. Signed URLs remain response headers only; audit payloads,
+  browser storage, persisted markup, and JSON responses never contain them.
+- Enrollment authorization now uses an explicit `UserId` distinct from the
+  institution's `StudentId`. `QuestionAttempt` now carries a zero-based
+  `assignmentPosition`, allowing repeated problem/version references and their
+  retries to remain separate on the lower-camel browser wire.
+- Run submission responses reveal correctness and points only when the
+  question's feedback policy permits them. Deferred results remain hidden
+  until run completion and release-gated results remain hidden; answer keys,
+  expected values, private rubrics, and checker state remain server-only.
+- The run API issues every never-attempted assignment position once before
+  selecting an allowed retry. At most one unresolved attempt exists in a run,
+  and a correct position cannot be retried.
+- The grading contract now takes the exact published question definition
+  rather than the compact persisted attempt. The run service resolves that
+  definition from the attempt's immutable problem/version reference before
+  grading, so tolerance and points are not duplicated into activity rows.
+- Generic grading deliberately refuses partial credit without a capable
+  backend or explicit private rubric, and refuses to fabricate a score for a
+  file upload requiring review. Ungraded practice produces an explicit
+  ungraded outcome rather than a false correctness result.
+- Assignments now belong to exactly one `CourseId`, require a nonempty bounded
+  title and at least one exact published version, and are listed only through
+  their parent course. Assignment writes reject missing courses and catalog
+  versions that are hidden or not assignable; they never copy a question
+  payload into a tenant record.
+- Coarse instructor status no longer implies access to every tenant course.
+  Direct students may read their course assignments, direct instructors may
+  manage them, tenant administrators may access every tenant course, and
+  nonmembers receive the same not-found response as an absent course.
+- Removed the generic direct-publication store method. All publication writes
+  now pass through the atomic draft-to-catalog transition, so callers cannot
+  bypass draft comparison, visibility grants, ownership, or lineage rules.
+- Context-free catalog reads now expose public content only. Institution
+  versions require the session-derived `TenantContext` and an exact
+  tenant/problem/version grant under forced PostgreSQL row-level security.
+- Deprecation now follows the active plan's soft-withdrawal contract: the
+  version disappears from browse but remains assignable by an exact reference.
+  Archival additionally blocks new assignments; both states remain exactly
+  resolvable for historical records.
+- The PostgreSQL application role can insert catalog records and update only
+  lifecycle fields. It cannot update or delete immutable problem identity,
+  payload, scope, backend, capabilities, metadata, authorship, or lineage.
+- Taxonomy paging now uses collision-free hex-encoded scheme/code cursor keys,
+  so slashes inside either controlled-vocabulary field cannot merge distinct
+  terms.
+- PostgreSQL store operations now assume the non-superuser, non-bypass
+  `ple_app` role inside each transaction. Tenant operations set
+  `ple.tenant_id` with transaction-local scope so pooled connections cannot
+  retain another request's context.
+- Activity writes lock their run, enrollment, and summary records as needed and
+  commit the immutable activity plus compact grade projection atomically.
+  Stable-key cursor queries use no positional offset.
+- Complete persistence records now serialize as lower-camel JSONB with a
+  SHA-256 checksum while normalized identity, relationship, timestamp, and
+  paging columns retain database constraints and indexes.
+- S3-compatible object writes now use `If-None-Match: *`, so concurrent or
+  repeated puts cannot overwrite immutable content. Reads reconstruct the full
+  object record from encoded metadata and reject semantic-key, bucket,
+  category, version, media-type, size, or SHA-256 mismatches.
+- S3-compatible signed URLs now confirm that the exact object record exists and
+  use the server-supplied timestamp as the signing start time. Content remains
+  valid for 60 minutes, student records for 5 minutes, and temporary objects
+  remain unsignable.
 - Seeded generation, graded work, partial credit, immediate hint feedback, and
   per-question timing now imply their backend requirements directly from each
   question definition. Client rendering, print export, and offline preview are
@@ -212,6 +408,13 @@
 
 ### Fixes and Maintenance
 
+- Repeated key-free response-format validation at the run server boundary
+  before invoking an adapter, and added store-side rejection of nonfinite,
+  negative, over-awarded, or zero-possible backend point results.
+- Restricted the submission-idempotency table to application `SELECT` and
+  `INSERT` privileges. The first receipt is immutable, changed keys or
+  responses conflict, and unauthorized attempt owners receive a nonrevealing
+  not-found result.
 - Removed the vulnerable `rustls-webpki` 0.101.7 dependency path reported by
   three GitHub security alerts. The S3 dependency now selects only the modern
   HTTP 1.x TLS client, and the all-features graph resolves `rustls-webpki`
@@ -251,6 +454,27 @@
 
 ### Decisions and Failures
 
+- Schema migration and application access remain separate privilege domains.
+  The migration connection creates roles and schema objects; a production
+  runtime login may assume `ple_app` but must not be superuser or bypass RLS.
+- The PostgreSQL conformance test requires an explicit
+  `PLE_POSTGRES_TEST_URL` pointing to a dedicated empty database. It is compiled
+  in the normal all-features gate but remains ignored until the later local
+  service pass; no `psql` client or port 5432 listener was available in this
+  work session, and deployment debugging remains out of this lane.
+- SQLx 0.9's public meta-crate records optional MySQL and SQLite macro-driver
+  packages in `Cargo.lock` even with default features disabled. The compiled
+  all-features workspace graph contains only `sqlx-core` and `sqlx-postgres`;
+  using semver-exempt internal SQLx crates would require the exact pins the
+  owner has prohibited.
+- The frozen `ObjectStore::get` contract returns the full `ObjectRecord`, so
+  the S3-compatible backend stores an encoded record with the object instead of
+  keeping replica-local metadata. Base64 0.23.1 is optional with the `s3`
+  feature and uses an open `>=` manifest requirement.
+- A bounded live MinIO attempt stopped after `podman info` succeeded but the
+  compose provider could not resolve its selected machine connection. No
+  container deployment debugging followed; the compiled opt-in conformance
+  test remains the exact live gate for the later deployment pass.
 - npm initially selected TypeScript 7 because it is the registry's latest
   release, but the current frontend toolchain requires TypeScript 6. The
   manifest now permits every compatible 6.x release instead of pinning 6.0.3.
@@ -311,6 +535,77 @@
 
 ### Developer Tests and Notes
 
+- MOD-CLIENT passes five focused HTTP behavior tests, strict TypeScript
+  compilation, two authenticated validation-route tests, the JSON-safe fresh
+  seed test, focused warning-free Rust Clippy, and diff hygiene. The complete
+  `./check_codebase.sh` gate passes all 11 stages with 20 Node tests and 20
+  server tests; live PostgreSQL and MinIO checks remain deferred to the later
+  deployment pass.
+- `cargo test -p store --all-features --test conformance` passes five memory
+  tests with the opt-in PostgreSQL case ignored. The new reusable asset suite
+  covers public, institution, student-record, foreign-tenant, duplicate, and
+  forbidden temporary deliveries, and the memory audit proves only authorized
+  protected requests append events.
+- `cargo test -p server_core asset --all-features` passes three asset-route
+  tests covering CDN bypass, session authorization, nonrevealing denial,
+  auditing, cache controls, and exact bucket lifetimes.
+- `./check_codebase.sh` passes all 11 stages after MOD-API-ASSET, including
+  TypeScript generation and checking, Node contracts, crate boundaries, Rust
+  formatting, warning-free all-target Clippy, workspace tests, and doctests.
+  All 812 repository pytest checks and the five-stage debug build pass as the
+  complete task gate; live PostgreSQL and MinIO remain explicit opt-in service
+  checks for the later deployment pass.
+- MOD-API-RUN passes 14 server behavior tests, the reusable memory/PostgreSQL-
+  compiled store conformance suite, 14 typed client/mock tests, focused
+  all-feature Clippy with warnings denied, and generated fixture/type checks.
+  The route tests cover authorization, format refusal before grading, exact
+  replay, changed-request conflicts, fresh seeds, one-active-question advance,
+  feedback redaction, and cursor-paged run history.
+- The complete MOD-API-RUN gate passes all 11 `check_codebase.sh` stages, all
+  812 repository pytest checks, and the five-stage debug build including native
+  Rust, WebAssembly, generated types, fixture verification, and the Solid
+  client bundle. Live PostgreSQL execution remains the explicit opt-in service
+  gate for the later deployment pass.
+- MOD-GRD passes six focused behavior tests covering all four numeric
+  tolerance modes, choice-set comparison, text normalization, ordering,
+  malformed response/key combinations, invalid public parameters, ungraded
+  practice, backend-owned partial credit, and manual review. Package-scoped
+  all-target, all-feature Clippy passes with warnings denied.
+- The complete MOD-GRD per-patch gate passes all 11 `check_codebase.sh`
+  stages, all 812 repository pytest checks, and the five-stage debug build.
+  The compiled browser closure and processed WebAssembly allowlist remain
+  answer-key-free.
+- MOD-API-COURSE passes the memory/PostgreSQL-compiled store conformance suite,
+  12 server library tests, 32 question-model tests plus two doc tests, eight
+  generator tests, eight focused TypeScript/mock behavior tests, and focused
+  all-feature, all-target Clippy with warnings denied. The live PostgreSQL
+  execution remains an explicit opt-in service gate.
+- The complete MOD-API-COURSE per-patch gate passes all 11
+  `check_codebase.sh` stages, all 812 repository pytest checks, and the
+  five-stage debug build including native Rust, WebAssembly, generated types,
+  fixture verification, and the Solid client bundle.
+- MOD-API-CAT focused validation passes 31 question-model unit tests and two
+  doc tests, the memory catalog conformance suite, all 11 server library tests,
+  eight generator tests, 11 TypeScript/mock behavior tests, and 251 Markdown
+  link and ASCII checks. Focused all-feature Clippy passes with warnings denied;
+  the PostgreSQL execution remains an explicit opt-in service gate.
+- The complete MOD-API-CAT per-patch gate passes all 11
+  `check_codebase.sh` stages, all 812 repository pytest checks, and the
+  five-stage debug build including native Rust, WebAssembly, generated types,
+  fixture verification, and the Solid client bundle.
+- MOD-STO passes the reusable memory conformance suite and compiles its ignored
+  PostgreSQL conformance, forced-RLS, and answer-key grant gate. Focused
+  all-feature, all-target Clippy passes with warnings denied.
+- The combined MOD-OBJ/MOD-SCHEMA/MOD-STO/MOD-API-AUTH offline gate passes all
+  11 `check_codebase.sh` stages, all 812 repository pytest checks, focused auth
+  and session tests, and the five-stage build. The live PostgreSQL and MinIO
+  gates remain intentionally deferred to the local-service pass.
+- MOD-OBJ passes `cargo test -p objects --all-features` with four unit tests,
+  memory conformance, and the compiled opt-in MinIO test; focused all-target
+  Clippy also passes with warnings denied.
+- The MOD-OBJ complete offline gate passes all 11 `check_codebase.sh` stages,
+  all 804 pytest checks, and the five-stage build. The live MinIO conformance
+  test is intentionally pending the later container-connection pass.
 - The dependency refresh passes all 11 `check_codebase.sh` stages, including
   TypeScript checks, ESLint, Prettier, Node tests, WebAssembly dependency
   closure, rustfmt, Clippy with warnings denied, all workspace tests, and doc

@@ -8,8 +8,13 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+async-trait.workspace = true
 axum.workspace = true
 tokio.workspace = true
+base64.workspace = true
+cookie.workspace = true
+getrandom.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 
 # `generate` turns on identifier minting, which happens on the publish
@@ -21,3 +26,7 @@ grading.workspace = true
 # and the AWS SDK stays inside `objects`, so this crate never names either.
 objects = { workspace = true, features = ["s3"] }
 store = { workspace = true, features = ["postgres"] }
+
+[dev-dependencies]
+tower.workspace = true
+uuid.workspace = true

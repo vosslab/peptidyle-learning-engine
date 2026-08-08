@@ -12,6 +12,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::UserId;
 use crate::generation::GeneratorReference;
 use crate::identity::{ObjectId, ProblemId, VersionId};
 use crate::response::StudentResponse;
@@ -24,6 +25,10 @@ pub struct TenantId(Uuid);
 /// A tenant-owned assignment offered to students.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct AssignmentId(Uuid);
+
+/// A tenant-owned course or section containing assignments.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct CourseId(Uuid);
 
 /// A student enrolled in an assignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -72,6 +77,7 @@ macro_rules! impl_activity_identifier {
 
 impl_activity_identifier!(TenantId);
 impl_activity_identifier!(AssignmentId);
+impl_activity_identifier!(CourseId);
 impl_activity_identifier!(StudentId);
 impl_activity_identifier!(EnrollmentId);
 impl_activity_identifier!(RunId);
@@ -121,7 +127,13 @@ pub struct AssignmentEnrollment {
     pub tenant: TenantId,
     /// Assignment the student may run repeatedly.
     pub assignment: AssignmentId,
+    /// Authenticated person authorized to act on this enrollment.
+    pub user: UserId,
     /// Student who owns the activity.
+    ///
+    /// This is the institution's pedagogical record identity. It remains
+    /// distinct from [`Self::user`] even when one provider maps both to the
+    /// same underlying UUID.
     pub student: StudentId,
     /// First server time at which a run satisfied completion.
     pub first_completed_at: Option<ActivityTimestamp>,
@@ -261,6 +273,11 @@ pub struct QuestionAttempt {
     pub problem: ProblemId,
     /// Immutable published question version used for this attempt.
     pub question_version: VersionId,
+    /// Zero-based position of this question in the assignment definition.
+    ///
+    /// Position, rather than only problem/version identity, keeps repeated
+    /// content and retries tied to the correct logical question.
+    pub assignment_position: u32,
     /// Seed used to regenerate the exact question variant.
     pub seed: u64,
     /// SHA-256 of the generated parameters.
@@ -326,6 +343,7 @@ mod tests {
             id: EnrollmentId::from_uuid(Uuid::from_u128(1)),
             tenant: TenantId::from_uuid(Uuid::from_u128(2)),
             assignment: AssignmentId::from_uuid(Uuid::from_u128(3)),
+            user: UserId::from_uuid(Uuid::from_u128(5)),
             student: StudentId::from_uuid(Uuid::from_u128(4)),
             first_completed_at: Some(ActivityTimestamp::from_unix_millis(1_000)),
             current_grade_run: None,
