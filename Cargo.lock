@@ -2492,6 +2492,7 @@ dependencies = [
  "sqlx-postgres",
  "sqlx-sqlite",
  "syn 2.0.119",
+ "thiserror",
  "tokio",
  "url",
 ]

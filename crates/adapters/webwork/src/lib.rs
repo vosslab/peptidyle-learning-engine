@@ -536,7 +536,17 @@ mod tests {
     use super::*;
     use crate::pg_parser_stub::{RenderedWebworkQuestion, RendererIdentity};
 
-    const OPL_FIXTURE: &str = include_str!("../../../../tests/fixtures/webwork/opl_select_one.pg");
+    const OPL_FIXTURE: &str = concat!(
+        "## Recorded OPL-style example: a small multiple-choice PG question.\n",
+        "DOCUMENT();\n",
+        "loadMacros(\"PGstandard.pl\", \"PGchoicemacros.pl\");\n",
+        "BEGIN_TEXT\n",
+        "Which molecule is water?\n",
+        "END_TEXT\n",
+        "$showPartialCorrectAnswers = 0;\n",
+        "ANS(str_cmp(\"H2O\"));\n",
+        "ENDDOCUMENT();\n",
+    );
 
     #[derive(Clone)]
     struct RecordedRenderer {

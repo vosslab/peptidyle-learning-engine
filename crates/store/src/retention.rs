@@ -1,9 +1,10 @@
 //! Pure, server-owned retention policy and course-lifecycle contracts.
 //!
 //! This module deliberately does not schedule work, read a wall clock, or
-//! authorize deletion. Later Store and worker slices bind these deterministic
+//! authorize deletion. Store and worker implementations bind these deterministic
 //! values to tenant-scoped configuration, database time, and private jobs.
 
+use std::collections::BTreeSet;
 use std::num::NonZeroU16;
 
 use objects::ObjectKey;
@@ -517,6 +518,27 @@ impl RetentionCleanupManifest {
     pub fn objects(&self) -> &[ObjectKey] {
         &self.objects
     }
+
+    pub(crate) fn from_iter(objects: BTreeSet<ObjectKey>) -> Self {
+        Self {
+            objects: objects.into_iter().collect(),
+        }
+    }
+}
+
+/// Private durable cleanup manifest lifecycle for one stage identity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RetentionCleanupManifestState {
+    Prepared,
+    Completed,
+}
+
+/// Private, persisted in-memory state of one cleanup manifest.
+#[derive(Debug, Clone)]
+pub(crate) struct StoredRetentionCleanupManifest {
+    pub(crate) job: crate::JobId,
+    pub(crate) state: RetentionCleanupManifestState,
+    pub(crate) objects: BTreeSet<ObjectKey>,
 }
 
 /// Store-resolved work for a lease-bound retention stage.

@@ -234,12 +234,13 @@ mod tests {
     use question_model::{
         ActivityTimestamp, BackendCapabilities, Capability, CourseId, CourseMembership,
         CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
-        ProblemId, ProblemVersionRef, PublicationScope, QuestionMetadata, QuestionSource,
+        ObjectId, ProblemId, ProblemVersionRef, PublicationScope, QuestionMetadata, QuestionSource,
         RunPolicies, TenantId, UserId, VersionId, WorkspaceId,
     };
     use store::memory::MemoryStore;
     use store::{
-        AssignmentRecord, CatalogStore, CourseRecord, DraftRecord, PublishDraftCommand,
+        AssignmentRecord, CatalogStore, CourseRecord, DraftRecord, JobLeaseDuration, JobPayload,
+        JobStore, PublishDraftCommand, RetentionWorkerCommand, RetentionWorkerStore,
         SessionLifetime, SessionSubject, TenantContext,
     };
     use tower::ServiceExt;
@@ -589,6 +590,70 @@ mod tests {
                 StatusCode::NOT_FOUND,
                 "foreign tenant must not enumerate assignment exports"
             );
+        }
+
+        store
+            .seed_retention_cleanup_for_test(
+                tenant,
+                course,
+                (0..4)
+                    .map(|offset| ObjectId::from_uuid(id(90 + offset)))
+                    .collect(),
+            )
+            .expect("archive cleanup fixture");
+        let command = loop {
+            let claim = store
+                .claim_next_job(JobLeaseDuration::from_seconds(30).expect("lease duration"))
+                .await
+                .expect("archive claim")
+                .expect("queued job");
+            match claim.payload {
+                JobPayload::Retention {
+                    course: claimed_course,
+                    stage,
+                    generation,
+                } => {
+                    assert_eq!(claimed_course, course);
+                    break RetentionWorkerCommand {
+                        tenant,
+                        course,
+                        stage,
+                        generation,
+                        job: claim.id,
+                        lease: claim.lease_token,
+                    };
+                }
+                _ => store
+                    .complete_job(claim.id, claim.lease_token)
+                    .await
+                    .expect("finish unrelated fixture job"),
+            }
+        };
+        store
+            .prepare_retention_work(command)
+            .await
+            .expect("archive prepare fence");
+
+        for request in [
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/assignments/{assignment}/exports"))
+                .header("cookie", &requester_cookie)
+                .body(Body::empty())
+                .expect("archived export create request"),
+            Request::builder()
+                .uri(format!("/api/exports/{export}"))
+                .header("cookie", &requester_cookie)
+                .body(Body::empty())
+                .expect("archived export read request"),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(request)
+                .await
+                .expect("archived export response");
+            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+            assert_eq!(response.headers()["cache-control"], "no-store");
         }
     }
 }

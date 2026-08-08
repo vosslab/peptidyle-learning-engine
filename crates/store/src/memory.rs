@@ -27,6 +27,7 @@ use question_model::{
 
 use crate::gradebook_cursor::GradebookCursor;
 use crate::retention::RetentionApiAction;
+use crate::retention::{RetentionCleanupManifestState, StoredRetentionCleanupManifest};
 use crate::run_summary_cursor::RunSummaryCursor;
 use crate::statistics::{StatisticsContribution, derive_statistics_contributions};
 use crate::{
@@ -61,7 +62,6 @@ impl crate::AuthoritativeTimeStore for MemoryStore {
         Ok(self.read_state()?.authoritative_time)
     }
 }
-
 #[async_trait]
 impl CourseRecordsAccessStore for MemoryStore {
     async fn course_records_accessible(
@@ -95,15 +95,25 @@ fn course_records_accessible(state: &State, tenant: TenantId, course: CourseId) 
         return false;
     }
     let generation = retention.snapshot.generation();
-    state
-        .retention_stages
-        .get(&(
-            tenant,
-            course,
-            crate::RetentionStage::ArchiveStudentRecords,
-            generation,
-        ))
-        .is_none_or(|stage| stage.state != RetentionStageWorkState::Started)
+    if let Some(stage) = state.retention_stages.get(&(
+        tenant,
+        course,
+        crate::RetentionStage::ArchiveStudentRecords,
+        generation,
+    )) && stage.state == RetentionStageWorkState::Started
+    {
+        return false;
+    }
+    if let Some(stage) = state.retention_stages.get(&(
+        tenant,
+        course,
+        crate::RetentionStage::DeleteStudentRecords,
+        generation,
+    )) && stage.state == RetentionStageWorkState::Started
+    {
+        return false;
+    }
+    true
 }
 
 fn require_course_records_accessible(
@@ -201,6 +211,8 @@ struct State {
     course_retention: BTreeMap<(TenantId, CourseId), CourseRetentionRecord>,
     retention_stages:
         BTreeMap<(TenantId, CourseId, crate::RetentionStage, u64), StoredRetentionStage>,
+    retention_cleanup_manifests:
+        BTreeMap<(TenantId, CourseId, u64, crate::RetentionStage), StoredRetentionCleanupManifest>,
     /// The only identities permitted to execute retention payloads. A job may
     /// look valid, but without this scheduler-created binding R3 refuses it.
     retention_dispatches: BTreeMap<(TenantId, CourseId, crate::RetentionStage, u64), crate::JobId>,
@@ -244,6 +256,14 @@ struct RetentionApiReceipt {
     action: RetentionApiAction,
     resulting_generation: u64,
     stage: crate::RetentionStage,
+}
+
+fn cleanup_manifest_record_to_work(
+    stored: &StoredRetentionCleanupManifest,
+) -> RetentionCleanupManifest {
+    RetentionCleanupManifest {
+        objects: stored.objects.iter().cloned().collect(),
+    }
 }
 
 /// Queue state held under the same mutex as the authoritative test clock.
@@ -513,6 +533,7 @@ impl ExportJobStore for MemoryStore {
         if assignment.tenant != context.tenant_id() {
             return Err(StoreError::NotFound);
         }
+        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
         let record = StoredExport {
             course: assignment.course_id,
             assignment: assignment.id,
@@ -567,6 +588,7 @@ impl ExportJobStore for MemoryStore {
         Ok(state
             .exports
             .get(&(context.tenant_id(), export))
+            .filter(|stored| course_records_accessible(&state, context.tenant_id(), stored.course))
             .map(|stored| export_view(export, stored)))
     }
 
@@ -580,7 +602,10 @@ impl ExportJobStore for MemoryStore {
         Ok(state
             .exports
             .get(&(context.tenant_id(), export))
-            .filter(|stored| stored.requested_by == requester)
+            .filter(|stored| {
+                stored.requested_by == requester
+                    && course_records_accessible(&state, context.tenant_id(), stored.course)
+            })
             .map(|stored| export_view(export, stored)))
     }
 
@@ -594,7 +619,9 @@ impl ExportJobStore for MemoryStore {
             .exports
             .iter()
             .find(|((tenant, _), stored)| {
-                *tenant == context.tenant_id() && stored.manifest == manifest
+                *tenant == context.tenant_id()
+                    && stored.manifest == manifest
+                    && course_records_accessible(&state, *tenant, stored.course)
             })
             .map(|((tenant, export), stored)| StudentExportJob {
                 id: *export,
@@ -628,6 +655,7 @@ impl ExportJobStore for MemoryStore {
             })
             .map(|((_, export), stored)| (*export, stored.clone()))
             .ok_or(StoreError::NotFound)?;
+        require_course_records_accessible(&state, context.tenant_id(), stored.course)?;
         if stored.job != commit.job {
             return Err(StoreError::Conflict);
         }
@@ -658,6 +686,7 @@ impl ExportJobStore for MemoryStore {
                 object: artifact.object.clone(),
                 scope: crate::AssetDeliveryScope::StudentRecord {
                     tenant: context.tenant_id(),
+                    course: stored.course,
                     authorized_users: vec![stored.requested_by],
                 },
             };
@@ -675,6 +704,7 @@ impl ExportJobStore for MemoryStore {
                     object: artifact.object.clone(),
                     scope: crate::AssetDeliveryScope::StudentRecord {
                         tenant: context.tenant_id(),
+                        course: stored.course,
                         authorized_users: vec![stored.requested_by],
                     },
                 },
@@ -819,8 +849,9 @@ impl AssetStore for MemoryStore {
                     return Err(StoreError::NotFound);
                 }
             }
-            AssetDeliveryScope::StudentRecord { tenant, .. } => {
+            AssetDeliveryScope::StudentRecord { tenant, course, .. } => {
                 ensure_tenant(context, *tenant)?;
+                require_course_records_accessible(&state, *tenant, *course)?;
             }
         }
         if state.asset_deliveries.contains_key(&record.id) {
@@ -902,8 +933,13 @@ impl AssetStore for MemoryStore {
                 }),
             AssetDeliveryScope::StudentRecord {
                 tenant,
+                course,
                 authorized_users,
-            } => *tenant == context.tenant_id() && authorized_users.contains(&actor),
+            } => {
+                *tenant == context.tenant_id()
+                    && course_records_accessible(&state, *tenant, *course)
+                    && authorized_users.contains(&actor)
+            }
         };
         if !authorized {
             return Err(StoreError::NotFound);
@@ -915,6 +951,10 @@ impl AssetStore for MemoryStore {
             delivery,
             object: record.object.id,
             bucket: record.object.bucket,
+            course: match record.scope {
+                AssetDeliveryScope::Catalog { .. } => None,
+                AssetDeliveryScope::StudentRecord { course, .. } => Some(course),
+            },
             occurred_at: authorized_at,
         });
         Ok(AuthorizedAssetDelivery {
@@ -1933,6 +1973,42 @@ impl MemoryStore {
             .get(&key)
             .copied()
             .ok_or(StoreError::Conflict)?;
+        // The returned revision is also a valid replay key for a queued
+        // archive/delete action.  Once the worker archives the course, the
+        // lifecycle guard below must not turn that exact completed retry into
+        // a conflict.  Bind it to the original receipt rather than accepting
+        // a same-revision request from another actor or with another action.
+        if matches!(
+            action,
+            RetentionApiAction::Archive(_) | RetentionApiAction::Delete
+        ) && let Some(receipt) = state.retention_api_receipts.iter().find_map(
+            |((tenant, receipt_course, _), receipt)| {
+                (*tenant == key.0
+                    && *receipt_course == key.1
+                    && receipt.resulting_generation == expected.value()
+                    && receipt.actor == actor
+                    && receipt.action == action)
+                    .then_some(*receipt)
+            },
+        ) {
+            let stage = state
+                .retention_stages
+                .get(&(key.0, key.1, receipt.stage, receipt.resulting_generation))
+                .copied()
+                .ok_or(StoreError::Conflict)?;
+            let outcome = match stage.state {
+                RetentionStageWorkState::Scheduled => crate::RetentionRequestOutcome::Scheduled,
+                RetentionStageWorkState::Started => crate::RetentionRequestOutcome::InProgress,
+                RetentionStageWorkState::Completed => crate::RetentionRequestOutcome::Completed,
+                RetentionStageWorkState::Superseded => return Err(StoreError::Conflict),
+            };
+            return Ok(RetentionApiMutation {
+                retention: record
+                    .safe_view()
+                    .map_err(|error| StoreError::InvalidRecord(error.to_string()))?,
+                manual_outcome: Some(outcome),
+            });
+        }
         if record.status.state != CourseRetentionState::Active
             || record.snapshot.generation() != expected.value()
         {
@@ -2164,11 +2240,22 @@ impl RetentionWorkerStore for MemoryStore {
         if current.snapshot.generation() != command.generation {
             return Err(StoreError::Conflict);
         }
+        if command.stage == crate::RetentionStage::DeleteStudentRecords
+            && current.status.state == CourseRetentionState::StudentRecordsDeleted
+        {
+            return Err(StoreError::Conflict);
+        }
         let stage_key = (
             command.tenant,
             command.course,
             command.stage,
             command.generation,
+        );
+        let manifest_key = (
+            command.tenant,
+            command.course,
+            command.generation,
+            command.stage,
         );
         let stage = state
             .retention_stages
@@ -2199,19 +2286,45 @@ impl RetentionWorkerStore for MemoryStore {
         {
             return Err(StoreError::Conflict);
         }
-        state.retention_stages.insert(
-            stage_key,
-            StoredRetentionStage {
-                due_at: stage.due_at,
-                state: RetentionStageWorkState::Started,
-                job: Some(command.job),
-                lease: Some(command.lease),
-            },
-        );
         match command.stage {
-            crate::RetentionStage::Notify => Ok(RetentionWork::Notify),
-            crate::RetentionStage::ArchiveStudentRecords
-            | crate::RetentionStage::DeleteStudentRecords => {
+            crate::RetentionStage::Notify => {
+                state.retention_stages.insert(
+                    stage_key,
+                    StoredRetentionStage {
+                        due_at: stage.due_at,
+                        state: RetentionStageWorkState::Started,
+                        job: Some(command.job),
+                        lease: Some(command.lease),
+                    },
+                );
+                Ok(RetentionWork::Notify)
+            }
+            crate::RetentionStage::ArchiveStudentRecords => {
+                if let Some(manifest) = state.retention_cleanup_manifests.get(&manifest_key) {
+                    let manifest = manifest.clone();
+                    if manifest.job != command.job
+                        || manifest.state != RetentionCleanupManifestState::Prepared
+                    {
+                        return Err(StoreError::Conflict);
+                    }
+                    state.retention_stages.insert(
+                        stage_key,
+                        StoredRetentionStage {
+                            due_at: stage.due_at,
+                            state: RetentionStageWorkState::Started,
+                            job: Some(command.job),
+                            lease: Some(command.lease),
+                        },
+                    );
+                    return Ok(RetentionWork::Cleanup(cleanup_manifest_record_to_work(
+                        &manifest,
+                    )));
+                }
+                if stage.state == RetentionStageWorkState::Started
+                    && stage.lease != Some(command.lease)
+                {
+                    return Err(StoreError::Conflict);
+                }
                 let mut records = BTreeSet::new();
                 let mut deliveries = Vec::new();
                 let mut terminalize = Vec::new();
@@ -2245,24 +2358,167 @@ impl RetentionWorkerStore for MemoryStore {
                         terminalize.push((*tenant, *export_id, export.job));
                     }
                 }
-                for (tenant, export, job) in terminalize {
-                    if let Some(export) = state.exports.get_mut(&(tenant, export)) {
-                        export.state = crate::StudentExportState::Failed;
+                // Delivery and artifact scans are validated before any mutation
+                // to avoid partial manifests on non-retryable failures.
+                if matches!(
+                    current.status.state,
+                    CourseRetentionState::Active | CourseRetentionState::StudentRecordsArchived
+                ) {
+                    state.retention_stages.insert(
+                        stage_key,
+                        StoredRetentionStage {
+                            due_at: stage.due_at,
+                            state: RetentionStageWorkState::Started,
+                            job: Some(command.job),
+                            lease: Some(command.lease),
+                        },
+                    );
+                    for (tenant, export, export_job) in terminalize {
+                        if let Some(export) = state.exports.get_mut(&(tenant, export)) {
+                            export.state = crate::StudentExportState::Failed;
+                        }
+                        if let Some(export_job) = state.jobs.get_mut(&export_job) {
+                            export_job.state = crate::JobState::Dead;
+                            export_job.lease_token = None;
+                            export_job.lease_expires_at = None;
+                        }
                     }
-                    if let Some(job) = state.jobs.get_mut(&job) {
-                        job.state = crate::JobState::Dead;
-                        job.lease_token = None;
-                        job.lease_expires_at = None;
+                    for delivery in deliveries {
+                        state.asset_deliveries.remove(&delivery);
+                    }
+                    state.retention_cleanup_manifests.insert(
+                        manifest_key,
+                        StoredRetentionCleanupManifest {
+                            job: command.job,
+                            state: RetentionCleanupManifestState::Prepared,
+                            objects: records.clone(),
+                        },
+                    );
+                    Ok(RetentionWork::Cleanup(RetentionCleanupManifest::from_iter(
+                        records,
+                    )))
+                } else {
+                    Err(StoreError::Conflict)
+                }
+            }
+            crate::RetentionStage::DeleteStudentRecords => {
+                if let Some(manifest) = state.retention_cleanup_manifests.get(&manifest_key) {
+                    let manifest = manifest.clone();
+                    if manifest.job != command.job
+                        || manifest.state != RetentionCleanupManifestState::Prepared
+                    {
+                        return Err(StoreError::Conflict);
+                    }
+                    state.retention_stages.insert(
+                        stage_key,
+                        StoredRetentionStage {
+                            due_at: stage.due_at,
+                            state: RetentionStageWorkState::Started,
+                            job: Some(command.job),
+                            lease: Some(command.lease),
+                        },
+                    );
+                    return Ok(RetentionWork::Cleanup(cleanup_manifest_record_to_work(
+                        &manifest,
+                    )));
+                }
+                if stage.state == RetentionStageWorkState::Started
+                    && stage.lease != Some(command.lease)
+                {
+                    return Err(StoreError::Conflict);
+                }
+                let mut records = BTreeSet::new();
+                let mut terminalize = Vec::new();
+                let mut deliveries = Vec::new();
+                for ((tenant, export_id), export) in &state.exports {
+                    if *tenant != command.tenant || export.course != command.course {
+                        continue;
+                    }
+                    if let Some(artifacts) = &export.artifacts {
+                        for artifact in artifacts {
+                            let objects::ObjectKey::StudentRecord { tenant, .. } =
+                                &artifact.object.key
+                            else {
+                                return Err(StoreError::InvalidRecord(
+                                    "retention manifest contains a non-student object".to_string(),
+                                ));
+                            };
+                            if *tenant != command.tenant {
+                                return Err(StoreError::TenantMismatch);
+                            }
+                            records.insert(artifact.object.key.clone());
+                            deliveries.push(AssetDeliveryId::from_object(artifact.object.id));
+                        }
+                    } else {
+                        for object in export.expected.values() {
+                            records.insert(objects::ObjectKey::StudentRecord {
+                                tenant: command.tenant,
+                                object: *object,
+                            });
+                        }
+                        terminalize.push((*tenant, *export_id, export.job));
                     }
                 }
-                // Revocation occurs before the external object delete. Repeating this
-                // preparation is harmless and makes a partial delete retry safe.
-                for delivery in deliveries {
-                    state.asset_deliveries.remove(&delivery);
+                for (delivery_id, delivery) in &state.asset_deliveries {
+                    if let AssetDeliveryScope::StudentRecord { tenant, course, .. } =
+                        &delivery.scope
+                        && *tenant == command.tenant
+                        && *course == command.course
+                    {
+                        records.insert(delivery.object.key.clone());
+                        deliveries.push(*delivery_id);
+                    }
                 }
-                Ok(RetentionWork::Cleanup(RetentionCleanupManifest {
-                    objects: records.into_iter().collect(),
-                }))
+                if matches!(
+                    current.status.state,
+                    CourseRetentionState::Active | CourseRetentionState::StudentRecordsArchived
+                ) {
+                    if current.status.state == CourseRetentionState::Active {
+                        let record = state.course_retention.get_mut(&key).expect(
+                            "course retention for valid delete-preparation command must exist",
+                        );
+                        let disposition = record.status.assignment_definitions;
+                        record.status = crate::CourseRetentionStatus::from_persisted(
+                            CourseRetentionState::StudentRecordsArchived,
+                            disposition,
+                        );
+                    }
+                    state.retention_stages.insert(
+                        stage_key,
+                        StoredRetentionStage {
+                            due_at: stage.due_at,
+                            state: RetentionStageWorkState::Started,
+                            job: Some(command.job),
+                            lease: Some(command.lease),
+                        },
+                    );
+                    for (tenant, export, export_job) in terminalize {
+                        if let Some(export) = state.exports.get_mut(&(tenant, export)) {
+                            export.state = crate::StudentExportState::Failed;
+                        }
+                        if let Some(export_job) = state.jobs.get_mut(&export_job) {
+                            export_job.state = crate::JobState::Dead;
+                            export_job.lease_token = None;
+                            export_job.lease_expires_at = None;
+                        }
+                    }
+                    for delivery in deliveries {
+                        state.asset_deliveries.remove(&delivery);
+                    }
+                    state.retention_cleanup_manifests.insert(
+                        manifest_key,
+                        StoredRetentionCleanupManifest {
+                            job: command.job,
+                            state: RetentionCleanupManifestState::Prepared,
+                            objects: records.clone(),
+                        },
+                    );
+                    Ok(RetentionWork::Cleanup(RetentionCleanupManifest::from_iter(
+                        records,
+                    )))
+                } else {
+                    Err(StoreError::Conflict)
+                }
             }
         }
     }
@@ -2308,15 +2564,202 @@ impl RetentionWorkerStore for MemoryStore {
             .ok_or(StoreError::Conflict)?;
         if stage.state != RetentionStageWorkState::Started
             || stage.job != Some(command.job)
-            || stage.lease != Some(command.lease)
             || state.retention_dispatches.get(&stage_key) != Some(&command.job)
+            || stage.lease != Some(command.lease)
         {
             return Err(StoreError::Conflict);
         }
+        let manifest_key = (
+            command.tenant,
+            command.course,
+            command.generation,
+            command.stage,
+        );
+        let manifest = if command.stage != crate::RetentionStage::Notify {
+            let manifest = state
+                .retention_cleanup_manifests
+                .get(&manifest_key)
+                .cloned()
+                .ok_or(StoreError::Conflict)?;
+            if manifest.job != command.job
+                || manifest.state != RetentionCleanupManifestState::Prepared
+            {
+                return Err(StoreError::Conflict);
+            }
+            Some(manifest)
+        } else {
+            None
+        };
         if command.stage == crate::RetentionStage::ArchiveStudentRecords
             && record.status.state != CourseRetentionState::Active
         {
             return Err(StoreError::Conflict);
+        }
+        if command.stage == crate::RetentionStage::DeleteStudentRecords
+            && record.status.state != CourseRetentionState::StudentRecordsArchived
+        {
+            return Err(StoreError::Conflict);
+        }
+        if let Some(manifest) = manifest {
+            // Compute purge dependencies before any mutation.
+            if command.stage == crate::RetentionStage::DeleteStudentRecords {
+                let tenant = command.tenant;
+                let course = command.course;
+                let assignment_disposition = record.status.assignment_definitions;
+                let assignment_ids = state
+                    .assignments
+                    .iter()
+                    .filter_map(|((tenant_id, id), record)| {
+                        if *tenant_id == tenant && record.course_id == course {
+                            Some(*id)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<BTreeSet<_>>();
+                let enrollment_ids = state
+                    .enrollments
+                    .iter()
+                    .filter_map(|((tenant_id, enrollment_id), enrollment)| {
+                        if *tenant_id == tenant && assignment_ids.contains(&enrollment.assignment) {
+                            Some(*enrollment_id)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<BTreeSet<_>>();
+                let run_ids = state
+                    .runs
+                    .iter()
+                    .filter_map(|((tenant_id, run_id), run)| {
+                        if *tenant_id == tenant && enrollment_ids.contains(&run.enrollment) {
+                            Some(*run_id)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<BTreeSet<_>>();
+                let attempt_ids = state
+                    .attempts
+                    .iter()
+                    .filter_map(|((tenant_id, attempt_id), attempt)| {
+                        if *tenant_id == tenant && run_ids.contains(&attempt.run) {
+                            Some(*attempt_id)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<BTreeSet<_>>();
+                let export_ids = state
+                    .exports
+                    .iter()
+                    .filter_map(|((tenant_id, export_id), export)| {
+                        if *tenant_id == tenant && export.course == course {
+                            Some(*export_id)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<BTreeSet<_>>();
+                let export_job_ids = export_ids
+                    .iter()
+                    .filter_map(|export_id| {
+                        state
+                            .exports
+                            .get(&(tenant, *export_id))
+                            .map(|export| export.job)
+                    })
+                    .collect::<BTreeSet<_>>();
+
+                state
+                    .feedback_releases
+                    .retain(|(tenant_id, attempt_id), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
+                state.question_statistics_receipts.retain(
+                    |(tenant_id, enrollment_id, _, _), receipt| {
+                        !(*tenant_id == tenant
+                            && (enrollment_ids.contains(enrollment_id)
+                                || run_ids.contains(&receipt.first_completed_run)
+                                || attempt_ids.contains(&receipt.attempt)))
+                    },
+                );
+                state
+                    .submission_next_attempts
+                    .retain(|(tenant_id, predecessor), next| {
+                        !(*tenant_id == tenant
+                            && (attempt_ids.contains(predecessor)
+                                || next.as_ref().is_some_and(|next| attempt_ids.contains(next))))
+                    });
+                state
+                    .prefetched_questions
+                    .retain(|(tenant_id, run_id, attempt_id, _), _| {
+                        !(*tenant_id == tenant
+                            && (run_ids.contains(run_id) || attempt_ids.contains(attempt_id)))
+                    });
+                state
+                    .external_tool_launch_sessions
+                    .retain(|(tenant_id, _), session| {
+                        !(*tenant_id == tenant && attempt_ids.contains(&session.attempt))
+                    });
+                state
+                    .external_tool_exchanges
+                    .retain(|(tenant_id, attempt_id), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
+                state.submissions.retain(|(tenant_id, attempt_id), _| {
+                    !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                });
+                state.attempts.retain(|(tenant_id, attempt_id), _| {
+                    !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                });
+                state.summaries.retain(|(tenant_id, enrollment_id), _| {
+                    !(*tenant_id == tenant && enrollment_ids.contains(enrollment_id))
+                });
+                state.runs.retain(|(tenant_id, run_id), _| {
+                    !(*tenant_id == tenant && run_ids.contains(run_id))
+                });
+                state.enrollments.retain(|(tenant_id, enrollment_id), _| {
+                    !(*tenant_id == tenant && enrollment_ids.contains(enrollment_id))
+                });
+                state
+                    .asset_access_events
+                    .retain(|event| !(event.tenant == tenant && event.course == Some(course)));
+                state
+                    .asset_deliveries
+                    .retain(|_, delivery| {
+                        !matches!(
+                            delivery.scope,
+                            AssetDeliveryScope::StudentRecord { tenant: delivery_tenant, course: delivery_course, .. }
+                                if delivery_tenant == tenant && delivery_course == course
+                        )
+                    });
+                for export_id in &export_ids {
+                    state.exports.remove(&(tenant, *export_id));
+                }
+                for export_job in &export_job_ids {
+                    state.jobs.remove(export_job);
+                }
+                if let Some(course_record) = state.courses.get_mut(&(tenant, course)) {
+                    course_record.members.retain(|member| {
+                        member.role != question_model::CourseMembershipRole::Student
+                    });
+                }
+                if assignment_disposition == AssignmentDefinitionDisposition::Delete {
+                    for assignment_id in &assignment_ids {
+                        state.assignments.remove(&(tenant, *assignment_id));
+                        state.assignment_revisions.remove(&(tenant, *assignment_id));
+                    }
+                }
+            }
+            state.retention_cleanup_manifests.insert(
+                manifest_key,
+                StoredRetentionCleanupManifest {
+                    job: command.job,
+                    state: RetentionCleanupManifestState::Completed,
+                    objects: manifest.objects,
+                },
+            );
         }
         if command.stage == crate::RetentionStage::Notify {
             let created_at = state.authoritative_time;
@@ -2344,7 +2787,17 @@ impl RetentionWorkerStore for MemoryStore {
                 .ok_or(StoreError::NotFound)?;
             record.status = crate::CourseRetentionStatus::from_persisted(
                 CourseRetentionState::StudentRecordsArchived,
-                record.snapshot.assignment_definitions(),
+                record.status.assignment_definitions,
+            );
+        }
+        if command.stage == crate::RetentionStage::DeleteStudentRecords {
+            let record = state
+                .course_retention
+                .get_mut(&(command.tenant, command.course))
+                .ok_or(StoreError::NotFound)?;
+            record.status = crate::CourseRetentionStatus::from_persisted(
+                CourseRetentionState::StudentRecordsDeleted,
+                record.status.assignment_definitions,
             );
         }
         let job = state
@@ -2840,6 +3293,11 @@ impl Store for MemoryStore {
                     CourseListScope::Member(user) => record.role_for(user)?,
                     CourseListScope::TenantAdministrator => CourseRole::Administrator,
                 };
+                if role == CourseRole::Student
+                    && !course_records_accessible(&state, context.tenant_id(), *course_id)
+                {
+                    return None;
+                }
                 Some((course_id.to_string(), record.summary(role)))
             })
             .collect();
@@ -4118,6 +4576,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             .cloned()
             .ok_or(StoreError::NotFound)?;
         require_attempt_owner(&state, tenant, &attempt, command.actor)?;
+        require_attempt_course_records_accessible(&state, tenant, &attempt)?;
         let published = state
             .published
             .get(&(attempt.problem, attempt.question_version))
@@ -4195,6 +4654,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             .cloned()
             .ok_or(StoreError::NotFound)?;
         require_attempt_owner(&state, tenant, &attempt, command.actor)?;
+        require_attempt_course_records_accessible(&state, tenant, &attempt)?;
         let published = state
             .published
             .get(&(attempt.problem, attempt.question_version))
@@ -4242,6 +4702,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             .cloned()
             .ok_or(StoreError::NotFound)?;
         require_attempt_owner(&state, tenant, &attempt, command.actor)?;
+        require_attempt_course_records_accessible(&state, tenant, &attempt)?;
         validate_external_response(&command.response, &command.binding)?;
         let published = state
             .published
@@ -4318,6 +4779,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             .cloned()
             .ok_or(StoreError::NotFound)?;
         require_attempt_owner(&state, tenant, &attempt, command.actor)?;
+        require_attempt_course_records_accessible(&state, tenant, &attempt)?;
         let published = state
             .published
             .get(&(attempt.problem, attempt.question_version))
@@ -4404,6 +4866,7 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
             .cloned()
             .ok_or(StoreError::NotFound)?;
         require_attempt_owner(&state, tenant, &attempt, command.actor)?;
+        require_attempt_course_records_accessible(&state, tenant, &attempt)?;
         let published = state
             .published
             .get(&(attempt.problem, attempt.question_version))
@@ -4441,14 +4904,15 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
     ) -> Result<Option<ResolvedExternalToolLaunchSession>, StoreError> {
         let state = self.read_state()?;
         let tenant = context.tenant_id();
-        let Some(session) = state.external_tool_launch_sessions.get(&(tenant, id)) else {
-            return Ok(None);
-        };
         let record = state
             .attempts
             .get(&(tenant, attempt))
             .ok_or(StoreError::NotFound)?;
         require_attempt_owner(&state, tenant, record, actor)?;
+        require_attempt_course_records_accessible(&state, tenant, record)?;
+        let Some(session) = state.external_tool_launch_sessions.get(&(tenant, id)) else {
+            return Ok(None);
+        };
         if session.actor != actor || session.attempt != attempt {
             return Ok(None);
         }
@@ -4472,6 +4936,13 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
     ) -> Result<(), StoreError> {
         let mut state = self.write_state()?;
         let tenant = context.tenant_id();
+        let attempt_record = state
+            .attempts
+            .get(&(tenant, attempt))
+            .cloned()
+            .ok_or(StoreError::NotFound)?;
+        require_attempt_owner(&state, tenant, &attempt_record, actor)?;
+        require_attempt_course_records_accessible(&state, tenant, &attempt_record)?;
         let session = state
             .external_tool_launch_sessions
             .get_mut(&(tenant, id))
@@ -4944,6 +5415,20 @@ fn require_attempt_owner(
     }
 }
 
+fn require_attempt_course_records_accessible(
+    state: &State,
+    tenant: TenantId,
+    attempt: &QuestionAttempt,
+) -> Result<(), StoreError> {
+    let run = state
+        .runs
+        .get(&(tenant, attempt.run))
+        .ok_or(StoreError::NotFound)?;
+    let enrollment = enrollment_record(state, tenant, run.enrollment)?;
+    let assignment = assignment_record(state, tenant, enrollment.assignment)?;
+    require_course_records_accessible(state, tenant, assignment.course_id)
+}
+
 fn projected_attempt(
     state: &State,
     tenant: TenantId,
@@ -5020,6 +5505,24 @@ impl MemoryStore {
         course: CourseId,
         objects: Vec<question_model::ObjectId>,
     ) -> Result<Vec<objects::ObjectKey>, StoreError> {
+        self.seed_retention_cleanup_stage_for_test(
+            tenant,
+            course,
+            objects,
+            crate::RetentionStage::ArchiveStudentRecords,
+            AssignmentDefinitionDisposition::Retain,
+        )
+    }
+
+    #[cfg(feature = "test-support")]
+    fn seed_retention_cleanup_stage_for_test(
+        &self,
+        tenant: TenantId,
+        course: CourseId,
+        objects: Vec<question_model::ObjectId>,
+        stage: crate::RetentionStage,
+        disposition: AssignmentDefinitionDisposition,
+    ) -> Result<Vec<objects::ObjectKey>, StoreError> {
         let mut state = self.write_state()?;
         let now = state.authoritative_time;
         let job = crate::JobId::generate()?;
@@ -5028,7 +5531,7 @@ impl MemoryStore {
         let snapshot = CourseRetentionSnapshot::new(
             now,
             InstitutionRetentionPolicy::default(),
-            AssignmentDefinitionDisposition::Retain,
+            disposition,
             1,
         )
         .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
@@ -5047,17 +5550,12 @@ impl MemoryStore {
                 snapshot,
                 status: crate::CourseRetentionStatus::from_persisted(
                     CourseRetentionState::Active,
-                    AssignmentDefinitionDisposition::Retain,
+                    disposition,
                 ),
             },
         );
         state.retention_stages.insert(
-            (
-                tenant,
-                course,
-                crate::RetentionStage::ArchiveStudentRecords,
-                1,
-            ),
+            (tenant, course, stage, 1),
             StoredRetentionStage {
                 due_at: now,
                 state: RetentionStageWorkState::Scheduled,
@@ -5065,22 +5563,16 @@ impl MemoryStore {
                 lease: None,
             },
         );
-        state.retention_dispatches.insert(
-            (
-                tenant,
-                course,
-                crate::RetentionStage::ArchiveStudentRecords,
-                1,
-            ),
-            job,
-        );
+        state
+            .retention_dispatches
+            .insert((tenant, course, stage, 1), job);
         state.jobs.insert(
             job,
             StoredJob {
                 tenant,
                 payload: crate::JobPayload::Retention {
                     course,
-                    stage: crate::RetentionStage::ArchiveStudentRecords,
+                    stage,
                     generation: 1,
                 },
                 state: crate::JobState::Ready,
@@ -6861,6 +7353,7 @@ mod retention_tests {
         let context = TenantContext::from_authenticated_session(tenant);
         let instructor = UserId::from_uuid(Uuid::from_u128(81_301));
         let course = CourseId::from_uuid(Uuid::from_u128(81_302));
+        let other_course = CourseId::from_uuid(Uuid::from_u128(81_303));
         {
             let mut state = store.write_state().expect("state");
             state.authoritative_time = ActivityTimestamp::from_unix_millis(3_000_000);
@@ -6870,6 +7363,18 @@ mod retention_tests {
                     id: course,
                     tenant,
                     title: "Retention API course".to_string(),
+                    members: vec![CourseMembership {
+                        user: instructor,
+                        role: CourseMembershipRole::Instructor,
+                    }],
+                },
+            );
+            state.courses.insert(
+                (tenant, other_course),
+                CourseRecord {
+                    id: other_course,
+                    tenant,
+                    title: "Other retention API course".to_string(),
                     members: vec![CourseMembership {
                         user: instructor,
                         role: CourseMembershipRole::Instructor,
@@ -6911,6 +7416,63 @@ mod retention_tests {
             queued.retention.assignment_definitions,
             AssignmentDefinitionDisposition::Delete
         );
+        // The other course deliberately shares actor and resulting generation
+        // but differs in disposition. Its receipt cannot authorize a replay
+        // for this course or enqueue another job here.
+        store
+            .end_course_retention(context, session(30), other_course)
+            .await
+            .expect("end other course");
+        let other_view = store
+            .retention_view(context, session(30), other_course)
+            .await
+            .expect("other safe view")
+            .expect("other ended view");
+        store
+            .request_retention_archive_if_revision(
+                context,
+                session(30),
+                other_course,
+                other_view.revision,
+                AssignmentDefinitionDisposition::Retain,
+            )
+            .await
+            .expect("queue other archive");
+        let jobs_before_cross_course_replay = store.read_state().expect("state").jobs.len();
+        assert_eq!(
+            store
+                .request_retention_archive_if_revision(
+                    context,
+                    session(30),
+                    course,
+                    queued.retention.revision,
+                    AssignmentDefinitionDisposition::Retain,
+                )
+                .await,
+            Err(StoreError::Conflict),
+            "another course receipt must not authorize this course replay"
+        );
+        assert_eq!(
+            store.read_state().expect("state").jobs.len(),
+            jobs_before_cross_course_replay,
+            "cross-course receipt confusion must not enqueue work"
+        );
+        // The rest of this established single-course worker test claims the
+        // only ready job. Remove the independent adversarial fixture after
+        // its assertion rather than making later worker assertions order-aware.
+        {
+            let mut state = store.write_state().expect("state");
+            let other_job = state
+                .retention_dispatches
+                .remove(&(
+                    tenant,
+                    other_course,
+                    crate::RetentionStage::ArchiveStudentRecords,
+                    2,
+                ))
+                .expect("other archive dispatch");
+            state.jobs.remove(&other_job);
+        }
         let scheduled_replay = store
             .request_retention_archive_if_revision(
                 context,
@@ -7030,412 +7592,5 @@ mod retention_tests {
                 .outcome,
             crate::RetentionRequestOutcome::Completed
         );
-    }
-}
-
-#[cfg(test)]
-mod retention_worker_tests {
-    use super::*;
-    use crate::{JobLeaseToken, RetentionWorkerCommand, RetentionWorkerStore};
-
-    fn id(value: u128) -> Uuid {
-        Uuid::from_u128(value)
-    }
-    fn fixture() -> (
-        MemoryStore,
-        TenantContext,
-        CourseId,
-        crate::JobId,
-        JobLeaseToken,
-        ActivityTimestamp,
-    ) {
-        let store = MemoryStore::default();
-        let tenant = TenantId::from_uuid(id(82_001));
-        let context = TenantContext::from_authenticated_session(tenant);
-        let course = CourseId::from_uuid(id(82_002));
-        let job = crate::JobId::from_uuid(id(82_003));
-        let lease = JobLeaseToken::generate().expect("lease");
-        let now = ActivityTimestamp::from_unix_millis(2_000_000);
-        let snapshot = CourseRetentionSnapshot::new(
-            now,
-            InstitutionRetentionPolicy::default(),
-            AssignmentDefinitionDisposition::Retain,
-            1,
-        )
-        .expect("snapshot");
-        let due = snapshot
-            .policy()
-            .due_at(now, crate::RetentionStage::Notify)
-            .expect("due");
-        let mut state = store.write_state().expect("state");
-        state.authoritative_time = ActivityTimestamp::from_unix_millis(due.as_unix_millis() - 1);
-        state.courses.insert(
-            (tenant, course),
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Retention worker test course".to_string(),
-                members: Vec::new(),
-            },
-        );
-        state.course_retention.insert(
-            (tenant, course),
-            CourseRetentionRecord {
-                snapshot,
-                status: crate::CourseRetentionStatus::from_persisted(
-                    CourseRetentionState::Active,
-                    AssignmentDefinitionDisposition::Retain,
-                ),
-            },
-        );
-        state.retention_stages.insert(
-            (tenant, course, crate::RetentionStage::Notify, 1),
-            StoredRetentionStage {
-                due_at: due,
-                state: RetentionStageWorkState::Scheduled,
-                job: None,
-                lease: None,
-            },
-        );
-        state.jobs.insert(
-            job,
-            StoredJob {
-                tenant,
-                payload: crate::JobPayload::Retention {
-                    course,
-                    stage: crate::RetentionStage::Notify,
-                    generation: 1,
-                },
-                state: crate::JobState::Leased,
-                available_at: now,
-                lease_token: Some(lease),
-                lease_expires_at: Some(ActivityTimestamp::from_unix_millis(
-                    due.as_unix_millis() + 10_000,
-                )),
-                attempt_count: 1,
-                max_attempts: 2,
-                failure: None,
-            },
-        );
-        state
-            .retention_dispatches
-            .insert((tenant, course, crate::RetentionStage::Notify, 1), job);
-        drop(state);
-        (store, context, course, job, lease, due)
-    }
-
-    #[tokio::test]
-    async fn retention_worker_requires_due_time_exact_preparation_and_current_lease() {
-        let (store, context, course, job, lease, due) = fixture();
-        let command = RetentionWorkerCommand {
-            tenant: context.tenant_id(),
-            course,
-            stage: crate::RetentionStage::Notify,
-            generation: 1,
-            job,
-            lease,
-        };
-        assert_eq!(
-            store.prepare_retention_work(command).await,
-            Err(StoreError::Conflict),
-            "due minus one millisecond must not run"
-        );
-        {
-            let mut state = store.write_state().expect("state");
-            state.authoritative_time = due;
-        }
-        assert!(matches!(
-            store.prepare_retention_work(command).await,
-            Ok(RetentionWork::Notify)
-        ));
-        let other_job = crate::JobId::from_uuid(id(82_004));
-        let other_lease = JobLeaseToken::generate().expect("lease");
-        {
-            let mut state = store.write_state().expect("state");
-            state.jobs.insert(
-                other_job,
-                StoredJob {
-                    tenant: context.tenant_id(),
-                    payload: crate::JobPayload::Retention {
-                        course,
-                        stage: crate::RetentionStage::Notify,
-                        generation: 1,
-                    },
-                    state: crate::JobState::Leased,
-                    available_at: due,
-                    lease_token: Some(other_lease),
-                    lease_expires_at: Some(ActivityTimestamp::from_unix_millis(
-                        due.as_unix_millis() + 10_000,
-                    )),
-                    attempt_count: 1,
-                    max_attempts: 2,
-                    failure: None,
-                },
-            );
-        }
-        let different = RetentionWorkerCommand {
-            job: other_job,
-            lease: other_lease,
-            ..command
-        };
-        assert_eq!(
-            store.prepare_retention_work(different).await,
-            Err(StoreError::Conflict)
-        );
-        assert_eq!(
-            store.commit_retention_work(different).await,
-            Err(StoreError::Conflict)
-        );
-        assert!(store.commit_retention_work(command).await.is_ok());
-        let record = store
-            .course_retention(context, SessionTokenHash::compute(&[9; 32]), course)
-            .await;
-        assert_eq!(record, Err(StoreError::Forbidden));
-        let state = store.read_state().expect("state");
-        assert_eq!(
-            state
-                .retention_notifications
-                .get(&(context.tenant_id(), course, 1)),
-            Some(&crate::RetentionNotificationView {
-                intent: crate::RetentionNotificationIntent::Archive,
-                created_at: due,
-            })
-        );
-        assert_eq!(
-            state.course_retention[&(context.tenant_id(), course)]
-                .status
-                .state,
-            CourseRetentionState::Active
-        );
-    }
-
-    #[tokio::test]
-    async fn archive_cleanup_terminalizes_uncommitted_export_and_returns_every_expected_typed_key()
-    {
-        let (store, context, course, job, lease, due) = fixture();
-        let export_job = crate::JobId::from_uuid(id(82_010));
-        let export = crate::ExportId::from_uuid(id(82_011));
-        let expected = [
-            (
-                crate::ExportArtifactKind::Docx,
-                question_model::ObjectId::from_uuid(id(82_012)),
-            ),
-            (
-                crate::ExportArtifactKind::Pdf,
-                question_model::ObjectId::from_uuid(id(82_013)),
-            ),
-            (
-                crate::ExportArtifactKind::AccessibleDocx,
-                question_model::ObjectId::from_uuid(id(82_014)),
-            ),
-            (
-                crate::ExportArtifactKind::AccessiblePdf,
-                question_model::ObjectId::from_uuid(id(82_015)),
-            ),
-        ]
-        .into_iter()
-        .collect::<BTreeMap<_, _>>();
-        {
-            let mut state = store.write_state().expect("state");
-            state.authoritative_time = due;
-            state.jobs.get_mut(&job).expect("retention job").payload =
-                crate::JobPayload::Retention {
-                    course,
-                    stage: crate::RetentionStage::ArchiveStudentRecords,
-                    generation: 1,
-                };
-            state.retention_dispatches.remove(&(
-                context.tenant_id(),
-                course,
-                crate::RetentionStage::Notify,
-                1,
-            ));
-            state.retention_dispatches.insert(
-                (
-                    context.tenant_id(),
-                    course,
-                    crate::RetentionStage::ArchiveStudentRecords,
-                    1,
-                ),
-                job,
-            );
-            state.retention_stages.insert(
-                (
-                    context.tenant_id(),
-                    course,
-                    crate::RetentionStage::ArchiveStudentRecords,
-                    1,
-                ),
-                StoredRetentionStage {
-                    due_at: due,
-                    state: RetentionStageWorkState::Scheduled,
-                    job: None,
-                    lease: None,
-                },
-            );
-            state.jobs.insert(
-                export_job,
-                StoredJob {
-                    tenant: context.tenant_id(),
-                    payload: crate::JobPayload::Export {
-                        delivery_object: question_model::ObjectId::from_uuid(id(82_016)),
-                    },
-                    state: crate::JobState::Leased,
-                    available_at: due,
-                    lease_token: Some(JobLeaseToken::generate().expect("export lease")),
-                    lease_expires_at: Some(ActivityTimestamp::from_unix_millis(
-                        due.as_unix_millis() + 1_000,
-                    )),
-                    attempt_count: 1,
-                    max_attempts: 2,
-                    failure: None,
-                },
-            );
-            state.exports.insert(
-                (context.tenant_id(), export),
-                StoredExport {
-                    course,
-                    assignment: AssignmentId::from_uuid(id(82_017)),
-                    title: "retention fixture".to_string(),
-                    requested_by: UserId::from_uuid(id(82_018)),
-                    manifest: question_model::ObjectId::from_uuid(id(82_016)),
-                    problems: Vec::new(),
-                    job: export_job,
-                    state: crate::StudentExportState::Queued,
-                    expected: expected.clone(),
-                    artifacts: None,
-                },
-            );
-        }
-        let command = RetentionWorkerCommand {
-            tenant: context.tenant_id(),
-            course,
-            stage: crate::RetentionStage::ArchiveStudentRecords,
-            generation: 1,
-            job,
-            lease,
-        };
-        let RetentionWork::Cleanup(manifest) = store
-            .prepare_retention_work(command)
-            .await
-            .expect("due cleanup")
-        else {
-            panic!("cleanup work")
-        };
-        assert_eq!(manifest.objects().len(), 4);
-        assert!(manifest.objects().iter().all(|key| matches!(key, objects::ObjectKey::StudentRecord { tenant, .. } if *tenant == context.tenant_id())));
-        let state = store.read_state().expect("state");
-        assert_eq!(
-            state.exports[&(context.tenant_id(), export)].state,
-            crate::StudentExportState::Failed
-        );
-        assert_eq!(state.jobs[&export_job].state, crate::JobState::Dead);
-        assert_eq!(
-            state.course_retention[&(context.tenant_id(), course)]
-                .status
-                .state,
-            CourseRetentionState::Active
-        );
-    }
-
-    #[tokio::test]
-    async fn archive_prepare_fences_access_and_exact_commit_archives_atomically() {
-        let (store, context, course, job, lease, due) = fixture();
-        {
-            let mut state = store.write_state().expect("state");
-            state.authoritative_time = due;
-            state.retention_stages.remove(&(
-                context.tenant_id(),
-                course,
-                crate::RetentionStage::Notify,
-                1,
-            ));
-            state.retention_dispatches.remove(&(
-                context.tenant_id(),
-                course,
-                crate::RetentionStage::Notify,
-                1,
-            ));
-            state.retention_stages.insert(
-                (
-                    context.tenant_id(),
-                    course,
-                    crate::RetentionStage::ArchiveStudentRecords,
-                    1,
-                ),
-                StoredRetentionStage {
-                    due_at: due,
-                    state: RetentionStageWorkState::Scheduled,
-                    job: None,
-                    lease: None,
-                },
-            );
-            state.retention_dispatches.insert(
-                (
-                    context.tenant_id(),
-                    course,
-                    crate::RetentionStage::ArchiveStudentRecords,
-                    1,
-                ),
-                job,
-            );
-            state.jobs.get_mut(&job).expect("job").payload = crate::JobPayload::Retention {
-                course,
-                stage: crate::RetentionStage::ArchiveStudentRecords,
-                generation: 1,
-            };
-        }
-        assert!(
-            store
-                .course_records_accessible(context, course)
-                .await
-                .expect("ordinary access")
-        );
-        let command = RetentionWorkerCommand {
-            tenant: context.tenant_id(),
-            course,
-            stage: crate::RetentionStage::ArchiveStudentRecords,
-            generation: 1,
-            job,
-            lease,
-        };
-        assert!(matches!(
-            store
-                .prepare_retention_work(command)
-                .await
-                .expect("prepare"),
-            RetentionWork::Cleanup(_)
-        ));
-        assert!(
-            !store
-                .course_records_accessible(context, course)
-                .await
-                .expect("prepare fence")
-        );
-        assert_eq!(
-            store.read_state().expect("state").course_retention[&(context.tenant_id(), course)]
-                .status
-                .state,
-            CourseRetentionState::Active
-        );
-        store.commit_retention_work(command).await.expect("commit");
-        let state = store.read_state().expect("state");
-        assert_eq!(
-            state.course_retention[&(context.tenant_id(), course)]
-                .status
-                .state,
-            CourseRetentionState::StudentRecordsArchived
-        );
-        assert_eq!(
-            state.retention_stages[&(
-                context.tenant_id(),
-                course,
-                crate::RetentionStage::ArchiveStudentRecords,
-                1,
-            )]
-                .state,
-            RetentionStageWorkState::Completed
-        );
-        assert_eq!(state.jobs[&job].state, crate::JobState::Completed);
     }
 }

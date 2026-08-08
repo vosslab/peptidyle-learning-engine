@@ -1560,15 +1560,21 @@ mod route_tests {
         let tenant = TenantId::from_uuid(id(51));
         let course = CourseId::from_uuid(id(52));
         let instructor = UserId::from_uuid(id(53));
+        let other_instructor = UserId::from_uuid(id(54));
         create_course(
             &store,
             tenant,
             course,
-            vec![(instructor, CourseMembershipRole::Instructor)],
+            vec![
+                (instructor, CourseMembershipRole::Instructor),
+                (other_instructor, CourseMembershipRole::Instructor),
+            ],
         )
         .await;
         let instructor_cookie =
             issued_cookie(&store, tenant, vec![UserRole::Instructor], instructor).await;
+        let other_instructor_cookie =
+            issued_cookie(&store, tenant, vec![UserRole::Instructor], other_instructor).await;
         let app = router(Arc::clone(&store));
         let ended = end_retention(&app, Some(&instructor_cookie), course, "").await;
         assert_eq!(ended.status(), StatusCode::OK);
@@ -1655,6 +1661,53 @@ mod route_tests {
             response_json(completed).await["outcome"],
             serde_json::json!("completed")
         );
+
+        let original_completed_replay = archive_retention(
+            &app,
+            Some(&instructor_cookie),
+            course,
+            &["\"1\""],
+            Some("application/json"),
+            r#"{"assignmentDefinitions":"delete"}"#,
+        )
+        .await;
+        assert_eq!(original_completed_replay.status(), StatusCode::OK);
+        assert_eq!(
+            response_json(original_completed_replay).await["outcome"],
+            serde_json::json!("completed")
+        );
+
+        let mismatched_actor = archive_retention(
+            &app,
+            Some(&other_instructor_cookie),
+            course,
+            &[&current_header],
+            Some("application/json"),
+            r#"{"assignmentDefinitions":"delete"}"#,
+        )
+        .await;
+        assert_eq!(mismatched_actor.status(), StatusCode::CONFLICT);
+
+        let mismatched_disposition = archive_retention(
+            &app,
+            Some(&instructor_cookie),
+            course,
+            &[&current_header],
+            Some("application/json"),
+            r#"{"assignmentDefinitions":"retain"}"#,
+        )
+        .await;
+        assert_eq!(mismatched_disposition.status(), StatusCode::CONFLICT);
+
+        let mismatched_action = delete_retention(
+            &app,
+            Some(&instructor_cookie),
+            course,
+            &[&current_header],
+            "",
+        )
+        .await;
+        assert_eq!(mismatched_action.status(), StatusCode::CONFLICT);
 
         let stale = archive_retention(
             &app,

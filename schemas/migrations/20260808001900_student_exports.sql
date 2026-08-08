@@ -80,7 +80,7 @@ BEGIN
           ORDER BY a.kind) INTO existing
       FROM public.student_export_artifact a WHERE a.export_id = request_id AND a.delivery_id IS NOT NULL;
     SELECT jsonb_agg(jsonb_build_object('kind', x->>'kind', 'object', x->>'object',
-          'filename', x->>'filename', 'mediaType', x->>'mediaType, 'objectRecord', x->'objectRecord')
+          'filename', x->>'filename', 'mediaType', x->>'mediaType', 'objectRecord', x->'objectRecord')
           ORDER BY x->>'kind') INTO supplied FROM jsonb_array_elements(p_artifacts) x;
     IF (SELECT state FROM public.student_export_request WHERE export_id = request_id) = 'ready' THEN
         IF existing = supplied THEN RETURN 'already_committed'; END IF;

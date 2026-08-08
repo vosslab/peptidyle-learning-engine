@@ -294,15 +294,16 @@ mod tests {
     use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
     use question_model::taxonomy::License;
     use question_model::{
-        ActivityTimestamp, AssetId, BackendCapabilities, Capability, DraftQuestionDefinition,
-        DraftQuestionSource, GradingDefinition, ObjectId, ProblemId, ProblemVersionRef,
-        PublicationScope, QuestionMetadata, QuestionSource, TenantId, UserId, UserRole, VersionId,
-        WorkspaceId, WorkspaceImportId,
+        ActivityTimestamp, AssetId, BackendCapabilities, Capability, CourseId, CourseMembership,
+        CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
+        ObjectId, ProblemId, ProblemVersionRef, PublicationScope, QuestionMetadata, QuestionSource,
+        TenantId, UserId, UserRole, VersionId, WorkspaceId, WorkspaceImportId,
     };
     use store::memory::MemoryStore;
     use store::{
-        AssetDeliveryRecord, AssetDeliveryScope, CatalogStore, DraftRecord, PublishDraftCommand,
-        SessionLifetime, SessionSubject, Store, TenantContext,
+        AssetDeliveryRecord, AssetDeliveryScope, CatalogStore, CourseRecord, DraftRecord,
+        JobLeaseDuration, JobPayload, JobStore, PublishDraftCommand, RetentionWorkerCommand,
+        RetentionWorkerStore, SessionLifetime, SessionSubject, Store, TenantContext,
     };
     use tower::ServiceExt;
     use uuid::Uuid;
@@ -416,11 +417,33 @@ mod tests {
         let publisher = UserId::from_uuid(id(2));
         let student = UserId::from_uuid(id(3));
         let outsider = UserId::from_uuid(id(4));
+        let course = CourseId::from_uuid(id(5));
         let store = Arc::new(MemoryStore::default());
         store
             .set_authoritative_time(ActivityTimestamp::from_unix_millis(10_000))
             .expect("clock");
         let objects = Arc::new(MemoryObjectStore::default());
+        store
+            .upsert_course(
+                context,
+                CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Asset route course".to_string(),
+                    members: vec![
+                        CourseMembership {
+                            user: publisher,
+                            role: CourseMembershipRole::Instructor,
+                        },
+                        CourseMembership {
+                            user: student,
+                            role: CourseMembershipRole::Student,
+                        },
+                    ],
+                },
+            )
+            .await
+            .expect("course");
 
         let public_problem = ProblemId::from_uuid(id(10));
         let public_version = VersionId::from_uuid(id(11));
@@ -527,6 +550,7 @@ mod tests {
             object: student_object,
             scope: AssetDeliveryScope::StudentRecord {
                 tenant,
+                course,
                 authorized_users: vec![student],
             },
         };
@@ -555,6 +579,43 @@ mod tests {
             institution.id,
             student_record.id,
         )
+    }
+
+    async fn prepare_archive_fence(store: &MemoryStore, tenant: TenantId, course: CourseId) {
+        store
+            .seed_retention_cleanup_for_test(
+                tenant,
+                course,
+                (0..4)
+                    .map(|offset| ObjectId::from_uuid(id(90 + offset)))
+                    .collect(),
+            )
+            .expect("archive cleanup fixture");
+        let claim = store
+            .claim_next_job(JobLeaseDuration::from_seconds(30).expect("lease duration"))
+            .await
+            .expect("archive claim")
+            .expect("archive job");
+        let (claimed_course, stage, generation) = match claim.payload {
+            JobPayload::Retention {
+                course,
+                stage,
+                generation,
+            } => (course, stage, generation),
+            _ => panic!("fixture must claim retention work"),
+        };
+        assert_eq!(claimed_course, course);
+        store
+            .prepare_retention_work(RetentionWorkerCommand {
+                tenant,
+                course,
+                stage,
+                generation,
+                job: claim.id,
+                lease: claim.lease_token,
+            })
+            .await
+            .expect("archive prepare fence");
     }
 
     #[tokio::test]
@@ -591,7 +652,7 @@ mod tests {
 
     #[tokio::test]
     async fn protected_assets_require_authorization_log_and_use_bucket_lifetimes() {
-        let (store, app, student_cookie, outsider_cookie, _, institution, student_record) =
+        let (store, app, student_cookie, outsider_cookie, public, institution, student_record) =
             fixture().await;
         let unauthenticated = app
             .clone()
@@ -652,6 +713,7 @@ mod tests {
         );
 
         let hidden = app
+            .clone()
             .oneshot(
                 Request::builder()
                     .uri(format!("/api/assets/{student_record}"))
@@ -670,6 +732,49 @@ mod tests {
             events
                 .iter()
                 .all(|event| event.occurred_at == ActivityTimestamp::from_unix_millis(10_000))
+        );
+
+        prepare_archive_fence(
+            store.as_ref(),
+            TenantId::from_uuid(id(1)),
+            CourseId::from_uuid(id(5)),
+        )
+        .await;
+        let archived = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/assets/{student_record}"))
+                    .header("cookie", &student_cookie)
+                    .body(Body::empty())
+                    .expect("archived student-record request"),
+            )
+            .await
+            .expect("archived student-record response");
+        assert_eq!(archived.status(), StatusCode::NOT_FOUND);
+        assert_eq!(archived.headers()[CACHE_CONTROL], "no-store");
+        assert_eq!(
+            store.asset_access_events().expect("audit events").len(),
+            events.len(),
+            "archive refusal must happen before signing authorization is audited"
+        );
+
+        let public_after_archive = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/assets/{public}"))
+                    .body(Body::empty())
+                    .expect("public asset after archive"),
+            )
+            .await
+            .expect("public asset response");
+        assert_eq!(
+            public_after_archive.status(),
+            StatusCode::TEMPORARY_REDIRECT
+        );
+        assert_eq!(
+            public_after_archive.headers()[CACHE_CONTROL],
+            "public, max-age=31536000, immutable"
         );
     }
 

@@ -403,6 +403,8 @@ pub enum AssetDeliveryScope {
     StudentRecord {
         /// Direct RLS boundary owning the artifact.
         tenant: TenantId,
+        /// Exact course whose retention lifecycle governs this record.
+        course: CourseId,
         /// Authenticated users allowed to request a short-lived URL.
         authorized_users: Vec<UserId>,
     },
@@ -618,6 +620,8 @@ pub struct AssetAccessEvent {
     pub object: ObjectId,
     /// Bucket whose fixed delivery lifetime applies.
     pub bucket: Bucket,
+    /// Course that authorized this delivery access, when visible in learner records.
+    pub course: Option<CourseId>,
     /// Database-authoritative authorization time.
     pub occurred_at: ActivityTimestamp,
 }
@@ -2494,6 +2498,7 @@ pub(crate) fn validate_asset_delivery(record: &AssetDeliveryRecord) -> Result<()
         (
             AssetDeliveryScope::StudentRecord {
                 tenant,
+                course: _,
                 authorized_users,
             },
             ObjectKey::StudentRecord {

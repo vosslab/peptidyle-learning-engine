@@ -14,6 +14,8 @@ pub mod author_preview;
 pub mod catalog;
 /// Server-side dispatch across installed trusted question backends.
 pub mod composite_backend;
+/// Production dependency construction shared by the API and future worker entry points.
+pub mod composition;
 /// Tenant courses, course-local membership, and assignment routes.
 pub mod course;
 /// Instructor-authorized asynchronous assignment export requests.

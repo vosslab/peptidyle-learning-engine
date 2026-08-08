@@ -30,12 +30,23 @@ use serde_json::json;
 use sha2::{Digest, Sha256};
 use store::postgres::{Pool, PostgresQtiGraderStore, PostgresStore, lazy_pool};
 use store::{
-    AssetStore, CatalogStore, ExportJobStore, QtiImportStore, RetentionApiStore, RetentionStore,
-    SessionLifetime, SessionStore, SessionSubject, Store,
+    AssetStore, CatalogStore, CourseRecordsAccessStore, ExportJobStore, QtiImportStore,
+    RetentionApiStore, RetentionStore, SessionLifetime, SessionStore, SessionSubject, Store,
 };
 use subtle::ConstantTimeEq;
 use uuid::Uuid;
 
+use crate::asset::{PublicAssetBaseUrl, PublicAssetUrlResolver};
+use crate::auth::{CookieTransport, IdentityProvider, IdentityProviderError, SessionConfig};
+use crate::catalog::{BackendRegistry, PublicReviewGate, ReviewGateError};
+use crate::composite_backend::CompositeBackend;
+use crate::health::{ProbeResult, Readiness, readiness};
+use crate::imathas_backend::{ImathasBackend, LaunchStateAead};
+use crate::native_backend::NativeBackend;
+use crate::qti_backend::QtiBackend;
+use crate::retention_worker::{RetentionJobCommitter, RetentionJobHandler};
+use crate::run::{RunBackend, external_tool_router};
+use crate::webwork_backend::WebworkBackend;
 use adapter_imathas::broker_provider::{
     ContractedScoredEmbedConfig, ContractedScoredEmbedProvider,
 };
@@ -46,17 +57,6 @@ use adapter_imathas::scored_embed::ScoredEmbedProfileConfig;
 use adapter_imathas::{CorrelationIssuer, ImathasAdapter, SupportedProfile};
 use adapter_webwork::pg_parser_stub::RendererIdentity;
 use adapter_webwork::{HttpWebworkRenderer, HttpWebworkRendererConfig, WebworkAdapter};
-use server_core::asset::{PublicAssetBaseUrl, PublicAssetUrlResolver};
-use server_core::auth::{CookieTransport, IdentityProvider, IdentityProviderError, SessionConfig};
-use server_core::catalog::{BackendRegistry, PublicReviewGate, ReviewGateError};
-use server_core::composite_backend::CompositeBackend;
-use server_core::health::{ProbeResult, Readiness, readiness};
-use server_core::imathas_backend::{ImathasBackend, LaunchStateAead};
-use server_core::native_backend::NativeBackend;
-use server_core::qti_backend::QtiBackend;
-use server_core::retention_worker::{RetentionJobCommitter, RetentionJobHandler};
-use server_core::run::{RunBackend, external_tool_router};
-use server_core::webwork_backend::WebworkBackend;
 
 /// Builds the actual application router from explicit startup settings.
 ///
@@ -66,8 +66,7 @@ use server_core::webwork_backend::WebworkBackend;
 /// and supplies the untracked identity file. It never accepts identities from
 /// request headers, query strings, or browser-provided roles.
 pub async fn production_router_from_env() -> Result<Router> {
-    let settings = ProductionSettings::from_env()?;
-    let persistent = PersistentDependencies::from_settings(&settings).await?;
+    let persistent = PersistentDependencies::from_env().await?;
     let local_authentication = local_development_authentication_from_env()?;
     Ok(persistent
         .local_development_router(local_authentication, Arc::new(LocalDevelopmentReviewGate)))
@@ -304,13 +303,13 @@ pub fn bind_address_from_env() -> Result<SocketAddr> {
         .context("PLE_BIND_ADDR must be a socket address")
 }
 
-/// Concrete dependency construction shared by the future institution adapter
-/// and composition tests.  It contains only replica-safe backends.
+/// Concrete dependency construction for the future institution adapter.
+/// It contains only replica-safe backends.
 // Until an institution adapter implements `IdentityProvider`, the normal
 // binary intentionally fails before it can call `router`. These fields remain
-// available for that adapter and are exercised by binary tests.
+// available for that adapter and the route-level integration boundary.
 #[allow(dead_code)]
-pub struct PersistentDependencies {
+struct PersistentDependencies {
     store: Arc<PostgresStore>,
     objects: Arc<objects::s3::S3ObjectStore>,
     public_assets: Arc<PublicAssetBaseUrl>,
@@ -323,13 +322,48 @@ pub struct PersistentDependencies {
 /// Concrete retention components ready for a future dedicated worker entrypoint.
 ///
 /// This factory deliberately stops at component construction. The current queue
-/// claim is unfiltered, so activating the generic [`server_core::worker::Worker`]
+/// claim is unfiltered, so activating the generic [`crate::worker::Worker`]
 /// here could route Render or Import jobs into a retention-only process. A later
 /// deployment slice must add a family-filtered claim and the complete handler /
 /// committer registry before it starts any drain loop.
-pub(crate) struct RetentionWorkerComponents {
-    pub(crate) handler: Arc<RetentionJobHandler<PostgresStore, objects::s3::S3ObjectStore>>,
-    pub(crate) committer: Arc<RetentionJobCommitter<PostgresStore>>,
+pub struct RetentionWorkerComponents {
+    handler: Arc<RetentionJobHandler<PostgresStore, objects::s3::S3ObjectStore>>,
+    committer: Arc<RetentionJobCommitter<PostgresStore>>,
+}
+
+impl RetentionWorkerComponents {
+    /// Constructs retention-only components from the storage configuration in
+    /// the process environment. This deliberately does not initialize any
+    /// API-only backend, including an optional QTI grader.
+    pub fn from_env() -> Result<Self> {
+        let settings = StorageSettings::from_env()?;
+        Self::from_storage_settings(&settings)
+    }
+
+    fn from_storage_settings(settings: &StorageSettings) -> Result<Self> {
+        let dependencies = LazyStorageDependencies::from_settings(settings)?;
+        Ok(Self::from_lazy_storage(dependencies))
+    }
+
+    fn from_lazy_storage(dependencies: LazyStorageDependencies) -> Self {
+        Self {
+            handler: Arc::new(RetentionJobHandler::new(
+                Arc::clone(&dependencies.store),
+                dependencies.objects,
+            )),
+            committer: Arc::new(RetentionJobCommitter::new(dependencies.store)),
+        }
+    }
+
+    /// Returns the real handler without exposing production dependency details.
+    pub fn handler(&self) -> Arc<RetentionJobHandler<PostgresStore, objects::s3::S3ObjectStore>> {
+        Arc::clone(&self.handler)
+    }
+
+    /// Returns the real committer without exposing production dependency details.
+    pub fn committer(&self) -> Arc<RetentionJobCommitter<PostgresStore>> {
+        Arc::clone(&self.committer)
+    }
 }
 
 type ProductionImathasBackend = ImathasBackend<
@@ -346,24 +380,18 @@ struct ConfiguredImathas {
 
 #[allow(dead_code)]
 impl PersistentDependencies {
+    async fn from_env() -> Result<Self> {
+        let settings = ProductionSettings::from_env()?;
+        Self::from_settings(&settings).await
+    }
+
     async fn from_settings(settings: &ProductionSettings) -> Result<Self> {
-        let pool = lazy_pool(&settings.database_url)
-            .context("DATABASE_URL rejected by PostgreSQL driver")?;
-        let store = Arc::new(PostgresStore::new(pool.clone()));
-        let client = objects::minio::client(&objects::minio::EndpointConfig {
-            endpoint_url: settings.s3_endpoint.clone(),
-            region: settings.s3_region.clone(),
-            access_key_id: settings.access_key_id.clone(),
-            secret_access_key: settings.secret_access_key.clone(),
-        });
-        let objects = Arc::new(objects::s3::S3ObjectStore::new(
-            client.clone(),
-            objects::s3::BucketNames {
-                content: settings.content_bucket.clone(),
-                student_records: settings.student_records_bucket.clone(),
-                temp_processing: settings.temp_processing_bucket.clone(),
-            },
-        ));
+        let LazyStorageDependencies {
+            store,
+            objects,
+            pool,
+            object_client,
+        } = LazyStorageDependencies::from_settings(&settings.storage)?;
         let public_assets = Arc::new(
             PublicAssetBaseUrl::new(settings.public_asset_base_url.clone())
                 .context("PLE_PUBLIC_ASSET_BASE_URL rejected")?,
@@ -398,8 +426,8 @@ impl PersistentDependencies {
             qti,
             health: Arc::new(HealthState {
                 postgres: pool,
-                object_client: client,
-                content_bucket: settings.content_bucket.clone(),
+                object_client,
+                content_bucket: settings.storage.content_bucket.clone(),
             }),
         })
     }
@@ -509,6 +537,7 @@ where
         + QtiImportStore
         + RetentionStore
         + RetentionApiStore
+        + CourseRecordsAccessStore
         + SessionStore
         + AssetStore
         + 'static,
@@ -521,40 +550,36 @@ where
 {
     let router = Router::new()
         .route("/health", get(health_handler))
-        .merge(server_core::auth::router(
+        .merge(crate::auth::router(
             identity_provider,
             Arc::clone(&store),
             session_config,
         ))
-        .merge(server_core::catalog::router(
+        .merge(crate::catalog::router(
             Arc::clone(&store),
             Arc::clone(&backends),
             Arc::clone(&review_gate),
         ))
-        .merge(server_core::qti_publication::router(
+        .merge(crate::qti_publication::router(
             Arc::clone(&store),
             Arc::clone(&objects),
             Arc::clone(&backends),
             review_gate,
         ))
-        .merge(server_core::workspace::router(
+        .merge(crate::workspace::router(
             Arc::clone(&store),
             Arc::clone(&backends),
         ))
-        .merge(server_core::author_preview::router(
+        .merge(crate::author_preview::router(
             Arc::clone(&store),
             native_adapter,
         ))
-        .merge(server_core::course::router(Arc::clone(&store)))
-        .merge(server_core::export::router(Arc::clone(&store)))
-        .merge(server_core::retention::router(Arc::clone(&store)))
-        .merge(server_core::run::router(Arc::clone(&store), backends))
-        .merge(server_core::asset::router(
-            store.clone(),
-            objects,
-            public_assets,
-        ))
-        .merge(server_core::validation::router(store))
+        .merge(crate::course::router(Arc::clone(&store)))
+        .merge(crate::export::router(Arc::clone(&store)))
+        .merge(crate::retention::router(Arc::clone(&store)))
+        .merge(crate::run::router(Arc::clone(&store), backends))
+        .merge(crate::asset::router(store.clone(), objects, public_assets))
+        .merge(crate::validation::router(store))
         .layer(Extension(health));
 
     apply_e2e_replica_attribution(router, e2e_replica_attribution_from_env())
@@ -704,7 +729,7 @@ async fn health_handler(Extension(state): Extension<Arc<HealthState>>) -> impl I
     }
 }
 
-struct ProductionSettings {
+struct StorageSettings {
     database_url: String,
     s3_endpoint: String,
     s3_region: String,
@@ -713,6 +738,60 @@ struct ProductionSettings {
     content_bucket: String,
     student_records_bucket: String,
     temp_processing_bucket: String,
+}
+
+impl StorageSettings {
+    fn from_env() -> Result<Self> {
+        Ok(Self {
+            database_url: required_env("DATABASE_URL")?,
+            s3_endpoint: required_env("PLE_S3_ENDPOINT")?,
+            s3_region: required_env("PLE_S3_REGION")?,
+            access_key_id: required_env("AWS_ACCESS_KEY_ID")?,
+            secret_access_key: required_env("AWS_SECRET_ACCESS_KEY")?,
+            content_bucket: required_env("PLE_CONTENT_BUCKET")?,
+            student_records_bucket: required_env("PLE_STUDENT_RECORDS_BUCKET")?,
+            temp_processing_bucket: required_env("PLE_TEMP_PROCESSING_BUCKET")?,
+        })
+    }
+}
+
+struct LazyStorageDependencies {
+    store: Arc<PostgresStore>,
+    objects: Arc<objects::s3::S3ObjectStore>,
+    pool: Pool,
+    object_client: objects::minio::S3Client,
+}
+
+impl LazyStorageDependencies {
+    fn from_settings(settings: &StorageSettings) -> Result<Self> {
+        let pool = lazy_pool(&settings.database_url)
+            .context("DATABASE_URL rejected by PostgreSQL driver")?;
+        let store = Arc::new(PostgresStore::new(pool.clone()));
+        let object_client = objects::minio::client(&objects::minio::EndpointConfig {
+            endpoint_url: settings.s3_endpoint.clone(),
+            region: settings.s3_region.clone(),
+            access_key_id: settings.access_key_id.clone(),
+            secret_access_key: settings.secret_access_key.clone(),
+        });
+        let objects = Arc::new(objects::s3::S3ObjectStore::new(
+            object_client.clone(),
+            objects::s3::BucketNames {
+                content: settings.content_bucket.clone(),
+                student_records: settings.student_records_bucket.clone(),
+                temp_processing: settings.temp_processing_bucket.clone(),
+            },
+        ));
+        Ok(Self {
+            store,
+            objects,
+            pool,
+            object_client,
+        })
+    }
+}
+
+struct ProductionSettings {
+    storage: StorageSettings,
     public_asset_base_url: String,
     webwork_renderer_base_url: String,
     webwork_request_timeout_seconds: u64,
@@ -728,14 +807,7 @@ struct ProductionSettings {
 impl ProductionSettings {
     fn from_env() -> Result<Self> {
         Ok(Self {
-            database_url: required_env("DATABASE_URL")?,
-            s3_endpoint: required_env("PLE_S3_ENDPOINT")?,
-            s3_region: required_env("PLE_S3_REGION")?,
-            access_key_id: required_env("AWS_ACCESS_KEY_ID")?,
-            secret_access_key: required_env("AWS_SECRET_ACCESS_KEY")?,
-            content_bucket: required_env("PLE_CONTENT_BUCKET")?,
-            student_records_bucket: required_env("PLE_STUDENT_RECORDS_BUCKET")?,
-            temp_processing_bucket: required_env("PLE_TEMP_PROCESSING_BUCKET")?,
+            storage: StorageSettings::from_env()?,
             public_asset_base_url: required_env("PLE_PUBLIC_ASSET_BASE_URL")?,
             webwork_renderer_base_url: required_env("PLE_WEBWORK_RENDERER_BASE_URL")?,
             webwork_request_timeout_seconds: positive_u64_env(
@@ -976,8 +1048,8 @@ mod tests {
     use tower::ServiceExt;
 
     use super::*;
-    use server_core::auth::{CookieTransport, IdentityProviderError};
-    use server_core::catalog::ReviewGateError;
+    use crate::auth::{CookieTransport, IdentityProviderError};
+    use crate::catalog::ReviewGateError;
 
     #[derive(Debug)]
     struct TestIdentity;
@@ -1110,14 +1182,16 @@ mod tests {
 
     fn production_settings() -> ProductionSettings {
         ProductionSettings {
-            database_url: "postgres://user:password@127.0.0.1:1/ple".to_string(),
-            s3_endpoint: "http://127.0.0.1:1".to_string(),
-            s3_region: "us-east-1".to_string(),
-            access_key_id: "test-access".to_string(),
-            secret_access_key: "test-secret".to_string(),
-            content_bucket: "content".to_string(),
-            student_records_bucket: "student-records".to_string(),
-            temp_processing_bucket: "temp-processing".to_string(),
+            storage: StorageSettings {
+                database_url: "postgres://user:password@127.0.0.1:1/ple".to_string(),
+                s3_endpoint: "http://127.0.0.1:1".to_string(),
+                s3_region: "us-east-1".to_string(),
+                access_key_id: "test-access".to_string(),
+                secret_access_key: "test-secret".to_string(),
+                content_bucket: "content".to_string(),
+                student_records_bucket: "student-records".to_string(),
+                temp_processing_bucket: "temp-processing".to_string(),
+            },
             public_asset_base_url: "https://cdn.example.test/content".to_string(),
             webwork_renderer_base_url: "http://webwork-renderer:8080".to_string(),
             webwork_request_timeout_seconds: 15,
@@ -1297,20 +1371,20 @@ mod tests {
         let mut configured = production_settings();
         configured.imathas_provider_key = Some("institution-imathas".to_string());
         let store = Arc::new(PostgresStore::new(
-            lazy_pool(&configured.database_url).expect("lazy postgres pool"),
+            lazy_pool(&configured.storage.database_url).expect("lazy postgres pool"),
         ));
         let object_client = objects::minio::client(&objects::minio::EndpointConfig {
-            endpoint_url: configured.s3_endpoint.clone(),
-            region: configured.s3_region.clone(),
-            access_key_id: configured.access_key_id.clone(),
-            secret_access_key: configured.secret_access_key.clone(),
+            endpoint_url: configured.storage.s3_endpoint.clone(),
+            region: configured.storage.s3_region.clone(),
+            access_key_id: configured.storage.access_key_id.clone(),
+            secret_access_key: configured.storage.secret_access_key.clone(),
         });
         let objects = Arc::new(objects::s3::S3ObjectStore::new(
             object_client,
             objects::s3::BucketNames {
-                content: configured.content_bucket.clone(),
-                student_records: configured.student_records_bucket.clone(),
-                temp_processing: configured.temp_processing_bucket.clone(),
+                content: configured.storage.content_bucket.clone(),
+                student_records: configured.storage.student_records_bucket.clone(),
+                temp_processing: configured.storage.temp_processing_bucket.clone(),
             },
         ));
 
@@ -1395,25 +1469,6 @@ mod tests {
         invalid_header.webwork_authentication_header =
             Some(("not a header".to_string(), "value".to_string()));
         assert!(invalid_header.webwork_renderer().is_err());
-    }
-
-    #[test]
-    fn persistent_dependencies_are_concrete_replica_safe_types() {
-        fn assert_types(_: &Arc<PostgresStore>, _: &Arc<objects::s3::S3ObjectStore>) {}
-        let _ = assert_types;
-    }
-
-    #[tokio::test]
-    async fn production_dependencies_construct_real_retention_components_without_activation() {
-        let settings = production_settings();
-        let persistent = PersistentDependencies::from_settings(&settings)
-            .await
-            .expect("valid lazy settings");
-        let components = persistent.retention_worker_components();
-
-        let _: Arc<RetentionJobHandler<PostgresStore, objects::s3::S3ObjectStore>> =
-            components.handler;
-        let _: Arc<RetentionJobCommitter<PostgresStore>> = components.committer;
     }
 
     #[tokio::test]
@@ -1569,7 +1624,7 @@ mod tests {
 
     #[tokio::test]
     async fn local_provider_only_accepts_canonical_fixed_identity_login() {
-        let app = server_core::auth::router(
+        let app = crate::auth::router(
             Arc::new(local_provider()),
             Arc::new(MemoryStore::default()),
             local_development_session_config(),

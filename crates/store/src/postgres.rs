@@ -104,138 +104,7 @@ use crate::{
 };
 
 #[cfg(feature = "postgres")]
-const MIGRATIONS: &[(i64, &str)] = &[
-    (
-        20260807000000,
-        include_str!("../../../schemas/migrations/20260807000000_initial.sql"),
-    ),
-    (
-        20260807000100,
-        include_str!("../../../schemas/migrations/20260807000100_auth_sessions.sql"),
-    ),
-    (
-        20260807000200,
-        include_str!("../../../schemas/migrations/20260807000200_catalog.sql"),
-    ),
-    (
-        20260807000300,
-        include_str!("../../../schemas/migrations/20260807000300_courses.sql"),
-    ),
-    (
-        20260807000400,
-        include_str!("../../../schemas/migrations/20260807000400_run_api.sql"),
-    ),
-    (
-        20260807000500,
-        include_str!("../../../schemas/migrations/20260807000500_asset_delivery.sql"),
-    ),
-    (
-        20260808000000,
-        include_str!("../../../schemas/migrations/20260808000000_imathas_catalog_backend.sql"),
-    ),
-    (
-        20260808000100,
-        include_str!("../../../schemas/migrations/20260808000100_published_source_artifact.sql"),
-    ),
-    (
-        20260808000200,
-        include_str!("../../../schemas/migrations/20260808000200_worker_jobs.sql"),
-    ),
-    (
-        20260808000300,
-        include_str!("../../../schemas/migrations/20260808000300_gradebook_summary.sql"),
-    ),
-    (
-        20260808000400,
-        include_str!("../../../schemas/migrations/20260808000400_imathas_broker.sql"),
-    ),
-    (
-        20260808000500,
-        include_str!(
-            "../../../schemas/migrations/20260808000500_imathas_broker_verification_token.sql"
-        ),
-    ),
-    (
-        20260808000600,
-        include_str!("../../../schemas/migrations/20260808000600_workspace_qti_import.sql"),
-    ),
-    (
-        20260808000700,
-        include_str!("../../../schemas/migrations/20260808000700_attempt_feedback.sql"),
-    ),
-    (
-        20260808000800,
-        include_str!("../../../schemas/migrations/20260808000800_qti_grader_principal.sql"),
-    ),
-    (
-        20260808000900,
-        include_str!("../../../schemas/migrations/20260808000900_submission_receipt_snapshot.sql"),
-    ),
-    (
-        20260808001000,
-        include_str!("../../../schemas/migrations/20260808001000_catalog_search.sql"),
-    ),
-    (
-        20260808001100,
-        include_str!("../../../schemas/migrations/20260808001100_feedback_release.sql"),
-    ),
-    (
-        20260808001200,
-        include_str!("../../../schemas/migrations/20260808001200_run_summary_cursor.sql"),
-    ),
-    (
-        20260808001300,
-        include_str!("../../../schemas/migrations/20260808001300_workspace_draft_privileges.sql"),
-    ),
-    (
-        20260808001400,
-        include_str!("../../../schemas/migrations/20260808001400_workspace_draft_access.sql"),
-    ),
-    (
-        20260808001500,
-        include_str!("../../../schemas/migrations/20260808001500_qti_prepared_import.sql"),
-    ),
-    (
-        20260808001600,
-        include_str!("../../../schemas/migrations/20260808001600_published_qti_grading.sql"),
-    ),
-    (
-        20260808001700,
-        include_str!("../../../schemas/migrations/20260808001700_assignment_revision.sql"),
-    ),
-    (
-        20260808001800,
-        include_str!("../../../schemas/migrations/20260808001800_question_prefetch.sql"),
-    ),
-    (
-        20260808001900,
-        include_str!("../../../schemas/migrations/20260808001900_student_exports.sql"),
-    ),
-    (
-        20260808002000,
-        include_str!("../../../schemas/migrations/20260808002000_question_statistics.sql"),
-    ),
-    (
-        20260808002100,
-        include_str!("../../../schemas/migrations/20260808002100_retention_foundation.sql"),
-    ),
-    (
-        20260808002200,
-        include_str!("../../../schemas/migrations/20260808002200_retention_worker.sql"),
-    ),
-    (
-        20260808002300,
-        include_str!("../../../schemas/migrations/20260808002300_retention_lifecycle.sql"),
-    ),
-    (
-        20260808002400,
-        include_str!("../../../schemas/migrations/20260808002400_retention_api.sql"),
-    ),
-    (
-        20260808002500,
-        include_str!("../../../schemas/migrations/20260808002500_retention_archive_access.sql"),
-    ),
-];
+static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../schemas/migrations");
 
 /// Gradebook pages are bounded joins over compact tenant-owned rows only.
 ///
@@ -256,6 +125,19 @@ const GRADEBOOK_SUMMARY_PAGE_SQL: &str = "SELECT \
    AND ($3::uuid IS NULL \
         OR (a.assignment_id, e.enrollment_id) > ($3, $4)) \
  ORDER BY a.assignment_id, e.enrollment_id LIMIT $5";
+
+/// Member course pagination preserves manager definition access while hiding
+/// an archived course from its learners at the database query boundary.
+#[cfg(feature = "postgres")]
+const MEMBER_COURSE_PAGE_SQL: &str = "SELECT \
+    c.course_id::text AS stable_key, c.course_id, c.title, cm.role \
+ FROM course AS c JOIN course_member AS cm \
+   ON cm.tenant_id = c.tenant_id AND cm.course_id = c.course_id \
+ WHERE c.tenant_id = $1 AND cm.user_id = $2 \
+   AND (cm.role <> 'student' OR \
+        public.ple_course_records_accessible(c.tenant_id, c.course_id)) \
+   AND ($3::text IS NULL OR c.course_id::text > $3) \
+ ORDER BY c.course_id::text LIMIT $4";
 
 /// The connection pool type, re-exported so callers do not need `sqlx`.
 #[cfg(feature = "postgres")]
@@ -549,12 +431,17 @@ impl ExportJobStore for PostgresStore {
         let manifest = fresh_export_object_id()?;
         let job = JobId::generate()?;
         let mut transaction = self.begin_tenant(context).await?;
-        let row = sqlx::query("SELECT payload FROM assignment WHERE assignment_id = $1 FOR SHARE")
-            .bind(request.assignment.as_uuid())
-            .fetch_optional(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?
-            .ok_or(StoreError::NotFound)?;
+        let row = sqlx::query(
+            "SELECT payload FROM assignment \
+             WHERE assignment_id = $1 \
+               AND public.ple_course_records_accessible(tenant_id, course_id) \
+             FOR SHARE",
+        )
+        .bind(request.assignment.as_uuid())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
         let assignment: AssignmentRecord = decode_payload_row(&row)?;
         let mut expected = Vec::new();
         for kind in ExportArtifactKind::ALL {
@@ -677,16 +564,22 @@ impl ExportJobStore for PostgresStore {
     ) -> Result<ExportCommitDisposition, StoreError> {
         validate_export_artifacts(context.tenant_id(), &commit.artifacts)?;
         let mut transaction = self.begin_tenant(context).await?;
-        let requester: UserId = sqlx::query_scalar(
-            "SELECT requester_id FROM student_export_request WHERE job_id = $1 AND manifest_object_id = $2",
+        let request_row = sqlx::query(
+            "SELECT requester_id, course_id FROM student_export_request \
+             WHERE job_id = $1 AND manifest_object_id = $2",
         )
         .bind(commit.job.as_uuid())
         .bind(commit.manifest.as_uuid())
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?
-        .map(UserId::from_uuid)
         .ok_or(StoreError::NotFound)?;
+        let requester = UserId::from_uuid(
+            request_row
+                .try_get("requester_id")
+                .map_err(map_sqlx_error)?,
+        );
+        let course = CourseId::from_uuid(request_row.try_get("course_id").map_err(map_sqlx_error)?);
         let mut artifacts = Vec::with_capacity(commit.artifacts.len());
         for artifact in &commit.artifacts {
             let delivery = AssetDeliveryRecord {
@@ -694,11 +587,13 @@ impl ExportJobStore for PostgresStore {
                 object: artifact.object.clone(),
                 scope: AssetDeliveryScope::StudentRecord {
                     tenant: context.tenant_id(),
+                    course,
                     authorized_users: vec![requester],
                 },
             };
-            // The broker replaces this empty list with the frozen requestor. Validate object shape
-            // directly here because the public asset helper rightfully refuses an empty ACL.
+            // The requester and course come only from the frozen export row.
+            // The broker verifies the exact typed delivery while committing
+            // the closed four-artifact bundle under the active lease.
             let object = serde_json::to_value(&artifact.object).map_err(|error| {
                 StoreError::InvalidRecord(format!("export object serialization failed: {error}"))
             })?;
@@ -886,17 +781,25 @@ impl AssetStore for PostgresStore {
     ) -> Result<(), StoreError> {
         validate_asset_delivery(&record)?;
         let (payload, checksum) = encode_payload(&record)?;
-        let (kind, tenant, problem, version, asset) = match &record.scope {
+        let (kind, tenant, course, problem, version, asset) = match &record.scope {
             AssetDeliveryScope::Catalog { asset, reference } => (
                 "catalog",
+                None,
                 None,
                 Some(reference.problem),
                 Some(reference.version),
                 Some(*asset),
             ),
-            AssetDeliveryScope::StudentRecord { tenant, .. } => {
+            AssetDeliveryScope::StudentRecord { tenant, course, .. } => {
                 ensure_tenant(context, *tenant)?;
-                ("student_record", Some(*tenant), None, None, None)
+                (
+                    "student_record",
+                    Some(*tenant),
+                    Some(*course),
+                    None,
+                    None,
+                    None,
+                )
             }
         };
         let mut transaction = self.begin_tenant(context).await?;
@@ -914,15 +817,28 @@ impl AssetStore for PostgresStore {
                 return Err(StoreError::NotFound);
             }
         }
+        if let Some(course) = course {
+            let accessible: bool =
+                sqlx::query_scalar("SELECT public.ple_course_records_accessible($1, $2)")
+                    .bind(context.tenant_id().as_uuid())
+                    .bind(course.as_uuid())
+                    .fetch_one(&mut *transaction)
+                    .await
+                    .map_err(map_sqlx_error)?;
+            if !accessible {
+                return Err(StoreError::NotFound);
+            }
+        }
         sqlx::query(
             "INSERT INTO asset_delivery \
-             (delivery_id, delivery_kind, tenant_id, object_id, problem_id, version_id, \
+             (delivery_id, delivery_kind, tenant_id, course_id, object_id, problem_id, version_id, \
               asset_id, payload, payload_sha256) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
         )
         .bind(record.id.as_uuid())
         .bind(kind)
         .bind(tenant.map(|value| value.as_uuid()))
+        .bind(course.map(|value| value.as_uuid()))
         .bind(record.object.id.as_uuid())
         .bind(problem.map(|value| value.as_uuid()))
         .bind(version.map(|value| value.as_uuid()))
@@ -992,7 +908,7 @@ impl AssetStore for PostgresStore {
     ) -> Result<AuthorizedAssetDelivery, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         let row = sqlx::query(
-            "SELECT payload, payload_sha256 FROM asset_delivery \
+            "SELECT payload, payload_sha256, course_id FROM asset_delivery \
              WHERE delivery_id = $1",
         )
         .bind(delivery.as_uuid())
@@ -1001,8 +917,33 @@ impl AssetStore for PostgresStore {
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::NotFound)?;
         let record = decode_asset_delivery_row(&row)?;
+        let (scope_text, delivery_id, scope_course_id): (&str, Uuid, Option<Uuid>) =
+            match &record.scope {
+                AssetDeliveryScope::Catalog { .. } => ("catalog", record.id.as_uuid(), None),
+                AssetDeliveryScope::StudentRecord {
+                    tenant: scope_tenant,
+                    course,
+                    ..
+                } => {
+                    if *scope_tenant != context.tenant_id() {
+                        return Err(StoreError::NotFound);
+                    }
+                    let object_course = row
+                        .try_get::<Option<Uuid>, _>("course_id")
+                        .map_err(map_sqlx_error)?;
+                    if object_course != Some(course.as_uuid()) {
+                        return Err(StoreError::NotFound);
+                    }
+                    (
+                        "student_record",
+                        record.id.as_uuid(),
+                        Some(course.as_uuid()),
+                    )
+                }
+            };
         if let AssetDeliveryScope::StudentRecord {
             tenant,
+            course: _,
             authorized_users,
         } = &record.scope
             && (*tenant != context.tenant_id() || !authorized_users.contains(&actor))
@@ -1016,17 +957,22 @@ impl AssetStore for PostgresStore {
             delivery,
             object: record.object.id,
             bucket: record.object.bucket,
+            course: scope_course_id.map(CourseId::from_uuid),
             occurred_at: authorized_at,
         };
         let (payload, checksum) = encode_payload(&event)?;
         sqlx::query(
             "INSERT INTO audit_event \
-             (tenant_id, audit_event_id, occurred_at, payload, payload_sha256) \
-             VALUES ($1, gen_random_uuid(), transaction_timestamp(), $2, $3)",
+             (tenant_id, audit_event_id, occurred_at, payload, payload_sha256, \
+              delivery_scope, delivery_id, course_id) \
+             VALUES ($1, gen_random_uuid(), transaction_timestamp(), $2, $3, $4, $5, $6)",
         )
         .bind(context.tenant_id().as_uuid())
         .bind(payload)
         .bind(checksum)
+        .bind(scope_text)
+        .bind(delivery_id)
+        .bind(scope_course_id)
         .execute(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -1640,42 +1586,8 @@ pub fn lazy_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
 /// Returns a database or migration-integrity failure.
 #[cfg(feature = "postgres")]
 pub async fn apply_migrations(pool: &PgPool) -> Result<(), sqlx::Error> {
-    let mut transaction = pool.begin().await?;
-    sqlx::query("SELECT pg_advisory_xact_lock(731_026_808)")
-        .execute(&mut *transaction)
-        .await?;
-    sqlx::raw_sql(
-        "CREATE TABLE IF NOT EXISTS ple_schema_migration (\
-         version bigint PRIMARY KEY, \
-         checksum character(64) NOT NULL, \
-         applied_at timestamptz NOT NULL DEFAULT transaction_timestamp()\
-         )",
-    )
-    .execute(&mut *transaction)
-    .await?;
-    for (version, migration) in MIGRATIONS {
-        let checksum = Sha256Digest::compute(migration.as_bytes()).to_string();
-        let existing: Option<String> =
-            sqlx::query_scalar("SELECT checksum FROM ple_schema_migration WHERE version = $1")
-                .bind(version)
-                .fetch_optional(&mut *transaction)
-                .await?;
-        if let Some(existing) = existing {
-            if existing != checksum {
-                return Err(sqlx::Error::Protocol(format!(
-                    "migration {version} checksum changed after application"
-                )));
-            }
-            continue;
-        }
-        sqlx::raw_sql(*migration).execute(&mut *transaction).await?;
-        sqlx::query("INSERT INTO ple_schema_migration (version, checksum) VALUES ($1, $2)")
-            .bind(version)
-            .bind(checksum)
-            .execute(&mut *transaction)
-            .await?;
-    }
-    transaction.commit().await
+    MIGRATOR.run(pool).await?;
+    Ok(())
 }
 
 /// Runs a real query against PostgreSQL.
@@ -2461,21 +2373,14 @@ impl Store for PostgresStore {
         let limit = i64::from(page.size.get()) + 1;
         let mut transaction = self.begin_tenant(context).await?;
         let rows = match scope {
-            CourseListScope::Member(user) => sqlx::query(
-                "SELECT c.course_id::text AS stable_key, c.course_id, c.title, cm.role \
-                 FROM course AS c JOIN course_member AS cm \
-                   ON cm.tenant_id = c.tenant_id AND cm.course_id = c.course_id \
-                 WHERE c.tenant_id = $1 AND cm.user_id = $2 \
-                   AND ($3::text IS NULL OR c.course_id::text > $3) \
-                 ORDER BY c.course_id::text LIMIT $4",
-            )
-            .bind(context.tenant_id().as_uuid())
-            .bind(user.as_uuid())
-            .bind(cursor)
-            .bind(limit)
-            .fetch_all(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?,
+            CourseListScope::Member(user) => sqlx::query(MEMBER_COURSE_PAGE_SQL)
+                .bind(context.tenant_id().as_uuid())
+                .bind(user.as_uuid())
+                .bind(cursor)
+                .bind(limit)
+                .fetch_all(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?,
             CourseListScope::TenantAdministrator => sqlx::query(
                 "SELECT course_id::text AS stable_key, course_id, title, \
                         'administrator'::text AS role \
@@ -6899,460 +6804,4 @@ fn decode_tenant_job_view(row: &PgRow, id: JobId) -> Result<TenantJobView, Store
             StoreError::Unavailable("stored queue attempt count is invalid".to_string())
         })?,
     })
-}
-
-#[cfg(all(test, feature = "postgres"))]
-mod tests {
-    use super::GRADEBOOK_SUMMARY_PAGE_SQL;
-
-    const ASSIGNMENT_REVISION_MIGRATION: &str =
-        include_str!("../../../schemas/migrations/20260808001700_assignment_revision.sql");
-
-    const GRADEBOOK_MIGRATION: &str =
-        include_str!("../../../schemas/migrations/20260808000300_gradebook_summary.sql");
-    const PREFETCH_MIGRATION: &str =
-        include_str!("../../../schemas/migrations/20260808001800_question_prefetch.sql");
-    const STATISTICS_MIGRATION: &str =
-        include_str!("../../../schemas/migrations/20260808002000_question_statistics.sql");
-    const RETENTION_MIGRATION: &str =
-        include_str!("../../../schemas/migrations/20260808002100_retention_foundation.sql");
-    const RETENTION_WORKER_MIGRATION: &str =
-        include_str!("../../../schemas/migrations/20260808002200_retention_worker.sql");
-    const RETENTION_LIFECYCLE_MIGRATION: &str =
-        include_str!("../../../schemas/migrations/20260808002300_retention_lifecycle.sql");
-    const RETENTION_API_MIGRATION: &str =
-        include_str!("../../../schemas/migrations/20260808002400_retention_api.sql");
-    const RETENTION_ARCHIVE_ACCESS_MIGRATION: &str =
-        include_str!("../../../schemas/migrations/20260808002500_retention_archive_access.sql");
-
-    #[test]
-    fn retention_archive_access_migration_is_registered_and_fenced() {
-        assert!(
-            super::MIGRATIONS
-                .iter()
-                .any(|(version, _)| *version == 20260808002500)
-        );
-        let migration = RETENTION_ARCHIVE_ACCESS_MIGRATION.to_ascii_lowercase();
-        for required in [
-            "create function ple_course_records_accessible",
-            "p_tenant is distinct from public.ple_current_tenant()",
-            "from public.course",
-            "lifecycle in ('archived', 'deleted')",
-            "generation = current_generation",
-            "stage = 'archivestudentrecords'",
-            "state = 'started'",
-            "security definer",
-            "set search_path = pg_catalog, public",
-            "grant execute on function ple_course_records_accessible",
-            "drop policy if exists assignment_tenant",
-            "student_assignment_summary",
-            "assignment_run",
-            "question_attempt",
-            "submission",
-            "attempt_feedback",
-            "question_prefetch",
-            "external_tool_exchange",
-            "student_export_request",
-            "asset_delivery has no course column",
-            "join public.course_retention_dispatch",
-            "s.state='started'",
-            "s.job_id=p_job",
-            "s.lease_token=p_token",
-            "set lifecycle='archived'",
-        ] {
-            assert!(
-                migration.contains(required),
-                "missing R4.3 guard: {required}"
-            );
-        }
-        assert!(GRADEBOOK_SUMMARY_PAGE_SQL.contains("ple_course_records_accessible"));
-        for forbidden in [
-            "delete from public.question_attempt",
-            "delete from public.submission",
-            "grant delete on",
-        ] {
-            assert!(
-                !migration.contains(forbidden),
-                "R4.3 must not broaden destructive scope: {forbidden}"
-            );
-        }
-    }
-
-    #[test]
-    fn retention_lifecycle_migration_dispatches_only_bound_due_current_stages() {
-        assert!(
-            super::MIGRATIONS
-                .iter()
-                .any(|(version, _)| *version == 20260808002300)
-        );
-        let migration = RETENTION_LIFECYCLE_MIGRATION.to_ascii_lowercase();
-        for required in [
-            "create table course_retention_dispatch",
-            "foreign key (tenant_id, course_id, stage, generation)",
-            "foreign key (job_id) references worker_job(job_id) deferrable initially deferred",
-            "enable row level security",
-            "force row level security",
-            "create function ple_dispatch_due_retention_stages",
-            "for update of s, r skip locked",
-            "s.due_at <= transaction_timestamp()",
-            "r.generation=s.generation",
-            "jsonb_build_object('kind','retention'",
-            "create or replace function ple_prepare_retention_work",
-            "join public.course_retention_dispatch d",
-            "create or replace function ple_commit_retention_work",
-            "create function ple_extend_course_retention",
-            "create function ple_set_archive_disposition",
-            "w.state in ('ready','leased')",
-            "stage='archivestudentrecords'",
-            "errcode = '42501'",
-            "security definer set search_path = pg_catalog, public",
-            "revoke all on course_retention_dispatch from public, ple_app",
-        ] {
-            assert!(
-                migration.contains(required),
-                "missing R4.1 guard: {required}"
-            );
-        }
-        for forbidden in [
-            "question_statistics_aggregate",
-            "problem_version_payload",
-            "bucket-prefix",
-            "payload->>'objectkey'",
-        ] {
-            assert!(
-                !migration.contains(forbidden),
-                "R4.1 must not broaden dispatch into {forbidden}"
-            );
-        }
-    }
-
-    #[test]
-    fn retention_api_migration_is_cas_safe_and_reuses_closed_dispatch() {
-        assert!(
-            super::MIGRATIONS
-                .iter()
-                .any(|(version, _)| *version == 20260808002400)
-        );
-        let migration = RETENTION_API_MIGRATION.to_ascii_lowercase();
-        for required in [
-            "create function ple_read_retention_notification",
-            "create function ple_apply_retention_api_action",
-            "create table course_retention_api_receipt",
-            "primary key (tenant_id, course_id, expected_generation)",
-            "replay.actor_id<>actor or replay.action<>p_action",
-            "replay.assignment_disposition is distinct from p_disposition",
-            "resulting_generation",
-            "p_expected_generation",
-            "lifecycle='active' for update",
-            "if current.generation<>p_expected_generation then return null",
-            "order by n.generation desc, n.created_at desc",
-            "returns table (intent text, created_at_millis bigint)",
-            "return 'inprogress'",
-            "return 'completed'",
-            "from public.course_retention_dispatch d",
-            "return 'scheduled'",
-            "current.assignment_disposition is distinct from p_disposition",
-            "return case when immediate_stage is null then 'changed' else 'scheduled' end",
-            "ple_retention_authorize(p_session, p_course, true)",
-            "course_retention_dispatch",
-            "jsonb_build_object('kind','retention'",
-            "security definer set search_path = pg_catalog, public",
-            "errcode = '42501'",
-            "revoke all on function ple_read_retention_notification",
-        ] {
-            assert!(
-                migration.contains(required),
-                "missing R4.2 guard: {required}"
-            );
-        }
-        for forbidden in ["object_payload", "student_export_artifact", "delete from"] {
-            assert!(
-                !migration.contains(forbidden),
-                "R4.2 request boundary must not perform purge work: {forbidden}"
-            );
-        }
-        assert!(
-            migration
-                .find("lifecycle='active' for update")
-                .expect("course lock")
-                < migration
-                    .find("select * into replay")
-                    .expect("receipt lookup"),
-            "the course lock must serialize concurrent retries before receipt lookup"
-        );
-    }
-
-    #[test]
-    fn retention_worker_migration_is_registered_and_broker_only() {
-        assert!(
-            super::MIGRATIONS
-                .iter()
-                .any(|(version, _)| *version == 20260808002200)
-        );
-        let migration = RETENTION_WORKER_MIGRATION.to_ascii_lowercase();
-        for required in [
-            "create table course_retention_notification",
-            "drop constraint worker_job_payload_check",
-            "payload->>'kind'='retention'",
-            "alter table course_retention_stage",
-            "create function ple_prepare_retention_work",
-            "create function ple_commit_retention_work",
-            "security definer set search_path = pg_catalog, public",
-            "delete from public.asset_delivery",
-            "invalid student-record retention manifest",
-            "a.object_payload->>'bucket' <> 'student-records'",
-            "worker_job w",
-            "lease_token=p_token",
-            "s.due_at <= transaction_timestamp()",
-            "for update of w",
-            "s.state='started' and s.job_id=p_job",
-            "to ple_retention_broker",
-            "retention_broker_worker_job",
-            "retention_broker_export_request",
-            "retention_broker_export_artifact",
-            "retention_broker_asset_delivery",
-            "grant select, delete on asset_delivery to ple_retention_broker",
-            "revoke all on course_retention_notification",
-        ] {
-            assert!(
-                migration.contains(required),
-                "missing retention worker guard: {required}"
-            );
-        }
-        for forbidden in [
-            "question_statistics_aggregate",
-            "question_attempt",
-            "submission",
-            "bucket-prefix",
-        ] {
-            assert!(
-                !migration.contains(forbidden),
-                "worker migration must not broaden retention scope: {forbidden}"
-            );
-        }
-    }
-
-    #[test]
-    fn retention_migration_is_registered_tenant_scoped_and_non_destructive() {
-        assert!(
-            super::MIGRATIONS
-                .iter()
-                .any(|(version, _)| *version == 20260808002100)
-        );
-        let migration = RETENTION_MIGRATION.to_ascii_lowercase();
-        for required in [
-            "create table institution_retention_policy",
-            "create table course_retention",
-            "create table course_retention_stage",
-            "generation bigint not null check (generation > 0)",
-            "course_retention_stage_due_idx",
-            "enable row level security",
-            "force row level security",
-            "create function ple_retention_authorize",
-            "perform set_config('ple.session_hash', p_session, true)",
-            "language sql volatile security definer set search_path = pg_catalog, public",
-            "where public.ple_retention_authorize(p_session, p_course, false)",
-            "revoke all on institution_retention_policy, course_retention, course_retention_stage",
-        ] {
-            assert!(
-                migration.contains(required),
-                "missing retention guard: {required}"
-            );
-        }
-        for forbidden in [
-            "question_statistics_aggregate",
-            "question_attempt",
-            "submission",
-            "grade_event",
-            "grant delete",
-        ] {
-            assert!(
-                !migration.contains(forbidden),
-                "retention foundation must not expose destructive history authority: {forbidden}"
-            );
-        }
-    }
-
-    #[test]
-    fn statistics_migration_is_registered_private_and_retention_safe() {
-        let versions: Vec<_> = super::MIGRATIONS
-            .iter()
-            .map(|(version, _)| *version)
-            .collect();
-        assert!(versions.windows(2).all(|pair| pair[0] < pair[1]));
-        assert!(versions.contains(&20260808002000));
-        let normalized = STATISTICS_MIGRATION.to_ascii_lowercase();
-        for required in [
-            "create role ple_statistics_broker",
-            "nologin",
-            "nobypassrls",
-            "create table question_statistics_aggregate",
-            "primary key (problem_id, version_id)",
-            "create table question_statistics_contribution_receipt",
-            "observation_sha256 bytea not null",
-            "on delete cascade",
-            "enable row level security",
-            "force row level security",
-            "question_statistics_contribution_receipt_tenant",
-            "question_statistics_contribution_receipt_broker",
-            "security definer set search_path = pg_catalog, public",
-            "ple_record_question_statistics",
-            "ple_question_statistics_view",
-            "aggregate.cohort_size >= 5",
-            "problem_version_statistics_visible_select",
-            "assignment_run_statistics_broker",
-            "question_attempt_statistics_broker",
-            "earlier_run.run_number < run.run_number",
-            "run.payload->>'mode' = 'assigned'",
-            "first_completed_run_id",
-            "ple_statistics_aggregate_valid",
-            "not public.ple_statistics_canonical_float(p_score)",
-            "not public.ple_statistics_canonical_float(p_rest_score)",
-            "paired_score_sum",
-        ] {
-            assert!(normalized.contains(required), "missing {required}");
-        }
-        for forbidden in [
-            "grant select on question_statistics_aggregate to ple_app",
-            "grant select on question_statistics_aggregate to ple_student",
-            "grant select on question_statistics_aggregate to ple_grader",
-            "grant select on question_statistics_aggregate to ple_qti_grader",
-            "grant select on question_statistics_aggregate to ple_queue_broker",
-            "unique (tenant_id, attempt_id)",
-        ] {
-            assert!(
-                !normalized.contains(forbidden),
-                "statistics migration must not expose or over-constrain: {forbidden}"
-            );
-        }
-    }
-
-    #[test]
-    fn prefetch_migration_is_registered_ordered_and_tenant_hardened() {
-        let versions: Vec<_> = super::MIGRATIONS
-            .iter()
-            .map(|(version, _)| *version)
-            .collect();
-        assert!(versions.windows(2).all(|pair| pair[0] < pair[1]));
-        assert!(versions.contains(&20260808001800));
-        let normalized = PREFETCH_MIGRATION.to_ascii_lowercase();
-        for required in [
-            "create table question_prefetch",
-            "create table submission_next_attempt",
-            "enable row level security",
-            "force row level security",
-            "question_prefetch_tenant",
-            "submission_next_attempt_tenant",
-            "predecessor_occurred_at",
-            "next_attempt_occurred_at",
-            "references question_attempt",
-            "references submission_idempotency",
-            "grant select, insert, delete on question_prefetch to ple_app",
-            "grant select, insert on submission_next_attempt to ple_app",
-        ] {
-            assert!(normalized.contains(required), "missing {required}");
-        }
-        assert!(!normalized.contains("update on question_prefetch"));
-    }
-
-    #[test]
-    fn gradebook_page_query_stays_on_compact_projection_tables() {
-        let normalized = GRADEBOOK_SUMMARY_PAGE_SQL.to_ascii_lowercase();
-        for forbidden in [
-            "assignment_run",
-            "question_attempt",
-            "submission",
-            "grade_event",
-            "count(",
-            "sum(",
-            "avg(",
-        ] {
-            assert!(
-                !normalized.contains(forbidden),
-                "gradebook query must not scan history or aggregate it: {forbidden}"
-            );
-        }
-        for required in [
-            "assignment as a",
-            "enrollment as e",
-            "student_assignment_summary as sas",
-            "(a.assignment_id, e.enrollment_id) > ($3, $4)",
-            "order by a.assignment_id, e.enrollment_id",
-            "limit $5",
-        ] {
-            assert!(normalized.contains(required));
-        }
-        for forbidden in [
-            "assignment_id::text",
-            "enrollment_id::text",
-            "|| '/' ||",
-            "order by a.assignment_id::text",
-        ] {
-            assert!(
-                !normalized.contains(forbidden),
-                "gradebook cursor and order must stay index-aligned: {forbidden}"
-            );
-        }
-    }
-
-    #[test]
-    fn catalog_statistics_queries_read_only_visible_catalog_and_safe_aggregates() {
-        let source = include_str!("postgres.rs");
-        let start = source
-            .find("    async fn search_catalog(")
-            .expect("catalog search implementation");
-        let end = source[start..]
-            .find("    async fn get_catalog_detail(")
-            .map(|offset| start + offset)
-            .expect("catalog detail follows search");
-        let search = source[start..end].to_ascii_lowercase();
-        for required in [
-            "left join lateral ple_question_statistics_view",
-            "statistics.cohort_size is not null",
-            "statistics.cohort_size is null",
-        ] {
-            assert!(
-                search.contains(required),
-                "missing safe catalog statistics shape: {required}"
-            );
-        }
-        assert_eq!(
-            search
-                .matches("left join lateral ple_question_statistics_view")
-                .count(),
-            search
-                .matches("$5::smallint <> 1 or statistics.cohort_size is not null")
-                .count(),
-            "every availability-filtered catalog SQL block must use the safe lateral reader"
-        );
-        for forbidden in [
-            "question_attempt",
-            "submission",
-            "grade_event",
-            "assignment_run",
-            "feedback",
-            "problem_version_payload",
-            " from snapshot",
-            " join snapshot",
-        ] {
-            assert!(
-                !search.contains(forbidden),
-                "catalog statistics must not scan private history: {forbidden}"
-            );
-        }
-    }
-
-    #[test]
-    fn gradebook_page_index_matches_the_native_cursor_tuple() {
-        let normalized = GRADEBOOK_MIGRATION.to_ascii_lowercase();
-        assert!(normalized.contains("enrollment_gradebook_summary_page_idx"));
-        assert!(normalized.contains("on enrollment (tenant_id, assignment_id, enrollment_id)"));
-    }
-
-    #[test]
-    fn assignment_revision_migration_is_forward_only_and_positive() {
-        let normalized = ASSIGNMENT_REVISION_MIGRATION.to_ascii_lowercase();
-        assert!(normalized.contains("add column revision bigint not null default 1"));
-        assert!(normalized.contains("check (revision > 0)"));
-    }
 }

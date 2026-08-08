@@ -37,177 +37,160 @@ The shared tree contains independently reviewed, behavior-tested verticals for:
 - assignment export production with four requester-private, prompt-only artifacts;
 - identity-free question statistics aggregation, persistence, catalog disclosure, and deletion
   survival;
-- retention R1 through R4.2: pure policy, authorized persistence, worker cleanup, trusted due
-  dispatch, schedule extension, archive-time assignment disposition, and the revisioned manager
-  API.
+- retention R1 through R4.4: pure policy, authorized persistence, worker cleanup,
+  trusted due dispatch, schedule extension, archive-time assignment disposition, a revisioned
+  manager API, and truthful archive completion gates.
 
 These statements describe code-first acceptance. Environment-dependent live PostgreSQL, object
 storage, and deployed worker/replica exercises remain one-time deployment gates where documented.
 
-## Most recently accepted task: MOD-RETENTION R4.2
+## Previously accepted task: MOD-RETENTION R4.3
 
-The safe instructor retention API is implemented and independently accepted. The Store owns
-authorization, optimistic concurrency, replay, notification history, and closed worker dispatch.
+The truthful archive boundary is independently accepted. Learner routes now use a central
+retention access fence; worker construction is reusable; and archival lifecycle is
+truthful only after exact cleanup and idempotent replay.
 
-### Store state implemented
+### Acceptance summary
 
-- Forward migration: `../../schemas/migrations/20260808002400_retention_api.sql`.
-- `RetentionRevision` accepts only `1..=i64::MAX`.
-- The browser-safe retention view contains only state, assignment-definition disposition, and
-  revision.
-- Notification reads return only closed intent and authoritative creation time, including a notice
-  created in an earlier retained generation.
-- Archive/delete return `scheduled`, `inProgress`, or `completed` without exposing stage, job,
-  lease, actor, student, object, or source identities.
-- A broker-owned, forced-RLS action receipt binds tenant, course, actor, original expected revision,
-  exact action/disposition, resulting generation, and stage.
-- An original-ETag retry replays through that receipt. A current-revision repeat of the same bound
-  scheduled action also replays without replacing its generation or job.
-- PostgreSQL locks the active course row before reading the receipt, so concurrent identical
-  requests converge after the first commit. Memory serializes the same behavior under its write
-  lock.
-- Conflicting actor, action, or archive disposition is rejected. Memory and PostgreSQL mutation
-  authorization both use `Forbidden` rather than confusing authorization with stale state.
+- Central learner-record archive predicate now fences all learner-facing aliases (courses,
+  assignments, enrollments, run/attempt/submission, summary/gradebook, feedback, prefetch,
+  external-tool, exports, and StudentRecord-bound assets) via Store access checks and
+  PostgreSQL RLS.
+- Manager routes retain retained-definition read visibility, while learner rows use the
+  central course-fence and return concealed `404` for archived/deleted learners.
+- Archive completion is now strictly after exact cleanup, and both Store and server replay are
+  exact/idempotent across retry/replay.
+- Export, StudentRecord, and external-tool resurrection paths now terminate at the same closed
+  archive gate.
+- Public catalog asset routes remain unchanged and remain deliverable.
+- Real `RetentionJobHandler`, `RetentionJobCommitter`, and `RetentionWorkerComponents` are now
+  constructible from production PostgreSQL/object-store dependencies without starting queue
+  activation.
+- Independent review result: ACCEPT, no P0/P1 findings.
+- Current gates are stable: server lib 140, Store lib postgres 44, Store conformance 16,
+  Store retention postgres 18, object conformance 2, strict Store/server all-target Clippy,
+  rustfmt, ASCII 337, Markdown links 45, PG conformance no-run, global/scoped diff clean.
+- `PLE_POSTGRES_TEST_URL` is absent; live forced-RLS, SDF, trigger, and query-plan tests are
+  deferred deployment gates.
 
-Focused Store gates reported green:
+## Most recently accepted task: MOD-RETENTION R4.4
 
-```text
-cargo test -p store retention --lib --features postgres
-cargo test -p store retention --lib --no-default-features
-cargo test -p store --test conformance --features postgres --no-run
-cargo clippy -p store --all-targets --features postgres -- -D warnings
-cargo fmt --all --check
-git diff --check -- crates/store/src/retention.rs crates/store/src/lib.rs \
-  crates/store/src/memory.rs crates/store/src/postgres.rs \
-  schemas/migrations/20260808002400_retention_api.sql
-```
+R4.4A remains independently accepted. R4.4B had reached an accepted functional handoff, but the
+later partial-commit audit correctly reopened its transaction-scale design. The non-destructive
+R4.4A package froze the boundary needed before permanent deletion:
 
-### HTTP contract implemented
+- persist the exact typed cleanup-object set before the worker deletes any object;
+- replay that immutable manifest for a renewed lease on the same bound job;
+- require the persisted manifest before cleanup completion;
+- add indexed relational course ownership to student-record audit events without parsing JSON; and
+- leave relational learner rows and the `deleted` lifecycle untouched until R4.4B supplies the
+  complete purge transaction.
 
-All branches must send `Cache-Control: no-store`. Resolve session and course authority before
-reading a body or parsing `If-Match` so hostile input cannot become an existence oracle.
+R4.4A evidence:
 
-| Route | Contract |
-| --- | --- |
-| `POST /api/courses/{course}/retention/end` | Instructor/admin; exact empty body; Store time; idempotent `200`; safe view and ETag. |
-| `GET /api/courses/{course}/retention` | Instructor/admin; safe view plus optional fixed notification copy, intent, and creation time; ETag. |
-| `POST /api/courses/{course}/retention/archive` | Instructor/admin; strict `{assignmentDefinitions}`; conditional request; `202` scheduled/in progress or `200` completed replay. |
-| `POST /api/courses/{course}/retention/delete` | Instructor/admin; exact empty body; conditional request; `202` scheduled/in progress or `200` completed replay. |
-| `PATCH /api/courses/{course}/retention/extend` | Tenant admin only; strict `{additionalDays}`; conditional request; `200`. |
+- Memory and PostgreSQL reject `deleteStudentRecords` preparation before mutation while still
+  allowing the durable scheduler to dispatch and terminalize the unavailable work explicitly.
+- Archive cleanup stores the exact normalized manifest before delivery revocation, replays it only
+  for the same bound job under a renewed lease, and requires the prepared manifest plus current
+  lease at commit.
+- The manifest contains tenant-owned export and external-transcript objects; it never includes
+  shared source objects or derives ownership from JSON payloads.
+- Student-record audit events now carry indexed relational course ownership; catalog audit events
+  remain course-free.
+- Independent R4.4A review result: ACCEPT, no P0/P1 findings.
+- Current offline gates are green: Store lib postgres 52, Store retention postgres 26, Store
+  conformance 16, PostgreSQL conformance no-run, server lib 140, server retention worker 3, strict
+  Store/server all-target Clippy, rustfmt, ASCII 337, and diff checks.
+- Live PostgreSQL migration/RLS execution remains an environment-backed deployment gate.
 
-Status conventions:
+### R4.4 test permanence classification
 
-- no session: `401`;
-- learner, outsider, foreign tenant, or missing course: concealed `404`;
-- a verified course instructor attempting administrator-only extension: `403`;
-- missing `If-Match`: `428`;
-- malformed, weak, multiple, zero, or out-of-range `If-Match`: `422`;
-- stale or conflicting CAS: `409`;
-- unavailable Store: `503`.
+The repository test policy in `../PYTEST_STYLE.md` applies to the Rust suites as a maintenance
+standard. R4.4 keeps only deterministic, offline behavior tests that protect durable authorization,
+lease/replay, lifecycle, typed-object, and frozen assignment-disposition behavior. Those tests use
+inline inputs or same-module helpers; R4.4 adds no committed `tests/fixtures/` data.
 
-Use a strong numeric ETag matching the body revision. R4.2 must leave lifecycle `Active`; archived
-and deleted states become truthful only in R4.3 and R4.4.
+The committed fixture inventory now contains only `tests/fixtures/published_problem/`, which
+[../HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md) explicitly approves as reviewed cross-layer
+infrastructure. The small QTI ZIP/base64 and WeBWorK PG inputs are inline beside their parser and
+backend tests rather than stored as separate fixture files. New committed fixture directories or
+files require explicit human approval; temporary database, object-store, migration, and
+reconstruction inputs are removed after their one-time evidence is recorded.
 
-### Acceptance evidence
+The following are one-time implementation or deployment checks, not permanent suite residents:
 
-- `crates/server/src/retention.rs` implements and permanently tests all five routes; composition
-  mounts them with explicit `RetentionStore + RetentionApiStore` bounds.
-- Mounted tests cover session and course authority before hostile input, strict bodies, bounded
-  strong ETags, safe notification projection, original/current revision replay, conflicting
-  actions, administrator-only extension, response status, and `no-store` on every branch.
-- The test-support cleanup seed now includes the scheduler's required stage-to-job dispatch
-  binding, so the real flaky-object worker retry exercises deletion and exact idempotent recovery.
-- Fresh independent Spark review reported ACCEPT with no P0/P1. Report:
-  `/tmp/ple-mod-adp-nat.RQcyoY/retention_r4_2_final_review_spark.md`.
-- Focused results: 20 server retention tests, 16 PostgreSQL-feature Store retention tests, strict
-  Store/server Clippy, rustfmt, ASCII compliance (334), Markdown links (44), PostgreSQL conformance
-  compilation, and scoped diff checks all pass.
-- Live PostgreSQL broker/RLS/concurrency tests remain compiled and ignored until
-  `PLE_POSTGRES_TEST_URL` is provided; this is a deployment gate, not code-first acceptance debt.
+- rebuilding an empty PostgreSQL database through every migration, including migration replay;
+- loading a representative relational purge graph and exercising broker roles, RLS, foreign-tenant
+  concealment, malformed cross-course dependencies, lock ordering, and exact object manifests;
+- inspecting migration SQL names, text fragments, statement order, or policy-name lengths; and
+- live object-storage, multi-replica, worker-soak, query-plan, and deployment exercises.
 
-## Current in-flight task: MOD-RETENTION R4.3
+Scratch SQL and ignored live-database reconstruction tests used while building R4.4B are removed
+after their evidence is recorded. The one-time populated PostgreSQL 17 gate passed on 2026-08-08:
+it rebuilt and replayed every migration, exercised malformed but FK-valid cross-course prefetch,
+successor, and statistics-receipt links in both endpoint directions, purged every identifying link,
+and preserved the control course plus the shared anonymous aggregate. The temporary Rust test, SQL
+seed, database, and container were removed afterward; this evidence must not be replaced by a
+committed fixture file or an implementation-string test.
 
-R4.3 is partially implemented but is **not accepted**. Do not start R4.4 until the access aliases,
-worker-construction seam, full behavior gates, and fresh independent review are complete.
+R4.4B now materializes the exact course-owned relational purge graph while the archived course is
+write-fenced, deletes typed objects idempotently, removes learner rows in verified foreign-key
+order, applies the frozen assignment disposition, and sets the coarse retention tombstone to
+`studentRecordsDeleted` only after every required effect succeeds. At the original R4.4B handoff,
+before the later permanent-test pruning, the focused gates were green: Store lib 51, server lib 140,
+Store retention 25, server retention worker 3, Memory conformance 16, PostgreSQL conformance
+compile, strict Store/server Clippy, rustfmt, ASCII 340, Markdown links 46, and diff checks. The
+independent R4.4B security review at that boundary reported no P0/P1 findings; the later partial-
+commit audit findings are tracked separately and supersede that readiness claim.
 
-### Code currently present
-
-- Forward migration `../../schemas/migrations/20260808002500_retention_archive_access.sql` and
-  `CourseRecordsAccessStore` define a lifecycle-opaque course-record access predicate.
-- The predicate returns false for a missing course, a foreign tenant, persisted archived/deleted
-  state, or a current-generation archive stage already in `started` state.
-- Memory ordinary run, attempt, submission, feedback, prefetch, summary, and gradebook paths have
-  initial transactional access checks. PostgreSQL has matching RLS-policy replacements for the
-  principal relational learner-record tables.
-- Exact archive commit changes the stage to completed, lifecycle to archived, and the bound worker
-  job to completed in one conditional Store transaction after external cleanup succeeds.
-- Real `RetentionJobHandler` and `RetentionJobCommitter` components can be constructed from the
-  production PostgreSQL and object-store dependencies without starting a queue drain or deployment
-  worker.
-
-The Store/schema implementation handoff is
-`/tmp/ple-mod-adp-nat.RQcyoY/retention_r4_3_store_core_impl_fallback.md`. The worker-component
-handoff is `/tmp/ple-mod-adp-nat.RQcyoY/retention_r4_3_worker_components_impl_fallback.md`.
-These are implementation reports, not acceptance reports.
-
-### Findings that must be resolved before acceptance
-
-- Memory external-tool exchange and launch-session methods still need the central course fence
-  before replay, provider-related state mutation, resolve, or revoke behavior. PostgreSQL paths
-  rely on nested RLS and require an explicit SECURITY DEFINER/RLS audit.
-- Export create/read/load/commit paths must refuse after the pre-cleanup fence so a concurrent
-  export cannot recreate protected deliveries during archive cleanup.
-- `StudentRecord` asset deliveries currently retain tenant and user ACLs but no direct course
-  relationship. R4.3 needs a durable relational course binding and Store authorization check before
-  a signed URL can be minted; do not infer ownership from opaque JSON. Public catalog assets must
-  remain unaffected.
-- Assignment definitions are retained by owner decision. Manager definition reads must remain
-  available after archive, while learner assignment aliases must be concealed. A single
-  tenant-only assignment RLS policy is not sufficient evidence for both audiences.
-- The current worker-component constructor is private to binary composition and primarily proven by
-  a unit test. Review whether a later worker entry point can consume it without duplicating private
-  composition or accidentally starting the generic unfiltered queue worker.
-- Migration `02500` needs fresh independent review of tenant-oracle behavior, actual policy/table
-  names, broker grants, forced-RLS execution, nested-policy recursion, and query performance.
-
-### Immediate next actions
-
-1. Finish the Store/schema security audit and correct the protected StudentRecord course binding,
-   export fence, external-tool fence, and learner-versus-manager assignment policy.
-2. Apply the same predicate to all server aliases before backend, provider, cache, object-signing,
-   replay, or healing work. Add counters proving archived requests make zero such calls.
-3. Make the real retention handler/committer construction reusable by the future production worker
-   entry point without activating a worker runtime or using refusing handlers for other queue
-   families.
-4. Run Memory/PostgreSQL parity, route alias, worker retry, strict Clippy, formatting, ASCII, diff,
-   and PostgreSQL conformance-compilation gates.
-5. Obtain a fresh independent P0/P1 review, update `../CHANGELOG.md`, and only then begin R4.4.
+The 2026-08-08 partial-commit audit reopened two permanent-purge design blockers: global
+`EXCLUSIVE` table locks blocked unrelated tenants, and whole-course UUID arrays made the transaction
+memory-bound. The working tree now replaces both with a course-retention-row writer fence and
+private indexed run/attempt/export work sets. A removed one-time PostgreSQL 17 probe applied the
+fresh migration chain, purged 50,000 attempts, overlapped a control-course enrollment write that
+completed within two seconds, refused a same-course learner insert after prepare, removed every
+attempt, and erased the private work sets before the tombstone. Permanent offline gates pass: Store
+lib postgres 30, server lib 137, Memory conformance 11, server retention worker 3, and PostgreSQL
+conformance no-run. Fresh independent scalability and security/atomicity rereviews both report
+ACCEPT with no P0/P1 findings. Current commit readiness and safe partial-commit options are recorded in
+[partial_commit_status.md](partial_commit_status.md); do not commit the mixed index before that
+index is rebuilt from the accepted working tree.
 
 ## Dependency-ordered future work
 
-### R4.3: truthful archive boundary
+### Pre-M5 database baseline
 
-- Atomically mark archive only after exact object cleanup succeeds.
-- Add one Store/database course-retention access predicate to every learner-record alias: courses,
-  assignments, enrollment, run/attempt/submission, summary/gradebook, feedback, prefetch, external
-  tools, exports, and protected student-record assets.
-- Keep manager retention status readable while learner-record routes become concealed `404`.
-- Compose the real retention handler/committer in the production worker construction without
-  activating deployment infrastructure yet.
-- Add Memory/PostgreSQL parity, route alias, no-backend-call, and cross-replica tests.
+- Apply the accepted pre-data evolution decision in
+  [decisions/database_schema_evolution_plan.md](decisions/database_schema_evolution_plan.md):
+  consolidate the working migration diary into the six-file initial epoch and replace the manual
+  migration registry with SQLx's checksummed, locking migrator.
+- The migration execution seam now uses SQLx's directory-backed migrator, so new migration files
+  cannot be omitted from a handwritten Rust registry. Store behavior tests and PostgreSQL
+  conformance compilation remain permanent; exact SQL/source-string checks were removed under the
+  fixture and permanent-test policy. The ignored credentialed PostgreSQL mega-test was also removed:
+  it required an external database, carried complex mutable setup, and never belonged in the fast
+  permanent suite. Fresh-install, no-op replay, checksum, missing-version, role/RLS, and concurrent-
+  runner exercises remain one-time environment gates for the consolidated six-file baseline rather
+  than committed fixtures.
+- Run the fresh-install/no-op replay, catalog, forced-RLS, grants, constraint, assignment-CAS,
+  run-snapshot, partition, and payload-upcast gates before declaring the first-data boundary.
+- Keep this as a deliberate schema task. Do not append new M5 persistence to the 27-file disposable
+  history and then preserve another intermediate design.
 
-### R4.4: permanent student-record purge
+### M5 integration hardening after retention
 
-- Add indexed relational course ownership for records that currently carry ownership only inside
-  opaque event payloads. Never infer purge scope from JSON.
-- Freeze a durable exact purge/object-finalization ledger before deleting metadata.
-- Terminalize export and external-tool resurrection paths, revoke deliveries, delete exact typed
-  objects idempotently, then purge course-owned records in verified FK order.
-- Preserve published content, drafts/workspaces, catalog metadata, and anonymous question
-  statistics.
-- Delete assignment definitions only when the archive-time disposition is `delete`; never traverse
-  immutable published references.
-- Keep an authorized course/retention tombstone so final coarse status remains truthful.
+- Audit the remaining M5 deliverables against current source: cross-cutting E2E, orphaned-object
+  reconciliation, asynchronous analytics, and the retention/security documentation set.
+- Object reconciliation currently lacks a bounded object-store inventory API and a database record
+  for deterministic WeBWorK/iMathAS render-cache objects. The durable design needs a database-
+  authoritative object record, typed domain references, first-observed orphan quarantine, and a
+  separate broken-reference alert path that never deletes the database record. Quarantine duration
+  remains injected policy rather than a hardcoded permanent-test default.
+- Run the plan's combined hostile-input, tenant-isolation, answer-key, partition-pruning, renderer
+  outage, course-deletion, and below-k statistics gates together rather than relying on lane-local
+  green results.
+- Keep environment-backed database, object-storage, replica, and provider exercises one-time unless
+  they satisfy the permanent-test checklist.
 
 ### Cross-cutting completion and deployment
 
@@ -223,11 +206,11 @@ These are implementation reports, not acceptance reports.
 
 - The worktree is intentionally broad and dirty from the implementation program; unrelated changes
   belong to the user and other accepted slices.
-- A global `git diff --check` currently reports an unrelated blank line at the end of `.gitignore`.
-  Do not edit it as part of retention unless its owner requests that cleanup; use scoped diff checks
-  for R4.2 files and report the global blocker honestly.
-- Live PostgreSQL retention fixtures compile but remain ignored when
-  `PLE_POSTGRES_TEST_URL` is absent.
+- Global and scoped `git diff --check` were clean at the R4.4 handoff. Recheck the current shared
+  tree before attributing any later formatting failure to this retention slice.
+- No credentialed PostgreSQL retention fixture remains in the permanent suite. Fresh role/RLS,
+  populated-graph, and migration-replay exercises are recorded as one-time gates and their temporary
+  source is removed after execution.
 - Cargo artifacts were previously cleaned after `target/` exhausted disk space; rebuild time is
   expected, and source files were not removed.
 - Finished agent records cannot be pruned from the current collaboration history. Avoid spawning

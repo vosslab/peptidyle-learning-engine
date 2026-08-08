@@ -2290,14 +2290,16 @@ mod tests {
     use question_model::{
         ActivityTimestamp, BackendCapabilities, Capability, CatalogProblemSummary, CourseId,
         CourseMembership, CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource,
-        EnrollmentId, GradingDefinition, ImplementationVersion, ProblemId, PublicationScope,
-        QuestionMetadata, QuestionSource, StudentId, TenantId, UserId, VersionId, WorkspaceId,
+        EnrollmentId, GradingDefinition, ImplementationVersion, ObjectId, ProblemId,
+        PublicationScope, QuestionMetadata, QuestionSource, StudentId, TenantId, UserId, VersionId,
+        WorkspaceId,
     };
     use store::memory::MemoryStore;
     use store::{
-        AssignmentRecord, CatalogTransition, CourseRecord, DraftRecord, Page, PublishDraftCommand,
-        PublishedProblemRecord, SessionLifetime, SessionRecord, SessionSubject, SessionTokenHash,
-        TenantContext,
+        AssignmentRecord, CatalogTransition, CourseRecord, DraftRecord, JobLeaseDuration,
+        JobPayload, JobStore, Page, PublishDraftCommand, PublishedProblemRecord,
+        RetentionWorkerCommand, RetentionWorkerStore, SessionLifetime, SessionRecord,
+        SessionSubject, SessionTokenHash, TenantContext,
     };
     use tower::ServiceExt;
     use uuid::Uuid;
@@ -2308,6 +2310,8 @@ mod tests {
     #[derive(Debug, Default)]
     struct NumericBackend {
         grade_calls: AtomicUsize,
+        reproduce_calls: AtomicUsize,
+        external_launch_calls: AtomicUsize,
         issued_seeds: std::sync::Mutex<Vec<u64>>,
         external_tool_launch_ready: bool,
     }
@@ -2319,6 +2323,127 @@ mod tests {
 
     struct OpaqueRenderedHashBackend {
         inner: Arc<CountingNativeBackend>,
+    }
+
+    struct CountingExternalRouteBackend {
+        inner: Arc<ContractedRouteBackend>,
+        create_calls: AtomicUsize,
+        proxy_calls: AtomicUsize,
+        submission_calls: AtomicUsize,
+    }
+
+    #[async_trait]
+    impl RunBackend for CountingExternalRouteBackend {
+        async fn issue(
+            &self,
+            context: TenantContext,
+            reference: ProblemVersionRef,
+            question: &QuestionDefinition,
+            seed: u64,
+        ) -> Result<IssuedAttemptMetadata, RunBackendError> {
+            self.inner.issue(context, reference, question, seed).await
+        }
+
+        async fn reproduce(
+            &self,
+            context: TenantContext,
+            reference: ProblemVersionRef,
+            question: &QuestionDefinition,
+            attempt: &QuestionAttempt,
+        ) -> Result<QuestionEnvelope, RunBackendError> {
+            self.inner
+                .reproduce(context, reference, question, attempt)
+                .await
+        }
+
+        async fn grade(
+            &self,
+            context: TenantContext,
+            reference: ProblemVersionRef,
+            question: &QuestionDefinition,
+            attempt: &QuestionAttempt,
+            response: &StudentResponse,
+        ) -> Result<GradeOutcome, RunBackendError> {
+            self.inner
+                .grade(context, reference, question, attempt, response)
+                .await
+        }
+
+        async fn submit(
+            &self,
+            submission: RunSubmission<'_>,
+        ) -> Result<SubmissionDisposition, RunBackendError> {
+            self.inner.submit(submission).await
+        }
+    }
+
+    #[async_trait]
+    impl ExternalToolLaunchBackend for CountingExternalRouteBackend {
+        async fn create_external_tool_launch(
+            &self,
+            context: TenantContext,
+            actor: UserId,
+            reference: ProblemVersionRef,
+            question: &QuestionDefinition,
+            attempt: &QuestionAttempt,
+            aead: &crate::imathas_backend::LaunchStateAead,
+        ) -> Result<store::CreatedExternalToolLaunchSession, RunBackendError> {
+            self.create_calls.fetch_add(1, Ordering::SeqCst);
+            self.inner
+                .create_external_tool_launch(context, actor, reference, question, attempt, aead)
+                .await
+        }
+
+        async fn proxy_external_tool_activity(
+            &self,
+            context: TenantContext,
+            actor: UserId,
+            reference: ProblemVersionRef,
+            question: &QuestionDefinition,
+            attempt: &QuestionAttempt,
+            session_id: Uuid,
+            token: &store::ExternalToolLaunchToken,
+            method: adapter_imathas::broker_provider::ProxyMethod,
+            body: &[u8],
+            aead: &crate::imathas_backend::LaunchStateAead,
+        ) -> Result<adapter_imathas::broker_provider::ProxyResponse, RunBackendError> {
+            self.proxy_calls.fetch_add(1, Ordering::SeqCst);
+            self.inner
+                .proxy_external_tool_activity(
+                    context, actor, reference, question, attempt, session_id, token, method, body,
+                    aead,
+                )
+                .await
+        }
+    }
+
+    #[async_trait]
+    impl ExternalToolSubmissionBackend for CountingExternalRouteBackend {
+        async fn submit_external_tool(
+            &self,
+            context: TenantContext,
+            actor: UserId,
+            reference: ProblemVersionRef,
+            question: &QuestionDefinition,
+            attempt: &QuestionAttempt,
+            idempotency_key: store::SubmissionIdempotencyKey,
+            launch_proof: store::ExternalToolLaunchProof,
+            state_aead: &crate::imathas_backend::LaunchStateAead,
+        ) -> Result<SubmissionDisposition, RunBackendError> {
+            self.submission_calls.fetch_add(1, Ordering::SeqCst);
+            self.inner
+                .submit_external_tool(
+                    context,
+                    actor,
+                    reference,
+                    question,
+                    attempt,
+                    idempotency_key,
+                    launch_proof,
+                    state_aead,
+                )
+                .await
+        }
     }
 
     #[async_trait]
@@ -2454,6 +2579,7 @@ mod tests {
             question: &QuestionDefinition,
             attempt: &QuestionAttempt,
         ) -> Result<QuestionEnvelope, RunBackendError> {
+            self.reproduce_calls.fetch_add(1, Ordering::SeqCst);
             if attempt.problem != reference.problem
                 || attempt.question_version != reference.version
                 || question.version != reference.version
@@ -2479,6 +2605,7 @@ mod tests {
             _question: &QuestionDefinition,
             _attempt: &QuestionAttempt,
         ) -> Result<(), RunBackendError> {
+            self.external_launch_calls.fetch_add(1, Ordering::SeqCst);
             if self.external_tool_launch_ready {
                 Ok(())
             } else {
@@ -2811,6 +2938,43 @@ mod tests {
         )
     }
 
+    async fn prepare_archive_fence(store: &MemoryStore, tenant: TenantId, course: CourseId) {
+        store
+            .seed_retention_cleanup_for_test(
+                tenant,
+                course,
+                (0..4)
+                    .map(|offset| ObjectId::from_uuid(id(900 + offset)))
+                    .collect(),
+            )
+            .expect("archive cleanup fixture");
+        let claim = store
+            .claim_next_job(JobLeaseDuration::from_seconds(30).expect("lease duration"))
+            .await
+            .expect("archive claim")
+            .expect("archive job");
+        let (claimed_course, stage, generation) = match claim.payload {
+            JobPayload::Retention {
+                course,
+                stage,
+                generation,
+            } => (course, stage, generation),
+            _ => panic!("fixture must claim retention work"),
+        };
+        assert_eq!(claimed_course, course);
+        store
+            .prepare_retention_work(RetentionWorkerCommand {
+                tenant,
+                course,
+                stage,
+                generation,
+                job: claim.id,
+                lease: claim.lease_token,
+            })
+            .await
+            .expect("archive prepare fence");
+    }
+
     fn peptide_choice(id: &str, body: &str) -> ChoiceOption {
         ChoiceOption {
             id: ChoiceId::new(id),
@@ -3046,6 +3210,7 @@ mod tests {
         objects: Arc<objects::memory::MemoryObjectStore>,
         source_key: objects::ObjectKey,
         backend: Arc<ContractedRouteBackend>,
+        route_backend: Arc<CountingExternalRouteBackend>,
         transport: adapter_imathas::test_support::RecordedContractedTransport,
         aead: Arc<crate::imathas_backend::LaunchStateAead>,
         app: Router,
@@ -3283,7 +3448,17 @@ mod tests {
         let aead = Arc::new(
             crate::imathas_backend::LaunchStateAead::from_server_secret([84; 32]).expect("aead"),
         );
-        let app = external_tool_router(Arc::clone(&store), Arc::clone(&backend), Arc::clone(&aead));
+        let route_backend = Arc::new(CountingExternalRouteBackend {
+            inner: Arc::clone(&backend),
+            create_calls: AtomicUsize::new(0),
+            proxy_calls: AtomicUsize::new(0),
+            submission_calls: AtomicUsize::new(0),
+        });
+        let app = external_tool_router(
+            Arc::clone(&store),
+            Arc::clone(&route_backend),
+            Arc::clone(&aead),
+        );
         ContractedRouteFixture {
             student_cookie: issued_cookie_for(store.as_ref(), tenant, actor, "Student").await,
             outsider_cookie: issued_cookie_for(store.as_ref(), tenant, outsider, "Outsider").await,
@@ -3291,6 +3466,7 @@ mod tests {
             objects,
             source_key: object_key,
             backend,
+            route_backend,
             transport,
             aead,
             app,
@@ -3440,6 +3616,80 @@ mod tests {
             );
         }
         assert_eq!(fixture.transport.result_calls(), 0);
+    }
+
+    #[tokio::test]
+    async fn archive_fence_refuses_external_tool_routes_before_provider_calls() {
+        use adapter_imathas::test_support::RecordedContractedTransportMode;
+
+        let fixture = contracted_route_fixture(RecordedContractedTransportMode::Verified).await;
+        let calls_before = (
+            fixture.transport.proxy_calls(),
+            fixture.transport.result_calls(),
+            fixture.route_backend.create_calls.load(Ordering::SeqCst),
+            fixture.route_backend.proxy_calls.load(Ordering::SeqCst),
+            fixture
+                .route_backend
+                .submission_calls
+                .load(Ordering::SeqCst),
+        );
+        prepare_archive_fence(
+            fixture.store.as_ref(),
+            TenantId::from_uuid(id(801)),
+            CourseId::from_uuid(id(809)),
+        )
+        .await;
+
+        let launch_path = format!("/api/attempts/{}/external-tool/launch", fixture.attempt.id);
+        let requests = vec![
+            Request::builder()
+                .uri(&launch_path)
+                .header("cookie", &fixture.student_cookie)
+                .body(Body::empty())
+                .expect("archived shell request"),
+            Request::builder()
+                .uri(format!("{launch_path}/activity"))
+                .header("cookie", &fixture.student_cookie)
+                .body(Body::empty())
+                .expect("archived activity GET"),
+            Request::builder()
+                .method("POST")
+                .uri(format!("{launch_path}/activity"))
+                .header("cookie", &fixture.student_cookie)
+                .body(Body::empty())
+                .expect("archived activity POST"),
+            Request::builder()
+                .method("POST")
+                .uri(format!("{launch_path}/submission"))
+                .header("cookie", &fixture.student_cookie)
+                .header("idempotency-key", "archived-external")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"response":{"kind":"externalTool"}}"#))
+                .expect("archived external submission"),
+        ];
+        for request in requests {
+            let response = fixture
+                .app
+                .clone()
+                .oneshot(request)
+                .await
+                .expect("archived external response");
+            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+            assert_eq!(response.headers()["cache-control"], "no-store");
+        }
+        assert_eq!(
+            (
+                fixture.transport.proxy_calls(),
+                fixture.transport.result_calls(),
+                fixture.route_backend.create_calls.load(Ordering::SeqCst),
+                fixture.route_backend.proxy_calls.load(Ordering::SeqCst),
+                fixture
+                    .route_backend
+                    .submission_calls
+                    .load(Ordering::SeqCst),
+            ),
+            calls_before
+        );
     }
 
     #[tokio::test]
@@ -4028,6 +4278,126 @@ mod tests {
         let attempts: Page<QuestionAttempt> =
             serde_json::from_value(json(attempts_response).await).expect("attempt page");
         attempts.items.into_iter().next().expect("active attempt")
+    }
+
+    #[tokio::test]
+    async fn archive_fence_refuses_run_aliases_before_any_backend_call() {
+        let (store, backend, app, student_cookie, _, assignment, enrollment) = fixture().await;
+        let active = active_attempt_for(&app, assignment, &student_cookie).await;
+        let issued_before = backend.issued_seeds.lock().expect("seed record").len();
+        assert_eq!(issued_before, 1);
+        assert_eq!(backend.reproduce_calls.load(Ordering::SeqCst), 0);
+        assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 0);
+        assert_eq!(backend.external_launch_calls.load(Ordering::SeqCst), 0);
+
+        prepare_archive_fence(
+            store.as_ref(),
+            TenantId::from_uuid(id(1)),
+            CourseId::from_uuid(id(5)),
+        )
+        .await;
+
+        let requests = vec![
+            Request::builder()
+                .method("POST")
+                .uri("/api/runs")
+                .header("cookie", &student_cookie)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({ "assignmentId": assignment }).to_string(),
+                ))
+                .expect("archived start request"),
+            Request::builder()
+                .uri(format!("/api/runs/{}", active.run))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("archived run request"),
+            Request::builder()
+                .uri(format!("/api/runs/{}/summary", active.run))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("archived summary request"),
+            Request::builder()
+                .uri(format!("/api/runs/{}/attempts", active.run))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("archived attempt list request"),
+            Request::builder()
+                .uri(format!("/api/attempts/{}", active.id))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("archived attempt request"),
+            Request::builder()
+                .uri(format!("/api/attempts/{}/question", active.id))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("archived question request"),
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/attempts/{}/prefetch-next", active.id))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("archived prefetch request"),
+            Request::builder()
+                .uri(format!("/api/attempts/{}/external-tool-launch", active.id))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("archived external projection request"),
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/submissions/{}", active.id))
+                .header("cookie", &student_cookie)
+                .header("content-type", "application/json")
+                .header("idempotency-key", "archive-refusal")
+                .body(Body::from(
+                    serde_json::json!({
+                        "response": { "kind": "numeric", "value": 18.0 }
+                    })
+                    .to_string(),
+                ))
+                .expect("archived submission request"),
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/attempts/{}/feedback-release", active.id))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("archived feedback release request"),
+            Request::builder()
+                .uri(format!("/api/grading/summaries/{enrollment}"))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("archived grading summary request"),
+            Request::builder()
+                .uri(format!("/api/enrollments/{enrollment}"))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("archived enrollment request"),
+            Request::builder()
+                .uri(format!("/api/enrollments/{enrollment}/runs"))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("archived enrollment runs request"),
+        ];
+        for request in requests {
+            let response = app
+                .clone()
+                .oneshot(request)
+                .await
+                .expect("archived alias response");
+            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+            assert_eq!(
+                response.headers().get("cache-control"),
+                Some(&HeaderValue::from_static("no-store"))
+            );
+        }
+
+        assert_eq!(
+            backend.issued_seeds.lock().expect("seed record").len(),
+            issued_before
+        );
+        assert_eq!(backend.reproduce_calls.load(Ordering::SeqCst), 0);
+        assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 0);
+        assert_eq!(backend.external_launch_calls.load(Ordering::SeqCst), 0);
     }
 
     async fn next_active_attempt(app: &Router, run: RunId, cookie: &str) -> QuestionAttempt {

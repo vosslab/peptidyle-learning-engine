@@ -19,9 +19,9 @@ use question_model::{
 };
 use serde::{Deserialize, Serialize};
 use store::{
-    AssignmentRecord, AssignmentRevision, CatalogStore, CourseListScope, CourseRecord, Cursor,
-    Page, PageRequest, PageSize, PaginationError, SessionStore, Store, StoreError,
-    StoredAssignment,
+    AssignmentRecord, AssignmentRevision, CatalogStore, CourseListScope, CourseRecord,
+    CourseRecordsAccessStore, Cursor, Page, PageRequest, PageSize, PaginationError, SessionStore,
+    Store, StoreError, StoredAssignment,
 };
 
 use crate::auth::{AuthenticatedSession, auth_error_response, no_store, resolve_request_session};
@@ -32,7 +32,7 @@ const MAX_COURSE_BODY_BYTES: usize = 64 * 1_024;
 /// Builds the authenticated course and assignment route group.
 pub fn router<S>(store: Arc<S>) -> Router
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store + CatalogStore + CourseRecordsAccessStore + SessionStore + 'static,
 {
     Router::new()
         .route(
@@ -117,7 +117,7 @@ async fn list_courses<S>(
     Query(query): Query<CourseQuery>,
 ) -> Response
 where
-    S: Store + SessionStore + 'static,
+    S: Store + CourseRecordsAccessStore + SessionStore + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -148,7 +148,7 @@ async fn create_course<S>(
     Json(request): Json<CreateCourseRequest>,
 ) -> Response
 where
-    S: Store + SessionStore + 'static,
+    S: Store + CourseRecordsAccessStore + SessionStore + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -188,7 +188,7 @@ async fn get_course<S>(
     Path(course): Path<CourseId>,
 ) -> Response
 where
-    S: Store + SessionStore + 'static,
+    S: Store + CourseRecordsAccessStore + SessionStore + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -210,6 +210,13 @@ where
     } else {
         return error_response(StatusCode::NOT_FOUND, "course not found");
     };
+    if role == CourseRole::Student {
+        match course_records_are_visible(state.store.as_ref(), &authenticated, course).await {
+            Ok(true) => {}
+            Ok(false) => return error_response(StatusCode::NOT_FOUND, "course not found"),
+            Err(response) => return response,
+        }
+    }
     no_store(Json(record.summary(role)).into_response())
 }
 
@@ -220,7 +227,7 @@ async fn list_assignments<S>(
     Query(query): Query<CourseQuery>,
 ) -> Response
 where
-    S: Store + SessionStore + 'static,
+    S: Store + CourseRecordsAccessStore + SessionStore + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -252,7 +259,7 @@ async fn create_assignment<S>(
     Json(value): Json<serde_json::Value>,
 ) -> Response
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store + CatalogStore + CourseRecordsAccessStore + SessionStore + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -307,7 +314,7 @@ async fn list_gradebook<S>(
     Query(query): Query<CourseQuery>,
 ) -> Response
 where
-    S: Store + SessionStore + 'static,
+    S: Store + CourseRecordsAccessStore + SessionStore + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -338,7 +345,7 @@ async fn get_assignment<S>(
     Path(assignment): Path<AssignmentId>,
 ) -> Response
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store + CatalogStore + CourseRecordsAccessStore + SessionStore + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -373,7 +380,7 @@ async fn update_assignment<S>(
     Json(value): Json<serde_json::Value>,
 ) -> Response
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store + CatalogStore + CourseRecordsAccessStore + SessionStore + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -451,7 +458,7 @@ async fn require_course_access<S>(
     manage: bool,
 ) -> Result<(), Response>
 where
-    S: Store,
+    S: Store + CourseRecordsAccessStore,
 {
     let record = match store.get_course(authenticated.tenant_context, course).await {
         Ok(Some(record)) => record,
@@ -463,14 +470,43 @@ where
     } else {
         record.role_for(authenticated.record.subject.user())
     };
-    match (role, manage) {
-        (Some(CourseRole::Instructor | CourseRole::Administrator), _)
-        | (Some(CourseRole::Student), false) => Ok(()),
-        (Some(CourseRole::Student), true) => Err(error_response(
-            StatusCode::FORBIDDEN,
-            "assignment change is not authorized",
-        )),
-        (None, _) => Err(error_response(StatusCode::NOT_FOUND, "course not found")),
+    match role {
+        Some(CourseRole::Instructor | CourseRole::Administrator) => Ok(()),
+        Some(CourseRole::Student) => {
+            match course_records_are_visible(store, authenticated, course).await {
+                Ok(true) => {}
+                Ok(false) => {
+                    return Err(error_response(StatusCode::NOT_FOUND, "course not found"));
+                }
+                Err(response) => return Err(response),
+            }
+            if manage {
+                Err(error_response(
+                    StatusCode::FORBIDDEN,
+                    "assignment change is not authorized",
+                ))
+            } else {
+                Ok(())
+            }
+        }
+        None => Err(error_response(StatusCode::NOT_FOUND, "course not found")),
+    }
+}
+
+async fn course_records_are_visible<S>(
+    store: &S,
+    authenticated: &AuthenticatedSession,
+    course: CourseId,
+) -> Result<bool, Response>
+where
+    S: CourseRecordsAccessStore,
+{
+    match store
+        .course_records_accessible(authenticated.tenant_context, course)
+        .await
+    {
+        Ok(accessible) => Ok(accessible),
+        Err(error) => Err(store_error_response(error)),
     }
 }
 
@@ -685,12 +721,13 @@ mod tests {
     use question_model::taxonomy::License;
     use question_model::{
         ActivityTimestamp, BackendCapabilities, Capability, DraftQuestionDefinition,
-        DraftQuestionSource, GradingDefinition, ProblemId, PublicationScope, QuestionMetadata,
-        QuestionSource, StudentId, TenantId, UserId, VersionId, WorkspaceId,
+        DraftQuestionSource, GradingDefinition, ObjectId, ProblemId, PublicationScope,
+        QuestionMetadata, QuestionSource, StudentId, TenantId, UserId, VersionId, WorkspaceId,
     };
     use store::memory::MemoryStore;
     use store::{
-        CatalogStore, DraftRecord, PublishDraftCommand, SessionLifetime, SessionSubject,
+        CatalogStore, DraftRecord, JobLeaseDuration, JobPayload, JobStore, PublishDraftCommand,
+        RetentionWorkerCommand, RetentionWorkerStore, SessionLifetime, SessionSubject,
         TenantContext,
     };
     use tower::ServiceExt;
@@ -1469,11 +1506,12 @@ mod tests {
         assert_eq!(student_missing_revision.status(), StatusCode::FORBIDDEN);
 
         let student_write = app
+            .clone()
             .oneshot(
                 Request::builder()
                     .method("POST")
                     .uri(format!("/api/courses/{course}/assignments"))
-                    .header("cookie", student_cookie)
+                    .header("cookie", &student_cookie)
                     .header("content-type", "application/json")
                     .body(Body::from(
                         serde_json::to_vec(&assignment_request)
@@ -1484,6 +1522,158 @@ mod tests {
             .await
             .expect("student write response");
         assert_eq!(student_write.status(), StatusCode::FORBIDDEN);
+
+        store
+            .seed_retention_cleanup_for_test(
+                tenant,
+                course,
+                (0..4)
+                    .map(|offset| ObjectId::from_uuid(id(100 + offset)))
+                    .collect(),
+            )
+            .expect("archive cleanup fixture");
+        let claim = store
+            .claim_next_job(JobLeaseDuration::from_seconds(30).expect("lease duration"))
+            .await
+            .expect("archive claim")
+            .expect("archive job");
+        let (stage, generation) = match claim.payload {
+            JobPayload::Retention {
+                course: claimed_course,
+                stage,
+                generation,
+            } => {
+                assert_eq!(claimed_course, course);
+                (stage, generation)
+            }
+            _ => panic!("fixture must claim retention work"),
+        };
+        store
+            .prepare_retention_work(RetentionWorkerCommand {
+                tenant,
+                course,
+                stage,
+                generation,
+                job: claim.id,
+                lease: claim.lease_token,
+            })
+            .await
+            .expect("archive prepare fence");
+
+        for uri in [
+            format!("/api/courses/{course}"),
+            format!("/api/courses/{course}/assignments"),
+            format!("/api/assignments/{assignment}"),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(uri)
+                        .header("cookie", &student_cookie)
+                        .body(Body::empty())
+                        .expect("archived learner request"),
+                )
+                .await
+                .expect("archived learner response");
+            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+            assert_eq!(
+                response.headers().get("cache-control"),
+                Some(&HeaderValue::from_static("no-store"))
+            );
+        }
+
+        let student_courses = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/courses")
+                    .header("cookie", &student_cookie)
+                    .body(Body::empty())
+                    .expect("archived learner course list"),
+            )
+            .await
+            .expect("archived learner course response");
+        let student_courses = response_json(student_courses).await;
+        assert!(
+            student_courses["items"]
+                .as_array()
+                .expect("course items")
+                .iter()
+                .all(|item| item["id"] != serde_json::json!(course)),
+            "archived course leaked into learner list: {student_courses}"
+        );
+
+        let instructor_courses = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/courses")
+                    .header("cookie", &instructor_cookie)
+                    .body(Body::empty())
+                    .expect("retained manager course list"),
+            )
+            .await
+            .expect("retained manager course response");
+        let instructor_courses = response_json(instructor_courses).await;
+        assert!(
+            instructor_courses["items"]
+                .as_array()
+                .expect("course items")
+                .iter()
+                .any(|item| item["id"] == serde_json::json!(course)),
+            "retained course missing from manager list: {instructor_courses}"
+        );
+
+        for (cookie, uri) in [
+            (&instructor_cookie, format!("/api/courses/{course}")),
+            (
+                &instructor_cookie,
+                format!("/api/courses/{course}/assignments"),
+            ),
+            (&instructor_cookie, format!("/api/assignments/{assignment}")),
+            (&administrator_cookie, format!("/api/courses/{course}")),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(uri)
+                        .header("cookie", cookie)
+                        .body(Body::empty())
+                        .expect("retained manager definition request"),
+                )
+                .await
+                .expect("retained manager definition response");
+            assert_eq!(response.status(), StatusCode::OK);
+        }
+
+        let archived_gradebook = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/courses/{course}/gradebook"))
+                    .header("cookie", &instructor_cookie)
+                    .body(Body::empty())
+                    .expect("archived gradebook request"),
+            )
+            .await
+            .expect("archived gradebook response");
+        assert_eq!(archived_gradebook.status(), StatusCode::NOT_FOUND);
+
+        let archived_student_update = app
+            .oneshot(
+                Request::builder()
+                    .method("PUT")
+                    .uri(format!("/api/courses/{course}/assignments/{assignment}"))
+                    .header("cookie", &student_cookie)
+                    .header("content-type", "application/json")
+                    .body(Body::from("{}"))
+                    .expect("archived learner update request"),
+            )
+            .await
+            .expect("archived learner update response");
+        assert_eq!(archived_student_update.status(), StatusCode::NOT_FOUND);
     }
 
     #[test]

@@ -426,9 +426,29 @@ mod tests {
     use crate::run::router as run_router;
     use crate::worker::{JobExecution, JobHandler};
 
-    const PACKAGE: &str = include_str!("../../../tests/fixtures/qti/valid-single-choice.zip.b64");
-    const CHOICE_IMAGE_PACKAGE: &str =
-        include_str!("../../../tests/fixtures/qti/choice-image.zip.b64");
+    const PACKAGE: &str = concat!(
+        "UEsDBBQAAAAIAHS7B13yXbGdXwAAAIsAAAAPAAAAaW1zbWFuaWZlc3QueG1sVY5RDkAwEESv0uwBNHxXryLClg2l",
+        "uku4vYoIfiYvM5PJGF9P5JBFUYuTkCOMJYShA2si8rzGBvnFX4sEPSg5Aib2vAhVl1XtftyKkIPqI7q7xvrSLCWg",
+        "rdGfZf0csCdQSwMEFAAAAAgAdLsHXcJKi+S6AAAAiwEAAA4AAABpdGVtcy9pdGVtLnhtbH2QSw7CMAxErxLlAETs",
+        "XUu0sOgGUDlBCEaN1CZVHH63J7QgKEXsrPEbe2zQzMTckotlpFbYQ6rs0VLIpE2CRAjEnXdMSzKNDjpa70ZYtdpt",
+        "N+vdKqHGh0AmVk8Hwlk3J8I9qKEANSHUj/EIj9W5P9wQOixq75lErEk83UI7vlCYgerSztpbQ6WLFLTpw70mlr9C",
+        "ilZfi97CmZynzGzbrqFBGt2lJS5Afbb/wHuJ+TesJtGS9r5MjV+Pd1BLAQIUAxQAAAAIAHS7B13yXbGdXwAAAIsA",
+        "AAAPAAAAAAAAAAAAAACAAQAAAABpbXNtYW5pZmVzdC54bWxQSwECFAMUAAAACAB0uwddwkqL5LoAAACLAQAADgAA",
+        "AAAAAAAAAAAAgAGMAAAAaXRlbXMvaXRlbS54bWxQSwUGAAAAAAIAAgB5AAAAcgEAAAAA",
+    );
+    const CHOICE_IMAGE_PACKAGE: &str = concat!(
+        "UEsDBBQAAAAIANghCF0ZBjDNaAAAAJMAAAAPAAAAaW1zbWFuaWZlc3QueG1sVY5RCoMwEESvEvYABvsdcxUJ6USX",
+        "Gk2zq9jbNyCl7d8w7zGMy2HlBFHDd6zKiVEHKiE+wgTyrkK2vUbIN/6Zcd44goy+CgbiLE/lkRV5PPNy3EpPZq5I",
+        "DbVO7KV3jZH1zv6s288R/wZQSwMEFAAAAAgA2CEIXYeao83GAAAAoAEAABAAAABpdGVtcy9jaG9pY2UueG1sfZHN",
+        "TsMwDIBfJcoD1OLuWmLj0uvewMtMZ6n5URwQvD2hZYIyxM1yvtifbWQzMYuS2tQkOr30SJ9V6ujDNWsQT1jFSk4m",
+        "TxIWrtw0px146kzItUpopy+U8JWXF6EzwhYg3BHwR11C7RqHfHknLHS85mwyIJTeYLWZUpPKYVW4fZ92Ki7y23Fl",
+        "bfQP3cw0lkW21E6bPT0i/Hz+Bz73ShpnZzWMfhjgc2/NYLMaSpq946XdluY08iwe6PC7AdzN0XPfM8P+HvQBUEsD",
+        "BBQAAAAIANghCF32FIo6EgAAABAAAAARAAAAYXNzZXRzL2Nob2ljZS5wbmfrDPBz5+WS4sovykzPzEvMAQBQSwEC",
+        "FAMUAAAACADYIQhdGQYwzWgAAACTAAAADwAAAAAAAAAAAAAAgAEAAAAAaW1zbWFuaWZlc3QueG1sUEsBAhQDFAAA",
+        "AAgA2CEIXYeao83GAAAAoAEAABAAAAAAAAAAAAAAAIABlQAAAGl0ZW1zL2Nob2ljZS54bWxQSwECFAMUAAAACADY",
+        "IQhd9hSKOhIAAAAQAAAAEQAAAAAAAAAAAAAAgAGJAQAAYXNzZXRzL2Nob2ljZS5wbmdQSwUGAAAAAAMAAwC6AAAA",
+        "ygEAAAAA",
+    );
 
     #[derive(Clone)]
     struct FixtureSources {

@@ -169,6 +169,8 @@ Setup and usage guides arrive with the first running service. Until then these a
 - [docs/active_plans/customer-spec.md](docs/active_plans/customer-spec.md) - the product
   specification the plan implements.
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) - dated record of changes, decisions, and failures.
+- [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) - server-only grading, tenant derivation, and
+  protected-content boundaries.
 - [AGENTS.md](AGENTS.md) - working method, validation loop, and constraints for contributors and
   coding agents.
 - [docs/RUST_STYLE.md](docs/RUST_STYLE.md) - Rust conventions the workspace is held to.

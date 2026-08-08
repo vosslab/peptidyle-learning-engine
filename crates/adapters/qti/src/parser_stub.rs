@@ -1105,15 +1105,45 @@ fn unsupported(path: &str, feature: &str, detail: &str) -> UnsupportedFeature {
 mod tests {
     use super::*;
     use base64::Engine;
-    const VALID_PACKAGE: &str =
-        include_str!("../../../../tests/fixtures/qti/valid-single-choice.zip.b64");
-    const TRAVERSAL_PACKAGE: &str =
-        include_str!("../../../../tests/fixtures/qti/path-traversal.zip.b64");
-    const ABSOLUTE_PACKAGE: &str =
-        include_str!("../../../../tests/fixtures/qti/absolute-path.zip.b64");
-    const SYMLINK_PACKAGE: &str = include_str!("../../../../tests/fixtures/qti/symlink.zip.b64");
-    const UNEXPECTED_PACKAGE: &str =
-        include_str!("../../../../tests/fixtures/qti/unexpected-entry.zip.b64");
+    const VALID_PACKAGE: &str = concat!(
+        "UEsDBBQAAAAIAHS7B13yXbGdXwAAAIsAAAAPAAAAaW1zbWFuaWZlc3QueG1sVY5RDkAwEESv0uwBNHxXryLClg2l",
+        "uku4vYoIfiYvM5PJGF9P5JBFUYuTkCOMJYShA2si8rzGBvnFX4sEPSg5Aib2vAhVl1XtftyKkIPqI7q7xvrSLCWg",
+        "rdGfZf0csCdQSwMEFAAAAAgAdLsHXcJKi+S6AAAAiwEAAA4AAABpdGVtcy9pdGVtLnhtbH2QSw7CMAxErxLlAETs",
+        "XUu0sOgGUDlBCEaN1CZVHH63J7QgKEXsrPEbe2zQzMTckotlpFbYQ6rs0VLIpE2CRAjEnXdMSzKNDjpa70ZYtdpt",
+        "N+vdKqHGh0AmVk8Hwlk3J8I9qKEANSHUj/EIj9W5P9wQOixq75lErEk83UI7vlCYgerSztpbQ6WLFLTpw70mlr9C",
+        "ilZfi97CmZynzGzbrqFBGt2lJS5Afbb/wHuJ+TesJtGS9r5MjV+Pd1BLAQIUAxQAAAAIAHS7B13yXbGdXwAAAIsA",
+        "AAAPAAAAAAAAAAAAAACAAQAAAABpbXNtYW5pZmVzdC54bWxQSwECFAMUAAAACAB0uwddwkqL5LoAAACLAQAADgAA",
+        "AAAAAAAAAAAAgAGMAAAAaXRlbXMvaXRlbS54bWxQSwUGAAAAAAIAAgB5AAAAcgEAAAAA",
+    );
+    const TRAVERSAL_PACKAGE: &str = concat!(
+        "UEsDBBQAAAAIAHS7B13yXbGdXwAAAIsAAAAPAAAAaW1zbWFuaWZlc3QueG1sVY5RDkAwEESv0uwBNHxXryLClg2l",
+        "uku4vYoIfiYvM5PJGF9P5JBFUYuTkCOMJYShA2si8rzGBvnFX4sEPSg5Aib2vAhVl1XtftyKkIPqI7q7xvrSLCWg",
+        "rdGfZf0csCdQSwMEFAAAAAgAdLsHXfs5K4IFAAAAAwAAAA0AAAAuLi9lc2NhcGUueG1sS0pMAQBQSwECFAMUAAAA",
+        "CAB0uwdd8l2xnV8AAACLAAAADwAAAAAAAAAAAAAAgAEAAAAAaW1zbWFuaWZlc3QueG1sUEsBAhQDFAAAAAgAdLsH",
+        "Xfs5K4IFAAAAAwAAAA0AAAAAAAAAAAAAAIABjAAAAC4uL2VzY2FwZS54bWxQSwUGAAAAAAIAAgB4AAAAvAAAAAAA",
+    );
+    const ABSOLUTE_PACKAGE: &str = concat!(
+        "UEsDBBQAAAAIAHS7B13yXbGdXwAAAIsAAAAPAAAAaW1zbWFuaWZlc3QueG1sVY5RDkAwEESv0uwBNHxXryLClg2l",
+        "uku4vYoIfiYvM5PJGF9P5JBFUYuTkCOMJYShA2si8rzGBvnFX4sEPSg5Aib2vAhVl1XtftyKkIPqI7q7xvrSLCWg",
+        "rdGfZf0csCdQSwMEFAAAAAgAdLsHXfs5K4IFAAAAAwAAAAsAAAAvZXNjYXBlLnhtbEtKTAEAUEsBAhQDFAAAAAgA",
+        "dLsHXfJdsZ1fAAAAiwAAAA8AAAAAAAAAAAAAAIABAAAAAGltc21hbmlmZXN0LnhtbFBLAQIUAxQAAAAIAHS7B137",
+        "OSuCBQAAAAMAAAALAAAAAAAAAAAAAACAAYwAAAAvZXNjYXBlLnhtbFBLBQYAAAAAAgACAHYAAAC6AAAAAAA=",
+    );
+    const SYMLINK_PACKAGE: &str = concat!(
+        "UEsDBBQAAAAIAHS7B13yXbGdXwAAAIsAAAAPAAAAaW1zbWFuaWZlc3QueG1sVY5RDkAwEESv0uwBNHxXryLClg2l",
+        "uku4vYoIfiYvM5PJGF9P5JBFUYuTkCOMJYShA2si8rzGBvnFX4sEPSg5Aib2vAhVl1XtftyKkIPqI7q7xvrSLCWg",
+        "rdGfZf0csCdQSwMEFAAAAAAAAAAhAPwvb0YGAAAABgAAAA4AAABpdGVtcy9saW5rLnhtbHRhcmdldFBLAQIUAxQA",
+        "AAAIAHS7B13yXbGdXwAAAIsAAAAPAAAAAAAAAAAAAACAAQAAAABpbXNtYW5pZmVzdC54bWxQSwECFAMUAAAAAAAA",
+        "ACEA/C9vRgYAAAAGAAAADgAAAAAAAAAAAAAA/6GMAAAAaXRlbXMvbGluay54bWxQSwUGAAAAAAIAAgB5AAAAvgAA",
+        "AAAA",
+    );
+    const UNEXPECTED_PACKAGE: &str = concat!(
+        "UEsDBBQAAAAIAHS7B13yXbGdXwAAAIsAAAAPAAAAaW1zbWFuaWZlc3QueG1sVY5RDkAwEESv0uwBNHxXryLClg2l",
+        "uku4vYoIfiYvM5PJGF9P5JBFUYuTkCOMJYShA2si8rzGBvnFX4sEPSg5Aib2vAhVl1XtftyKkIPqI7q7xvrSLCWg",
+        "rdGfZf0csCdQSwMEFAAAAAgAdLsHXfs5K4IFAAAAAwAAAAgAAABldmlsLmV4ZUtKTAEAUEsBAhQDFAAAAAgAdLsH",
+        "XfJdsZ1fAAAAiwAAAA8AAAAAAAAAAAAAAIABAAAAAGltc21hbmlmZXN0LnhtbFBLAQIUAxQAAAAIAHS7B137OSuC",
+        "BQAAAAMAAAAIAAAAAAAAAAAAAACAAYwAAABldmlsLmV4ZVBLBQYAAAAAAgACAHMAAAC3AAAAAAA=",
+    );
     fn fixture(s: &str) -> Vec<u8> {
         base64::engine::general_purpose::STANDARD
             .decode(s.trim())

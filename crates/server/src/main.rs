@@ -1,15 +1,13 @@
 //! MOD-SRV: thin production binary entry point.
 //!
-//! Composition stays in `composition.rs`; this file handles binding and the
-//! self-probe used by the container image.
-
-mod composition;
+//! Composition stays in the `server_core::composition` library module; this
+//! file handles binding and the self-probe used by the container image.
 
 use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let bind_addr = composition::bind_address_from_env()?;
+    let bind_addr = server_core::composition::bind_address_from_env()?;
 
     // Container health check mode. The same binary probes its own /health so
     // the runtime image needs no curl or wget, which keeps the attack surface
@@ -32,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
         };
     }
 
-    let app = composition::production_router_from_env().await?;
+    let app = server_core::composition::production_router_from_env().await?;
 
     let listener = tokio::net::TcpListener::bind(bind_addr).await?;
     eprintln!("peptidyle api listening on {bind_addr}");

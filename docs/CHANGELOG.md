@@ -22,6 +22,13 @@
   responses keep retries safe without exposing learner, job, object, or lease
   state. Course lifecycle deliberately remains Active until the later access
   and purge slices complete their real transitions.
+- Corrected the MOD-RETENTION permanent-purge transaction to serialize only the
+  affected course. Every learner-record producer now shares the exact course
+  retention-row fence, while delete preparation freezes private indexed
+  run/attempt/export work sets instead of taking shared-table `EXCLUSIVE` locks
+  or materializing whole-course UUID arrays. Successful deletion erases those
+  private work sets before recording the coarse tombstone; unrelated courses
+  remain writable during a large purge.
 - Added instructor-created frozen assignment export snapshots. The worker
   atomically leases, produces, and commits four prompt-only DOCX, PDF, and
   accessibility artifacts; requester-only protected downloads and RLS keep
@@ -121,6 +128,34 @@
   Only a successful nonce-protected activity document can emit the exact
   readiness handshake, while expired, revoked, copied, tampered, and outage
   responses remain opaque and cannot report a false ready state.
+- Completed the MOD-RETENTION R4.3 truthful archive slice: learner archive
+  boundaries now use one central, access-fenced predicate across all learner
+  aliases and Store/RLS, while manager retention-definition reads remain.
+  Archive completion occurs only after exact object cleanup, and replay is
+  exact/idempotent across all archive completion paths. Public catalog assets
+  stay deliverable, StudentRecord/export/external-tool resurrection is fully
+  closed after pre-cleanup fencing, and production `RetentionJobHandler`/
+  `RetentionJobCommitter`/`RetentionWorkerComponents` now assemble from
+  real PostgreSQL + object-store dependencies without worker activation.
+- Added the non-destructive MOD-RETENTION R4.4A cleanup foundation. Archive
+  preparation now persists an exact normalized set of tenant-owned export and
+  external-transcript object IDs before delivery revocation or object deletion,
+  and renewed leases replay that immutable manifest. Student-record audit
+  events carry indexed relational course ownership rather than requiring JSON
+  inference. Permanent deletion remains explicitly fail-closed until R4.4B can
+  remove the complete relational record graph and commit the truthful tombstone
+  in one generation- and lease-fenced transaction.
+- Completed MOD-RETENTION R4.4 permanent student-record deletion. The worker
+  now archives access before persisting and deleting an exact typed-object
+  manifest, then removes the complete course-owned learner graph in a single
+  lease-, generation-, and stage-fenced PostgreSQL transaction. It preserves
+  immutable published content, instructor drafts, catalog metadata, and
+  anonymous question statistics; applies the frozen retain-or-delete choice to
+  assignment definitions; and records `studentRecordsDeleted` only after every
+  object and relational effect succeeds. A disposable PostgreSQL 17 rebuild
+  exercised malformed cross-course links in both endpoint directions; that
+  environment-backed reconstruction remains one-time evidence rather than a
+  committed fixture or ignored permanent test.
 - Added optional production registration for an explicitly contracted,
   self-hosted iMathAS provider. Startup validates all provider settings and
   constructs only private redirect-free clients; absent configuration leaves
@@ -138,6 +173,24 @@
 
 ### Developer Tests and Notes
 
+- Applied the repository fixture policy to the Rust integration suites. The
+  explicitly approved published-problem corpus remains shared infrastructure;
+  small QTI archive and WeBWorK PG inputs now live inline beside their behavior
+  tests, and temporary PostgreSQL reconstruction inputs remain one-time evidence
+  that is removed after use.
+- Replaced the handwritten PostgreSQL migration registry and custom ledger loop
+  with SQLx's directory-backed, checksummed migrator. This also prevents new
+  migration files from being silently omitted from Rust registration; the Store
+  build script invalidates Cargo output when that directory changes. Removed
+  migration/source-string tests that pinned implementation spelling and the
+  ignored credentialed database mega-test that mixed many mutable scenarios.
+  Store behavior and PostgreSQL compilation remain permanent gates; fresh
+  database replay, roles/RLS, and migration-race checks remain disposable
+  one-time evidence for the upcoming six-file baseline.
+- The partial-commit audit removed private MemoryStore wiring tests and
+  compile-only composition checks, corrected retention-policy links and backup
+  wording, and reopened R4.4B acceptance: its global table locks and whole-course
+  UUID arrays must be replaced before the permanent purge is commit-ready.
 - Added all-four-policy native submission and browser feedback matrices,
   recursive strict receipt decoding, raw-JSON secrecy checks, foreign-tenant
   refusal, and a two-question deferred replay test that remains identical
@@ -631,6 +684,13 @@
 
 ### Decisions and Failures
 
+- Recorded the pre-data database evolution plan in
+  `docs/active_plans/decisions/database_schema_evolution_plan.md`.
+  Published problems retain immutable versions, assignments retain one
+  optimistic-concurrency-protected current state, and issued runs snapshot the
+  exact configuration they execute. The working migrations will become a
+  clean initial epoch before the first non-disposable database freezes
+  forward-only history.
 - Schema migration and application access remain separate privilege domains.
   The migration connection creates roles and schema objects; a production
   runtime login may assume `ple_app` but must not be superuser or bypass RLS.

@@ -1,9 +1,0 @@
-## Recorded OPL-style fixture: a small multiple-choice PG question.
-DOCUMENT();
-loadMacros("PGstandard.pl", "PGchoicemacros.pl");
-BEGIN_TEXT
-Which molecule is water?
-END_TEXT
-$showPartialCorrectAnswers = 0;
-ANS(str_cmp("H2O"));
-ENDDOCUMENT();

@@ -184,6 +184,25 @@ Disabled QTI has no registry capability or run dispatch; non-QTI and foreign
 dispatches do not reach the grader. Connection strings and grading payloads are
 not included in errors, Debug output, browser DTOs, TypeScript, or WASM.
 
+## Student-record retention boundary
+
+Student records are tenant-owned and course-scoped; reusable published content is not. Every
+learner-facing Store and PostgreSQL path checks the same course-retention access predicate, so
+archive cannot be bypassed through runs, summaries, feedback, exports, external tools, or protected
+StudentRecord assets. Manager retention views expose only coarse lifecycle, fixed notification
+copy, and a strong revision-not learner, object, job, lease, or generation identity.
+
+Only the scheduler creates a closed retention job binding. The broker-owned prepare and commit
+functions require the exact tenant, course, stage, generation, job, and active lease. They persist a
+typed StudentRecord object manifest before delivery revocation. The worker refuses foreign-tenant or
+non-StudentRecord keys and treats an already absent object as idempotent success. Permanent deletion
+then removes only relationally course-owned learner rows and changes the lifecycle to deleted after
+residual checks pass. Shared published content, drafts, and anonymous aggregates are outside that
+delete authority.
+
+The complete lifecycle, retained/deleted table classes, and honest backup limitation are documented
+in [RETENTION_POLICY.md](RETENTION_POLICY.md).
+
 The authentication cookie has no analytics, advertising, tracking, or
 preference purpose. Nonessential storage, including `localStorage`, requires a
 separate consent path. Persistent `remember me` behavior is not part of the
