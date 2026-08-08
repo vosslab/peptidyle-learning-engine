@@ -171,8 +171,20 @@
   aligned with its assignment and enrollment page indexes instead of sorting
   text-concatenated identifiers.
 
+### Fixes and Maintenance
+
+- Added the root `OTHER_REPOS/` reference checkout directory to
+  `.prettierignore`, keeping the codebase check, write alias, and direct
+  Prettier commands out of vendored or upstream code.
+
 ### Developer Tests and Notes
 
+- Verified a real `OTHER_REPOS/` TypeScript file is ignored with both the
+  checker's explicit `.prettierignore` path and Prettier's default discovery.
+  Shell syntax, `git diff --check`, and all 1,181 pytest cases pass. The full
+  codebase gate reaches Prettier after passing generation, type checking, and
+  ESLint, then stops on the pre-existing formatting warning in
+  `crates/question_model/bindings/Capability.ts`.
 - Applied the repository fixture policy to the Rust integration suites. The
   explicitly approved published-problem corpus remains shared infrastructure;
   small QTI archive and WeBWorK PG inputs now live inline beside their behavior
