@@ -2,10 +2,13 @@
 
 A backend-agnostic assignment platform for instructors who teach through repeated practice: students retry algorithmic questions until each one is correct, timers and grading stay on the server, and practice continues past completion.
 
-This repository is at milestone M0, the foundation stage. The Rust workspace compiles and passes its
-gates, every module inside it is a documented stub, and the browser client is a placeholder shell.
-There is no running server, no database schema, and no question backend wired up yet. What follows
-describes the design being built, then states exactly what the code does today.
+**Status: active implementation, not production-ready.** The repository now contains the Rust API,
+Solid browser client, WebAssembly boundary, six-file PostgreSQL baseline, object storage, question
+adapters, exports, manual grading, and course-local item analysis. The complete code gate and the
+disposable PostgreSQL acceptance gate pass. Production queue draining, import hardening, and the
+remaining backup, restore, purge, and partition operations gates are still open. The database is a
+pre-data baseline: once an environment accepts durable data, later schema changes must be forward
+migrations instead of edits to these six files.
 
 ## Why this project
 
@@ -21,12 +24,15 @@ The design answers both:
   an instructor-defined stopping condition is reached.
 - Unlimited practice after completion, with completion, grading, variation, continued practice, and
   feedback disclosure as five independent policies an instructor combines freely.
-- One backend-neutral question model behind every engine, so a first-party algorithmic generator,
-  WeBWorK, QTI, and H5P all enter through the same adapter boundary.
+- One backend-neutral question model behind every engine, so native algorithmic questions,
+  WeBWorK, QTI, H5P, and a reviewed iMathAS provider use one adapter boundary even though their
+  current runtime support differs.
 - Per-question timing anchored to server timestamps, so the browser timer is display only and the
   server rules on whether an answer arrived before expiry.
 - Capability validation before publication, so the platform can answer whether a question backend
   supports an assignment policy while the instructor is still editing.
+- Mixed automatic and manual grading with generation-fenced score publication, followed by a
+  separate course-local item analysis that never delays a learner-visible grade.
 - Exam export to DOCX and PDF, with separate student and answer-key artifacts.
 
 ## Two guarantees the structure enforces
@@ -58,44 +64,58 @@ content, because assignments reference shared problem versions instead of owning
 ## Architecture at a glance
 
 ```text
-browser                            server replicas
-+---------------------------+      +----------------------------+
-| Solid SPA (src/)          |      | axum API (crates/server)   |
-|   domain.wasm:            | ---> |   domain + grading         |
-|   parameters, format      |      |   authoritative verdicts   |
-|   validation, timer       |      +----------------------------+
-|   no answers, no keys     |          |           |          |
-+---------------------------+          v           v          v
-                                 PostgreSQL    job queue    object
-                                 one cluster,      |        storage
-                                 forced RLS        v      three buckets
-                                              worker pool
+browser                         gateway       stateless server replicas
++---------------------------+               +----------------------------+
+| Solid SPA (src/)          |               | axum API (crates/server)   |
+|   domain.wasm:            | ------------> |   domain + grading         |
+|   parameters, format      |               |   authoritative verdicts   |
+|   validation, timer       |               +----------------------------+
+|   no answers, no keys     |                   |          |           |
++---------------------------+                   v          v           v
+                                          PostgreSQL   object store   private
+                                          forced RLS   three buckets  renderer
+                                               |
+                                               v
+                                          durable jobs
+                                          scoring first,
+                                          analysis later
 ```
 
 Each crate names an exhaustive dependency list, so the boundary holds by construction rather than by
 convention:
 
-| Crate | Owns | Depends only on |
-| --- | --- | --- |
-| `crates/question_model` | Question types, capabilities, identity, taxonomy | External crates |
-| `crates/domain` | Attempt state machine, runs, timing, seeded generation, capability validation | `question_model` |
-| `crates/grading` | Answer keys, checkers, correctness decisions (server only) | `question_model`, `domain` |
-| `crates/objects` | Object store trait, S3 and MinIO backends, keys, checksums | `question_model` |
-| `crates/store` | Store trait, PostgreSQL backends, migrations, RLS context | `question_model`, `domain`, `objects` |
-| `crates/adapters/native`, `webwork`, `qti`, `h5p` | Per-engine load, generate, grade delegation, capability declaration | `question_model`, `domain`, `grading`, `objects` |
-| `crates/export` | Print model, DOCX and PDF writers | `question_model`, `objects` |
-| `crates/wasm` | The `wasm-bindgen` bridge, delegating every call to `domain` | `question_model`, `domain` |
-| `crates/server` | axum routes, auth, worker mode, composition root | Every crate above |
+| Crate                     | Owns                                                                          | Depends only on                                  |
+| ------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------ |
+| `crates/question_model`   | Question types, capabilities, identity, taxonomy                              | External crates                                  |
+| `crates/domain`           | Attempt state machine, runs, timing, seeded generation, capability validation | `question_model`                                 |
+| `crates/grading`          | Answer keys, checkers, correctness decisions (server only)                    | `question_model`, `domain`                       |
+| `crates/objects`          | Object store trait, S3 and MinIO backends, keys, checksums                    | `question_model`                                 |
+| `crates/store`            | Learning data access: contracts, PostgreSQL, migrations, and tenant isolation | `question_model`, `domain`, `objects`            |
+| `crates/adapters/native`  | First-party algorithmic generation and grading                                | `question_model`, `domain`, `grading`            |
+| `crates/adapters/webwork` | Private renderer client, deterministic rendering, grading delegation          | `question_model`, `domain`, `grading`, `objects` |
+| `crates/adapters/qti`     | Hardened package import and opt-in published runtime                          | `question_model`, `domain`, `grading`, `objects` |
+| `crates/adapters/imathas` | Contracted or self-hosted, server-brokered scored embed                       | `question_model`, `objects`                      |
+| `crates/adapters/h5p`     | Package import into ungraded practice; scored execution is unavailable        | `question_model`                                 |
+| `crates/export`           | Print model, DOCX and PDF writers                                             | `question_model`, `objects`                      |
+| `crates/wasm`             | The `wasm-bindgen` bridge, delegating every call to `domain`                  | `question_model`, `domain`                       |
+| `crates/server`           | axum routes, auth, worker mode, composition root                              | Every crate above                                |
 
 Two properties follow from that table. `crates/domain` reaches only `question_model`, so it has no
 clock and no database, which is what lets the same code run on the server and in the browser. And
 `crates/wasm` never reaches `crates/grading`, which is the answer-secrecy guarantee above.
 
+Some current directory and Rust type names use conventional shorthand. In contributor-facing
+documentation, **learning data access** means `crates/store`, **in-memory data access** means its
+database-free `memory` backend, and **project tools** means `crates/xtask`. Run those repository-only
+tools through the clearer `cargo tools` command; `cargo xtask` remains a compatibility alias. See
+[CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) and `docs/FILE_STRUCTURE.md`
+for the ownership map.
+
 ## Quick start
 
-The Rust workspace is the part that runs today. It needs `rustup`, which reads the pinned toolchain
-from [rust-toolchain.toml](rust-toolchain.toml) and installs the `wasm32-unknown-unknown` target
-automatically. The Python hygiene suite needs Python 3.12 and pytest.
+For the shortest useful first success, install current Rust through `rustup`. The repository's
+[rust-toolchain.toml](rust-toolchain.toml) selects stable Rust, rustfmt, Clippy, and the
+`wasm32-unknown-unknown` target.
 
 ```bash
 git clone https://github.com/vosslab/peptidyle-learning-engine.git
@@ -103,51 +123,68 @@ cd peptidyle-learning-engine
 cargo test --workspace
 ```
 
-Every crate compiles and the workspace test run is green:
+Success is an exit status of zero after every Rust unit, integration, and documentation test. Test
+counts intentionally are not frozen in this page.
 
-```text
-     Running unittests src/lib.rs (target/debug/deps/server_core-...)
-running 3 tests
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
-   Doc-tests wasm_bridge
-running 2 tests
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
-```
-
-The three passing unit tests are the readiness rule the container health check is gated on: an empty
-probe list reports degraded, never ready, because a process that has checked nothing has proven
-nothing. The rest of the workspace is stubs, so its test counts are zero on purpose.
-
-The gates a change is held to. These four pass today:
+The full repository gate also needs current Node.js and npm, plus Python 3.12 with pytest. Install
+the browser dependencies once, then use the repository front door:
 
 ```bash
-cargo fmt --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-source source_me.sh && pytest tests/
+npm run setup
+./check_codebase.sh
 ```
 
-`./check_codebase.sh` runs the TypeScript side. It does not pass yet, and the Rust steps above still
-have to be added to it; finishing that script is part of the open M0 work.
+The final summary reports all 11 TypeScript, fixture, WebAssembly-boundary, Rust formatting, Clippy,
+and test stages as `PASS`. Build the API, WebAssembly bridge, generated contracts, and Solid client
+with:
+
+```bash
+./build.sh
+```
+
+A successful debug build ends with the client bundle in `dist/` and the WebAssembly bridge in
+`dist_wasm/`. The local container stack is an advanced development path because it deliberately
+requires local identities, credentials, and immutable gateway and renderer image choices. Read the
+storage and health model in [docs/CONTAINER.md](docs/CONTAINER.md), then supply the current required
+values from [containers/env.example](containers/env.example) rather than inventing defaults.
+
+## One assignment through the system
+
+The core path is implemented as a set of explicit ownership transitions:
+
+```text
+author draft
+  -> publish one immutable problem version
+  -> assign that exact version to a course
+  -> issue a fresh server-seeded learner attempt
+  -> persist an automatic result or a pending manual evaluation
+  -> publish the newest scoring generation atomically
+  -> rebuild the current course item analysis on a lower-priority job
+```
+
+The final analysis is course-owned and instructor-only. It reports aggregate difficulty,
+discrimination, credit distribution, unanswered and pending-manual counts, and completion time. It
+contains no learner identity, raw response, answer key, or grading implementation. A stale analysis
+generation is discarded without delaying or rolling back the current grade.
 
 ## What exists today
 
-| Area | State |
-| --- | --- |
-| Cargo workspace, twelve crates | Compiles; `cargo fmt`, `clippy -D warnings`, and `cargo test` green |
-| Rust modules | Documented stubs; the readiness rule in `crates/server/src/health.rs` is the only implemented logic |
-| API server | Binds a port and serves `/health`, which reports degraded until real probes land |
-| WebAssembly bridge | One trivial export, `bridge_version`, proving the toolchain path |
-| Browser client | Solid shell with one placeholder component that states its own build status; no routes, no widgets |
-| Database schema and row-level security | Not started |
-| Adapters for native, WeBWorK, QTI, H5P | Crate skeletons and capability notes only |
-| DOCX and PDF export | Crate skeleton only |
-| Containers for api, postgres, minio | Not started |
+| Area                                 | State                                                                                                                                                               |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rust domain and learning data access | Attempt, timing, scoring, manual-grading, item-analysis, retention, catalog, and worker contracts; in-memory and PostgreSQL implementations share conformance tests |
+| API server                           | Auth, catalog, course, assignment, run, submission, manual grade, item analysis, asset, export, workspace, and retention route groups                               |
+| WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                      |
+| Browser client                       | Eleven Solid routes including courses, assignments, attempt loop, summary, library, authoring, assignment editing, and gradebook                                    |
+| PostgreSQL                           | Six domain-owned SQLx baseline migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL acceptance                                |
+| Question engines                     | Native implemented; WeBWorK private renderer client; QTI hardened import and opt-in runtime; contracted iMathAS broker; H5P is ungraded only                        |
+| DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                          |
+| Containers                           | PostgreSQL, MinIO, API replicas, gateway, and a private configurable WeBWorK renderer                                                                               |
+| Worker runtime                       | Durable claims and generation-fenced handlers exist; production family-filtered drain-loop activation and monitoring remain open                                    |
 
-Milestone order, entry criteria, and acceptance gates live in
-[docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md). M0 is not
-complete until containers come up and `/health` returns 200 behind a real `SELECT 1` and a bucket
-probe.
+The exact checkpoint, evidence, and remaining dependency order live in
+[docs/active_plans/partial_commit_status.md](docs/active_plans/partial_commit_status.md). The full
+architecture and milestone plan remain in
+[docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md).
 
 ## Repository layout
 
@@ -162,24 +199,30 @@ devel/      Maintenance and release helper scripts
 
 ## Documentation
 
-Setup and usage guides arrive with the first running service. Until then these are the useful routes:
+Start with the product and operating boundaries:
+
+- [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) - system shape, crate ownership, storage,
+  API, browser, and security boundaries.
+- [docs/CONTAINER.md](docs/CONTAINER.md) - local storage, bucket separation, health checks, and
+  compose operations; required deployment selections live in `containers/env.example`.
+- [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) - server-only grading, tenant derivation,
+  protected content, and authenticated route boundaries.
+- [docs/QUESTION_MODEL.md](docs/QUESTION_MODEL.md) and
+  [docs/ACTIVITY_MODEL.md](docs/ACTIVITY_MODEL.md) - published question and learner-activity
+  contracts.
+- [docs/CONTRACTS.md](docs/CONTRACTS.md) - frozen module ownership and atomic change rules.
+
+For status and contribution work:
 
 - [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md) - milestone
   plan, module catalog, contracts, and acceptance gates; the source of truth for this build.
-- [docs/active_plans/customer-spec.md](docs/active_plans/customer-spec.md) - the product
-  specification the plan implements.
+- [docs/active_plans/partial_commit_status.md](docs/active_plans/partial_commit_status.md) - current
+  implementation checkpoint, executable evidence, and remaining order.
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) - dated record of changes, decisions, and failures.
-- [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) - server-only grading, tenant derivation, and
-  protected-content boundaries.
 - [AGENTS.md](AGENTS.md) - working method, validation loop, and constraints for contributors and
   coding agents.
-- [docs/RUST_STYLE.md](docs/RUST_STYLE.md) - Rust conventions the workspace is held to.
-- [docs/TYPESCRIPT_STYLE.md](docs/TYPESCRIPT_STYLE.md) - TypeScript and Solid conventions for the
-  browser client.
-- [docs/PLAYFUL_TRAINING_GAME_STYLE.md](docs/PLAYFUL_TRAINING_GAME_STYLE.md) - student interface
-  requirements, including the wrong-answer screen.
-- [docs/COLOR_CONTRAST_ACCESSIBILITY.md](docs/COLOR_CONTRAST_ACCESSIBILITY.md) - contrast rules the
-  interface is measured against.
+- [docs/RUST_STYLE.md](docs/RUST_STYLE.md), [docs/TYPESCRIPT_STYLE.md](docs/TYPESCRIPT_STYLE.md),
+  and [docs/MARKDOWN_STYLE.md](docs/MARKDOWN_STYLE.md) - language and documentation conventions.
 
 ## License
 
