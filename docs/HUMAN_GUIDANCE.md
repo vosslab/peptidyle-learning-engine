@@ -3,6 +3,9 @@
 This file records durable project guidance from the repository owner. Apply it
 alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 
+- Source code files should be less than 1000 lines in length; if the get longer
+  than that organize and distribute the content over more files
+
 ## Plan status
 
 - Treat `docs/active_plans/implementation_plan.md` as the source of truth for
@@ -59,6 +62,24 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Keep the security boundary intact when optimizing: deterministic generation,
   response-format validation, timer display, and state transitions may run in
   WebAssembly; answers, keys, and correctness decisions remain server-only.
+
+## Score precision and display
+
+- Use `f64` for scoring calculations and `AttemptResult` across Rust, WebAssembly,
+  and browser projections. Do not replace ordinary score arithmetic with `f32`
+  or a scaled-integer points model.
+- Round computed current points explicitly to at most four decimal places before
+  persistence. Keep PostgreSQL `NUMERIC` as the rounded storage boundary without
+  forcing general Rust scoring code to use fixed-point arithmetic.
+- Exact decimal command boundaries, such as a manually entered credit fraction,
+  may retain up to 12 decimal places. They do not require the rest of the score
+  model to use decimal arithmetic.
+- Display scores and percentages with at most two decimal places and trim
+  trailing zeroes. Show `8 / 10`, `8.5 / 10`, or `8.33 / 10`, never a binary
+  floating-point artifact such as `8.0000000000006 / 10`.
+- Choose one explicit midpoint-rounding rule before implementation and cover the
+  same boundary examples in Rust and TypeScript so server and browser output
+  cannot disagree.
 
 ## Software design
 
