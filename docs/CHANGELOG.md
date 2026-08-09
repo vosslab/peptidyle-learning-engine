@@ -1,12 +1,505 @@
 # Changelog
 
+## 2026-08-09
+
+### Additions and New Features
+
+- Completed WP-QTI-10 author UI over the accepted server DTOs. The existing workspace route now
+  composes a feature-local, same-origin QTI import panel with the existing flat editor; it adds no
+  product route, global browser contract, browser ZIP/XML parser, archive/report persistence, or
+  private-answer fields. Authors can upload opaque ZIP bytes, manually refresh queued/processing
+  work, review recognized profile/default/warning details and visually distinct accepted/rejected
+  items, acknowledge the current report, and convert one accepted item only with the exact displayed
+  clean strong draft revision. Exact retry preserves identity only after an ambiguous upload;
+  all-rejected and unsupported packages retain clear recovery. After a committed conversion, the
+  previous editor stays inert until the replacement refetch succeeds; a failed refetch keeps it
+  locked and provides a repeatable reload action without repeating conversion or creating a new
+  import. The existing flat editor receives focus only after successful load. Permanent Node tests,
+  four real-route Chromium scenarios, and the 11-check full gate passed (173 Node and 184 server
+  tests in that gate); independent security and HCI re-reviews found no P0/P1 issue. WP-QTI-11,
+  the live PostgreSQL/RLS/profile-to-native gate, is next and unstarted. Evidence is in
+  `docs/active_plans/workstreams/qti_author_ui_implementation.md`.
+
+- Completed WP-QTI-9 server ingress, report, conversion, and publication orchestration. An author
+  upload retains an exact bounded ZIP in a deterministic private workspace object and enqueues one
+  deterministic `qtiImport` job; exact replay is stable and divergent replay refuses. The strict
+  profile worker exposes an answer-free report with package/item defaults and acknowledgement
+  digests, stages complete accepted-item evidence, and keeps mixed-vendor or all-rejected results
+  from creating a conversion candidate. Strong-ETag conversion rereads and reparses the retained
+  archive before the atomic WP-QTI-8 Store command, while publication copies the exact archive to a
+  deterministic non-signable `PublishedImportArchive`. Memory and PostgreSQL now serialize prepared
+  import work with draft deletion. The adapter (93 unit, 6 conformance, 12 documentation), objects
+  (17 unit, 3 conformance, 1 published-archive), learning-data-access (93 unit, 39 conformance,
+  3 documentation; one database-only unit and 7 live PostgreSQL integration tests ignored as
+  documented), and server (184 library,
+  1 main, 1 documentation) gates passed, as did strict Clippy, workspace all-target/all-feature
+  check, formatting, and 5 crate-boundary checks. A one-time 32 MiB plus one-byte chunked ingress
+  probe passed and was removed. Independent P0/P1 route and worker reviews reported PASS. WP-QTI-10
+  author UI is next; the WP-QTI-11 live PostgreSQL/RLS/profile-to-native gate remains pending.
+
+- Added an execution-ready bot-traffic cost-containment plan for M6. It separates a tiny, API-free
+  public landing host from the authenticated PLE application; keeps app APIs same-origin with
+  host-only cookies; requires cheap authorization refusal before Store, object, queue, renderer, or
+  provider work; and adds semantic cache separation with tunable TTLs, provider-neutral credential
+  refusal, private origins and health, bounded secret rotation, reference-safe manifest cleanup,
+  evidence-derived rate and capacity settings, a normalized bot-cost formula, authenticated
+  automation concurrency and idempotency bounds, spend controls, and an operator runbook. Production
+  is fixed to private S3 origins behind CloudFront. GitHub Pages is limited to a qualifying
+  non-commercial project showcase
+  because its current terms prohibit using free Pages hosting to operate an online business or
+  commercial SaaS. The plan exposes the remaining M6 deployment-tool and production
+  `IdentityProvider` decisions and now applies the repository's permanent-test checklist.
+  Deterministic offline behavior stays in unit/conformance or local Playwright tests, while cloud,
+  network, cost, transfer, visual, mutation, and capacity probes
+  are one-time evidence rather than regular tests. Unsupported byte, pixel, timing, percentage,
+  retention-count, and rate constants were removed from permanent gates. Independent red-team review
+  also removed assumed traffic evidence, noisy negative-cost failure, diagnostic alert boilerplate,
+  unsafe secret-materialization claims, and external navigation from the regular Playwright path.
+  Durable human guidance now records that discipline explicitly.
+
+- Added a formal project status report and refreshed the README status surfaces. They now separate
+  implemented and verified capabilities from accepted plans, identify WP-QTI-9 as the next active
+  package, record the seven flat-question families still missing beyond single choice, and make the
+  deployment, course-appearance, content-pack, object-reconciliation, and release blockers explicit.
+  The complete 11-stage repository check passed after generated Cargo artifacts were cleared.
+
+- Completed a focused frontend/backend security pass. Learner response recovery now uses only
+  `sessionStorage` and clears the active buffer on run exit; file-upload answers fail closed until
+  a server-issued upload capability exists. Generic QTI rejects active SVG, and PDF export bounds
+  PNG dimensions, decoded bytes, and zlib expansion before allocation. Catalog revision and
+  lifecycle writes now require tenant-qualified ownership in Memory, SQLx, and forced RLS, while
+  API readiness reruns the exact migration/checksum compatibility verifier rather than treating a
+  reachable database as compatible. Static SQL review found only bound SQLx values, the npm audit
+  reported no production dependency advisories, focused security tests passed, and the fresh
+  six-migration PostgreSQL baseline passed every real-role and denial oracle.
+
+- Completed WP-QTI-8 Memory/PostgreSQL provenance-aware conversion. A closed staged profile-
+  evidence type closes H2 and binds conversion to the committed accepted result's exact
+  `sourceIdentifier`/`itemId`, profile tuple, and digest set. Both backends atomically commit the
+  draft CAS revision, canonical source, current private grading, and current origin under the frozen
+  lock order. Ordinary saves also stage current grading; publication accepts no caller grading
+  payload and promotes only the locked stored value after origin promotion. PostgreSQL uses the
+  forced-RLS provenance and grading brokers with no direct Store reads of private grading,
+  choice-map, or provenance secret tables. `Sha256Digest` now uses strict lowercase 64-hex JSON
+  serialization. Shared conformance, PostgreSQL feature coverage, the full fresh baseline, and
+  independent review passed with no P0/P1 finding. WP-QTI-9 server routes are next; the already-
+  frozen course appearance plan remains separate.
+
+- Refreshed durable human guidance in the owner's wording: use GPT-5.6 agents,
+  favor positive prompting and parallel atomic tasks, support the eight named
+  PLE QTI-JSON question families, keep feedback optional, use QTI Package Maker
+  as a low-priority conversion reference, and begin with four mixed WeBWorK and
+  static questions in each Chapter 1 genetics and biochemistry assignment.
+
+- Recorded the owner's Blackboard-inspired course appearance guidance and added an execution-ready
+  M3 plan. The plan keeps 15 measured three-color biome/habitat themes, consolidates only `woodland`
+  into `forest`, applies one theme across every course-owned route, and keeps one small centered
+  banner on the course entry page. Atomic revision handling, protected object lifecycle, forced RLS,
+  fixed server-owned image normalization, accessibility/contrast metrics, visual contact sheets,
+  and independent implementation review are required before the feature is complete. Independent
+  architecture and HCI reviews of the plan itself reported PASS with no remaining P0/P1 finding;
+  the separate QTI sequence remains dependency ordered.
+
+- Refreshed WP-QTI-7 schema/RLS/object-binding implementation evidence after the choice-map checksum
+  repair. A dedicated `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS` provenance broker owns narrow protected
+  functions over six forced-RLS current/published origin, private choice-map, and profile/item-
+  evidence relations. PostgreSQL recomputes SHA-256 over private choice-map bytes in direct table
+  triggers for current and published maps, so divergent digests are refused even for a direct
+  provenance-broker write. Current lineage pins the committed import; ordinary draft cleanup
+  releases only that current lineage; published lineage and maps remain immutable and retained.
+  Origin writes bind the full committed typed `ObjectRecord`, including key classification,
+  checksum, size, media type, license, provenance, and creation time. SQL now matches Rust's
+  1,024-Unicode-scalar source-item boundary across every linked QTI surface. The final fresh
+  baseline pass applied all six migrations, re-applied without change, verified the ledger, and
+  exercised capability-negative and direct-broker negative provenance probes with the real-role
+  RLS/pin/cleanup oracle. Final independent checksum re-review reported PASS with no P0/P1
+  findings; the subsequently completed WP-QTI-8 backend conversion is recorded above.
+
+- Completed Q4/WP-QTI-6 provenance contract and archive-object identity. The adapter now emits a
+  versioned private ordered choice-map payload with a fixed binary encoding and checksum; the
+  storage boundary owns closed profile/conversion values, current and immutable published origins,
+  private payload redaction, fail-closed promotion, and one atomic conversion command. The
+  `PublishedImportArchive` key is tenant-bound, deterministic, non-signable, and retained with the
+  published version. Focused adapter, data-access, object, bridge, formatting, Clippy, boundary,
+  and diff gates passed; independent review reported PASS with no P0/P1 finding. The subsequent
+  WP-QTI-7 schema package reconciles the Rust and SQL source-item boundary at 1,024 Unicode scalars;
+  WP-QTI-8 backend conversion remains next.
+
+- Added the pure server-only QTI-to-flat bridge. It routes a private mapped
+  Canvas or Blackboard v1 item through native validation, canonicalization, and
+  existing public/private compilation with fixed imported defaults and a 256
+  KiB whole-source cap. Canvas and Blackboard fixtures match equivalent
+  hand-authored canonical source exactly; no Store, object, schema, HTTP, UI,
+  or Wasm behavior changed. Full focused gates and independent P0/P1 review
+  passed.
+
+- Added the bounded Blackboard Original QTI 2.1 static-pool parser. It accepts
+  only static single-choice items, keeps the exact inert `SCORE` declaration as
+  compatibility provenance rather than scoring, and records the explicit 1.0
+  point default as a review-required warning. Real shuffle, scoring variants,
+  feedback, media, rich markup, and extensions become per-item safe refusals.
+  Correct bindings and vendor-to-PLE maps remain private; full adapter gates,
+  strict Clippy, boundary checks, and independent P0/P1 review passed.
+
+- Added the bounded Canvas QTI 1.2 static-single-choice parser. It derives
+  profile evidence from the exact bounded archive, manifest/resource graph,
+  assessment metadata, and item tree; accepts only declared points and exact
+  all-or-nothing scoring; and keeps unsupported feedback, scoring, markup, and
+  extensions as per-item safe refusals. Correct bindings and vendor-to-PLE maps
+  remain private and the package is neither serializable nor debuggable. Full
+  adapter gates, strict Clippy, boundary checks, and independent P0/P1 review
+  passed.
+
+- Added the strict shared QTI markup projector. Canvas `mattext` receives one
+  bounded HTML-tokenizer layer, while Blackboard ordered XML is projected
+  directly and is never reparsed as HTML. Only the documented small text
+  allowlist reaches deterministic CommonMark; attributes, recovery-dependent
+  HTML, links, rich media, tables, styles, SVG, MathML, and unknown markup
+  refuse visibly. Input, token, nesting, and Unicode-output limits are enforced
+  before growth. Full adapter gates and independent re-review passed.
+
+- Added the shared QTI mapped-item contract required before either vendor
+  parser. Closed instructor-safe diagnostics cannot carry parser-supplied
+  answer text; correct choices and ordered vendor-to-PLE maps remain
+  non-serializable and non-debuggable. Choice identifiers are deterministic,
+  collision-safe, and source-order independent. Mapping digests can now be
+  created only by their profile/version-owning mapped item. Full adapter tests,
+  strict Clippy, boundary checks, and independent re-review passed.
+
+- Added the ordered XML evidence needed by exact Canvas and Blackboard
+  parsers without changing the generic QTI importer. The private XML tree now
+  preserves mixed text/child/comment/processing-instruction order, raw CDATA,
+  element and attribute prefixes, and inherited namespace bindings. The
+  existing aggregate-text behavior and public generic output remain locked by
+  regression tests. Full adapter tests, strict Clippy, boundary checks, and an
+  independent P0/P1 review passed.
+
+- Completed the first bounded QTI-profile contract package. The adapter now
+  has exact persisted Canvas QTI 1.2, Blackboard QTI 2.1, and honest generic
+  profile identities; a single corpus-grounded manifest/resource/item matrix;
+  strict vendor detection with generic fallback; and canonical safe-report,
+  public, private, combined, and warning digests. Private answer mappings
+  remain non-serializable and non-debuggable. Focused tests, strict Clippy,
+  crate-boundary checks, and independent re-review passed; vendor item parsers
+  remain the next package.
+
+- Added the parser-ready QTI profile fixture corpus. Readable minimized Canvas
+  QTI 1.2 and Blackboard QTI 2.1 manifests, metadata, items, and one-fact near
+  misses now reproduce the retained package structures without test-time
+  `OTHER_REPOS` access. Shared test support builds safe logical ZIPs, validates
+  balanced single-root XML, and compares member paths and contents rather than
+  timestamps or ZIP bytes. Focused/full adapter tests, strict Clippy, boundary
+  checks, and independent review passed.
+
+- Extracted the QTI hostile-input foundation before adding vendor parsers. A
+  focused archive owner now enforces ZIP, path, link, duplicate, and expansion
+  bounds; a separate XML owner enforces UTF-8, DTD/entity refusal, resource
+  limits, attributes, nesting, and a single root. The generic parser keeps its
+  original narrow entry grammar and fell from 976 to 613 lines. Adapter tests,
+  strict Clippy, boundary checks, and independent review passed.
+
+- Added the implementation-ready bounded QTI profile plan. It defines separate
+  Canvas QTI 1.2 and Blackboard QTI 2.1 static-single-choice profiles, strict
+  refusal instead of lossy grading or markup conversion, deterministic choice
+  identity, native flat-question compilation, immutable private archive
+  provenance, instructor upload/review/convert behavior, real-role PostgreSQL
+  acceptance, and a separately gated later export milestone.
+
+- Completed the instructor PLE flat-question editor. The focused authoring
+  modules load and save canonical source only through the authenticated
+  author-role, `no-store`, strong-ETag source route; ordinary browser
+  contracts, learner preview, Wasm, and public publication DTOs remain
+  answer-free. The route falls back to the legacy editor only on the protected
+  source route's 404, while other failures remain visible. The editor supports
+  create/open/edit/save, local-answer-free preview, visible stale-conflict
+  reload, publication review, immutable publish, generation guards, a
+  double-save lock, accessible per-choice radios, and 375 px reflow. Focused
+  fixtures passed 2 new editor Playwright tests plus 7 generic editor tests;
+  the production rebuild and all 11 `check_codebase.sh` stages passed. This
+  records mounted component/client/repository evidence, not a deployed
+  authentication or browser walkthrough.
+
+- Completed the PLE flat-question persistence, publication, and runtime
+  package. A typed compare-and-swap save keeps the draft and private canonical
+  workspace source together; publication copies that source to an immutable,
+  non-signable `ProblemSource`, persists only the answer-free public model, and
+  promotes typed private material through the isolated grader capability. The
+  dedicated no-store ETag routes and native runtime keep grading server-only.
+  Memory, PostgreSQL/RLS, a real compiled blue-correct/red-incorrect live gate,
+  and an independent re-review pass cover the boundary.
+- Added the first executable PLE flat-question JSON v1 contract for ordinary
+  static single-choice questions. The strict native Rust codec bounds source
+  size and text, rejects duplicate and unknown members at every object layer,
+  canonicalizes stable semantic choice IDs, and compiles author input into an
+  answer-free draft plus checksum-bound grader-only answers and feedback.
+- Completed the maintained local whole-system runner. Its three gates call the
+  browser-safe Wasm bridge, apply and audit the full six-migration PostgreSQL
+  baseline with every live oracle, and exercise a learner through two API
+  replicas behind the gateway. The runner stops the issuing replica, requires
+  the exact question envelope from the survivor, commits and exactly
+  replays one idempotent submission, verifies the scoped persistence rows, and
+  removes every generated project resource.
+- Added an allowlisted container build context and a derived gateway image.
+  API builds receive only Cargo sources, owning Containerfiles, and the SQLx
+  migrations embedded by `migrate!`; host targets, generated output, local
+  credentials, and unrelated source never enter the context. The gateway starts
+  from an explicitly pinned official Caddy digest, removes its unnecessary
+  low-port file capability, and runs on port 8080 as UID 1000 with an empty
+  runtime capability set.
+- Recorded a clean-cluster PostgreSQL 17 backup/restore rehearsal. Encrypted
+  role and custom-format database artifacts recreated the six-migration ledger,
+  data fingerprint, role attributes without password hashes, function owners,
+  grants, forced RLS, and tenant isolation in a separate empty cluster. The
+  restored application role persisted a tenant-owned write and invoked a
+  restored queue-broker function. Backup and restore each completed in one
+  second in this local fixture; managed PITR, production key management, and a
+  deployed recovery objective remain separate M6 gates.
+- Recorded a one-time production-boundary retention rehearsal against isolated
+  PostgreSQL and MinIO services. The real six-family worker deleted a populated
+  learner record graph and its typed student-record object while preserving the
+  assignment and instructor structure, published catalog/version/source,
+  workspace draft, and anonymous global statistics. The reconstruction harness
+  was removed after the evidence was recorded, as required by the retention
+  verification policy.
+- Added a disposable PostgreSQL scale oracle for all four monthly activity
+  parents and the production gradebook read shape. It distributes 260,000
+  attempts across the fixed 26-month epoch, inspects `EXPLAIN (ANALYZE,
+BUFFERS, FORMAT JSON)`, requires each bounded query to scan exactly one
+  requested child, and proves an application-role 51-row gradebook lookahead
+  page touches only compact current-summary relations with indexed enrollment
+  and summary access.
+- Activated the production worker as an explicit `--worker` binary mode and
+  dedicated Compose service. Its closed registry contains six complete
+  handler/committer pairs for scoring, course item analysis, attempt
+  auto-submit, retention, assignment export, and QTI import; schema
+  compatibility is verified before the first claim, and the process receives
+  only PostgreSQL and object-storage configuration.
+- Added mandatory family filters to the durable queue broker. Claimable work,
+  expired-lease cleanup, and queue depth all use the same nonempty closed
+  filter derived from the worker registry. Reserved Render and generic Import
+  variants therefore stay untouched until complete implementations exist.
+- Added complete per-item QTI import results. Safe packages may now retain
+  accepted items while reporting unsupported or missing items as rejected;
+  every result carries bounded source identity, disposition, warnings, and an
+  answer-free normalized checksum when accepted. Exact and likely duplicates
+  within one import batch are reported explicitly, and original archive bytes
+  remain available for correction or re-import.
+- Added forced-RLS PostgreSQL persistence for QTI item results plus a permanent
+  disposable-database oracle. The live path proves preparation invisibility,
+  exact commit, provenance, accepted/rejected row shape, warning detail,
+  foreign-tenant non-enumeration, and absence of private grading bytes.
+- Added a separate, current-only course item-analysis projection instead of
+  reusing the identity-free cross-course catalog aggregate. The pure domain
+  reducer, Store contract, Memory and PostgreSQL backends, instructor-only API,
+  and closed worker handler report graded, unanswered, and pending-manual
+  counts; correctness-based difficulty; exact-credit mean and sample standard
+  deviation; discrimination; bounded response categories; assignment score;
+  and terminal learner-submission time without learner identity, raw response,
+  answer key, or grading implementation.
+- Added generation-fenced item-analysis staging and publication. A successful
+  scoring commit transactionally reserves the corresponding analysis job,
+  non-analysis work remains ahead of analysis in both queue backends, and stale
+  prepared generations complete as superseded without delaying or rolling back
+  the current grade. The complete production registry now drains this family
+  while reserved incomplete families remain outside its broker filter.
+
+### Fixes and Maintenance
+
+- Refused direct signed URLs for both workspace and published source objects.
+  Source bytes may contain answers or executable grading material even when
+  they live in the content bucket; only published assets, render artifacts, and
+  authorized student records remain signable through the typed object contract.
+- Repaired the live PostgreSQL application boundary found by the replica gate.
+  `ple_app` now has only the `SELECT, INSERT` rights its catalog-asset binding
+  contract requires. Immutable submission-successor receipts no longer use
+  `SELECT FOR UPDATE`, which would have required a misleading table-wide
+  `UPDATE` grant; their primary key serializes concurrent insertions and a
+  losing finalizer accepts only the exact stored successor.
+- Hardened the replica runner around real Podman variation and failure cleanup.
+  It falls back from a stale `podman compose` shim to standalone
+  `podman-compose`, identifies API containers through exact project/service
+  names, emits only bounded allowlisted HTTP errors and redacted deployment
+  diagnostics, validates UUIDs before SQL interpolation, and removes exact
+  residual containers, networks, and volumes after partial Compose failures.
+- Paired every claimable worker handler with its own atomic committer in one
+  registry entry, replacing the unsafe combination of a full handler table and
+  one unrelated global committer. Production processes one job per bounded
+  pass, observes shutdown between claims without dropping active preparation,
+  redacts operational error detail, and reports supported-family depth.
+- Declared Compose's shared `default` network explicitly. The maintained
+  `podman-compose config` check previously rejected the API's existing named
+  default attachment as a missing network; PostgreSQL, MinIO, API, and worker
+  now share a portable explicit application network.
+- Split the QTI adapter into a 293-line data model, 976-line bounded parser,
+  and 340-line hostile-archive/import-report test owner. The public adapter
+  facade remains stable while archive limits, XML limits, asset validation,
+  partial results, and duplicate detection have distinct review surfaces.
+- Granted the QTI staging broker only the tenant-context predicate required by
+  its security-definer functions. The live import path found the missing
+  capability before any production data exists.
+- Aligned durable export and import queue payload checks with Rust's established
+  snake-case enum-field serialization. The PostgreSQL constraint and atomic
+  export/QTI commit predicates now accept the exact closed payload Rust writes;
+  a permanent serialization test locks the QTI shape.
+- Split the QTI runtime backend into a 394-line production owner, 332-line
+  shared private-fixture owner, 263-line direct grading/asset-integrity test
+  owner, and 431-line learner run-lifecycle test owner. Issue, reproduction,
+  answer-bearing grading, tenant/provenance refusal, asset binding, and replay
+  behavior are unchanged; contributors can review each boundary independently.
+- Split the QTI publication route's six behavior tests into a focused private
+  test owner. The 585-line production module still owns committed-staging
+  validation, strong workspace revisions, exact source-byte copying, review
+  authorization, and visible-version promotion; the 532-line test module
+  preserves every route and race assertion without changing a public path.
+- Split authentication sessions and QTI persistence into capability-owned
+  contract, in-memory, PostgreSQL, and conformance modules. The stable
+  `learning_data_access::Session...` and `learning_data_access::Qti...` paths are unchanged; session SQL
+  still assumes only `ple_auth`, opaque credentials remain one-way hashes,
+  backend clocks still own expiry, and answer-bearing QTI bytes remain behind
+  the separately injected grader handle. Store `lib.rs` drops to 2,319 lines,
+  the PostgreSQL parent to 6,630, and the conformance facade to 4,990.
+- Added `cargo tools` as the plain-language front door for repository-only
+  generation, fixtures, database operations, and E2E seeding while retaining
+  `cargo tools` as a compatibility alias. Scripts, generated-file guidance,
+  command help, and current plans now lead with the clearer command.
+- Split protected asset delivery into a 173-line backend-neutral contract,
+  148-line in-memory implementation, and 235-line PostgreSQL implementation,
+  paired with its existing focused conformance owner. Existing
+  `learning_data_access::Asset...` paths, SQL, tenant checks, immutable catalog binding,
+  educational-record non-enumeration, and access-audit behavior are unchanged;
+  the crate root drops to 2,520 lines and the PostgreSQL parent to 6,744.
+- Moved the complete backend-neutral external-tool Store contract out of the
+  crate root into a focused 441-line module. The root remains a compatibility
+  facade, so existing `learning_data_access::ExternalTool...` paths and both backend behaviors
+  are unchanged while `store/lib.rs` drops from 3,075 to 2,677 lines.
+- Kept item-analysis authorization inside the persistence boundary. PostgreSQL
+  uses the active stored session and course authority in one database snapshot;
+  forced RLS, course-binding and retention-fence triggers, purge order, and
+  least-privilege grants protect both current and private staging rows.
+- Defined completion time as the interval from run start to the latest terminal
+  learner submission in both Store backends. Later manual-grading time cannot
+  inflate the learner's completion interval. Difficulty follows the evaluator's
+  correctness verdict independently from exact manual credit.
+- Removed an unnecessary staging row lock found by the live least-privilege
+  oracle. The assignment row lock and exact leased-job validation already
+  serialize publication, so the application role does not need an `UPDATE`
+  grant on private staging rows.
+
+### Documentation
+
+- Shortened the six pre-data SQLx migration identifiers to the readable
+  `YYYYMMDDNN_description.sql` form. The contiguous numeric prefix preserves
+  SQLx ordering while avoiding timestamp-like digits that do not carry useful
+  information; underscores cannot divide the date because SQLx treats the
+  first underscore as the version/description boundary.
+- Defined PLE flat-question JSON as the small canonical machine format for
+  static authoring and kept QTI as a profile-specific import/export adapter.
+  The decision records the JSON-over-YAML reasoning, public/private persistence
+  split, immutable source authority, feedback behavior, schema evolution, and
+  the still-pending publication and instructor-editor packages.
+- Renamed the opaque Rust crate paths atomically: `crates/store` is now
+  `crates/learning-data-access`, its backend module is `in_memory`, and
+  `crates/xtask` is now `crates/project-tools`. Cargo packages and directories
+  use hyphens, Rust imports and modules use underscores, and repository
+  automation uses `cargo tools` without the retired `cargo xtask` alias. The
+  TypeScript generator recognizes the exact former ownership marker only long
+  enough to rewrite generated files under the new package identity.
+- Refreshed the architecture guide and added a file-structure guide that map
+  each capability to its contract, in-memory implementation, PostgreSQL
+  implementation, and focused conformance coverage. The README now introduces
+  these plain names before relying on the internal Rust identifiers.
+- Recorded the owner's componentization rule: preserve a modular monolith,
+  split by capability ownership rather than arbitrary line ranges, keep crate
+  roots as facades/composition points, and pair each component's narrow
+  contract with its backend implementations and focused behavior tests.
+- Replaced the root README's obsolete M0 stub description, frozen three-test
+  output, and missing-server/schema/container claims with the current active
+  implementation status, adoption blockers, verified repository front doors,
+  assignment-to-analysis flow, implemented boundaries, and curated docs map.
+  The original project purpose, server-only grading proof, tenant/content
+  boundary, licenses, and author context remain intact.
+
+### Developer Tests and Notes
+
+- The embedded migration-status tests and full disposable PostgreSQL baseline
+  gate pass with versions `2026080801` through `2026080806`. The gate proves
+  six pending migrations, ordered apply, no-op replay, exact compatibility,
+  checksum mutation detection, live worker and grading oracles, and real-role
+  RLS denial; cleanup leaves only the pre-existing `pg-test` container.
+- All five focused flat-question codec tests and both Object Store suites pass
+  under strict Clippy. They prove canonical hashing, public/private secrecy and
+  binding, correct and incorrect feedback selection, rejection of duplicate or
+  extension members, the 256-KiB backstop, source non-signability, and normal
+  published-asset delivery.
+- `PLE_E2E_GATEWAY_IMAGE_SHA256=<pinned-digest> bash
+tests/e2e/e2e_run_all.sh` passes 3/3. The exact cross-replica envelope,
+  durable receipt replay, and one-row persistence set all pass.
+- The complete disposable database gate passes with exact May-only pruning for
+  `question_attempt`, `submission`, `record_access_log`, and `audit_event`.
+  The 60,000-row gradebook fixture returns its bounded 51-row page from only
+  `assignment`, `enrollment`, and `student_assignment_summary`; every
+  disposable project is removed and the pre-existing `pg-test` remains alone.
+- Added Memory and disposable-PostgreSQL family-filter oracles. Two concurrent
+  PostgreSQL claimants lease distinct supported jobs through `SKIP LOCKED`, an
+  older reserved job stays ready, and claiming another family does not
+  dead-letter its expired lease. The complete six-migration, checksum, role,
+  RLS, QTI, item-analysis, and manual-grading database gate passes with the new
+  broker signature.
+- All 8 QTI adapter tests pass, including hostile paths, symlinks, expansion
+  limits, XML depth/width limits, server-only archive and grading handoffs,
+  partial success, exact duplicate warnings, and likely duplicate warnings.
+  QTI Store conformance passes in both configurations; the focused server
+  import test and the new PostgreSQL live oracle pass. The fresh six-migration
+  database gate also passes checksum mutation, real-role RLS, item analysis,
+  and mixed manual grading after the queue/grant corrections.
+- All five focused QTI runtime tests and the complete 143-test server suite
+  pass after the split. The tests still prove no answer material reaches the
+  browser, invalid tenant/provenance/asset bindings refuse before private
+  grading, and an idempotent submission replay performs no second grader
+  lookup.
+- All six focused QTI publication tests pass after the ownership move,
+  including foreign-tenant denial before object lookup, changed-draft and
+  review-time revision races, bytes-first source copying, strict revision
+  parsing, and promotion only from committed staging.
+- Both `cargo tools database --help` and its `cargo tools` compatibility form
+  produce the same project-tool help; all 18 project-tool tests pass. The full
+  repository gate passes all 11 stages, including generated projection drift,
+  TypeScript checks, 149 Node tests, crate-boundary enforcement, strict Rust
+  Clippy, workspace tests, and doctests. Markdown and ASCII checks pass 444
+  cases, and the maintained shell scripts pass syntax and warning/error-level
+  ShellCheck validation.
+- Protected asset conformance passes in both learning-data-access feature
+  configurations; all six server asset tests pass. Both complete Store suites,
+  strict Clippy in both modes, workspace compilation, and the full 11-stage
+  repository gate remain green after the extraction.
+- Session replica/revocation and backend-clock expiry conformance passes in
+  both learning-data-access feature configurations. QTI staging, publication,
+  redaction, and grader-isolation conformance also passes in both modes; all
+  15 focused server QTI tests and all 24 focused server authentication tests
+  pass after the split.
+- External-tool Store conformance passes with and without PostgreSQL features,
+  the focused server route tests pass, and both complete Store suites, strict
+  Store Clippy modes, workspace compilation, Rust formatting, Markdown/ASCII
+  hygiene, and staged/unstaged diff checks remain green after the extraction.
+- Added focused reducer, Store conformance, server API/worker, and authorized
+  HTTP fixtures. They cover mixed automatic and pending-manual work, correction,
+  stale-stage supersession, latest-run selection, force-submit and clear,
+  instructor/administrator access, cross-tenant non-enumeration, response
+  redaction, and exact completion-time parity.
+- Extended the disposable PostgreSQL 17 baseline gate with the production
+  item-analysis path. It proves six-file apply/no-op/verify, real-role RLS,
+  lower-priority job claiming, mixed manual correction from `0.25` to `0.5`,
+  stale analysis rejection, one corrected current report, exact terminal
+  submission timing, and cleanup. All disposable projects are removed after
+  the run; the developer's existing `pg-test` remains untouched.
+
 ## 2026-08-08
 
 ### Additions and New Features
 
 - Consolidated the pre-data PostgreSQL schema into the six domain-owned SQLx
   baseline migrations specified by the database evolution plan. The new
-  `cargo xtask database status`, `migrate`, and `verify` commands use SQLx's
+  `cargo tools database status`, `migrate`, and `verify` commands use SQLx's
   ledger and checksum compatibility checks, while application startup remains
   verify-only. The baseline creates explicit least-privilege principals,
   forced tenant RLS, monthly/default partition families, immutable published
@@ -81,7 +574,7 @@
   each export tenant-owned.
 - Added opt-in production QTI runtime registration. It requires the exact
   `PLE_QTI_RUNTIME_ENABLED=1` and separate `PLE_GRADER_DATABASE_URL` pair,
-  constructs a dedicated `ple_qti_grader` pool before routing, and dispatches
+  constructs a dedicated `ple_grading_reader` pool before routing, and dispatches
   only persisted QTI sources through the immutable-archive backend. Partial
   configuration fails closed; disabled, foreign, and non-QTI dispatches cannot
   reach private grading material.
@@ -219,19 +712,75 @@
 
 ### Fixes and Maintenance
 
+- Hardened the consolidated pre-data PostgreSQL baseline after independent
+  review. A disposable live gate now proves clean apply, no-op replay, checksum
+  drift detection, real-role RLS denial, deterministic empty default
+  partitions, and a genuine serialization failure that commits after a bounded
+  whole-transaction retry. `problem` and `answer_key` now have forced RLS,
+  baseline constraints apply validated, required foreign-key access paths are
+  indexed, migration credentials are separate from the application role, and
+  E2E seeding must explicitly opt in before changing schema.
+- Made both SQLx pools explicit about acquisition, idle, and maximum-lifetime
+  bounds; classified serialization and deadlock SQLSTATEs separately; removed
+  raw PostgreSQL constraint text from portable errors; and kept mid-verification
+  connection failures in degraded-health handling. PostgreSQL migration logic
+  and Memory retention behavior/tests now live in focused child modules instead
+  of the two largest Store backend files.
+- Split PostgreSQL assignment-timing, assignment-export, catalog, external-tool,
+  jobs, QTI, retention, connection, migration, and manual-grading behavior; Memory
+  external-tool, queue, export, catalog, session, retention, and manual-grading
+  behavior; Store activity/scoring and publication validation, feedback, and
+  policy contracts; Store conformance domains; Memory catalog/statistics tests;
+  and the server external-tool routes into focused child modules. Public Store
+  and server paths remain compatible while the largest parent files are
+  smaller.
+- Centralized four-decimal, midpoint-away-from-zero score rounding at the Rust
+  persistence boundary, including recalculation workers. Gradebook percentages
+  and learner feedback now share a two-decimal browser formatter that trims
+  trailing zeroes, canonicalizes negative zero, and displays `8 / 10` instead of
+  a binary floating-point artifact.
+- Closed the instructor manual-grading HTTP contract with a real
+  response-bearing pending submission, direct-course-instructor
+  non-enumeration, revision and idempotency checks, strict decimal input, and a
+  minimal grade receipt. The complete private run route group now adds
+  `Cache-Control: no-store` even when typed paths, JSON extraction, or the body
+  limit reject a request before its handler runs.
+- Completed the current-state manual-grading package with a disposable live
+  PostgreSQL mixed-run gate. One automatic item plus one response-bearing
+  manual item now proves exact `NUMERIC` credit, correction-safe minimal
+  receipts, stale-generation supersession, final `0.75` summary publication,
+  first-completion and grade-run pointers, and tenant non-enumeration. The gate
+  also replaced a successor-link row lock that required an unintended `UPDATE`
+  grant with immutable primary-key insertion and made first-completion
+  publication part of the scoring-worker fence in both Store backends.
 - Added the root `OTHER_REPOS/` reference checkout directory to
   `.prettierignore`, keeping the codebase check, write alias, and direct
   Prettier commands out of vendored or upstream code.
 
 ### Developer Tests and Notes
 
+- The isolated PostgreSQL 17 gate passes with six exact migrations, zero
+  unvalidated constraints, only the documented migration-ledger and global
+  statistics tables outside RLS, fixed 2026-08 through 2028-09 activity
+  partitions, and a concurrent SSI fixture that completes in three attempts
+  after PostgreSQL aborts one of two transactions. Store validation passes with
+  47 PostgreSQL-feature unit tests, 14 conformance tests, and two opt-in live
+  tests for bounded serialization retry and mixed automatic/manual scoring.
+- Mounted gradebook and learner-feedback acceptance tests pass with the shared
+  artifact-free score formatter, including responsive layout, reading order,
+  announcement, focus, and keyboard behavior.
+- The manual-grading HTTP behavior test covers student submission and exact
+  replay, pending evidence, student and outsider read/write denial, strict body
+  rejection, instructor grade and correction conflicts, receipt secrecy, and
+  `no-store` on malformed and oversized requests. The server suite passes 138
+  unit tests plus its doctest.
 - Replayed the six-file baseline on a fresh PostgreSQL 17 database, verified a
   second migration run was a no-op, confirmed all six ledger checksums, and ran
   live scoring, timing, direct/group exception, membership-removal, and cleanup
   behavior through the production PostgreSQL Store. Direct inspection found one
   exception-driven auto-submit with a timestamp and no submission, evaluation,
-  or score. The full 11-stage codebase gate passed with 148 Node tests, 137
-  server tests, 40 PostgreSQL-feature Store unit tests, and 13 Store conformance
+  or score. The full 11-stage codebase gate passed with 149 Node tests, 137
+  server tests, 47 PostgreSQL-feature Store unit tests, and 14 Store conformance
   tests.
 - A six-pass pre-commit audit found and corrected accommodation recomputation on
   course roster changes, retention coverage for the new learner-linked rows,
@@ -852,7 +1401,7 @@
   `./check_codebase.sh` gate passes all 11 stages with 20 Node tests and 20
   server tests; live PostgreSQL and MinIO checks remain deferred to the later
   deployment pass.
-- `cargo test -p store --all-features --test conformance` passes five memory
+- `cargo test -p learning-data-access --all-features --test conformance` passes five memory
   tests with the opt-in PostgreSQL case ignored. The new reusable asset suite
   covers public, institution, student-record, foreign-tenant, duplicate, and
   forbidden temporary deliveries, and the memory audit proves only authorized
@@ -966,9 +1515,9 @@
 - The `wasm32-unknown-unknown` no-run gate compiles the browser determinism test.
 - Package-scoped Clippy passes for the question model, domain, WASM bridge, and
   store with all targets, all features, and warnings denied.
-- `cargo test -p objects -p store`: both memory conformance suites, checksum
+- `cargo test -p objects -p learning-data-access`: both memory conformance suites, checksum
   tamper detection, and bounded-pagination validation pass.
-- `cargo clippy -p objects -p store --all-targets --all-features -- -D warnings`:
+- `cargo clippy -p objects -p learning-data-access --all-targets --all-features -- -D warnings`:
   passes.
 - `cargo test -p question_model`: 30 unit tests and 2 doc tests pass after
   moving executable format behavior to `domain`.
@@ -981,7 +1530,7 @@
   complete export list matches the reviewed allowlist.
 - `source source_me.sh && python3 -m pytest -q tests/test_crate_boundaries.py`:
   the exact browser workspace closure passes and excludes `grading`.
-- `cargo test -p xtask`: 8 generator tests pass, including fixture-contract
+- `cargo test -p project-tools`: 8 generator tests pass, including fixture-contract
   shape, answer-key exclusion, and safe stale-output cleanup.
 - `node --import tsx --test tests/test_mock_handlers.mjs`: 4 mock behavior tests
   pass with no API server running.
@@ -1001,7 +1550,7 @@
 - Added `crates/server/src/health.rs`: readiness is a pure function over probe
   results, plus `probe_over_http`, which lets the API binary health-check
   itself so the runtime image needs no `curl` or `wget`.
-- Added real dependency probes behind `/health`: `store::postgres::ping` issues
+- Added real dependency probes behind `/health`: `learning_data_access::postgres::ping` issues
   `SELECT 1`, and `objects::minio::probe_bucket` issues `HeadBucket`. The
   endpoint returns 200 only when both answer and 503 naming the failing
   dependency otherwise.
@@ -1018,7 +1567,7 @@
   client, with content-hash cachebusting on the script and stylesheet URLs.
 - Added `rust-toolchain.toml` pinning the compiler to 1.96.0 with the
   `wasm32-unknown-unknown` target, and a repo-root `Brewfile` for `podman`.
-- Added `crates/xtask`, the workspace-local `wasm-bindgen` glue generator. It
+- Added `crates/project-tools`, the workspace-local `wasm-bindgen` glue generator. It
   is build tooling, outside the product boundary, and no shipped crate depends
   on it.
 - Added `tests/e2e/e2e_run_all.sh` as the non-browser E2E runner. It carries
@@ -1039,7 +1588,7 @@
   client in dependency order and reports per-stage timing, because the useful
   question is where the whole build spends its time and cargo only sees its own
   stage.
-- Added `crates/xtask/src/tsgen.rs`, the repo's own TypeScript generator. It
+- Added `crates/project-tools/src/tsgen.rs`, the repo's own TypeScript generator. It
   parses the question model with `syn` and emits Prettier-shaped TypeScript
   into `src/api/generated/`.
 - Completed WP-C1, the question model and taxonomy (MOD-QM). `question_model`
@@ -1079,9 +1628,9 @@
 - `crates/domain` declares `chrono` with `default-features = false`, dropping
   the `clock` feature. The plan's load-bearing property is that `domain` has no
   clock; with default features it had one.
-- `sqlx` moved from `crates/server` to `crates/store`, and `aws-sdk-s3` is
+- `sqlx` moved from `crates/server` to `crates/learning-data-access`, and `aws-sdk-s3` is
   reached only through `crates/objects`. Both are feature-gated, and
-  `crates/server` names neither: it uses the `store::postgres::Pool` and
+  `crates/server` names neither: it uses the `learning_data_access::postgres::Pool` and
   `objects::minio::S3Client` aliases instead.
 - `package.json` placeholders are filled: name `peptidyle-learning-engine` and
   version `26.8.0`. `clean` now points at `devel/clean_build.sh` and a new
@@ -1099,7 +1648,7 @@
 
 - Fixed five defects that stopped the workspace from compiling at all: a single
   `/` used as a comment in `crates/objects/src/lib.rs`, Python `#` comments in
-  `crates/store/src/lib.rs`, unmarked prose after `pub mod docx;` in
+  `crates/learning-data-access/src/lib.rs`, unmarked prose after `pub mod docx;` in
   `crates/export/src/lib.rs`, a literal `\n` escape pasted into
   `crates/server/src/main.rs`, and a call to `anyhow::Result` with `anyhow`
   undeclared.
@@ -1167,7 +1716,7 @@
   GitHub Pages framing was template inertia; `dist/` is a client bundle the API
   serves, not a static site. `deploy-pages.yml` was removed for the same
   reason.
-- The `wasm-bindgen` glue is generated by a workspace crate (`crates/xtask`,
+- The `wasm-bindgen` glue is generated by a workspace crate (`crates/project-tools`,
   depending on `wasm-bindgen-cli-support`) rather than an externally installed
   `wasm-bindgen` binary. The generator and the `wasm-bindgen` crate compiled
   into the module must be the same version; taking the generator from the

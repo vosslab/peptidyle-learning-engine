@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<assessmentItem xmlns="http://www.imsglobal.org/xsd/imsqti_v2p1" identifier="bb-1" title="Favorite color" adaptive="false" timeDependent="false">
+  <responseDeclaration identifier="RESPONSE" cardinality="single" baseType="identifier"><correctResponse><value>blue</value></correctResponse></responseDeclaration>
+  <itemBody>
+    <p>What is my favorite color?</p>
+    <choiceInteraction responseIdentifier="RESPONSE" maxChoices="1" shuffle="true">
+      <simpleChoice identifier="blue" fixed="true">Blue</simpleChoice>
+      <simpleChoice identifier="red" fixed="true">Red</simpleChoice>
+    </choiceInteraction>
+  </itemBody>
+  <responseProcessing><responseCondition><responseIf><match><variable identifier="RESPONSE"/><correct identifier="RESPONSE"/></match></responseIf></responseCondition></responseProcessing>
+</assessmentItem>

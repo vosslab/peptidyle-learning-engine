@@ -63,6 +63,17 @@ The purge retains:
 
 Deletion never follows an assignment's immutable problem references into shared content.
 
+## Recorded acceptance evidence
+
+On 2026-08-09, a one-time isolated PostgreSQL and MinIO reconstruction drove the production worker
+through a populated permanent-deletion request. The completed manifest contained the exact typed
+student-record object; the worker removed that object and the learner's enrollment, run, attempt,
+submission, evaluation, score, feedback, receipt, delivery, access-log, audit, and course-analysis
+rows. It retained the assignment and instructor membership, published problem/version/source,
+workspace draft, and anonymous global statistics aggregate. Independent typed-object reads and
+physical bucket inspection agreed with the relational result. The temporary SQL, Rust helper, and
+shell reconstruction harness were removed after this evidence was recorded.
+
 ## Backup boundary
 
 Application deletion is immediate and irreversible through the live product. It does not rewrite
@@ -73,6 +84,14 @@ There is no deployed backup window yet. M6 must select an encrypted point-in-tim
 configure it in infrastructure, and disclose the deployed value here. An institution requiring
 less total exposure must shorten that backup window; selective deletion from an older database
 snapshot is not a supported claim.
+
+On 2026-08-09, a one-time local recovery rehearsal encrypted a role-only backup without password
+hashes and a custom-format database backup, then restored both into a separate empty PostgreSQL 17
+cluster. The restored database matched the source logical fingerprint and preserved the migration
+ledger, role attributes, owners, grants, forced RLS, tenant isolation, application writes, and
+broker-function execution. Backup and restore each completed in one second for this small fixture.
+This establishes the logical recovery procedure; it does not set a production recovery objective,
+deploy managed point-in-time recovery, prove object-store recovery, or choose the backup window.
 
 The resulting guarantee is:
 

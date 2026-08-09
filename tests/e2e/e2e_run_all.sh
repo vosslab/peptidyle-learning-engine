@@ -15,7 +15,7 @@
 # Run: bash tests/e2e/e2e_run_all.sh
 
 set -uo pipefail
-cd "$(git rev-parse --show-toplevel)"
+cd "$(git rev-parse --show-toplevel)" || exit 1
 
 PASSED=0
 FAILED=0
@@ -35,6 +35,9 @@ run_check() {
 
 # WP-F2: a Rust export is callable from Node through the wasm-bindgen glue.
 run_check wasm_bridge node tests/e2e/e2e_wasm_bridge.mjs
+
+# SQLx baseline, role grants, forced RLS, and disposable migration checksum proof.
+run_check database_baseline bash tests/e2e/e2e_database_baseline.sh
 
 # M2: durable learner session and idempotent submission across two API replicas.
 # A missing Podman machine is deliberately a failing BLOCKED prerequisite, not a skip.

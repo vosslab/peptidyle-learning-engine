@@ -212,9 +212,24 @@ renames the _variants_, while `rename_all_fields` renames the fields _inside_
 variants. Both are set on every tagged enum here so the whole wire format is
 camelCase.
 
+### Flat-question authoring source
+
+[PLE flat-question JSON](QTI-JSON_OBJECT_FORMAT.md) is a narrow answer-bearing
+authoring format for ordinary static questions. It is not another public
+question model. The native adapter compiles it into this crate's answer-free
+`DraftQuestionDefinition` plus separate grader-only material. Published browser
+and catalog projections therefore continue to use the shared question model
+regardless of whether the author wrote PLE JSON or imported a supported QTI
+profile.
+
+The distinction matters when evolving either contract: the source format owns
+author ergonomics, stable choice IDs, answers, and private feedback; this crate
+owns the engine-neutral public runtime shape. Neither layer grows a vendor QTI
+extension container.
+
 ## Generated TypeScript
 
-`crates/xtask` reads this crate's source and writes TypeScript into the ignored
+The project tools (`crates/project-tools`) read this crate's source and write TypeScript into the ignored
 root `generated/api/` directory, one file per type. Regenerate with `./build.sh`,
 or `cargo tsgen` while iterating.
 

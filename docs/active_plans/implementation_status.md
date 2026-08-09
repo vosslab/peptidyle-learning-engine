@@ -1,6 +1,6 @@
 # Implementation status and handoff
 
-Last updated: 2026-08-08
+Last updated: 2026-08-09
 
 This file is a durable execution handoff. The architecture, scope, milestone order, security
 boundaries, and acceptance criteria remain authoritative in `implementation_plan.md`. Durable owner
@@ -156,7 +156,85 @@ ACCEPT with no P0/P1 findings. Current commit readiness and safe partial-commit 
 [partial_commit_status.md](partial_commit_status.md); do not commit the mixed index before that
 index is rebuilt from the accepted working tree.
 
+## Most recently accepted task: WP-QTI-10
+
+The provenance-aware Memory and PostgreSQL conversion boundary is complete and independently
+accepted:
+
+- A closed, non-serializable staged profile-evidence value closes H2 while an import is prepared.
+  Exact replay is idempotent; divergent evidence and staging after commit refuse without mutation.
+- Conversion requires the committed accepted result to bind both its source identifier and exact
+  `itemId` to the selected item, then revalidates the profile tuple and every integrity digest.
+- Memory and PostgreSQL atomically advance the draft CAS revision and persist the draft, canonical
+  source, current private grading, and current origin under the frozen lock order.
+- Ordinary saves atomically stage current private grading and preserve imported origin. Publication
+  accepts no grading payload from the caller; it promotes only the locked stored value after origin
+  promotion.
+- PostgreSQL uses the forced-RLS provenance and grading brokers. The Store implementation performs
+  no direct reads of private grading, choice-map, or provenance secret tables.
+- `Sha256Digest` JSON is exactly lowercase 64-character hexadecimal text and rejects uppercase,
+  wrong-width, and non-hex input.
+- Shared Memory/PostgreSQL conformance, PostgreSQL feature coverage, the full fresh baseline, and
+  independent review passed. The review reported no P0/P1 finding.
+- Detailed evidence is in
+  `docs/active_plans/workstreams/qti_memory_postgres_implementation.md`.
+
+The WP-QTI-9 server boundary is complete and independently accepted:
+
+- An author upload stores the exact bounded ZIP as a deterministic private workspace object and
+  enqueues one deterministic `qtiImport` job. Exact replay is stable; divergent replay refuses.
+- The safe report exposes recognized package/item defaults, diagnostics, and acknowledgement digests
+  without answer material, source bytes, object keys, or private mappings.
+- The profile worker uses strict Canvas and Blackboard detection ahead of generic parsing, commits
+  complete accepted-item evidence, and keeps mixed vendor evidence or all-rejected results from
+  producing a conversion candidate.
+- Conversion requires a current strong draft ETag plus report revision and acknowledgement tokens,
+  rereads and reparses the archive, recompiles through the native bridge, and calls the WP-QTI-8
+  atomic Store command. Refusals do not mutate a draft.
+- Publication copies the source archive to deterministic non-signable `PublishedImportArchive`.
+  Memory and PostgreSQL serialize prepared import work with draft deletion, preventing orphaned
+  prepared evidence and unsafe identity reuse.
+- Every upload, report, and conversion response is answer-free and `Cache-Control: no-store`; denied
+  and absent resources have the same external response. Evidence is in
+  `docs/active_plans/workstreams/qti_server_routes_implementation.md`.
+
+The WP-QTI-10 author UI is complete and independently accepted:
+
+- A feature-local browser client sends the exact ZIP as opaque bytes to the existing same-origin
+  author route, accepts only strict bounded answer-free DTOs, and requires `no-store` responses.
+  Browser code does not parse ZIP/XML or persist archives, reports, mappings, or private answers.
+- The existing workspace route shows queued and processing states, manual refresh, accepted and
+  rejected cards, defaults, warnings, explicit acknowledgement, all-rejected and unsupported
+  recovery, and exact retry after an ambiguous upload. It does not add a product route.
+- Conversion is guarded by the current displayed clean strong draft revision. It refetches the same
+  route and opens the existing flat editor. The old editor is inert across the committed replacement;
+  if refetch fails it stays locked behind an explicit repeatable reload action, with no repeat
+  conversion or new import. The converted editor unlocks and receives focus only after a successful
+  load.
+- Permanent offline Node and real-route Playwright tests passed. The Playwright suite has four
+  Chromium scenarios covering retry identity, safe mixed reports, all-rejected and unsupported
+  recovery, stale/dirty/revision conflicts, refetch recovery, keyboard behavior, and 375 px reflow.
+  `./check_codebase.sh` passed all 11 checks with 173 Node and 184 server tests. Independent security
+  and HCI re-reviews reported no P0/P1 finding. Detailed evidence is in
+  `docs/active_plans/workstreams/qti_author_ui_implementation.md`.
+
 ## Dependency-ordered future work
+
+### Current package order
+
+1. Complete the unstarted WP-QTI-11 live PostgreSQL/RLS/profile-to-native acceptance and WP-QTI-12
+   independent documentation close-out in
+   [the QTI profile plan](decisions/qti_profile_mapping_plan.md).
+2. Implement the compartmentalized M3 course appearance package in
+   `docs/active_plans/decisions/course_appearance_plan.md`: 15 measured three-color
+   themes, one revisioned centered entry banner, protected object/persistence/API behavior, all-
+   course-route theming, and live/browser/visual acceptance.
+3. Continue the remaining M5 integration/recovery work below.
+
+The course appearance contract is frozen for execution but is not implemented. It remains separate
+and follows WP-QTI-11 and WP-QTI-12 in the QTI dependency order. Its pure theme-scope and settings
+workstreams become parallel only at the explicit CA4 boundary; shared object, asset-delivery,
+schema, and Store owners remain dependency ordered.
 
 ### Pre-M5 database baseline
 
@@ -215,7 +293,5 @@ index is rebuilt from the accepted working tree.
   expected, and source files were not removed.
 - Finished agent records cannot be pruned from the current collaboration history. Avoid spawning
   redundant agents; a new conversation is the only way to obtain a short agent-history list.
-- The quota display most recently showed the general weekly pool at about 1% and the separate
-  Spark pool at about 87%, but an actual `gpt-5.3-codex-spark` launch was rejected as exhausted
-  until 2026-08-15 08:52. Treat the launcher result as authoritative, keep new agents narrowly
-  bounded, and continue critical integration locally when Spark cannot start.
+- GPT-5.3-Codex-Spark is exhausted. Use GPT-5.6 agents for new delegated work and keep each task
+  narrowly bounded with one owner, one outcome, and one verification step.

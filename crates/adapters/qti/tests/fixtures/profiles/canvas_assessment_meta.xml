@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<quiz xmlns="http://canvas.instructure.com/xsd/cccv1p0" identifier="assessment_meta">
+  <title>Canvas fixture</title>
+  <assignment identifier="assignment_name"><title>Canvas fixture</title></assignment>
+</quiz>

@@ -15,6 +15,10 @@ use axum::middleware;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use learning_data_access::{
+    CatalogStore, Cursor, DraftRecord, PageRequest, PageSize, PaginationError, SessionStore, Store,
+    StoreError, WorkspaceDraft, WorkspaceDraftRevision,
+};
 use question_model::catalog::QuestionBackend;
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
@@ -23,10 +27,6 @@ use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::{License, TaxonomyTerm};
 use question_model::{DraftQuestionDefinition, UserRole, WorkspaceId};
 use serde::{Deserialize, Serialize};
-use store::{
-    CatalogStore, Cursor, DraftRecord, PageRequest, PageSize, PaginationError, SessionStore, Store,
-    StoreError, WorkspaceDraft, WorkspaceDraftRevision,
-};
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 use crate::catalog::{BackendRegistry, BackendRegistryError};
@@ -742,7 +742,7 @@ fn store_error_response(error: StoreError) -> Response {
         StoreError::TimedOut => {
             error_response(StatusCode::CONFLICT, "workspace operation timed out")
         }
-        StoreError::Unavailable(_) => error_response(
+        StoreError::RetryableTransaction | StoreError::Unavailable(_) => error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "workspace storage unavailable",
         ),
@@ -846,6 +846,8 @@ mod tests {
     use super::*;
     use axum::body::{Body, to_bytes};
     use axum::http::Request;
+    use learning_data_access::in_memory::MemoryStore;
+    use learning_data_access::{SessionLifetime, SessionSubject, TenantContext};
     use question_model::answer::TextMatchMode;
     use question_model::envelope::ContentBlock;
     use question_model::generation::RandomizationDefinition;
@@ -856,8 +858,6 @@ mod tests {
         BackendCapabilities, Capability, DraftQuestionSource, GradingDefinition, ProblemId,
         ProblemVersionRef, QuestionMetadata, TenantId, UserId, VersionId,
     };
-    use store::memory::MemoryStore;
-    use store::{SessionLifetime, SessionSubject, TenantContext};
     use tower::ServiceExt;
     use uuid::Uuid;
 
@@ -1783,7 +1783,7 @@ mod tests {
             .publish_draft(
                 context,
                 actor,
-                store::PublishDraftCommand {
+                learning_data_access::PublishDraftCommand {
                     expected_draft: prior_draft,
                     expected_revision: saved.revision,
                     publication: prior_reference,
@@ -1792,6 +1792,7 @@ mod tests {
                     },
                     source_artifact: None,
                     qti_promotion: None,
+                    flat_question_promotion: None,
                     publisher: actor,
                     scope: question_model::PublicationScope::Public,
                     capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),

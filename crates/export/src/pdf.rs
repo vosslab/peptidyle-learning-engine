@@ -8,7 +8,7 @@ use flate2::read::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use question_model::AssetId;
 
-use crate::{ExportArtifact, FlowBlock, PrintExam, PrintLayout, PrintableAsset, exam_flow};
+use crate::{ExportArtifact, FlowBlock, PrintExam, PrintLayout, exam_flow};
 
 const LINES_PER_PAGE: usize = 45;
 const IMAGE_LINES: usize = 14;
@@ -18,6 +18,10 @@ const PAGE_WIDTH: f32 = 612.0;
 const TEXT_SIZE: f32 = 11.0;
 const TEXT_WIDTH: f32 = PAGE_WIDTH - LEFT_MARGIN - RIGHT_MARGIN;
 const DEJAVU_SANS_FONT: &[u8] = include_bytes!("../assets/DejaVuSansPLE.ttf");
+// Match the planned upload boundary and keep the export worker's synchronous
+// raster work finite even when immutable content contains a hostile PNG.
+const MAX_PNG_DECODED_PIXELS: usize = 20_000_000;
+const MAX_PNG_DECODED_BYTES: usize = 80 * 1024 * 1024;
 
 /// Writes a self-contained PDF with actual PNG image XObjects. Input is
 /// validated by `PrintExam::build_with_assets`, so no writer fallback changes
@@ -53,7 +57,7 @@ fn collect_assets(exam: &PrintExam, flow: &[Vec<FlowBlock>]) -> Vec<(AssetId, Pn
             {
                 assets.push((
                     *asset,
-                    decode_png(exam.asset(*asset).expect("validated asset"))
+                    decode_png(&exam.asset(*asset).expect("validated asset").bytes)
                         .expect("validated PNG"),
                 ));
             }
@@ -473,87 +477,226 @@ struct PngImage {
     color: u8,
     raw: Vec<u8>,
 }
+
+#[derive(Debug, Clone, Copy)]
+struct PngLayout {
+    width: u32,
+    height: u32,
+    color: u8,
+    channels: usize,
+    stride: usize,
+    raw_len: usize,
+    inflated_len: usize,
+}
+
+impl PngLayout {
+    fn checked(width: u32, height: u32, color: u8) -> Result<Self, ()> {
+        if width == 0 || height == 0 {
+            return Err(());
+        }
+        let width_usize = usize::try_from(width).map_err(|_| ())?;
+        let height_usize = usize::try_from(height).map_err(|_| ())?;
+        let channels = match color {
+            2 => 3,
+            6 => 4,
+            _ => return Err(()),
+        };
+        let pixels = width_usize.checked_mul(height_usize).ok_or(())?;
+        if pixels > MAX_PNG_DECODED_PIXELS {
+            return Err(());
+        }
+        let stride = width_usize.checked_mul(channels).ok_or(())?;
+        let raw_len = stride.checked_mul(height_usize).ok_or(())?;
+        let inflated_len = stride
+            .checked_add(1)
+            .and_then(|row_len| row_len.checked_mul(height_usize))
+            .ok_or(())?;
+        if raw_len > MAX_PNG_DECODED_BYTES || inflated_len > MAX_PNG_DECODED_BYTES {
+            return Err(());
+        }
+        Ok(Self {
+            width,
+            height,
+            color,
+            channels,
+            stride,
+            raw_len,
+            inflated_len,
+        })
+    }
+}
+
+struct IdatReader<'a> {
+    chunks: Vec<&'a [u8]>,
+    chunk: usize,
+    offset: usize,
+}
+
+impl<'a> IdatReader<'a> {
+    fn new(chunks: Vec<&'a [u8]>) -> Self {
+        Self {
+            chunks,
+            chunk: 0,
+            offset: 0,
+        }
+    }
+}
+
+impl Read for IdatReader<'_> {
+    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        if buffer.is_empty() {
+            return Ok(0);
+        }
+        while let Some(chunk) = self.chunks.get(self.chunk) {
+            let remaining = &chunk[self.offset..];
+            if remaining.is_empty() {
+                self.chunk += 1;
+                self.offset = 0;
+                continue;
+            }
+            let copied = remaining.len().min(buffer.len());
+            buffer[..copied].copy_from_slice(&remaining[..copied]);
+            self.offset += copied;
+            return Ok(copied);
+        }
+        Ok(0)
+    }
+}
+
 /// True when a PNG can be carried faithfully by both deterministic writers.
 pub fn png_is_supported(bytes: &[u8]) -> bool {
-    decode_png(&PrintableAsset {
-        media_type: "image/png".to_string(),
-        bytes: bytes.to_vec(),
-    })
-    .is_ok()
+    decode_png(bytes).is_ok()
 }
-fn decode_png(asset: &PrintableAsset) -> Result<PngImage, ()> {
-    let bytes = &asset.bytes;
+fn decode_png(bytes: &[u8]) -> Result<PngImage, ()> {
     if bytes.len() < 33 || &bytes[..8] != b"\x89PNG\r\n\x1a\n" {
         return Err(());
     }
     let mut position = 8;
-    let mut width = 0;
-    let mut height = 0;
-    let mut color = 255;
-    let mut idat = Vec::new();
-    while position + 12 <= bytes.len() {
-        let length =
-            u32::from_be_bytes(bytes[position..position + 4].try_into().map_err(|_| ())?) as usize;
-        let kind = &bytes[position + 4..position + 8];
-        let data_start = position + 8;
-        let data_end = data_start.checked_add(length).ok_or(())?;
-        if data_end + 4 > bytes.len() {
+    let mut layout = None;
+    let mut idat_chunks = Vec::new();
+    let mut compressed_len = 0_usize;
+    let mut seen_idat = false;
+    let mut idat_finished = false;
+    let mut seen_palette = false;
+    let mut seen_iend = false;
+    while position < bytes.len() {
+        let header_end = position.checked_add(8).ok_or(())?;
+        let header = bytes.get(position..header_end).ok_or(())?;
+        let length = usize::try_from(u32::from_be_bytes(header[..4].try_into().map_err(|_| ())?))
+            .map_err(|_| ())?;
+        let kind: &[u8; 4] = header[4..].try_into().map_err(|_| ())?;
+        if !kind.iter().all(u8::is_ascii_alphabetic) || !kind[2].is_ascii_uppercase() {
             return Err(());
         }
-        if kind == b"IHDR" {
-            if length != 13 {
-                return Err(());
+        let data_start = header_end;
+        let data_end = data_start.checked_add(length).ok_or(())?;
+        let chunk_end = data_end.checked_add(4).ok_or(())?;
+        let data = bytes.get(data_start..data_end).ok_or(())?;
+        let expected_crc = u32::from_be_bytes(
+            bytes
+                .get(data_end..chunk_end)
+                .ok_or(())?
+                .try_into()
+                .map_err(|_| ())?,
+        );
+        if png_crc32(kind, data) != expected_crc {
+            return Err(());
+        }
+        match kind {
+            b"IHDR" => {
+                if position != 8 || layout.is_some() || length != 13 {
+                    return Err(());
+                }
+                let width = u32::from_be_bytes(data[..4].try_into().map_err(|_| ())?);
+                let height = u32::from_be_bytes(data[4..8].try_into().map_err(|_| ())?);
+                let color = data[9];
+                if data[8] != 8 || data[10] != 0 || data[11] != 0 || data[12] != 0 {
+                    return Err(());
+                }
+                layout = Some(PngLayout::checked(width, height, color)?);
             }
-            width = u32::from_be_bytes(
-                bytes[data_start..data_start + 4]
-                    .try_into()
-                    .map_err(|_| ())?,
-            );
-            height = u32::from_be_bytes(
-                bytes[data_start + 4..data_start + 8]
-                    .try_into()
-                    .map_err(|_| ())?,
-            );
-            if bytes[data_start + 8] != 8 || bytes[data_start + 12] != 0 {
-                return Err(());
+            b"PLTE" => {
+                if layout.is_none()
+                    || seen_palette
+                    || seen_idat
+                    || length == 0
+                    || length > 768
+                    || !length.is_multiple_of(3)
+                {
+                    return Err(());
+                }
+                seen_palette = true;
             }
-            color = bytes[data_start + 9];
-            if color != 2 && color != 6 {
-                return Err(());
+            b"IDAT" => {
+                if layout.is_none() || idat_finished {
+                    return Err(());
+                }
+                seen_idat = true;
+                compressed_len = compressed_len.checked_add(length).ok_or(())?;
+                idat_chunks.try_reserve(1).map_err(|_| ())?;
+                idat_chunks.push(data);
             }
-        } else if kind == b"IDAT" {
-            idat.extend_from_slice(&bytes[data_start..data_end]);
-        } else if kind == b"IEND" {
+            b"IEND" => {
+                if layout.is_none() || !seen_idat || length != 0 {
+                    return Err(());
+                }
+                seen_iend = true;
+            }
+            _ => {
+                if layout.is_none() || kind[0].is_ascii_uppercase() {
+                    return Err(());
+                }
+                if seen_idat {
+                    idat_finished = true;
+                }
+            }
+        }
+        position = chunk_end;
+        if seen_iend {
             break;
         }
-        position = data_end + 4;
     }
-    if width == 0 || height == 0 || idat.is_empty() {
+    if !seen_iend || position != bytes.len() || compressed_len == 0 {
         return Err(());
     }
+    let layout = layout.ok_or(())?;
+    let read_limit = layout.inflated_len.checked_add(1).ok_or(())?;
+    let mut decoder = ZlibDecoder::new(IdatReader::new(idat_chunks));
     let mut inflated = Vec::new();
-    ZlibDecoder::new(idat.as_slice())
-        .read_to_end(&mut inflated)
-        .map_err(|_| ())?;
-    let channels = if color == 2 { 3 } else { 4 };
-    let stride = width as usize * channels;
-    if inflated.len() != (stride + 1) * height as usize {
+    inflated.try_reserve_exact(read_limit).map_err(|_| ())?;
+    {
+        let mut limited = (&mut decoder).take(u64::try_from(read_limit).map_err(|_| ())?);
+        limited.read_to_end(&mut inflated).map_err(|_| ())?;
+    }
+    if inflated.len() != layout.inflated_len
+        || decoder.total_out() != u64::try_from(layout.inflated_len).map_err(|_| ())?
+        || decoder.total_in() != u64::try_from(compressed_len).map_err(|_| ())?
+    {
         return Err(());
     }
-    let mut raw = vec![0; stride * height as usize];
-    for row in 0..height as usize {
-        let filter = inflated[row * (stride + 1)];
-        let source = &inflated[row * (stride + 1) + 1..(row + 1) * (stride + 1)];
-        let start = row * stride;
-        for x in 0..stride {
-            let left = if x >= channels {
-                raw[start + x - channels]
+    let mut raw = Vec::new();
+    raw.try_reserve_exact(layout.raw_len).map_err(|_| ())?;
+    raw.resize(layout.raw_len, 0);
+    for row in 0..usize::try_from(layout.height).map_err(|_| ())? {
+        let row_start = row.checked_mul(layout.stride + 1).ok_or(())?;
+        let filter = *inflated.get(row_start).ok_or(())?;
+        let source = inflated
+            .get(row_start + 1..row_start + 1 + layout.stride)
+            .ok_or(())?;
+        let start = row.checked_mul(layout.stride).ok_or(())?;
+        for x in 0..layout.stride {
+            let left = if x >= layout.channels {
+                raw[start + x - layout.channels]
             } else {
                 0
             };
-            let up = if row > 0 { raw[start + x - stride] } else { 0 };
-            let up_left = if row > 0 && x >= channels {
-                raw[start + x - stride - channels]
+            let up = if row > 0 {
+                raw[start + x - layout.stride]
+            } else {
+                0
+            };
+            let up_left = if row > 0 && x >= layout.channels {
+                raw[start + x - layout.stride - layout.channels]
             } else {
                 0
             };
@@ -568,11 +711,22 @@ fn decode_png(asset: &PrintableAsset) -> Result<PngImage, ()> {
         }
     }
     Ok(PngImage {
-        width,
-        height,
-        color,
+        width: layout.width,
+        height: layout.height,
+        color: layout.color,
         raw,
     })
+}
+
+fn png_crc32(kind: &[u8; 4], data: &[u8]) -> u32 {
+    let mut crc = !0_u32;
+    for byte in kind.iter().chain(data) {
+        crc ^= u32::from(*byte);
+        for _ in 0..8 {
+            crc = (crc >> 1) ^ (0xedb8_8320_u32 & 0_u32.wrapping_sub(crc & 1));
+        }
+    }
+    !crc
 }
 fn paeth(a: u8, b: u8, c: u8) -> u8 {
     let p = i32::from(a) + i32::from(b) - i32::from(c);
@@ -641,8 +795,119 @@ mod tests {
     use std::fs;
     use std::process::Command;
 
+    fn append_png_chunk(bytes: &mut Vec<u8>, kind: [u8; 4], data: &[u8]) {
+        bytes.extend_from_slice(
+            &u32::try_from(data.len())
+                .expect("compact PNG fixture chunk")
+                .to_be_bytes(),
+        );
+        bytes.extend_from_slice(&kind);
+        bytes.extend_from_slice(data);
+        bytes.extend_from_slice(&png_crc32(&kind, data).to_be_bytes());
+    }
+
+    fn png_header(width: u32, height: u32, color: u8) -> [u8; 13] {
+        let mut header = [0_u8; 13];
+        header[..4].copy_from_slice(&width.to_be_bytes());
+        header[4..8].copy_from_slice(&height.to_be_bytes());
+        header[8] = 8;
+        header[9] = color;
+        header
+    }
+
+    fn png_fixture(width: u32, height: u32, color: u8, scanlines: &[u8]) -> Vec<u8> {
+        let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
+        append_png_chunk(&mut bytes, *b"IHDR", &png_header(width, height, color));
+        append_png_chunk(&mut bytes, *b"IDAT", &deflate(scanlines));
+        append_png_chunk(&mut bytes, *b"IEND", &[]);
+        bytes
+    }
+
     fn rendered_pdf(pages: &[Vec<RenderBlock>], font: &EmbeddedFont) -> Vec<u8> {
         pdf(&objects_for_pages(pages, &[], font))
+    }
+
+    #[test]
+    fn bounded_png_decoder_preserves_valid_rgb_and_rgba_pixels() {
+        let rgb = decode_png(&png_fixture(1, 1, 2, &[0, 0x12, 0x34, 0x56])).expect("valid RGB PNG");
+        assert_eq!((rgb.width, rgb.height, rgb.color), (1, 1, 2));
+        assert_eq!(rgb.raw, [0x12, 0x34, 0x56]);
+
+        let rgba = decode_png(&png_fixture(1, 1, 6, &[0, 1, 2, 3, 4])).expect("valid RGBA PNG");
+        assert_eq!((rgba.width, rgba.height, rgba.color), (1, 1, 6));
+        assert_eq!(rgba.raw, [1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn bounded_png_decoder_streams_consecutive_idat_chunks() {
+        let compressed = deflate(&[0, 4, 5, 6]);
+        let split = compressed.len() / 2;
+        let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
+        append_png_chunk(&mut bytes, *b"IHDR", &png_header(1, 1, 2));
+        append_png_chunk(&mut bytes, *b"IDAT", &compressed[..split]);
+        append_png_chunk(&mut bytes, *b"IDAT", &compressed[split..]);
+        append_png_chunk(&mut bytes, *b"IEND", &[]);
+
+        assert_eq!(
+            decode_png(&bytes).expect("split IDAT stream").raw,
+            [4, 5, 6]
+        );
+    }
+
+    #[test]
+    fn tiny_png_cannot_expand_past_its_declared_raster() {
+        let hostile = png_fixture(1, 1, 2, &vec![0; 4_096]);
+        assert!(hostile.len() < 128, "fixture should remain a compact bomb");
+        assert!(decode_png(&hostile).is_err());
+    }
+
+    #[test]
+    fn png_dimensions_are_checked_before_inflation_or_allocation() {
+        for (width, height, color) in [
+            (u32::MAX, 1, 2),
+            (u32::MAX, u32::MAX, 6),
+            (
+                u32::try_from(MAX_PNG_DECODED_PIXELS + 1).expect("pixel limit fits u32"),
+                1,
+                2,
+            ),
+            (
+                1,
+                u32::try_from(MAX_PNG_DECODED_PIXELS).expect("pixel limit fits u32"),
+                6,
+            ),
+        ] {
+            assert!(decode_png(&png_fixture(width, height, color, &[])).is_err());
+        }
+    }
+
+    #[test]
+    fn png_chunk_structure_must_be_complete_and_ordered() {
+        let compressed = deflate(&[0, 7, 8, 9]);
+
+        let mut idat_first = b"\x89PNG\r\n\x1a\n".to_vec();
+        append_png_chunk(&mut idat_first, *b"IDAT", &compressed);
+        append_png_chunk(&mut idat_first, *b"IHDR", &png_header(1, 1, 2));
+        append_png_chunk(&mut idat_first, *b"IEND", &[]);
+        assert!(decode_png(&idat_first).is_err());
+
+        let split = compressed.len() / 2;
+        let mut interrupted_idat = b"\x89PNG\r\n\x1a\n".to_vec();
+        append_png_chunk(&mut interrupted_idat, *b"IHDR", &png_header(1, 1, 2));
+        append_png_chunk(&mut interrupted_idat, *b"IDAT", &compressed[..split]);
+        append_png_chunk(&mut interrupted_idat, *b"tEXt", b"note");
+        append_png_chunk(&mut interrupted_idat, *b"IDAT", &compressed[split..]);
+        append_png_chunk(&mut interrupted_idat, *b"IEND", &[]);
+        assert!(decode_png(&interrupted_idat).is_err());
+
+        let mut trailing = png_fixture(1, 1, 2, &[0, 7, 8, 9]);
+        trailing.push(0);
+        assert!(decode_png(&trailing).is_err());
+
+        let mut oversized_chunk = b"\x89PNG\r\n\x1a\n".to_vec();
+        oversized_chunk.extend_from_slice(&u32::MAX.to_be_bytes());
+        oversized_chunk.extend_from_slice(b"IHDR");
+        assert!(decode_png(&oversized_chunk).is_err());
     }
 
     #[test]

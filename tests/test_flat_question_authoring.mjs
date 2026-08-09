@@ -1,0 +1,362 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  decodeFlatQuestionSource,
+  parseFlatQuestionSource,
+  serializeFlatQuestionSource,
+} from "../src/features/flat_question_authoring/flat_question_codec.ts";
+import { createDefaultFlatQuestionSource } from "../src/features/flat_question_authoring/flat_question_defaults.ts";
+import {
+  createFlatQuestionClient,
+  FlatQuestionConflictError,
+} from "../src/features/flat_question_authoring/flat_question_client.ts";
+import {
+  flatQuestionPublicPreview,
+  serializeFlatQuestionPublicPreview,
+} from "../src/features/flat_question_authoring/flat_question_public_preview.ts";
+import {
+  createFlatQuestionRepository,
+  FlatQuestionStaleConflictError,
+} from "../src/features/flat_question_authoring/flat_question_repository.ts";
+import { FLAT_QUESTION_MEDIA_TYPE } from "../src/features/flat_question_authoring/flat_question_source.ts";
+
+const workspace = "00000000-0000-4000-8000-000000000001";
+
+function source() {
+  return {
+    format: "pleFlatQuestion",
+    version: 1,
+    kind: "singleChoice",
+    title: "Favorite color",
+    prompt: "What is my favorite color?",
+    choices: [
+      { id: "blue", text: "Blue", feedback: "Correct choice." },
+      { id: "red", text: "Red", feedback: "Not this one." },
+    ],
+    correctChoice: "blue",
+    feedback: { correct: "Exactly right.", incorrect: "Try again." },
+    points: 1,
+    attemptPolicy: { maxAttempts: null, feedback: "immediateFull" },
+    timingPolicy: { kind: "untimed" },
+    tags: ["example"],
+    taxonomy: [],
+    license: { kind: "ccBySa" },
+    language: "en-US",
+  };
+}
+
+function publicDefinition(includeVersion = false) {
+  const definition = {
+    workspace,
+    source: { backend: "native", family: "flat_single_choice_v1" },
+    prompt: [{ kind: "text", markdown: "What is my favorite color?" }],
+    response: {
+      kind: "multipleChoice",
+      choices: [
+        { id: "blue", body: [{ kind: "text", markdown: "Blue" }] },
+        { id: "red", body: [{ kind: "text", markdown: "Red" }] },
+      ],
+      selection: { kind: "exactlyOne" },
+    },
+    attemptPolicy: { maxAttempts: null, feedback: "immediateFull" },
+    timingPolicy: { kind: "untimed" },
+    randomization: { kind: "static" },
+    grading: { mode: "allOrNothing", points: 1 },
+    metadata: {
+      title: "Favorite color",
+      tags: ["example"],
+      taxonomy: [],
+      license: { kind: "ccBySa" },
+      language: "en-US",
+    },
+  };
+  if (!includeVersion) return definition;
+  return {
+    ...definition,
+    problem: "00000000-0000-4000-8000-000000000002",
+    version: "00000000-0000-4000-8000-000000000003",
+  };
+}
+
+function jsonResponse(value, status = 200, revision = '"1"') {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: { "content-type": "application/json", etag: revision },
+  });
+}
+
+test("codec accepts a valid source and serializes deterministic compact JSON", () => {
+  const decoded = decodeFlatQuestionSource(source());
+  const serialized = serializeFlatQuestionSource(decoded);
+  assert.equal(serialized, JSON.stringify(source()));
+  assert.deepEqual(parseFlatQuestionSource(serialized), decoded);
+});
+
+test("codec normalizes omitted optional feedback to Rust canonical null members", () => {
+  const input = source();
+  delete input.choices[1].feedback;
+  input.feedback = {};
+  const serialized = serializeFlatQuestionSource(decodeFlatQuestionSource(input));
+  assert.equal(serialized.includes('"feedback":null'), true);
+  assert.equal(serialized.includes('"correct":null'), true);
+  assert.equal(serialized.includes('"incorrect":null'), true);
+});
+
+test("codec aligns Rust top-level defaults and canonicalizes them on serialization", () => {
+  const input = source();
+  delete input.feedback;
+  delete input.tags;
+  delete input.taxonomy;
+  const serialized = serializeFlatQuestionSource(decodeFlatQuestionSource(input));
+  assert.equal(
+    serialized,
+    JSON.stringify({
+      ...source(),
+      feedback: { correct: null, incorrect: null },
+      tags: [],
+      taxonomy: [],
+    }),
+  );
+});
+
+test("codec enforces Unicode title and Rust u32 numeric bounds", () => {
+  const title512 = "😀".repeat(512);
+  assert.equal(decodeFlatQuestionSource({ ...source(), title: title512 }).title, title512);
+  assert.throws(() => decodeFlatQuestionSource({ ...source(), title: "😀".repeat(513) }));
+
+  const maximum = 4_294_967_295;
+  const timed = {
+    ...source(),
+    attemptPolicy: { maxAttempts: maximum, feedback: "immediateFull" },
+    timingPolicy: { kind: "perQuestion", seconds: maximum, graceSeconds: maximum },
+  };
+  assert.deepEqual(decodeFlatQuestionSource(timed).timingPolicy, timed.timingPolicy);
+  assert.throws(() =>
+    decodeFlatQuestionSource({
+      ...timed,
+      attemptPolicy: { maxAttempts: maximum + 1, feedback: "immediateFull" },
+    }),
+  );
+  assert.throws(() =>
+    decodeFlatQuestionSource({
+      ...timed,
+      timingPolicy: { kind: "perQuestion", seconds: maximum + 1, graceSeconds: 0 },
+    }),
+  );
+  assert.throws(() =>
+    decodeFlatQuestionSource({
+      ...timed,
+      timingPolicy: { kind: "perQuestion", seconds: 1, graceSeconds: maximum + 1 },
+    }),
+  );
+});
+
+test("source JSON parse failures do not expose parser details or source text", () => {
+  const secret = "correctChoice blue private feedback";
+  assert.throws(
+    () => parseFlatQuestionSource(`{${secret}`),
+    (error) => {
+      assert.equal(error.message.includes(secret), false);
+      assert.equal(error.message.includes("Unexpected"), false);
+      return true;
+    },
+  );
+});
+
+test("codec rejects unknown fields, invalid identifiers, invalid choice count, and bad correct choices", () => {
+  assert.throws(() => decodeFlatQuestionSource({ ...source(), surprise: true }));
+  assert.throws(() =>
+    decodeFlatQuestionSource({ ...source(), choices: [{ id: "A", text: "Only one" }] }),
+  );
+  assert.throws(() =>
+    decodeFlatQuestionSource({
+      ...source(),
+      choices: [
+        { id: "Bad", text: "One" },
+        { id: "two", text: "Two" },
+      ],
+    }),
+  );
+  assert.throws(() => decodeFlatQuestionSource({ ...source(), correctChoice: "green" }));
+});
+
+test("defaults use stable semantic IDs and public preview cannot serialize answers or feedback", () => {
+  const defaults = createDefaultFlatQuestionSource();
+  assert.deepEqual(
+    defaults.choices.map((choice) => choice.id),
+    ["choice_a", "choice_b"],
+  );
+  const preview = flatQuestionPublicPreview(source());
+  assert.deepEqual(preview.choices, [
+    { id: "blue", text: "Blue" },
+    { id: "red", text: "Red" },
+  ]);
+  const serialized = serializeFlatQuestionPublicPreview(source());
+  assert.equal(serialized.includes("correctChoice"), false);
+  assert.equal(serialized.includes("Correct choice."), false);
+  assert.equal(serialized.includes("Exactly right."), false);
+});
+
+test("client sends exact protected paths, headers, body, and revisions", async () => {
+  const requests = [];
+  const client = createFlatQuestionClient({
+    basePath: "/ple",
+    fetch: async (input, init) => {
+      requests.push({ input: String(input), init });
+      if (init.method === "GET") {
+        return new Response(serializeFlatQuestionSource(source()), {
+          headers: { "content-type": `${FLAT_QUESTION_MEDIA_TYPE}; charset=utf-8`, etag: '"1"' },
+        });
+      }
+      if (init.method === "PUT") return jsonResponse(publicDefinition(), 200, '"2"');
+      return jsonResponse(publicDefinition(true), 201, '"2"');
+    },
+  });
+
+  const loaded = await client.load(workspace);
+  const saved = await client.save(workspace, loaded.source, loaded.revision);
+  await client.publish(workspace, "institution", saved.revision);
+
+  assert.equal(requests[0].input, `/ple/api/workspaces/${workspace}/flat-question`);
+  assert.equal(requests[0].init.headers.accept, FLAT_QUESTION_MEDIA_TYPE);
+  assert.equal(requests[1].init.method, "PUT");
+  assert.equal(requests[1].init.headers["content-type"], FLAT_QUESTION_MEDIA_TYPE);
+  assert.equal(requests[1].init.headers["if-match"], '"1"');
+  assert.equal(requests[1].init.body, serializeFlatQuestionSource(source()));
+  assert.equal(requests[2].input, `/ple/api/problems/${workspace}/flat-question-publish`);
+  assert.equal(requests[2].init.headers["if-match"], '"2"');
+  assert.equal(requests[2].init.body, JSON.stringify({ scope: "institution" }));
+});
+
+test("client rejects unsafe base paths before it can make a request", () => {
+  for (const basePath of ["//evil.example", "/\\evil.example", "/bad\u0000path", "/bad\npath"]) {
+    assert.throws(() => createFlatQuestionClient({ basePath }));
+  }
+});
+
+test("client requires exact response media types and body-free JSON errors", async () => {
+  const secret = "parser body must not surface";
+  const client = createFlatQuestionClient({
+    fetch: async () =>
+      new Response(`{${secret}`, {
+        headers: { "content-type": "application/json-everything" },
+      }),
+  });
+  await assert.rejects(client.save(workspace, source()), (error) => {
+    assert.equal(error.message.includes(secret), false);
+    assert.match(error.message, /application\/json/u);
+    return true;
+  });
+
+  const malformed = createFlatQuestionClient({
+    fetch: async () =>
+      new Response(`{${secret}`, {
+        headers: { "content-type": "application/json" },
+      }),
+  });
+  await assert.rejects(malformed.save(workspace, source()), (error) => {
+    assert.equal(error.message.includes(secret), false);
+    assert.equal(error.message.includes("Unexpected"), false);
+    return true;
+  });
+});
+
+test("conflicts do not echo a response body and repository preserves the caller source", async () => {
+  const secret = "correctChoice=blue private feedback";
+  const client = createFlatQuestionClient({
+    fetch: async () =>
+      new Response(secret, { status: 409, headers: { "content-type": "application/json" } }),
+  });
+  await assert.rejects(client.load(workspace), (error) => {
+    assert.ok(error instanceof FlatQuestionConflictError);
+    assert.equal(error.message.includes(secret), false);
+    return true;
+  });
+
+  const repository = createFlatQuestionRepository({
+    async load() {
+      return { source: source(), revision: '"1"' };
+    },
+    async save() {
+      throw new FlatQuestionConflictError(409, "/api/workspaces/test/flat-question");
+    },
+    async publish() {
+      throw new Error("not used");
+    },
+  });
+  await repository.load(workspace);
+  const edited = source();
+  await assert.rejects(repository.save(workspace, edited), (error) => {
+    assert.ok(error instanceof FlatQuestionStaleConflictError);
+    assert.equal(error.source, edited);
+    return true;
+  });
+});
+
+test("client rejects public responses whose identity does not match the requested workspace", async () => {
+  const client = createFlatQuestionClient({
+    fetch: async () =>
+      jsonResponse({ ...publicDefinition(), workspace: "00000000-0000-4000-8000-000000000099" }),
+  });
+  await assert.rejects(client.save(workspace, source()), /does not match its workspace/u);
+});
+
+test("client rejects save and publication DTOs that are not the exact flat native family", async () => {
+  const wrongSave = createFlatQuestionClient({
+    fetch: async () =>
+      jsonResponse({ ...publicDefinition(), source: { backend: "native", family: "other" } }),
+  });
+  await assert.rejects(wrongSave.save(workspace, source()), /flat_single_choice_v1/u);
+
+  const wrongPublication = createFlatQuestionClient({
+    fetch: async () =>
+      jsonResponse({
+        ...publicDefinition(true),
+        source: { backend: "webwork", pgPath: "secret.pg" },
+      }),
+  });
+  await assert.rejects(
+    wrongPublication.publish(workspace, "institution", '"1"'),
+    /flat_single_choice_v1/u,
+  );
+});
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+test("repository does not regress a workspace revision when an older save finishes last", async () => {
+  const firstSave = deferred();
+  const secondSave = deferred();
+  const observedRevisions = [];
+  let publishedRevision;
+  const repository = createFlatQuestionRepository({
+    async load() {
+      return { source: source(), revision: '"1"' };
+    },
+    save(_workspace, _source, revision) {
+      observedRevisions.push(revision);
+      return observedRevisions.length === 1 ? firstSave.promise : secondSave.promise;
+    },
+    async publish(_workspace, _scope, revision) {
+      publishedRevision = revision;
+      return publicDefinition(true);
+    },
+  });
+
+  await repository.load(workspace);
+  const older = repository.save(workspace, source());
+  const newer = repository.save(workspace, source());
+  secondSave.resolve({ draft: publicDefinition(), revision: '"3"' });
+  await newer;
+  firstSave.resolve({ draft: publicDefinition(), revision: '"2"' });
+  await older;
+  await repository.publish(workspace, "institution");
+  assert.deepEqual(observedRevisions, ['"1"', '"1"']);
+  assert.equal(publishedRevision, '"3"');
+});

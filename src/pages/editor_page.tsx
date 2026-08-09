@@ -1,6 +1,6 @@
 // editor_page.tsx - injected, key-free workspace editor mock surface.
 
-import { ErrorBoundary, For, Show, createSignal, onMount, type JSX } from "solid-js";
+import { ErrorBoundary, For, Show, createEffect, createSignal, onMount, type JSX } from "solid-js";
 
 import type { Capability } from "../../generated/api/Capability";
 import type { ContentBlock } from "../../generated/api/ContentBlock";
@@ -22,6 +22,7 @@ import {
   capabilityLabel,
   type DraftCapabilityViolation,
   type EditorDraft,
+  type EditorDraftDisplayState,
   type EditorPreview,
   type EditorRepository,
   type PreviewFacade,
@@ -111,6 +112,14 @@ export interface EditorPageProps {
   readonly previewFacade: PreviewFacade;
   readonly responseValidator: WasmFacade;
   readonly initialWorkspace?: WorkspaceId;
+  /** Live routing may open a selected draft directly without changing fixture behavior. */
+  readonly onOpenDraft?: (workspace: WorkspaceId) => void;
+  /** The live workspace list can start a complete flat-question draft. */
+  readonly onCreateFlatQuestion?: () => Promise<void>;
+  /** Reports the strong revision and local-change state represented by this editor. */
+  readonly onDraftDisplayStateChange?: (state: EditorDraftDisplayState | null) => void;
+  /** Prevents edits while QTI conversion is replacing and refetching this draft. */
+  readonly replacementPending?: boolean;
 }
 
 /** Production composition: editor preview always crosses the key-free WASM facade. */
@@ -147,6 +156,9 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
   const [saveMessage, setSaveMessage] = createSignal<string | null>(null);
   const [publicationScope, setPublicationScope] = createSignal<PublicationScope>("institution");
   const [staleConflict, setStaleConflict] = createSignal(false);
+  const [creatingFlatQuestion, setCreatingFlatQuestion] = createSignal(false);
+  const [creationMessage, setCreationMessage] = createSignal<string | null>(null);
+  const [draftDirty, setDraftDirty] = createSignal(false);
 
   const ready = (): Extract<PageState, { readonly kind: "ready" }> | undefined => {
     const value = page();
@@ -206,10 +218,11 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     return Number.isInteger(value) && value >= 0 && value <= 4_294_967_295 ? value : null;
   }
 
-  function replaceDraft(next: EditorDraft): void {
+  function replaceDraft(next: EditorDraft, dirty = true): void {
     const current = ready();
     if (current === undefined) return;
     setPage({ ...current, draft: next });
+    setDraftDirty(dirty);
     setPreview({ kind: "idle" });
     setInstructorPreview({ kind: "idle" });
     setPublish({ kind: "idle" });
@@ -228,6 +241,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
       }
       const draft = await props.repository.getDraft(selected);
       setPage({ kind: "ready", drafts: page.items, nextCursor: page.nextCursor, draft });
+      setDraftDirty(false);
     } catch (error: unknown) {
       setPage({
         kind: "error",
@@ -252,11 +266,16 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
   }
 
   async function chooseDraft(workspace: WorkspaceId): Promise<void> {
+    if (props.onOpenDraft !== undefined) {
+      props.onOpenDraft(workspace);
+      return;
+    }
     const current = ready();
     if (current === undefined || current.draft.workspace === workspace) return;
     try {
       const draft = await props.repository.getDraft(workspace);
       setPage({ ...current, draft });
+      setDraftDirty(false);
       setPreview({ kind: "idle" });
       setInstructorPreview({ kind: "idle" });
       setPublish({ kind: "idle" });
@@ -269,13 +288,29 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     }
   }
 
+  async function createFlatQuestion(): Promise<void> {
+    if (props.onCreateFlatQuestion === undefined || creatingFlatQuestion()) return;
+    setCreatingFlatQuestion(true);
+    setCreationMessage("Creating a private flat-question draft...");
+    try {
+      await props.onCreateFlatQuestion();
+    } catch (error: unknown) {
+      setCreationMessage(
+        error instanceof Error ? error.message : "The flat-question draft could not be created.",
+      );
+    } finally {
+      setCreatingFlatQuestion(false);
+    }
+  }
+
   async function saveDraft(): Promise<void> {
     const current = ready();
     if (current === undefined) return;
+    setDraftDirty(true);
     setSaveMessage("Saving workspace draft...");
     try {
       const saved = await props.repository.saveDraft(current.draft);
-      replaceDraft(saved);
+      replaceDraft(saved, false);
       setSaveMessage("Draft saved. It remains a private, unversioned workspace draft.");
       setStaleConflict(false);
     } catch (error: unknown) {
@@ -287,8 +322,9 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
   async function reloadAfterConflict(): Promise<void> {
     const current = ready();
     if (current === undefined || props.repository.reloadDraft === undefined) return;
+    setDraftDirty(true);
     try {
-      replaceDraft(await props.repository.reloadDraft(current.draft.workspace));
+      replaceDraft(await props.repository.reloadDraft(current.draft.workspace), false);
       setStaleConflict(false);
       setSaveMessage("Reloaded the newest saved draft. Review it before saving again.");
     } catch (error: unknown) {
@@ -299,6 +335,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
   async function deleteDraft(): Promise<void> {
     const current = ready();
     if (current === undefined || props.repository.deleteDraft === undefined) return;
+    setDraftDirty(true);
     try {
       await props.repository.deleteDraft(current.draft.workspace);
       setSaveMessage("Draft deleted. You can choose another workspace draft.");
@@ -351,8 +388,10 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     try {
       // A review is meaningful only for a revision that reached the server. Saving here also
       // makes an edited draft explicit rather than silently comparing an older record.
+      setDraftDirty(true);
       const saved = await props.repository.saveDraft(current.draft);
       setPage({ ...current, draft: saved });
+      setDraftDirty(false);
       setSaveMessage("Draft saved for publication review. It remains private until confirmed.");
       setStaleConflict(false);
       const nextViolations = await props.repository.validateCapabilities(
@@ -450,8 +489,10 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     try {
       // Saving first gives the protected route one exact persisted revision to derive from. It
       // also preserves local edits if the CAS loses, instead of showing an older answer.
+      setDraftDirty(true);
       const saved = await props.repository.saveDraft(current.draft);
       setPage({ ...current, draft: saved });
+      setDraftDirty(false);
       setStaleConflict(false);
       const result = await boundary.requestPresentation(saved, selectedSeed);
       if (result.kind === "available") {
@@ -477,13 +518,23 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     }
   }
 
+  createEffect(() => {
+    const current = ready();
+    const revision =
+      current === undefined
+        ? null
+        : (props.repository.displayedRevision?.(current.draft.workspace) ?? null);
+    props.onDraftDisplayStateChange?.(revision === null ? null : { revision, dirty: draftDirty() });
+  });
+
   onMount(() => void load());
 
   return (
     <section
       class="page editor-page"
       data-route-surface="workspaceEditor"
-      aria-busy={page().kind === "loading"}
+      inert={props.replacementPending === true}
+      aria-busy={page().kind === "loading" || props.replacementPending === true}
     >
       <style>{EDITOR_PAGE_STYLES}</style>
       <p class="eyebrow">Instructor workspace</p>
@@ -494,7 +545,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
         presentation. Publication creates the immutable teaching record only after review.
       </p>
       <p class="sr-only" role="status" aria-live="polite">
-        {saveMessage() ?? ""}
+        {creationMessage() ?? saveMessage() ?? ""}
       </p>
 
       <Show when={page().kind === "loading"}>
@@ -506,6 +557,16 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
         <section class="editor-panel" aria-label="No workspace drafts">
           <h2>No drafts yet</h2>
           <p>Create a workspace draft to begin with a small learner-facing prompt and response.</p>
+          <Show when={props.onCreateFlatQuestion !== undefined}>
+            <button
+              class="primary-action"
+              type="button"
+              disabled={creatingFlatQuestion()}
+              onClick={() => void createFlatQuestion()}
+            >
+              {creatingFlatQuestion() ? "Creating flat question..." : "Create flat question"}
+            </button>
+          </Show>
         </section>
       </Show>
       <Show when={pageError()}>
@@ -522,6 +583,16 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
           <div class="editor-grid">
             <aside class="editor-panel" aria-label="Workspace drafts">
               <h2>Your drafts</h2>
+              <Show when={props.onCreateFlatQuestion !== undefined}>
+                <button
+                  class="primary-action"
+                  type="button"
+                  disabled={creatingFlatQuestion()}
+                  onClick={() => void createFlatQuestion()}
+                >
+                  {creatingFlatQuestion() ? "Creating flat question..." : "Create flat question"}
+                </button>
+              </Show>
               <ul class="editor-draft-list">
                 <For each={current().drafts}>
                   {(draft) => (

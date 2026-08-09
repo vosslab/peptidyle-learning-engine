@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use question_model::{ActivityTimestamp, ObjectId, VersionId};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use sha2::{Digest, Sha256};
 
 /// Typed bucket and immutable key construction.
@@ -18,7 +18,9 @@ pub mod minio;
 /// AWS S3 backend implemented in M2.
 pub mod s3;
 
-pub use crate::bucket::{Bucket, ObjectKey};
+pub use crate::bucket::{
+    Bucket, ObjectKey, published_import_archive_object_id, workspace_qti_archive_object_id,
+};
 
 /// Semantic role of an object.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -37,7 +39,7 @@ pub enum ObjectCategory {
 }
 
 /// SHA-256 bytes recorded with every object.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Sha256Digest([u8; 32]);
 
 impl Sha256Digest {
@@ -66,6 +68,62 @@ impl std::fmt::Display for Sha256Digest {
             write!(formatter, "{byte:02x}")?;
         }
         Ok(())
+    }
+}
+
+impl Serialize for Sha256Digest {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_str(self)
+    }
+}
+
+impl<'de> Deserialize<'de> for Sha256Digest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct Sha256DigestVisitor;
+
+        impl de::Visitor<'_> for Sha256DigestVisitor {
+            type Value = Sha256Digest;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("a lowercase 64-character hexadecimal SHA-256 digest")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                let encoded = value.as_bytes();
+                if encoded.len() != 64
+                    || !encoded
+                        .iter()
+                        .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+                {
+                    return Err(E::invalid_value(de::Unexpected::Str(value), &self));
+                }
+
+                let mut bytes = [0_u8; 32];
+                for (decoded, pair) in bytes.iter_mut().zip(encoded.chunks_exact(2)) {
+                    *decoded = (hex_nibble(pair[0]) << 4) | hex_nibble(pair[1]);
+                }
+                Ok(Sha256Digest::from_bytes(bytes))
+            }
+        }
+
+        deserializer.deserialize_str(Sha256DigestVisitor)
+    }
+}
+
+fn hex_nibble(byte: u8) -> u8 {
+    match byte {
+        b'0'..=b'9' => byte - b'0',
+        b'a'..=b'f' => byte - b'a' + 10,
+        _ => unreachable!("Sha256Digest validates lowercase hexadecimal before decoding"),
     }
 }
 
@@ -182,4 +240,102 @@ pub trait ObjectStore: Send + Sync {
         key: &ObjectKey,
         now: ActivityTimestamp,
     ) -> Result<SignedUrl, ObjectStoreError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use question_model::{ProblemId, VersionId};
+    use uuid::Uuid;
+
+    const DIGEST_BYTES: [u8; 32] = [
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
+        0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d,
+        0x1e, 0x1f,
+    ];
+    const DIGEST_HEX: &str = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+    const LEGACY_ARRAY_JSON: &str =
+        "[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31]";
+
+    #[test]
+    fn sha256_digest_json_is_canonical_lowercase_hex_and_round_trips() {
+        let digest = Sha256Digest::from_bytes(DIGEST_BYTES);
+        let encoded = serde_json::to_string(&digest).expect("digest should serialize");
+
+        assert_eq!(encoded, format!("\"{DIGEST_HEX}\""));
+        assert_eq!(
+            serde_json::from_str::<Sha256Digest>(&encoded).expect("digest should deserialize"),
+            digest
+        );
+    }
+
+    #[test]
+    fn sha256_digest_json_rejects_noncanonical_values_and_arrays() {
+        let uppercase = format!("\"{}\"", DIGEST_HEX.to_ascii_uppercase());
+        let wrong_length = format!("\"{}\"", &DIGEST_HEX[..63]);
+        let non_hex = format!("\"{}g\"", &DIGEST_HEX[..63]);
+
+        for invalid in [
+            uppercase.as_str(),
+            wrong_length.as_str(),
+            non_hex.as_str(),
+            LEGACY_ARRAY_JSON,
+        ] {
+            assert!(
+                serde_json::from_str::<Sha256Digest>(invalid).is_err(),
+                "digest JSON should reject {invalid}"
+            );
+        }
+    }
+
+    #[test]
+    fn object_record_json_shape_uses_canonical_hex_digest() {
+        let problem = ProblemId::from_uuid(Uuid::from_u128(1));
+        let version = VersionId::from_uuid(Uuid::from_u128(2));
+        let object = ObjectId::from_uuid(Uuid::from_u128(3));
+        let record = ObjectRecord {
+            id: object,
+            bucket: Bucket::Content,
+            key: ObjectKey::ProblemSource {
+                problem,
+                version,
+                object,
+            },
+            sha256: Sha256Digest::from_bytes(DIGEST_BYTES),
+            size_bytes: 123,
+            media_type: "application/zip".to_string(),
+            category: ObjectCategory::Source,
+            version: Some(version),
+            license: "private".to_string(),
+            provenance: "fixture".to_string(),
+            created_at: ActivityTimestamp::from_unix_millis(1_000),
+        };
+        let encoded = serde_json::to_string(&record).expect("object record should serialize");
+
+        assert_eq!(
+            encoded,
+            concat!(
+                "{\"id\":\"00000000-0000-0000-0000-000000000003\",",
+                "\"bucket\":\"content\",",
+                "\"key\":{\"kind\":\"problemSource\",",
+                "\"problem\":\"00000000-0000-0000-0000-000000000001\",",
+                "\"version\":\"00000000-0000-0000-0000-000000000002\",",
+                "\"object\":\"00000000-0000-0000-0000-000000000003\"},",
+                "\"sha256\":\"000102030405060708090a0b0c0d0e0f",
+                "101112131415161718191a1b1c1d1e1f\",",
+                "\"sizeBytes\":123,",
+                "\"mediaType\":\"application/zip\",",
+                "\"category\":\"source\",",
+                "\"version\":\"00000000-0000-0000-0000-000000000002\",",
+                "\"license\":\"private\",",
+                "\"provenance\":\"fixture\",",
+                "\"createdAt\":1000}"
+            )
+        );
+        assert_eq!(
+            serde_json::from_str::<ObjectRecord>(&encoded)
+                .expect("canonical object record should deserialize"),
+            record
+        );
+    }
 }

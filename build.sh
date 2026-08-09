@@ -108,11 +108,11 @@ run_stage wasm ./pipeline/build_wasm.sh $WASM_PROFILE_FLAG
 
 # 3. TypeScript definitions generated from the Rust model, so the client cannot
 #    compile against a stale shape.
-run_stage tsgen cargo run --quiet -p xtask -- tsgen
+run_stage tsgen cargo tools tsgen
 
 # 4. Verify intentional fixture evidence and refresh its derivative TS module.
 generate_fixture_projection() {
-	cargo run --quiet -p xtask -- fixtures --check &&
+	cargo tools fixtures --check &&
 		npx prettier --write --ignore-path .prettierignore generated/fixtures/published_problem.ts
 }
 run_stage fixtures generate_fixture_projection

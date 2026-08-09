@@ -1,0 +1,422 @@
+//! Native-owned construction of canonical flat questions from trusted imports.
+//!
+//! This module is deliberately not a QTI adapter. Its input is the already
+//! mapped, server-only flat-question shape. It fixes the PLE defaults required
+//! for an imported v1 static single-choice item, then delegates validation,
+//! canonical serialization, and compilation to the native flat-question owner.
+
+use std::fmt;
+
+use question_model::run_policy::FeedbackDisclosure;
+use question_model::{DraftQuestionDefinition, WorkspaceId};
+
+use super::{
+    CompiledFlatQuestion, FlatAttemptPolicy, FlatChoice, FlatLicense, FlatOutcomeFeedback,
+    FlatQuestionDocument, FlatQuestionError, FlatQuestionKind, FlatTimingPolicy,
+};
+
+/// One ordered PLE choice from a trusted profile mapping.
+///
+/// ```compile_fail
+/// use adapter_native::flat_question::imported::ImportedChoice;
+/// fn needs_debug<T: std::fmt::Debug>() {}
+/// needs_debug::<ImportedChoice>();
+/// ```
+///
+/// ```compile_fail
+/// use adapter_native::flat_question::imported::ImportedChoice;
+/// fn needs_serialize<T: serde::Serialize>() {}
+/// needs_serialize::<ImportedChoice>();
+/// ```
+#[derive(Clone, PartialEq, Eq)]
+pub struct ImportedChoice {
+    id: String,
+    text: String,
+}
+
+impl ImportedChoice {
+    /// Creates one trusted ordered PLE choice.
+    pub fn new(id: String, text: String) -> Self {
+        Self { id, text }
+    }
+}
+
+/// Trusted mapped fields for one imported static single-choice question.
+///
+/// The input owns an answer binding and therefore intentionally implements
+/// neither `Debug` nor serialization.
+///
+/// ```compile_fail
+/// use adapter_native::flat_question::imported::ImportedSingleChoiceInput;
+/// fn needs_debug<T: std::fmt::Debug>() {}
+/// needs_debug::<ImportedSingleChoiceInput>();
+/// ```
+///
+/// ```compile_fail
+/// use adapter_native::flat_question::imported::ImportedSingleChoiceInput;
+/// fn needs_serialize<T: serde::Serialize>() {}
+/// needs_serialize::<ImportedSingleChoiceInput>();
+/// ```
+#[derive(Clone, PartialEq, Eq)]
+pub struct ImportedSingleChoiceInput {
+    title: String,
+    prompt: String,
+    choices: Vec<ImportedChoice>,
+    correct_choice: String,
+    canonical_points: String,
+}
+
+impl ImportedSingleChoiceInput {
+    /// Creates the bounded trusted input to the native import factory.
+    pub fn new(
+        title: String,
+        prompt: String,
+        choices: Vec<ImportedChoice>,
+        correct_choice: String,
+        canonical_points: String,
+    ) -> Self {
+        Self {
+            title,
+            prompt,
+            choices,
+            correct_choice,
+            canonical_points,
+        }
+    }
+}
+
+/// A validated canonical imported source with no direct document access.
+///
+/// It exposes only canonical source bytes and the normal split compiler, so
+/// a caller cannot bypass native flat-question validation or defaults.
+///
+/// ```compile_fail
+/// use adapter_native::flat_question::imported::ImportedFlatQuestion;
+/// fn needs_debug<T: std::fmt::Debug>() {}
+/// needs_debug::<ImportedFlatQuestion>();
+/// ```
+///
+/// ```compile_fail
+/// use adapter_native::flat_question::imported::ImportedFlatQuestion;
+/// fn needs_serialize<T: serde::Serialize>() {}
+/// needs_serialize::<ImportedFlatQuestion>();
+/// ```
+#[derive(Clone, PartialEq)]
+pub struct ImportedFlatQuestion {
+    document: FlatQuestionDocument,
+}
+
+/// Input failure for the trusted import factory.
+///
+/// This error deliberately records only the failure class, never a title,
+/// prompt, choice, correct answer, or other imported value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImportedFlatQuestionError {
+    /// The supplied points string is not the canonical finite nonnegative form.
+    InvalidCanonicalPoints,
+    /// The supplied mapped fields violate the PLE flat-question v1 contract.
+    InvalidFlatQuestion,
+}
+
+impl fmt::Display for ImportedFlatQuestionError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidCanonicalPoints => {
+                formatter.write_str("imported points must use canonical finite nonnegative form")
+            }
+            Self::InvalidFlatQuestion => {
+                formatter.write_str("imported fields do not form a valid flat question")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ImportedFlatQuestionError {}
+
+impl ImportedFlatQuestion {
+    /// Constructs a canonical PLE v1 source using the fixed import defaults.
+    ///
+    /// # Errors
+    ///
+    /// Refuses noncanonical points and any mapped field that does not satisfy
+    /// the native flat-question v1 validation contract.
+    pub fn from_imported(
+        input: ImportedSingleChoiceInput,
+    ) -> Result<Self, ImportedFlatQuestionError> {
+        let points = parse_canonical_points(&input.canonical_points)?;
+        let document = FlatQuestionDocument {
+            format: super::FORMAT_NAME.to_string(),
+            version: super::FORMAT_VERSION,
+            kind: FlatQuestionKind::SingleChoice,
+            title: input.title,
+            prompt: input.prompt,
+            choices: input
+                .choices
+                .into_iter()
+                .map(|choice| FlatChoice {
+                    id: choice.id,
+                    text: choice.text,
+                    feedback: None,
+                })
+                .collect(),
+            correct_choice: input.correct_choice,
+            feedback: FlatOutcomeFeedback::default(),
+            points,
+            attempt_policy: FlatAttemptPolicy {
+                max_attempts: None,
+                feedback: FeedbackDisclosure::ImmediateFull,
+            },
+            timing_policy: FlatTimingPolicy::Untimed,
+            tags: Vec::new(),
+            taxonomy: Vec::new(),
+            license: FlatLicense::AllRightsReserved,
+            language: "en-US".to_string(),
+        };
+        document
+            .validate()
+            .map_err(|_| ImportedFlatQuestionError::InvalidFlatQuestion)?;
+        let canonical = document
+            .canonical_bytes()
+            .map_err(|_| ImportedFlatQuestionError::InvalidFlatQuestion)?;
+        let document = FlatQuestionDocument::parse(&canonical)
+            .map_err(|_| ImportedFlatQuestionError::InvalidFlatQuestion)?;
+        Ok(Self { document })
+    }
+
+    /// Returns the native canonical source bytes for immutable source storage.
+    ///
+    /// # Errors
+    ///
+    /// Propagates the native canonical serializer's encoding failure.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, FlatQuestionError> {
+        self.document.canonical_bytes()
+    }
+
+    /// Compiles the source into the existing public draft and grader-only key.
+    ///
+    /// # Errors
+    ///
+    /// Propagates the authoritative native flat-question compiler failure.
+    pub fn compile_parts(
+        &self,
+        workspace: WorkspaceId,
+    ) -> Result<
+        (
+            DraftQuestionDefinition,
+            grading::flat_question::FlatQuestionPrivate,
+        ),
+        FlatQuestionError,
+    > {
+        let CompiledFlatQuestion { draft, private } = self.document.compile(workspace)?;
+        Ok((draft, private))
+    }
+}
+
+fn parse_canonical_points(value: &str) -> Result<f64, ImportedFlatQuestionError> {
+    let points = value
+        .parse::<f64>()
+        .map_err(|_| ImportedFlatQuestionError::InvalidCanonicalPoints)?;
+    if !points.is_finite() || points < 0.0 {
+        return Err(ImportedFlatQuestionError::InvalidCanonicalPoints);
+    }
+    let normalized = if points == 0.0 { 0.0 } else { points };
+    if format!("{normalized:?}") != value {
+        return Err(ImportedFlatQuestionError::InvalidCanonicalPoints);
+    }
+    Ok(normalized)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use question_model::WorkspaceId;
+    use uuid::Uuid;
+
+    const HAND_AUTHORED: &str = r#"{"format":"pleFlatQuestion","version":1,"kind":"singleChoice","title":"Favorite color","prompt":"What is my favorite color?","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"blue","feedback":{},"points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"tags":[],"taxonomy":[],"license":{"kind":"allRightsReserved"},"language":"en-US"}"#;
+
+    fn imported(points: &str) -> ImportedFlatQuestion {
+        ImportedFlatQuestion::from_imported(ImportedSingleChoiceInput::new(
+            "Favorite color".to_string(),
+            "What is my favorite color?".to_string(),
+            vec![
+                ImportedChoice::new("blue".to_string(), "Blue".to_string()),
+                ImportedChoice::new("red".to_string(), "Red".to_string()),
+            ],
+            "blue".to_string(),
+            points.to_string(),
+        ))
+        .expect("trusted fixture should construct")
+    }
+
+    #[test]
+    fn imported_source_matches_hand_authored_canonical_and_compiled_parts() {
+        let imported = imported("1.0");
+        let hand_authored =
+            FlatQuestionDocument::parse(HAND_AUTHORED.as_bytes()).expect("hand-authored source");
+        assert_eq!(
+            imported
+                .canonical_bytes()
+                .expect("imported canonical bytes"),
+            hand_authored
+                .canonical_bytes()
+                .expect("hand-authored canonical bytes")
+        );
+
+        let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
+        let imported_parts = imported.compile_parts(workspace).expect("imported compile");
+        let authored_parts = hand_authored
+            .compile(workspace)
+            .expect("hand-authored compile")
+            .into_parts();
+        assert_eq!(imported_parts.0, authored_parts.0);
+        assert!(imported_parts.1 == authored_parts.1);
+    }
+
+    #[test]
+    fn canonical_points_require_the_profile_normalized_form() {
+        for value in ["1", "01.0", "1.00", "-0.0", "NaN", "inf", "-1.0"] {
+            let result = ImportedFlatQuestion::from_imported(ImportedSingleChoiceInput::new(
+                "Title".to_string(),
+                "Prompt".to_string(),
+                vec![
+                    ImportedChoice::new("one".to_string(), "One".to_string()),
+                    ImportedChoice::new("two".to_string(), "Two".to_string()),
+                ],
+                "one".to_string(),
+                value.to_string(),
+            ));
+            assert_eq!(
+                result.err(),
+                Some(ImportedFlatQuestionError::InvalidCanonicalPoints)
+            );
+        }
+        assert!(
+            ImportedFlatQuestion::from_imported(ImportedSingleChoiceInput::new(
+                "Title".to_string(),
+                "Prompt".to_string(),
+                vec![
+                    ImportedChoice::new("one".to_string(), "One".to_string()),
+                    ImportedChoice::new("two".to_string(), "Two".to_string()),
+                ],
+                "one".to_string(),
+                "0.0".to_string(),
+            ))
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn invalid_mapped_ids_choices_and_correct_binding_are_refused() {
+        for (choices, correct_choice) in [
+            (
+                vec![ImportedChoice::new("one".to_string(), "One".to_string())],
+                "one".to_string(),
+            ),
+            (
+                vec![
+                    ImportedChoice::new("one".to_string(), "One".to_string()),
+                    ImportedChoice::new("one".to_string(), "Two".to_string()),
+                ],
+                "one".to_string(),
+            ),
+            (
+                vec![
+                    ImportedChoice::new("not valid".to_string(), "One".to_string()),
+                    ImportedChoice::new("two".to_string(), "Two".to_string()),
+                ],
+                "two".to_string(),
+            ),
+            (
+                vec![
+                    ImportedChoice::new("one".to_string(), "One".to_string()),
+                    ImportedChoice::new("two".to_string(), "Two".to_string()),
+                ],
+                "missing".to_string(),
+            ),
+        ] {
+            let result = ImportedFlatQuestion::from_imported(ImportedSingleChoiceInput::new(
+                "Title".to_string(),
+                "Prompt".to_string(),
+                choices,
+                correct_choice,
+                "1.0".to_string(),
+            ));
+            assert_eq!(
+                result.err(),
+                Some(ImportedFlatQuestionError::InvalidFlatQuestion)
+            );
+        }
+    }
+
+    #[test]
+    fn blank_or_overlong_mapped_text_is_refused() {
+        let overlong_prompt = "x".repeat(super::super::MAX_PROMPT_CHARS + 1);
+        let overlong_title = "x".repeat(question_model::MAX_QUESTION_TITLE_UNICODE_SCALARS + 1);
+        for (title, prompt) in [
+            (" ".to_string(), "Prompt".to_string()),
+            ("Title".to_string(), " ".to_string()),
+            ("Title".to_string(), overlong_prompt),
+        ] {
+            let result = ImportedFlatQuestion::from_imported(ImportedSingleChoiceInput::new(
+                title,
+                prompt,
+                vec![
+                    ImportedChoice::new("one".to_string(), "One".to_string()),
+                    ImportedChoice::new("two".to_string(), "Two".to_string()),
+                ],
+                "one".to_string(),
+                "1.0".to_string(),
+            ));
+            assert_eq!(
+                result.err(),
+                Some(ImportedFlatQuestionError::InvalidFlatQuestion)
+            );
+        }
+        for (title, prompt, choice_text) in [
+            (overlong_title, "Prompt".to_string(), "One".to_string()),
+            (
+                "Title".to_string(),
+                "Prompt".to_string(),
+                "x".repeat(super::super::MAX_CHOICE_TEXT_CHARS + 1),
+            ),
+        ] {
+            let result = ImportedFlatQuestion::from_imported(ImportedSingleChoiceInput::new(
+                title,
+                prompt,
+                vec![
+                    ImportedChoice::new("one".to_string(), choice_text),
+                    ImportedChoice::new("two".to_string(), "Two".to_string()),
+                ],
+                "one".to_string(),
+                "1.0".to_string(),
+            ));
+            assert_eq!(
+                result.err(),
+                Some(ImportedFlatQuestionError::InvalidFlatQuestion)
+            );
+        }
+    }
+
+    #[test]
+    fn aggregate_canonical_source_limit_is_refused() {
+        let choices = (0..100)
+            .map(|index| {
+                ImportedChoice::new(
+                    format!("choice_{index}"),
+                    "x".repeat(super::super::MAX_CHOICE_TEXT_CHARS),
+                )
+            })
+            .collect();
+        let result = ImportedFlatQuestion::from_imported(ImportedSingleChoiceInput::new(
+            "Title".to_string(),
+            "Prompt".to_string(),
+            choices,
+            "choice_0".to_string(),
+            "1.0".to_string(),
+        ));
+        assert_eq!(
+            result.err(),
+            Some(ImportedFlatQuestionError::InvalidFlatQuestion)
+        );
+    }
+}

@@ -3,8 +3,14 @@
 This file records durable project guidance from the repository owner. Apply it
 alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 
-- Source code files should be less than 1000 lines in length; if the get longer
-  than that organize and distribute the content over more files
+- Keep this file close to the owner's actual words. Put engineering
+  interpretations, inferred requirements, and implementation details in the
+  active plan or workstream documents instead.
+- When the owner corrects an interpretation, update this file to preserve the
+  correction.
+
+- Keep every source file below 1000 lines by moving complete capabilities into
+  focused modules before a parent file becomes an implementation warehouse.
 
 ## Plan status
 
@@ -25,11 +31,53 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   archive or delete. A later archive workflow may offer an explicit owner
   choice without following references into shared published content.
 
+## Backup and recovery
+
+- Name SQLx migrations with a compact integer version prefix in the form
+  `YYYYMMDDNN_description.sql`, where `NN` is the two-digit sequence for that
+  day. Keep the prefix contiguous because SQLx parses everything before the
+  first underscore as one integer migration version.
+- Back up PostgreSQL role attributes and memberships together with the database,
+  but omit password hashes. Rehydrate and rotate login credentials from the
+  deployment secret manager after restoration.
+- Encrypt backup artifacts before they reach persistent storage. Restore into a
+  clean cluster and verify the migration ledger, logical data fingerprint,
+  owners, grants, forced RLS, tenant isolation, application writes, and broker
+  calls before calling the database recovered.
+- Treat a local logical restore rehearsal as recovery evidence, not as proof
+  that managed point-in-time recovery, production key management, a numerical
+  recovery objective, or the disclosed backup-retention window is deployed.
+
 ## Agent-specific guidance
 
 - Codex follows `AGENTS.md` and the repository style documents.
 - `docs/CLAUDE_HOOK_USAGE_GUIDE.md` is specific to Claude tooling and does not
   govern Codex commands or file-search behavior.
+- Choose the robust, clean methodology and keep pushing forward while the next
+  safe task is clear.
+- Prioritize positive prompting and focus on important issues.
+- Be efficient with time. Subagents and tokens are cheap; wall time is not.
+- Break hard problems into the smallest independently completable tasks. Give
+  each task one owner, one clear outcome, and one verification step. Run
+  independent tasks in parallel when doing so safely shortens wall time.
+- Use the hang check to distinguish a genuinely stuck agent from a healthy
+  agent that is still working.
+- Use GPT-5.6 subagents from now on.
+
+## Plan and test discipline
+
+- Avoid overly strict requirements. Ground plan gates and requirements in real behavior and
+  evidence instead of arbitrary numbers such as an unsupported load-time target.
+- Do not require byte-equivalent or pixel-equivalent results when the planned change is an
+  improvement and semantic or visual behavior is the real contract.
+- Compare every test plan with [docs/REPO_STYLE.md](REPO_STYLE.md),
+  [docs/PYTEST_STYLE.md](PYTEST_STYLE.md), [tests/TESTS_README.md](../tests/TESTS_README.md),
+  [devel/DEVEL_README.md](../devel/DEVEL_README.md), and the relevant style documents.
+- Classify one-time implementation checks separately from permanent tests. Keep regular tests
+  offline, deterministic, behavior-focused, and in the repository's documented test location.
+- Use the permanent-test checklist in [docs/PYTEST_STYLE.md](PYTEST_STYLE.md). Avoid unnecessary
+  fixtures, networked regular tests, and tests of tunable constants or incidental structure. When in
+  doubt, remove the permanent test.
 
 ## Local services
 
@@ -55,6 +103,71 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Favor behavior-focused evidence that reflects what instructors and students
   actually do over implementation-detail tests.
 
+## Flat question source
+
+- Use versioned PLE flat-question JSON as the canonical machine format for
+  simple static questions. Treat QTI as an import/export adapter and archival
+  interchange format, not as the internal source model.
+- Keep the first version small and closed. Add an explicit format version for
+  new question families or incompatible semantics instead of accumulating
+  QTI-style expression trees and vendor extensions in one flexible document.
+- Compile answer-bearing author input into separate checksummed public question
+  content and grader-only key/feedback material. Neither authored nor published
+  source objects may receive signed delivery URLs.
+- Stable semantic choice IDs own answers and feedback; display labels such as
+  A, B, and C do not.
+- PLE QTI-JSON must support, at a minimum, multiple choice (MC), multiple answer
+  (MA), fill-in-the-blank (FIB), multiple fill-in-the-blank (MULTI-FIB),
+  numerical entry (NUM), matching (MATCH), ordered list (ORDER), and image hot
+  spot (HOTSPOT) questions.
+- Use the owner's Python QTI Package Maker at
+  `OTHER_REPOS/qti-package-maker/` as a model for useful flat-question
+  conversion behavior. Port useful parts to Rust when needed, mainly for
+  import/export tooling; this is a low priority today.
+- Treat `feedback_correct` and `feedback_incorrect` as optional sidecars shared
+  by question types, following QTI Package Maker's `BaseItem`. Authors are often
+  incomplete, so feedback is not required and missing feedback does not make a
+  question invalid.
+- YAML may later be a human-editing input, but it must compile once into the
+  canonical JSON contract. Prefer JSON for deterministic cross-language
+  validation and checksums, not because parser speed materially affects the
+  student request path.
+- Keep flat-question private material behind the dedicated grader capability.
+  Persistence may validate its opaque typed integrity and bind it to the public
+  model. Outside the narrow protected author-source route below,
+  browser-facing stores, routes, generated contracts, and the Wasm closure
+  must neither construct nor read its canonical bytes.
+- The authenticated, author-role-only flat-question source `GET`/`PUT` route is
+  the deliberately narrow browser exception for an instructor's own canonical
+  source. It must use `Cache-Control: no-store` and a strong ETag, expose no
+  signed object URL or checksum, and never broaden ordinary browser contracts.
+  Learner/student preview, Wasm, public publication DTOs, and all non-author
+  routes remain answer-free.
+
+## First content release
+
+- Populate a Chapter 1 assignment for genetics and a Chapter 1 assignment for
+  biochemistry from the biology-problems-website content.
+- Use a combination of first-class algorithmic WeBWorK questions and
+  second-class static PLE QTI-JSON questions.
+- Four questions per chapter is enough for the first release: one WeBWorK MC,
+  one WeBWorK MATCH, one static PLE QTI-JSON MC, and one static PLE QTI-JSON
+  MATCH.
+- Use the existing PGML versions of the Chapter 1 questions where they are
+  available.
+
+## Course appearance
+
+- Do something similar to Blackboard Original course themes.
+- Allow an instructor to upload a small banner image per course and select one
+  of the preconfigured themes. Center the banner image at the top of the course
+  entry page.
+- Apply a three-color theme to all of the course pages.
+- Use biome and habitat theme names that give a sense of color on their own:
+  tundra, forest, desert, grass, arctic, ocean, tropical, woodland, coral reef,
+  swamp, underground, salt marsh, wetland, sea floor, magma, and beach.
+- Purge some theme names when they would look substantially the same.
+
 ## Performance choices
 
 - When measured behavior is slow, consider implementing the hot path in Rust
@@ -77,9 +190,10 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Display scores and percentages with at most two decimal places and trim
   trailing zeroes. Show `8 / 10`, `8.5 / 10`, or `8.33 / 10`, never a binary
   floating-point artifact such as `8.0000000000006 / 10`.
-- Choose one explicit midpoint-rounding rule before implementation and cover the
-  same boundary examples in Rust and TypeScript so server and browser output
-  cannot disagree.
+- Round to nearest with exact midpoint ties away from zero for both four-place
+  persistence and two-place display. Cover the same positive, negative, and
+  midpoint boundary examples in Rust and TypeScript so server and browser
+  output cannot disagree.
 
 ## Software design
 
@@ -87,6 +201,35 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   changing requirements and insights over time.
 - Use adaptability to maintain functionality and relevance in a dynamic usage
   environment.
+- Prefer a modular monolith with capability-owned components over either large
+  catch-all files or operationally separate microservices. Crate boundaries
+  continue to enforce security and deployment rules; modules inside a crate
+  should make one capability understandable in isolation.
+- Give each component one narrow contract, its backend implementations, and
+  focused behavior or conformance tests. A contributor should be able to work
+  from those files without reading the complete learning data-access or server
+  backend.
+- Keep crate roots and large parent modules as facades and composition points:
+  declare modules, re-export stable public paths, and wire shared dependencies.
+  Put domain behavior, SQL, route handlers, codecs, and tests in the owning
+  capability module.
+- Split by ownership and behavior rather than arbitrary line ranges. Preserve
+  public paths and typed contracts during structural extraction so module work
+  does not force unrelated callers to change.
+- A production worker may claim a job family only when that registry entry has
+  both a real handler and its atomic committer. Derive the queue-family filter
+  from those complete entries; leave reserved work queued instead of adding a
+  placeholder or allowing a partial worker to consume it. Scale worker
+  processes for concurrency and keep one bounded job between shutdown checks.
+- Use plain capability names before implementation jargon in code comments,
+  documentation, commands, and contributor handoffs. `learning-data-access`
+  owns persistence contracts and backends, `in_memory` names its database-free
+  backend module, and `project-tools` contains repository-only automation.
+- Use hyphens for Cargo package and crate-directory names, such as
+  `learning-data-access` and `project-tools`. Use underscores for Rust module
+  and import names, such as `in_memory` and `learning_data_access`.
+- Invoke repository automation through `cargo tools`. Do not retain the opaque
+  `cargo xtask` compatibility alias after the atomic naming migration.
 
 ## Authentication storage and compliance
 

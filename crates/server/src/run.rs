@@ -8,16 +8,21 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use axum::body::Bytes;
 use axum::body::to_bytes;
 use axum::extract::{DefaultBodyLimit, Path, Query, State};
-use axum::http::{HeaderMap, HeaderValue, StatusCode};
+#[cfg(test)]
+use axum::http::HeaderValue;
+use axum::http::{HeaderMap, StatusCode};
+use axum::middleware;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use base64::Engine as _;
-use cookie::{Cookie, SameSite};
 use grading::GradeOutcome;
+use learning_data_access::{
+    CatalogStore, Cursor, IssueQuestionAttemptCommand, ManualGradingStore, PageRequest, PageSize,
+    PaginationError, SessionStore, Store, StoreError, SubmissionIdempotencyKey, SubmissionRecord,
+    SubmitQuestionAttemptCommand, TenantContext,
+};
 use question_model::generation::Seed;
 use question_model::run_policy::FeedbackDisclosure;
 use question_model::{
@@ -27,11 +32,6 @@ use question_model::{
     UserRole,
 };
 use serde::{Deserialize, Serialize};
-use store::{
-    CatalogStore, Cursor, IssueQuestionAttemptCommand, PageRequest, PageSize, PaginationError,
-    SessionStore, Store, StoreError, SubmissionIdempotencyKey, SubmissionRecord,
-    SubmitQuestionAttemptCommand, TenantContext,
-};
 
 use crate::auth::{AuthenticatedSession, auth_error_response, no_store, resolve_request_session};
 use crate::feedback::{FeedbackDisclosureState, project_feedback};
@@ -68,6 +68,9 @@ pub struct IssuedAttemptMetadata {
 pub enum SubmissionDisposition {
     /// A normal server-only grade that the generic attempt store must commit.
     Grade(GradeReceipt),
+    /// A valid response whose trusted backend requires an instructor's
+    /// server-side evaluation before a numeric result exists.
+    NeedsManualGrading,
     /// A record already atomically committed by a backend-owned broker.
     Committed(Box<SubmissionRecord>),
 }
@@ -76,6 +79,7 @@ impl std::fmt::Debug for SubmissionDisposition {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Grade(_) => formatter.debug_tuple("Grade").field(&"[redacted]").finish(),
+            Self::NeedsManualGrading => formatter.write_str("NeedsManualGrading"),
             Self::Committed(record) => formatter.debug_tuple("Committed").field(record).finish(),
         }
     }
@@ -187,6 +191,7 @@ pub trait RunBackend: Send + Sync {
             GradeOutcome::Graded(result) => {
                 Ok(SubmissionDisposition::Grade(GradeReceipt::empty(result)))
             }
+            GradeOutcome::NeedsManualGrading => Ok(SubmissionDisposition::NeedsManualGrading),
             GradeOutcome::Ungraded => Err(RunBackendError::Unsupported(
                 "this run backend does not produce a server grade".to_string(),
             )),
@@ -194,87 +199,11 @@ pub trait RunBackend: Send + Sync {
     }
 }
 
-/// Separate capability for the protected same-origin external-tool frame.
-/// It is intentionally not part of `RunBackend`: native and WeBWorK routers
-/// retain their ordinary behavior unless a composition explicitly merges this
-/// route group with a contracted backend.
-#[async_trait]
-pub trait ExternalToolLaunchBackend: Send + Sync {
-    async fn create_external_tool_launch(
-        &self,
-        context: TenantContext,
-        actor: question_model::UserId,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
-        attempt: &QuestionAttempt,
-        aead: &crate::imathas_backend::LaunchStateAead,
-    ) -> Result<store::CreatedExternalToolLaunchSession, RunBackendError>;
-
-    #[allow(clippy::too_many_arguments)]
-    async fn proxy_external_tool_activity(
-        &self,
-        context: TenantContext,
-        actor: question_model::UserId,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
-        attempt: &QuestionAttempt,
-        session_id: uuid::Uuid,
-        token: &store::ExternalToolLaunchToken,
-        method: adapter_imathas::broker_provider::ProxyMethod,
-        body: &[u8],
-        aead: &crate::imathas_backend::LaunchStateAead,
-    ) -> Result<adapter_imathas::broker_provider::ProxyResponse, RunBackendError>;
-}
-
-/// Optional route group merged only by a configured contracted iMathAS
-/// composition. The normal run router deliberately remains backend-neutral.
-pub fn external_tool_router<S, B>(
-    store: Arc<S>,
-    backend: Arc<B>,
-    aead: Arc<crate::imathas_backend::LaunchStateAead>,
-) -> Router
-where
-    S: Store + CatalogStore + SessionStore + 'static,
-    B: ExternalToolLaunchBackend
-        + crate::imathas_backend::ExternalToolSubmissionBackend
-        + RunBackend
-        + 'static,
-{
-    Router::new()
-        .route(
-            "/api/attempts/{attempt}/external-tool/launch",
-            get(external_tool_shell::<S, B>),
-        )
-        .route(
-            "/api/attempts/{attempt}/external-tool/launch/activity",
-            get(external_tool_activity_get::<S, B>).post(external_tool_activity_post::<S, B>),
-        )
-        .route(
-            "/api/attempts/{attempt}/external-tool/launch/submission",
-            post(external_tool_submission::<S, B>),
-        )
-        .layer(DefaultBodyLimit::max(262_144))
-        .with_state(ExternalToolRouteState {
-            store,
-            backend,
-            aead,
-        })
-}
-
-struct ExternalToolRouteState<S, B> {
-    store: Arc<S>,
-    backend: Arc<B>,
-    aead: Arc<crate::imathas_backend::LaunchStateAead>,
-}
-impl<S, B> Clone for ExternalToolRouteState<S, B> {
-    fn clone(&self) -> Self {
-        Self {
-            store: Arc::clone(&self.store),
-            backend: Arc::clone(&self.backend),
-            aead: Arc::clone(&self.aead),
-        }
-    }
-}
+mod external_tool;
+mod manual_grading;
+pub use external_tool::{
+    ExternalToolLaunch, ExternalToolLaunchBackend, router as external_tool_router,
+};
 
 /// Failure from the selected trusted adapter or grading implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -302,7 +231,7 @@ impl std::error::Error for RunBackendError {}
 /// Builds the authenticated run route group around a shared store and backend registry.
 pub fn router<S, B>(store: Arc<S>, backend: Arc<B>) -> Router
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store + CatalogStore + ManualGradingStore + SessionStore + 'static,
     B: RunBackend + 'static,
 {
     Router::new()
@@ -325,6 +254,11 @@ where
         )
         .route("/api/submissions/{attempt}", post(submit_response::<S, B>))
         .route(
+            "/api/attempts/{attempt}/manual-grade",
+            get(manual_grading::get_manual_grade::<S, B>)
+                .put(manual_grading::put_manual_grade::<S, B>),
+        )
+        .route(
             "/api/attempts/{attempt}/feedback-release",
             post(release_attempt_feedback::<S, B>),
         )
@@ -335,7 +269,14 @@ where
         .route("/api/enrollments/{enrollment}", get(get_enrollment::<S, B>))
         .route("/api/enrollments/{enrollment}/runs", get(list_runs::<S, B>))
         .layer(DefaultBodyLimit::max(MAX_SUBMISSION_BODY_BYTES))
+        // Also covers extractor rejections such as malformed JSON, oversized
+        // bodies, and malformed typed path values before a handler runs.
+        .layer(middleware::map_response(no_store_response))
         .with_state(RunRouteState { store, backend })
+}
+
+async fn no_store_response(response: Response) -> Response {
+    no_store(response)
 }
 
 struct RunRouteState<S, B> {
@@ -370,14 +311,6 @@ struct StartRunRequest {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SubmitResponseRequest {
     response: StudentResponse,
-}
-
-/// Per-attempt routing state for a server-brokered external learning tool.
-/// It contains only a protected same-origin route, never provider material.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ExternalToolLaunch {
-    launch_url: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -438,423 +371,13 @@ struct RunSummaryResponse {
     run: AssignmentRun,
     summary: StudentAssignmentSummary,
     practice_allowed: bool,
-    outcomes: store::Page<RunSummaryOutcome>,
+    outcomes: learning_data_access::Page<RunSummaryOutcome>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct FeedbackReleaseResponse {
     released: bool,
-}
-
-const EXTERNAL_LAUNCH_COOKIE: &str = "ple_external_launch";
-
-fn external_tool_script_nonce() -> Result<String, RunBackendError> {
-    let mut nonce_bytes = [0_u8; 18];
-    getrandom::fill(&mut nonce_bytes).map_err(|_| {
-        RunBackendError::Unavailable("external-tool launch entropy is unavailable".into())
-    })?;
-    Ok(base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(nonce_bytes))
-}
-
-async fn external_tool_shell<S, B>(
-    State(state): State<ExternalToolRouteState<S, B>>,
-    headers: HeaderMap,
-    Path(attempt_id): Path<QuestionAttemptId>,
-) -> Response
-where
-    S: Store + CatalogStore + SessionStore + 'static,
-    B: ExternalToolLaunchBackend + 'static,
-{
-    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
-        Ok(v) => v,
-        Err(e) => return auth_error_response(e),
-    };
-    let actor = authenticated.record.subject.user();
-    let attempt = match state
-        .store
-        .get_question_attempt(authenticated.tenant_context, attempt_id)
-        .await
-    {
-        Ok(Some(v)) => v,
-        Ok(None) => return error_response(StatusCode::NOT_FOUND, "attempt not found"),
-        Err(e) => return store_error_response(e),
-    };
-    if let Err(response) = owned_run(state.store.as_ref(), &authenticated, attempt.run).await {
-        return response;
-    }
-    let reference = ProblemVersionRef {
-        problem: attempt.problem,
-        version: attempt.question_version,
-    };
-    let question = match load_run_question(state.store.as_ref(), &authenticated, reference).await {
-        Ok(v) => v,
-        Err(r) => return r,
-    };
-    if !matches!(
-        question.response,
-        question_model::ResponseDefinition::ExternalTool {}
-    ) {
-        return error_response(
-            StatusCode::NOT_FOUND,
-            "external-tool launch is not available",
-        );
-    }
-    let created = match state
-        .backend
-        .create_external_tool_launch(
-            authenticated.tenant_context,
-            actor,
-            reference,
-            &question,
-            &attempt,
-            state.aead.as_ref(),
-        )
-        .await
-    {
-        Ok(v) => v,
-        Err(e) => return backend_error_response(e),
-    };
-    let value = match crate::imathas_backend::launch_cookie_value(
-        state.aead.as_ref(),
-        authenticated.tenant_context,
-        actor,
-        attempt.id,
-        &created,
-    ) {
-        Ok(v) => v,
-        Err(e) => return backend_error_response(e),
-    };
-    let path = format!("/api/attempts/{attempt_id}/external-tool/launch");
-    let cookie = Cookie::build((EXTERNAL_LAUNCH_COOKIE, value))
-        .path(path)
-        .http_only(true)
-        .secure(true)
-        .same_site(SameSite::Strict)
-        .build();
-    let script_nonce = match external_tool_script_nonce() {
-        Ok(value) => value,
-        Err(error) => return backend_error_response(error),
-    };
-    let activity_path = format!("/api/attempts/{attempt_id}/external-tool/launch/activity");
-    // `attempt_id` is a typed UUID formatted by this server. No provider
-    // document, handle, credential, or response becomes shell markup.
-    let body = format!(
-        "<!doctype html><meta charset=\"utf-8\"><title>External activity</title><iframe id=\"ple-external-activity\" title=\"External activity\" src=\"{activity_path}\" sandbox=\"allow-scripts allow-forms\"></iframe><script nonce=\"{script_nonce}\">(function(){{const frame=document.getElementById('ple-external-activity');window.addEventListener('message',function(event){{const value=event.data;if(event.source!==frame.contentWindow||event.origin!=='null'||!value||value.kind!=='ple.externalTool.activityReady'||value.attemptId!=='{attempt_id}')return;parent.postMessage({{kind:'ple.externalTool.ready',attemptId:'{attempt_id}'}},location.origin)}})}})()</script>"
-    );
-    let csp = format!(
-        "default-src 'none'; frame-src 'self'; script-src 'nonce-{script_nonce}'; base-uri 'none'; form-action 'none'"
-    );
-    let mut response = no_store(
-        (
-            StatusCode::OK,
-            [
-                ("content-security-policy", csp.as_str()),
-                ("content-type", "text/html; charset=utf-8"),
-            ],
-            body,
-        )
-            .into_response(),
-    );
-    if let Ok(header) = HeaderValue::from_str(&cookie.to_string()) {
-        response.headers_mut().append("set-cookie", header);
-    }
-    response
-}
-
-async fn external_tool_activity_get<S, B>(
-    State(state): State<ExternalToolRouteState<S, B>>,
-    headers: HeaderMap,
-    Path(attempt_id): Path<QuestionAttemptId>,
-) -> Response
-where
-    S: Store + CatalogStore + SessionStore + 'static,
-    B: ExternalToolLaunchBackend + 'static,
-{
-    external_tool_activity(
-        state,
-        headers,
-        attempt_id,
-        adapter_imathas::broker_provider::ProxyMethod::Get,
-        &[],
-    )
-    .await
-}
-
-async fn external_tool_activity_post<S, B>(
-    State(state): State<ExternalToolRouteState<S, B>>,
-    headers: HeaderMap,
-    Path(attempt_id): Path<QuestionAttemptId>,
-    body: Bytes,
-) -> Response
-where
-    S: Store + CatalogStore + SessionStore + 'static,
-    B: ExternalToolLaunchBackend + 'static,
-{
-    external_tool_activity(
-        state,
-        headers,
-        attempt_id,
-        adapter_imathas::broker_provider::ProxyMethod::Post,
-        &body,
-    )
-    .await
-}
-
-async fn external_tool_activity<S, B>(
-    state: ExternalToolRouteState<S, B>,
-    headers: HeaderMap,
-    attempt_id: QuestionAttemptId,
-    method: adapter_imathas::broker_provider::ProxyMethod,
-    body: &[u8],
-) -> Response
-where
-    S: Store + CatalogStore + SessionStore + 'static,
-    B: ExternalToolLaunchBackend + 'static,
-{
-    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
-        Ok(v) => v,
-        Err(e) => return auth_error_response(e),
-    };
-    let actor = authenticated.record.subject.user();
-    let attempt = match state
-        .store
-        .get_question_attempt(authenticated.tenant_context, attempt_id)
-        .await
-    {
-        Ok(Some(v)) => v,
-        Ok(None) => return error_response(StatusCode::NOT_FOUND, "attempt not found"),
-        Err(e) => return store_error_response(e),
-    };
-    if let Err(response) = owned_run(state.store.as_ref(), &authenticated, attempt.run).await {
-        return response;
-    }
-    let cookie = match Cookie::split_parse(
-        headers
-            .get("cookie")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or(""),
-    )
-    .filter_map(Result::ok)
-    .find(|c| c.name() == EXTERNAL_LAUNCH_COOKIE)
-    {
-        Some(v) => v.value().to_owned(),
-        None => {
-            return error_response(StatusCode::NOT_FOUND, "external-tool launch is unavailable");
-        }
-    };
-    let (session_id, token) = match state.aead.open_cookie(
-        &cookie,
-        &crate::imathas_backend::launch_cookie_aad(authenticated.tenant_context, actor, attempt.id),
-    ) {
-        Ok(v) => v,
-        Err(_) => {
-            return error_response(StatusCode::NOT_FOUND, "external-tool launch is unavailable");
-        }
-    };
-    let reference = ProblemVersionRef {
-        problem: attempt.problem,
-        version: attempt.question_version,
-    };
-    let question = match load_run_question(state.store.as_ref(), &authenticated, reference).await {
-        Ok(v) => v,
-        Err(r) => return r,
-    };
-    let response = match state
-        .backend
-        .proxy_external_tool_activity(
-            authenticated.tenant_context,
-            actor,
-            reference,
-            &question,
-            &attempt,
-            session_id,
-            &token,
-            method,
-            body,
-            state.aead.as_ref(),
-        )
-        .await
-    {
-        Ok(v) => v,
-        // A restored launch session has no browser-visible distinction between
-        // expiry, revocation, copied state, stale source binding, or invalid
-        // encrypted state.  Returning one opaque 404 prevents this activity
-        // route from becoming a session/binding oracle.
-        Err(RunBackendError::Invalid(_)) => {
-            return error_response(StatusCode::NOT_FOUND, "external-tool launch is unavailable");
-        }
-        Err(e) => return backend_error_response(e),
-    };
-    let script_nonce = match external_tool_script_nonce() {
-        Ok(value) => value,
-        Err(error) => return backend_error_response(error),
-    };
-    let readiness = format!(
-        "<script nonce=\"{script_nonce}\">parent.postMessage({{kind:'ple.externalTool.activityReady',attemptId:'{attempt_id}'}},'*')</script>"
-    );
-    let mut body = response.html().to_vec();
-    body.extend_from_slice(readiness.as_bytes());
-    let mut out = no_store(body.into_response());
-    out.headers_mut().insert(
-        "content-type",
-        HeaderValue::from_static("text/html; charset=utf-8"),
-    );
-    out.headers_mut().insert(
-        "content-security-policy",
-        HeaderValue::from_str(&format!(
-            "default-src 'none'; script-src 'nonce-{script_nonce}'; form-action 'self'; base-uri 'none'"
-        ))
-        .expect("CSP nonce uses base64url"),
-    );
-    out
-}
-
-fn external_launch_proof(
-    aead: &crate::imathas_backend::LaunchStateAead,
-    headers: &HeaderMap,
-    context: TenantContext,
-    actor: question_model::UserId,
-    attempt: QuestionAttemptId,
-) -> Option<store::ExternalToolLaunchProof> {
-    let cookie = Cookie::split_parse(
-        headers
-            .get("cookie")
-            .and_then(|value| value.to_str().ok())
-            .unwrap_or(""),
-    )
-    .filter_map(Result::ok)
-    .find(|cookie| cookie.name() == EXTERNAL_LAUNCH_COOKIE)
-    .map(|cookie| cookie.value().to_owned())?;
-    aead.open_cookie(
-        &cookie,
-        &crate::imathas_backend::launch_cookie_aad(context, actor, attempt),
-    )
-    .map(|(session_id, token)| store::ExternalToolLaunchProof { session_id, token })
-    .ok()
-}
-
-async fn external_tool_submission<S, B>(
-    State(state): State<ExternalToolRouteState<S, B>>,
-    headers: HeaderMap,
-    Path(attempt_id): Path<QuestionAttemptId>,
-    Json(request): Json<SubmitResponseRequest>,
-) -> Response
-where
-    S: Store + CatalogStore + SessionStore + 'static,
-    B: ExternalToolLaunchBackend
-        + crate::imathas_backend::ExternalToolSubmissionBackend
-        + RunBackend
-        + 'static,
-{
-    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
-        Ok(value) => value,
-        Err(error) => return auth_error_response(error),
-    };
-    let idempotency_key = match submission_key(&headers) {
-        Ok(value) => value,
-        Err(message) => return error_response(StatusCode::BAD_REQUEST, message),
-    };
-    if !matches!(request.response, StudentResponse::ExternalTool {}) {
-        return error_response(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "external-tool response is required",
-        );
-    }
-    let actor = authenticated.record.subject.user();
-    match state
-        .store
-        .replay_submission(
-            authenticated.tenant_context,
-            actor,
-            attempt_id,
-            &request.response,
-            &idempotency_key,
-        )
-        .await
-    {
-        Ok(Some(record)) => {
-            return finish_submission(
-                state.store.as_ref(),
-                state.backend.as_ref(),
-                &authenticated,
-                record,
-            )
-            .await;
-        }
-        Ok(None) => {}
-        Err(error) => return store_error_response(error),
-    }
-    let attempt = match state
-        .store
-        .get_question_attempt(authenticated.tenant_context, attempt_id)
-        .await
-    {
-        Ok(Some(value)) => value,
-        Ok(None) => return error_response(StatusCode::NOT_FOUND, "attempt not found"),
-        Err(error) => return store_error_response(error),
-    };
-    let run = match owned_run(state.store.as_ref(), &authenticated, attempt.run).await {
-        Ok(value) => value,
-        Err(response) => return response,
-    };
-    if run.completed_at.is_some() {
-        return error_response(StatusCode::CONFLICT, "run is already complete");
-    }
-    let Some(proof) = external_launch_proof(
-        state.aead.as_ref(),
-        &headers,
-        authenticated.tenant_context,
-        actor,
-        attempt.id,
-    ) else {
-        return error_response(StatusCode::NOT_FOUND, "external-tool launch is unavailable");
-    };
-    let reference = ProblemVersionRef {
-        problem: attempt.problem,
-        version: attempt.question_version,
-    };
-    let question = match load_run_question(state.store.as_ref(), &authenticated, reference).await {
-        Ok(value) => value,
-        Err(response) => return response,
-    };
-    if !matches!(
-        question.response,
-        question_model::ResponseDefinition::ExternalTool {}
-    ) {
-        return error_response(StatusCode::NOT_FOUND, "external-tool launch is unavailable");
-    }
-    let record = match state
-        .backend
-        .submit_external_tool(
-            authenticated.tenant_context,
-            actor,
-            reference,
-            &question,
-            &attempt,
-            idempotency_key,
-            proof,
-            state.aead.as_ref(),
-        )
-        .await
-    {
-        Ok(SubmissionDisposition::Committed(record)) => *record,
-        Ok(SubmissionDisposition::Grade(_)) => {
-            return error_response(StatusCode::NOT_FOUND, "external-tool launch is unavailable");
-        }
-        // Session and encrypted-state failures intentionally share a 404.
-        Err(RunBackendError::Invalid(_)) => {
-            return error_response(StatusCode::NOT_FOUND, "external-tool launch is unavailable");
-        }
-        Err(error) => return backend_error_response(error),
-    };
-    finish_submission(
-        state.store.as_ref(),
-        state.backend.as_ref(),
-        &authenticated,
-        record,
-    )
-    .await
 }
 
 #[derive(Debug, Serialize)]
@@ -870,7 +393,7 @@ async fn start_run<S, B>(
     Json(request): Json<StartRunRequest>,
 ) -> Response
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store + CatalogStore + ManualGradingStore + SessionStore + 'static,
     B: RunBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
@@ -987,10 +510,10 @@ where
         .into_iter()
         .map(|outcome| {
             let empty_feedback = FeedbackContent::default();
-            let content = outcome
-                .feedback
-                .as_ref()
-                .map_or(&empty_feedback, store::AttemptFeedbackRecord::content);
+            let content = outcome.feedback.as_ref().map_or(
+                &empty_feedback,
+                learning_data_access::AttemptFeedbackRecord::content,
+            );
             let feedback = project_feedback(
                 outcome.feedback_policy,
                 FeedbackDisclosureState {
@@ -1014,7 +537,7 @@ where
             run: page.run,
             summary: page.summary,
             practice_allowed: page.practice_allowed,
-            outcomes: store::Page {
+            outcomes: learning_data_access::Page {
                 items: outcomes,
                 next_cursor: page.outcomes.next_cursor,
             },
@@ -1044,7 +567,7 @@ where
         .store
         .release_attempt_feedback(
             authenticated.tenant_context,
-            store::ReleaseAttemptFeedbackCommand {
+            learning_data_access::ReleaseAttemptFeedbackCommand {
                 actor: authenticated.record.subject.user(),
                 attempt,
             },
@@ -1305,7 +828,7 @@ where
                 Ok(value) => value,
                 Err(error) => return backend_error_response(error),
             };
-            let value = store::PrefetchedQuestion {
+            let value = learning_data_access::PrefetchedQuestion {
                 tenant: authenticated.tenant_context.tenant_id(),
                 run: run.id,
                 predecessor,
@@ -1320,7 +843,7 @@ where
                 .store
                 .reserve_or_resume_prefetched_question(
                     authenticated.tenant_context,
-                    store::ReservePrefetchedQuestionCommand {
+                    learning_data_access::ReservePrefetchedQuestionCommand {
                         actor,
                         reservation: value.clone(),
                     },
@@ -1458,7 +981,7 @@ async fn submit_response<S, B>(
     Json(request): Json<SubmitResponseRequest>,
 ) -> Response
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store + CatalogStore + ManualGradingStore + SessionStore + 'static,
     B: RunBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
@@ -1522,6 +1045,15 @@ where
     if !format_report.is_valid() {
         return no_store((StatusCode::UNPROCESSABLE_ENTITY, Json(format_report)).into_response());
     }
+    if matches!(
+        &question.response,
+        question_model::ResponseDefinition::FileUpload { .. }
+    ) {
+        return error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "file upload submissions are unavailable",
+        );
+    }
     let disposition = match state
         .backend
         .submit(RunSubmission {
@@ -1550,6 +1082,22 @@ where
                     response: request.response,
                     result: receipt.result,
                     feedback: receipt.feedback,
+                    idempotency_key,
+                },
+            )
+            .await
+        {
+            Ok(record) => record,
+            Err(error) => return store_error_response(error),
+        },
+        SubmissionDisposition::NeedsManualGrading => match state
+            .store
+            .submit_pending_manual_question_attempt(
+                authenticated.tenant_context,
+                learning_data_access::SubmitPendingManualQuestionAttemptCommand {
+                    actor,
+                    attempt: attempt.id,
+                    response: request.response,
                     idempotency_key,
                 },
             )
@@ -1825,7 +1373,7 @@ struct IssueQuestionRequest<'a> {
     assignment_position: u32,
     reference: ProblemVersionRef,
     question: &'a QuestionDefinition,
-    prefetched: Option<store::PrefetchedQuestion>,
+    prefetched: Option<learning_data_access::PrefetchedQuestion>,
     predecessor_submission: Option<QuestionAttemptId>,
 }
 
@@ -1883,7 +1431,7 @@ where
 
 async fn all_attempts<S: Store>(
     store: &S,
-    context: store::TenantContext,
+    context: learning_data_access::TenantContext,
     run: RunId,
 ) -> Result<Vec<QuestionAttempt>, Response> {
     let size = PageSize::new(INTERNAL_ATTEMPT_PAGE_SIZE)
@@ -1954,7 +1502,7 @@ async fn owned_assignment_for_run<S: Store>(
     store: &S,
     authenticated: &AuthenticatedSession,
     run: &AssignmentRun,
-) -> Result<store::AssignmentRecord, Response> {
+) -> Result<learning_data_access::AssignmentRecord, Response> {
     let enrollment = owned_enrollment(store, authenticated, run.enrollment).await?;
     store
         .get_assignment(authenticated.tenant_context, enrollment.assignment)
@@ -2013,7 +1561,7 @@ async fn authorized_enrollment<S: Store>(
 
 async fn apply_feedback_disclosure<S: CatalogStore>(
     store: &S,
-    context: store::TenantContext,
+    context: learning_data_access::TenantContext,
     run: &AssignmentRun,
     attempt: &mut QuestionAttempt,
 ) -> Result<(), Response> {
@@ -2060,7 +1608,10 @@ where
         Ok(value) => value,
         Err(error) => return store_error_response(error),
     };
-    let next_state = if matches!(next_state, store::SubmissionNextAttempt::Pending) {
+    let next_state = if matches!(
+        next_state,
+        learning_data_access::SubmissionNextAttempt::Pending
+    ) {
         // A process can fail after committing the grade and before this route
         // issues/finalizes its successor. Heal using *current* run state, but
         // never derive a replay receipt from whichever later attempt is active.
@@ -2088,7 +1639,7 @@ where
             .submission_next_attempt(authenticated.tenant_context, actor, record.attempt.id)
             .await
         {
-            Ok(store::SubmissionNextAttempt::Pending) => {
+            Ok(learning_data_access::SubmissionNextAttempt::Pending) => {
                 if let Err(error) = store
                     .finalize_submission_next_attempt(
                         authenticated.tenant_context,
@@ -2100,7 +1651,7 @@ where
                 {
                     return store_error_response(error);
                 }
-                store::SubmissionNextAttempt::None
+                learning_data_access::SubmissionNextAttempt::None
             }
             Ok(value) => value,
             Err(error) => return store_error_response(error),
@@ -2109,8 +1660,8 @@ where
         next_state
     };
     let next_issued = match next_state {
-        store::SubmissionNextAttempt::None => None,
-        store::SubmissionNextAttempt::Issued(id) => {
+        learning_data_access::SubmissionNextAttempt::None => None,
+        learning_data_access::SubmissionNextAttempt::Issued(id) => {
             let attempt = match store
                 .get_question_attempt(authenticated.tenant_context, id)
                 .await
@@ -2134,14 +1685,16 @@ where
                 rendered_question_sha256: attempt.provenance.rendered_question_sha256,
             })
         }
-        store::SubmissionNextAttempt::Pending => unreachable!("pending state is finalized above"),
+        learning_data_access::SubmissionNextAttempt::Pending => {
+            unreachable!("pending state is finalized above")
+        }
     };
     submission_response(store, authenticated.tenant_context, record, next_issued).await
 }
 
 async fn submission_response<S: CatalogStore>(
     store: &S,
-    context: store::TenantContext,
+    context: learning_data_access::TenantContext,
     record: SubmissionRecord,
     next_issued: Option<NextIssuedAttempt>,
 ) -> Response {
@@ -2259,7 +1812,7 @@ fn store_error_response(error: StoreError) -> Response {
             error_response(StatusCode::UNPROCESSABLE_ENTITY, &error.to_string())
         }
         StoreError::TimedOut => error_response(StatusCode::CONFLICT, "question attempt timed out"),
-        StoreError::Unavailable(_) => {
+        StoreError::RetryableTransaction | StoreError::Unavailable(_) => {
             error_response(StatusCode::SERVICE_UNAVAILABLE, "run storage unavailable")
         }
     }
@@ -2271,6 +1824,8 @@ fn error_response(status: StatusCode, message: &str) -> Response {
 
 #[cfg(test)]
 mod tests {
+    mod manual_grading_http;
+
     use std::collections::BTreeMap;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -2278,6 +1833,13 @@ mod tests {
     use axum::body::{Body, to_bytes};
     use axum::http::Request;
     use grading::{AnswerKey, GradingError, grade};
+    use learning_data_access::in_memory::MemoryStore;
+    use learning_data_access::{
+        AssignmentRecord, CatalogTransition, CourseRecord, DraftRecord, JobLeaseDuration,
+        JobPayload, JobStore, Page, PublishDraftCommand, PublishedProblemRecord,
+        RetentionWorkerCommand, RetentionWorkerStore, SessionLifetime, SessionRecord,
+        SessionSubject, SessionTokenHash, TenantContext,
+    };
     use question_model::answer::{NumericTolerance, SelectionCardinality};
     use question_model::envelope::ContentBlock;
     use question_model::generation::Seed;
@@ -2296,13 +1858,6 @@ mod tests {
         PublicationScope, QuestionMetadata, QuestionSource, StudentId, TenantId, UserId, VersionId,
         WorkspaceId,
     };
-    use store::memory::MemoryStore;
-    use store::{
-        AssignmentRecord, CatalogTransition, CourseRecord, DraftRecord, JobLeaseDuration,
-        JobPayload, JobStore, Page, PublishDraftCommand, PublishedProblemRecord,
-        RetentionWorkerCommand, RetentionWorkerStore, SessionLifetime, SessionRecord,
-        SessionSubject, SessionTokenHash, TenantContext,
-    };
     use tower::ServiceExt;
     use uuid::Uuid;
 
@@ -2316,6 +1871,7 @@ mod tests {
         external_launch_calls: AtomicUsize,
         issued_seeds: std::sync::Mutex<Vec<u64>>,
         external_tool_launch_ready: bool,
+        manual_grading_required: bool,
     }
 
     struct CountingNativeBackend {
@@ -2389,7 +1945,8 @@ mod tests {
             question: &QuestionDefinition,
             attempt: &QuestionAttempt,
             aead: &crate::imathas_backend::LaunchStateAead,
-        ) -> Result<store::CreatedExternalToolLaunchSession, RunBackendError> {
+        ) -> Result<learning_data_access::CreatedExternalToolLaunchSession, RunBackendError>
+        {
             self.create_calls.fetch_add(1, Ordering::SeqCst);
             self.inner
                 .create_external_tool_launch(context, actor, reference, question, attempt, aead)
@@ -2404,7 +1961,7 @@ mod tests {
             question: &QuestionDefinition,
             attempt: &QuestionAttempt,
             session_id: Uuid,
-            token: &store::ExternalToolLaunchToken,
+            token: &learning_data_access::ExternalToolLaunchToken,
             method: adapter_imathas::broker_provider::ProxyMethod,
             body: &[u8],
             aead: &crate::imathas_backend::LaunchStateAead,
@@ -2428,8 +1985,8 @@ mod tests {
             reference: ProblemVersionRef,
             question: &QuestionDefinition,
             attempt: &QuestionAttempt,
-            idempotency_key: store::SubmissionIdempotencyKey,
-            launch_proof: store::ExternalToolLaunchProof,
+            idempotency_key: learning_data_access::SubmissionIdempotencyKey,
+            launch_proof: learning_data_access::ExternalToolLaunchProof,
             state_aead: &crate::imathas_backend::LaunchStateAead,
         ) -> Result<SubmissionDisposition, RunBackendError> {
             self.submission_calls.fetch_add(1, Ordering::SeqCst);
@@ -2626,6 +2183,9 @@ mod tests {
             response: &StudentResponse,
         ) -> Result<GradeOutcome, RunBackendError> {
             self.grade_calls.fetch_add(1, Ordering::SeqCst);
+            if self.manual_grading_required {
+                return Ok(GradeOutcome::NeedsManualGrading);
+            }
             grade(
                 question,
                 response,
@@ -2874,6 +2434,7 @@ mod tests {
                     },
                     source_artifact: None,
                     qti_promotion: None,
+                    flat_question_promotion: None,
                     publisher: instructor,
                     scope: PublicationScope::Public,
                     capabilities: BackendCapabilities::from_iter([
@@ -2970,7 +2531,10 @@ mod tests {
             )
             .expect("archive cleanup fixture");
         let claim = store
-            .claim_next_job(JobLeaseDuration::from_seconds(30).expect("lease duration"))
+            .claim_next_job(
+                &learning_data_access::JobClaimFilter::all(),
+                JobLeaseDuration::from_seconds(30).expect("lease duration"),
+            )
             .await
             .expect("archive claim")
             .expect("archive job");
@@ -3097,6 +2661,7 @@ mod tests {
                     },
                     source_artifact: None,
                     qti_promotion: None,
+                    flat_question_promotion: None,
                     publisher: instructor,
                     scope: PublicationScope::Institution,
                     capabilities: BackendCapabilities::from_iter([
@@ -3247,9 +2812,9 @@ mod tests {
         transport_mode: adapter_imathas::test_support::RecordedContractedTransportMode,
     ) -> ContractedRouteFixture {
         use adapter_imathas::test_support::RecordedContractedTransportFactory;
+        use learning_data_access::{IssueQuestionAttemptCommand, PublishedSourceArtifact};
         use objects::{ObjectKey, ObjectStore, PutObject, Sha256Digest};
         use question_model::generation::RandomizationDefinition;
-        use store::{IssueQuestionAttemptCommand, PublishedSourceArtifact};
 
         let store = Arc::new(MemoryStore::default());
         store
@@ -3344,6 +2909,7 @@ mod tests {
                         object: artifact,
                     }),
                     qti_promotion: None,
+                    flat_question_promotion: None,
                     publisher: instructor,
                     scope: PublicationScope::Public,
                     capabilities: BackendCapabilities::from_iter([
@@ -3738,12 +3304,13 @@ mod tests {
             )
             .await
             .expect("protected launch");
-        let proof = store::ExternalToolLaunchProof {
+        let proof = learning_data_access::ExternalToolLaunchProof {
             session_id: created.id,
             token: created.token,
         };
-        let key = store::SubmissionIdempotencyKey::parse("recorded-contracted-outage")
-            .expect("idempotency key");
+        let key =
+            learning_data_access::SubmissionIdempotencyKey::parse("recorded-contracted-outage")
+                .expect("idempotency key");
         let first = fixture
             .backend
             .submit_external_tool(
@@ -3782,11 +3349,11 @@ mod tests {
     async fn contracted_imathas_verified_pending_recovers_without_a_second_retrieval() {
         use adapter_imathas::test_support::RecordedContractedTransportMode;
         use adapter_imathas::{CorrelationIssuer, GradeBinding};
-        use objects::Sha256Digest;
-        use store::{
+        use learning_data_access::{
             BeginExternalToolGradeCommand, ExternalToolBegin, ExternalToolBrokerStore,
             PersistedCorrelation, StageExternalToolVerificationCommand,
         };
+        use objects::Sha256Digest;
 
         let fixture = contracted_route_fixture(RecordedContractedTransportMode::Verified).await;
         let actor = UserId::from_uuid(id(803));
@@ -3805,7 +3372,7 @@ mod tests {
             panic!("contracted fixture source")
         };
         let response = StudentResponse::ExternalTool {};
-        let binding = store::ExternalToolBinding {
+        let binding = learning_data_access::ExternalToolBinding {
             provider: provider.clone(),
             problem: fixture.question.problem,
             version: fixture.question.version,
@@ -3829,7 +3396,8 @@ mod tests {
             PersistedCorrelation::new(issuer.begin(grade_binding).to_storage_value().into_bytes())
                 .expect("correlation");
         let key =
-            store::SubmissionIdempotencyKey::parse("recorded-contracted-pending").expect("key");
+            learning_data_access::SubmissionIdempotencyKey::parse("recorded-contracted-pending")
+                .expect("key");
         let ExternalToolBegin::Lease(lease) = fixture
             .store
             .begin_or_resume_external_grade(
@@ -3891,7 +3459,7 @@ mod tests {
                 &fixture.question,
                 &fixture.attempt,
                 key,
-                store::ExternalToolLaunchProof {
+                learning_data_access::ExternalToolLaunchProof {
                     session_id: created.id,
                     token: created.token,
                 },
@@ -4131,7 +3699,7 @@ mod tests {
             &created,
         )
         .expect("launch cookie");
-        store::ExternalToolLaunchSessionStore::revoke_external_tool_launch_session(
+        learning_data_access::ExternalToolLaunchSessionStore::revoke_external_tool_launch_session(
             fixture.store.as_ref(),
             fixture.context,
             UserId::from_uuid(id(803)),
@@ -5275,6 +4843,59 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn file_upload_submission_refuses_untrusted_object_key_before_backend_or_store_mutation()
+    {
+        let (store, backend, app, student_cookie, _outsider_cookie, assignment, _enrollment) =
+            fixture_with_response(
+                ResponseDefinition::FileUpload {
+                    max_bytes: 1_024,
+                    accepted_extensions: vec!["pdf".to_string()],
+                },
+                false,
+            )
+            .await;
+        let attempt = active_attempt_for(&app, assignment, &student_cookie).await;
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/submissions/{}", attempt.id))
+                    .header("cookie", student_cookie)
+                    .header("content-type", "application/json")
+                    .header("idempotency-key", "forged-file-upload")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "response": {
+                                "kind": "fileUpload",
+                                "objectKey": "student-records/foreign-tenant/private.pdf",
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .expect("forged file-upload request"),
+            )
+            .await
+            .expect("forged file-upload response");
+
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(
+            json(response).await,
+            serde_json::json!({ "error": "file upload submissions are unavailable" })
+        );
+        assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 0);
+        assert_eq!(
+            store
+                .get_question_attempt(
+                    TenantContext::from_authenticated_session(TenantId::from_uuid(id(1))),
+                    attempt.id,
+                )
+                .await
+                .expect("attempt read"),
+            Some(attempt)
+        );
+    }
+
+    #[tokio::test]
     async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
         let (store, backend, app, student_cookie, outsider_cookie, assignment, enrollment) =
             fixture().await;
@@ -5564,7 +5185,7 @@ mod tests {
                 stored_assignment.record.course_id,
                 assignment_id,
                 stored_assignment.revision,
-                store::AssignmentUpdate {
+                learning_data_access::AssignmentUpdate {
                     title: stored_assignment.record.title,
                     items,
                     selection_groups: stored_assignment.record.selection_groups,

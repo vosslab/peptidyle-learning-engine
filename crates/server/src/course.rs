@@ -13,17 +13,17 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, put};
 use axum::{Json, Router};
+use learning_data_access::{
+    AssignmentRecord, AssignmentRevision, CatalogStore, CourseListScope, CourseRecord,
+    CourseRecordsAccessStore, Cursor, Page, PageRequest, PageSize, PaginationError, SessionStore,
+    Store, StoreError, StoredAssignment,
+};
 use question_model::{
     AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentScoringMode,
     AssignmentSummary, Capability, CourseId, CourseMembership, CourseMembershipRole, CourseRole,
     PointValue, ProblemVersionRef, RunPolicies, UserRole,
 };
 use serde::{Deserialize, Serialize};
-use store::{
-    AssignmentRecord, AssignmentRevision, CatalogStore, CourseListScope, CourseRecord,
-    CourseRecordsAccessStore, Cursor, Page, PageRequest, PageSize, PaginationError, SessionStore,
-    Store, StoreError, StoredAssignment,
-};
 
 use crate::auth::{AuthenticatedSession, auth_error_response, no_store, resolve_request_session};
 
@@ -450,7 +450,7 @@ where
             course,
             assignment,
             expected_revision,
-            store::AssignmentUpdate {
+            learning_data_access::AssignmentUpdate {
                 title: request.title,
                 items,
                 selection_groups: current.record.selection_groups,
@@ -624,7 +624,7 @@ struct AssignmentValidationFailure {
 
 async fn validate_assignment_request<S>(
     state: &CourseRouteState<S>,
-    context: store::TenantContext,
+    context: learning_data_access::TenantContext,
     assignment: &AssignmentRecord,
 ) -> Result<(), Response>
 where
@@ -746,7 +746,7 @@ fn store_error_response(error: StoreError) -> Response {
             error_response(StatusCode::UNPROCESSABLE_ENTITY, &error.to_string())
         }
         StoreError::TimedOut => error_response(StatusCode::CONFLICT, "question attempt timed out"),
-        StoreError::Unavailable(_) => error_response(
+        StoreError::RetryableTransaction | StoreError::Unavailable(_) => error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "course storage unavailable",
         ),
@@ -762,6 +762,12 @@ mod tests {
     use super::*;
     use axum::body::{Body, to_bytes};
     use axum::http::Request;
+    use learning_data_access::in_memory::MemoryStore;
+    use learning_data_access::{
+        CatalogStore, DraftRecord, JobLeaseDuration, JobPayload, JobStore, PublishDraftCommand,
+        RetentionWorkerCommand, RetentionWorkerStore, SessionLifetime, SessionSubject,
+        TenantContext,
+    };
     use question_model::answer::NumericTolerance;
     use question_model::envelope::ContentBlock;
     use question_model::generation::RandomizationDefinition;
@@ -775,12 +781,6 @@ mod tests {
         ActivityTimestamp, BackendCapabilities, Capability, DraftQuestionDefinition,
         DraftQuestionSource, GradingDefinition, ObjectId, ProblemId, PublicationScope,
         QuestionMetadata, QuestionSource, StudentId, TenantId, UserId, VersionId, WorkspaceId,
-    };
-    use store::memory::MemoryStore;
-    use store::{
-        CatalogStore, DraftRecord, JobLeaseDuration, JobPayload, JobStore, PublishDraftCommand,
-        RetentionWorkerCommand, RetentionWorkerStore, SessionLifetime, SessionSubject,
-        TenantContext,
     };
     use tower::ServiceExt;
     use uuid::Uuid;
@@ -884,6 +884,7 @@ mod tests {
                     },
                     source_artifact: None,
                     qti_promotion: None,
+                    flat_question_promotion: None,
                     publisher,
                     scope: PublicationScope::Public,
                     capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
@@ -1586,7 +1587,10 @@ mod tests {
             )
             .expect("archive cleanup fixture");
         let claim = store
-            .claim_next_job(JobLeaseDuration::from_seconds(30).expect("lease duration"))
+            .claim_next_job(
+                &learning_data_access::JobClaimFilter::all(),
+                JobLeaseDuration::from_seconds(30).expect("lease duration"),
+            )
             .await
             .expect("archive claim")
             .expect("archive job");

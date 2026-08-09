@@ -150,16 +150,57 @@ services:
       - renderer_private
       - gateway_api
 
+  # The worker reuses the server image but starts the dedicated queue mode.
+  # It receives only PostgreSQL and object-storage configuration: no identity,
+  # grader, public URL, or renderer credential crosses this process boundary.
+  worker:
+    build:
+      context: ..
+      dockerfile: containers/Containerfile.api
+    command: ["--worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-peptidyle}
+      PLE_S3_ENDPOINT: http://minio:9000
+      PLE_S3_REGION: us-east-1
+      PLE_CONTENT_BUCKET: content
+      PLE_STUDENT_RECORDS_BUCKET: student-records
+      PLE_TEMP_PROCESSING_BUCKET: temp-processing
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      PLE_WORKER_LEASE_SECONDS: ${PLE_WORKER_LEASE_SECONDS:-120}
+      PLE_WORKER_PREPARATION_TIMEOUT_SECONDS: ${PLE_WORKER_PREPARATION_TIMEOUT_SECONDS:-90}
+      PLE_WORKER_POLL_MILLIS: ${PLE_WORKER_POLL_MILLIS:-500}
+    restart: on-failure
+    # Shutdown is observed between one-job bounded passes. This exceeds the
+    # default preparation deadline so an active pass can settle or cancel.
+    stop_grace_period: 100s
+    # This mode intentionally exposes no HTTP port. Process liveness plus
+    # supported-family queue depth are its operational signals.
+    healthcheck:
+      disable: true
+    networks:
+      - default
+
   # This is the sole host-facing listener.  Caddy discovers every `api`
   # replica through Compose DNS on each refresh; do not replace this with a
   # container name or a fixed replica count.  That would make restart and
   # multi-replica behavior depend on whichever container happened to start
   # first.
   gateway:
-    # The official Linux Caddy image installs curl in its published image
-    # contract. Pin the exact manifest below; the readiness probe relies on
-    # that tool rather than assuming a utility in an arbitrary proxy image.
-    image: docker.io/library/caddy@sha256:${PLE_GATEWAY_IMAGE_SHA256:?set PLE_GATEWAY_IMAGE_SHA256 to the selected official Caddy Linux image manifest digest}
+    # Derive from the exact official Linux manifest. The tiny owning
+    # Containerfile removes Caddy's low-port file capability because this
+    # gateway listens on 8080 and runs with an empty capability set. The base
+    # image's published curl remains the readiness probe.
+    build:
+      context: ..
+      dockerfile: containers/Containerfile.gateway
+      args:
+        CADDY_IMAGE: docker.io/library/caddy@sha256:${PLE_GATEWAY_IMAGE_SHA256:?set PLE_GATEWAY_IMAGE_SHA256 to the selected official Caddy Linux image manifest digest}
     depends_on:
       api:
         condition: service_started
@@ -251,6 +292,10 @@ volumes:
   ple_miniodata:
 
 networks:
+  # PostgreSQL, MinIO, API, and worker share the private application network.
+  # Declaring it explicitly keeps Compose implementations from treating the
+  # API's and worker's `default` attachment as a missing named network.
+  default:
   # Only API replicas and the host-facing gateway join this network. It keeps
   # gateway containers unable to route to PostgreSQL, MinIO, or the renderer.
   gateway_api:

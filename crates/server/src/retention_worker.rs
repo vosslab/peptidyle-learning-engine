@@ -7,11 +7,11 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use objects::{ObjectKey, ObjectStore, ObjectStoreError};
-use store::{
+use learning_data_access::{
     JobFailureKind, JobPayload, RetentionWork, RetentionWorkerCommand, RetentionWorkerStore,
     StoreError, TenantContext,
 };
+use objects::{ObjectKey, ObjectStore, ObjectStoreError};
 
 use crate::worker::{
     self, EffectCommitOutcome, EffectCommitter, JobCommitClaim, JobExecution, JobHandler,
@@ -32,7 +32,7 @@ impl<S, O> RetentionJobHandler<S, O> {
 
 fn store_failure(error: StoreError) -> JobFailureKind {
     match error {
-        StoreError::Unavailable(_) => JobFailureKind::Transient,
+        StoreError::RetryableTransaction | StoreError::Unavailable(_) => JobFailureKind::Transient,
         StoreError::NotFound
         | StoreError::AlreadyExists
         | StoreError::TenantMismatch
@@ -158,15 +158,15 @@ mod tests {
         atomic::{AtomicUsize, Ordering},
     };
 
+    use learning_data_access::{
+        ClaimedJob, EnqueueJob, JobClaimFilter, JobFailureDisposition, JobId, JobKind,
+        JobLeaseDuration, JobLeaseToken, JobStore, QueueDepth, TenantJobView,
+    };
     use objects::{
         ObjectRecord, ObjectStoreError, PutObject, SignedUrl, StoredObject,
         memory::MemoryObjectStore,
     };
     use question_model::{ActivityTimestamp, CourseId, ObjectId, TenantId};
-    use store::{
-        ClaimedJob, EnqueueJob, JobFailureDisposition, JobId, JobLeaseDuration, JobLeaseToken,
-        JobStore, QueueDepth, TenantJobView,
-    };
     use uuid::Uuid;
 
     use super::*;
@@ -184,6 +184,7 @@ mod tests {
         }
         async fn claim_next_job(
             &self,
+            _: &JobClaimFilter,
             _: JobLeaseDuration,
         ) -> Result<Option<ClaimedJob>, StoreError> {
             Ok(self.claim.lock().expect("claim lock").take())
@@ -206,7 +207,7 @@ mod tests {
         ) -> Result<Option<TenantJobView>, StoreError> {
             Ok(None)
         }
-        async fn ready_queue_depth(&self) -> Result<QueueDepth, StoreError> {
+        async fn ready_queue_depth(&self, _: &JobClaimFilter) -> Result<QueueDepth, StoreError> {
             Ok(QueueDepth { ready: 0 })
         }
     }
@@ -217,7 +218,7 @@ mod tests {
             &self,
             command: RetentionWorkerCommand,
         ) -> Result<RetentionWork, StoreError> {
-            assert_eq!(command.stage, store::RetentionStage::Notify);
+            assert_eq!(command.stage, learning_data_access::RetentionStage::Notify);
             Ok(RetentionWork::Notify)
         }
         async fn commit_retention_work(
@@ -289,7 +290,7 @@ mod tests {
                 tenant,
                 payload: JobPayload::Retention {
                     course,
-                    stage: store::RetentionStage::Notify,
+                    stage: learning_data_access::RetentionStage::Notify,
                     generation: 1,
                 },
                 lease_token: lease,
@@ -301,19 +302,17 @@ mod tests {
             Arc::clone(&store),
             Arc::new(NoObjects),
         ));
-        let handlers = worker::JobHandlers::new(
-            Arc::clone(&handler),
-            Arc::clone(&handler),
-            Arc::clone(&handler),
-            Arc::clone(&handler),
-            Arc::clone(&handler),
-            Arc::clone(&handler),
+        let committer: Arc<dyn EffectCommitter> =
+            Arc::new(RetentionJobCommitter::new(Arc::clone(&store)));
+        let registry = worker::JobRegistry::new([worker::JobRegistryEntry::new(
+            JobKind::Retention,
             handler,
-        );
+            committer,
+        )])
+        .expect("registry");
         let worker = worker::Worker::new(
             Arc::clone(&store),
-            handlers,
-            Arc::new(RetentionJobCommitter::new(Arc::clone(&store))),
+            registry,
             worker::WorkerSettings::new(10, std::time::Duration::from_secs(1), 1)
                 .expect("settings"),
         );
@@ -338,7 +337,7 @@ mod tests {
     async fn actual_memory_store_cleanup_retries_exact_keys_and_treats_absence_as_success() {
         let tenant = TenantId::from_uuid(Uuid::from_u128(71_001));
         let course = CourseId::from_uuid(Uuid::from_u128(71_002));
-        let store = Arc::new(store::memory::MemoryStore::default());
+        let store = Arc::new(learning_data_access::in_memory::MemoryStore::default());
         store
             .set_authoritative_time(ActivityTimestamp::from_unix_millis(3_000_000))
             .expect("clock");
@@ -370,19 +369,17 @@ mod tests {
             Arc::clone(&store),
             Arc::clone(&objects),
         ));
-        let handlers = worker::JobHandlers::new(
-            Arc::clone(&handler),
-            Arc::clone(&handler),
-            Arc::clone(&handler),
-            Arc::clone(&handler),
-            Arc::clone(&handler),
-            Arc::clone(&handler),
+        let committer: Arc<dyn EffectCommitter> =
+            Arc::new(RetentionJobCommitter::new(Arc::clone(&store)));
+        let registry = worker::JobRegistry::new([worker::JobRegistryEntry::new(
+            JobKind::Retention,
             handler,
-        );
+            committer,
+        )])
+        .expect("registry");
         let worker = worker::Worker::new(
             Arc::clone(&store),
-            handlers,
-            Arc::new(RetentionJobCommitter::new(Arc::clone(&store))),
+            registry,
             worker::WorkerSettings::new(10, std::time::Duration::from_secs(1), 1)
                 .expect("settings"),
         );

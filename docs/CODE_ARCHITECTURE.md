@@ -1,21 +1,35 @@
 # Code architecture
 
-How the Peptidyle Learning Engine is put together and why the boundaries sit
-where they do. The authoritative plan is
-[active_plans/implementation_plan.md](active_plans/implementation_plan.md);
-this document is the working map.
+## Overview
 
-Current state: M2 core lanes in progress. The M1 contracts are frozen, the
-shared domain and grading boundaries compile natively and for WebAssembly, and
-the real object and PostgreSQL backends implement the same contracts as their
-memory test doubles. Authentication has a provider-injected route group, and
-the catalog route group implements scoped publication, browsing, taxonomy, and
-one-way lifecycle changes. The course route group now implements course-local
-membership, course-scoped assignment creation and browsing, and exact immutable
-problem/version references. The run route group implements owned run issue,
-attempt history, idempotent submissions, server-side grading, and summary
-reads. Asset routes and the first owner-selected native question family remain
-later M2 work.
+The Peptidyle Learning Engine is a modular monolith: one browser application,
+one stateless Rust server composition, and focused Rust crates that enforce
+security and ownership boundaries at compile time. The authoritative plan is
+[active_plans/implementation_plan.md](active_plans/implementation_plan.md);
+this document is the working map. The path-by-path contributor map is
+`docs/FILE_STRUCTURE.md`; it becomes GitHub-browsable with this package.
+
+The current code includes the question model, domain rules, server-only
+grading, object storage, learning data access, API routes, Solid browser client,
+WebAssembly bridge, question-engine adapters, export workers, manual grading,
+course item analysis, retention, and a six-file PostgreSQL baseline. The
+remaining dependency order is recorded in
+[active_plans/partial_commit_status.md](active_plans/partial_commit_status.md).
+
+## Contributor vocabulary
+
+Plain capability names lead. Cargo package and crate-directory names use
+hyphens; Rust import and module names use underscores.
+
+| Plain name             | Physical path                                | Rust name              | What it owns                                                                 |
+| ---------------------- | -------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------- |
+| Learning data access   | `crates/learning-data-access`                | `learning_data_access` | Persistence contracts, queries, PostgreSQL, migrations, and tenant isolation |
+| In-memory data access  | `crates/learning-data-access/src/in_memory*` | `in_memory`            | Database-free implementation used by behavior and conformance tests          |
+| PostgreSQL data access | `crates/learning-data-access/src/postgres*`  | `postgres`             | SQLx transactions, schema verification, RLS context, and production queries  |
+| Project tools          | `crates/project-tools`                       | Cargo-only binary      | Repository-only generation, fixtures, database operations, and E2E seeding   |
+
+Use `cargo tools` for project-tool commands. The opaque `cargo xtask` alias is
+retired.
 
 ## Shape of the system
 
@@ -73,7 +87,7 @@ so a `Cargo.toml` matching this table satisfies the boundary by construction.
 | `crates/domain`                            | Attempt state machine, run and completion rules, timing verdict, seeded generation, capability validation | `question_model`                                 |
 | `crates/grading`                           | Answer keys, checkers, correctness decisions                                                              | `question_model`, `domain`                       |
 | `crates/objects`                           | `ObjectStore` trait, S3 and MinIO backends, key construction, checksums                                   | `question_model`                                 |
-| `crates/store`                             | `Store` trait, PostgreSQL backend, migrations, RLS context                                                | `question_model`, `domain`, `objects`            |
+| `crates/learning-data-access`              | Learning data-access contracts, PostgreSQL, migrations, RLS                                               | `question_model`, `domain`, `objects`            |
 | `crates/adapters/{native,webwork,qti,h5p}` | Per-engine load, generate, grade delegation, capability declaration                                       | `question_model`, `domain`, `grading`, `objects` |
 | `crates/export`                            | Print model, DOCX and PDF writers                                                                         | `question_model`, `objects`                      |
 | `crates/wasm`                              | `wasm-bindgen` bridge delegating to `domain`                                                              | `question_model`, `domain`                       |
@@ -86,16 +100,100 @@ as a parameter. That is what lets the same code run in a browser and makes the
 seed-parity test meaningful. `crates/wasm` reaches only `question_model` and
 `domain`, which is the grading guarantee above.
 
-Two drivers are owned rather than shared. `sqlx` is declared only in
-`crates/store` and `aws-sdk-s3` only in `crates/objects`; `crates/server`
+Two drivers are owned rather than shared. `sqlx` is declared only in the
+learning data-access crate (`crates/learning-data-access`) and `aws-sdk-s3` only in
+`crates/objects`; `crates/server`
 enables them through features and names neither, so the database and object
 clients stay replaceable behind their traits.
+
+## Capability ownership inside crates
+
+Crates enforce security and deployment boundaries. Focused modules inside each
+crate give a contributor a smaller unit to understand and change.
+
+One learning data-access capability normally has four cooperating owners:
+
+1. A backend-neutral contract under `crates/learning-data-access/src/`.
+2. An in-memory implementation under `crates/learning-data-access/src/in_memory/`.
+3. A PostgreSQL implementation under `crates/learning-data-access/src/postgres/`.
+4. Behavior or conformance coverage under `crates/learning-data-access/tests/conformance/`.
+
+For example, external-tool work is divided among
+`crates/learning-data-access/src/external_tool.rs`,
+[crates/learning-data-access/src/in_memory/external_tool.rs](../crates/learning-data-access/src/in_memory/external_tool.rs),
+[crates/learning-data-access/src/postgres/external_tool.rs](../crates/learning-data-access/src/postgres/external_tool.rs), and
+[crates/learning-data-access/tests/conformance/external_tool.rs](../crates/learning-data-access/tests/conformance/external_tool.rs).
+The crate root declares and re-exports that contract; it does not own the
+external-tool behavior.
+
+Protected asset delivery follows the same four-file shape:
+`crates/learning-data-access/src/asset_delivery.rs`,
+`crates/learning-data-access/src/in_memory/assets.rs`,
+`crates/learning-data-access/src/postgres/assets.rs`, and
+[crates/learning-data-access/tests/conformance/assets.rs](../crates/learning-data-access/tests/conformance/assets.rs).
+That component owns immutable logical-to-physical bindings, public-catalog
+resolution, protected educational-record authorization, and access auditing.
+
+Authentication sessions are similarly isolated in
+[crates/learning-data-access/src/session.rs](../crates/learning-data-access/src/session.rs),
+`crates/learning-data-access/src/in_memory/sessions.rs`,
+`crates/learning-data-access/src/postgres/sessions.rs`, and
+`crates/learning-data-access/tests/conformance/sessions.rs`. The component owns opaque token
+hashes, the backend-authoritative clock, revocation, and replica-safe lookup;
+it does not own HTTP cookies or educational records.
+
+Static flat-question authoring is owned by
+[crates/adapters/native/src/flat_question.rs](../crates/adapters/native/src/flat_question.rs).
+The module parses the closed PLE JSON source, compiles the browser-safe draft,
+binds separate grader-only answers and feedback to that exact public content,
+and evaluates responses through the shared grading crate. The native adapter
+facade exposes the capability; the question-model crate remains answer-free
+and unaware of the authoring syntax. Publication persistence and the instructor
+editor are separate vertical packages, so the codec does not absorb data-access
+or HTTP concerns.
+
+QTI import and its answer-bearing grader boundary are owned by
+`crates/learning-data-access/src/qti.rs`, `crates/learning-data-access/src/in_memory/qti.rs`,
+[crates/learning-data-access/src/postgres/qti.rs](../crates/learning-data-access/src/postgres/qti.rs), and
+[crates/learning-data-access/tests/conformance/qti.rs](../crates/learning-data-access/tests/conformance/qti.rs).
+The ordinary data-access handle can write validated private staging metadata,
+but only the separately injected grader handle can read opaque grading
+material. The QTI adapter keeps its public facade in
+`crates/adapters/qti/src/lib.rs`, its bounded archive/parser implementation in
+`parser_stub.rs`, its import data model in `model.rs`, and its hostile-package
+and partial-result cases in `parser_stub/tests.rs`. Unsafe archives fail as a
+whole; safe archives retain accepted items and record every semantic rejection.
+Normalized checksums report exact and likely duplicates within the batch
+without exposing the grading binding.
+
+The QTI publication HTTP capability is owned by
+[crates/server/src/qti_publication.rs](../crates/server/src/qti_publication.rs),
+with its private route-contract tests in
+`crates/server/src/qti_publication/tests.rs`.
+The production owner keeps committed-staging validation, strong workspace
+revision checks, exact source-byte copying, review authorization, and the one
+visible-version promotion boundary together; its test owner exercises those
+boundaries without enlarging the route module.
+
+The QTI runtime backend is owned by
+[crates/server/src/qti_backend.rs](../crates/server/src/qti_backend.rs).
+Its shared private fixtures live in `qti_backend/tests/mod.rs`, direct
+private-grading and asset-integrity cases in
+`qti_backend/tests/private_grading.rs`, and the learner HTTP/replay proof in
+`qti_backend/tests/run_lifecycle.rs`. This keeps answer-bearing lookups,
+tenant/provenance refusal, asset binding, and idempotent run behavior visible
+as separate review surfaces without duplicating setup.
+
+The same rule applies to server routes and browser features: group code by the
+capability a contributor changes, preserve stable facade paths, and keep each
+source file below 1000 lines. Split by ownership rather than arbitrary line
+ranges.
 
 ## Database storage
 
 The six ordered SQLx baseline migrations under `schemas/migrations/` separate
 principals, catalog/authoring, courses/assignments, activity/feedback,
-operations/analytics, and retention. `cargo xtask database status`, `migrate`,
+operations/analytics, and retention. `cargo tools database status`, `migrate`,
 and `verify` expose the exact ledger/checksum boundary; application startup is
 verify-only and never mutates a deployed schema. The baseline creates shared immutable
 catalog tables separately from tenant-owned educational records. Compact
@@ -104,7 +202,7 @@ payloads use 16 hash partitions. Question attempts, submissions, grade events,
 and audit events use monthly range partitions plus a default partition so an
 unexpected timestamp cannot make an otherwise valid write disappear.
 
-Every tenant-owned table enables and forces row-level security. A store
+Every tenant-owned table enables and forces row-level security. A data-access
 transaction first assumes the non-superuser, non-bypass `ple_app` role and then
 sets `ple.tenant_id` with transaction-local scope. Returning the pooled
 connection clears both settings. The separate `ple_student` role can read only
@@ -115,16 +213,18 @@ access to the SHA-256 hash of the single presented opaque credential. The raw
 credential is never stored in PostgreSQL.
 
 Schema migration and application access are distinct privileges. The
-connection used by `store::postgres::apply_migrations` must be able to create
+connection used by `learning_data_access::postgres::apply_migrations` must be able to create
 roles and schema objects. A production runtime login needs membership that
 permits `SET ROLE ple_app` and `SET ROLE ple_auth`, but must not itself be a
 superuser or have `BYPASSRLS`. The local development superuser may perform both
 jobs; that convenience is not the production role model.
 
-`PostgresStore` serializes complete contract records as checksummed JSONB while
+The PostgreSQL data-access implementation (`PostgresStore`) serializes complete
+contract records as checksummed JSONB while
 retaining normalized identity, relationship, timestamp, and pagination columns
 for constraints and indexed queries. Activity rows and their compact summary
-projection commit in one transaction. The backend-neutral `Store` trait keeps
+projection commit in one transaction. The backend-neutral data-access traits
+keep
 SQLx and schema details out of callers so the persistence implementation can
 evolve without changing domain or API contracts.
 
@@ -139,7 +239,7 @@ Catalog browsing reads only normalized hot metadata from `problem_version`;
 exact version resolution joins the separately hash-partitioned immutable
 payload. Institution publications receive an exact tenant/version grant under
 forced RLS, while public versions are visible without a tenant-specific grant.
-The context-free `Store` catalog reads are explicitly public-only;
+Context-free data-access catalog reads are explicitly public-only;
 tenant-visible reads go through `CatalogStore` with a session-derived
 `TenantContext`.
 
@@ -299,7 +399,7 @@ minutes and `student-records` URLs at 5 minutes, marks protected redirects
 Details and commands are in [CONTAINER.md](CONTAINER.md); the macOS virtual
 machine setup is in [MACOS_PODMAN.md](MACOS_PODMAN.md).
 
-`/health` returns 200 only after a real `SELECT 1` and a real `HeadBucket`
+`/health` returns 200 only after exact PostgreSQL schema compatibility verification and a real `HeadBucket`
 request, and 503 naming the failing dependency otherwise. A health check that
 reports on process liveness rather than dependency reachability tells an
 orchestrator nothing.
@@ -322,7 +422,7 @@ server through the WebAssembly bridge that
 [pipeline/build_wasm.sh](../pipeline/build_wasm.sh) produces, so the two cannot
 drift apart. Build output lands in `dist/`, with the bridge under `dist/wasm/`.
 
-## Gates
+## Testing and verification
 
 `./check_codebase.sh` runs both toolchains: TypeScript typecheck, wider
 typecheck, ESLint at zero warnings, Prettier, Node unit tests, then
@@ -333,3 +433,55 @@ passing silently.
 `pytest tests/` runs the repository hygiene suite. Browser tests live in
 `tests/playwright/`, and slower whole-system checks in `tests/e2e/`, both
 outside the fast lane.
+
+The in-memory and PostgreSQL data-access implementations share capability
+conformance tests. Disposable PostgreSQL acceptance runs prove migration
+checksums, real-role tenant isolation, serialization retry, family-filtered
+concurrent worker claims, monthly partition pruning over 260,000 synthetic
+attempts, bounded current-summary gradebook plans, manual grading, and
+generation-fenced course item analysis. A separate one-time production-worker
+rehearsal proved physical student-record deletion while preserving shared
+catalog content, instructor drafts, course structure, and anonymous statistics.
+A second one-time rehearsal restored encrypted role and database artifacts into
+a separate empty PostgreSQL 17 cluster, matched the logical source fingerprint,
+and re-exercised owners, grants, forced RLS, tenant access, application writes,
+and broker calls. None of these gates touch the developer's long-lived database
+container.
+
+The maintained whole-system runner then composes those boundaries: it calls the
+browser-safe Wasm bridge, runs the complete disposable database suite, and
+starts PostgreSQL, MinIO, a non-root zero-capability gateway, and two stateless
+API replicas. Its learner fixture logs in, starts a run, stops the replica that
+issued the question, reproduces the exact envelope on the survivor, submits the
+visible response twice with one idempotency key, and verifies the durable row
+set. Every generated project and volume is removed afterward.
+
+## Extension points
+
+- Add question-engine behavior behind the adapter contracts in
+  [crates/adapters/](../crates/adapters/); answer-bearing grading remains
+  outside the WebAssembly dependency closure.
+- Add a learning data-access capability as a focused contract plus in-memory,
+  PostgreSQL, and conformance modules. Keep
+  [crates/learning-data-access/src/lib.rs](../crates/learning-data-access/src/lib.rs) as a facade.
+- Add HTTP behavior to the owning route module under
+  [crates/server/src/](../crates/server/src/), not to the composition root.
+- Add browser behavior to an owning feature, page, component, or API module
+  under [src/](../src/); use the generated client contract rather than a new
+  request shape.
+- Add repository automation to the project tools under
+  [crates/project-tools/src/](../crates/project-tools/src/) and expose it through
+  `cargo tools`.
+
+## Known gaps
+
+- Several parent modules remain above the 1000-line owner limit. The current
+  dependency order continues compatibility-preserving capability extraction
+  around the remaining capability owners.
+- Deployed managed point-in-time recovery and object-store recovery drills are
+  not complete. Local clean-cluster logical restore, the production-worker
+  tenant-purge rehearsal, and the local whole-system replica gate have passed.
+  Reserved Render and generic Import queue variants
+  also remain intentionally unclaimed until each has a complete handler and
+  atomic committer. See
+  [active_plans/partial_commit_status.md](active_plans/partial_commit_status.md).

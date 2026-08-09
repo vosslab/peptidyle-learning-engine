@@ -3,7 +3,7 @@
  * Proves that a normal learner session survives loss of the API replica that
  * issued it.  This is intentionally a host-side, container-dependent test:
  * every learner request below goes through Caddy and seed data comes from the
- * host-only xtask command, never a product fixture route.
+ * host-only project-tools command, never a product fixture route.
  *
  * `--static-check` is the permanent, no-container gate.  The default command
  * is deliberately strict: missing Podman is BLOCKED and exits non-zero rather
@@ -28,6 +28,7 @@ const REPLICA_HEADER_PREFIX = "ple-replica-e2e-api-";
 const POSTGRES_USER = "ple_e2e";
 const POSTGRES_DATABASE = "ple_e2e";
 const POSTGRES_PASSWORD = "ple-e2e-local-only";
+let composeProvider = { file: "podman", prefix: ["compose"] };
 
 function fail(message) {
   throw new Error(message);
@@ -104,7 +105,7 @@ function parseReplica(value) {
 
 function composeArguments(project, envPath, tail) {
   return [
-    "compose",
+    ...composeProvider.prefix,
     "-p",
     project,
     "--env-file",
@@ -136,12 +137,56 @@ async function withProjectCleanup(project, envPath, operation, cleanup) {
   }
 }
 
-async function command(file, args, label, { allowFailure = false } = {}) {
+function exactProjectNames(output, project) {
+  const prefix = `${project}_`;
+  return output
+    .trim()
+    .split(/\s+/u)
+    .filter((name) => name.startsWith(prefix));
+}
+
+function exactProjectContainerIds(output, project) {
+  const prefix = `${project}_`;
+  return output
+    .trim()
+    .split("\n")
+    .map((line) => line.trim().split(/\s+/u, 2))
+    .filter((parts) => parts.length === 2 && parts[1].startsWith(prefix))
+    .map(([id]) => id);
+}
+
+function exactProjectServiceContainerIds(output, project, service) {
+  assert.match(project, /^ple-replica-e2e-[a-f0-9]{10}$/u);
+  assert.match(service, /^[a-z][a-z0-9-]*$/u);
+  const prefix = `${project}_${service}_`;
+  return output
+    .trim()
+    .split("\n")
+    .map((line) => line.trim().split(/\s+/u, 2))
+    .filter((parts) => parts.length === 2 && parts[1].startsWith(prefix))
+    .map(([id]) => id);
+}
+
+function safeComposeDiagnostic(stderr) {
+  return stderr
+    .replaceAll(POSTGRES_PASSWORD, "[redacted]")
+    .replaceAll("ple-e2e-minio-password", "[redacted]")
+    .replace(/postgres:\/\/[^@\s]+@/gu, "postgres://[redacted]@")
+    .slice(-2_000);
+}
+
+async function command(
+  file,
+  args,
+  label,
+  { allowFailure = false, safeDiagnostics = false, timeoutMs } = {},
+) {
   try {
     return await execFileAsync(file, args, {
       cwd: REPO_ROOT,
       encoding: "utf8",
       maxBuffer: 4 * 1024 * 1024,
+      timeout: timeoutMs,
     });
   } catch (error) {
     if (allowFailure)
@@ -153,8 +198,67 @@ async function command(file, args, label, { allowFailure = false } = {}) {
       };
     // Do not include argv/stdout/stderr here: the seed command receives a DB
     // URL and the test owns a local identity credential.
-    fail(`${label} failed (${String(error.code ?? "unknown error")})`);
+    const diagnostic = safeDiagnostics ? safeComposeDiagnostic(error.stderr ?? "") : "";
+    fail(
+      `${label} failed (${String(error.code ?? "unknown error")})${diagnostic ? `\n${diagnostic}` : ""}`,
+    );
   }
+}
+
+async function cleanupProject(project, cleanupArgs) {
+  assert.match(project, /^ple-replica-e2e-[a-f0-9]{10}$/u);
+  await command(composeProvider.file, cleanupArgs, "cleaning E2E project", {
+    allowFailure: true,
+  });
+
+  const containerList = await command(
+    "podman",
+    ["ps", "--all", "--format", "{{.ID}} {{.Names}}"],
+    "listing E2E cleanup containers",
+    { allowFailure: true },
+  );
+  if (!containerList.failed) {
+    const containerIds = exactProjectContainerIds(containerList.stdout, project);
+    if (containerIds.length > 0) {
+      await command("podman", ["rm", "--force", ...containerIds], "removing E2E containers", {
+        allowFailure: true,
+      });
+    }
+  }
+
+  for (const resource of ["volume", "network"]) {
+    const list = await command(
+      "podman",
+      [resource, "ls", "--format", "{{.Name}}"],
+      `listing E2E ${resource}s`,
+      { allowFailure: true },
+    );
+    if (list.failed) continue;
+    const names = exactProjectNames(list.stdout, project);
+    if (names.length > 0) {
+      await command("podman", [resource, "rm", ...names], `removing E2E ${resource}s`, {
+        allowFailure: true,
+      });
+    }
+  }
+}
+
+async function deploymentDiagnostics(project, envPath) {
+  const status = await command(
+    composeProvider.file,
+    composeArguments(project, envPath, ["ps"]),
+    "reading E2E service status",
+    { allowFailure: true },
+  );
+  const logs = await command(
+    composeProvider.file,
+    composeArguments(project, envPath, ["logs", "--no-color", "--tail", "80", "api", "gateway"]),
+    "reading E2E service logs",
+    { allowFailure: true },
+  );
+  return safeComposeDiagnostic(
+    [status.stdout ?? "", status.stderr ?? "", logs.stdout ?? "", logs.stderr ?? ""].join("\n"),
+  );
 }
 
 async function waitFor(label, operation, timeoutMs = POLL_TIMEOUT_MS) {
@@ -171,11 +275,39 @@ async function waitFor(label, operation, timeoutMs = POLL_TIMEOUT_MS) {
   fail(`${label} did not become ready: ${lastError}`);
 }
 
+function safeHttpError(text) {
+  if (Buffer.byteLength(text, "utf8") > 512) return "";
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return "";
+  }
+  if (
+    body === null ||
+    Array.isArray(body) ||
+    typeof body !== "object" ||
+    !Object.hasOwn(body, "error") ||
+    Object.keys(body).length !== 1 ||
+    typeof body.error !== "string" ||
+    body.error.length === 0 ||
+    body.error.length > 300 ||
+    !/^[\x20-\x7e]+$/u.test(body.error)
+  ) {
+    return "";
+  }
+  return body.error;
+}
+
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, { ...options, signal: AbortSignal.timeout(5_000) });
   const text = await response.text();
-  if (!response.ok)
-    fail(`${options.method ?? "GET"} ${new URL(url).pathname} returned ${response.status}`);
+  if (!response.ok) {
+    const detail = safeHttpError(text);
+    fail(
+      `${options.method ?? "GET"} ${new URL(url).pathname} returned ${response.status}${detail ? `: ${detail}` : ""}`,
+    );
+  }
   try {
     return { response, body: JSON.parse(text) };
   } catch {
@@ -200,17 +332,18 @@ async function unusedLoopbackPort() {
 }
 
 function identityFile(tenantId, studentId) {
-  const credential = randomBytes(32).toString("base64url");
+  const credentialBytes = randomBytes(32);
+  const credential = credentialBytes.toString("base64url");
   assert.equal(credential.length, 43, "local credential must be canonical 32-byte base64url");
   return {
     credential,
     body: JSON.stringify({
       credentials: [
         {
-          credentialSha256: createHash("sha256").update(credential).digest("hex"),
-          tenantId,
-          userId: studentId,
-          displayName: "Replica E2E learner",
+          credential_sha256: createHash("sha256").update(credentialBytes).digest("hex"),
+          tenant_id: tenantId,
+          user_id: studentId,
+          display_name: "Replica E2E learner",
           roles: ["student"],
         },
       ],
@@ -218,20 +351,16 @@ function identityFile(tenantId, studentId) {
   };
 }
 
-async function inspectReplicaContainer(project, envPath, replica) {
+async function inspectReplicaContainer(project, replica) {
   assert.ok(replica.startsWith(REPLICA_HEADER_PREFIX), "unexpected replica attribution prefix");
   const suffix = replica.slice(REPLICA_HEADER_PREFIX.length);
   assert.match(suffix, /^[a-f0-9]{12}$/, "replica attribution must carry a container short ID");
-  const ids = (
-    await command(
-      "podman",
-      composeArguments(project, envPath, ["ps", "-q", "api"]),
-      "listing API replicas",
-    )
-  ).stdout
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
+  const listing = await command(
+    "podman",
+    ["ps", "--format", "{{.ID}} {{.Names}}"],
+    "listing API replicas",
+  );
+  const ids = exactProjectServiceContainerIds(listing.stdout, project, "api");
   assert.ok(ids.length >= 2, "expected two API replicas");
   for (const id of ids) {
     // The server accepts only the twelve hex characters from its container
@@ -243,16 +372,18 @@ async function inspectReplicaContainer(project, envPath, replica) {
 }
 
 async function postgresCounts(project, envPath, tenantId, attemptId) {
+  const tenant = requireUuid(tenantId, "database count tenant");
+  const attempt = requireUuid(attemptId, "database count attempt");
   const sql = [
     "SELECT",
-    "(SELECT count(*) FROM question_attempt WHERE tenant_id = :'tenant'::uuid AND attempt_id = :'attempt'::uuid),",
-    "(SELECT count(*) FROM submission WHERE tenant_id = :'tenant'::uuid AND attempt_id = :'attempt'::uuid),",
-    "(SELECT count(*) FROM submission_idempotency WHERE tenant_id = :'tenant'::uuid AND attempt_id = :'attempt'::uuid),",
-    "(SELECT count(*) FROM submission_evaluation WHERE tenant_id = :'tenant'::uuid AND attempt_id = :'attempt'::uuid),",
-    "(SELECT count(*) FROM attempt_score_current WHERE tenant_id = :'tenant'::uuid AND attempt_id = :'attempt'::uuid);",
+    `(SELECT count(*) FROM question_attempt WHERE tenant_id = '${tenant}'::uuid AND attempt_id = '${attempt}'::uuid),`,
+    `(SELECT count(*) FROM submission WHERE tenant_id = '${tenant}'::uuid AND attempt_id = '${attempt}'::uuid),`,
+    `(SELECT count(*) FROM submission_idempotency WHERE tenant_id = '${tenant}'::uuid AND attempt_id = '${attempt}'::uuid),`,
+    `(SELECT count(*) FROM submission_evaluation WHERE tenant_id = '${tenant}'::uuid AND attempt_id = '${attempt}'::uuid),`,
+    `(SELECT count(*) FROM attempt_score_current WHERE tenant_id = '${tenant}'::uuid AND attempt_id = '${attempt}'::uuid);`,
   ].join(" ");
   const result = await command(
-    "podman",
+    composeProvider.file,
     composeArguments(project, envPath, [
       "exec",
       "-T",
@@ -262,10 +393,6 @@ async function postgresCounts(project, envPath, tenantId, attemptId) {
       POSTGRES_USER,
       "-d",
       POSTGRES_DATABASE,
-      "-v",
-      `tenant=${tenantId}`,
-      "-v",
-      `attempt=${attemptId}`,
       "-tA",
       "-F",
       "|",
@@ -273,6 +400,7 @@ async function postgresCounts(project, envPath, tenantId, attemptId) {
       sql,
     ]),
     "checking durable submission rows",
+    { safeDiagnostics: true },
   );
   assert.equal(
     result.stdout.trim(),
@@ -288,6 +416,22 @@ async function staticCheck() {
   );
   assert.throws(() => parseReplica("bad header"));
   assert.deepEqual(validVisibleResponse({ kind: "numeric" }), { kind: "numeric", value: 0 });
+  const localIdentity = identityFile(
+    "0198e000-0000-7000-8000-000000000001",
+    "0198e000-0000-7000-8000-000000000002",
+  );
+  const localIdentityRecord = JSON.parse(localIdentity.body).credentials[0];
+  assert.deepEqual(Object.keys(localIdentityRecord).sort(), [
+    "credential_sha256",
+    "display_name",
+    "roles",
+    "tenant_id",
+    "user_id",
+  ]);
+  assert.equal(
+    localIdentityRecord.credential_sha256,
+    createHash("sha256").update(Buffer.from(localIdentity.credential, "base64url")).digest("hex"),
+  );
   assert.deepEqual(
     validVisibleResponse({
       kind: "multipleChoice",
@@ -296,7 +440,7 @@ async function staticCheck() {
     }),
     { kind: "multipleChoice", selected: ["shown-choice"] },
   );
-  // These UUIDv5-shaped values are the actual `xtask e2e-seed` manifest for
+  // These UUIDv5-shaped values are the actual `project-tools e2e-seed` manifest for
   // tenant 0198e000-0000-7000-8000-000000000001. The seeder deliberately
   // derives deterministic IDs, so v4-only validation would reject live data.
   const manifest = parseManifest(
@@ -319,6 +463,37 @@ async function staticCheck() {
   ]);
   assert.ok(args.includes("--volumes"), "cleanup uses volumes only with its explicit project name");
   assert.throws(() => cleanupArguments("ple", "/tmp/identities.env"));
+  const diagnostic = safeComposeDiagnostic(
+    `postgres://ple_e2e:${POSTGRES_PASSWORD}@postgres/ple_e2e ple-e2e-minio-password`,
+  );
+  assert.doesNotMatch(diagnostic, new RegExp(POSTGRES_PASSWORD, "u"));
+  assert.doesNotMatch(diagnostic, /ple-e2e-minio-password/u);
+  assert.match(diagnostic, /\[redacted\]/u);
+  assert.equal(safeHttpError('{"error":"assignment is closed"}'), "assignment is closed");
+  assert.equal(safeHttpError('{"error":"safe","request":"credential"}'), "");
+  assert.equal(safeHttpError('{"error":"line\\nbreak"}'), "");
+  assert.equal(safeHttpError(JSON.stringify({ error: "x".repeat(301) })), "");
+  assert.equal(safeHttpError("not JSON"), "");
+  assert.deepEqual(
+    exactProjectNames(
+      "ple-replica-e2e-0123456789_data other_data ple-replica-e2e-0123456789_network",
+      "ple-replica-e2e-0123456789",
+    ),
+    ["ple-replica-e2e-0123456789_data", "ple-replica-e2e-0123456789_network"],
+  );
+  assert.deepEqual(
+    exactProjectServiceContainerIds(
+      [
+        "0123456789abcdef ple-replica-e2e-0123456789_api_1",
+        "abcdef0123456789 ple-replica-e2e-0123456789_api_2",
+        "9999999999999999 ple-replica-e2e-0123456789_gateway_1",
+        "8888888888888888 other_api_1",
+      ].join("\n"),
+      "ple-replica-e2e-0123456789",
+      "api",
+    ),
+    ["0123456789abcdef", "abcdef0123456789"],
+  );
   let observedCleanup;
   await assert.rejects(
     withProjectCleanup(
@@ -347,6 +522,25 @@ async function runLive() {
     process.exitCode = 2;
     return;
   }
+  const nativeCompose = await command("podman", ["compose", "version"], "checking Podman Compose", {
+    allowFailure: true,
+  });
+  if (nativeCompose.failed) {
+    const standaloneCompose = await command(
+      "podman-compose",
+      ["--version"],
+      "checking standalone Podman Compose",
+      { allowFailure: true },
+    );
+    if (standaloneCompose.failed) {
+      console.error(
+        "BLOCKED: neither Podman Compose provider is available; replica E2E was not run.",
+      );
+      process.exitCode = 2;
+      return;
+    }
+    composeProvider = { file: "podman-compose", prefix: [] };
+  }
   const gatewayDigest = process.env.PLE_E2E_GATEWAY_IMAGE_SHA256;
   if (!/^[a-f0-9]{64}$/.test(gatewayDigest ?? "")) {
     fail(
@@ -369,7 +563,10 @@ async function runLive() {
     const instructorId = randomUUID();
     const studentId = randomUUID();
     const identity = identityFile(tenantId, studentId);
-    await writeFile(identityPath, identity.body, { mode: 0o600 });
+    // The containing temporary directory remains 0700. The mounted file holds
+    // only a high-entropy credential hash plus fixture IDs, so 0644 lets the
+    // image's non-root UID read it without exposing the bearer credential.
+    await writeFile(identityPath, identity.body, { mode: 0o644 });
     await writeFile(
       envPath,
       [
@@ -388,6 +585,8 @@ async function runLive() {
         "PLE_WEBWORK_RENDERER_IMAGE_REPOSITORY=example.invalid/unused-renderer",
         `PLE_WEBWORK_RENDERER_IMAGE_SHA256=${"0".repeat(64)}`,
         "PLE_WEBWORK_RENDERER_BASE_URL=http://webwork-renderer:8080",
+        "PLE_WEBWORK_RENDERER_ID=unused-e2e-renderer",
+        "PLE_WEBWORK_RENDERER_VERSION=1",
         "PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS=15",
         "PLE_WEBWORK_MAX_RESPONSE_BYTES=1048576",
         "PLE_WEBWORK_RENDERER_HEALTHCHECK=true",
@@ -403,9 +602,10 @@ async function runLive() {
         // owns project-scoped containers/volumes that must be removed.
         armCleanup();
         await command(
-          "podman",
+          composeProvider.file,
           composeArguments(project, envPath, ["up", "-d", "postgres", "minio", "createbuckets"]),
           "starting E2E backing services",
+          { safeDiagnostics: true, timeoutMs: 10 * 60_000 },
         );
         const seeded = await command(
           "cargo",
@@ -413,11 +613,12 @@ async function runLive() {
             "run",
             "-q",
             "-p",
-            "xtask",
+            "project-tools",
             "--",
             "e2e-seed",
             "--database-url",
             `postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:${postgresPort}/${POSTGRES_DATABASE}`,
+            "--apply-migrations",
             "--tenant",
             tenantId,
             "--instructor",
@@ -430,15 +631,23 @@ async function runLive() {
         const manifest = parseManifest(seeded.stdout);
 
         await command(
-          "podman",
+          composeProvider.file,
           composeArguments(project, envPath, ["up", "-d", "--scale", "api=2", "api", "gateway"]),
           "starting API replicas and gateway",
+          { safeDiagnostics: true, timeoutMs: 10 * 60_000 },
         );
         const baseUrl = `http://127.0.0.1:${gatewayPort}`;
-        await waitFor("gateway", async () => {
-          const response = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(2_000) });
-          if (!response.ok) fail(`gateway health returned ${response.status}`);
-        });
+        try {
+          await waitFor("gateway", async () => {
+            const response = await fetch(`${baseUrl}/health`, {
+              signal: AbortSignal.timeout(2_000),
+            });
+            if (!response.ok) fail(`gateway health returned ${response.status}`);
+          });
+        } catch (error) {
+          const diagnostic = await deploymentDiagnostics(project, envPath);
+          fail(`${error instanceof Error ? error.message : "gateway failed"}\n${diagnostic}`);
+        }
 
         const login = await fetchJson(`${baseUrl}/api/auth/login`, {
           method: "POST",
@@ -481,7 +690,7 @@ async function runLive() {
           initialQuestion.response.headers.get("x-ple-e2e-replica"),
         );
         const initialEnvelope = initialQuestion.body;
-        const stoppedContainer = await inspectReplicaContainer(project, envPath, initialReplica);
+        const stoppedContainer = await inspectReplicaContainer(project, initialReplica);
         await command(
           "podman",
           ["stop", stoppedContainer],
@@ -535,7 +744,7 @@ async function runLive() {
         );
       },
       async (cleanup) => {
-        await command("podman", cleanup, "cleaning E2E project", { allowFailure: true });
+        await cleanupProject(project, cleanup);
       },
     );
   } finally {

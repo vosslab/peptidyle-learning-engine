@@ -61,7 +61,7 @@ test("processed WebAssembly exports match the reviewed allowlist", () => {
       "run",
       "--quiet",
       "-p",
-      "xtask",
+      "project-tools",
       "--",
       "bindgen",
       rawModule,

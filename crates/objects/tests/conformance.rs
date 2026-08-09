@@ -38,10 +38,59 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .await
         .expect("conforming get should succeed");
     assert_eq!(stored.record, record);
-    let signed = store
-        .signed_url(&key, ActivityTimestamp::from_unix_millis(2_000))
+    assert_eq!(
+        store
+            .signed_url(&key, ActivityTimestamp::from_unix_millis(2_000))
+            .await,
+        Err(ObjectStoreError::NotSignable),
+        "answer-bearing source must remain server-only"
+    );
+    let archive_key = ObjectKey::PublishedImportArchive {
+        tenant: TenantId::from_uuid(id(40)),
+        problem: ProblemId::from_uuid(id(41)),
+        version: VersionId::from_uuid(id(42)),
+        import: WorkspaceImportId::from_uuid(id(43)),
+        object: ObjectId::from_uuid(id(44)),
+    };
+    store
+        .put(PutObject {
+            key: archive_key.clone(),
+            bytes: b"published import archive".to_vec(),
+            media_type: "application/zip".to_string(),
+            license: "private provenance".to_string(),
+            provenance: "fixture".to_string(),
+            created_at: ActivityTimestamp::from_unix_millis(1_000),
+        })
         .await
-        .expect("content should be signable");
+        .expect("published archive put should succeed");
+    assert_eq!(
+        store
+            .signed_url(&archive_key, ActivityTimestamp::from_unix_millis(2_000))
+            .await,
+        Err(ObjectStoreError::NotSignable),
+        "published import provenance must remain server-only"
+    );
+    let asset_key = ObjectKey::ProblemAsset {
+        problem: ProblemId::from_uuid(id(1)),
+        version: VersionId::from_uuid(id(2)),
+        asset: AssetId::from_uuid(id(13)),
+        object: ObjectId::from_uuid(id(14)),
+    };
+    store
+        .put(PutObject {
+            key: asset_key.clone(),
+            bytes: b"published asset".to_vec(),
+            media_type: "image/png".to_string(),
+            license: "CC-BY-SA-4.0".to_string(),
+            provenance: "fixture".to_string(),
+            created_at: ActivityTimestamp::from_unix_millis(1_000),
+        })
+        .await
+        .expect("published asset put should succeed");
+    let signed = store
+        .signed_url(&asset_key, ActivityTimestamp::from_unix_millis(2_000))
+        .await
+        .expect("published assets should be signable");
     let student_key = ObjectKey::StudentRecord {
         tenant: TenantId::from_uuid(id(4)),
         object: ObjectId::from_uuid(id(5)),
@@ -82,6 +131,11 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         import: WorkspaceImportId::from_uuid(id(9)),
         object: ObjectId::from_uuid(id(10)),
     };
+    let workspace_question_source = ObjectKey::WorkspaceQuestionSource {
+        tenant: TenantId::from_uuid(id(7)),
+        workspace: WorkspaceId::from_uuid(id(8)),
+        object: ObjectId::from_uuid(id(15)),
+    };
     let workspace_asset = ObjectKey::WorkspaceAsset {
         tenant: TenantId::from_uuid(id(7)),
         workspace: WorkspaceId::from_uuid(id(8)),
@@ -89,7 +143,11 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         asset: AssetId::from_uuid(id(11)),
         object: ObjectId::from_uuid(id(12)),
     };
-    for key in [workspace_source.clone(), workspace_asset.clone()] {
+    for key in [
+        workspace_source.clone(),
+        workspace_question_source.clone(),
+        workspace_asset.clone(),
+    ] {
         let record = store
             .put(PutObject {
                 key: key.clone(),
@@ -146,11 +204,19 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .delete(&key)
         .await
         .expect("conforming delete should succeed");
+    store
+        .delete(&archive_key)
+        .await
+        .expect("published archive cleanup should succeed");
     assert_eq!(store.get(&key).await, Err(ObjectStoreError::NotFound));
     store
         .delete(&student_key)
         .await
         .expect("student record cleanup should succeed");
+    store
+        .delete(&asset_key)
+        .await
+        .expect("published asset cleanup should succeed");
     store
         .delete(&temporary_key)
         .await
@@ -159,6 +225,10 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .delete(&workspace_source)
         .await
         .expect("workspace source cleanup");
+    store
+        .delete(&workspace_question_source)
+        .await
+        .expect("workspace question source cleanup");
     store
         .delete(&workspace_asset)
         .await
@@ -186,6 +256,24 @@ fn workspace_object_paths_bind_tenant_workspace_and_import_identity() {
     assert_eq!(source.version_id(), None);
     assert!(source.path().starts_with("workspaces/"));
     assert!(!source.path().starts_with("problems/"));
+}
+
+#[test]
+fn workspace_question_source_key_has_stable_workspace_path_and_is_private_source() {
+    let source = ObjectKey::WorkspaceQuestionSource {
+        tenant: TenantId::from_uuid(id(30)),
+        workspace: WorkspaceId::from_uuid(id(31)),
+        object: ObjectId::from_uuid(id(32)),
+    };
+    assert_eq!(
+        source.path(),
+        "workspaces/00000000-0000-0000-0000-00000000001e/00000000-0000-0000-0000-00000000001f/questions/source/00000000-0000-0000-0000-000000000020",
+        "workspace question source path should encode tenant and workspace ids"
+    );
+    assert_eq!(source.bucket(), Bucket::Content);
+    assert_eq!(source.category(), ObjectCategory::Source);
+    assert_eq!(source.version_id(), None);
+    assert!(!source.path().contains("imports"));
 }
 
 #[tokio::test]

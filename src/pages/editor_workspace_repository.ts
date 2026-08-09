@@ -88,6 +88,7 @@ export function createWorkspaceEditorRepository(
       await client.listWorkspaceDrafts(cursor),
     getDraft: get,
     reloadDraft: get,
+    displayedRevision: (workspace): string | null => loaded.get(workspace)?.revision ?? null,
     saveDraft: async (draft: EditorDraft): Promise<EditorDraft> => {
       const current = await loadedDraft(draft.workspace);
       const definition = updateDefinition(current.definition, draft);

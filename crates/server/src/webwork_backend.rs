@@ -8,13 +8,15 @@
 use std::sync::Arc;
 
 use adapter_webwork::{WebworkAdapter, WebworkAdapterError, WebworkSource};
+use learning_data_access::{
+    CatalogSourceStore, PublishedSourceArtifact, StoreError, TenantContext,
+};
 use objects::{Bucket, ObjectCategory, ObjectKey, ObjectStore, ObjectStoreError};
 use question_model::generation::Seed;
 use question_model::{
     ActivityTimestamp, ProblemVersionRef, QuestionBackend, QuestionDefinition, SourceArtifact,
     StudentResponse,
 };
-use store::{CatalogSourceStore, PublishedSourceArtifact, StoreError, TenantContext};
 
 use crate::run::RunBackendError;
 
@@ -217,6 +219,7 @@ mod tests {
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     use async_trait::async_trait;
+    use learning_data_access::{CatalogStore, DraftRecord, PublishDraftCommand, Store};
     use objects::PutObject;
     use objects::memory::MemoryObjectStore;
     use question_model::answer::SelectionCardinality;
@@ -229,7 +232,6 @@ mod tests {
         GradingDefinition, ProblemId, QuestionAttempt, QuestionAttemptId, QuestionMetadata,
         QuestionSource, RunId, TenantId, UserId, VersionId, WorkspaceId,
     };
-    use store::{CatalogStore, DraftRecord, PublishDraftCommand, Store};
     use uuid::Uuid;
 
     use super::*;
@@ -375,14 +377,18 @@ mod tests {
     }
 
     async fn fixture() -> (
-        WebworkBackend<store::memory::MemoryStore, MemoryObjectStore, RecordedRenderer>,
+        WebworkBackend<
+            learning_data_access::in_memory::MemoryStore,
+            MemoryObjectStore,
+            RecordedRenderer,
+        >,
         TenantContext,
         QuestionDefinition,
         Arc<AtomicUsize>,
         Arc<AtomicUsize>,
         Arc<AtomicBool>,
     ) {
-        let source_store = Arc::new(store::memory::MemoryStore::default());
+        let source_store = Arc::new(learning_data_access::in_memory::MemoryStore::default());
         let objects = Arc::new(MemoryObjectStore::default());
         let context = TenantContext::from_authenticated_session(TenantId::from_uuid(id(13)));
         let reference = reference();
@@ -430,6 +436,7 @@ mod tests {
                         object: record,
                     }),
                     qti_promotion: None,
+                    flat_question_promotion: None,
                     publisher,
                     scope: question_model::PublicationScope::Institution,
                     capabilities: BackendCapabilities::from_iter([
@@ -507,7 +514,7 @@ mod tests {
         let composite = CompositeBackend::new(
             NativeBackend::new(
                 Arc::new(adapter_native::NativeAdapter::new()),
-                Arc::new(store::memory::MemoryStore::default()),
+                Arc::new(learning_data_access::in_memory::MemoryStore::default()),
             ),
             backend,
         );

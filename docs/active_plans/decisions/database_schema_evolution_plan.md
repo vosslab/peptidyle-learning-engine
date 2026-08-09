@@ -378,9 +378,9 @@ Keep raw SQL while replacing custom orchestration:
 
 - Use SQLx `Migrator` for migration discovery, locking, and applied-checksum validation.
 - Apply migrations only through:
-  - `cargo xtask database status`
-  - `cargo xtask database migrate`
-  - `cargo xtask database verify`
+  - `cargo tools database status`
+  - `cargo tools database migrate`
+  - `cargo tools database verify`
 - Use a dedicated migration role.
 - Application startup performs a read-only compatibility check and never changes the schema.
 - Before durable production data, consolidate existing migrations into one reviewed baseline
@@ -397,21 +397,21 @@ Keep raw SQL while replacing custom orchestration:
 The pre-data baseline contains exactly six ordered SQLx migrations. Each file owns a durable domain
 boundary rather than a chronological implementation slice:
 
-1. `20260808000000_principals.sql`: runtime principals, tenant/session helpers, authentication
+1. `2026080801_principals.sql`: runtime principals, tenant/session helpers, authentication
    sessions, and the narrow read-only migration-state projection used by application compatibility
    checks.
-2. `20260808000100_catalog_authoring.sql`: immutable problems and versions, payload and answer-key
+2. `2026080802_catalog_authoring.sql`: immutable problems and versions, payload and answer-key
    separation, catalog grants and search indexes, source artifacts, private workspaces, and QTI
    staging or published-grading tables.
-3. `20260808000200_courses_assignments.sql`: courses, membership, assignments, ordered immutable
+3. `2026080803_courses_assignments.sql`: courses, membership, assignments, ordered immutable
    problem references, enrollment, current summaries, and optimistic assignment revisions.
-4. `20260808000300_activity_feedback.sql`: runs, attempts, submissions, current evaluations and
+4. `2026080804_activity_feedback.sql`: runs, attempts, submissions, current evaluations and
    grade evidence, idempotency receipts, feedback, prefetch, audit events, and external-tool
    exchanges. This file creates the four dynamic high-volume partition families from one bounded
    partition helper rather than committing date-specific child-table dumps.
-5. `20260808000400_operations_analytics.sql`: protected asset delivery, worker jobs and brokers,
+5. `2026080805_operations_analytics.sql`: protected asset delivery, worker jobs and brokers,
    QTI promotion functions, student exports, and identity-free question-statistics aggregation.
-6. `20260808000500_retention.sql`: retention policy, scheduling, management receipts, archive access
+6. `2026080806_retention.sql`: retention policy, scheduling, management receipts, archive access
    fences, typed cleanup manifests, private purge work sets, and the final lease-fenced archive and
    deletion functions.
 
@@ -422,7 +422,7 @@ tables, functions, policies, triggers, grants, and revocations remain explicit S
 DDL is not introduced.
 
 The dedicated migration login is deployment configuration, not an application principal created by
-the baseline. It applies SQL through `cargo xtask database migrate`. `status` reports known applied
+the baseline. It applies SQL through `cargo tools database migrate`. `status` reports known applied
 and pending versions without changing the database, while `verify` performs the same read-only
 checksum, missing-version, dirty-state, and compatibility checks used by application startup. An
 unreachable database may leave the stateless API degraded, but a reachable incompatible schema is a

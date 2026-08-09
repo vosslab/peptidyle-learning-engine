@@ -1,11 +1,22 @@
 // editor_live_pages.tsx - route composition for accepted workspace CRUD only.
 
-import { useParams } from "@solidjs/router";
-import type { JSX } from "solid-js";
+import { useNavigate, useParams } from "@solidjs/router";
+import { Show, createResource, createSignal, type JSX } from "solid-js";
 
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import { useApiRuntime } from "../api/runtime";
 import { useSessionBootstrap } from "../auth/session_context";
+import {
+  createFlatQuestionClient,
+  FlatQuestionRequestError,
+  type FlatQuestionRead,
+} from "../features/flat_question_authoring/flat_question_client";
+import { createDefaultFlatQuestionSource } from "../features/flat_question_authoring/flat_question_defaults";
+import { FlatQuestionEditorPage } from "../features/flat_question_authoring/flat_question_editor_page";
+import { createFlatQuestionRepository } from "../features/flat_question_authoring/flat_question_repository";
+import { createQtiProfileImportClient } from "../features/qti_profile_import/qti_profile_import_client";
+import type { QtiConversionDraftState } from "../features/qti_profile_import/qti_profile_import_model";
+import { QtiProfileImportPage } from "../features/qti_profile_import/qti_profile_import_page";
 import { WasmEditorPage } from "./editor_page";
 import { createInstructorPreviewClient } from "./editor_instructor_preview";
 import { createWorkspaceEditorRepository } from "./editor_workspace_repository";
@@ -37,10 +48,19 @@ function WorkspaceAuthoringDenied(): JSX.Element {
 /** `/workspace`: a server-backed private draft list with its first draft selected. */
 export function WorkspaceListLivePage(): JSX.Element {
   const runtime = useApiRuntime();
+  const navigate = useNavigate();
   if (!mayAuthorWorkspace()) return <WorkspaceAuthoringDenied />;
+  const flatRepository = createFlatQuestionRepository(createFlatQuestionClient());
+  async function createFlatQuestion(): Promise<void> {
+    const workspace: WorkspaceId = globalThis.crypto.randomUUID();
+    await flatRepository.save(workspace, createDefaultFlatQuestionSource());
+    navigate(`/workspace/${workspace}`);
+  }
   return (
     <WasmEditorPage
       repository={createWorkspaceEditorRepository(runtime.client, createInstructorPreviewClient())}
+      onOpenDraft={(workspace) => navigate(`/workspace/${workspace}`)}
+      onCreateFlatQuestion={createFlatQuestion}
     />
   );
 }
@@ -50,10 +70,82 @@ export function WorkspaceEditorLivePage(): JSX.Element {
   const runtime = useApiRuntime();
   const params = useParams();
   if (!mayAuthorWorkspace()) return <WorkspaceAuthoringDenied />;
-  return (
+  const workspace = currentWorkspace(params);
+  const flatRepository = createFlatQuestionRepository(createFlatQuestionClient());
+  const qtiClient = createQtiProfileImportClient();
+  const [focusConvertedDraft, setFocusConvertedDraft] = createSignal(false);
+  const [displayedDraft, setDisplayedDraft] = createSignal<QtiConversionDraftState | null>(null);
+  const [replacementPending, setReplacementPending] = createSignal(false);
+  const [replacementFlatRead, setReplacementFlatRead] = createSignal<FlatQuestionRead | null>(null);
+  const [flatRead] = createResource(
+    () => workspace,
+    async (selected): Promise<Awaited<ReturnType<typeof flatRepository.load>> | null> =>
+      selected === undefined ? null : await flatRepository.load(selected),
+  );
+  const fallback = (): JSX.Element => (
     <WasmEditorPage
       repository={createWorkspaceEditorRepository(runtime.client, createInstructorPreviewClient())}
-      initialWorkspace={currentWorkspace(params)}
+      initialWorkspace={workspace}
+      onDraftDisplayStateChange={setDisplayedDraft}
+      replacementPending={replacementPending()}
     />
+  );
+  const displayedFlatRead = (): FlatQuestionRead | null => {
+    const replacement = replacementFlatRead();
+    if (replacement !== null) return replacement;
+    if (flatRead.state !== "ready") return null;
+    return flatRead() ?? null;
+  };
+  if (workspace === undefined) return fallback();
+  return (
+    <>
+      <QtiProfileImportPage
+        workspace={workspace}
+        client={qtiClient}
+        draftState={displayedDraft}
+        onConversionHandoffChange={setReplacementPending}
+        onConverted={async () => {
+          setFocusConvertedDraft(true);
+          const converted = await flatRepository.load(workspace);
+          setReplacementFlatRead(converted);
+        }}
+      />
+      <Show
+        when={!flatRead.loading}
+        fallback={
+          <section class="page" aria-busy="true">
+            <p role="status">Loading private workspace...</p>
+          </section>
+        }
+      >
+        <Show
+          keyed
+          when={displayedFlatRead()}
+          fallback={
+            flatRead.error instanceof FlatQuestionRequestError && flatRead.error.status === 404 ? (
+              fallback()
+            ) : (
+              <section class="page" data-route-surface="flatQuestionLoadError" role="alert">
+                <h1>Private question draft unavailable</h1>
+                <p>Refresh the page to retry loading this private draft.</p>
+              </section>
+            )
+          }
+        >
+          {(initial) => (
+            <FlatQuestionEditorPage
+              workspace={workspace}
+              initial={initial}
+              repository={flatRepository}
+              api={runtime.client}
+              focusHeadingOnMount={focusConvertedDraft()}
+              onHeadingFocusDelivered={() => setFocusConvertedDraft(false)}
+              onDraftDisplayStateChange={setDisplayedDraft}
+              replacementPending={replacementPending()}
+            />
+          )}
+        </Show>
+      </Show>
+    </>
   );
 }

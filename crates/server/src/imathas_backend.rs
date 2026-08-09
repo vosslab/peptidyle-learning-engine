@@ -15,16 +15,16 @@ use async_trait::async_trait;
 use base64::Engine as _;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
+use learning_data_access::{
+    BeginExternalToolGradeCommand, CatalogSourceStore, ExternalToolBegin, ExternalToolBinding,
+    ExternalToolBrokerStore, PersistedCorrelation, PublishedSourceArtifact,
+    StageExternalToolVerificationCommand, StoreError, TenantContext,
+};
 use objects::{ObjectStore, Sha256Digest};
 use question_model::generation::Seed;
 use question_model::{
     ProblemVersionRef, QuestionAttempt, QuestionDefinition, QuestionEnvelope, QuestionSource,
     StudentResponse, UserId,
-};
-use store::{
-    BeginExternalToolGradeCommand, CatalogSourceStore, ExternalToolBegin, ExternalToolBinding,
-    ExternalToolBrokerStore, PersistedCorrelation, PublishedSourceArtifact,
-    StageExternalToolVerificationCommand, StoreError, TenantContext,
 };
 
 use crate::run::{
@@ -46,8 +46,8 @@ pub trait ExternalToolSubmissionBackend: Send + Sync {
         reference: ProblemVersionRef,
         question: &QuestionDefinition,
         attempt: &QuestionAttempt,
-        idempotency_key: store::SubmissionIdempotencyKey,
-        launch_proof: store::ExternalToolLaunchProof,
+        idempotency_key: learning_data_access::SubmissionIdempotencyKey,
+        launch_proof: learning_data_access::ExternalToolLaunchProof,
         state_aead: &LaunchStateAead,
     ) -> Result<SubmissionDisposition, RunBackendError>;
 }
@@ -160,7 +160,7 @@ impl LaunchStateAead {
     pub fn seal_cookie(
         &self,
         id: uuid::Uuid,
-        token: &store::ExternalToolLaunchToken,
+        token: &learning_data_access::ExternalToolLaunchToken,
         aad: &[u8],
     ) -> Result<String, RunBackendError> {
         let token = token.encode_cookie_value();
@@ -188,7 +188,7 @@ impl LaunchStateAead {
         &self,
         wire: &str,
         aad: &[u8],
-    ) -> Result<(uuid::Uuid, store::ExternalToolLaunchToken), RunBackendError> {
+    ) -> Result<(uuid::Uuid, learning_data_access::ExternalToolLaunchToken), RunBackendError> {
         if wire.len() > 256
             || !wire
                 .bytes()
@@ -227,8 +227,8 @@ impl LaunchStateAead {
             .map_err(|_| RunBackendError::Invalid("invalid iMathAS launch cookie".into()))?;
         let token = std::str::from_utf8(&plain[16..])
             .map_err(|_| RunBackendError::Invalid("invalid iMathAS launch cookie".into()))?;
-        let token =
-            store::ExternalToolLaunchToken::parse_cookie_value(token).map_err(map_store_error)?;
+        let token = learning_data_access::ExternalToolLaunchToken::parse_cookie_value(token)
+            .map_err(map_store_error)?;
         Ok((id, token))
     }
 }
@@ -287,7 +287,7 @@ pub(crate) fn launch_cookie_value(
     context: TenantContext,
     actor: UserId,
     attempt: question_model::QuestionAttemptId,
-    created: &store::CreatedExternalToolLaunchSession,
+    created: &learning_data_access::CreatedExternalToolLaunchSession,
 ) -> Result<String, RunBackendError> {
     aead.seal_cookie(
         created.id,
@@ -477,7 +477,7 @@ where
         submission: &RunSubmission<'_>,
         binding: ExternalToolBinding,
         correlation: PersistedCorrelation,
-        token: store::ExternalToolLeaseToken,
+        token: learning_data_access::ExternalToolLeaseToken,
     ) -> Result<SubmissionDisposition, RunBackendError> {
         let _ = (submission, binding, correlation, token);
         Err(RunBackendError::Unsupported(
@@ -494,8 +494,8 @@ impl<S, O, T>
 where
     S: CatalogSourceStore
         + ExternalToolBrokerStore
-        + store::ExternalToolLaunchSessionStore
-        + store::AuthoritativeTimeStore
+        + learning_data_access::ExternalToolLaunchSessionStore
+        + learning_data_access::AuthoritativeTimeStore
         + Send
         + Sync
         + 'static,
@@ -517,7 +517,7 @@ where
         question: &QuestionDefinition,
         attempt: &QuestionAttempt,
         state_aead: &LaunchStateAead,
-    ) -> Result<store::CreatedExternalToolLaunchSession, RunBackendError> {
+    ) -> Result<learning_data_access::CreatedExternalToolLaunchSession, RunBackendError> {
         self.reproduce_issued_attempt(context, reference, question, attempt)
             .await?;
         let (source, artifact) = self.resolve_source(context, reference, question).await?;
@@ -558,7 +558,7 @@ where
         self.sources
             .create_external_tool_launch_session(
                 context,
-                store::CreateExternalToolLaunchSessionCommand {
+                learning_data_access::CreateExternalToolLaunchSessionCommand {
                     actor,
                     attempt: attempt.id,
                     binding,
@@ -577,8 +577,8 @@ impl<S, O, T> crate::run::ExternalToolLaunchBackend
 where
     S: CatalogSourceStore
         + ExternalToolBrokerStore
-        + store::ExternalToolLaunchSessionStore
-        + store::AuthoritativeTimeStore
+        + learning_data_access::ExternalToolLaunchSessionStore
+        + learning_data_access::AuthoritativeTimeStore
         + Send
         + Sync
         + 'static,
@@ -593,7 +593,7 @@ where
         question: &QuestionDefinition,
         attempt: &QuestionAttempt,
         aead: &LaunchStateAead,
-    ) -> Result<store::CreatedExternalToolLaunchSession, RunBackendError> {
+    ) -> Result<learning_data_access::CreatedExternalToolLaunchSession, RunBackendError> {
         self.create_contracted_launch_session(context, actor, reference, question, attempt, aead)
             .await
     }
@@ -606,7 +606,7 @@ where
         question: &QuestionDefinition,
         attempt: &QuestionAttempt,
         session_id: uuid::Uuid,
-        token: &store::ExternalToolLaunchToken,
+        token: &learning_data_access::ExternalToolLaunchToken,
         method: adapter_imathas::broker_provider::ProxyMethod,
         body: &[u8],
         aead: &LaunchStateAead,
@@ -673,8 +673,8 @@ impl<S, O, T> crate::composite_backend::ConfiguredImathas
 where
     S: CatalogSourceStore
         + ExternalToolBrokerStore
-        + store::ExternalToolLaunchSessionStore
-        + store::AuthoritativeTimeStore
+        + learning_data_access::ExternalToolLaunchSessionStore
+        + learning_data_access::AuthoritativeTimeStore
         + Send
         + Sync
         + 'static,
@@ -692,8 +692,8 @@ impl<S, O, T> ExternalToolSubmissionBackend
 where
     S: CatalogSourceStore
         + ExternalToolBrokerStore
-        + store::ExternalToolLaunchSessionStore
-        + store::AuthoritativeTimeStore
+        + learning_data_access::ExternalToolLaunchSessionStore
+        + learning_data_access::AuthoritativeTimeStore
         + Send
         + Sync
         + 'static,
@@ -707,8 +707,8 @@ where
         reference: ProblemVersionRef,
         question: &QuestionDefinition,
         attempt: &QuestionAttempt,
-        idempotency_key: store::SubmissionIdempotencyKey,
-        launch_proof: store::ExternalToolLaunchProof,
+        idempotency_key: learning_data_access::SubmissionIdempotencyKey,
+        launch_proof: learning_data_access::ExternalToolLaunchProof,
         state_aead: &LaunchStateAead,
     ) -> Result<SubmissionDisposition, RunBackendError> {
         self.reproduce_issued_attempt(context, reference, question, attempt)
@@ -744,7 +744,7 @@ where
                 .sources
                 .commit_verified_external_tool_submission(
                     context,
-                    store::CommitVerifiedExternalToolSubmissionCommand {
+                    learning_data_access::CommitVerifiedExternalToolSubmissionCommand {
                         actor,
                         attempt: attempt.id,
                         response,
@@ -832,7 +832,7 @@ where
                 self.sources
                     .commit_external_tool_submission(
                         context,
-                        store::CommitExternalToolSubmissionCommand {
+                        learning_data_access::CommitExternalToolSubmissionCommand {
                             actor,
                             attempt: attempt.id,
                             response,
@@ -1106,6 +1106,13 @@ mod tests {
     use adapter_imathas::{
         CorrelationIssuer, GradeBinding, PersistedCorrelation as AdapterCorrelation,
     };
+    use learning_data_access::in_memory::MemoryStore;
+    use learning_data_access::{
+        AssignmentRecord, BeginExternalToolGradeCommand, CatalogSourceStore, CatalogStore,
+        CourseRecord, DraftRecord, ExternalToolBegin, ExternalToolBrokerStore,
+        IssueQuestionAttemptCommand, PersistedCorrelation, PublishDraftCommand,
+        StageExternalToolVerificationCommand, Store,
+    };
     use objects::memory::MemoryObjectStore;
     use objects::{ObjectKey, ObjectStore, PutObject, Sha256Digest};
     use question_model::capability::Capability;
@@ -1118,13 +1125,6 @@ mod tests {
         DraftQuestionDefinition, DraftQuestionSource, EnrollmentId, GradePolicy, GradingDefinition,
         ProblemId, QuestionAttemptId, QuestionMetadata, QuestionSource, RunId, RunPolicies,
         StudentId, StudentResponse, TenantId, UserId, VersionId, WorkspaceId,
-    };
-    use store::memory::MemoryStore;
-    use store::{
-        AssignmentRecord, BeginExternalToolGradeCommand, CatalogSourceStore, CatalogStore,
-        CourseRecord, DraftRecord, ExternalToolBegin, ExternalToolBrokerStore,
-        IssueQuestionAttemptCommand, PersistedCorrelation, PublishDraftCommand,
-        StageExternalToolVerificationCommand, Store,
     };
     use uuid::Uuid;
 
@@ -1240,7 +1240,7 @@ mod tests {
                     expected_revision: saved.revision,
                     publication: reference,
                     published_source: question_source,
-                    source_artifact: Some(store::PublishedSourceArtifact {
+                    source_artifact: Some(learning_data_access::PublishedSourceArtifact {
                         reference,
                         backend: question_model::QuestionBackend::Imathas,
                         object: objects
@@ -1254,6 +1254,7 @@ mod tests {
                             .record,
                     }),
                     qti_promotion: None,
+                    flat_question_promotion: None,
                     publisher: instructor,
                     scope: question_model::PublicationScope::Public,
                     capabilities: BackendCapabilities::from_iter([
@@ -1399,7 +1400,8 @@ mod tests {
         RunSubmission {
             context: fixture.context,
             actor: fixture.actor,
-            idempotency_key: store::SubmissionIdempotencyKey::parse(key).expect("key"),
+            idempotency_key: learning_data_access::SubmissionIdempotencyKey::parse(key)
+                .expect("key"),
             reference: fixture.reference,
             question: &fixture.question,
             attempt: &fixture.attempt,
@@ -1446,8 +1448,10 @@ mod tests {
             .submit(RunSubmission {
                 context: fixture.context,
                 actor: fixture.actor,
-                idempotency_key: store::SubmissionIdempotencyKey::parse("server-imathas-param")
-                    .expect("key"),
+                idempotency_key: learning_data_access::SubmissionIdempotencyKey::parse(
+                    "server-imathas-param",
+                )
+                .expect("key"),
                 reference: fixture.reference,
                 question: &fixture.question,
                 attempt: &parameter_tamper,
@@ -1486,8 +1490,10 @@ mod tests {
             .submit(RunSubmission {
                 context: fixture.context,
                 actor: fixture.actor,
-                idempotency_key: store::SubmissionIdempotencyKey::parse("server-imathas-source")
-                    .expect("key"),
+                idempotency_key: learning_data_access::SubmissionIdempotencyKey::parse(
+                    "server-imathas-source",
+                )
+                .expect("key"),
                 reference: fixture.reference,
                 question: &source_tamper,
                 attempt: &fixture.attempt,
@@ -1515,7 +1521,8 @@ mod tests {
         let response = StudentResponse::ExternalTool {};
         let binding = binding_for(&tampered_fixture, &response).await;
         let key =
-            store::SubmissionIdempotencyKey::parse("server-imathas-correlation").expect("key");
+            learning_data_access::SubmissionIdempotencyKey::parse("server-imathas-correlation")
+                .expect("key");
         tampered_fixture
             .store
             .begin_or_resume_external_grade(
@@ -1560,8 +1567,10 @@ mod tests {
                     actor: in_progress.actor,
                     attempt: in_progress.attempt.id,
                     response: response.clone(),
-                    idempotency_key: store::SubmissionIdempotencyKey::parse("server-imathas-busy")
-                        .expect("key"),
+                    idempotency_key: learning_data_access::SubmissionIdempotencyKey::parse(
+                        "server-imathas-busy",
+                    )
+                    .expect("key"),
                     binding,
                     proposed_correlation: in_progress
                         .backend
@@ -1585,7 +1594,8 @@ mod tests {
         let fixture = fixture().await;
         let response = StudentResponse::ExternalTool {};
         let binding = binding_for(&fixture, &response).await;
-        let key = store::SubmissionIdempotencyKey::parse("server-imathas-verified").expect("key");
+        let key = learning_data_access::SubmissionIdempotencyKey::parse("server-imathas-verified")
+            .expect("key");
         let grade_binding = TestBackend::correlation_binding(fixture.context, &fixture.attempt);
         let lease = fixture
             .store

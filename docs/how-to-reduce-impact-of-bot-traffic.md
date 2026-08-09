@@ -1,4 +1,4 @@
-[PatronView](/) / [News](/news/) / [General](/news/category/general/)
+PatronView
 
 PUBLISHED AUG 07, 2026
 
@@ -6,7 +6,7 @@ PUBLISHED AUG 07, 2026
 
 A year of fighting scrapers on my 1.5 million-page website. What I tried, how I failed, and what's working now.
 
-August 7, 2026 · 27 MIN READ · [GENERAL](/news/category/general/)
+August 7, 2026 * 27 MIN READ * `general`
 
 <figure class="fl-hero-figure">
 <img src="/images/blog/bots/only-human-hero.jpg" loading="eager" fetchpriority="high" decoding="async" width="1200" height="630" alt="A crowd of hand-drawn robots with a single blue human waving in the middle, labelled the only human" />
@@ -133,7 +133,7 @@ So two days ago I blocked it the same way. It took two minutes.
 
 Cloudflare's managed AI Crawl Control does a lot of heavy lifting here too. It blocks the declared training bots (`GPTBot`, `ClaudeBot`, `CCBot`, `Bytespider`) before my rules even run.
 
-That same dashboard shows Bingbot at 158,610 requests for 680 visitors. My Bing referrals are actually growing, so I'm happy for them to keep scraping. And it shows Anthropic down to 47 requests since my block. ([Click here to see a screenshot](/images/blog/bots/AI-Crawl-Control-crawlers.png) of the crawler dashboard.)
+That same dashboard shows Bingbot at 158,610 requests for 680 visitors. My Bing referrals are actually growing, so I'm happy for them to keep scraping. And it shows Anthropic down to 47 requests since my block. (`AI-Crawl-Control-crawlers.png` of the crawler dashboard.)
 
 ## The American datacenter wave
 
@@ -174,7 +174,7 @@ A residential botnet is scraping traffic routed through thousands of ordinary ho
 I'd seen this shape before. Back in November 2025, I noticed something strange in my visitor stats: dozens of countries visiting my site in almost identical numbers on the same day. Here's the screenshot from my analytics:
 
 <figure>
-<img src="/images/blog/bots/November2025-post.jpeg" loading="lazy" decoding="async" width="1280" height="1168" alt="Analytics table of visitors by country. United States 640 (31.9%), Germany 215, Vietnam 100, Russia 91, Italy 77, Canada 74, UK 70, then a long tail where roughly a dozen countries — Indonesia, Japan, Chile, Brazil, Hong Kong, Lithuania, Malaysia, South Africa — all sit within a few visitors of each other around 33 to 36." />
+<img src="/images/blog/bots/November2025-post.jpeg" loading="lazy" decoding="async" width="1280" height="1168" alt="Analytics table of visitors by country. United States 640 (31.9%), Germany 215, Vietnam 100, Russia 91, Italy 77, Canada 74, UK 70, then a long tail where roughly a dozen countries - Indonesia, Japan, Chile, Brazil, Hong Kong, Lithuania, Malaysia, South Africa - all sit within a few visitors of each other around 33 to 36." />
 <figcaption>The country breakdown from <a href="https://x.com/nickgraynews/status/1994793007418155464">my November 2025 tweet</a>. Look at the spread: Indonesia, Japan, Chile, Brazil, Hong Kong, almost evenly split.</figcaption>
 </figure>
 
@@ -448,7 +448,7 @@ CONTENTS
 12. <a href="#conclusion" data-toc-link=""><span class="n mono">12</span><span>Conclusion</span></a>
 13. <a href="#appendix-the-exact-rule-expressions" data-toc-link=""><span class="n mono">13</span><span>Appendix: the exact rule expressions</span></a>
 
-<span class="num mono">—</span>
+<span class="num mono">-</span>
 
 ## More on this subject
 
@@ -456,4 +456,4 @@ CONTENTS
 
 <a href="/news/spring-cleaning-redesign/" class="fl-row fl-row-link" data-astro-prefetch="hover"><span class="fl-row-body"><span class="fl-row-title">Spring Cleaning and a Redesign</span></span><span class="fl-row-date mono">MAR 25, 2026</span></a><a href="/news/updated-database-now-live/" class="fl-row fl-row-link" data-astro-prefetch="hover"><span class="fl-row-body"><span class="fl-row-title">Updated Database Now Live</span></span><span class="fl-row-date mono">AUG 14, 2025</span></a><a href="/news/database-updates-on-hold/" class="fl-row fl-row-link" data-astro-prefetch="hover"><span class="fl-row-body"><span class="fl-row-title">Database Updates on Hold</span></span><span class="fl-row-date mono">JUL 04, 2025</span></a><a href="/news/welcome-to-patron-view/" class="fl-row fl-row-link" data-astro-prefetch="hover"><span class="fl-row-body"><span class="fl-row-title">Welcome to PatronView</span></span><span class="fl-row-date mono">JUN 15, 2025</span></a>
 
-[← ALL NEWS](/news/) [GENERAL](/news/category/general/) [PATRONS](/patrons/) [INSTITUTIONS](/institutions)
+`news` `general` `patrons` `institutions`

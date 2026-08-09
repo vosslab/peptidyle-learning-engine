@@ -12,6 +12,11 @@ use async_trait::async_trait;
 use export_crate::{
     ExportArtifact, ExportCandidate, PrintExam, PrintableAsset, TrustedAssetResolver,
 };
+use learning_data_access::{
+    AuthoritativeTimeStore, CatalogAssetBinding, CatalogStore, ExportArtifactKind,
+    ExportArtifactRecord, ExportCommitDisposition, ExportJobCommit, ExportJobStore, JobFailureKind,
+    JobPayload, StoreError, TenantContext,
+};
 use objects::{
     Bucket, ObjectCategory, ObjectKey, ObjectRecord, ObjectStore, ObjectStoreError, PutObject,
     Sha256Digest,
@@ -19,11 +24,6 @@ use objects::{
 use question_model::{
     AssetId, ObjectId, ProblemVersionRef, QuestionDefinition, ResponseDefinition,
     envelope::{AssetRef, ContentBlock},
-};
-use store::{
-    AuthoritativeTimeStore, CatalogAssetBinding, CatalogStore, ExportArtifactKind,
-    ExportArtifactRecord, ExportCommitDisposition, ExportJobCommit, ExportJobStore, JobFailureKind,
-    JobPayload, StoreError, TenantContext,
 };
 
 use crate::worker::{
@@ -38,7 +38,6 @@ pub(crate) struct ExportJobHandler<S, O> {
 }
 
 impl<S, O> ExportJobHandler<S, O> {
-    #[allow(dead_code)] // Worker composition opts into concrete handlers separately.
     pub(crate) fn new(store: Arc<S>, objects: Arc<O>) -> Self {
         Self { store, objects }
     }
@@ -50,7 +49,6 @@ pub(crate) struct ExportJobCommitter<S> {
 }
 
 impl<S> ExportJobCommitter<S> {
-    #[allow(dead_code)] // Worker composition opts into concrete committers separately.
     pub(crate) fn new(store: Arc<S>) -> Self {
         Self { store }
     }
@@ -58,7 +56,7 @@ impl<S> ExportJobCommitter<S> {
 
 fn store_failure(error: StoreError) -> JobFailureKind {
     match error {
-        StoreError::Unavailable(_) => JobFailureKind::Transient,
+        StoreError::RetryableTransaction | StoreError::Unavailable(_) => JobFailureKind::Transient,
         StoreError::NotFound
         | StoreError::AlreadyExists
         | StoreError::TenantMismatch
@@ -274,7 +272,7 @@ impl<S, O> JobHandler for ExportJobHandler<S, O>
 where
     S: ExportJobStore
         + CatalogStore
-        + store::AssetStore
+        + learning_data_access::AssetStore
         + AuthoritativeTimeStore
         + Send
         + Sync
@@ -497,6 +495,12 @@ where
 
 #[cfg(test)]
 mod tests {
+    use learning_data_access::in_memory::MemoryStore;
+    use learning_data_access::{
+        AssetStore, AssignmentRecord, CatalogStore, CourseRecord, CreateAssignmentExport,
+        DraftRecord, ExportJobStore, JobLeaseDuration, JobPayload, JobStore, PublishDraftCommand,
+        Store,
+    };
     use objects::{
         Bucket, ObjectCategory, ObjectKey, ObjectRecord, ObjectStore, PutObject, Sha256Digest,
         memory::MemoryObjectStore,
@@ -514,12 +518,6 @@ mod tests {
         GradingDefinition, ObjectId, ProblemId, ProblemVersionRef, PublicationScope,
         QuestionMetadata, QuestionSource, ResponseDefinition, RunPolicies, TenantId, UserId,
         VersionId, WorkspaceId,
-    };
-    use store::memory::MemoryStore;
-    use store::{
-        AssetStore, AssignmentRecord, CatalogStore, CourseRecord, CreateAssignmentExport,
-        DraftRecord, ExportJobStore, JobLeaseDuration, JobPayload, JobStore, PublishDraftCommand,
-        Store,
     };
     use uuid::Uuid;
 
@@ -605,6 +603,7 @@ mod tests {
                     },
                     source_artifact: None,
                     qti_promotion: None,
+                    flat_question_promotion: None,
                     publisher: author,
                     scope: PublicationScope::Public,
                     capabilities: BackendCapabilities::from_iter([
@@ -623,7 +622,7 @@ mod tests {
         Arc<MemoryObjectStore>,
         TenantContext,
         UserId,
-        store::StudentExportView,
+        learning_data_access::StudentExportView,
     ) {
         let store = Arc::new(MemoryStore::default());
         let objects = Arc::new(MemoryObjectStore::default());
@@ -688,11 +687,14 @@ mod tests {
         Arc<MemoryStore>,
         Arc<MemoryObjectStore>,
         TenantContext,
-        store::ClaimedJob,
+        learning_data_access::ClaimedJob,
     ) {
         let (store, objects, context, _author, _view) = export_fixture().await;
         let claimed = store
-            .claim_next_job(JobLeaseDuration::from_seconds(60).expect("lease"))
+            .claim_next_job(
+                &learning_data_access::JobClaimFilter::all(),
+                JobLeaseDuration::from_seconds(60).expect("lease"),
+            )
             .await
             .expect("claim reads")
             .expect("export job available");
@@ -834,18 +836,17 @@ mod tests {
             Arc::clone(&store),
             Arc::clone(&objects),
         ));
+        let committer: Arc<dyn EffectCommitter> =
+            Arc::new(ExportJobCommitter::new(Arc::clone(&store)));
+        let registry = worker::JobRegistry::new([worker::JobRegistryEntry::new(
+            learning_data_access::JobKind::Export,
+            handler,
+            committer,
+        )])
+        .expect("registry");
         let worker = worker::Worker::new(
             Arc::clone(&store),
-            worker::JobHandlers::new(
-                Arc::clone(&handler),
-                Arc::clone(&handler),
-                Arc::clone(&handler),
-                Arc::clone(&handler),
-                Arc::clone(&handler),
-                Arc::clone(&handler),
-                handler,
-            ),
-            Arc::new(ExportJobCommitter::new(Arc::clone(&store))),
+            registry,
             worker::WorkerSettings::new(60, std::time::Duration::from_secs(10), 1)
                 .expect("bounded worker settings"),
         );
@@ -856,7 +857,7 @@ mod tests {
             .await
             .expect("ready view reads")
             .expect("ready export exists");
-        assert_eq!(ready.state, store::StudentExportState::Ready);
+        assert_eq!(ready.state, learning_data_access::StudentExportState::Ready);
         let artifacts = ready
             .artifacts
             .as_ref()
@@ -879,7 +880,7 @@ mod tests {
                         artifact.delivery,
                     )
                     .await,
-                Err(store::StoreError::NotFound)
+                Err(learning_data_access::StoreError::NotFound)
             );
             assert_eq!(
                 store
@@ -889,7 +890,7 @@ mod tests {
                         artifact.delivery,
                     )
                     .await,
-                Err(store::StoreError::NotFound)
+                Err(learning_data_access::StoreError::NotFound)
             );
         }
         let json = serde_json::to_string(&ready).expect("safe status serializes");

@@ -17,13 +17,13 @@ use axum::{Json, Router};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use cookie::{Cookie, SameSite};
-use question_model::{TenantId, UserId, UserRole};
-use serde::Serialize;
-use serde::de::DeserializeOwned;
-use store::{
+use learning_data_access::{
     SessionLifetime, SessionRecord, SessionStore, SessionSubject, SessionTokenHash, StoreError,
     TenantContext,
 };
+use question_model::{TenantId, UserId, UserRole};
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 const SESSION_COOKIE_NAME: &str = "ple_session";
 const SESSION_TOKEN_BYTES: usize = 32;
@@ -516,8 +516,8 @@ mod tests {
     use super::*;
     use axum::body::Body;
     use axum::http::Request;
+    use learning_data_access::in_memory::MemoryStore;
     use question_model::{TenantId, UserId, UserRole};
-    use store::memory::MemoryStore;
     use tower::ServiceExt;
     use uuid::Uuid;
 

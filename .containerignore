@@ -1,0 +1,14 @@
+# The API image consumes only the Rust workspace manifests and crate sources.
+# Keep host build products, generated artifacts, credentials, documentation,
+# and unrelated toolchains outside the build context entirely.
+**
+!Cargo.toml
+!Cargo.lock
+!crates
+!crates/**
+!containers
+!containers/Containerfile.api
+!containers/Containerfile.gateway
+!schemas
+!schemas/migrations
+!schemas/migrations/**

@@ -27,6 +27,8 @@ use sha2::{Digest, Sha256};
 use crate::generator::{AuthorPresentationContent, NativeQuestionFamily};
 use crate::peptide_bond_geometry::PeptideBondGeometryV1;
 
+/// Strict, versioned JSON source for first-party static flat questions.
+pub mod flat_question;
 /// Extensible question-family contract and server-only materialization result.
 pub mod generator;
 /// Reference family proving generation, rendering, and server grading end to end.
@@ -102,6 +104,9 @@ impl NativeAdapter {
     /// Builds the production registry with the first reviewed reference family.
     pub fn new() -> Self {
         let mut adapter = Self::empty();
+        adapter
+            .register_family(flat_question::FlatSingleChoiceFamily)
+            .expect("the built-in static flat family registration is unique");
         adapter
             .register_family(PeptideBondGeometryV1)
             .expect("the built-in family registration is unique");
@@ -874,9 +879,9 @@ mod tests {
 
     use domain::draft_preview::{DraftPreviewRequest, DraftPreviewResult, preview_native_draft};
     use domain::generator::GeneratedVariant;
-    use grading::AnswerKey;
+    use grading::{AnswerKey, GradingError};
     use question_model::answer::{NumericTolerance, SelectionCardinality};
-    use question_model::capability::Capability;
+    use question_model::capability::{BackendCapabilities, Capability};
     use question_model::envelope::{AssetRef, ContentBlock};
     use question_model::generation::{ParameterSpec, RandomizationDefinition};
     use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
@@ -889,6 +894,51 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
+
+    const FLAT_FAVORITE_COLOR: &str = r#"{
+  "format": "pleFlatQuestion",
+  "version": 1,
+  "kind": "singleChoice",
+  "title": "Favorite color",
+  "prompt": "What is my favorite color?",
+  "choices": [
+    {"id": "blue", "text": "Blue", "feedback": "Blue is a calm choice."},
+    {"id": "red", "text": "Red", "feedback": "Red is not my favorite."},
+    {"id": "yellow", "text": "Yellow", "feedback": "Yellow is bright."}
+  ],
+  "correctChoice": "blue",
+  "feedback": {
+    "correct": "Exactly right.",
+    "incorrect": "Try thinking of a cool color."
+  },
+  "points": 1.0,
+  "attemptPolicy": {"maxAttempts": null, "feedback": "immediateFull"},
+  "timingPolicy": {"kind": "untimed"},
+  "tags": ["example"],
+  "taxonomy": [],
+  "license": {"kind": "ccBySa"},
+  "language": "en-US"
+}"#;
+
+    fn flat_question() -> QuestionDefinition {
+        let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
+        let document =
+            crate::flat_question::FlatQuestionDocument::parse(FLAT_FAVORITE_COLOR.as_bytes())
+                .expect("flat fixture should parse");
+        let draft = document
+            .compile(workspace)
+            .expect("flat fixture should compile")
+            .into_parts()
+            .0;
+        QuestionDefinition::from_draft(
+            draft,
+            ProblemId::from_uuid(Uuid::from_u128(2)),
+            VersionId::from_uuid(Uuid::from_u128(3)),
+            QuestionSource::Native {
+                family: crate::flat_question::FLAT_SINGLE_CHOICE_FAMILY.to_string(),
+            },
+        )
+    }
 
     fn choice(id: &str, label: &str) -> ChoiceOption {
         ChoiceOption {
@@ -1072,6 +1122,66 @@ mod tests {
                 version: peptide_bond_geometry::GENERATOR_VERSION.to_string(),
             })
         );
+    }
+
+    #[test]
+    fn flat_family_capabilities_are_installed_and_reproducible_without_answer_keys() {
+        let adapter = NativeAdapter::new();
+        let question = flat_question();
+        let expected = BackendCapabilities::from_iter([
+            Capability::ClientRendering,
+            Capability::ServerGrading,
+            Capability::Hints,
+            Capability::PerQuestionTiming,
+        ]);
+
+        assert_eq!(
+            adapter
+                .capabilities(&question.source)
+                .expect("family is installed"),
+            expected
+        );
+        let issue = adapter
+            .issue(&question, Seed::new(10), &[])
+            .expect("flat family issue should be key free");
+        let replay = adapter
+            .reproduce(
+                &question,
+                Seed::new(10),
+                &issue.parameter_hash,
+                &issue.provenance,
+                &[],
+            )
+            .expect("flat issue should reproduce exactly");
+
+        assert_eq!(issue.envelope, replay);
+        let public = serde_json::to_string(&issue.envelope)
+            .expect("issued envelope should serialize for learner");
+        assert!(!public.contains("correctChoice"));
+        assert!(!public.contains("publicSha256"));
+    }
+
+    #[test]
+    fn flat_family_grade_refuses_without_server_persisted_material() {
+        let adapter = NativeAdapter::new();
+        let question = flat_question();
+        let issue = adapter
+            .issue(&question, Seed::new(11), &[])
+            .expect("flat issue should deliver reproducible envelope");
+
+        assert!(matches!(
+            adapter.grade(
+                &question,
+                Seed::new(11),
+                &issue.parameter_hash,
+                &issue.provenance,
+                &[],
+                &StudentResponse::MultipleChoice {
+                    selected: vec![ChoiceId::new("blue")],
+                },
+            ),
+            Err(NativeAdapterError::Grading(GradingError::MissingAnswerKey))
+        ));
     }
 
     #[test]

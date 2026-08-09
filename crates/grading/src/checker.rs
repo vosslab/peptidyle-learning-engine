@@ -18,6 +18,9 @@ use crate::AnswerKey;
 pub enum GradeOutcome {
     /// Server-graded correctness and points safe to disclose under policy.
     Graded(AttemptResult),
+    /// A structurally valid response was accepted and awaits an authorized
+    /// instructor's server-side evaluation. No numeric result is fabricated.
+    NeedsManualGrading,
     /// Intentionally ungraded practice with no fabricated correctness value.
     Ungraded,
 }
@@ -37,8 +40,6 @@ pub enum GradingError {
     InvalidDefinition(String),
     /// Partial-credit rules remain owned by the capable backend or an explicit private rubric.
     PartialCreditRequiresBackend,
-    /// File upload requires a human or backend-specific rubric decision.
-    ManualReviewRequired,
 }
 
 impl std::fmt::Display for GradingError {
@@ -63,7 +64,6 @@ impl std::fmt::Display for GradingError {
             }
             Self::PartialCreditRequiresBackend => formatter
                 .write_str("partial credit requires a backend checker or explicit private rubric"),
-            Self::ManualReviewRequired => formatter.write_str("file upload requires manual review"),
         }
     }
 }
@@ -82,7 +82,10 @@ impl std::error::Error for GradingError {}
 ///
 /// Returns [`GradingError`] for response-format violations, missing or
 /// mismatched keys, invalid public parameters, backend-owned partial credit,
-/// or file uploads requiring manual review.
+/// or other backend-owned grading behavior. File uploads instead return
+/// [`GradeOutcome::NeedsManualGrading`] after their response has passed shape
+/// validation, so the server can persist the learner evidence without
+/// fabricating a numeric grade.
 pub fn grade(
     question: &QuestionDefinition,
     response: &StudentResponse,
@@ -108,6 +111,16 @@ pub fn grade(
         }
     };
     let key = key.ok_or(GradingError::MissingAnswerKey)?;
+    if matches!(
+        (&question.response, response, key),
+        (
+            ResponseDefinition::FileUpload { .. },
+            StudentResponse::FileUpload { .. },
+            AnswerKey::FileUpload { .. },
+        )
+    ) {
+        return Ok(GradeOutcome::NeedsManualGrading);
+    }
     let correct = answer_is_correct(&question.response, response, key)?;
     Ok(GradeOutcome::Graded(AttemptResult {
         correct,
@@ -169,11 +182,6 @@ fn answer_is_correct(
             }
             Ok(order == correct)
         }
-        (
-            ResponseDefinition::FileUpload { .. },
-            StudentResponse::FileUpload { .. },
-            AnswerKey::FileUpload { .. },
-        ) => Err(GradingError::ManualReviewRequired),
         _ => Err(GradingError::KindMismatch),
     }
 }
@@ -543,7 +551,7 @@ mod tests {
                     rubric: "Review manually".to_string(),
                 }),
             ),
-            Err(GradingError::ManualReviewRequired)
+            Ok(GradeOutcome::NeedsManualGrading)
         );
     }
 }

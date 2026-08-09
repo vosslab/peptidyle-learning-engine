@@ -239,7 +239,7 @@ Focused validation:
 ```bash
 cargo test -p question_model
 cargo test -p domain
-cargo run -p xtask -- tsgen
+cargo tools tsgen
 npx tsc --noEmit
 npx eslint src generated/api --max-warnings 0
 npx prettier --check generated/api

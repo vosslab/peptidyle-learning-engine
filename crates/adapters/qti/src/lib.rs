@@ -6,10 +6,23 @@
 //! through `objects` so it stays re-importable.
 
 /// QTI XML parsing and the import pipeline.
+mod archive;
+mod model;
 pub mod parser_stub;
+pub mod profiles;
+mod xml;
 
 pub use crate::parser_stub::{
     ImportedQtiPackage, ImportedQtiQuestion, QtiAssetObject, QtiAssetReferenceError,
-    QtiImportError, QtiImportLimits, QtiImporter, QtiManifest, QtiResource, UnsupportedFeature,
-    qti_question_asset_checksums,
+    QtiImportError, QtiImportLimits, QtiImporter, QtiItemImportResult, QtiItemImportStatus,
+    QtiManifest, QtiResource, UnsupportedFeature, qti_question_asset_checksums,
+};
+pub use crate::profiles::{
+    QTI_PROFILE_MATRIX, QtiImportIntegrityDigests, QtiMappingVersion,
+    QtiPrivateChoiceMapDigestInput, QtiPrivateFeedbackDigestInput, QtiPrivateMappingDigestInput,
+    QtiProfileContractError, QtiProfileDetection, QtiProfileDetectionEvidence,
+    QtiProfileDiagnostic, QtiProfileDiagnosticCode, QtiProfileId, QtiProfileItemDisposition,
+    QtiProfileItemEvidence, QtiProfileMatrixDetail, QtiProfileReportDigestInput,
+    QtiProfileResourceEvidence, QtiProfileVersion, QtiPublicChoiceDigestInput,
+    QtiPublicMappingDigestInput, detect_qti_profile,
 };

@@ -11,6 +11,7 @@ import file_utils
 REPO_ROOT = pathlib.Path(file_utils.get_repo_root())
 COMPOSE_PATH = REPO_ROOT / "containers" / "compose.yaml"
 CADDYFILE_PATH = REPO_ROOT / "containers" / "Caddyfile"
+GATEWAY_CONTAINERFILE_PATH = REPO_ROOT / "containers" / "Containerfile.gateway"
 ENV_EXAMPLE_PATH = REPO_ROOT / "containers" / "env.example"
 
 
@@ -49,14 +50,17 @@ def test_api_replicas_have_no_host_port_and_gateway_is_the_only_listener() -> No
 
 #============================================
 def test_gateway_uses_digest_pinned_dynamic_dns_without_private_credentials() -> None:
-	"""Gateway dynamically discovers all service DNS addresses, not one container."""
+	"""The hardened gateway dynamically discovers every API service address."""
 	compose = COMPOSE_PATH.read_text()
 	gateway = _service_block(compose, "gateway")
 	caddyfile = CADDYFILE_PATH.read_text()
+	containerfile = GATEWAY_CONTAINERFILE_PATH.read_text()
 	active_gateway = "\n".join(line.split("#", 1)[0] for line in gateway.splitlines())
 
 	for requirement in (
-		"image: docker.io/library/caddy@sha256:${PLE_GATEWAY_IMAGE_SHA256:?",
+		"build:\n      context: ..",
+		"dockerfile: containers/Containerfile.gateway",
+		"CADDY_IMAGE: docker.io/library/caddy@sha256:${PLE_GATEWAY_IMAGE_SHA256:?",
 		"${PLE_GATEWAY_IMAGE_SHA256:?",
 		"source: ./Caddyfile",
 		"target: /etc/caddy/Caddyfile",
@@ -71,6 +75,15 @@ def test_gateway_uses_digest_pinned_dynamic_dns_without_private_credentials() ->
 		'"curl", "--fail", "--silent"',
 	):
 		assert requirement in gateway, f"gateway policy is missing {requirement!r}"
+	for requirement in (
+		"ARG CADDY_IMAGE",
+		"FROM ${CADDY_IMAGE}",
+		"RUN setcap -r /usr/bin/caddy",
+		"USER 1000:1000",
+	):
+		assert requirement in containerfile, (
+			f"gateway Containerfile policy is missing {requirement!r}"
+		)
 	for forbidden in (
 		"DATABASE_URL",
 		"POSTGRES_",

@@ -47,8 +47,12 @@ structure:
 This function has no answer-key parameter and cannot determine correctness.
 The browser calls it through `wasm_bridge::validate_response_format`; the
 server repeats it before grading because client validation is a convenience,
-not an authority. File size, extension, checksum, and ownership are checked by
-the server against object metadata rather than trusted from the browser.
+not an authority. The current server refuses every file-upload submission
+before backend or Store mutation because the server-issued upload capability
+and metadata-binding workflow do not exist yet. When that workflow is added,
+file size, extension, checksum, ownership, learner, and attempt binding must be
+checked against server-owned object metadata rather than trusted from the
+browser.
 
 ## Compile-time closure
 
@@ -172,7 +176,7 @@ secret storage, never tracked examples.
 QTI stays unsupported unless `PLE_QTI_RUNTIME_ENABLED=1` and a nonempty
 `PLE_GRADER_DATABASE_URL` are both present. Partial, malformed, or unreachable
 configuration fails startup before router construction. The grader URL uses the
-dedicated `ple_qti_grader` login and constructs a separate bounded pool. It is
+dedicated `ple_grading_reader` login and constructs a separate bounded pool. It is
 never the normal application pool, never acquired through `SET ROLE`, and is
 injected only into the QTI backend's `QtiGradingStore` boundary.
 
@@ -382,6 +386,13 @@ the database-authoritative immutable registry. The registry accepts only a
 `ProblemAsset` whose problem, version, asset, object, bucket, and category all
 agree, or a tenant-matching `StudentRecord`; source packages, render caches,
 and `temp-processing` objects cannot be registered for this route.
+
+`WorkspaceSource` and `ProblemSource` are never direct delivery targets and the
+typed object contract refuses to sign either key. This includes compact PLE
+flat-question JSON as well as QTI, iMathAS, and other answer-bearing sources.
+An instructor preview or export must use a separate authorized projection that
+redacts or deliberately includes private material for that operation; it must
+not expose the source object URL.
 
 Globally public catalog assets redirect to the configured immutable CDN URL
 without authentication or an object-store signing call. Institution content

@@ -11,6 +11,7 @@ question_model.workspace = true
 async-trait.workspace = true
 serde.workspace = true
 sha2.workspace = true
+uuid.workspace = true
 
 # Enabled by the `s3` feature so the memory backend needs no AWS types. Select
 # the modern HTTP 1.x client explicitly: the SDK's default feature set also
@@ -29,4 +30,4 @@ s3 = ["dep:aws-sdk-s3", "dep:base64", "dep:serde_json"]
 
 [dev-dependencies]
 tokio.workspace = true
-uuid.workspace = true
+serde_json.workspace = true

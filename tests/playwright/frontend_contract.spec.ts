@@ -18,6 +18,13 @@ const IDS = {
   workspace: "0198e000-0000-7000-8000-000000000002",
 } as const;
 
+const SAVED_ATTEMPT_KEY =
+  "ple:attempt:0198e000-0000-7000-8000-000000000001:0198e000-0000-7000-8000-000000000023:0198e000-0000-7000-8000-000000000033";
+const SAVED_ATTEMPT_BUFFER = JSON.stringify({
+  response: { kind: "multipleChoice", selected: ["carbonyl"] },
+  idempotencyKey: "saved-response-key",
+});
+
 async function navigateWithinSpa(page: Page, pathname: string): Promise<void> {
   await page.evaluate((nextPath) => {
     history.pushState({}, "", nextPath);
@@ -205,29 +212,58 @@ test("a student reaches, validates, submits, and advances through the generated 
   await expect(page.getByRole("button", { name: "Start another practice run" })).toBeVisible();
 });
 
-test("a saved multiple-choice response is restored visibly and remains editable", async ({
+test("session recovery stays editable, never writes the attempt to local storage, and clears on exit", async ({
   page,
 }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem(
-      "ple:attempt:0198e000-0000-7000-8000-000000000001:0198e000-0000-7000-8000-000000000023:0198e000-0000-7000-8000-000000000033",
-      JSON.stringify({
-        response: { kind: "multipleChoice", selected: ["carbonyl"] },
-        idempotencyKey: "saved-response-key",
-      }),
-    );
-  });
+  await page.addInitScript(
+    ({ key, buffer }) => {
+      sessionStorage.setItem(key, buffer);
+    },
+    { key: SAVED_ATTEMPT_KEY, buffer: SAVED_ATTEMPT_BUFFER },
+  );
 
   await page.goto("/");
   await navigateWithinSpa(page, `/runs/${IDS.run}`);
   const radios = page.getByRole("radio");
   await expect(radios.nth(1)).toBeChecked();
+  const restoredStorage = await page.evaluate((key) => {
+    return {
+      localAttempt: localStorage.getItem(key),
+      sessionAttempt: sessionStorage.getItem(key),
+    };
+  }, SAVED_ATTEMPT_KEY);
+  expect(restoredStorage).toEqual({
+    localAttempt: null,
+    sessionAttempt: SAVED_ATTEMPT_BUFFER,
+  });
+
   await radios.nth(2).check();
   await expect(radios.nth(2)).toBeChecked();
   await expect(radios.nth(1)).not.toBeChecked();
   await expect(page.getByRole("status", { name: "Response format" })).toContainText(
     "ready to submit",
   );
+  const editedStorage = await page.evaluate((key) => {
+    return {
+      localAttempt: localStorage.getItem(key),
+      sessionAttempt: sessionStorage.getItem(key),
+    };
+  }, SAVED_ATTEMPT_KEY);
+  expect(editedStorage.localAttempt).toBeNull();
+  expect(editedStorage.sessionAttempt).not.toBeNull();
+  expect(editedStorage.sessionAttempt).not.toBe(SAVED_ATTEMPT_BUFFER);
+  expect(editedStorage.sessionAttempt).toContain('"selected":["alpha-carbon"]');
+  expect(editedStorage.sessionAttempt).toContain('"idempotencyKey":');
+
+  await navigateWithinSpa(page, "/");
+  await expect(page.getByRole("heading", { name: "Pick up where you left off" })).toBeVisible();
+  const exitedStorage = await page.evaluate((key) => {
+    return {
+      localAttempt: localStorage.getItem(key),
+      sessionAttempt: sessionStorage.getItem(key),
+    };
+  }, SAVED_ATTEMPT_KEY);
+  expect(exitedStorage).toEqual({ localAttempt: null, sessionAttempt: null });
 });
 
 test("the reference response remains usable at the 320 CSS-pixel baseline", async ({ page }) => {

@@ -14,17 +14,17 @@ use axum::middleware;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, patch, post};
 use axum::{Json, Router};
-use question_model::{ActivityTimestamp, CourseId, CourseRole, UserRole};
-use serde::de::DeserializeOwned;
-use serde::de::MapAccess;
-use serde::de::{self, Visitor};
-use serde::{Deserialize, Serialize};
-use store::{
+use learning_data_access::{
     AssignmentDefinitionDisposition, CourseRetentionView, RETENTION_ARCHIVE_NOTIFICATION_COPY,
     RetentionApiStore, RetentionDays, RetentionNotificationIntent, RetentionNotificationView,
     RetentionRequestOutcome, RetentionRequestResult, RetentionRevision, RetentionStore,
     SessionStore, Store, StoreError,
 };
+use question_model::{ActivityTimestamp, CourseId, CourseRole, UserRole};
+use serde::de::DeserializeOwned;
+use serde::de::MapAccess;
+use serde::de::{self, Visitor};
+use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthenticatedSession, auth_error_response, no_store, resolve_request_session};
 
@@ -741,7 +741,7 @@ fn route_store_error(error: StoreError) -> Response {
         StoreError::RunModel(message) => {
             error_response(StatusCode::UNPROCESSABLE_ENTITY, &message.to_string())
         }
-        StoreError::Unavailable(_) => error_response(
+        StoreError::RetryableTransaction | StoreError::Unavailable(_) => error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "retention service unavailable",
         ),
@@ -890,16 +890,16 @@ mod route_tests {
     use axum::body::{Body, to_bytes};
     use axum::http::header::{CONTENT_TYPE, ETAG, IF_MATCH};
     use axum::http::{Method, Request, StatusCode};
-    use question_model::{
-        ActivityTimestamp, CourseId, CourseMembership, CourseMembershipRole, TenantId, UserId,
-        UserRole,
-    };
-    use store::Store;
-    use store::memory::MemoryStore;
-    use store::{
+    use learning_data_access::Store;
+    use learning_data_access::in_memory::MemoryStore;
+    use learning_data_access::{
         ClaimedJob, CourseRecord, JobLeaseDuration, JobPayload, JobStore, RetentionDispatchBatch,
         RetentionScheduleStore, RetentionWorkerCommand, RetentionWorkerStore, SessionLifetime,
         SessionSubject, TenantContext,
+    };
+    use question_model::{
+        ActivityTimestamp, CourseId, CourseMembership, CourseMembershipRole, TenantId, UserId,
+        UserRole,
     };
     use tower::ServiceExt;
     use uuid::Uuid;
@@ -1378,7 +1378,10 @@ mod route_tests {
             .expect("due dispatch");
         assert_eq!(dispatched, 1);
         let claim = store
-            .claim_next_job(JobLeaseDuration::from_seconds(30).expect("lease"))
+            .claim_next_job(
+                &learning_data_access::JobClaimFilter::all(),
+                JobLeaseDuration::from_seconds(30).expect("lease"),
+            )
             .await
             .expect("claimed job")
             .expect("job claim");
@@ -1609,13 +1612,19 @@ mod route_tests {
         );
 
         let first_job = store
-            .claim_next_job(JobLeaseDuration::from_seconds(30).unwrap())
+            .claim_next_job(
+                &learning_data_access::JobClaimFilter::all(),
+                JobLeaseDuration::from_seconds(30).unwrap(),
+            )
             .await
             .expect("next job")
             .expect("archive job");
         assert!(
             store
-                .claim_next_job(JobLeaseDuration::from_seconds(30).unwrap())
+                .claim_next_job(
+                    &learning_data_access::JobClaimFilter::all(),
+                    JobLeaseDuration::from_seconds(30).unwrap()
+                )
                 .await
                 .expect("next job")
                 .is_none(),

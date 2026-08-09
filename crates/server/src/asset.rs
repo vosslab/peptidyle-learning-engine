@@ -15,10 +15,10 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
+use learning_data_access::{AssetDeliveryId, AssetStore, SessionStore, StoreError};
 use objects::{
     Bucket, ObjectCategory, ObjectKey, ObjectRecord, ObjectStore, ObjectStoreError, SignedUrl,
 };
-use store::{AssetDeliveryId, AssetStore, SessionStore, StoreError};
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
@@ -254,6 +254,7 @@ fn store_error_response(error: StoreError) -> Response {
         | StoreError::InvalidRecord(_)
         | StoreError::RunModel(_)
         | StoreError::TimedOut
+        | StoreError::RetryableTransaction
         | StoreError::Unavailable(_) => error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "asset delivery unavailable",
@@ -285,6 +286,12 @@ mod tests {
     use super::*;
     use axum::body::Body;
     use axum::http::Request;
+    use learning_data_access::in_memory::MemoryStore;
+    use learning_data_access::{
+        AssetDeliveryRecord, AssetDeliveryScope, CatalogStore, CourseRecord, DraftRecord,
+        JobLeaseDuration, JobPayload, JobStore, PublishDraftCommand, RetentionWorkerCommand,
+        RetentionWorkerStore, SessionLifetime, SessionSubject, Store, TenantContext,
+    };
     use objects::memory::MemoryObjectStore;
     use objects::{ObjectCategory, ObjectKey, PutObject, Sha256Digest};
     use question_model::answer::NumericTolerance;
@@ -298,12 +305,6 @@ mod tests {
         CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
         ObjectId, ProblemId, ProblemVersionRef, PublicationScope, QuestionMetadata, QuestionSource,
         TenantId, UserId, UserRole, VersionId, WorkspaceId, WorkspaceImportId,
-    };
-    use store::memory::MemoryStore;
-    use store::{
-        AssetDeliveryRecord, AssetDeliveryScope, CatalogStore, CourseRecord, DraftRecord,
-        JobLeaseDuration, JobPayload, JobStore, PublishDraftCommand, RetentionWorkerCommand,
-        RetentionWorkerStore, SessionLifetime, SessionSubject, Store, TenantContext,
     };
     use tower::ServiceExt;
     use uuid::Uuid;
@@ -374,6 +375,7 @@ mod tests {
                     },
                     source_artifact: None,
                     qti_promotion: None,
+                    flat_question_promotion: None,
                     publisher,
                     scope,
                     capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
@@ -592,7 +594,10 @@ mod tests {
             )
             .expect("archive cleanup fixture");
         let claim = store
-            .claim_next_job(JobLeaseDuration::from_seconds(30).expect("lease duration"))
+            .claim_next_job(
+                &learning_data_access::JobClaimFilter::all(),
+                JobLeaseDuration::from_seconds(30).expect("lease duration"),
+            )
             .await
             .expect("archive claim")
             .expect("archive job");

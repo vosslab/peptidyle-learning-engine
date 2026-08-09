@@ -15,9 +15,9 @@ use axum::{Json, Router};
 use domain::policy::{AssignmentConfig, Violation, validate_assignment_config};
 use domain::timing::{TimerEvaluation, TimerVerdict, timer_verdict};
 use domain::validation::{ResponseFormatReport, validate_response_format};
+use learning_data_access::SessionStore;
 use question_model::response::{ResponseDefinition, StudentResponse};
 use serde::{Deserialize, Serialize};
-use store::SessionStore;
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
@@ -121,6 +121,8 @@ mod tests {
     use super::*;
     use axum::body::{Body, to_bytes};
     use axum::http::Request;
+    use learning_data_access::in_memory::MemoryStore;
+    use learning_data_access::{SessionLifetime, SessionSubject};
     use question_model::answer::TextMatchMode;
     use question_model::envelope::ContentBlock;
     use question_model::generation::RandomizationDefinition;
@@ -131,8 +133,6 @@ mod tests {
         ActivityTimestamp, BackendCapabilities, GradingDefinition, ProblemId, QuestionDefinition,
         QuestionMetadata, QuestionSource, TenantId, UserId, UserRole, VersionId, WorkspaceId,
     };
-    use store::memory::MemoryStore;
-    use store::{SessionLifetime, SessionSubject};
     use tower::ServiceExt;
     use uuid::Uuid;
 

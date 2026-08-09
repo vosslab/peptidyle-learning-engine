@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use store::{
+use learning_data_access::{
     AttemptAutoSubmitCommitOutcome, AttemptAutoSubmitWorkerCommand, AttemptAutoSubmitWorkerStore,
     JobFailureKind, JobPayload, StoreError, TenantContext,
 };
@@ -19,7 +19,6 @@ use crate::worker::{
 pub(crate) struct AttemptAutoSubmitHandler;
 
 impl AttemptAutoSubmitHandler {
-    #[allow(dead_code)] // Full queue composition opts into concrete handlers separately.
     pub(crate) fn new() -> Self {
         Self
     }
@@ -60,7 +59,6 @@ pub(crate) struct AttemptAutoSubmitCommitter<S> {
 }
 
 impl<S> AttemptAutoSubmitCommitter<S> {
-    #[allow(dead_code)] // Full queue composition opts into concrete committers separately.
     pub(crate) fn new(store: Arc<S>) -> Self {
         Self { store }
     }

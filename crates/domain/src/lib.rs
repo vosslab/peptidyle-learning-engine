@@ -13,6 +13,8 @@ pub mod completion;
 pub mod draft_preview;
 /// Seeded question generation (MOD-GEN).
 pub mod generator;
+/// Current tenant-owned course item-analysis projections (MOD-STATS).
+pub mod item_analysis;
 /// Assignment configuration validation (MOD-CAP).
 pub mod policy;
 /// Continued-practice eligibility and shared run-model errors (MOD-RUN).

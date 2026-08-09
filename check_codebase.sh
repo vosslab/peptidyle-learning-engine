@@ -183,7 +183,7 @@ SUMMARY_ENABLED=1
 # 1. Generated API definitions. A missing Rust toolchain is a loud skip rather
 # than a pass over missing output.
 if command -v cargo >/dev/null 2>&1; then
-	step_run tsgen cargo run --quiet -p xtask -- tsgen
+	step_run tsgen cargo tools tsgen
 else
 	step_skip tsgen "cargo not found on PATH"
 fi
@@ -191,7 +191,7 @@ fi
 # 2. Tracked fixtures are deliberate compatibility evidence; compare them to
 # the Rust-owned generator, then format only the ignored TypeScript projection.
 generate_fixture_projection() {
-	cargo run --quiet -p xtask -- fixtures --check &&
+	cargo tools fixtures --check &&
 		npx prettier --write --ignore-path .prettierignore generated/fixtures/published_problem.ts
 }
 if command -v cargo >/dev/null 2>&1; then

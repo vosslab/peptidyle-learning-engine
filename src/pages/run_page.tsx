@@ -51,13 +51,13 @@ function attemptContext(attempt: QuestionAttempt): AttemptContext {
 function attemptStorage(): AttemptStorage {
   return {
     getItem(key: string): string | null {
-      return globalThis.localStorage.getItem(key);
+      return globalThis.sessionStorage.getItem(key);
     },
     setItem(key: string, value: string): void {
-      globalThis.localStorage.setItem(key, value);
+      globalThis.sessionStorage.setItem(key, value);
     },
     removeItem(key: string): void {
-      globalThis.localStorage.removeItem(key);
+      globalThis.sessionStorage.removeItem(key);
     },
   };
 }

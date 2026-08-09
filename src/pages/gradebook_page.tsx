@@ -7,6 +7,7 @@ import type { AssignmentRun } from "../../generated/api/AssignmentRun";
 import type { EnrollmentId } from "../../generated/api/EnrollmentId";
 import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
 import { useApiRuntime } from "../api/runtime";
+import { formatPercentScore } from "../score_format";
 import { loadGradebookPage, loadGradebookRunHistory } from "./gradebook_page_model";
 
 type GradebookState =
@@ -23,10 +24,6 @@ type RunHistoryState =
     }
   | { readonly kind: "error" };
 
-function formatScore(score: number | null): string {
-  return score === null ? "-" : `${Math.round(score * 100)}%`;
-}
-
 function formatActivity(timestamp: number | null): string {
   if (timestamp === null) {
     return "No activity yet";
@@ -41,7 +38,7 @@ function formatRunStatus(run: AssignmentRun): string {
   if (run.completedAt === null) {
     return "In progress";
   }
-  return run.score === null ? "Completed" : `Completed * ${formatScore(run.score)}`;
+  return run.score === null ? "Completed" : `Completed * ${formatPercentScore(run.score)}`;
 }
 
 export function GradebookPage(): JSX.Element {
@@ -181,8 +178,10 @@ export function GradebookPage(): JSX.Element {
                             <td data-label="Learner ID">
                               <code>{row.studentId}</code>
                             </td>
-                            <td data-label="Best">{formatScore(row.summary.bestScore)}</td>
-                            <td data-label="Latest">{formatScore(row.summary.latestScore)}</td>
+                            <td data-label="Best">{formatPercentScore(row.summary.bestScore)}</td>
+                            <td data-label="Latest">
+                              {formatPercentScore(row.summary.latestScore)}
+                            </td>
                             <td data-label="Completed">{row.summary.completedRunCount}</td>
                             <td data-label="Last activity">
                               {formatActivity(row.summary.lastActivityAt)}

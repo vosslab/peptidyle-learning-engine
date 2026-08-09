@@ -6,6 +6,7 @@ import test from "node:test";
 
 import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
 import { loadGradebookPage, loadGradebookRunHistory } from "../src/pages/gradebook_page_model.ts";
+import { formatPercentScore, formatPointScore, formatScoreValue } from "../src/score_format.ts";
 
 function spyClient() {
   const calls = [];
@@ -62,6 +63,22 @@ test("run history remains lazy and passes its cursor without refetching the grad
     ["listGradebook", publishedProblemFixture.course.id],
     ["listRuns", enrollmentId, "older-runs"],
   ]);
+});
+
+test("score display trims artifacts and rounds exact midpoints away from zero", () => {
+  assert.equal(formatScoreValue(8.0000000000006), "8");
+  assert.equal(formatScoreValue(8.5), "8.5");
+  assert.equal(formatScoreValue(8.333), "8.33");
+  assert.equal(formatPointScore(8.0000000000006, 10), "8 / 10");
+  assert.equal(formatPercentScore(0.080000000000006), "8%");
+  assert.equal(formatPercentScore(0.083333), "8.33%");
+  assert.equal(formatPercentScore(0.00125), "0.13%");
+  assert.equal(formatPercentScore(-0.00125), "-0.13%");
+  assert.equal(formatPercentScore(0.83335), "83.34%");
+  assert.equal(formatPercentScore(-0.83335), "-83.34%");
+  assert.equal(formatPercentScore(null), "-");
+  assert.equal(formatScoreValue(-0.00001), "0");
+  assert.throws(() => formatScoreValue(Number.NaN), /score must be finite/);
 });
 
 test("gradebook page renders only compact projections and keeps sensitive learning material out", () => {

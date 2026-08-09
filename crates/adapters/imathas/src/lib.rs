@@ -9,6 +9,7 @@ use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
 use async_trait::async_trait;
+use learning_data_access::PublishedSourceArtifact;
 use objects::{ObjectCategory, ObjectKey, ObjectStore, ObjectStoreError, PutObject};
 use question_model::capability::{BackendCapabilities, Capability};
 use question_model::envelope::ContentBlock;
@@ -20,7 +21,6 @@ use question_model::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use store::PublishedSourceArtifact;
 use uuid::Uuid;
 
 pub mod broker_provider;

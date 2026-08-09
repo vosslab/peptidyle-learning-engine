@@ -4,11 +4,13 @@
 //! no request or browser value can select a backend.
 
 use async_trait::async_trait;
+use learning_data_access::{
+    AssetStore, CatalogSourceStore, ExternalToolBrokerStore, TenantContext,
+};
 use question_model::{
     BackendCapabilities, DraftQuestionSource, ProblemVersionRef, QuestionAttempt,
     QuestionDefinition, QuestionEnvelope, StudentResponse,
 };
-use store::{AssetStore, CatalogSourceStore, ExternalToolBrokerStore, TenantContext};
 
 use crate::catalog::{BackendRegistry, BackendRegistryError};
 use crate::imathas_backend::ExternalToolSubmissionBackend;
@@ -298,6 +300,9 @@ where
                     grading::GradeOutcome::Graded(result) => {
                         Ok(SubmissionDisposition::Grade(GradeReceipt::empty(result)))
                     }
+                    grading::GradeOutcome::NeedsManualGrading => {
+                        Ok(SubmissionDisposition::NeedsManualGrading)
+                    }
                     grading::GradeOutcome::Ungraded => Err(RunBackendError::Unsupported(
                         "this run backend does not produce a server grade".to_string(),
                     )),
@@ -332,7 +337,7 @@ where
         question: &QuestionDefinition,
         attempt: &QuestionAttempt,
         aead: &crate::imathas_backend::LaunchStateAead,
-    ) -> Result<store::CreatedExternalToolLaunchSession, RunBackendError> {
+    ) -> Result<learning_data_access::CreatedExternalToolLaunchSession, RunBackendError> {
         self.imathas_for(question)?
             .create_external_tool_launch(context, actor, reference, question, attempt, aead)
             .await
@@ -346,7 +351,7 @@ where
         question: &QuestionDefinition,
         attempt: &QuestionAttempt,
         session_id: uuid::Uuid,
-        token: &store::ExternalToolLaunchToken,
+        token: &learning_data_access::ExternalToolLaunchToken,
         method: adapter_imathas::broker_provider::ProxyMethod,
         body: &[u8],
         aead: &crate::imathas_backend::LaunchStateAead,
@@ -373,8 +378,8 @@ where
         reference: ProblemVersionRef,
         question: &QuestionDefinition,
         attempt: &QuestionAttempt,
-        idempotency_key: store::SubmissionIdempotencyKey,
-        launch_proof: store::ExternalToolLaunchProof,
+        idempotency_key: learning_data_access::SubmissionIdempotencyKey,
+        launch_proof: learning_data_access::ExternalToolLaunchProof,
         state_aead: &crate::imathas_backend::LaunchStateAead,
     ) -> Result<SubmissionDisposition, RunBackendError> {
         self.imathas_for(question)?
@@ -398,6 +403,9 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use async_trait::async_trait;
+    use learning_data_access::{
+        ExternalToolLaunchProof, ExternalToolLaunchToken, SubmissionIdempotencyKey,
+    };
     use question_model::generation::RandomizationDefinition;
     use question_model::response::ResponseDefinition;
     use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
@@ -408,7 +416,6 @@ mod tests {
         QuestionAttemptId, QuestionDefinition, QuestionMetadata, QuestionSource, RunId,
         StudentResponse, TenantId, UserId, VersionId, WorkspaceId, WorkspaceImportId,
     };
-    use store::{ExternalToolLaunchProof, ExternalToolLaunchToken, SubmissionIdempotencyKey};
     use uuid::Uuid;
 
     use super::*;
@@ -495,7 +502,8 @@ mod tests {
             _: &QuestionDefinition,
             _: &QuestionAttempt,
             _: &crate::imathas_backend::LaunchStateAead,
-        ) -> Result<store::CreatedExternalToolLaunchSession, RunBackendError> {
+        ) -> Result<learning_data_access::CreatedExternalToolLaunchSession, RunBackendError>
+        {
             self.touch();
             Err(RunBackendError::Unavailable("recorded provider".into()))
         }
@@ -661,11 +669,11 @@ mod tests {
     }
 
     fn composite_for_qti_tests() -> CompositeBackend<
-        store::memory::MemoryStore,
+        learning_data_access::in_memory::MemoryStore,
         objects::memory::MemoryObjectStore,
         adapter_webwork::HttpWebworkRenderer,
     > {
-        let store = Arc::new(store::memory::MemoryStore::default());
+        let store = Arc::new(learning_data_access::in_memory::MemoryStore::default());
         let objects = Arc::new(objects::memory::MemoryObjectStore::default());
         let renderer = adapter_webwork::HttpWebworkRenderer::new(
             adapter_webwork::HttpWebworkRendererConfig::new(
@@ -743,7 +751,7 @@ mod tests {
         let actor = UserId::from_uuid(id(8));
         let aead =
             crate::imathas_backend::LaunchStateAead::from_server_secret([9; 32]).expect("aead");
-        let store = Arc::new(store::memory::MemoryStore::default());
+        let store = Arc::new(learning_data_access::in_memory::MemoryStore::default());
         let objects = Arc::new(objects::memory::MemoryObjectStore::default());
         let renderer = adapter_webwork::HttpWebworkRenderer::new(
             adapter_webwork::HttpWebworkRendererConfig::new(

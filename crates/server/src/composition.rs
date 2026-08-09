@@ -5,6 +5,11 @@
 //! focused contract fixtures, while this root makes it impossible for the API
 //! binary to acquire process-local educational state by accident.
 
+#[path = "composition/worker.rs"]
+mod worker;
+
+pub use worker::run_production_worker_from_env;
+
 use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::path::Path;
@@ -25,16 +30,18 @@ use axum::{
 };
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use learning_data_access::postgres::{
+    Pool, PostgresGraderStore, PostgresStore, SchemaCompatibilityError, lazy_pool,
+};
+use learning_data_access::{
+    AssetStore, AuthoritativeTimeStore, CatalogStore, CourseItemAnalysisStore,
+    CourseRecordsAccessStore, ExportJobStore, FlatImportProvenanceStore, FlatQuestionGradingStore,
+    FlatQuestionStore, ManualGradingStore, QtiImportApiStore, QtiImportStore, RetentionApiStore,
+    RetentionStore, SessionLifetime, SessionStore, SessionSubject, Store,
+};
 use question_model::{TenantId, UserId, UserRole};
 use serde_json::json;
 use sha2::{Digest, Sha256};
-use store::postgres::{
-    Pool, PostgresQtiGraderStore, PostgresStore, SchemaCompatibilityError, lazy_pool,
-};
-use store::{
-    AssetStore, CatalogStore, CourseRecordsAccessStore, ExportJobStore, QtiImportStore,
-    RetentionApiStore, RetentionStore, SessionLifetime, SessionStore, SessionSubject, Store,
-};
 use subtle::ConstantTimeEq;
 use uuid::Uuid;
 
@@ -46,7 +53,6 @@ use crate::health::{ProbeResult, Readiness, readiness};
 use crate::imathas_backend::{ImathasBackend, LaunchStateAead};
 use crate::native_backend::NativeBackend;
 use crate::qti_backend::QtiBackend;
-use crate::retention_worker::{RetentionJobCommitter, RetentionJobHandler};
 use crate::run::{RunBackend, external_tool_router};
 use crate::webwork_backend::WebworkBackend;
 use adapter_imathas::broker_provider::{
@@ -289,9 +295,9 @@ struct LocalDevelopmentReviewGate;
 impl PublicReviewGate for LocalDevelopmentReviewGate {
     async fn allows_publication(
         &self,
-        _tenant: store::TenantContext,
+        _tenant: learning_data_access::TenantContext,
         _publisher: question_model::UserId,
-        _draft: &store::DraftRecord,
+        _draft: &learning_data_access::DraftRecord,
     ) -> Result<bool, ReviewGateError> {
         Ok(false)
     }
@@ -313,6 +319,9 @@ pub fn bind_address_from_env() -> Result<SocketAddr> {
 #[allow(dead_code)]
 struct PersistentDependencies {
     store: Arc<PostgresStore>,
+    /// This capability is retained only for server-owned grading backends.
+    /// It is never included in route state or browser-facing APIs.
+    grader: Arc<PostgresGraderStore>,
     objects: Arc<objects::s3::S3ObjectStore>,
     public_assets: Arc<PublicAssetBaseUrl>,
     webwork_renderer: HttpWebworkRenderer,
@@ -321,63 +330,30 @@ struct PersistentDependencies {
     health: Arc<HealthState>,
 }
 
-/// Concrete retention components ready for a future dedicated worker entrypoint.
-///
-/// This factory deliberately stops at component construction. The current queue
-/// claim is unfiltered, so activating the generic [`crate::worker::Worker`]
-/// here could route Render or Import jobs into a retention-only process. A later
-/// deployment slice must add a family-filtered claim and the complete handler /
-/// committer registry before it starts any drain loop.
-pub struct RetentionWorkerComponents {
-    handler: Arc<RetentionJobHandler<PostgresStore, objects::s3::S3ObjectStore>>,
-    committer: Arc<RetentionJobCommitter<PostgresStore>>,
-}
-
-impl RetentionWorkerComponents {
-    /// Constructs retention-only components from the storage configuration in
-    /// the process environment. This deliberately does not initialize any
-    /// API-only backend, including an optional QTI grader.
-    pub fn from_env() -> Result<Self> {
-        let settings = StorageSettings::from_env()?;
-        Self::from_storage_settings(&settings)
-    }
-
-    fn from_storage_settings(settings: &StorageSettings) -> Result<Self> {
-        let dependencies = LazyStorageDependencies::from_settings(settings)?;
-        Ok(Self::from_lazy_storage(dependencies))
-    }
-
-    fn from_lazy_storage(dependencies: LazyStorageDependencies) -> Self {
-        Self {
-            handler: Arc::new(RetentionJobHandler::new(
-                Arc::clone(&dependencies.store),
-                dependencies.objects,
-            )),
-            committer: Arc::new(RetentionJobCommitter::new(dependencies.store)),
-        }
-    }
-
-    /// Returns the real handler without exposing production dependency details.
-    pub fn handler(&self) -> Arc<RetentionJobHandler<PostgresStore, objects::s3::S3ObjectStore>> {
-        Arc::clone(&self.handler)
-    }
-
-    /// Returns the real committer without exposing production dependency details.
-    pub fn committer(&self) -> Arc<RetentionJobCommitter<PostgresStore>> {
-        Arc::clone(&self.committer)
-    }
-}
-
 type ProductionImathasBackend = ImathasBackend<
     PostgresStore,
     objects::s3::S3ObjectStore,
     ContractedScoredEmbedProvider<HttpContractedScoredEmbedTransport>,
 >;
 type ProductionQtiBackend =
-    QtiBackend<PostgresStore, PostgresQtiGraderStore, objects::s3::S3ObjectStore>;
+    QtiBackend<PostgresStore, PostgresGraderStore, objects::s3::S3ObjectStore>;
 struct ConfiguredImathas {
     backend: Arc<ProductionImathasBackend>,
     aead: Arc<LaunchStateAead>,
+}
+
+const SCHEMA_VERIFICATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+
+async fn verify_application_schema_bounded(pool: &Pool) -> Result<(), SchemaCompatibilityError> {
+    match tokio::time::timeout(
+        SCHEMA_VERIFICATION_TIMEOUT,
+        learning_data_access::postgres::verify_application_schema(pool),
+    )
+    .await
+    {
+        Ok(result) => result,
+        Err(_) => Err(SchemaCompatibilityError::Unavailable),
+    }
 }
 
 #[allow(dead_code)]
@@ -390,18 +366,13 @@ impl PersistentDependencies {
     }
 
     async fn verify_startup_schema(&self) -> Result<()> {
-        let verification = tokio::time::timeout(
-            std::time::Duration::from_secs(2),
-            store::postgres::verify_application_schema(&self.health.postgres),
-        )
-        .await;
-        match verification {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(SchemaCompatibilityError::Unavailable)) | Err(_) => {
+        match verify_application_schema_bounded(&self.health.postgres).await {
+            Ok(()) => Ok(()),
+            Err(SchemaCompatibilityError::Unavailable) => {
                 eprintln!("database schema check unavailable; API starting degraded");
                 Ok(())
             }
-            Ok(Err(SchemaCompatibilityError::Incompatible(reason))) => {
+            Err(SchemaCompatibilityError::Incompatible(reason)) => {
                 bail!("database schema is incompatible: {reason}")
             }
         }
@@ -423,24 +394,25 @@ impl PersistentDependencies {
         // native questions, or the API health endpoint.
         let webwork_renderer = settings.webwork_renderer()?;
         let imathas = settings.imathas(&store, &objects)?;
-        let qti = match settings.qti_runtime()? {
-            Some(runtime) => Some(Arc::new(QtiBackend::new(
+        let qti_runtime_enabled = settings.qti_runtime_enabled()?;
+        let grader_database_url = settings.grader_database_url()?;
+        let grader = Arc::new(
+            PostgresGraderStore::connect(grader_database_url)
+                .await
+                .map_err(|_| anyhow::anyhow!("PLE grader connection could not be established"))?,
+        );
+        let qti = if qti_runtime_enabled {
+            Some(Arc::new(QtiBackend::new(
                 Arc::clone(&store),
-                Arc::new(
-                    PostgresQtiGraderStore::connect(&runtime.grader_database_url)
-                        .await
-                        .map_err(|_| {
-                            anyhow::anyhow!(
-                                "PLE_QTI runtime grader connection could not be established"
-                            )
-                        })?,
-                ),
+                Arc::clone(&grader),
                 Arc::clone(&objects),
-            ))),
-            None => None,
+            )))
+        } else {
+            None
         };
         Ok(Self {
             store,
+            grader,
             objects,
             public_assets,
             webwork_renderer,
@@ -452,18 +424,6 @@ impl PersistentDependencies {
                 content_bucket: settings.storage.content_bucket.clone(),
             }),
         })
-    }
-
-    /// Constructs the real retention handler and committer from configured
-    /// PostgreSQL and object-storage backends without activating worker runtime.
-    fn retention_worker_components(&self) -> RetentionWorkerComponents {
-        RetentionWorkerComponents {
-            handler: Arc::new(RetentionJobHandler::new(
-                Arc::clone(&self.store),
-                Arc::clone(&self.objects),
-            )),
-            committer: Arc::new(RetentionJobCommitter::new(Arc::clone(&self.store))),
-        }
     }
 
     /// Composes every production route group after trusted institution-owned
@@ -481,7 +441,12 @@ impl PersistentDependencies {
         R: PublicReviewGate + 'static,
     {
         let native_adapter = Arc::new(adapter_native::NativeAdapter::new());
-        let native = NativeBackend::new(Arc::clone(&native_adapter), Arc::clone(&self.store));
+        let flat_grader: Arc<dyn FlatQuestionGradingStore> = self.grader.clone();
+        let native = NativeBackend::with_flat_grader(
+            Arc::clone(&native_adapter),
+            Arc::clone(&self.store),
+            flat_grader,
+        );
         let webwork_adapter = Arc::new(WebworkAdapter::new(
             self.objects.as_ref().clone(),
             self.webwork_renderer.clone(),
@@ -555,13 +520,19 @@ fn compose_router<S, O, C, B, P, R>(
 where
     S: Store
         + CatalogStore
+        + FlatQuestionStore
+        + FlatImportProvenanceStore
+        + CourseItemAnalysisStore
         + ExportJobStore
+        + ManualGradingStore
+        + QtiImportApiStore
         + QtiImportStore
         + RetentionStore
         + RetentionApiStore
         + CourseRecordsAccessStore
         + SessionStore
         + AssetStore
+        + AuthoritativeTimeStore
         + 'static,
     O: objects::ObjectStore + 'static,
     C: PublicAssetUrlResolver + 'static,
@@ -586,7 +557,21 @@ where
             Arc::clone(&store),
             Arc::clone(&objects),
             Arc::clone(&backends),
-            review_gate,
+            Arc::clone(&review_gate),
+        ))
+        .merge(crate::flat_question_publication::router(
+            Arc::clone(&store),
+            Arc::clone(&objects),
+            Arc::clone(&backends),
+            Arc::clone(&review_gate),
+        ))
+        .merge(crate::qti_profile_import::router(
+            Arc::clone(&store),
+            Arc::clone(&objects),
+        ))
+        .merge(crate::qti_profile_conversion::router(
+            Arc::clone(&store),
+            Arc::clone(&objects),
         ))
         .merge(crate::workspace::router(
             Arc::clone(&store),
@@ -597,6 +582,7 @@ where
             native_adapter,
         ))
         .merge(crate::course::router(Arc::clone(&store)))
+        .merge(crate::item_analysis::router(Arc::clone(&store)))
         .merge(crate::export::router(Arc::clone(&store)))
         .merge(crate::retention::router(Arc::clone(&store)))
         .merge(crate::run::router(Arc::clone(&store), backends))
@@ -724,15 +710,22 @@ struct HealthState {
     content_bucket: String,
 }
 
+fn postgres_schema_probe(verification: Result<(), SchemaCompatibilityError>) -> ProbeResult {
+    if verification.is_ok() {
+        ProbeResult::ready("postgres")
+    } else {
+        ProbeResult::failed("postgres")
+    }
+}
+
 #[allow(dead_code)]
 async fn health_handler(Extension(state): Extension<Arc<HealthState>>) -> impl IntoResponse {
-    let postgres = match store::postgres::ping(&state.postgres).await {
-        Ok(()) => ProbeResult::ready("postgres"),
-        Err(error) => {
-            eprintln!("postgres probe failed: {error}");
-            ProbeResult::failed("postgres")
-        }
-    };
+    // Re-run the exact check on every request so a failover or replacement
+    // cannot inherit readiness from a previously compatible database.
+    let postgres = postgres_schema_probe(verify_application_schema_bounded(&state.postgres).await);
+    if !postgres.ok {
+        eprintln!("postgres schema readiness probe failed");
+    }
     let objects =
         match objects::minio::probe_bucket(&state.object_client, &state.content_bucket).await {
             Ok(()) => ProbeResult::ready("object-store"),
@@ -823,7 +816,7 @@ struct ProductionSettings {
     webwork_authentication_header: Option<(String, String)>,
     imathas_provider_key: Option<String>,
     qti_runtime_enabled: Option<String>,
-    qti_grader_database_url: Option<String>,
+    grader_database_url: Option<String>,
 }
 
 impl ProductionSettings {
@@ -844,7 +837,7 @@ impl ProductionSettings {
             )?,
             imathas_provider_key: std::env::var("PLE_IMATHAS_PROVIDER_KEY").ok(),
             qti_runtime_enabled: std::env::var("PLE_QTI_RUNTIME_ENABLED").ok(),
-            qti_grader_database_url: std::env::var("PLE_GRADER_DATABASE_URL").ok(),
+            grader_database_url: std::env::var("PLE_GRADER_DATABASE_URL").ok(),
         })
     }
 
@@ -959,35 +952,30 @@ impl ProductionSettings {
         }))
     }
 
-    fn qti_runtime(&self) -> Result<Option<QtiRuntimeConfig>> {
-        match (
-            self.qti_runtime_enabled.as_deref(),
-            self.qti_grader_database_url.as_deref(),
-        ) {
-            (None, None) => Ok(None),
-            (Some("1"), Some(database_url)) if !database_url.trim().is_empty() => {
-                if !database_url.starts_with("postgres://")
-                    && !database_url.starts_with("postgresql://")
-                {
-                    bail!("PLE_GRADER_DATABASE_URL must be a PostgreSQL connection URL");
-                }
-                Ok(Some(QtiRuntimeConfig {
-                    grader_database_url: database_url.to_string(),
-                }))
-            }
-            (Some("1"), _) => {
-                bail!("PLE_QTI_RUNTIME_ENABLED=1 requires PLE_GRADER_DATABASE_URL")
-            }
-            (Some(_), _) => bail!("PLE_QTI_RUNTIME_ENABLED must be exactly 1 when set"),
-            (None, Some(_)) => {
-                bail!("PLE_GRADER_DATABASE_URL requires PLE_QTI_RUNTIME_ENABLED=1")
-            }
+    /// Flat native questions are registered in every production adapter, so
+    /// their separately authenticated grader connection is mandatory even
+    /// when the optional QTI runtime is disabled.
+    fn grader_database_url(&self) -> Result<&str> {
+        let database_url = self
+            .grader_database_url
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| anyhow::anyhow!("PLE_GRADER_DATABASE_URL must be set"))?;
+        if !database_url.starts_with("postgres://") && !database_url.starts_with("postgresql://") {
+            bail!("PLE_GRADER_DATABASE_URL must be a PostgreSQL connection URL");
+        }
+        Ok(database_url)
+    }
+
+    /// QTI remains explicitly opt-in; it shares the already-required native
+    /// flat-question grader connection rather than creating another pool.
+    fn qti_runtime_enabled(&self) -> Result<bool> {
+        match self.qti_runtime_enabled.as_deref() {
+            None => Ok(false),
+            Some("1") => Ok(true),
+            Some(_) => bail!("PLE_QTI_RUNTIME_ENABLED must be exactly 1 when set"),
         }
     }
-}
-
-struct QtiRuntimeConfig {
-    grader_database_url: String,
 }
 
 fn decode_secret32(name: &str) -> Result<[u8; 32]> {
@@ -1064,9 +1052,10 @@ mod tests {
     use async_trait::async_trait;
     use axum::body::Body;
     use axum::http::{HeaderValue, Request, StatusCode};
+    use learning_data_access::in_memory::MemoryStore;
+    use learning_data_access::{SessionLifetime, SessionSubject};
+    use objects::memory::MemoryObjectStore;
     use question_model::UserId;
-    use store::memory::MemoryStore;
-    use store::{SessionLifetime, SessionSubject};
     use tower::ServiceExt;
 
     use super::*;
@@ -1097,9 +1086,9 @@ mod tests {
     impl PublicReviewGate for TestReview {
         async fn allows_publication(
             &self,
-            _tenant: store::TenantContext,
+            _tenant: learning_data_access::TenantContext,
             _publisher: UserId,
-            _draft: &store::DraftRecord,
+            _draft: &learning_data_access::DraftRecord,
         ) -> Result<bool, ReviewGateError> {
             Err(ReviewGateError("test review is unavailable".to_string()))
         }
@@ -1110,6 +1099,106 @@ mod tests {
             SessionLifetime::from_seconds(3_600).expect("positive lifetime"),
             CookieTransport::LocalHttp,
         )
+    }
+
+    #[test]
+    fn postgres_readiness_requires_exact_schema_compatibility() {
+        assert_eq!(
+            postgres_schema_probe(Ok(())),
+            ProbeResult::ready("postgres")
+        );
+        assert_eq!(
+            postgres_schema_probe(Err(SchemaCompatibilityError::Unavailable)),
+            ProbeResult::failed("postgres")
+        );
+        assert_eq!(
+            postgres_schema_probe(Err(SchemaCompatibilityError::Incompatible(
+                "test-only private detail".to_string(),
+            ))),
+            ProbeResult::failed("postgres")
+        );
+    }
+
+    fn composed_memory_router() -> Router {
+        let (store, grader) = MemoryStore::with_flat_question_grader();
+        let store = Arc::new(store);
+        let objects = Arc::new(MemoryObjectStore::default());
+        let native_adapter = Arc::new(adapter_native::NativeAdapter::new());
+        let native = NativeBackend::with_flat_grader(
+            Arc::clone(&native_adapter),
+            Arc::clone(&store),
+            Arc::new(grader),
+        );
+        let renderer = HttpWebworkRenderer::new(
+            HttpWebworkRendererConfig::new(
+                "http://renderer.internal",
+                std::time::Duration::from_secs(1),
+                1_024,
+                RendererIdentity {
+                    id: "test-renderer".to_string(),
+                    version: "1".to_string(),
+                },
+            )
+            .expect("valid test renderer configuration"),
+        )
+        .expect("valid test renderer");
+        let webwork = WebworkBackend::new(
+            Arc::clone(&store),
+            Arc::clone(&objects),
+            Arc::new(WebworkAdapter::new(objects.as_ref().clone(), renderer)),
+        );
+        let backends = Arc::new(CompositeBackend::new(native, webwork));
+        let public_assets = Arc::new(
+            PublicAssetBaseUrl::new("https://cdn.example.test/content")
+                .expect("valid public asset base"),
+        );
+        let health = Arc::new(HealthState {
+            postgres: lazy_pool("postgres://user:password@127.0.0.1:1/ple")
+                .expect("valid lazy postgres pool"),
+            object_client: objects::minio::client(&objects::minio::EndpointConfig {
+                endpoint_url: "http://127.0.0.1:1".to_string(),
+                region: "us-east-1".to_string(),
+                access_key_id: "test-access".to_string(),
+                secret_access_key: "test-secret".to_string(),
+            }),
+            content_bucket: "content".to_string(),
+        });
+        compose_router(
+            store,
+            objects,
+            public_assets,
+            backends,
+            native_adapter,
+            Arc::new(TestIdentity),
+            Arc::new(TestReview),
+            session_config(),
+            health,
+        )
+    }
+
+    #[tokio::test]
+    async fn composition_mounts_private_qti_profile_routes() {
+        let app = composed_memory_router();
+        for request in [
+            Request::builder()
+                .method("GET")
+                .uri("/api/workspaces/00000000-0000-0000-0000-000000000001/qti-imports/00000000-0000-0000-0000-000000000002")
+                .body(Body::empty())
+                .expect("QTI report request"),
+            Request::builder()
+                .method("POST")
+                .uri("/api/workspaces/00000000-0000-0000-0000-000000000001/qti-imports/00000000-0000-0000-0000-000000000002/items/item-1/convert-flat")
+                .body(Body::empty())
+                .expect("QTI conversion request"),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(request)
+                .await
+                .expect("QTI route response");
+            assert!(!response.status().is_success());
+            assert_eq!(response.headers().get("cache-control"), Some(&HeaderValue::from_static("no-store")));
+        }
     }
 
     fn local_provider() -> LocalFileIdentityProvider {
@@ -1223,52 +1312,51 @@ mod tests {
             webwork_authentication_header: None,
             imathas_provider_key: None,
             qti_runtime_enabled: None,
-            qti_grader_database_url: None,
+            grader_database_url: None,
         }
     }
 
     #[test]
-    fn qti_runtime_configuration_is_explicit_all_or_nothing_and_redacted() {
-        assert!(
-            production_settings()
-                .qti_runtime()
-                .expect("disabled QTI")
-                .is_none()
-        );
+    fn grader_runtime_is_required_redacted_and_qti_is_explicit() {
+        let settings = production_settings();
+        let error = settings
+            .grader_database_url()
+            .expect_err("flat native grading requires a dedicated grader URL")
+            .to_string();
+        assert!(error.contains("PLE_GRADER_DATABASE_URL"));
 
-        for (enabled, url) in [
-            (Some("1"), None),
-            (None, Some("postgres://ple_qti_grader:secret@db/ple")),
-            (Some("0"), None),
-            (
-                Some("true"),
-                Some("postgres://ple_qti_grader:secret@db/ple"),
-            ),
-            (Some("1"), Some("https://ple_qti_grader:secret@db/ple")),
-            (Some("1"), Some("   ")),
+        for url in [
+            "   ",
+            "https://ple_grading_reader:secret@db/ple",
+            "not-a-url-with-secret",
         ] {
             let mut settings = production_settings();
-            settings.qti_runtime_enabled = enabled.map(str::to_string);
-            settings.qti_grader_database_url = url.map(str::to_string);
-            let Err(error) = settings.qti_runtime() else {
-                panic!("partial or malformed QTI runtime must reject");
-            };
-            let error = error.to_string();
+            settings.grader_database_url = Some(url.to_string());
+            let error = settings
+                .grader_database_url()
+                .expect_err("malformed grader URL must reject")
+                .to_string();
             assert!(
                 !error.contains("secret"),
-                "QTI configuration failure must not expose its database URL: {error}"
+                "grader configuration failure must not expose its database URL: {error}"
             );
         }
 
         let mut settings = production_settings();
+        settings.grader_database_url =
+            Some("postgres://ple_grading_reader:secret@db.internal/ple".to_string());
+        assert!(
+            settings
+                .grader_database_url()
+                .unwrap()
+                .starts_with("postgres://")
+        );
+        assert!(!settings.qti_runtime_enabled().unwrap());
+
         settings.qti_runtime_enabled = Some("1".to_string());
-        settings.qti_grader_database_url =
-            Some("postgres://ple_qti_grader:secret@db.internal/ple".to_string());
-        let configured = settings
-            .qti_runtime()
-            .expect("valid explicit QTI runtime configuration")
-            .expect("QTI enabled");
-        assert!(configured.grader_database_url.starts_with("postgres://"));
+        assert!(settings.qti_runtime_enabled().unwrap());
+        settings.qti_runtime_enabled = Some("true".to_string());
+        assert!(settings.qti_runtime_enabled().is_err());
     }
 
     #[test]
@@ -1495,15 +1583,7 @@ mod tests {
 
     #[tokio::test]
     async fn composition_mounts_every_route_group() {
-        let settings = production_settings();
-        let persistent = PersistentDependencies::from_settings(&settings)
-            .await
-            .expect("valid lazy settings");
-        let app = persistent.router(
-            Arc::new(TestIdentity),
-            Arc::new(TestReview),
-            session_config(),
-        );
+        let app = composed_memory_router();
 
         for (method, path) in [
             ("GET", "/api/auth/session"),
@@ -1511,6 +1591,14 @@ mod tests {
             ("GET", "/api/taxonomy"),
             ("GET", "/api/courses"),
             ("GET", "/api/runs/example"),
+            (
+                "PUT",
+                "/api/workspaces/00000000-0000-0000-0000-000000000001/flat-question",
+            ),
+            (
+                "POST",
+                "/api/problems/00000000-0000-0000-0000-000000000001/flat-question-publish",
+            ),
             // A POST to a GET-only asset route reaches axum's method router
             // (405) without opening the deliberately unreachable test DB.
             ("POST", "/api/assets/not-a-uuid"),
@@ -1532,15 +1620,7 @@ mod tests {
 
     #[tokio::test]
     async fn disabled_imathas_does_not_mount_protected_broker_routes() {
-        let settings = production_settings();
-        let persistent = PersistentDependencies::from_settings(&settings)
-            .await
-            .expect("iMathAS is disabled");
-        let app = persistent.router(
-            Arc::new(TestIdentity),
-            Arc::new(TestReview),
-            session_config(),
-        );
+        let app = composed_memory_router();
         for (method, path) in [
             (
                 "GET",

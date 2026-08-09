@@ -172,6 +172,20 @@ test("reload restores the saved response and its existing replay key", async () 
   assert.equal(second.submissionCalls[0].key, "key-1");
 });
 
+test("run exit clears only the active attempt buffer", () => {
+  const storage = createStorage();
+  const otherAttemptKey = "ple:attempt:tenant-a:run-a:attempt-b";
+  storage.setItem(otherAttemptKey, "other-attempt-buffer");
+  const fixture = createMachine({ storage });
+  ready(fixture.machine, numericResponse(12));
+
+  assert.notEqual(storage.getItem("ple:attempt:tenant-a:run-a:attempt-a"), null);
+  fixture.machine.dispose();
+
+  assert.equal(storage.getItem("ple:attempt:tenant-a:run-a:attempt-a"), null);
+  assert.equal(storage.getItem(otherAttemptKey), "other-attempt-buffer");
+});
+
 test("a hostile saved multiple-choice response is discarded before it reaches an uneditable control", async () => {
   const storage = createStorage();
   storage.setItem(

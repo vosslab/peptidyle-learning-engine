@@ -145,6 +145,16 @@ def _workspace_closure(root_package: str) -> set[str]:
 
 
 #============================================
+def test_contributor_facing_crates_have_descriptive_package_names() -> None:
+	"""Keep terse compatibility package names from returning."""
+	members = _workspace_members()
+	assert "learning-data-access" in members
+	assert "project-tools" in members
+	assert "store" not in members
+	assert "xtask" not in members
+
+
+#============================================
 def test_wasm_dependency_closure_is_key_free() -> None:
 	"""Prove the browser module reaches only the two approved workspace crates."""
 	closure = _workspace_closure("wasm_bridge")

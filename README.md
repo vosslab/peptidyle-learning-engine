@@ -2,13 +2,19 @@
 
 A backend-agnostic assignment platform for instructors who teach through repeated practice: students retry algorithmic questions until each one is correct, timers and grading stay on the server, and practice continues past completion.
 
-**Status: active implementation, not production-ready.** The repository now contains the Rust API,
-Solid browser client, WebAssembly boundary, six-file PostgreSQL baseline, object storage, question
-adapters, exports, manual grading, and course-local item analysis. The complete code gate and the
-disposable PostgreSQL acceptance gate pass. Production queue draining, import hardening, and the
-remaining backup, restore, purge, and partition operations gates are still open. The database is a
-pre-data baseline: once an environment accepts durable data, later schema changes must be forward
-migrations instead of edits to these six files.
+**Status: advanced code-first implementation, not production-ready.** The last accepted QTI package
+is WP-QTI-8: reviewed Canvas and Blackboard items can become canonical native flat source, private
+grading, and provenance-aware Memory/PostgreSQL state atomically. A fresh six-migration real-role
+baseline and focused frontend/backend security pass are green. WP-QTI-9 server routes are next;
+course appearance, seven required flat-question families, remaining M5 integration, and M6
+deployment are incomplete. See
+`docs/active_plans/project_status_report_2026-08-09.md` for verified evidence, milestone posture,
+blockers, and dependency order.
+
+The database is still a pre-data baseline. Once an environment accepts durable data, later schema
+changes must be forward migrations rather than edits to the six initial files. The maintained
+Compose stack is for local development and currently uses the PostgreSQL bootstrap credential; it
+is not a production deployment configuration.
 
 ## Why this project
 
@@ -84,30 +90,29 @@ browser                         gateway       stateless server replicas
 Each crate names an exhaustive dependency list, so the boundary holds by construction rather than by
 convention:
 
-| Crate                     | Owns                                                                          | Depends only on                                  |
-| ------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------ |
-| `crates/question_model`   | Question types, capabilities, identity, taxonomy                              | External crates                                  |
-| `crates/domain`           | Attempt state machine, runs, timing, seeded generation, capability validation | `question_model`                                 |
-| `crates/grading`          | Answer keys, checkers, correctness decisions (server only)                    | `question_model`, `domain`                       |
-| `crates/objects`          | Object store trait, S3 and MinIO backends, keys, checksums                    | `question_model`                                 |
-| `crates/store`            | Learning data access: contracts, PostgreSQL, migrations, and tenant isolation | `question_model`, `domain`, `objects`            |
-| `crates/adapters/native`  | First-party algorithmic generation and grading                                | `question_model`, `domain`, `grading`            |
-| `crates/adapters/webwork` | Private renderer client, deterministic rendering, grading delegation          | `question_model`, `domain`, `grading`, `objects` |
-| `crates/adapters/qti`     | Hardened package import and opt-in published runtime                          | `question_model`, `domain`, `grading`, `objects` |
-| `crates/adapters/imathas` | Contracted or self-hosted, server-brokered scored embed                       | `question_model`, `objects`                      |
-| `crates/adapters/h5p`     | Package import into ungraded practice; scored execution is unavailable        | `question_model`                                 |
-| `crates/export`           | Print model, DOCX and PDF writers                                             | `question_model`, `objects`                      |
-| `crates/wasm`             | The `wasm-bindgen` bridge, delegating every call to `domain`                  | `question_model`, `domain`                       |
-| `crates/server`           | axum routes, auth, worker mode, composition root                              | Every crate above                                |
+| Crate                         | Owns                                                                          | Depends only on                                  |
+| ----------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------ |
+| `crates/question_model`       | Question types, capabilities, identity, taxonomy                              | External crates                                  |
+| `crates/domain`               | Attempt state machine, runs, timing, seeded generation, capability validation | `question_model`                                 |
+| `crates/grading`              | Answer keys, checkers, correctness decisions (server only)                    | `question_model`, `domain`                       |
+| `crates/objects`              | Object store trait, S3 and MinIO backends, keys, checksums                    | `question_model`                                 |
+| `crates/learning-data-access` | Learning data access: contracts, PostgreSQL, migrations, and tenant isolation | `question_model`, `domain`, `objects`            |
+| `crates/adapters/native`      | First-party generated questions and strict static PLE JSON                    | `question_model`, `domain`, `grading`            |
+| `crates/adapters/webwork`     | Private renderer client, deterministic rendering, grading delegation          | `question_model`, `domain`, `grading`, `objects` |
+| `crates/adapters/qti`         | Hardened package import and opt-in published runtime                          | `question_model`, `domain`, `grading`, `objects` |
+| `crates/adapters/imathas`     | Contracted or self-hosted, server-brokered scored embed                       | `question_model`, `objects`                      |
+| `crates/adapters/h5p`         | Package import into ungraded practice; scored execution is unavailable        | `question_model`                                 |
+| `crates/export`               | Print model, DOCX and PDF writers                                             | `question_model`, `objects`                      |
+| `crates/wasm`                 | The `wasm-bindgen` bridge, delegating every call to `domain`                  | `question_model`, `domain`                       |
+| `crates/server`               | axum routes, auth, worker mode, composition root                              | Every crate above                                |
 
 Two properties follow from that table. `crates/domain` reaches only `question_model`, so it has no
 clock and no database, which is what lets the same code run on the server and in the browser. And
 `crates/wasm` never reaches `crates/grading`, which is the answer-secrecy guarantee above.
 
-Some current directory and Rust type names use conventional shorthand. In contributor-facing
-documentation, **learning data access** means `crates/store`, **in-memory data access** means its
-database-free `memory` backend, and **project tools** means `crates/xtask`. Run those repository-only
-tools through the clearer `cargo tools` command; `cargo xtask` remains a compatibility alias. See
+The descriptive crate paths are `crates/learning-data-access` and `crates/project-tools`; their
+Rust names are `learning_data_access` and `in_memory` where imported as code. Run repository-only
+automation through `cargo tools`. See
 [CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) and `docs/FILE_STRUCTURE.md`
 for the ownership map.
 
@@ -169,22 +174,34 @@ generation is discarded without delaying or rolling back the current grade.
 
 ## What exists today
 
-| Area                                 | State                                                                                                                                                               |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rust domain and learning data access | Attempt, timing, scoring, manual-grading, item-analysis, retention, catalog, and worker contracts; in-memory and PostgreSQL implementations share conformance tests |
-| API server                           | Auth, catalog, course, assignment, run, submission, manual grade, item analysis, asset, export, workspace, and retention route groups                               |
-| WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                      |
-| Browser client                       | Eleven Solid routes including courses, assignments, attempt loop, summary, library, authoring, assignment editing, and gradebook                                    |
-| PostgreSQL                           | Six domain-owned SQLx baseline migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL acceptance                                |
-| Question engines                     | Native implemented; WeBWorK private renderer client; QTI hardened import and opt-in runtime; contracted iMathAS broker; H5P is ungraded only                        |
-| DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                          |
-| Containers                           | PostgreSQL, MinIO, API replicas, gateway, and a private configurable WeBWorK renderer                                                                               |
-| Worker runtime                       | Durable claims and generation-fenced handlers exist; production family-filtered drain-loop activation and monitoring remain open                                    |
+| Area                                 | State                                                                                                                                                                           |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rust domain and learning data access | Attempt, timing, scoring, manual-grading, item-analysis, retention, catalog, and worker contracts; in-memory and PostgreSQL implementations share conformance tests             |
+| API server                           | Auth, catalog, course, assignment, run, submission, manual grade, item analysis, asset, export, workspace, and retention route groups                                           |
+| WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                  |
+| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, library, authoring, flat-question editing, assignment editing, and gradebook                                      |
+| PostgreSQL                           | Six domain-owned SQLx baseline migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL acceptance                                            |
+| Question engines                     | Native and static single-choice flat JSON implemented; WeBWorK private renderer client; QTI profiles through atomic conversion; contracted iMathAS broker; H5P is ungraded only |
+| DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                      |
+| Containers                           | Local-development PostgreSQL, MinIO, API replicas, worker, gateway, and private WeBWorK renderer; production runtime identities and deployment remain open                      |
+| Worker runtime                       | Production drains six complete families through a family-filtered registry; reserved Render and generic Import work stays unclaimed until its complete implementation lands     |
 
 The exact checkpoint, evidence, and remaining dependency order live in
+`docs/active_plans/project_status_report_2026-08-09.md` and
 [docs/active_plans/partial_commit_status.md](docs/active_plans/partial_commit_status.md). The full
 architecture and milestone plan remain in
 [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md).
+
+## Current limitations
+
+- Flat-question JSON v1 supports static single choice. Multiple answer, fill-in-the-blank,
+  multi-blank, numerical entry, matching, ordered list, and image hotspot remain required work.
+- QTI profile parsing, conversion, provenance, and persistence are implemented, but the instructor
+  upload/report/convert routes and UI are the next dependency-ordered packages.
+- Course themes and the centered course-entry banner have an accepted plan but no implementation.
+- File-upload responses deliberately fail closed until a server-issued, tenant/learner/attempt-bound
+  upload capability exists.
+- The local container topology is not a production security or deployment configuration.
 
 ## Repository layout
 
@@ -216,6 +233,8 @@ For status and contribution work:
 
 - [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md) - milestone
   plan, module catalog, contracts, and acceptance gates; the source of truth for this build.
+- `docs/active_plans/project_status_report_2026-08-09.md` - formal executive status, verification
+  evidence, milestone posture, blockers, and next work.
 - [docs/active_plans/partial_commit_status.md](docs/active_plans/partial_commit_status.md) - current
   implementation checkpoint, executable evidence, and remaining order.
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) - dated record of changes, decisions, and failures.

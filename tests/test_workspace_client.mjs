@@ -309,11 +309,14 @@ test("stale delete after a collaborator save sends the old ETag and returns a re
   });
   const repository = createWorkspaceEditorRepository(client);
   await repository.getDraft(workspace);
+  assert.equal(repository.displayedRevision?.(workspace), '"1"');
   revision = 2;
   await assert.rejects(repository.deleteDraft(workspace), WorkspaceConflictError);
   assert.equal(calls.at(-1).headers["if-match"], '"1"');
+  assert.equal(repository.displayedRevision?.(workspace), '"1"');
   const reloaded = await repository.reloadDraft(workspace);
   assert.equal(reloaded.workspace, workspace);
+  assert.equal(repository.displayedRevision?.(workspace), '"2"');
 });
 
 test("delete refuses a missing precondition response without discarding the workspace", async () => {

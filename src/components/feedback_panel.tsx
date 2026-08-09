@@ -4,6 +4,7 @@ import { createEffect, createSignal, For, onCleanup, Show, type JSX } from "soli
 
 import type { ContentBlock } from "../../generated/api/ContentBlock";
 import type { DisclosedFeedback } from "../../generated/api/DisclosedFeedback";
+import { formatPointScore, formatScoreValue } from "../score_format";
 
 import { resolveSameOriginAssetUrl, type AssetUrlResolver } from "./question_renderer";
 import { FEEDBACK_PANEL_STYLES } from "./feedback_panel_styles";
@@ -145,13 +146,13 @@ function FeedbackSection(props: {
 
 function scoreText(feedback: DisclosedFeedback): string | undefined {
   if (feedback.pointsEarned !== undefined && feedback.pointsPossible !== undefined) {
-    return `Score: ${feedback.pointsEarned} / ${feedback.pointsPossible}`;
+    return `Score: ${formatPointScore(feedback.pointsEarned, feedback.pointsPossible)}`;
   }
   if (feedback.pointsEarned !== undefined) {
-    return `Points earned: ${feedback.pointsEarned}`;
+    return `Points earned: ${formatScoreValue(feedback.pointsEarned)}`;
   }
   if (feedback.pointsPossible !== undefined) {
-    return `Points possible: ${feedback.pointsPossible}`;
+    return `Points possible: ${formatScoreValue(feedback.pointsPossible)}`;
   }
   return undefined;
 }

@@ -15,8 +15,10 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use learning_data_access::{
+    CreateAssignmentExport, ExportId, ExportJobStore, SessionStore, Store, StoreError,
+};
 use question_model::{AssignmentId, CourseRole, UserRole};
-use store::{CreateAssignmentExport, ExportId, ExportJobStore, SessionStore, Store, StoreError};
 
 use crate::auth::{AuthenticatedSession, auth_error_response, no_store, resolve_request_session};
 
@@ -206,10 +208,12 @@ fn store_error_response(error: StoreError) -> Response {
         StoreError::RunModel(error) => {
             error_response(StatusCode::UNPROCESSABLE_ENTITY, &error.to_string())
         }
-        StoreError::TimedOut | StoreError::Unavailable(_) => error_response(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "export service unavailable",
-        ),
+        StoreError::TimedOut | StoreError::RetryableTransaction | StoreError::Unavailable(_) => {
+            error_response(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "export service unavailable",
+            )
+        }
     }
 }
 
@@ -222,6 +226,12 @@ mod tests {
     use super::*;
     use axum::body::{Body, to_bytes};
     use axum::http::Request;
+    use learning_data_access::in_memory::MemoryStore;
+    use learning_data_access::{
+        AssignmentRecord, CatalogStore, CourseRecord, DraftRecord, JobLeaseDuration, JobPayload,
+        JobStore, PublishDraftCommand, RetentionWorkerCommand, RetentionWorkerStore,
+        SessionLifetime, SessionSubject, TenantContext,
+    };
     use question_model::answer::NumericTolerance;
     use question_model::envelope::ContentBlock;
     use question_model::generation::RandomizationDefinition;
@@ -236,12 +246,6 @@ mod tests {
         CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
         ObjectId, ProblemId, ProblemVersionRef, PublicationScope, QuestionMetadata, QuestionSource,
         RunPolicies, TenantId, UserId, VersionId, WorkspaceId,
-    };
-    use store::memory::MemoryStore;
-    use store::{
-        AssignmentRecord, CatalogStore, CourseRecord, DraftRecord, JobLeaseDuration, JobPayload,
-        JobStore, PublishDraftCommand, RetentionWorkerCommand, RetentionWorkerStore,
-        SessionLifetime, SessionSubject, TenantContext,
     };
     use tower::ServiceExt;
     use uuid::Uuid;
@@ -347,6 +351,7 @@ mod tests {
                     },
                     source_artifact: None,
                     qti_promotion: None,
+                    flat_question_promotion: None,
                     publisher,
                     scope: PublicationScope::Public,
                     capabilities: BackendCapabilities::from_iter([
@@ -611,7 +616,10 @@ mod tests {
             .expect("archive cleanup fixture");
         let command = loop {
             let claim = store
-                .claim_next_job(JobLeaseDuration::from_seconds(30).expect("lease duration"))
+                .claim_next_job(
+                    &learning_data_access::JobClaimFilter::all(),
+                    JobLeaseDuration::from_seconds(30).expect("lease duration"),
+                )
                 .await
                 .expect("archive claim")
                 .expect("queued job");

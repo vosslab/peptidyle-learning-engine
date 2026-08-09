@@ -614,6 +614,7 @@ export function createAttemptStateMachine(
   function dispose(): void {
     disposed = true;
     requestNumber += 1;
+    clearBuffer();
   }
 
   return {

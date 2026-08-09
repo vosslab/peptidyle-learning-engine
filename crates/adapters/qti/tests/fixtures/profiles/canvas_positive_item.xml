@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<questestinterop xmlns="http://www.imsglobal.org/xsd/ims_qtiasiv1p2">
+  <assessment ident="root_assessment" title="Canvas fixture">
+    <section ident="root_section">
+      <item ident="canvas-1" title="Favorite color">
+        <itemmetadata><qtimetadata>
+          <qtimetadatafield><fieldlabel>question_type</fieldlabel><fieldentry>multiple_choice_question</fieldentry></qtimetadatafield>
+          <qtimetadatafield><fieldlabel>points_possible</fieldlabel><fieldentry>1.0</fieldentry></qtimetadatafield>
+          <qtimetadatafield><fieldlabel>original_answer_ids</fieldlabel><fieldentry>blue,red</fieldentry></qtimetadatafield>
+        </qtimetadata></itemmetadata>
+        <presentation>
+          <material><mattext texttype="text/html">What is my favorite color?</mattext></material>
+          <response_lid ident="response1" rcardinality="Single"><render_choice>
+            <response_label ident="blue"><material><mattext texttype="text/html">Blue</mattext></material></response_label>
+            <response_label ident="red"><material><mattext texttype="text/html">Red</mattext></material></response_label>
+          </render_choice></response_lid>
+        </presentation>
+        <resprocessing>
+          <respcondition continue="No"><conditionvar><varequal respident="response1">blue</varequal></conditionvar><setvar action="Set" varname="SCORE">100</setvar></respcondition>
+        </resprocessing>
+      </item>
+    </section>
+  </assessment>
+</questestinterop>

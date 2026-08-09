@@ -13,13 +13,13 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router, middleware};
+use learning_data_access::{SessionStore, Store, StoreError, WorkspaceDraftRevision};
 use question_model::catalog::QuestionBackend;
 use question_model::envelope::ContentBlock;
 use question_model::generation::Seed;
 use question_model::response::ResponseDefinition;
 use question_model::{DraftQuestionSource, UserRole, WorkspaceId};
 use serde::{Deserialize, Serialize};
-use store::{SessionStore, Store, StoreError, WorkspaceDraftRevision};
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
@@ -233,7 +233,7 @@ fn store_error_response(error: StoreError) -> Response {
         StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden => {
             error_response(StatusCode::NOT_FOUND, "workspace not found")
         }
-        StoreError::Unavailable(_) => error_response(
+        StoreError::RetryableTransaction | StoreError::Unavailable(_) => error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "workspace storage unavailable",
         ),
@@ -315,6 +315,8 @@ mod tests {
 
     use axum::body::{Body, to_bytes};
     use axum::http::Request;
+    use learning_data_access::in_memory::MemoryStore;
+    use learning_data_access::{DraftRecord, SessionLifetime, SessionSubject, TenantContext};
     use question_model::answer::SelectionCardinality;
     use question_model::envelope::ContentBlock;
     use question_model::generation::{GeneratorReference, ParameterSpec, RandomizationDefinition};
@@ -325,8 +327,6 @@ mod tests {
         DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionMetadata,
         TenantId, UserId,
     };
-    use store::memory::MemoryStore;
-    use store::{DraftRecord, SessionLifetime, SessionSubject, TenantContext};
     use tower::ServiceExt;
     use uuid::Uuid;
 

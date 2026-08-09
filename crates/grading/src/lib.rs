@@ -6,6 +6,8 @@
 
 /// Answer checking implementations.
 pub mod checker;
+/// Integrity contract and private material for the built-in flat question family.
+pub mod flat_question;
 /// Gated access to grading materials and answer keys.
 pub mod key;
 

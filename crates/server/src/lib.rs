@@ -24,18 +24,32 @@ pub mod export;
 pub mod export_worker;
 /// Policy-redacted server feedback projections; persistence and routes consume it later.
 pub mod feedback;
+/// Dedicated authoring and immutable publication routes for PLE flat questions.
+pub mod flat_question_publication;
 /// Readiness reporting for the container health check.
 pub mod health;
 /// Server-only durable iMathAS broker bridge.  It is intentionally not wired
 /// into the production backend registry until its same-origin launch profile
 /// is configured.
 pub mod imathas_backend;
+/// Instructor-only course-local aggregate item-analysis report.
+pub mod item_analysis;
+/// Private staged and generation-fenced course item-analysis worker.
+pub mod item_analysis_worker;
 /// Server composition bridge for first-party native question families.
 pub mod native_backend;
 /// Immutable published-QTI replay and server-side grading bridge.
 pub mod qti_backend;
 /// Private QTI archive staging worker and claim-bound committer.
 pub mod qti_import;
+/// Author-only conversion of recognized QTI profile items into native flat drafts.
+pub mod qti_profile_conversion;
+/// Pure server-only bridge from validated QTI profiles to native flat questions.
+pub(crate) mod qti_profile_flat_bridge;
+/// Author-only QTI archive upload and answer-free profile reports.
+pub mod qti_profile_import;
+#[cfg(test)]
+mod qti_profile_postgres_live;
 /// Server-only QTI publication preparation; generic publication stays closed.
 pub mod qti_publication;
 /// Instructor-facing retention policy control and status APIs.

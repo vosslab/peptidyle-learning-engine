@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use store::{
+use learning_data_access::{
     AssignmentScoringCommitOutcome, AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore,
     JobFailureKind, JobPayload, StoreError, TenantContext,
 };
@@ -19,7 +19,6 @@ pub(crate) struct AssignmentScoringHandler<S> {
 }
 
 impl<S> AssignmentScoringHandler<S> {
-    #[allow(dead_code)] // Full queue composition opts into concrete handlers separately.
     pub(crate) fn new(store: Arc<S>) -> Self {
         Self { store }
     }
@@ -84,7 +83,6 @@ pub(crate) struct AssignmentScoringCommitter<S> {
 }
 
 impl<S> AssignmentScoringCommitter<S> {
-    #[allow(dead_code)] // Full queue composition opts into concrete committers separately.
     pub(crate) fn new(store: Arc<S>) -> Self {
         Self { store }
     }

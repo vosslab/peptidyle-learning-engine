@@ -324,13 +324,19 @@ def test_query_paths_reject_executable_offset_pagination() -> None:
 
 
 #============================================
-def test_store_list_contracts_require_bounded_typed_pages() -> None:
+def test_data_access_list_contracts_require_bounded_typed_pages() -> None:
 	"""Keep collection storage behind PageRequest, Page, and validated PageSize."""
-	store_contract = (REPO_ROOT / "crates" / "store" / "src" / "lib.rs").read_text()
-	pagination = (REPO_ROOT / "crates" / "store" / "src" / "pagination.rs").read_text()
+	data_access_contract = (
+		REPO_ROOT / "crates" / "learning-data-access" / "src" / "lib.rs"
+	).read_text()
+	pagination = (
+		REPO_ROOT / "crates" / "learning-data-access" / "src" / "pagination.rs"
+	).read_text()
 	offending = []
-	for match in re.finditer(r"async\s+fn\s+(list_[A-Za-z0-9_]+)\b", store_contract):
-		method = store_contract[match.start():store_contract.find(";", match.end())]
+	for match in re.finditer(r"async\s+fn\s+(list_[A-Za-z0-9_]+)\b", data_access_contract):
+		method = data_access_contract[
+			match.start():data_access_contract.find(";", match.end())
+		]
 		if "PageRequest" not in method or "Result<Page<" not in method:
 			offending.append(match.group(1))
 	assert "pub size: PageSize" in pagination

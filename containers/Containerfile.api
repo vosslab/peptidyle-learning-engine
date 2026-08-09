@@ -17,6 +17,10 @@ WORKDIR /build
 # edits. Without this split, every source change rebuilds every dependency.
 COPY Cargo.toml Cargo.lock ./
 COPY crates crates
+# SQLx embeds the verified migration baseline in the server binary. Keep this
+# authoritative directory as an explicit build input instead of relying on a
+# developer's wider working tree.
+COPY schemas/migrations schemas/migrations
 
 # --locked fails the build if Cargo.lock would need to change, which is what
 # makes a container build reproducible rather than "whatever resolved today".

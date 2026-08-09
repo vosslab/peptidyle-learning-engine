@@ -39,7 +39,7 @@ Each of these is a hard `rustc` error, not a lint.
 | File:line | Defect | Fix |
 | --- | --- | --- |
 | `crates/objects/src/lib.rs:4` | `pub mod memory;    / MemoryObjectStore ...` - a single `/` is not a comment token | `//` |
-| `crates/store/src/lib.rs:4-5` | `pub mod postgres;   # pg_backend ...` - Python comment syntax in Rust, two lines | `//` |
+| `crates/learning-data-access/src/lib.rs:4-5` | `pub mod postgres;   # pg_backend ...` - Python comment syntax in Rust, two lines | `//` |
 | `crates/export/src/lib.rs:3-4` | `pub mod docx;   Microsoft Word format output` - bare prose, no comment marker | `//` |
 | `crates/server/src/main.rs:7` | Literal `\n` escape pasted into source outside any string | Real newline |
 | `crates/server/src/main.rs:6` | `-> anyhow::Result<()>` but `anyhow` is absent from `crates/server/Cargo.toml` | Declare `anyhow` in the workspace and the crate, or return `Result<(), std::io::Error>` |
@@ -85,7 +85,7 @@ The plan's crate table (`implementation_plan.md:359-369`) is the contract. Devia
   features = ["serde"] }` so the absence is structural, exactly as WP-F1 asks ("real absences, not
   comments").
 - **The database driver sits in the wrong crate.** `sqlx` is declared in
-  `crates/server/Cargo.toml:18` and nowhere in `crates/store`, but the plan gives `crates/store`
+  `crates/server/Cargo.toml:18` and nowhere in `crates/learning-data-access`, but the plan gives `crates/learning-data-access`
   ownership of "PostgreSQL backends, migrations, RLS context management". Move it before MOD-SCHEMA
   starts, or MOD-STO will be written against a dependency it does not own.
 - **Grading isolation is correct - keep it that way.** `crates/wasm` depends only on
@@ -98,7 +98,7 @@ The plan's crate table (`implementation_plan.md:359-369`) is the contract. Devia
   `crates/server/Cargo.toml:18` and `crates/adapters/qti/Cargo.toml:12` redeclare them inline with
   duplicate version strings. The internal-crate aliases `export_crate`, `wasm_bridge`,
   `server_core`, and `adapter_*` are declared at root and never consumed by any member.
-- **Missing allowed deps.** `crates/store` and `crates/export` are both permitted `objects` and
+- **Missing allowed deps.** `crates/learning-data-access` and `crates/export` are both permitted `objects` and
   neither declares it. Harmless while stubbed; add when the traits land so the boundary is
   explicit.
 - **Public items are undocumented.** `crates/adapters/native/src/generator.rs:4` and
@@ -119,7 +119,7 @@ The plan's crate table (`implementation_plan.md:359-369`) is the contract. Devia
   temp files. A commit right now would resurrect files that were deliberately removed.
 - **`crates/server/src/auth.rs` is untracked and empty** while `crates/server/src/lib.rs:4`
   declares `pub mod auth;`. A fresh clone of the current index fails to build even after the syntax
-  fixes. `crates/store/src/rls.rs` is untracked, empty, and declared by nobody.
+  fixes. `crates/learning-data-access/src/rls.rs` is untracked, empty, and declared by nobody.
 - **`README.md` is 0 bytes.** `tests/test_readme_first_paragraph.py` exists and will fail, so
   `pytest tests/` cannot be green (WP-F6 exit criterion).
 - **Six `.toml` files carry trailing whitespace** (`Cargo.toml`, `crates/grading`, `crates/objects`,
@@ -145,9 +145,9 @@ Follow the plan's own patch sequence. Do not start M1 (WP-C1) until the M0 exit 
 
 1. **Patch 1 rework - WP-F1 + WP-F2.** Fix the five compile errors; run `cargo fmt`; set edition
    2024 and inherit `rust-version`; make `chrono` `default-features = false`; move `sqlx` to
-   `crates/store`; collapse `xml-rs`/`sqlx` onto `workspace = true`; delete the unused internal
+   `crates/learning-data-access`; collapse `xml-rs`/`sqlx` onto `workspace = true`; delete the unused internal
    aliases from the root workspace table; commit `crates/server/src/auth.rs` or drop the `pub mod
-   auth;` line; delete `crates/store/src/rls.rs` until MOD-SCHEMA needs it. Add
+   auth;` line; delete `crates/learning-data-access/src/rls.rs` until MOD-SCHEMA needs it. Add
    `rust-toolchain.toml`, the `wasm-bindgen` staging dir (gitignored), and one trivial export
    callable from Node.
 2. **Git hygiene, same patch.** Unstage the three temp files, reconcile the ten staged-deleted

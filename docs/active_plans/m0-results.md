@@ -141,7 +141,7 @@ reviewer can disagree with the reasoning rather than guess at it.
 - **Generate TypeScript ourselves.** WP-C1 called for `ts-rs` derives. Measured
   problem: ts-rs output is not `prettier --check` clean, and M1 requires
   generated TypeScript to pass Prettier *unchanged*, which a third-party
-  generator gives no way to control. `crates/xtask` now parses the model with
+  generator gives no way to control. `crates/project-tools` now parses the model with
   `syn` and emits Prettier-shaped TypeScript directly. Side benefit:
   `question_model`, the product's root contract, carries no codegen dependency.
 - **Parse QTI ourselves.** `xml-rs` was dropped before it was used. The
@@ -151,7 +151,7 @@ reviewer can disagree with the reasoning rather than guess at it.
   Reference material for that work: `~/nsh/PROBLEMS/qti-package-maker/`.
 - **Generate WASM glue from the workspace.** The first attempt installed a
   `wasm-bindgen` CLI through Homebrew and compared versions in the build
-  script. Replaced by `crates/xtask` depending on `wasm-bindgen-cli-support`,
+  script. Replaced by `crates/project-tools` depending on `wasm-bindgen-cli-support`,
   so `Cargo.lock` pins generator and crate together. A structural guarantee
   replaced a runtime check.
 - **One master build script.** `build_github_pages.sh` was removed along with a

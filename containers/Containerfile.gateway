@@ -1,0 +1,10 @@
+# The official Caddy binary carries cap_net_bind_service so it can bind ports
+# below 1024. Peptidyle listens on 8080 and drops every runtime capability, so
+# remove that unnecessary file capability before switching to the fixed
+# non-root identity. The pinned base digest is supplied by Compose.
+ARG CADDY_IMAGE
+FROM ${CADDY_IMAGE}
+
+USER root
+RUN setcap -r /usr/bin/caddy
+USER 1000:1000

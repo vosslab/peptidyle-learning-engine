@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<assessmentTest xmlns="http://www.imsglobal.org/xsd/imsqti_v2p1" identifier="assessment_meta" title="Blackboard fixture">
+  <testPart identifier="test_part" navigationMode="nonlinear" submissionMode="simultaneous">
+    <assessmentSection identifier="section_part" visible="false" title="Question Pool">
+      <assessmentItemRef identifier="bb-1" href="bb-1.xml"/>
+    </assessmentSection>
+  </testPart>
+</assessmentTest>

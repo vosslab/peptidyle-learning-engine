@@ -37,12 +37,15 @@ adapter_webwork.workspace = true
 adapter_imathas = { workspace = true, features = ["http-transport"] }
 adapter_qti.workspace = true
 export_crate.workspace = true
-# Feature flags, not direct dependencies: the sqlx driver stays inside `store`
+# Feature flags, not direct dependencies: the sqlx driver stays inside
+# `learning-data-access`
 # and the AWS SDK stays inside `objects`, so this crate never names either.
 objects = { workspace = true, features = ["s3"] }
-store = { workspace = true, features = ["postgres"] }
+learning-data-access = { workspace = true, features = ["postgres"] }
 
 [dev-dependencies]
 tower.workspace = true
-store = { workspace = true, features = ["test-support"] }
+futures-core = ">=0.3.31"
+zip = { version = ">=6.0.0", default-features = false, features = ["deflate"] }
+learning-data-access = { workspace = true, features = ["test-support"] }
 adapter_imathas = { workspace = true, features = ["test-support"] }

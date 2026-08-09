@@ -18,6 +18,10 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use domain::policy::PublicationViolation;
+use learning_data_access::{
+    CatalogStore, CatalogTransition, Cursor, DraftRecord, PageRequest, PageSize, PaginationError,
+    PublishDraftCommand, SessionStore, Store, StoreError, TenantContext, WorkspaceDraftRevision,
+};
 use question_model::{
     BackendCapabilities, Capability, CatalogLicenseValue, CatalogSearchQuery,
     CatalogStatisticsAvailability, CatalogTaxonomyFilter, DraftQuestionSource, ProblemDisplayRef,
@@ -25,10 +29,6 @@ use question_model::{
     WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
-use store::{
-    CatalogStore, CatalogTransition, Cursor, DraftRecord, PageRequest, PageSize, PaginationError,
-    PublishDraftCommand, SessionStore, Store, StoreError, TenantContext, WorkspaceDraftRevision,
-};
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
@@ -674,6 +674,7 @@ where
         // storage rejects them before a version can be minted.
         source_artifact: None,
         qti_promotion: None,
+        flat_question_promotion: None,
         publisher,
         scope: request.scope,
         capabilities,
@@ -809,7 +810,7 @@ pub(crate) fn store_error_response(error: StoreError) -> Response {
             error_response(StatusCode::UNPROCESSABLE_ENTITY, &error.to_string())
         }
         StoreError::TimedOut => error_response(StatusCode::CONFLICT, "question attempt timed out"),
-        StoreError::Unavailable(_) => {
+        StoreError::RetryableTransaction | StoreError::Unavailable(_) => {
             error_response(StatusCode::SERVICE_UNAVAILABLE, "catalog unavailable")
         }
     }
@@ -824,6 +825,8 @@ mod tests {
     use super::*;
     use axum::body::{Body, to_bytes};
     use axum::http::Request;
+    use learning_data_access::in_memory::MemoryStore;
+    use learning_data_access::{SessionLifetime, SessionSubject};
     use question_model::answer::NumericTolerance;
     use question_model::envelope::ContentBlock;
     use question_model::generation::RandomizationDefinition;
@@ -835,8 +838,6 @@ mod tests {
         QuestionMetadata, TenantId, WorkspaceImportId,
     };
     use std::sync::atomic::{AtomicUsize, Ordering};
-    use store::memory::MemoryStore;
-    use store::{SessionLifetime, SessionSubject};
     use tower::ServiceExt;
     use uuid::Uuid;
 

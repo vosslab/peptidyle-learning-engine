@@ -30,6 +30,11 @@ export interface EditorDraft {
   readonly randomization: RandomizationDefinition;
 }
 
+export interface EditorDraftDisplayState {
+  readonly revision: string;
+  readonly dirty: boolean;
+}
+
 export interface WorkspaceDraftSummary {
   readonly workspace: WorkspaceId;
   readonly title: string;
@@ -111,6 +116,8 @@ export interface EditorRepository {
   };
   readonly deleteDraft?: (workspace: WorkspaceId) => Promise<void>;
   readonly reloadDraft?: (workspace: WorkspaceId) => Promise<EditorDraft>;
+  /** Strong revision retained for the draft currently displayed by an editor. */
+  readonly displayedRevision?: (workspace: WorkspaceId) => string | null;
   readonly instructorPreview?: InstructorPreviewProvider;
 }
 

@@ -17,7 +17,7 @@
 //! server-side.
 //!
 //! Each struct is written out rather than produced by a macro, because the
-//! TypeScript generator in `crates/xtask` reads this source: a type declared
+//! TypeScript generator in `crates/project-tools` reads this source: a type declared
 //! inside a macro body is invisible to it, and to a reader skimming for the
 //! contract. The shared behavior is generated once by `impl_identifier!`.
 
