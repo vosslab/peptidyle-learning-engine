@@ -710,6 +710,7 @@ mod tests {
             seed: 41,
             parameter_hash: issued.parameter_hash,
             response: None,
+            status: question_model::AttemptStatus::InProgress,
             result: None,
             timer: AttemptTimerRecord {
                 issued_at: ActivityTimestamp::from_unix_millis(1),
@@ -1169,7 +1170,17 @@ mod tests {
                     tenant,
                     course_id: course,
                     title: "QTI assignment".to_string(),
-                    problems: vec![reference],
+                    items: vec![question_model::AssignmentItem {
+                        id: question_model::AssignmentItemId::from_uuid(uuid::Uuid::from_u128(
+                            7_210,
+                        )),
+                        reference,
+                        position: 0,
+                        points_possible: question_model::PointValue::from_whole(1),
+                        delivery_state: question_model::AssignmentDeliveryState::Active,
+                        scoring_mode: question_model::AssignmentScoringMode::Normal,
+                    }],
+                    selection_groups: Vec::new(),
                     policies: RunPolicies {
                         completion: CompletionRequirement::AllCorrect,
                         grade: GradePolicy::Highest,

@@ -705,6 +705,7 @@ mod tests {
             seed: 1,
             parameter_hash: "p".into(),
             response: None,
+            status: question_model::AttemptStatus::InProgress,
             result: None,
             timer: AttemptTimerRecord {
                 issued_at: ActivityTimestamp::from_unix_millis(1),

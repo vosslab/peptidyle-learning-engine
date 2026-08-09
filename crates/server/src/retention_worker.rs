@@ -306,6 +306,8 @@ mod tests {
             Arc::clone(&handler),
             Arc::clone(&handler),
             Arc::clone(&handler),
+            Arc::clone(&handler),
+            Arc::clone(&handler),
             handler,
         );
         let worker = worker::Worker::new(
@@ -369,6 +371,8 @@ mod tests {
             Arc::clone(&objects),
         ));
         let handlers = worker::JobHandlers::new(
+            Arc::clone(&handler),
+            Arc::clone(&handler),
             Arc::clone(&handler),
             Arc::clone(&handler),
             Arc::clone(&handler),

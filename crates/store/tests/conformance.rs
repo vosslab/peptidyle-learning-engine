@@ -8,25 +8,35 @@ use question_model::response::StudentResponse;
 use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
 use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
-    ActivityTimestamp, AssetId, AssignmentEnrollment, AssignmentId, AssignmentRun,
-    AttemptProvenance, AttemptResult, AttemptTimerRecord, BackendCapabilities, Capability,
-    CatalogLifecycle, CompletionRequirement, ContinuedPractice, CourseId, CourseMembership,
-    CourseMembershipRole, CourseRole, DraftQuestionDefinition, DraftQuestionSource, EnrollmentId,
-    FeedbackContent, GeneratorReference, GradePolicy, GradingDefinition, ImplementationVersion,
-    ObjectId, ProblemId, ProblemVersionRef, PublicationScope, QuestionAttempt, QuestionAttemptId,
-    QuestionBackend, QuestionMetadata, QuestionSource, ResponseDefinition, RunId, RunMode,
-    RunPolicies, SourceArtifact, StudentId, TenantId, UserId, UserRole, VariationPolicy, VersionId,
-    WorkspaceId, WorkspaceImportId,
+    ActivityTimestamp, AssetId, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId,
+    AssignmentItem, AssignmentItemId, AssignmentPolicyExceptionId, AssignmentRun,
+    AssignmentScoringMode, AssignmentTimingPolicy, AttemptProvenance, AttemptResult, AttemptStatus,
+    AttemptTimerRecord, BackendCapabilities, Capability, CatalogLifecycle, CompletionRequirement,
+    ContinuedPractice, CourseGroupId, CourseId, CourseMembership, CourseMembershipRole, CourseRole,
+    DraftQuestionDefinition, DraftQuestionSource, EnrollmentId, FeedbackContent,
+    GeneratorReference, GradePolicy, GradingDefinition, ImplementationVersion,
+    LateSubmissionPolicy, ObjectId, PointValue, ProblemId, ProblemVersionRef, PublicationScope,
+    QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionMetadata, QuestionSource,
+    ResponseDefinition, RunId, RunMode, RunPolicies, SourceArtifact, StudentId, TenantId, UserId,
+    UserRole, VariationPolicy, VersionId, WorkspaceId, WorkspaceImportId,
 };
+use std::sync::atomic::{AtomicU64, Ordering};
 use store::memory::MemoryStore;
 use store::{
     ActivityTransition, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssetStore,
-    AssignmentRecord, AssignmentUpdate, CatalogSourceStore, CatalogStore, CatalogTransition,
-    CourseListScope, CourseRecord, Cursor, DraftRecord, IssueQuestionAttemptCommand, PageRequest,
-    PageSize, PrefetchedQuestion, PublishDraftCommand, PublishedSourceArtifact,
-    PublishedVersionRef, ReleaseAttemptFeedbackCommand, ReservePrefetchedQuestionCommand,
-    SessionLifetime, SessionStore, SessionSubject, SessionTokenHash, Store, StoreError,
-    SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext,
+    AssignmentExceptionLimit, AssignmentExceptionTimestamp, AssignmentPolicyException,
+    AssignmentPolicyExceptionTarget, AssignmentRecord, AssignmentScoringCommitOutcome,
+    AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore, AssignmentUpdate,
+    AttemptAutoSubmitCommitOutcome, AttemptAutoSubmitWorkerCommand, AttemptAutoSubmitWorkerStore,
+    AttemptSupportAction, AttemptSupportActionId, CatalogSourceStore, CatalogStore,
+    CatalogTransition, ClearAttemptCommand, CourseGroupRecord, CourseListScope, CourseRecord,
+    Cursor, DeleteAndRegradeAssignmentItemCommand, DeleteAssignmentPolicyExceptionCommand,
+    DraftRecord, ForceSubmitAttemptCommand, IssueQuestionAttemptCommand, PageRequest, PageSize,
+    PrefetchedQuestion, PublishDraftCommand, PublishedSourceArtifact, PublishedVersionRef,
+    PutCourseGroupCommand, ReleaseAttemptFeedbackCommand, ReservePrefetchedQuestionCommand,
+    SessionLifetime, SessionStore, SessionSubject, SessionTokenHash,
+    SetAssignmentPolicyExceptionCommand, Store, StoreError, SubmissionIdempotencyKey,
+    SubmitQuestionAttemptCommand, TenantContext, UpdateAssignmentTimingCommand,
 };
 use store::{
     BeginExternalToolGradeCommand, CommitVerifiedExternalToolSubmissionCommand,
@@ -49,6 +59,24 @@ use uuid::Uuid;
 
 fn uuid(value: u128) -> Uuid {
     Uuid::from_u128(value)
+}
+
+fn fixed_items(references: Vec<ProblemVersionRef>) -> Vec<AssignmentItem> {
+    static NEXT_ITEM_ID: AtomicU64 = AtomicU64::new(900_000);
+    references
+        .into_iter()
+        .enumerate()
+        .map(|(position, reference)| AssignmentItem {
+            id: AssignmentItemId::from_uuid(uuid(u128::from(
+                NEXT_ITEM_ID.fetch_add(1, Ordering::Relaxed),
+            ))),
+            reference,
+            position: u32::try_from(position).expect("fixture position fits"),
+            points_possible: PointValue::from_whole(1),
+            delivery_state: AssignmentDeliveryState::Active,
+            scoring_mode: AssignmentScoringMode::Normal,
+        })
+        .collect()
 }
 
 fn draft_question(workspace: WorkspaceId) -> DraftQuestionDefinition {
@@ -859,7 +887,8 @@ where
         tenant,
         course_id,
         title: "Molar mass mastery".to_string(),
-        problems: vec![PublishedVersionRef { problem, version }],
+        items: fixed_items(vec![PublishedVersionRef { problem, version }]),
+        selection_groups: Vec::new(),
         policies: policies(),
     };
     let stored_draft = store
@@ -1323,6 +1352,7 @@ where
                     seed: 42,
                     parameter_hash: "parameters-sha256".to_string(),
                     response: Some(StudentResponse::Numeric { value: 18.0 }),
+                    status: question_model::AttemptStatus::Submitted,
                     result: Some(AttemptResult {
                         correct: true,
                         points_earned: 1.0,
@@ -1835,7 +1865,8 @@ where
         tenant,
         course_id: course,
         title: "Ordered source selection".to_string(),
-        problems: vec![published, deprecated],
+        items: fixed_items(vec![published, deprecated]),
+        selection_groups: Vec::new(),
         policies: policies(),
     };
     let created = store
@@ -1853,7 +1884,8 @@ where
     };
     let update = AssignmentUpdate {
         title: "Reordered source selection".to_string(),
-        problems: vec![deprecated, published],
+        items: fixed_items(vec![deprecated, published]),
+        selection_groups: Vec::new(),
         policies: updated_policies,
     };
     let updated = store
@@ -1867,7 +1899,7 @@ where
         .await
         .expect("fresh assignment revision updates");
     assert_eq!(updated.revision.value(), 2);
-    assert_eq!(updated.record.problems, update.problems);
+    assert_eq!(updated.record.items, update.items);
     assert_eq!(updated.record.policies, update.policies);
     assert_eq!(updated.record.title, update.title);
     assert_eq!(
@@ -1933,7 +1965,8 @@ where
                     tenant,
                     course_id: course,
                     title: "archived reference".to_string(),
-                    problems: vec![archived],
+                    items: fixed_items(vec![archived]),
+                    selection_groups: Vec::new(),
                     policies: policies(),
                 },
             )
@@ -1949,7 +1982,8 @@ where
                     tenant: foreign_tenant,
                     course_id: foreign_course,
                     title: "hidden reference".to_string(),
-                    problems: vec![hidden],
+                    items: fixed_items(vec![hidden]),
+                    selection_groups: Vec::new(),
                     policies: policies(),
                 },
             )
@@ -1964,13 +1998,17 @@ where
                 tenant,
                 course_id: course,
                 title: "Repeated immutable version positions".to_string(),
-                problems: vec![published, published],
+                items: fixed_items(vec![published, published]),
+                selection_groups: Vec::new(),
                 policies: policies(),
             },
         )
         .await
         .expect("one immutable version may occupy distinct ordered positions");
-    assert_eq!(repeated.record.problems, vec![published, published]);
+    assert_eq!(
+        repeated.record.references().collect::<Vec<_>>(),
+        vec![published, published]
+    );
     let invalid_threshold = RunPolicies {
         completion: CompletionRequirement::ScoreAtLeast { fraction: 1.1 },
         ..policies()
@@ -1984,7 +2022,8 @@ where
                     tenant,
                     course_id: course,
                     title: "Invalid completion threshold".to_string(),
-                    problems: vec![published],
+                    items: fixed_items(vec![published]),
+                    selection_groups: Vec::new(),
                     policies: invalid_threshold,
                 },
             )
@@ -2175,6 +2214,41 @@ where
     assert_eq!(revision_record.problem, base.problem);
     assert_ne!(revision_record.version, base.version);
     assert_eq!(revision_record.previous_version, Some(base.version));
+    assert_eq!(revision_record.public_id, base_record.public_id);
+    assert_eq!(base_record.version_number.value(), 1);
+    assert_eq!(revision_record.version_number.value(), 2);
+    assert_ne!(fork_record.public_id, base_record.public_id);
+    assert_eq!(fork_record.version_number.value(), 1);
+    assert_eq!(
+        store
+            .resolve_catalog_problem(
+                context,
+                question_model::ProblemDisplayRef {
+                    problem: base_record.public_id,
+                    version: None,
+                },
+            )
+            .await
+            .expect("stable public ID lookup should succeed")
+            .map(|record| record.version),
+        Some(revision.version),
+        "a stable public ID resolves the latest assignable version"
+    );
+    assert_eq!(
+        store
+            .resolve_catalog_problem(
+                context,
+                question_model::ProblemDisplayRef {
+                    problem: base_record.public_id,
+                    version: Some(base_record.version_number),
+                },
+            )
+            .await
+            .expect("exact public reference lookup should succeed")
+            .map(|record| record.version),
+        Some(base.version),
+        "an exact public reference never silently upgrades"
+    );
 
     let foreign_author_workspace = WorkspaceId::from_uuid(uuid(615));
     let foreign_author_draft = DraftRecord {
@@ -2625,7 +2699,7 @@ async fn exercise_session_replicas(issuer: &dyn SessionStore, next_replica: &dyn
 
 async fn exercise_run_api_store<S>(store: &S, feedback_disclosure: FeedbackDisclosure)
 where
-    S: Store + CatalogStore,
+    S: Store + CatalogStore + JobStore + AssignmentScoringWorkerStore,
 {
     let fixture_offset = if feedback_disclosure == FeedbackDisclosure::OnRelease {
         10_000
@@ -2704,7 +2778,7 @@ where
         )
         .await
         .expect("run fixture course");
-    let initial_assignment = store
+    store
         .create_assignment(
             context,
             AssignmentRecord {
@@ -2712,10 +2786,11 @@ where
                 tenant,
                 course_id: course,
                 title: "Run API assignment".to_string(),
-                problems: vec![
+                items: fixed_items(vec![
                     ProblemVersionRef { problem, version },
                     ProblemVersionRef { problem, version },
-                ],
+                ]),
+                selection_groups: Vec::new(),
                 policies: policies(),
             },
         )
@@ -2923,7 +2998,7 @@ where
                 response: response.clone(),
                 result: AttemptResult {
                     correct: false,
-                    points_earned: 2.0,
+                    points_earned: 1_001.0,
                     points_possible: 1.0,
                 },
                 feedback: FeedbackContent::default(),
@@ -3567,28 +3642,941 @@ where
         Err(StoreError::NotFound)
     ));
 
+    let locked_assignment = store
+        .get_assignment_for_edit(context, assignment)
+        .await
+        .expect("locked assignment read")
+        .expect("run assignment exists");
+    let mut rescored_items = locked_assignment.record.items.clone();
+    rescored_items[0].points_possible = PointValue::from_whole(2);
+    let rescored = store
+        .replace_assignment(
+            context,
+            course,
+            assignment,
+            locked_assignment.revision,
+            AssignmentUpdate {
+                title: locked_assignment.record.title.clone(),
+                items: rescored_items.clone(),
+                selection_groups: locked_assignment.record.selection_groups.clone(),
+                policies: locked_assignment.record.policies,
+            },
+        )
+        .await
+        .expect("point edits remain valid after a run exists");
+    assert_eq!(
+        rescored.scoring_status,
+        question_model::ScoringStatus::Recalculating
+    );
+    let scoring_job = store
+        .claim_next_job(JobLeaseDuration::from_seconds(30).expect("scoring lease"))
+        .await
+        .expect("claim scoring job")
+        .expect("point edit queues scoring work");
+    let (queued_assignment, generation) = match scoring_job.payload {
+        JobPayload::RecalculateAssignment {
+            assignment,
+            generation,
+        } => (assignment, generation),
+        payload => panic!("expected scoring job, got {payload:?}"),
+    };
+    assert_eq!(
+        (queued_assignment, generation),
+        (assignment, rescored.scoring_generation)
+    );
+    let scoring_command = AssignmentScoringWorkerCommand {
+        job: scoring_job.id,
+        lease: scoring_job.lease_token,
+        assignment,
+        generation,
+    };
+    store
+        .prepare_assignment_scoring(context, scoring_command)
+        .await
+        .expect("scoring generation stages privately");
+    assert_eq!(
+        store
+            .get_assignment_for_edit(context, assignment)
+            .await
+            .expect("staged assignment read")
+            .expect("staged assignment exists")
+            .scoring_status,
+        question_model::ScoringStatus::Recalculating,
+        "private staging must not publish partial current scores"
+    );
+    let mut superseding_items = rescored.record.items.clone();
+    superseding_items[0].points_possible = PointValue::from_whole(3);
+    let superseding = store
+        .replace_assignment(
+            context,
+            course,
+            assignment,
+            rescored.revision,
+            AssignmentUpdate {
+                title: rescored.record.title.clone(),
+                items: superseding_items.clone(),
+                selection_groups: rescored.record.selection_groups.clone(),
+                policies: rescored.record.policies,
+            },
+        )
+        .await
+        .expect("a newer scoring definition supersedes staged work");
+    assert!(superseding.scoring_generation > generation);
+    assert_eq!(
+        store
+            .commit_assignment_scoring(context, scoring_command)
+            .await,
+        Ok(AssignmentScoringCommitOutcome::Superseded),
+        "an old generation must never replace current scores"
+    );
+    let still_pending = store
+        .get_assignment_for_edit(context, assignment)
+        .await
+        .expect("superseded assignment read")
+        .expect("superseded assignment exists");
+    assert_eq!(
+        (
+            still_pending.scoring_generation,
+            still_pending.scoring_status
+        ),
+        (
+            superseding.scoring_generation,
+            question_model::ScoringStatus::Recalculating
+        ),
+        "discarding old staging must leave the new generation pending"
+    );
+    let current_job = store
+        .claim_next_job(JobLeaseDuration::from_seconds(30).expect("current scoring lease"))
+        .await
+        .expect("claim current scoring job")
+        .expect("superseding edit queues scoring work");
+    let current_generation = match current_job.payload {
+        JobPayload::RecalculateAssignment {
+            assignment: queued_assignment,
+            generation,
+        } => {
+            assert_eq!(queued_assignment, assignment);
+            generation
+        }
+        payload => panic!("expected superseding scoring job, got {payload:?}"),
+    };
+    assert_eq!(current_generation, superseding.scoring_generation);
+    let current_command = AssignmentScoringWorkerCommand {
+        job: current_job.id,
+        lease: current_job.lease_token,
+        assignment,
+        generation: current_generation,
+    };
+    store
+        .prepare_assignment_scoring(context, current_command)
+        .await
+        .expect("current scoring generation stages privately");
+    let concurrent_run = store
+        .start_or_resume_run(
+            context,
+            student_user,
+            assignment,
+            RunId::from_uuid(uuid(89_970 + fixture_offset)),
+        )
+        .await
+        .expect("student activity may continue during recalculation");
+    let concurrent_attempt = store
+        .issue_or_resume_question_attempt(
+            context,
+            IssueQuestionAttemptCommand {
+                actor: student_user,
+                attempt: QuestionAttemptId::from_uuid(uuid(89_971 + fixture_offset)),
+                run: concurrent_run.id,
+                assignment_position: 0,
+                problem,
+                question_version: version,
+                seed: 996,
+                parameter_hash: "concurrent-scoring-parameter-hash".to_string(),
+                provenance: reservation.provenance.clone(),
+                prefetched: None,
+                predecessor_submission: None,
+            },
+        )
+        .await
+        .expect("concurrent scoring attempt issues");
+    store
+        .submit_question_attempt(
+            context,
+            SubmitQuestionAttemptCommand {
+                actor: student_user,
+                attempt: concurrent_attempt.id,
+                response: response.clone(),
+                result: AttemptResult {
+                    correct: true,
+                    points_earned: 1.0,
+                    points_possible: 1.0,
+                },
+                feedback: FeedbackContent::default(),
+                idempotency_key: SubmissionIdempotencyKey::parse("submission-during-scoring")
+                    .expect("valid concurrent scoring key"),
+            },
+        )
+        .await
+        .expect("submission may commit while recalculation is pending");
+    assert_eq!(
+        store
+            .commit_assignment_scoring(context, current_command)
+            .await,
+        Err(StoreError::Conflict),
+        "staging prepared before a new submission must not publish an incomplete generation"
+    );
+    store
+        .prepare_assignment_scoring(context, current_command)
+        .await
+        .expect("same live claim restages after concurrent activity");
+    assert_eq!(
+        store
+            .commit_assignment_scoring(context, current_command)
+            .await,
+        Ok(AssignmentScoringCommitOutcome::Committed)
+    );
+    let current_assignment = store
+        .get_assignment_for_edit(context, assignment)
+        .await
+        .expect("rescored assignment read")
+        .expect("rescored assignment exists");
+    assert_eq!(
+        (
+            current_assignment.scoring_generation,
+            current_assignment.scoring_status
+        ),
+        (current_generation, question_model::ScoringStatus::Current)
+    );
+    let mut added_items = superseding_items;
+    let mut added = added_items[0].clone();
+    added.id = AssignmentItemId::from_uuid(uuid(89_980 + fixture_offset));
+    added.position = u32::try_from(added_items.len()).expect("fixture position fits");
+    added_items.push(added);
+    assert_eq!(
+        store
+            .replace_assignment(
+                context,
+                course,
+                assignment,
+                superseding.revision,
+                AssignmentUpdate {
+                    title: superseding.record.title.clone(),
+                    items: added_items,
+                    selection_groups: superseding.record.selection_groups.clone(),
+                    policies: superseding.record.policies,
+                },
+            )
+            .await,
+        Err(StoreError::Conflict),
+        "new pinned content is locked after the first run"
+    );
+
+    let delete_assignment = AssignmentId::from_uuid(uuid(89_960 + fixture_offset));
+    let delete_enrollment = EnrollmentId::from_uuid(uuid(89_961 + fixture_offset));
+    let delete_run_id = RunId::from_uuid(uuid(89_962 + fixture_offset));
+    let delete_items = fixed_items(vec![
+        ProblemVersionRef { problem, version },
+        ProblemVersionRef { problem, version },
+    ]);
+    let retired_item = delete_items[0].id;
+    let retained_item = delete_items[1].id;
+    store
+        .create_assignment(
+            context,
+            AssignmentRecord {
+                id: delete_assignment,
+                tenant,
+                course_id: course,
+                title: "Delete and Regrade fixture".to_string(),
+                items: delete_items,
+                selection_groups: Vec::new(),
+                policies: policies(),
+            },
+        )
+        .await
+        .expect("Delete and Regrade assignment");
+    store
+        .create_enrollment(
+            context,
+            AssignmentEnrollment {
+                id: delete_enrollment,
+                tenant,
+                assignment: delete_assignment,
+                user: student_user,
+                student: StudentId::from_uuid(uuid(89_963 + fixture_offset)),
+                first_completed_at: None,
+                current_grade_run: None,
+                best_grade_run: None,
+            },
+        )
+        .await
+        .expect("Delete and Regrade enrollment");
+    let delete_run = store
+        .start_or_resume_run(context, student_user, delete_assignment, delete_run_id)
+        .await
+        .expect("Delete and Regrade run");
+    let affected_attempt = store
+        .issue_or_resume_question_attempt(
+            context,
+            IssueQuestionAttemptCommand {
+                actor: student_user,
+                attempt: QuestionAttemptId::from_uuid(uuid(89_964 + fixture_offset)),
+                run: delete_run.id,
+                assignment_position: 0,
+                problem,
+                question_version: version,
+                seed: 997,
+                parameter_hash: "delete-and-regrade-active".to_string(),
+                provenance: reservation.provenance.clone(),
+                prefetched: None,
+                predecessor_submission: None,
+            },
+        )
+        .await
+        .expect("affected active attempt");
+    let before_delete = store
+        .get_assignment_for_edit(context, delete_assignment)
+        .await
+        .expect("Delete and Regrade edit read")
+        .expect("Delete and Regrade assignment exists");
+    let delete_command = DeleteAndRegradeAssignmentItemCommand {
+        course,
+        assignment: delete_assignment,
+        item: retired_item,
+        expected_revision: before_delete.revision,
+    };
+    assert_eq!(
+        store
+            .delete_and_regrade_assignment_item(context, delete_command)
+            .await,
+        Err(StoreError::Conflict),
+        "an affected in-progress attempt blocks retirement"
+    );
+    store
+        .submit_question_attempt(
+            context,
+            SubmitQuestionAttemptCommand {
+                actor: student_user,
+                attempt: affected_attempt.id,
+                response: response.clone(),
+                result: AttemptResult {
+                    correct: true,
+                    points_earned: 1.0,
+                    points_possible: 1.0,
+                },
+                feedback: FeedbackContent::default(),
+                idempotency_key: SubmissionIdempotencyKey::parse(
+                    "submission-delete-and-regrade-affected",
+                )
+                .expect("valid Delete and Regrade key"),
+            },
+        )
+        .await
+        .expect("submitted evidence permits retirement");
+    let retired = store
+        .delete_and_regrade_assignment_item(context, delete_command)
+        .await
+        .expect("Delete and Regrade after submission");
+    let retired_record = retired
+        .record
+        .items
+        .iter()
+        .find(|item| item.id == retired_item)
+        .expect("retired item remains a tombstone");
+    assert_eq!(
+        (
+            retired_record.delivery_state,
+            retired_record.scoring_mode,
+            retired.scoring_status
+        ),
+        (
+            AssignmentDeliveryState::Retired,
+            AssignmentScoringMode::Excluded,
+            question_model::ScoringStatus::Recalculating
+        )
+    );
+    assert_eq!(
+        store
+            .delete_and_regrade_assignment_item(
+                context,
+                DeleteAndRegradeAssignmentItemCommand {
+                    expected_revision: retired.revision,
+                    ..delete_command
+                },
+            )
+            .await,
+        Ok(retired.clone()),
+        "an exact retry does not create another revision or generation"
+    );
+    let delete_job = store
+        .claim_next_job(JobLeaseDuration::from_seconds(30).expect("Delete and Regrade lease"))
+        .await
+        .expect("claim Delete and Regrade scoring job")
+        .expect("Delete and Regrade queues scoring work");
+    let delete_generation = match delete_job.payload {
+        JobPayload::RecalculateAssignment {
+            assignment: queued_assignment,
+            generation,
+        } => {
+            assert_eq!(queued_assignment, delete_assignment);
+            generation
+        }
+        payload => panic!("expected Delete and Regrade scoring job, got {payload:?}"),
+    };
+    let delete_scoring = AssignmentScoringWorkerCommand {
+        job: delete_job.id,
+        lease: delete_job.lease_token,
+        assignment: delete_assignment,
+        generation: delete_generation,
+    };
+    store
+        .prepare_assignment_scoring(context, delete_scoring)
+        .await
+        .expect("Delete and Regrade scoring stages");
+    assert_eq!(
+        store
+            .commit_assignment_scoring(context, delete_scoring)
+            .await,
+        Ok(AssignmentScoringCommitOutcome::Committed)
+    );
+    assert!(
+        store
+            .get_run_summary_page(
+                context,
+                student_user,
+                delete_run.id,
+                PageRequest::first(PageSize::new(10).expect("Delete and Regrade page")),
+            )
+            .await
+            .expect("student Delete and Regrade summary")
+            .outcomes
+            .items
+            .is_empty(),
+        "normal student feedback hides retired evidence"
+    );
+    assert_eq!(
+        store
+            .get_run_summary_page(
+                context,
+                publisher,
+                delete_run.id,
+                PageRequest::first(PageSize::new(10).expect("support evidence page")),
+            )
+            .await
+            .expect("instructor retained-evidence summary")
+            .outcomes
+            .items
+            .len(),
+        1,
+        "authorized instructors retain support access to protected evidence"
+    );
+    let unaffected_attempt = store
+        .issue_or_resume_question_attempt(
+            context,
+            IssueQuestionAttemptCommand {
+                actor: student_user,
+                attempt: QuestionAttemptId::from_uuid(uuid(89_965 + fixture_offset)),
+                run: delete_run.id,
+                assignment_position: 1,
+                problem,
+                question_version: version,
+                seed: 998,
+                parameter_hash: "delete-and-regrade-unaffected".to_string(),
+                provenance: reservation.provenance.clone(),
+                prefetched: None,
+                predecessor_submission: None,
+            },
+        )
+        .await
+        .expect("unaffected immutable run item remains answerable");
+    store
+        .submit_question_attempt(
+            context,
+            SubmitQuestionAttemptCommand {
+                actor: student_user,
+                attempt: unaffected_attempt.id,
+                response: response.clone(),
+                result: AttemptResult {
+                    correct: true,
+                    points_earned: 1.0,
+                    points_possible: 1.0,
+                },
+                feedback: FeedbackContent::default(),
+                idempotency_key: SubmissionIdempotencyKey::parse(
+                    "submission-delete-and-regrade-unaffected",
+                )
+                .expect("valid unaffected key"),
+            },
+        )
+        .await
+        .expect("existing run completes with retired evidence excluded");
+    let future_delete_run = store
+        .start_or_resume_run(
+            context,
+            student_user,
+            delete_assignment,
+            RunId::from_uuid(uuid(89_966 + fixture_offset)),
+        )
+        .await
+        .expect("future run after Delete and Regrade");
+    assert_eq!(
+        store
+            .assignment_run_items(context, future_delete_run.id)
+            .await
+            .expect("future Delete and Regrade run items")
+            .iter()
+            .map(|item| item.assignment_item)
+            .collect::<Vec<_>>(),
+        vec![retained_item],
+        "future runs omit the tombstone while old evidence remains"
+    );
+
+    let support_assignment = AssignmentId::from_uuid(uuid(89_972 + fixture_offset));
+    let support_enrollment = EnrollmentId::from_uuid(uuid(89_973 + fixture_offset));
+    let support_run_id = RunId::from_uuid(uuid(89_974 + fixture_offset));
+    store
+        .create_assignment(
+            context,
+            AssignmentRecord {
+                id: support_assignment,
+                tenant,
+                course_id: course,
+                title: "Attempt support fixture".to_string(),
+                items: fixed_items(vec![
+                    ProblemVersionRef { problem, version },
+                    ProblemVersionRef { problem, version },
+                ]),
+                selection_groups: Vec::new(),
+                policies: policies(),
+            },
+        )
+        .await
+        .expect("attempt support assignment");
+    store
+        .create_enrollment(
+            context,
+            AssignmentEnrollment {
+                id: support_enrollment,
+                tenant,
+                assignment: support_assignment,
+                user: student_user,
+                student: StudentId::from_uuid(uuid(89_975 + fixture_offset)),
+                first_completed_at: None,
+                current_grade_run: None,
+                best_grade_run: None,
+            },
+        )
+        .await
+        .expect("attempt support enrollment");
+    let support_run = store
+        .start_or_resume_run(context, student_user, support_assignment, support_run_id)
+        .await
+        .expect("attempt support run");
+    let support_attempt = store
+        .issue_or_resume_question_attempt(
+            context,
+            IssueQuestionAttemptCommand {
+                actor: student_user,
+                attempt: QuestionAttemptId::from_uuid(uuid(89_976 + fixture_offset)),
+                run: support_run.id,
+                assignment_position: 0,
+                problem,
+                question_version: version,
+                seed: 999,
+                parameter_hash: "force-submit-active".to_string(),
+                provenance: reservation.provenance.clone(),
+                prefetched: None,
+                predecessor_submission: None,
+            },
+        )
+        .await
+        .expect("attempt support question");
+    let force_action = AttemptSupportActionId::from_uuid(uuid(89_977 + fixture_offset));
+    assert_eq!(
+        store
+            .force_submit_attempt(
+                context,
+                ForceSubmitAttemptCommand {
+                    action: force_action,
+                    actor: student_user,
+                    attempt: support_attempt.id,
+                },
+            )
+            .await,
+        Err(StoreError::NotFound),
+        "a student cannot force-submit an educational record"
+    );
+    assert_eq!(
+        store
+            .force_submit_attempt(
+                TenantContext::from_authenticated_session(TenantId::from_uuid(uuid(
+                    89_978 + fixture_offset,
+                ))),
+                ForceSubmitAttemptCommand {
+                    action: force_action,
+                    actor: publisher,
+                    attempt: support_attempt.id,
+                },
+            )
+            .await,
+        Err(StoreError::NotFound),
+        "a foreign tenant cannot enumerate a support target"
+    );
+    let forced = store
+        .force_submit_attempt(
+            context,
+            ForceSubmitAttemptCommand {
+                action: force_action,
+                actor: publisher,
+                attempt: support_attempt.id,
+            },
+        )
+        .await
+        .expect("direct course instructor force-submits");
+    assert_eq!(
+        (forced.kind, forced.previous_status, forced.resulting_status),
+        (
+            AttemptSupportAction::ForceSubmit,
+            AttemptStatus::InProgress,
+            AttemptStatus::NeedsManualGrading,
+        )
+    );
+    assert_eq!(
+        store
+            .force_submit_attempt(
+                context,
+                ForceSubmitAttemptCommand {
+                    action: force_action,
+                    actor: publisher,
+                    attempt: support_attempt.id,
+                },
+            )
+            .await,
+        Ok(forced),
+        "an exact support retry returns the original audit record"
+    );
+    assert_eq!(
+        store
+            .clear_attempt(
+                context,
+                ClearAttemptCommand {
+                    action: force_action,
+                    actor: publisher,
+                    attempt: support_attempt.id,
+                },
+            )
+            .await,
+        Err(StoreError::Conflict),
+        "one stable action identity cannot be reused for a different mutation"
+    );
+    assert_eq!(
+        store
+            .submit_question_attempt(
+                context,
+                SubmitQuestionAttemptCommand {
+                    actor: student_user,
+                    attempt: support_attempt.id,
+                    response: response.clone(),
+                    result: AttemptResult {
+                        correct: true,
+                        points_earned: 1.0,
+                        points_possible: 1.0,
+                    },
+                    feedback: FeedbackContent::default(),
+                    idempotency_key: SubmissionIdempotencyKey::parse(
+                        "submission-after-force-submit",
+                    )
+                    .expect("valid force-submit conflict key"),
+                },
+            )
+            .await,
+        Err(StoreError::Conflict),
+        "force-submit closes the ordinary student submission path"
+    );
+    let forced_current = store
+        .get_question_attempt(context, support_attempt.id)
+        .await
+        .expect("force-submitted attempt read")
+        .expect("force-submitted attempt exists");
+    assert_eq!(forced_current.status, AttemptStatus::NeedsManualGrading);
+    assert!(forced_current.response.is_none());
+    assert!(forced_current.result.is_none());
+    assert_eq!(forced_current.timer.submitted_at, Some(forced.occurred_at));
+
+    let clear_forced_action = AttemptSupportActionId::from_uuid(uuid(89_979 + fixture_offset));
+    let cleared_forced = store
+        .clear_attempt(
+            context,
+            ClearAttemptCommand {
+                action: clear_forced_action,
+                actor: publisher,
+                attempt: support_attempt.id,
+            },
+        )
+        .await
+        .expect("instructor clears force-submitted attempt");
+    assert_eq!(
+        (
+            cleared_forced.previous_status,
+            cleared_forced.resulting_status
+        ),
+        (AttemptStatus::NeedsManualGrading, AttemptStatus::Cleared)
+    );
+    assert_eq!(
+        store
+            .clear_attempt(
+                context,
+                ClearAttemptCommand {
+                    action: clear_forced_action,
+                    actor: publisher,
+                    attempt: support_attempt.id,
+                },
+            )
+            .await,
+        Ok(cleared_forced),
+        "an exact clear retry is harmless"
+    );
+    assert!(
+        store
+            .get_run_summary_page(
+                context,
+                student_user,
+                support_run.id,
+                PageRequest::first(PageSize::new(10).expect("support student page")),
+            )
+            .await
+            .expect("student support summary")
+            .outcomes
+            .items
+            .is_empty(),
+        "cleared evidence is absent from the ordinary student summary"
+    );
+    assert_eq!(
+        store
+            .get_run_summary_page(
+                context,
+                publisher,
+                support_run.id,
+                PageRequest::first(PageSize::new(10).expect("support instructor page")),
+            )
+            .await
+            .expect("instructor support summary")
+            .outcomes
+            .items
+            .len(),
+        1,
+        "the instructor retains raw evidence access after clear"
+    );
+
+    let replacement_attempt = store
+        .issue_or_resume_question_attempt(
+            context,
+            IssueQuestionAttemptCommand {
+                actor: student_user,
+                attempt: QuestionAttemptId::from_uuid(uuid(89_981 + fixture_offset)),
+                run: support_run.id,
+                assignment_position: 0,
+                problem,
+                question_version: version,
+                seed: 1_000,
+                parameter_hash: "replacement-after-clear".to_string(),
+                provenance: reservation.provenance.clone(),
+                prefetched: None,
+                predecessor_submission: None,
+            },
+        )
+        .await
+        .expect("a cleared position may issue a replacement");
+    store
+        .submit_question_attempt(
+            context,
+            SubmitQuestionAttemptCommand {
+                actor: student_user,
+                attempt: replacement_attempt.id,
+                response: response.clone(),
+                result: AttemptResult {
+                    correct: true,
+                    points_earned: 1.0,
+                    points_possible: 1.0,
+                },
+                feedback: FeedbackContent::default(),
+                idempotency_key: SubmissionIdempotencyKey::parse("submission-support-replacement")
+                    .expect("valid support replacement key"),
+            },
+        )
+        .await
+        .expect("replacement attempt submits");
+    assert_eq!(
+        store
+            .clear_attempt(
+                context,
+                ClearAttemptCommand {
+                    action: AttemptSupportActionId::from_uuid(uuid(89_982 + fixture_offset,)),
+                    actor: student_user,
+                    attempt: replacement_attempt.id,
+                },
+            )
+            .await,
+        Err(StoreError::NotFound),
+        "a student cannot clear a submitted evaluation"
+    );
+    let clear_scored_action = AttemptSupportActionId::from_uuid(uuid(89_983 + fixture_offset));
+    let cleared_scored = store
+        .clear_attempt(
+            context,
+            ClearAttemptCommand {
+                action: clear_scored_action,
+                actor: publisher,
+                attempt: replacement_attempt.id,
+            },
+        )
+        .await
+        .expect("instructor clears submitted evaluation");
+    assert_eq!(cleared_scored.previous_status, AttemptStatus::Submitted);
+    assert_eq!(cleared_scored.resulting_status, AttemptStatus::Cleared);
+    assert_eq!(
+        store
+            .clear_attempt(
+                context,
+                ClearAttemptCommand {
+                    action: clear_scored_action,
+                    actor: publisher,
+                    attempt: replacement_attempt.id,
+                },
+            )
+            .await,
+        Ok(cleared_scored),
+        "a clear retry neither advances the generation nor queues duplicate work"
+    );
+    let post_clear_replacement = store
+        .issue_or_resume_question_attempt(
+            context,
+            IssueQuestionAttemptCommand {
+                actor: student_user,
+                attempt: QuestionAttemptId::from_uuid(uuid(89_984 + fixture_offset)),
+                run: support_run.id,
+                assignment_position: 0,
+                problem,
+                question_version: version,
+                seed: 1_001,
+                parameter_hash: "replacement-after-scored-clear".to_string(),
+                provenance: reservation.provenance.clone(),
+                prefetched: None,
+                predecessor_submission: None,
+            },
+        )
+        .await
+        .expect("a cleared correct response does not block a replacement");
+    assert_eq!(post_clear_replacement.status, AttemptStatus::InProgress);
+    let support_job = store
+        .claim_next_job(JobLeaseDuration::from_seconds(30).expect("support scoring lease"))
+        .await
+        .expect("claim support scoring job")
+        .expect("clearing a scored attempt queues recalculation");
+    let support_generation = match support_job.payload {
+        JobPayload::RecalculateAssignment {
+            assignment: queued_assignment,
+            generation,
+        } => {
+            assert_eq!(queued_assignment, support_assignment);
+            generation
+        }
+        payload => panic!("expected attempt-clear scoring job, got {payload:?}"),
+    };
+    let support_scoring = AssignmentScoringWorkerCommand {
+        job: support_job.id,
+        lease: support_job.lease_token,
+        assignment: support_assignment,
+        generation: support_generation,
+    };
+    store
+        .prepare_assignment_scoring(context, support_scoring)
+        .await
+        .expect("attempt-clear scoring stages without the cleared result");
+    assert_eq!(
+        store
+            .commit_assignment_scoring(context, support_scoring)
+            .await,
+        Ok(AssignmentScoringCommitOutcome::Committed)
+    );
+    let support_assignment_current = store
+        .get_assignment_for_edit(context, support_assignment)
+        .await
+        .expect("support assignment state read")
+        .expect("support assignment exists");
+    assert_eq!(
+        (
+            support_assignment_current.scoring_generation,
+            support_assignment_current.scoring_status,
+        ),
+        (support_generation, question_model::ScoringStatus::Current,)
+    );
+    assert!(
+        store
+            .claim_next_job(JobLeaseDuration::from_seconds(30).expect("duplicate check lease"))
+            .await
+            .expect("duplicate queue check")
+            .is_none(),
+        "exact support retries leave no duplicate recalculation job"
+    );
+    assert_eq!(
+        store
+            .get_run_summary_page(
+                context,
+                publisher,
+                support_run.id,
+                PageRequest::first(PageSize::new(10).expect("retained support evidence page")),
+            )
+            .await
+            .expect("retained support evidence summary")
+            .outcomes
+            .items
+            .len(),
+        3,
+        "the instructor sees both cleared records and the active replacement"
+    );
+
     // Scale behavior is deliberately exercised through the Store, not just
     // the cursor helper: a later practice run may contain far more outcomes
     // than an ordinary small assignment. `apply_activity_transition` supplies
     // persisted, server-owned attempt records without invoking a grader.
     let scale_run_id = RunId::from_uuid(uuid(90_000 + fixture_offset));
     let scale_problems = vec![ProblemVersionRef { problem, version }; 51];
+    let scale_assignment = AssignmentId::from_uuid(uuid(89_990 + fixture_offset));
+    let scale_enrollment = EnrollmentId::from_uuid(uuid(89_991 + fixture_offset));
     store
-        .replace_assignment(
+        .create_assignment(
             context,
-            course,
-            assignment,
-            initial_assignment.revision,
-            AssignmentUpdate {
+            AssignmentRecord {
+                id: scale_assignment,
+                tenant,
+                course_id: course,
                 title: "Run summary scale fixture".to_string(),
-                problems: scale_problems,
+                items: fixed_items(scale_problems),
+                selection_groups: Vec::new(),
                 policies: policies(),
             },
         )
         .await
-        .expect("scale assignment update");
+        .expect("independent scale assignment");
+    store
+        .create_enrollment(
+            context,
+            AssignmentEnrollment {
+                id: scale_enrollment,
+                tenant,
+                assignment: scale_assignment,
+                user: student_user,
+                student: StudentId::from_uuid(uuid(89_992 + fixture_offset)),
+                first_completed_at: None,
+                current_grade_run: None,
+                best_grade_run: None,
+            },
+        )
+        .await
+        .expect("independent scale enrollment");
     let scale_run = store
-        .start_or_resume_run(context, student_user, assignment, scale_run_id)
+        .start_or_resume_run(context, student_user, scale_assignment, scale_run_id)
         .await
         .expect("post-completion scale practice run");
     for position in 0_u32..51 {
@@ -3608,6 +4596,7 @@ where
                         seed: u64::from(position),
                         parameter_hash: format!("scale-parameter-{position}"),
                         response: None,
+                        status: question_model::AttemptStatus::InProgress,
                         result: None,
                         timer: AttemptTimerRecord {
                             issued_at: ActivityTimestamp::from_unix_millis(i64::from(position)),
@@ -3796,7 +4785,8 @@ where
                 tenant,
                 course_id: course,
                 title: "External tool assignment".to_string(),
-                problems: vec![ProblemVersionRef { problem, version }],
+                items: fixed_items(vec![ProblemVersionRef { problem, version }]),
+                selection_groups: Vec::new(),
                 policies: policies(),
             },
         )
@@ -4513,10 +5503,11 @@ where
                 tenant,
                 course_id: tenant_course,
                 title: "Institution content".to_string(),
-                problems: vec![ProblemVersionRef {
+                items: fixed_items(vec![ProblemVersionRef {
                     problem: institution_problem,
                     version: institution_version,
-                }],
+                }]),
+                selection_groups: Vec::new(),
                 policies: policies(),
             },
         )
@@ -4531,10 +5522,11 @@ where
                     tenant: foreign_tenant,
                     course_id: foreign_course,
                     title: "Hidden institution content".to_string(),
-                    problems: vec![ProblemVersionRef {
+                    items: fixed_items(vec![ProblemVersionRef {
                         problem: institution_problem,
                         version: institution_version,
-                    }],
+                    }]),
+                    selection_groups: Vec::new(),
                     policies: policies(),
                 },
             )
@@ -4681,10 +5673,11 @@ where
                 tenant,
                 course_id: tenant_course,
                 title: "Deprecated exact reference".to_string(),
-                problems: vec![ProblemVersionRef {
+                items: fixed_items(vec![ProblemVersionRef {
                     problem: public_problem,
                     version: public_version,
-                }],
+                }]),
+                selection_groups: Vec::new(),
                 policies: policies(),
             },
         )
@@ -4725,10 +5718,11 @@ where
                     tenant,
                     course_id: tenant_course,
                     title: "Archived exact reference".to_string(),
-                    problems: vec![ProblemVersionRef {
+                    items: fixed_items(vec![ProblemVersionRef {
                         problem: public_problem,
                         version: public_version,
-                    }],
+                    }]),
+                    selection_groups: Vec::new(),
                     policies: policies(),
                 },
             )
@@ -4745,6 +5739,878 @@ async fn memory_store_conforms() {
     exercise_publication_identity_boundary(&store).await;
     exercise_source_artifact_binding(&store).await;
     exercise_session_replicas(&store, &store.clone()).await;
+}
+
+#[tokio::test]
+async fn memory_assignment_timing_edits_and_auto_submit_are_generation_fenced() {
+    let store = MemoryStore::default();
+    store
+        .set_authoritative_time(ActivityTimestamp::from_unix_millis(1_000))
+        .expect("fixture clock");
+    let tenant = TenantId::from_uuid(uuid(95_000));
+    let context = TenantContext::from_authenticated_session(tenant);
+    let instructor = UserId::from_uuid(uuid(95_001));
+    let student = UserId::from_uuid(uuid(95_002));
+    let course = CourseId::from_uuid(uuid(95_003));
+    store
+        .upsert_course(
+            context,
+            CourseRecord {
+                id: course,
+                tenant,
+                title: "Mutable timing course".to_string(),
+                members: vec![
+                    CourseMembership {
+                        user: instructor,
+                        role: CourseMembershipRole::Instructor,
+                    },
+                    CourseMembership {
+                        user: student,
+                        role: CourseMembershipRole::Student,
+                    },
+                ],
+            },
+        )
+        .await
+        .expect("timing course");
+    let reference = publish_assignment_version(
+        &store,
+        context,
+        tenant,
+        instructor,
+        95_010,
+        PublicationScope::Public,
+    )
+    .await;
+    let assignment = AssignmentId::from_uuid(uuid(95_020));
+    let initial = store
+        .create_assignment(
+            context,
+            AssignmentRecord {
+                id: assignment,
+                tenant,
+                course_id: course,
+                title: "Server-owned deadlines".to_string(),
+                items: fixed_items(vec![reference, reference, reference]),
+                selection_groups: Vec::new(),
+                policies: policies(),
+            },
+        )
+        .await
+        .expect("timing assignment");
+    store
+        .create_enrollment(
+            context,
+            AssignmentEnrollment {
+                id: EnrollmentId::from_uuid(uuid(95_021)),
+                tenant,
+                assignment,
+                user: student,
+                student: StudentId::from_uuid(uuid(95_022)),
+                first_completed_at: None,
+                current_grade_run: None,
+                best_grade_run: None,
+            },
+        )
+        .await
+        .expect("timing enrollment");
+
+    let ten_seconds = AssignmentTimingPolicy {
+        time_limit_seconds: Some(10),
+        ..AssignmentTimingPolicy::default()
+    };
+    let initial_command = UpdateAssignmentTimingCommand {
+        actor: instructor,
+        course,
+        assignment,
+        expected_revision: initial.revision,
+        policy: ten_seconds,
+    };
+    assert_eq!(
+        store
+            .update_assignment_timing(
+                context,
+                UpdateAssignmentTimingCommand {
+                    actor: student,
+                    ..initial_command
+                },
+            )
+            .await,
+        Err(StoreError::NotFound),
+        "students cannot mutate the server timing policy"
+    );
+    let timed = store
+        .update_assignment_timing(context, initial_command)
+        .await
+        .expect("initial time limit");
+    assert_eq!(
+        store
+            .update_assignment_timing(context, initial_command)
+            .await,
+        Ok(timed),
+        "an exact retry neither increments the revision nor duplicates work"
+    );
+    let run = store
+        .start_or_resume_run(context, student, assignment, RunId::from_uuid(uuid(95_023)))
+        .await
+        .expect("timed run");
+    let issue = |attempt, position, seed| IssueQuestionAttemptCommand {
+        actor: student,
+        attempt,
+        run: run.id,
+        assignment_position: position,
+        problem: reference.problem,
+        question_version: reference.version,
+        seed,
+        parameter_hash: format!("timing-parameters-{position}"),
+        provenance: AttemptProvenance {
+            adapter: implementation("timing-native"),
+            renderer: None,
+            generator: None,
+            source_artifact: None,
+            asset_objects: Vec::new(),
+            grading: implementation("timing-numeric"),
+            rendered_question_sha256: format!("timing-render-{position}"),
+        },
+        prefetched: None,
+        predecessor_submission: None,
+    };
+    let first = store
+        .issue_or_resume_question_attempt(
+            context,
+            issue(QuestionAttemptId::from_uuid(uuid(95_024)), 0, 1),
+        )
+        .await
+        .expect("first timed question");
+    assert_eq!(
+        first.timer.deadline,
+        Some(ActivityTimestamp::from_unix_millis(11_000))
+    );
+    assert!(
+        store
+            .claim_next_job(JobLeaseDuration::from_seconds(30).expect("lease"))
+            .await
+            .expect("queue read")
+            .is_none(),
+        "a deadline job is not claimable early"
+    );
+
+    let twenty_seconds = AssignmentTimingPolicy {
+        time_limit_seconds: Some(20),
+        ..AssignmentTimingPolicy::default()
+    };
+    let extended = store
+        .update_assignment_timing(
+            context,
+            UpdateAssignmentTimingCommand {
+                expected_revision: timed.revision,
+                policy: twenty_seconds,
+                ..initial_command
+            },
+        )
+        .await
+        .expect("active extension");
+    assert_eq!(
+        store
+            .get_question_attempt(context, first.id)
+            .await
+            .expect("extended attempt read")
+            .expect("extended attempt")
+            .timer
+            .deadline,
+        Some(ActivityTimestamp::from_unix_millis(21_000))
+    );
+    store
+        .set_authoritative_time(ActivityTimestamp::from_unix_millis(15_000))
+        .expect("advance past shortened limit");
+    let shortened = store
+        .update_assignment_timing(
+            context,
+            UpdateAssignmentTimingCommand {
+                expected_revision: extended.revision,
+                policy: ten_seconds,
+                ..initial_command
+            },
+        )
+        .await
+        .expect("shortening is an immediate transaction");
+    let current = store
+        .get_question_attempt(context, first.id)
+        .await
+        .expect("shortened attempt read")
+        .expect("shortened attempt");
+    assert_eq!(current.status, AttemptStatus::AutoSubmitted);
+    assert!(current.response.is_none());
+    assert!(current.result.is_none());
+    assert_eq!(
+        current.timer.submitted_at,
+        Some(ActivityTimestamp::from_unix_millis(15_000))
+    );
+
+    let closes_at = |millis| AssignmentTimingPolicy {
+        closes_at: Some(ActivityTimestamp::from_unix_millis(millis)),
+        late_submission: LateSubmissionPolicy::Accept,
+        ..AssignmentTimingPolicy::default()
+    };
+    let closes_sixteen = store
+        .update_assignment_timing(
+            context,
+            UpdateAssignmentTimingCommand {
+                expected_revision: shortened.revision,
+                policy: closes_at(16_000),
+                ..initial_command
+            },
+        )
+        .await
+        .expect("move the next question to a close boundary");
+    let second = store
+        .issue_or_resume_question_attempt(
+            context,
+            issue(QuestionAttemptId::from_uuid(uuid(95_025)), 1, 2),
+        )
+        .await
+        .expect("second timed question");
+    store
+        .set_authoritative_time(ActivityTimestamp::from_unix_millis(16_000))
+        .expect("reach close boundary");
+    let due = store
+        .claim_next_job(JobLeaseDuration::from_seconds(30).expect("lease"))
+        .await
+        .expect("due queue read")
+        .expect("deadline job is due");
+    let timing_generation = match due.payload {
+        JobPayload::AutoSubmitAttempt {
+            attempt,
+            timing_generation,
+        } => {
+            assert_eq!(attempt, second.id);
+            timing_generation
+        }
+        payload => panic!("expected attempt auto-submit, got {payload:?}"),
+    };
+    assert_eq!(
+        store
+            .commit_attempt_auto_submit(
+                context,
+                AttemptAutoSubmitWorkerCommand {
+                    job: due.id,
+                    lease: due.lease_token,
+                    attempt: second.id,
+                    timing_generation,
+                },
+            )
+            .await,
+        Ok(AttemptAutoSubmitCommitOutcome::AutoSubmitted)
+    );
+    assert_eq!(
+        store
+            .submit_question_attempt(
+                context,
+                SubmitQuestionAttemptCommand {
+                    actor: student,
+                    attempt: second.id,
+                    response: StudentResponse::Numeric { value: 18.0 },
+                    result: AttemptResult {
+                        correct: true,
+                        points_earned: 1.0,
+                        points_possible: 1.0,
+                    },
+                    feedback: FeedbackContent::default(),
+                    idempotency_key: SubmissionIdempotencyKey::parse("after-auto-submit")
+                        .expect("submission key"),
+                },
+            )
+            .await,
+        Err(StoreError::Conflict)
+    );
+
+    let closes_seventeen = store
+        .update_assignment_timing(
+            context,
+            UpdateAssignmentTimingCommand {
+                expected_revision: closes_sixteen.revision,
+                policy: closes_at(17_000),
+                ..initial_command
+            },
+        )
+        .await
+        .expect("open a third bounded question");
+    let third = store
+        .issue_or_resume_question_attempt(
+            context,
+            issue(QuestionAttemptId::from_uuid(uuid(95_026)), 2, 3),
+        )
+        .await
+        .expect("third timed question");
+    store
+        .set_authoritative_time(ActivityTimestamp::from_unix_millis(17_000))
+        .expect("reach original third deadline");
+    let stale = store
+        .claim_next_job(JobLeaseDuration::from_seconds(30).expect("lease"))
+        .await
+        .expect("stale queue read")
+        .expect("third deadline job");
+    let stale_generation = match stale.payload {
+        JobPayload::AutoSubmitAttempt {
+            attempt,
+            timing_generation,
+        } => {
+            assert_eq!(attempt, third.id);
+            timing_generation
+        }
+        payload => panic!("expected attempt auto-submit, got {payload:?}"),
+    };
+    store
+        .update_assignment_timing(
+            context,
+            UpdateAssignmentTimingCommand {
+                expected_revision: closes_seventeen.revision,
+                policy: closes_at(20_000),
+                ..initial_command
+            },
+        )
+        .await
+        .expect("extension races safely with a leased old generation");
+    assert_eq!(
+        store
+            .commit_attempt_auto_submit(
+                context,
+                AttemptAutoSubmitWorkerCommand {
+                    job: stale.id,
+                    lease: stale.lease_token,
+                    attempt: third.id,
+                    timing_generation: stale_generation,
+                },
+            )
+            .await,
+        Ok(AttemptAutoSubmitCommitOutcome::Rescheduled)
+    );
+    assert_eq!(
+        store
+            .get_question_attempt(context, third.id)
+            .await
+            .expect("extended third read")
+            .expect("extended third")
+            .status,
+        AttemptStatus::InProgress
+    );
+    store
+        .set_authoritative_time(ActivityTimestamp::from_unix_millis(20_000))
+        .expect("reach extended deadline");
+    let current = store
+        .claim_next_job(JobLeaseDuration::from_seconds(30).expect("lease"))
+        .await
+        .expect("current queue read")
+        .expect("rescheduled job is due");
+    assert_eq!(current.id, stale.id, "the extension reuses the durable job");
+    let current_generation = match current.payload {
+        JobPayload::AutoSubmitAttempt {
+            attempt,
+            timing_generation,
+        } => {
+            assert_eq!(attempt, third.id);
+            timing_generation
+        }
+        payload => panic!("expected attempt auto-submit, got {payload:?}"),
+    };
+    assert!(current_generation > stale_generation);
+    assert_eq!(
+        store
+            .commit_attempt_auto_submit(
+                context,
+                AttemptAutoSubmitWorkerCommand {
+                    job: current.id,
+                    lease: current.lease_token,
+                    attempt: third.id,
+                    timing_generation: current_generation,
+                },
+            )
+            .await,
+        Ok(AttemptAutoSubmitCommitOutcome::AutoSubmitted)
+    );
+
+    let limited_assignment = AssignmentId::from_uuid(uuid(95_030));
+    let limited = store
+        .create_assignment(
+            context,
+            AssignmentRecord {
+                id: limited_assignment,
+                tenant,
+                course_id: course,
+                title: "One allowed run".to_string(),
+                items: fixed_items(vec![reference]),
+                selection_groups: Vec::new(),
+                policies: policies(),
+            },
+        )
+        .await
+        .expect("attempt-limited assignment");
+    store
+        .create_enrollment(
+            context,
+            AssignmentEnrollment {
+                id: EnrollmentId::from_uuid(uuid(95_031)),
+                tenant,
+                assignment: limited_assignment,
+                user: student,
+                student: StudentId::from_uuid(uuid(95_032)),
+                first_completed_at: None,
+                current_grade_run: None,
+                best_grade_run: None,
+            },
+        )
+        .await
+        .expect("attempt-limited enrollment");
+    store
+        .update_assignment_timing(
+            context,
+            UpdateAssignmentTimingCommand {
+                actor: instructor,
+                course,
+                assignment: limited_assignment,
+                expected_revision: limited.revision,
+                policy: AssignmentTimingPolicy {
+                    attempt_limit: Some(1),
+                    ..AssignmentTimingPolicy::default()
+                },
+            },
+        )
+        .await
+        .expect("one-run limit");
+    let limited_run = store
+        .start_or_resume_run(
+            context,
+            student,
+            limited_assignment,
+            RunId::from_uuid(uuid(95_033)),
+        )
+        .await
+        .expect("first allowed run");
+    let limited_attempt = store
+        .issue_or_resume_question_attempt(
+            context,
+            IssueQuestionAttemptCommand {
+                actor: student,
+                attempt: QuestionAttemptId::from_uuid(uuid(95_034)),
+                run: limited_run.id,
+                assignment_position: 0,
+                problem: reference.problem,
+                question_version: reference.version,
+                seed: 4,
+                parameter_hash: "attempt-limit-parameters".to_string(),
+                provenance: AttemptProvenance {
+                    adapter: implementation("timing-native"),
+                    renderer: None,
+                    generator: None,
+                    source_artifact: None,
+                    asset_objects: Vec::new(),
+                    grading: implementation("timing-numeric"),
+                    rendered_question_sha256: "attempt-limit-render".to_string(),
+                },
+                prefetched: None,
+                predecessor_submission: None,
+            },
+        )
+        .await
+        .expect("question in the first allowed run");
+    store
+        .submit_question_attempt(
+            context,
+            SubmitQuestionAttemptCommand {
+                actor: student,
+                attempt: limited_attempt.id,
+                response: StudentResponse::Numeric { value: 18.0 },
+                result: AttemptResult {
+                    correct: true,
+                    points_earned: 1.0,
+                    points_possible: 1.0,
+                },
+                feedback: FeedbackContent::default(),
+                idempotency_key: SubmissionIdempotencyKey::parse("finish-limited-run")
+                    .expect("submission key"),
+            },
+        )
+        .await
+        .expect("complete the only allowed run");
+    assert!(matches!(
+        store
+            .start_or_resume_run(
+                context,
+                student,
+                limited_assignment,
+                RunId::from_uuid(uuid(95_035)),
+            )
+            .await,
+        Err(StoreError::InvalidRecord(_))
+    ));
+}
+
+#[tokio::test]
+async fn memory_student_and_group_exceptions_are_most_permissive_and_immediate() {
+    let store = MemoryStore::default();
+    store
+        .set_authoritative_time(ActivityTimestamp::from_unix_millis(20_000))
+        .expect("fixture clock");
+    let tenant = TenantId::from_uuid(uuid(96_000));
+    let context = TenantContext::from_authenticated_session(tenant);
+    let instructor = UserId::from_uuid(uuid(96_001));
+    let student = UserId::from_uuid(uuid(96_002));
+    let course = CourseId::from_uuid(uuid(96_003));
+    store
+        .upsert_course(
+            context,
+            CourseRecord {
+                id: course,
+                tenant,
+                title: "Accommodation course".to_string(),
+                members: vec![
+                    CourseMembership {
+                        user: instructor,
+                        role: CourseMembershipRole::Instructor,
+                    },
+                    CourseMembership {
+                        user: student,
+                        role: CourseMembershipRole::Student,
+                    },
+                ],
+            },
+        )
+        .await
+        .expect("course");
+    let reference = publish_assignment_version(
+        &store,
+        context,
+        tenant,
+        instructor,
+        96_010,
+        PublicationScope::Public,
+    )
+    .await;
+    let assignment = AssignmentId::from_uuid(uuid(96_020));
+    let student_record = StudentId::from_uuid(uuid(96_021));
+    let created = store
+        .create_assignment(
+            context,
+            AssignmentRecord {
+                id: assignment,
+                tenant,
+                course_id: course,
+                title: "Most permissive accommodations".to_string(),
+                items: fixed_items(vec![reference]),
+                selection_groups: Vec::new(),
+                policies: policies(),
+            },
+        )
+        .await
+        .expect("assignment");
+    store
+        .create_enrollment(
+            context,
+            AssignmentEnrollment {
+                id: EnrollmentId::from_uuid(uuid(96_022)),
+                tenant,
+                assignment,
+                user: student,
+                student: student_record,
+                first_completed_at: None,
+                current_grade_run: None,
+                best_grade_run: None,
+            },
+        )
+        .await
+        .expect("enrollment");
+    let base = store
+        .update_assignment_timing(
+            context,
+            UpdateAssignmentTimingCommand {
+                actor: instructor,
+                course,
+                assignment,
+                expected_revision: created.revision,
+                policy: AssignmentTimingPolicy {
+                    available_at: Some(ActivityTimestamp::from_unix_millis(30_000)),
+                    closes_at: Some(ActivityTimestamp::from_unix_millis(60_000)),
+                    time_limit_seconds: Some(10),
+                    attempt_limit: Some(1),
+                    ..AssignmentTimingPolicy::default()
+                },
+            },
+        )
+        .await
+        .expect("base policy");
+    let group_id = CourseGroupId::from_uuid(uuid(96_023));
+    store
+        .put_course_group(
+            context,
+            PutCourseGroupCommand {
+                actor: instructor,
+                expected_revision: None,
+                record: CourseGroupRecord {
+                    id: group_id,
+                    tenant,
+                    course,
+                    title: "Extended testing".to_string(),
+                    members: vec![student],
+                },
+            },
+        )
+        .await
+        .expect("course group");
+    let group_exception = AssignmentPolicyException {
+        id: AssignmentPolicyExceptionId::from_uuid(uuid(96_024)),
+        target: AssignmentPolicyExceptionTarget::CourseGroup(group_id),
+        available_at: Some(AssignmentExceptionTimestamp::Unrestricted),
+        closes_at: Some(AssignmentExceptionTimestamp::At(
+            ActivityTimestamp::from_unix_millis(80_000),
+        )),
+        time_limit_seconds: Some(AssignmentExceptionLimit::Value(20)),
+        attempt_limit: Some(AssignmentExceptionLimit::Value(2)),
+    };
+    let group_exception = store
+        .set_assignment_policy_exception(
+            context,
+            SetAssignmentPolicyExceptionCommand {
+                actor: instructor,
+                course,
+                assignment,
+                expected_revision: base.revision,
+                exception: group_exception,
+            },
+        )
+        .await
+        .expect("group exception");
+    let student_exception = AssignmentPolicyException {
+        id: AssignmentPolicyExceptionId::from_uuid(uuid(96_025)),
+        target: AssignmentPolicyExceptionTarget::Student(student_record),
+        available_at: Some(AssignmentExceptionTimestamp::At(
+            ActivityTimestamp::from_unix_millis(25_000),
+        )),
+        closes_at: Some(AssignmentExceptionTimestamp::At(
+            ActivityTimestamp::from_unix_millis(70_000),
+        )),
+        time_limit_seconds: Some(AssignmentExceptionLimit::Value(15)),
+        attempt_limit: Some(AssignmentExceptionLimit::Value(3)),
+    };
+    let student_command = SetAssignmentPolicyExceptionCommand {
+        actor: instructor,
+        course,
+        assignment,
+        expected_revision: group_exception.assignment_revision,
+        exception: student_exception.clone(),
+    };
+    assert_eq!(
+        store
+            .set_assignment_policy_exception(
+                context,
+                SetAssignmentPolicyExceptionCommand {
+                    actor: student,
+                    ..student_command.clone()
+                },
+            )
+            .await,
+        Err(StoreError::NotFound)
+    );
+    let stored_student = store
+        .set_assignment_policy_exception(context, student_command.clone())
+        .await
+        .expect("student exception");
+    assert_eq!(
+        store
+            .set_assignment_policy_exception(context, student_command)
+            .await,
+        Ok(stored_student.clone()),
+        "an exact exception retry is revision-stable"
+    );
+
+    let resolved = store
+        .resolve_assignment_timing(context, assignment, student_record)
+        .await
+        .expect("resolve policy")
+        .expect("enrollment policy");
+    assert_eq!(resolved.policy.available_at, None);
+    assert_eq!(
+        resolved.policy.closes_at,
+        Some(ActivityTimestamp::from_unix_millis(80_000))
+    );
+    assert_eq!(resolved.policy.time_limit_seconds, Some(20));
+    assert_eq!(resolved.policy.attempt_limit, Some(3));
+    assert_eq!(
+        resolved.contributors,
+        vec![
+            AssignmentPolicyExceptionTarget::Student(student_record),
+            AssignmentPolicyExceptionTarget::CourseGroup(group_id),
+        ]
+    );
+    let run = store
+        .start_or_resume_run(context, student, assignment, RunId::from_uuid(uuid(96_026)))
+        .await
+        .expect("exception opens assignment early");
+    let attempt = store
+        .issue_or_resume_question_attempt(
+            context,
+            IssueQuestionAttemptCommand {
+                actor: student,
+                attempt: QuestionAttemptId::from_uuid(uuid(96_027)),
+                run: run.id,
+                assignment_position: 0,
+                problem: reference.problem,
+                question_version: reference.version,
+                seed: 5,
+                parameter_hash: "exception-parameters".to_string(),
+                provenance: AttemptProvenance {
+                    adapter: implementation("timing-native"),
+                    renderer: None,
+                    generator: None,
+                    source_artifact: None,
+                    asset_objects: Vec::new(),
+                    grading: implementation("timing-numeric"),
+                    rendered_question_sha256: "exception-render".to_string(),
+                },
+                prefetched: None,
+                predecessor_submission: None,
+            },
+        )
+        .await
+        .expect("exception-timed attempt");
+    assert_eq!(
+        attempt.timer.deadline,
+        Some(ActivityTimestamp::from_unix_millis(40_000))
+    );
+    let recorded = store
+        .get_attempt_resolved_timing(context, attempt.id)
+        .await
+        .expect("attempt policy")
+        .expect("attempt resolution");
+    assert_eq!(recorded.policy, resolved.policy);
+    assert_eq!(recorded.contributors, resolved.contributors);
+
+    store
+        .set_authoritative_time(ActivityTimestamp::from_unix_millis(35_000))
+        .expect("advance beyond direct timer");
+    store
+        .upsert_course(
+            context,
+            CourseRecord {
+                id: course,
+                tenant,
+                title: "Accommodation course".to_string(),
+                members: vec![CourseMembership {
+                    user: instructor,
+                    role: CourseMembershipRole::Instructor,
+                }],
+            },
+        )
+        .await
+        .expect("remove student membership");
+    let empty_group = store
+        .get_course_group(context, group_id)
+        .await
+        .expect("group after course membership update")
+        .expect("group remains");
+    assert!(empty_group.record.members.is_empty());
+    let empty_group_command = PutCourseGroupCommand {
+        actor: instructor,
+        expected_revision: Some(empty_group.revision),
+        record: empty_group.record.clone(),
+    };
+    assert_eq!(
+        store.put_course_group(context, empty_group_command).await,
+        Ok(empty_group.clone())
+    );
+    assert_eq!(
+        store
+            .get_question_attempt(context, attempt.id)
+            .await
+            .expect("closed attempt read")
+            .expect("attempt remains")
+            .status,
+        AttemptStatus::AutoSubmitted
+    );
+    let terminal_resolution = store
+        .get_attempt_resolved_timing(context, attempt.id)
+        .await
+        .expect("terminal policy")
+        .expect("terminal resolution remains");
+    assert_eq!(terminal_resolution.policy.time_limit_seconds, Some(15));
+    assert_eq!(
+        terminal_resolution.contributors,
+        vec![AssignmentPolicyExceptionTarget::Student(student_record)]
+    );
+
+    let other_course = CourseId::from_uuid(uuid(96_028));
+    store
+        .upsert_course(
+            context,
+            CourseRecord {
+                id: other_course,
+                tenant,
+                title: "Other accommodation course".to_string(),
+                members: vec![
+                    CourseMembership {
+                        user: instructor,
+                        role: CourseMembershipRole::Instructor,
+                    },
+                    CourseMembership {
+                        user: student,
+                        role: CourseMembershipRole::Student,
+                    },
+                ],
+            },
+        )
+        .await
+        .expect("other course");
+    assert_eq!(
+        store
+            .put_course_group(
+                context,
+                PutCourseGroupCommand {
+                    actor: instructor,
+                    expected_revision: Some(empty_group.revision),
+                    record: CourseGroupRecord {
+                        course: other_course,
+                        ..empty_group.record.clone()
+                    },
+                },
+            )
+            .await,
+        Err(StoreError::Conflict),
+        "a stable group identity cannot move between courses"
+    );
+
+    let after_student_delete = store
+        .delete_assignment_policy_exception(
+            context,
+            DeleteAssignmentPolicyExceptionCommand {
+                actor: instructor,
+                course,
+                assignment,
+                expected_revision: stored_student.assignment_revision,
+                exception: student_exception.id,
+            },
+        )
+        .await
+        .expect("delete student exception");
+    let after_group_delete = store
+        .delete_assignment_policy_exception(
+            context,
+            DeleteAssignmentPolicyExceptionCommand {
+                actor: instructor,
+                course,
+                assignment,
+                expected_revision: after_student_delete,
+                exception: group_exception.exception.id,
+            },
+        )
+        .await
+        .expect("delete group exception");
+    let base_again = store
+        .resolve_assignment_timing(context, assignment, student_record)
+        .await
+        .expect("base resolution")
+        .expect("enrollment remains");
+    assert_eq!(base_again.revision, after_group_delete);
+    assert!(base_again.contributors.is_empty());
+    assert_eq!(base_again.policy.time_limit_seconds, Some(10));
 }
 
 #[tokio::test]

@@ -419,7 +419,15 @@ mod tests {
                     tenant,
                     course_id: course,
                     title: "Peptide bond exam".to_string(),
-                    problems: vec![reference],
+                    items: vec![question_model::AssignmentItem {
+                        id: question_model::AssignmentItemId::from_uuid(id(105)),
+                        reference,
+                        position: 0,
+                        points_possible: question_model::PointValue::from_whole(1),
+                        delivery_state: question_model::AssignmentDeliveryState::Active,
+                        scoring_mode: question_model::AssignmentScoringMode::Normal,
+                    }],
+                    selection_groups: Vec::new(),
                     policies: policies(),
                 },
             )

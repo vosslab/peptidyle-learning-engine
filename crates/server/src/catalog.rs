@@ -20,8 +20,9 @@ use axum::{Json, Router};
 use domain::policy::PublicationViolation;
 use question_model::{
     BackendCapabilities, Capability, CatalogLicenseValue, CatalogSearchQuery,
-    CatalogStatisticsAvailability, CatalogTaxonomyFilter, DraftQuestionSource, ProblemId,
-    ProblemVersionRef, PublicationScope, QuestionSource, UserId, UserRole, VersionId, WorkspaceId,
+    CatalogStatisticsAvailability, CatalogTaxonomyFilter, DraftQuestionSource, ProblemDisplayRef,
+    ProblemId, ProblemVersionRef, PublicationScope, QuestionSource, UserId, UserRole, VersionId,
+    WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
 use store::{
@@ -163,6 +164,10 @@ where
     Router::new()
         .route("/api/problems", get(list_problems::<S, B, R>))
         .route("/api/problems/search", get(search_problems::<S, B, R>))
+        .route(
+            "/api/problems/by-id/{reference}",
+            get(resolve_problem_reference::<S, B, R>),
+        )
         .route(
             "/api/problems/{problem}/versions/{version}",
             get(get_problem::<S, B, R>),
@@ -429,6 +434,35 @@ where
     {
         Ok(Some(record)) => no_store(Json(record.question).into_response()),
         Ok(None) => error_response(StatusCode::NOT_FOUND, "problem version not found"),
+        Err(error) => store_error_response(error),
+    }
+}
+
+async fn resolve_problem_reference<S, B, R>(
+    State(state): State<CatalogRouteState<S, B, R>>,
+    headers: HeaderMap,
+    Path(reference): Path<String>,
+) -> Response
+where
+    S: Store + CatalogStore + SessionStore + 'static,
+    B: BackendRegistry + 'static,
+    R: PublicReviewGate + 'static,
+{
+    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
+        Ok(authenticated) => authenticated,
+        Err(error) => return auth_error_response(error),
+    };
+    let reference = match reference.parse::<ProblemDisplayRef>() {
+        Ok(reference) => reference,
+        Err(error) => return error_response(StatusCode::BAD_REQUEST, error),
+    };
+    match state
+        .store
+        .resolve_catalog_problem(authenticated.tenant_context, reference)
+        .await
+    {
+        Ok(Some(record)) => no_store(Json(record.summary()).into_response()),
+        Ok(None) => error_response(StatusCode::NOT_FOUND, "problem reference not found"),
         Err(error) => store_error_response(error),
     }
 }

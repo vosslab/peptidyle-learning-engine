@@ -14,8 +14,9 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, put};
 use axum::{Json, Router};
 use question_model::{
-    AssignmentId, AssignmentSummary, Capability, CourseId, CourseMembership, CourseMembershipRole,
-    CourseRole, ProblemVersionRef, RunPolicies, UserRole,
+    AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentScoringMode,
+    AssignmentSummary, Capability, CourseId, CourseMembership, CourseMembershipRole, CourseRole,
+    PointValue, ProblemVersionRef, RunPolicies, UserRole,
 };
 use serde::{Deserialize, Serialize};
 use store::{
@@ -284,7 +285,8 @@ where
         tenant: authenticated.tenant_context.tenant_id(),
         course_id: course,
         title: request.title,
-        problems: request.problems,
+        items: assignment_items(request.problems, None),
+        selection_groups: Vec::new(),
         policies: request.policies,
     };
     if let Err(response) =
@@ -415,12 +417,25 @@ where
             );
         }
     };
+    let current = match state
+        .store
+        .get_assignment_for_edit(authenticated.tenant_context, assignment)
+        .await
+    {
+        Ok(Some(current)) if current.record.course_id == course => current,
+        Ok(Some(_)) | Ok(None) => {
+            return error_response(StatusCode::NOT_FOUND, "assignment not found");
+        }
+        Err(error) => return store_error_response(error),
+    };
+    let items = assignment_items(request.problems, Some(&current.record.items));
     let replacement = AssignmentRecord {
         id: assignment,
         tenant: authenticated.tenant_context.tenant_id(),
         course_id: course,
         title: request.title.clone(),
-        problems: request.problems.clone(),
+        items: items.clone(),
+        selection_groups: current.record.selection_groups.clone(),
         policies: request.policies,
     };
     if let Err(response) =
@@ -437,7 +452,8 @@ where
             expected_revision,
             store::AssignmentUpdate {
                 title: request.title,
-                problems: request.problems,
+                items,
+                selection_groups: current.record.selection_groups,
                 policies: request.policies,
             },
         )
@@ -614,9 +630,10 @@ async fn validate_assignment_request<S>(
 where
     S: Store + CatalogStore + SessionStore + 'static,
 {
-    let mut selected = Vec::with_capacity(assignment.problems.len());
+    let references = assignment.references().collect::<Vec<_>>();
+    let mut selected = Vec::with_capacity(references.len());
     let mut titles = std::collections::BTreeMap::new();
-    for reference in &assignment.problems {
+    for reference in &references {
         let Some(published) = state
             .store
             .get_catalog_problem(context, *reference)
@@ -648,17 +665,16 @@ where
         .into_iter()
         .map(|violation| {
             let reference = assignment
-                .problems
-                .iter()
+                .references()
                 .find(|reference| reference.version == violation.question)
                 .expect("domain validation only reports a selected question version");
             let title = titles
-                .get(reference)
+                .get(&reference)
                 .expect("every selected question has its immutable title")
                 .clone();
             AssignmentCapabilityViolation {
                 title,
-                reference: *reference,
+                reference,
                 capability: violation.capability,
             }
         })
@@ -677,6 +693,42 @@ where
                 .into_response(),
         ))
     }
+}
+
+fn assignment_items(
+    references: Vec<ProblemVersionRef>,
+    existing: Option<&[AssignmentItem]>,
+) -> Vec<AssignmentItem> {
+    let mut claimed = std::collections::BTreeSet::new();
+    references
+        .into_iter()
+        .enumerate()
+        .map(|(position, reference)| {
+            let prior = existing.and_then(|items| {
+                items.iter().find(|item| {
+                    item.reference == reference
+                        && item.delivery_state == AssignmentDeliveryState::Active
+                        && !claimed.contains(&item.id)
+                })
+            });
+            let id = prior
+                .map(|item| item.id)
+                .unwrap_or_else(question_model::AssignmentItemId::generate);
+            claimed.insert(id);
+            AssignmentItem {
+                id,
+                reference,
+                position: u32::try_from(position).expect("bounded request body fits u32"),
+                points_possible: prior
+                    .map(|item| item.points_possible)
+                    .unwrap_or_else(|| PointValue::from_whole(1)),
+                delivery_state: AssignmentDeliveryState::Active,
+                scoring_mode: prior
+                    .map(|item| item.scoring_mode)
+                    .unwrap_or(AssignmentScoringMode::Normal),
+            }
+        })
+        .collect()
 }
 
 fn store_error_response(error: StoreError) -> Response {
@@ -947,10 +999,11 @@ mod tests {
             .expect("assignment ID response");
         assert_eq!(created_assignment["courseId"], serde_json::json!(course));
         assert_eq!(
-            created_assignment["problems"],
-            serde_json::json!([reference]),
-            "the course artifact must retain exact IDs rather than copy a question"
+            created_assignment["items"][0]["reference"],
+            serde_json::json!(reference),
+            "the stable assignment item must retain exact IDs rather than copy a question"
         );
+        assert!(created_assignment["items"][0]["id"].is_string());
 
         for request in [
             Request::builder()

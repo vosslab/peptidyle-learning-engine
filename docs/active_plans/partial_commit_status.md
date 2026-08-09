@@ -1,136 +1,109 @@
 # Partial commit status
 
-Status recorded 2026-08-08 after the requested six-pass pre-commit audit.
+Status recorded 2026-08-08 at the audited database-evolution checkpoint through mutable assignment
+timing and resolved student/group policy exceptions.
 
-## Commit decision
+## Commit boundary
 
-Do not commit the current index as-is.
+This checkpoint is one coherent cross-layer transition from the disposable 34-migration history to
+the accepted six-file pre-data SQLx baseline. It includes the migrations, Store contracts and both
+backends, scoring/timing workers, server integrations, generated browser contracts, fixtures,
+tests, and documentation that use the new schema.
 
-The index contains an earlier version of migration `20260808002700` while required SQL fixes and
-the final status text remain unstaged. The audit also reopened two high-impact design issues in the
-permanent-purge transaction:
-
-- it takes `EXCLUSIVE` locks on shared tables, so one course purge can block unrelated tenants; and
-- it materializes all run and attempt identities into PostgreSQL arrays, making a large-course
-  purge memory-bound.
-
-These were architecture findings, not formatting defects. Both are corrected in the working tree,
-the required disposable PostgreSQL check passed, and two focused independent rereviews report no
-P0/P1 findings. The current mixed index still must be rebuilt before it is a safe commit boundary.
+The separately staged `docs/how-to-reduce-impact-of-bot-traffic.md` article is unrelated user work
+and is intentionally excluded from this database checkpoint.
 
 ## Completed work
 
-The working tree contains these coherent completed changes:
+The dependency-ordered database-plan packages now complete:
 
-- R4.3 central archive access fencing and production-independent retention worker composition;
-- R4.4 typed cleanup manifests, export/external resurrection closure, object deletion retry, and
-  a course-scoped set-based relational purge;
-- the SQLx directory-backed migration runner, including Cargo rebuild tracking for migration-file
-  additions;
-- fixture-policy cleanup that keeps only the explicitly approved published-problem corpus and
-  inlines small QTI and WeBWorK behavior inputs; and
-- removal of migration/source-string tests, an ignored credentialed database mega-test, private
-  MemoryStore wiring tests, and compile-only composition tests.
+- exactly six domain-owned migrations for principals, catalog/authoring, courses/assignments,
+  activity/feedback, operations/analytics, and retention;
+- explicit `cargo xtask database status`, `migrate`, and `verify` operations, with verify-only
+  application startup and exact SQLx ledger/checksum compatibility;
+- human-readable catalog problem IDs and versions while UUID identity remains authoritative;
+- normalized stable assignment items, pinned selection candidates, immutable delivered run order,
+  exact decimal point values, and explicit attempt states;
+- generation-fenced current scoring with private staging, atomic newest-generation publication,
+  concurrent-submission restaging, and no scoring-history tables;
+- revision-checked Delete and Regrade, future-run omission, protected submitted evidence, and
+  recalculation;
+- direct-instructor force-submit and clear with stable action IDs, minimal audit evidence,
+  retry serialization, and no fabricated student response or grade;
+- mutable visibility, availability, due/close boundaries, late policy, time limits, attempt limits,
+  and generation-fenced durable auto-submit; and
+- revisioned direct-student and course-group policy exceptions. Each dimension chooses the most
+  permissive applicable value, issued attempts record the resolved policy and contributors, and
+  exception/group/course-membership changes atomically re-resolve active work.
 
-The accepted database evolution decision is recorded in
-[database_schema_evolution_plan.md](decisions/database_schema_evolution_plan.md). The six-file
-pre-data baseline has not started; the current 34-file chain remains disposable implementation
-history.
+When a removed accommodation exposes an elapsed deadline, the active attempt auto-submits in the
+same transaction. It records an authoritative submission time but creates no response, evaluation,
+or score. Course roster replacement removes invalid group membership in both Store backends;
+stable group identities cannot move between courses. Retention fences and purges group membership
+and direct-student exception records.
 
-## Audit results
+## Independent audit
 
-Six independent passes reviewed the full working tree against `HEAD`.
+Six fresh reviewers independently audited plan conformance, tests, style, documentation,
+legacy/dead code, and comments. The integrated fixes were:
 
-### Remaining commit gate
+- course membership removal/demotion now owns accommodation recomputation and active timing updates;
+- direct-student exceptions and group memberships are covered by retention fences, broker policies,
+  purge order, residual assertions, and MemoryStore cleanup;
+- MemoryStore now matches PostgreSQL by rejecting movement of an existing group ID between courses;
+- the PostgreSQL acceptance fixture now exercises combined student/group resolution, recorded
+  attempt policy, membership-triggered immediate auto-submit, and exception cleanup; and
+- the assignment advisory-lock and deterministic multi-assignment lock order are documented.
 
-1. Rebuild a clean index from the final working tree. The current staged and unstaged migration
-   hunks must not be committed separately.
+No fragile tests, additional dead code, or stale execution-workstream comments were found.
 
-The stale index is independently visible through `git diff --cached --check`: its staged copy of
-`20260808002600_retention_cleanup_ledger.sql` still contains trailing whitespace at line 399. The
-accepted working-tree migration is clean under `git diff --check`; rebuilding the index replaces
-that obsolete staged snapshot rather than editing the accepted SQL again.
+One high audit finding is deliberately not hidden: scoring and timing job handlers exist, but the
+production composition does not yet start a queue drain loop. This is the same documented boundary
+as the other worker families. The generic claim is not family-filtered, so starting a partial
+registry could consume another family's job. Production worker claim filtering, complete registry
+composition, process/container activation, and operational monitoring remain MOD-WORKER work.
 
-### Corrected architecture findings
+## Migration safety evidence
 
-- Learner-record producers acquire a shared lock on the exact course-retention row; retention
-  prepare/commit hold the conflicting lock. A purge therefore freezes only its course.
-- Private forced-RLS run, attempt, and export work-set tables replace whole-course UUID arrays and
-  drive indexed set-based deletes and residual checks.
-- Successful commit erases those educational-record identity work sets before it marks the cleanup
-  manifest completed or writes the coarse deletion tombstone.
+PostgreSQL 17 acceptance was rerun after the final schema and Store changes on a newly created,
+empty disposable database:
 
-### Resolved findings
+1. pre-migration status reported an absent ledger and exactly six pending migrations;
+2. all six migrations applied successfully;
+3. a second migration run completed without applying another migration;
+4. status reported all six exact versions/checksums applied and compatible;
+5. verify reported the application compatible;
+6. the production PostgreSQL Store completed catalog, assignment, scoring-generation,
+   concurrent-submission, Delete and Regrade, force-submit, clear, base timing, stale-generation
+   rescheduling, student/group exception, membership-removal, and cleanup behavior; and
+7. final verification remained compatible after live behavior.
 
-- Added `crates/store/build.rs` so Cargo rebuilds the embedded SQLx migrator when migration files
-  change.
-- Removed fragile private-state, compile-only, source-string, and credentialed ignored tests.
-- Corrected [RETENTION_POLICY.md](../RETENTION_POLICY.md) to describe a distinct delete-stage
-  manifest and removed an unsupported numeric backup-window promise.
-- Converted retention-policy references to relative Markdown links and marked old gate counts as
-  historical evidence rather than current results.
-- Updated stale retention module and composition comments.
-- Fresh scalability and security/atomicity rereviews accepted the course-scoped, set-based purge
-  with no P0/P1 findings.
+Direct inspection of the exception case found one auto-submitted attempt with a submission
+timestamp, zero submission rows, zero evaluation rows, zero score rows, only the direct-student
+resolution after group membership disappeared, and zero remaining exception or group-member rows.
 
-## Validation evidence
+This is still a pre-data baseline. Once any environment accepts real durable data on this epoch,
+these applied migrations must never be edited in place; every later change must be a new forward
+migration. The disposable acceptance container/database was removed after final validation.
 
-Permanent behavior and compilation evidence after test pruning:
+## Permanent validation evidence
 
-- `cargo test -p store --lib --features postgres`: 30 passed.
-- `cargo test -p server_core --lib`: 137 passed.
-- `cargo test -p store --test conformance --no-default-features`: 11 passed.
-- `cargo test -p store --test conformance --features postgres --no-run`: compiled.
-- strict Store and server all-target Clippy: passed.
-- `cargo fmt --all -- --check` and `git diff --check`: passed.
-- ASCII compliance: 340 passed.
+- `./check_codebase.sh`: all 11 stages passed.
+- Browser/Node contract suite: 148 passed.
+- Store unit suite with PostgreSQL features: 40 passed.
+- Store conformance suite: 13 passed.
+- Server unit suite: 137 passed.
+- Rust formatting, strict workspace Clippy, workspace tests, and doctests: passed.
+- TypeScript generation, fixtures, type checking, linting, formatting, and Node tests: passed.
+- Fresh migration, second no-op, status, verify, and live PostgreSQL behavior: passed.
 
-The Markdown-link gate currently reports only the two new untracked status/policy documents as
-missing GitHub targets. This is an honest commit-preparation failure: GitHub would also return 404
-unless those documents are included. Re-run the 46-link gate after rebuilding the intended index
-with both documents.
+## Remaining implementation order
 
-One-time evidence, deliberately not retained as a test fixture:
-
-- PostgreSQL 17 applied all 34 current migrations to an empty database and a second SQLx run was a
-  no-op.
-- The temporary Rust test, schema dump, database container, and credentials were removed.
-- This proves current-chain migration execution only. It does not prove bounded purge behavior or
-  unrelated-tenant availability.
-- A second fresh PostgreSQL 17 database loaded one course with 50,000 attempts and a separate
-  control course. Delete prepare persisted exactly 50,000 attempt-scope rows and rejected a new
-  same-course learner membership after archive. While delete commit was visibly active, the control
-  course inserted an enrollment within two seconds. Commit removed every target attempt, erased all
-  private work-set rows, and wrote the deleted lifecycle.
-- The temporary Rust test, both PostgreSQL containers, and their credentials were removed. This is
-  scale/concurrency acceptance evidence, not permanent fixture infrastructure.
-
-## Partial commit options
-
-The current broad tree is not safe for one file-level retention commit until the mixed index is
-rebuilt from the accepted working tree.
-
-A small independent fixture-policy commit can include:
-
-- `crates/adapters/qti/src/parser_stub.rs`;
-- `crates/adapters/webwork/src/lib.rs`;
-- `crates/server/src/qti_backend.rs`;
-- `crates/server/src/qti_import.rs`;
-- `crates/server/src/qti_publication.rs`;
-- `crates/server/src/webwork_backend.rs`; and
-- the deleted files under `tests/fixtures/qti/` and `tests/fixtures/webwork/`.
-
-The SQLx seam can be a separate hunk-level commit containing `Cargo.toml`, `Cargo.lock`,
-`crates/store/build.rs`, and only the migrator hunk in `crates/store/src/postgres.rs`. Do not stage
-the whole PostgreSQL Store file for that commit because it also contains retention work.
-
-When the retention implementation is committed, include the currently untracked
-[RETENTION_POLICY.md](../RETENTION_POLICY.md). Exclude the unrelated untracked Blackboard instructor
-guide PDF unless the owner intentionally chooses a separate documentation commit.
-
-## Next implementation steps
-
-1. Run ASCII and Markdown-link gates on the final tree; strict Clippy, formatting, and diff already
-   pass.
-2. Rebuild and inspect the intended Git index before committing.
-3. After the partial commit, resume the six-file pre-data baseline, then M5 object reconciliation.
+1. Add manual grading and mixed automatic/manual assignment behavior.
+2. Add course-local item-analysis recalculation after rescoring.
+3. Complete import partial-failure, provenance, hostile-archive, and duplicate-warning acceptance.
+4. Complete family-filtered production queue draining and the full worker registry/runtime.
+5. Run the remaining real-role/RLS, partition-pruning, purge, backup/restore, and whole-system
+   PostgreSQL acceptance gates from the database evolution plan.
+6. Refresh the stale README body when the human explicitly authorizes the broader edit required by
+   `docs/REPO_STYLE.md`; the first paragraph remains accurate.

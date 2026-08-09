@@ -81,6 +81,7 @@ export function mockPrefetchSubmissionReceipt(): SubmissionReceipt {
     attempt: {
       ...prefetchFixtureAttempt,
       response: { kind: "multipleChoice", selected: ["carbonyl"] },
+      status: "submitted",
     },
     feedback: { correctness: true },
     nextIssued: {
@@ -486,6 +487,7 @@ interface MockAssignmentState {
   assignment: AssignmentSummary;
   revision: bigint;
   nextId: bigint;
+  nextItemId: bigint;
 }
 
 function createMockAssignmentState(): MockAssignmentState {
@@ -493,6 +495,7 @@ function createMockAssignmentState(): MockAssignmentState {
     assignment: structuredClone(publishedProblemFixture.assignment),
     revision: 1n,
     nextId: 60n,
+    nextItemId: 160n,
   };
 }
 
@@ -516,6 +519,35 @@ function assignmentError(status: number, error: string): Response {
 
 function mockAssignmentId(value: bigint): string {
   return `0198e000-0000-7000-8000-${value.toString().padStart(12, "0")}`;
+}
+
+function mockAssignmentItems(
+  state: MockAssignmentState,
+  input: AssignmentEditorInput,
+  preserveExisting = true,
+): AssignmentSummary["items"] {
+  const claimed = new Set<string>();
+  return input.problems.map((reference, position) => {
+    const prior = preserveExisting
+      ? state.assignment.items.find(
+          (item) =>
+            item.deliveryState === "active" &&
+            item.reference.problem === reference.problem &&
+            item.reference.version === reference.version &&
+            !claimed.has(item.id),
+        )
+      : undefined;
+    const id = prior?.id ?? mockAssignmentId(state.nextItemId++);
+    claimed.add(id);
+    return {
+      id,
+      reference,
+      position,
+      pointsPossible: prior?.pointsPossible ?? "1",
+      deliveryState: "active",
+      scoringMode: prior?.scoringMode ?? "normal",
+    };
+  });
 }
 
 async function assignmentInput(request: Request): Promise<AssignmentEditorInput | undefined> {
@@ -620,7 +652,8 @@ async function respondCourse(
       tenant: publishedProblemFixture.assignment.tenant,
       courseId: publishedProblemFixture.course.id,
       title: input.title,
-      problems: [...input.problems],
+      items: mockAssignmentItems(assignmentState, input, false),
+      selectionGroups: [],
       policies: input.policies,
     };
     assignmentState.revision = 1n;
@@ -651,7 +684,7 @@ async function respondCourse(
     assignmentState.assignment = {
       ...assignmentState.assignment,
       title: input.title,
-      problems: [...input.problems],
+      items: mockAssignmentItems(assignmentState, input),
       policies: input.policies,
     };
     assignmentState.revision += 1n;

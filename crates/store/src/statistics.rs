@@ -4,9 +4,9 @@ use std::collections::BTreeMap;
 
 use domain::statistics::{CollapsedQuestionObservation, MAX_DURATION_SECONDS};
 use objects::Sha256Digest;
-use question_model::{AttemptResult, ProblemVersionRef, QuestionAttempt};
+use question_model::{AssignmentRunItem, AttemptResult, ProblemVersionRef, QuestionAttempt};
 
-use crate::{AssignmentRecord, StoreError};
+use crate::StoreError;
 
 /// One identity-free contribution for an immutable problem version.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -21,18 +21,29 @@ pub(crate) struct StatisticsContribution {
 /// response, feedback, source, provider, and grading-key material never enter
 /// the aggregation boundary.
 pub(crate) fn derive_statistics_contributions(
-    assignment: &AssignmentRecord,
+    run_items: &[AssignmentRunItem],
     final_results: &[Option<AttemptResult>],
     attempts: &[QuestionAttempt],
 ) -> Result<Vec<StatisticsContribution>, StoreError> {
-    if final_results.len() != assignment.problems.len() || final_results.iter().any(Option::is_none)
+    let mut items = run_items.iter().collect::<Vec<_>>();
+    items.sort_by_key(|item| item.issued_position);
+    if items
+        .iter()
+        .enumerate()
+        .any(|(position, item)| usize::try_from(item.issued_position).ok() != Some(position))
     {
         return Err(StoreError::InvalidRecord(
-            "statistics require one final result per assignment position".to_string(),
+            "statistics require contiguous immutable run items".to_string(),
+        ));
+    }
+    if final_results.len() != items.len() || final_results.iter().any(Option::is_none) {
+        return Err(StoreError::InvalidRecord(
+            "statistics require one final result per delivered position".to_string(),
         ));
     }
     let mut groups = BTreeMap::<ProblemVersionRef, GroupAccumulator>::new();
-    for (reference, result) in assignment.problems.iter().copied().zip(final_results) {
+    for (item, result) in items.iter().copied().zip(final_results) {
+        let reference = item.reference;
         let result = result.expect("missing result rejected before statistics derivation");
         crate::validate_attempt_result(result)?;
         let group = groups.entry(reference).or_default();
@@ -44,9 +55,12 @@ pub(crate) fn derive_statistics_contributions(
         let position = usize::try_from(attempt.assignment_position).map_err(|_| {
             StoreError::InvalidRecord("statistics attempt position is invalid".to_string())
         })?;
-        let reference = assignment.problems.get(position).copied().ok_or_else(|| {
-            StoreError::InvalidRecord("statistics attempt position is invalid".to_string())
-        })?;
+        let reference = items
+            .get(position)
+            .map(|item| item.reference)
+            .ok_or_else(|| {
+                StoreError::InvalidRecord("statistics attempt position is invalid".to_string())
+            })?;
         if attempt.problem != reference.problem || attempt.question_version != reference.version {
             return Err(StoreError::InvalidRecord(
                 "statistics attempt identity disagrees with its assignment position".to_string(),
@@ -94,7 +108,7 @@ pub(crate) fn derive_statistics_contributions(
     let mut contributions = Vec::with_capacity(groups.len());
     for (index, (reference, group)) in groups.into_iter().enumerate() {
         let question_score = normalized_score(group.earned, group.possible)?;
-        let rest_score = (group.positions < assignment.problems.len())
+        let rest_score = (group.positions < items.len())
             .then(|| {
                 normalized_score(
                     prefix[index].0 + suffix[index + 1].0,
@@ -171,11 +185,8 @@ fn contribution_checksum(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::run_policy::{
-        CompletionRequirement, ContinuedPractice, GradePolicy, RunPolicies, VariationPolicy,
-    };
     use question_model::{
-        ActivityTimestamp, AssignmentId, AttemptProvenance, AttemptTimerRecord, CourseId,
+        ActivityTimestamp, AssignmentItemId, AttemptProvenance, AttemptTimerRecord,
         ImplementationVersion, ProblemId, QuestionAttemptId, RunId, StudentResponse, TenantId,
         VersionId,
     };
@@ -192,20 +203,20 @@ mod tests {
         }
     }
 
-    fn assignment(problems: Vec<ProblemVersionRef>) -> AssignmentRecord {
-        AssignmentRecord {
-            id: AssignmentId::from_uuid(id(2_001)),
-            tenant: TenantId::from_uuid(id(2_002)),
-            course_id: CourseId::from_uuid(id(2_003)),
-            title: "Statistics fixture".to_string(),
-            problems,
-            policies: RunPolicies {
-                completion: CompletionRequirement::AnswerAll,
-                grade: GradePolicy::First,
-                continued_practice: ContinuedPractice::Unlimited,
-                variation: VariationPolicy::NewSeeds,
-            },
-        }
+    fn run_items(problems: Vec<ProblemVersionRef>) -> Vec<AssignmentRunItem> {
+        problems
+            .into_iter()
+            .enumerate()
+            .map(|(position, reference)| AssignmentRunItem {
+                run: RunId::from_uuid(id(2_004)),
+                assignment_item: AssignmentItemId::from_uuid(id(3_000 + position as u128)),
+                source_position: u32::try_from(position).expect("fixture position fits"),
+                issued_position: u32::try_from(position).expect("fixture position fits"),
+                reference,
+                selection_group: None,
+                selection_seed: None,
+            })
+            .collect()
     }
 
     fn result(earned: f64, possible: f64) -> Option<AttemptResult> {
@@ -237,6 +248,11 @@ mod tests {
             seed: number as u64,
             parameter_hash: format!("parameters-{number}"),
             response: elapsed_millis.map(|_| StudentResponse::Numeric { value: 1.0 }),
+            status: if elapsed_millis.is_some() {
+                question_model::AttemptStatus::Submitted
+            } else {
+                question_model::AttemptStatus::InProgress
+            },
             result: elapsed_millis.map(|_| attempt_result),
             timer: AttemptTimerRecord {
                 issued_at: ActivityTimestamp::from_unix_millis(10_000),
@@ -277,7 +293,7 @@ mod tests {
     fn duplicate_positions_collapse_retries_and_bounded_total_time() {
         let a = reference(1);
         let b = reference(2);
-        let assignment = assignment(vec![a, b, a]);
+        let run_items = run_items(vec![a, b, a]);
         let results = vec![result(1.0, 2.0), result(1.0, 4.0), result(2.0, 2.0)];
         let attempts = vec![
             attempt(1, a, 0, Some(1_500)),
@@ -287,7 +303,7 @@ mod tests {
             attempt(5, a, 2, None),
         ];
 
-        let derived = derive_statistics_contributions(&assignment, &results, &attempts)
+        let derived = derive_statistics_contributions(&run_items, &results, &attempts)
             .expect("valid collapsed contributions");
         assert_eq!(derived.len(), 2);
         let a_observation = contribution(&derived, a).observation;
@@ -301,7 +317,7 @@ mod tests {
         assert_eq!(b_observation.attempts(), 1);
         assert_eq!(b_observation.duration_seconds(), 1);
         assert_eq!(
-            derive_statistics_contributions(&assignment, &results, &attempts)
+            derive_statistics_contributions(&run_items, &results, &attempts)
                 .expect("deterministic replay"),
             derived,
         );
@@ -311,7 +327,7 @@ mod tests {
     fn rest_score_excludes_the_current_group_without_subtractive_cancellation() {
         let a = reference(10);
         let b = reference(11);
-        let assignment = assignment(vec![a, b, a]);
+        let run_items = run_items(vec![a, b, a]);
         let results = vec![
             result(2.5e307, 5.0e307),
             result(0.0, 1.0),
@@ -323,7 +339,7 @@ mod tests {
             attempt(12, a, 2, Some(1)),
         ];
 
-        let derived = derive_statistics_contributions(&assignment, &results, &attempts)
+        let derived = derive_statistics_contributions(&run_items, &results, &attempts)
             .expect("tiny rest group remains representable");
         assert_eq!(
             contribution(&derived, a).observation.rest_score(),
@@ -338,9 +354,9 @@ mod tests {
     #[test]
     fn one_version_has_no_rest_score_and_canonicalizes_negative_zero() {
         let a = reference(20);
-        let assignment = assignment(vec![a]);
+        let run_items = run_items(vec![a]);
         let derived = derive_statistics_contributions(
-            &assignment,
+            &run_items,
             &[result(-0.0, 1.0)],
             &[attempt(20, a, 0, Some(1_001))],
         )
@@ -355,10 +371,10 @@ mod tests {
     fn malformed_results_identities_and_timestamps_are_refused() {
         let a = reference(30);
         let b = reference(31);
-        let assignment = assignment(vec![a]);
+        let run_items = run_items(vec![a]);
         assert!(matches!(
             derive_statistics_contributions(
-                &assignment,
+                &run_items,
                 &[result(2.0, 1.0)],
                 &[attempt(30, a, 0, Some(1))]
             ),
@@ -368,13 +384,13 @@ mod tests {
         let mut wrong_identity = attempt(31, a, 0, Some(1));
         wrong_identity.problem = b.problem;
         assert!(matches!(
-            derive_statistics_contributions(&assignment, &[result(1.0, 1.0)], &[wrong_identity]),
+            derive_statistics_contributions(&run_items, &[result(1.0, 1.0)], &[wrong_identity]),
             Err(StoreError::InvalidRecord(_))
         ));
 
         assert!(matches!(
             derive_statistics_contributions(
-                &assignment,
+                &run_items,
                 &[result(1.0, 1.0)],
                 &[attempt(32, a, 0, Some(-1))]
             ),

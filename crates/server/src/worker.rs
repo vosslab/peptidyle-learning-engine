@@ -17,7 +17,10 @@ use std::{
 };
 
 use async_trait::async_trait;
-use question_model::{ObjectId, TenantId, WorkspaceId, WorkspaceImportId};
+use question_model::{
+    AssignmentId, ObjectId, QuestionAttemptId, ScoringGeneration, TenantId, WorkspaceId,
+    WorkspaceImportId,
+};
 use store::{
     ExportArtifactRecord, JobFailureKind, JobId, JobLeaseDuration, JobLeaseToken, JobPayload,
     JobStore, QueueDepth, StoreError, TenantContext,
@@ -101,6 +104,18 @@ impl JobExecution {
 /// The concrete producer later resolves this object in its commit transaction.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum PreparedJobEffect {
+    /// Current-score rows staged for one assignment generation.
+    AssignmentScoring {
+        tenant: TenantId,
+        assignment: AssignmentId,
+        generation: ScoringGeneration,
+    },
+    /// Server-owned deadline transition requiring no external preparation.
+    AttemptAutoSubmit {
+        tenant: TenantId,
+        attempt: QuestionAttemptId,
+        timing_generation: u64,
+    },
     /// A retention effect whose external cleanup has completed; the Store
     /// still owns the lease-conditional lifecycle and queue finalization.
     Retention {
@@ -179,6 +194,8 @@ impl JobCommitClaim {
 pub(crate) enum EffectCommitOutcome {
     /// Effect became visible and this exact claim was completed atomically.
     Committed,
+    /// The claimed execution safely moved the same durable job into the future.
+    Rescheduled,
     /// Claim expired/reclaimed before the conditional transaction could commit.
     ClaimNoLongerActive,
 }
@@ -202,6 +219,8 @@ pub(crate) trait EffectCommitter: sealed::EffectCommitter + Send + Sync + 'stati
 /// Closed registry for initial preparation families.
 #[derive(Clone)]
 pub(crate) struct JobHandlers {
+    scoring: Arc<dyn JobHandler>,
+    timing: Arc<dyn JobHandler>,
     render: Arc<dyn JobHandler>,
     export: Arc<dyn JobHandler>,
     import: Arc<dyn JobHandler>,
@@ -211,6 +230,8 @@ pub(crate) struct JobHandlers {
 
 impl JobHandlers {
     pub(crate) fn new(
+        scoring: Arc<dyn JobHandler>,
+        timing: Arc<dyn JobHandler>,
         render: Arc<dyn JobHandler>,
         export: Arc<dyn JobHandler>,
         import: Arc<dyn JobHandler>,
@@ -218,6 +239,8 @@ impl JobHandlers {
         retention: Arc<dyn JobHandler>,
     ) -> Self {
         Self {
+            scoring,
+            timing,
             render,
             export,
             import,
@@ -228,6 +251,8 @@ impl JobHandlers {
 
     fn for_payload(&self, payload: &JobPayload) -> Arc<dyn JobHandler> {
         match payload {
+            JobPayload::RecalculateAssignment { .. } => Arc::clone(&self.scoring),
+            JobPayload::AutoSubmitAttempt { .. } => Arc::clone(&self.timing),
             JobPayload::Retention { .. } => Arc::clone(&self.retention),
             JobPayload::Render { .. } => Arc::clone(&self.render),
             JobPayload::Export { .. } => Arc::clone(&self.export),
@@ -281,6 +306,7 @@ impl WorkerSettings {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct DrainReport {
     pub(crate) completed: u32,
+    pub(crate) rescheduled: u32,
     pub(crate) retrying: u32,
     pub(crate) dead: u32,
     /// Ambiguous or stale finalization was intentionally not retried locally.
@@ -390,6 +416,7 @@ where
             // conditional transaction: active claim token + effect + completion.
             match self.committer.commit(claim, effect).await {
                 Ok(EffectCommitOutcome::Committed) => report.completed += 1,
+                Ok(EffectCommitOutcome::Rescheduled) => report.rescheduled += 1,
                 Ok(EffectCommitOutcome::ClaimNoLongerActive) | Err(_) => {
                     // An uncertain commit is not failed/retried here: recovery uses
                     // the durable idempotency key after the lease resolves.
@@ -543,6 +570,22 @@ mod tests {
     fn effect_for(payload: JobPayload) -> PreparedJobEffect {
         let artifact = ObjectId::from_uuid(id(9_000));
         match payload {
+            JobPayload::RecalculateAssignment {
+                assignment,
+                generation,
+            } => PreparedJobEffect::AssignmentScoring {
+                tenant: TenantId::from_uuid(id(1)),
+                assignment,
+                generation,
+            },
+            JobPayload::AutoSubmitAttempt {
+                attempt,
+                timing_generation,
+            } => PreparedJobEffect::AttemptAutoSubmit {
+                tenant: TenantId::from_uuid(id(1)),
+                attempt,
+                timing_generation,
+            },
             JobPayload::Retention { .. } => {
                 panic!("recording handler must not receive retention work")
             }
@@ -620,6 +663,8 @@ mod tests {
     fn handlers(behavior: Behavior, tenants: Arc<Mutex<Vec<TenantId>>>) -> JobHandlers {
         let handler: Arc<dyn JobHandler> = Arc::new(RecordingHandler { behavior, tenants });
         JobHandlers::new(
+            Arc::clone(&handler),
+            Arc::clone(&handler),
             Arc::clone(&handler),
             Arc::clone(&handler),
             Arc::clone(&handler),

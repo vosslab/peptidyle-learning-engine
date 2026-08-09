@@ -377,7 +377,7 @@ fn map_type(rust_type: &Type, dependencies: &mut BTreeSet<String>) -> Result<Str
         "String" | "str" | "Uuid" | "PathBuf" => "string".to_string(),
         "bool" => "boolean".to_string(),
         "u8" | "u16" | "u32" | "u64" | "usize" | "i8" | "i16" | "i32" | "i64" | "isize" | "f32"
-        | "f64" => "number".to_string(),
+        | "f64" | "NonZeroU64" => "number".to_string(),
         // Option<T> becomes `T | null`: serde writes `null` for None, so the
         // client sees null rather than a missing key.
         "Option" => {
@@ -422,6 +422,12 @@ fn generate_struct(item: &syn::ItemStruct) -> Result<Generated> {
     let rule = rename_all(&item.attrs);
 
     let body = match &item.fields {
+        Fields::Unnamed(fields)
+            if fields.unnamed.len() == 1
+                && serde_string_value(&item.attrs, "into").as_deref() == Some("String") =>
+        {
+            "string".to_string()
+        }
         // A newtype is an alias to its inner type, matching serde, which
         // serializes it transparently.
         Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
@@ -714,6 +720,18 @@ mod tests {
     }
 
     #[test]
+    fn transparent_nonzero_u64_newtypes_use_their_numeric_wire_type() {
+        let item: syn::ItemStruct = syn::parse_quote! {
+            #[derive(Serialize)]
+            #[serde(transparent)]
+            pub struct PublicId(NonZeroU64);
+        };
+        let generated = generate_struct(&item).expect("generation should succeed");
+        assert_eq!(generated.body, "number");
+        assert!(generated.dependencies.is_empty());
+    }
+
+    #[test]
     fn omitted_option_becomes_an_optional_property() {
         let item: syn::ItemStruct = syn::parse_quote! {
             #[derive(Serialize)]
@@ -775,5 +793,16 @@ mod tests {
         };
         let generated = generate_struct(&item).expect("generation should succeed");
         assert_eq!(generated.body, "Array<string>");
+    }
+
+    #[test]
+    fn serde_string_newtypes_use_their_wire_type() {
+        let item: syn::ItemStruct = syn::parse_quote! {
+            #[derive(Serialize)]
+            #[serde(try_from = "String", into = "String")]
+            pub struct ExactDecimal(i64);
+        };
+        let generated = generate_struct(&item).expect("generation should succeed");
+        assert_eq!(generated.body, "string");
     }
 }

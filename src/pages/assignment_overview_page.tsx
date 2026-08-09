@@ -52,8 +52,14 @@ export function AssignmentOverviewPage(): JSX.Element {
               </p>
               <dl class="assignment-facts">
                 <div>
-                  <dt>Question families</dt>
-                  <dd>{current().problems.length}</dd>
+                  <dt>Questions per run</dt>
+                  <dd>
+                    {current().items.filter((item) => item.deliveryState === "active").length +
+                      current().selectionGroups.reduce(
+                        (count, group) => count + group.drawCount,
+                        0,
+                      )}
+                  </dd>
                 </div>
                 <div>
                   <dt>Variation</dt>

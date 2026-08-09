@@ -4,11 +4,17 @@ import type { AssetRef } from "../../generated/api/AssetRef";
 import { MAX_CATALOG_TAXONOMY_FACETS } from "../../generated/api/MAX_CATALOG_TAXONOMY_FACETS";
 import { MAX_QUESTION_TITLE_UNICODE_SCALARS } from "../../generated/api/MAX_QUESTION_TITLE_UNICODE_SCALARS";
 import type { AssignmentEnrollment } from "../../generated/api/AssignmentEnrollment";
+import type { AssignmentDeliveryState } from "../../generated/api/AssignmentDeliveryState";
+import type { AssignmentItem } from "../../generated/api/AssignmentItem";
 import type { AssignmentRun } from "../../generated/api/AssignmentRun";
+import type { AssignmentScoringMode } from "../../generated/api/AssignmentScoringMode";
+import type { AssignmentSelectionCandidate } from "../../generated/api/AssignmentSelectionCandidate";
+import type { AssignmentSelectionGroup } from "../../generated/api/AssignmentSelectionGroup";
 import type { AssignmentSummary } from "../../generated/api/AssignmentSummary";
 import type { AttemptPolicy } from "../../generated/api/AttemptPolicy";
 import type { AttemptProvenance } from "../../generated/api/AttemptProvenance";
 import type { AttemptResult } from "../../generated/api/AttemptResult";
+import type { AttemptStatus } from "../../generated/api/AttemptStatus";
 import type { AttemptTimerRecord } from "../../generated/api/AttemptTimerRecord";
 import type { BackendCapabilities } from "../../generated/api/BackendCapabilities";
 import type { Capability } from "../../generated/api/Capability";
@@ -36,6 +42,7 @@ import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRo
 import type { License } from "../../generated/api/License";
 import type { NumericTolerance } from "../../generated/api/NumericTolerance";
 import type { ParameterSpec } from "../../generated/api/ParameterSpec";
+import type { PointValue } from "../../generated/api/PointValue";
 import type { ProblemVersionRef } from "../../generated/api/ProblemVersionRef";
 import type { QuestionAttempt } from "../../generated/api/QuestionAttempt";
 import type { QuestionDefinition } from "../../generated/api/QuestionDefinition";
@@ -48,6 +55,7 @@ import type { RandomizationDefinition } from "../../generated/api/RandomizationD
 import type { ResponseDefinition } from "../../generated/api/ResponseDefinition";
 import type { RunPolicies } from "../../generated/api/RunPolicies";
 import type { SelectionCardinality } from "../../generated/api/SelectionCardinality";
+import type { SelectionOrdering } from "../../generated/api/SelectionOrdering";
 import type { SourceArtifact } from "../../generated/api/SourceArtifact";
 import type { StudentAssignmentSummary } from "../../generated/api/StudentAssignmentSummary";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
@@ -308,7 +316,9 @@ export function decodeCatalogProblemSummary(
   if (strict) {
     requireOnlyFields(record, path, [
       "problem",
+      "publicId",
       "version",
+      "versionNumber",
       "backend",
       "capabilities",
       "metadata",
@@ -322,7 +332,12 @@ export function decodeCatalogProblemSummary(
   }
   const decoded = {
     problem: decodeIdentifier(field(record, "problem", path), `${path}.problem`),
+    publicId: decodePositiveInteger(field(record, "publicId", path), `${path}.publicId`),
     version: decodeIdentifier(field(record, "version", path), `${path}.version`),
+    versionNumber: decodePositiveInteger(
+      field(record, "versionNumber", path),
+      `${path}.versionNumber`,
+    ),
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
       "native",
       "webwork",
@@ -658,17 +673,125 @@ export function decodeCourseSummary(value: unknown, path = "response"): CourseSu
   return decoded;
 }
 
-export function decodeAssignmentSummary(value: unknown, path = "response"): AssignmentSummary {
+function decodePointValue(value: unknown, path: string): PointValue {
+  const decoded = decodeString(value, path);
+  if (!/^(?:0|[1-9][0-9]{0,9})(?:\.[0-9]{1,4})?$/u.test(decoded)) {
+    throw new DecodeError(path, "a canonical nonnegative decimal with at most four places");
+  }
+  const [whole = "0"] = decoded.split(".", 1);
+  if (BigInt(whole) > 1_000_000_000n) {
+    throw new DecodeError(path, "an assignment point value in the supported range");
+  }
+  return decoded;
+}
+
+function decodeAssignmentItem(value: unknown, path: string): AssignmentItem {
   const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "id",
+    "reference",
+    "position",
+    "pointsPossible",
+    "deliveryState",
+    "scoringMode",
+  ]);
+  return {
+    id: decodeIdentifier(field(record, "id", path), `${path}.id`),
+    reference: decodeProblemVersionRef(field(record, "reference", path), `${path}.reference`, true),
+    position: decodeNonnegativeInteger(field(record, "position", path), `${path}.position`),
+    pointsPossible: decodePointValue(
+      field(record, "pointsPossible", path),
+      `${path}.pointsPossible`,
+    ),
+    deliveryState: decodeStringEnum(field(record, "deliveryState", path), `${path}.deliveryState`, [
+      "active",
+      "retired",
+    ] as const satisfies ReadonlyArray<AssignmentDeliveryState>),
+    scoringMode: decodeStringEnum(field(record, "scoringMode", path), `${path}.scoringMode`, [
+      "normal",
+      "fullCredit",
+      "extraCredit",
+      "excluded",
+    ] as const satisfies ReadonlyArray<AssignmentScoringMode>),
+  };
+}
+
+function decodeAssignmentSelectionCandidate(
+  value: unknown,
+  path: string,
+): AssignmentSelectionCandidate {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["id", "position", "reference", "deliveryState"]);
+  return {
+    id: decodeIdentifier(field(record, "id", path), `${path}.id`),
+    position: decodeNonnegativeInteger(field(record, "position", path), `${path}.position`),
+    reference: decodeProblemVersionRef(field(record, "reference", path), `${path}.reference`, true),
+    deliveryState: decodeStringEnum(field(record, "deliveryState", path), `${path}.deliveryState`, [
+      "active",
+      "retired",
+    ] as const satisfies ReadonlyArray<AssignmentDeliveryState>),
+  };
+}
+
+function decodeAssignmentSelectionGroup(value: unknown, path: string): AssignmentSelectionGroup {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "id",
+    "position",
+    "drawCount",
+    "pointsPerItem",
+    "ordering",
+    "algorithmVersion",
+    "candidates",
+  ]);
+  return {
+    id: decodeIdentifier(field(record, "id", path), `${path}.id`),
+    position: decodeNonnegativeInteger(field(record, "position", path), `${path}.position`),
+    drawCount: decodePositiveInteger(field(record, "drawCount", path), `${path}.drawCount`),
+    pointsPerItem: decodePointValue(field(record, "pointsPerItem", path), `${path}.pointsPerItem`),
+    ordering: decodeStringEnum(field(record, "ordering", path), `${path}.ordering`, [
+      "candidateOrder",
+      "randomized",
+    ] as const satisfies ReadonlyArray<SelectionOrdering>),
+    algorithmVersion: decodePositiveInteger(
+      field(record, "algorithmVersion", path),
+      `${path}.algorithmVersion`,
+    ),
+    candidates: decodeArray(
+      field(record, "candidates", path),
+      `${path}.candidates`,
+      decodeAssignmentSelectionCandidate,
+    ),
+  };
+}
+
+export function decodeAssignmentSummary(
+  value: unknown,
+  path = "response",
+  strict = false,
+): AssignmentSummary {
+  const record = decodeRecord(value, path);
+  if (strict) {
+    requireOnlyFields(record, path, [
+      "id",
+      "tenant",
+      "courseId",
+      "title",
+      "items",
+      "selectionGroups",
+      "policies",
+    ]);
+  }
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
     courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
-    problems: decodeArray(
-      field(record, "problems", path),
-      `${path}.problems`,
-      decodeProblemVersionRef,
+    items: decodeArray(field(record, "items", path), `${path}.items`, decodeAssignmentItem),
+    selectionGroups: decodeArray(
+      field(record, "selectionGroups", path),
+      `${path}.selectionGroups`,
+      decodeAssignmentSelectionGroup,
     ),
     policies: decodeRunPolicies(field(record, "policies", path), `${path}.policies`),
   } satisfies AssignmentSummary;
@@ -706,21 +829,17 @@ export function decodeAssignmentEditorDetail(
   value: unknown,
   path = "response",
 ): Omit<AssignmentEditorDetail, "revision"> {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["id", "tenant", "courseId", "title", "problems", "policies"]);
-  const input = decodeAssignmentEditorInput(
-    {
-      title: field(record, "title", path),
-      problems: field(record, "problems", path),
-      policies: field(record, "policies", path),
-    },
-    path,
-  );
+  const summary = decodeAssignmentSummary(value, path, true);
   const decoded = {
-    id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
-    courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
-    ...input,
+    id: summary.id,
+    tenant: summary.tenant,
+    courseId: summary.courseId,
+    title: summary.title,
+    problems: summary.items
+      .filter((item) => item.deliveryState === "active")
+      .sort((left, right) => left.position - right.position)
+      .map((item) => item.reference),
+    policies: summary.policies,
   } satisfies Omit<AssignmentEditorDetail, "revision">;
   return decoded;
 }
@@ -2006,6 +2125,7 @@ export function decodeQuestionAttempt(value: unknown, path = "response"): Questi
     "seed",
     "parameterHash",
     "response",
+    "status",
     "result",
     "timer",
     "provenance",
@@ -2030,6 +2150,14 @@ export function decodeQuestionAttempt(value: unknown, path = "response"): Questi
       `${path}.response`,
       decodeStudentResponse,
     ),
+    status: decodeStringEnum(field(record, "status", path), `${path}.status`, [
+      "in_progress",
+      "submitted",
+      "auto_submitted",
+      "needs_manual_grading",
+      "cleared",
+      "exempt",
+    ] as const satisfies ReadonlyArray<AttemptStatus>),
     result: decodeNullable(field(record, "result", path), `${path}.result`, decodeAttemptResult),
     timer: decodeAttemptTimer(field(record, "timer", path), `${path}.timer`),
     provenance: decodeAttemptProvenance(field(record, "provenance", path), `${path}.provenance`),

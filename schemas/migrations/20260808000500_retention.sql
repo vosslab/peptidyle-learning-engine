@@ -447,7 +447,9 @@ BEGIN
         'attempt_feedback',
         'external_tool_exchange',
         'external_tool_launch_session',
-        'student_export_request'
+        'student_export_request',
+        'course_group_member',
+        'assignment_policy_exception'
     ) THEN
         owner_tenant := NEW.tenant_id;
         owner_course := NEW.course_id;
@@ -1425,6 +1427,15 @@ BEGIN
               AND s.job_id = w.job_id
        );
 
+    DELETE FROM public.assignment_policy_exception
+     WHERE tenant_id = p_tenant
+       AND course_id = p_course
+       AND student_id IS NOT NULL;
+
+    DELETE FROM public.course_group_member
+     WHERE tenant_id = p_tenant
+       AND course_id = p_course;
+
     DELETE FROM public.course_member
      WHERE tenant_id = p_tenant
        AND course_id = p_course
@@ -1666,6 +1677,15 @@ BEGIN
          WHERE cm.tenant_id = p_tenant
            AND cm.course_id = p_course
            AND cm.role = 'student'
+        UNION ALL
+        SELECT 1 FROM public.course_group_member cgm
+         WHERE cgm.tenant_id = p_tenant
+           AND cgm.course_id = p_course
+        UNION ALL
+        SELECT 1 FROM public.assignment_policy_exception exception
+         WHERE exception.tenant_id = p_tenant
+           AND exception.course_id = p_course
+           AND exception.student_id IS NOT NULL
         UNION ALL
         SELECT 1 FROM public.assignment_item ap
          WHERE frozen_assignment_disposition = 'delete'
@@ -2589,6 +2609,10 @@ CREATE TRIGGER audit_event_retention_fence BEFORE INSERT OR UPDATE ON public.aud
 
 CREATE TRIGGER course_member_retention_fence BEFORE INSERT OR UPDATE ON public.course_member FOR EACH ROW EXECUTE FUNCTION public.ple_fence_learner_record_write();
 
+CREATE TRIGGER course_group_member_retention_fence BEFORE INSERT OR UPDATE ON public.course_group_member FOR EACH ROW EXECUTE FUNCTION public.ple_fence_learner_record_write();
+
+CREATE TRIGGER assignment_policy_exception_retention_fence BEFORE INSERT OR UPDATE ON public.assignment_policy_exception FOR EACH ROW EXECUTE FUNCTION public.ple_fence_learner_record_write();
+
 CREATE TRIGGER enrollment_retention_fence BEFORE INSERT OR UPDATE ON public.enrollment FOR EACH ROW EXECUTE FUNCTION public.ple_fence_learner_record_write();
 
 CREATE TRIGGER external_tool_exchange_bind_course BEFORE INSERT OR UPDATE ON public.external_tool_exchange FOR EACH ROW EXECUTE FUNCTION public.ple_bind_course_from_attempt();
@@ -2762,6 +2786,14 @@ CREATE POLICY retention_broker_audit_event_tenant_select ON public.audit_event F
 CREATE POLICY retention_broker_course_member_tenant_delete ON public.course_member FOR DELETE TO ple_retention_broker USING ((tenant_id = public.ple_current_tenant()));
 
 CREATE POLICY retention_broker_course_member_tenant_select ON public.course_member FOR SELECT TO ple_retention_broker USING ((tenant_id = public.ple_current_tenant()));
+
+CREATE POLICY retention_broker_course_group_member_tenant_delete ON public.course_group_member FOR DELETE TO ple_retention_broker USING ((tenant_id = public.ple_current_tenant()));
+
+CREATE POLICY retention_broker_course_group_member_tenant_select ON public.course_group_member FOR SELECT TO ple_retention_broker USING ((tenant_id = public.ple_current_tenant()));
+
+CREATE POLICY retention_broker_assignment_policy_exception_tenant_delete ON public.assignment_policy_exception FOR DELETE TO ple_retention_broker USING ((tenant_id = public.ple_current_tenant()));
+
+CREATE POLICY retention_broker_assignment_policy_exception_tenant_select ON public.assignment_policy_exception FOR SELECT TO ple_retention_broker USING ((tenant_id = public.ple_current_tenant()));
 
 CREATE POLICY retention_broker_enrollment_tenant_delete ON public.enrollment FOR DELETE TO ple_retention_broker USING ((tenant_id = public.ple_current_tenant()));
 

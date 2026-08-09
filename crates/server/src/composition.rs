@@ -28,7 +28,9 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use question_model::{TenantId, UserId, UserRole};
 use serde_json::json;
 use sha2::{Digest, Sha256};
-use store::postgres::{Pool, PostgresQtiGraderStore, PostgresStore, lazy_pool};
+use store::postgres::{
+    Pool, PostgresQtiGraderStore, PostgresStore, SchemaCompatibilityError, lazy_pool,
+};
 use store::{
     AssetStore, CatalogStore, CourseRecordsAccessStore, ExportJobStore, QtiImportStore,
     RetentionApiStore, RetentionStore, SessionLifetime, SessionStore, SessionSubject, Store,
@@ -382,7 +384,27 @@ struct ConfiguredImathas {
 impl PersistentDependencies {
     async fn from_env() -> Result<Self> {
         let settings = ProductionSettings::from_env()?;
-        Self::from_settings(&settings).await
+        let dependencies = Self::from_settings(&settings).await?;
+        dependencies.verify_startup_schema().await?;
+        Ok(dependencies)
+    }
+
+    async fn verify_startup_schema(&self) -> Result<()> {
+        let verification = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            store::postgres::verify_application_schema(&self.health.postgres),
+        )
+        .await;
+        match verification {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(SchemaCompatibilityError::Unavailable)) | Err(_) => {
+                eprintln!("database schema check unavailable; API starting degraded");
+                Ok(())
+            }
+            Ok(Err(SchemaCompatibilityError::Incompatible(reason))) => {
+                bail!("database schema is incompatible: {reason}")
+            }
+        }
     }
 
     async fn from_settings(settings: &ProductionSettings) -> Result<Self> {

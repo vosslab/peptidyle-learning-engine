@@ -3,8 +3,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssignmentId, CourseId, EnrollmentId, ProblemVersionRef, RunPolicies, StudentAssignmentSummary,
-    StudentId, TenantId, UserId,
+    AssignmentId, AssignmentItem, AssignmentSelectionGroup, CourseId, EnrollmentId, RunPolicies,
+    StudentAssignmentSummary, StudentId, TenantId, UserId,
 };
 
 /// A person's course-specific authorization role.
@@ -78,8 +78,10 @@ pub struct AssignmentSummary {
     pub course_id: CourseId,
     /// Human-facing assignment title.
     pub title: String,
-    /// Ordered exact immutable problem versions selected for the assignment.
-    pub problems: Vec<ProblemVersionRef>,
+    /// Ordered stable fixed items in the current assignment definition.
+    pub items: Vec<AssignmentItem>,
+    /// Current random-selection groups with pinned immutable candidates.
+    pub selection_groups: Vec<AssignmentSelectionGroup>,
     /// Four independent run policies.
     pub policies: RunPolicies,
 }
@@ -124,10 +126,18 @@ mod tests {
             tenant: TenantId::from_uuid(Uuid::from_u128(2)),
             course_id: CourseId::from_uuid(Uuid::from_u128(3)),
             title: "Peptide bonds".to_string(),
-            problems: vec![ProblemVersionRef {
-                problem: ProblemId::from_uuid(Uuid::from_u128(4)),
-                version: VersionId::from_uuid(Uuid::from_u128(5)),
+            items: vec![AssignmentItem {
+                id: crate::AssignmentItemId::from_uuid(Uuid::from_u128(4)),
+                reference: crate::ProblemVersionRef {
+                    problem: ProblemId::from_uuid(Uuid::from_u128(5)),
+                    version: VersionId::from_uuid(Uuid::from_u128(6)),
+                },
+                position: 0,
+                points_possible: crate::PointValue::from_whole(1),
+                delivery_state: crate::AssignmentDeliveryState::Active,
+                scoring_mode: crate::AssignmentScoringMode::Normal,
             }],
+            selection_groups: Vec::new(),
             policies: RunPolicies {
                 completion: CompletionRequirement::AllCorrect,
                 grade: GradePolicy::Highest,

@@ -4,6 +4,52 @@
 
 ### Additions and New Features
 
+- Consolidated the pre-data PostgreSQL schema into the six domain-owned SQLx
+  baseline migrations specified by the database evolution plan. The new
+  `cargo xtask database status`, `migrate`, and `verify` commands use SQLx's
+  ledger and checksum compatibility checks, while application startup remains
+  verify-only. The baseline creates explicit least-privilege principals,
+  forced tenant RLS, monthly/default partition families, immutable published
+  content, normalized assignment and activity records, operational queues,
+  analytics, and retention boundaries without retaining the historical repair
+  chain.
+- Added human-readable catalog IDs, stable fixed assignment items, pinned
+  random-selection candidates, immutable delivered run order, exact decimal
+  point values, explicit attempt states, and generation-fenced current scoring.
+  Recalculation stages every affected attempt, run, enrollment, and summary,
+  atomically publishes only the newest complete generation, and restages when
+  a submission arrives during calculation. Normal, zero-point, full-credit,
+  extra-credit, exclusion, negative-credit, and selected-group behavior now
+  share the same scoring derivation.
+- Added the tenant-scoped, revision-checked Delete and Regrade Store command.
+  It blocks an affected in-progress attempt, retires and excludes the stable
+  item, omits it from future runs and ordinary student outcomes, retains raw
+  submitted evidence for instructors and retention, and enqueues current-score
+  recalculation without assignment or grade-history tables. The committed
+  cross-layer fixture and TypeScript decoders now carry normalized assignment
+  items, human catalog IDs, and explicit attempt status.
+- Added direct-instructor force-submit and clear operations for question
+  attempts. Force-submit closes active work as needing manual grading without
+  inventing a response or score; clear removes an evaluation from current
+  scoring while retaining protected instructor evidence. Stable action IDs,
+  minimal partitioned audit records, transaction-scoped retry serialization,
+  and generation-fenced recalculation make concurrent exact retries harmless.
+- Added mutable assignment visibility, availability, due/close boundaries,
+  late-submission policy, time limits, and attempt limits. Active timing edits
+  update the server-owned effective deadline atomically: extensions reschedule
+  the same durable job, shortening past elapsed time immediately auto-submits,
+  and a leased stale generation must re-resolve before it can commit. Natural
+  expiry records no learner response or evaluation, browser connectivity is
+  irrelevant, ordinary/support completion cancels pending timing work, and
+  retention removes the closed auto-submit jobs with their attempts.
+- Added revisioned direct-student and course-group assignment-policy exceptions.
+  Each timing dimension resolves independently to the most permissive applicable
+  value; issued attempts record the effective policy and contributing targets.
+  Exception, group, and course-membership changes re-resolve active attempts in
+  the same transaction, including immediate auto-submit when a removed extension
+  exposes an elapsed deadline. Retention fences and purges learner group
+  membership and direct-student exceptions without turning policy history into
+  an append-only record.
 - Added the MOD-RETENTION R1-R4.1 foundation: configurable 30/100/365-day
   course-end snapshots behind stored-session, broker-only authority; an
   authoritative scheduler that binds each due current-generation stage to one
@@ -178,6 +224,22 @@
   Prettier commands out of vendored or upstream code.
 
 ### Developer Tests and Notes
+
+- Replayed the six-file baseline on a fresh PostgreSQL 17 database, verified a
+  second migration run was a no-op, confirmed all six ledger checksums, and ran
+  live scoring, timing, direct/group exception, membership-removal, and cleanup
+  behavior through the production PostgreSQL Store. Direct inspection found one
+  exception-driven auto-submit with a timestamp and no submission, evaluation,
+  or score. The full 11-stage codebase gate passed with 148 Node tests, 137
+  server tests, 40 PostgreSQL-feature Store unit tests, and 13 Store conformance
+  tests.
+- A six-pass pre-commit audit found and corrected accommodation recomputation on
+  course roster changes, retention coverage for the new learner-linked rows,
+  cross-course group identity drift in MemoryStore, missing live PostgreSQL
+  exception coverage, and undocumented lock ordering. Production queue draining
+  remains a later MOD-WORKER composition task: activating the current unfiltered
+  generic claim with an incomplete handler registry could consume another job
+  family's work.
 
 - Verified a real `OTHER_REPOS/` TypeScript file is ignored with both the
   checker's explicit `.prettierignore` path and Prettier's default discovery.

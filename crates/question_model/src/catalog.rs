@@ -1,6 +1,7 @@
 //! Browser-safe shared-catalog metadata (MOD-API-CAT).
 
 use serde::{Deserialize, Serialize};
+use std::num::NonZeroU64;
 
 use crate::taxonomy::{License, Tag, TaxonomyTerm};
 use crate::{
@@ -10,6 +11,116 @@ use crate::{
 
 /// Maximum taxonomy facet values returned with one bounded catalog page.
 pub const MAX_CATALOG_TAXONOMY_FACETS: usize = 64;
+
+/// Copyable decimal identifier for one stable published problem.
+///
+/// This identifier is intentionally separate from [`ProblemId`]. It is safe
+/// to display and search, but never carries authorization authority.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ProblemPublicId(NonZeroU64);
+
+impl ProblemPublicId {
+    /// Builds a public identifier from its positive database value.
+    pub fn new(value: u64) -> Option<Self> {
+        NonZeroU64::new(value).map(Self)
+    }
+
+    /// Returns the positive decimal value stored by PostgreSQL.
+    pub fn value(self) -> u64 {
+        self.0.get()
+    }
+}
+
+impl std::fmt::Display for ProblemPublicId {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "P-{}", self.value())
+    }
+}
+
+impl std::str::FromStr for ProblemPublicId {
+    type Err = &'static str;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let digits = value.strip_prefix("P-").unwrap_or(value);
+        if digits.is_empty()
+            || digits.len() > 20
+            || !digits.bytes().all(|byte| byte.is_ascii_digit())
+        {
+            return Err("problem ID must look like P-123456");
+        }
+        digits
+            .parse::<u64>()
+            .ok()
+            .and_then(Self::new)
+            .ok_or("problem ID must be a positive 64-bit decimal value")
+    }
+}
+
+/// One-based display version within a stable published problem.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ProblemVersionNumber(NonZeroU64);
+
+impl ProblemVersionNumber {
+    /// Builds a version number from its positive database value.
+    pub fn new(value: u64) -> Option<Self> {
+        NonZeroU64::new(value).map(Self)
+    }
+
+    /// Returns the one-based version number.
+    pub fn value(self) -> u64 {
+        self.0.get()
+    }
+}
+
+/// Copyable catalog locator accepted by instructor import and direct lookup.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ProblemDisplayRef {
+    /// Stable human-facing problem identity.
+    pub problem: ProblemPublicId,
+    /// Exact version when supplied; otherwise resolve the latest assignable version.
+    pub version: Option<ProblemVersionNumber>,
+}
+
+impl std::fmt::Display for ProblemDisplayRef {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{}", self.problem)?;
+        if let Some(version) = self.version {
+            write!(formatter, "-v{}", version.value())?;
+        }
+        Ok(())
+    }
+}
+
+impl std::str::FromStr for ProblemDisplayRef {
+    type Err = &'static str;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let Some(rest) = value.strip_prefix("P-") else {
+            return Err("problem reference must look like P-123456 or P-123456-v3");
+        };
+        let (problem, version) = match rest.rsplit_once("-v") {
+            Some((problem, version)) => {
+                if version.is_empty()
+                    || version.len() > 20
+                    || !version.bytes().all(|byte| byte.is_ascii_digit())
+                {
+                    return Err("problem version must be a positive decimal value");
+                }
+                let version = version
+                    .parse::<u64>()
+                    .ok()
+                    .and_then(ProblemVersionNumber::new)
+                    .ok_or("problem version must be a positive 64-bit decimal value")?;
+                (problem, Some(version))
+            }
+            None => (rest, None),
+        };
+        let problem = format!("P-{problem}").parse()?;
+        Ok(Self { problem, version })
+    }
+}
 
 /// Exact immutable problem version used by lineage and assignments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -114,8 +225,12 @@ impl From<&DraftQuestionSource> for QuestionBackend {
 pub struct CatalogProblemSummary {
     /// Stable published problem.
     pub problem: ProblemId,
+    /// Copyable human-facing identity of the stable problem.
+    pub public_id: ProblemPublicId,
     /// Exact immutable version represented by this row.
     pub version: VersionId,
+    /// One-based human-facing version within the stable problem.
+    pub version_number: ProblemVersionNumber,
     /// Adapter family, without private source-locator fields.
     pub backend: QuestionBackend,
     /// Capabilities declared by the owning adapter at publication time.
@@ -444,6 +559,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn human_problem_references_are_unambiguous_and_round_trip() {
+        let stable: ProblemDisplayRef = "P-123456".parse().expect("stable reference parses");
+        assert_eq!(stable.problem.value(), 123_456);
+        assert_eq!(stable.version, None);
+        assert_eq!(stable.to_string(), "P-123456");
+
+        let exact: ProblemDisplayRef = "P-123456-v3".parse().expect("exact reference parses");
+        assert_eq!(exact.problem.value(), 123_456);
+        assert_eq!(exact.version.expect("exact version").value(), 3);
+        assert_eq!(exact.to_string(), "P-123456-v3");
+
+        for invalid in ["123", "P-0", "P-12-v0", "P--1", "P-12-vx"] {
+            assert!(invalid.parse::<ProblemDisplayRef>().is_err(), "{invalid}");
+        }
+    }
+
+    #[test]
     fn backend_summary_never_carries_private_source_locators() {
         assert_eq!(
             QuestionBackend::from(&QuestionSource::Webwork {
@@ -513,7 +645,9 @@ mod tests {
         let detail = CatalogProblemDetail {
             summary: CatalogProblemSummary {
                 problem: ProblemId::from_uuid(uuid::Uuid::from_u128(1)),
+                public_id: ProblemPublicId::new(1).expect("fixture ID is positive"),
                 version: VersionId::from_uuid(uuid::Uuid::from_u128(2)),
+                version_number: ProblemVersionNumber::new(1).expect("fixture version is positive"),
                 backend: QuestionBackend::Native,
                 capabilities: BackendCapabilities::none(),
                 metadata: QuestionMetadata {

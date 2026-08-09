@@ -93,7 +93,11 @@ clients stay replaceable behind their traits.
 
 ## Database storage
 
-The initial migration under `schemas/migrations/` creates shared immutable
+The six ordered SQLx baseline migrations under `schemas/migrations/` separate
+principals, catalog/authoring, courses/assignments, activity/feedback,
+operations/analytics, and retention. `cargo xtask database status`, `migrate`,
+and `verify` expose the exact ledger/checksum boundary; application startup is
+verify-only and never mutates a deployed schema. The baseline creates shared immutable
 catalog tables separately from tenant-owned educational records. Compact
 problem-version metadata remains unpartitioned for browsing, while JSONB
 payloads use 16 hash partitions. Question attempts, submissions, grade events,

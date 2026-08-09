@@ -6,6 +6,10 @@ import { publishedProblemFixture } from "../../generated/fixtures/published_prob
 
 const courseId = publishedProblemFixture.course.id;
 const assignmentId = publishedProblemFixture.assignment.id;
+const assignmentProblems = publishedProblemFixture.assignment.items
+  .filter((item) => item.deliveryState === "active")
+  .sort((left, right) => left.position - right.position)
+  .map((item) => item.reference);
 const editPath = `/instructor/courses/${courseId}/assignments/${assignmentId}/edit`;
 const secondCatalogProblem = {
   ...publishedProblemFixture.catalogProblem,
@@ -184,7 +188,7 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
     ) {
       saves += 1;
       if (saves === 1) {
-        const reference = publishedProblemFixture.assignment.problems[0];
+        const reference = assignmentProblems[0];
         return await json(
           route,
           {
@@ -208,7 +212,11 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
       if (saves === 2) return await json(route, { error: "assignment changed; reload it" }, 409);
       return await json(
         route,
-        { ...publishedProblemFixture.assignment, ...(body as object) },
+        {
+          ...publishedProblemFixture.assignment,
+          title: (body as { title: string }).title,
+          policies: (body as { policies: unknown }).policies,
+        },
         200,
         { etag: '"9"' },
       );
@@ -285,7 +293,7 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
   expect(puts[0]?.body).toEqual({
     title: "Edited peptide practice",
     problems: [
-      ...publishedProblemFixture.assignment.problems,
+      ...assignmentProblems,
       { problem: secondCatalogProblem.problem, version: secondCatalogProblem.version },
     ],
     policies: publishedProblemFixture.assignment.policies,
@@ -293,7 +301,7 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
   expect(puts[2]?.revision).toBe('"8"');
   expect(puts[2]?.body).toEqual({
     title: "Saved after reload",
-    problems: publishedProblemFixture.assignment.problems,
+    problems: assignmentProblems,
     policies: publishedProblemFixture.assignment.policies,
   });
   expect(JSON.stringify(puts[2]?.body)).not.toMatch(

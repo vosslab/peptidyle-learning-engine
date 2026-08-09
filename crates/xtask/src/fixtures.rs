@@ -30,11 +30,12 @@ use question_model::run_policy::{
 };
 use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
-    ActivityTimestamp, AssignmentEnrollment, AssignmentId, AssignmentRun, AssignmentSummary,
-    AttemptTimerRecord, CatalogLifecycle, CatalogProblemSummary, CourseId, CourseRole,
-    CourseSummary, EnrollmentId, GradebookSummaryRow, ProblemVersionRef, PublicationScope,
-    QuestionAttempt, QuestionAttemptId, QuestionBackend, RunId, RunMode, StudentAssignmentSummary,
-    StudentId, TenantId, UserId,
+    ActivityTimestamp, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId, AssignmentItem,
+    AssignmentItemId, AssignmentRun, AssignmentScoringMode, AssignmentSummary, AttemptTimerRecord,
+    CatalogLifecycle, CatalogProblemSummary, CourseId, CourseRole, CourseSummary, EnrollmentId,
+    GradebookSummaryRow, PointValue, ProblemVersionRef, PublicationScope, QuestionAttempt,
+    QuestionAttemptId, QuestionBackend, RunId, RunMode, StudentAssignmentSummary, StudentId,
+    TenantId, UserId,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -198,7 +199,10 @@ fn build_corpus() -> Result<FixtureCorpus> {
     let adapter = NativeAdapter::new();
     let catalog_problem = CatalogProblemSummary {
         problem,
+        public_id: question_model::ProblemPublicId::new(1).expect("fixture public ID is positive"),
         version,
+        version_number: question_model::ProblemVersionNumber::new(1)
+            .expect("fixture version is positive"),
         backend: QuestionBackend::Native,
         capabilities: adapter.capabilities(&published_problem.source)?,
         metadata: published_problem.metadata.clone(),
@@ -302,7 +306,15 @@ fn build_corpus() -> Result<FixtureCorpus> {
             tenant,
             course_id,
             title: "Peptide bond mastery".to_string(),
-            problems: vec![ProblemVersionRef { problem, version }],
+            items: vec![AssignmentItem {
+                id: assignment_item_id("0198e000-0000-7000-8000-000000000017"),
+                reference: ProblemVersionRef { problem, version },
+                position: 0,
+                points_possible: PointValue::from_whole(1),
+                delivery_state: AssignmentDeliveryState::Active,
+                scoring_mode: AssignmentScoringMode::Normal,
+            }],
+            selection_groups: Vec::new(),
             policies,
         },
         enrollment: AssignmentEnrollment {
@@ -468,6 +480,11 @@ fn question_attempt(
         seed,
         parameter_hash: issued.parameter_hash,
         response,
+        status: if completed {
+            question_model::AttemptStatus::Submitted
+        } else {
+            question_model::AttemptStatus::InProgress
+        },
         result,
         timer: AttemptTimerRecord {
             issued_at: timestamp(issued_at),
@@ -567,6 +584,7 @@ macro_rules! id_constructor {
 
 id_constructor!(asset_id, AssetId);
 id_constructor!(assignment_id, AssignmentId);
+id_constructor!(assignment_item_id, AssignmentItemId);
 id_constructor!(course_id, CourseId);
 id_constructor!(enrollment_id, EnrollmentId);
 id_constructor!(object_id, ObjectId);
@@ -596,7 +614,7 @@ mod tests {
         let seeds: BTreeSet<u64> = corpus.attempts.iter().map(|attempt| attempt.seed).collect();
 
         assert_eq!(corpus.assets.len(), 2);
-        assert_eq!(corpus.assignment.problems.len(), 1);
+        assert_eq!(corpus.assignment.items.len(), 1);
         assert_eq!(completed, 3);
         assert_eq!(corpus.runs.len() - completed, 1);
         assert_eq!(seeds.len(), corpus.attempts.len());

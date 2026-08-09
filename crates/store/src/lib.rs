@@ -17,13 +17,16 @@ use domain::scoring::RunTransition;
 use objects::{Bucket, ObjectCategory, ObjectKey, ObjectRecord, Sha256Digest};
 use question_model::taxonomy::TaxonomyTerm;
 use question_model::{
-    ActivityTimestamp, AssetId, AssignmentEnrollment, AssignmentId, AssignmentRun,
-    AssignmentSummary, AttemptProvenance, AttemptResult, BackendCapabilities, CatalogLifecycle,
-    CatalogProblemDetail, CatalogProblemSummary, CatalogSearchPage, CatalogSearchQuery, CourseId,
-    CourseMembership, CourseMembershipRole, CourseRole, CourseSummary, DraftQuestionDefinition,
-    DraftQuestionSource, EnrollmentId, GradePolicy, GradebookSummaryRow, ObjectId, ProblemId,
-    PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionDefinition,
-    QuestionSource, QuestionStatisticsDisclosure, RunId, RunPolicies, StudentAssignmentSummary,
+    ActivityTimestamp, AssetId, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId,
+    AssignmentItem, AssignmentItemId, AssignmentPolicyExceptionId, AssignmentRun,
+    AssignmentRunItem, AssignmentSelectionGroup, AssignmentSummary, AssignmentTimingPolicy,
+    AttemptProvenance, AttemptResult, AttemptStatus, BackendCapabilities, CatalogLifecycle,
+    CatalogProblemDetail, CatalogProblemSummary, CatalogSearchPage, CatalogSearchQuery,
+    CourseGroupId, CourseId, CourseMembership, CourseMembershipRole, CourseRole, CourseSummary,
+    DraftQuestionDefinition, DraftQuestionSource, EnrollmentId, GradePolicy, GradebookSummaryRow,
+    ObjectId, ProblemId, PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend,
+    QuestionDefinition, QuestionSource, QuestionStatisticsDisclosure, RunId, RunPolicies,
+    ScoringGeneration, ScoringStatus, SelectionOrdering, StudentAssignmentSummary, StudentId,
     StudentResponse, TenantId, UserId, VersionId, WorkspaceDraftSummary, WorkspaceId,
     WorkspaceImportId,
 };
@@ -216,6 +219,78 @@ pub trait RetentionWorkerStore: Send + Sync {
         &self,
         command: RetentionWorkerCommand,
     ) -> Result<(), StoreError>;
+}
+
+/// Lease- and generation-fenced scoring rebuild command used only by workers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AssignmentScoringWorkerCommand {
+    pub job: JobId,
+    pub lease: JobLeaseToken,
+    pub assignment: AssignmentId,
+    pub generation: ScoringGeneration,
+}
+
+/// Result of atomically publishing one prepared scoring generation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AssignmentScoringCommitOutcome {
+    /// This generation replaced every current computed score and summary.
+    Committed,
+    /// A newer generation superseded this work; its staging rows were discarded.
+    Superseded,
+    /// The queue lease expired or was reclaimed before publication.
+    ClaimNoLongerActive,
+}
+
+/// Private staging and atomic-publication boundary for assignment rescoring.
+#[async_trait]
+pub trait AssignmentScoringWorkerStore: Send + Sync {
+    /// Rebuilds private staging rows without changing learner-visible scores.
+    async fn prepare_assignment_scoring(
+        &self,
+        context: TenantContext,
+        command: AssignmentScoringWorkerCommand,
+    ) -> Result<(), StoreError>;
+
+    /// Conditionally replaces current rows and completes the exact queue lease.
+    async fn commit_assignment_scoring(
+        &self,
+        context: TenantContext,
+        command: AssignmentScoringWorkerCommand,
+    ) -> Result<AssignmentScoringCommitOutcome, StoreError>;
+}
+
+/// Lease- and generation-fenced command for one scheduled auto-submit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AttemptAutoSubmitWorkerCommand {
+    pub job: JobId,
+    pub lease: JobLeaseToken,
+    pub attempt: QuestionAttemptId,
+    pub timing_generation: u64,
+}
+
+/// Result of atomically resolving one scheduled attempt deadline.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AttemptAutoSubmitCommitOutcome {
+    /// This invocation changed active work to `auto_submitted`.
+    AutoSubmitted,
+    /// A newer timing policy or terminal attempt made this job obsolete.
+    Superseded,
+    /// An extension moved the effective deadline and the same job was rescheduled.
+    Rescheduled,
+    /// The queue lease expired or was reclaimed before the transaction committed.
+    ClaimNoLongerActive,
+}
+
+/// Durable deadline-finalization boundary used by the stateless worker.
+#[async_trait]
+pub trait AttemptAutoSubmitWorkerStore: Send + Sync {
+    /// Re-resolves the current timing row and either submits, supersedes, or
+    /// reschedules the exact leased job in one transaction.
+    async fn commit_attempt_auto_submit(
+        &self,
+        context: TenantContext,
+        command: AttemptAutoSubmitWorkerCommand,
+    ) -> Result<AttemptAutoSubmitCommitOutcome, StoreError>;
 }
 
 /// Database-backed visibility boundary for ordinary learner course records.
@@ -752,8 +827,12 @@ pub struct WorkspaceDraft {
 pub struct PublishedProblemRecord {
     /// Stable published problem.
     pub problem: ProblemId,
+    /// Copyable human-facing identity of the stable problem.
+    pub public_id: question_model::ProblemPublicId,
     /// Exact immutable version.
     pub version: VersionId,
+    /// One-based human-facing version within the stable problem.
+    pub version_number: question_model::ProblemVersionNumber,
     /// Browser-safe definition whose IDs match this record.
     pub question: QuestionDefinition,
     /// Capabilities declared by the owning adapter at publication time.
@@ -777,7 +856,9 @@ impl PublishedProblemRecord {
     pub fn summary(&self) -> CatalogProblemSummary {
         CatalogProblemSummary {
             problem: self.problem,
+            public_id: self.public_id,
             version: self.version,
+            version_number: self.version_number,
             backend: QuestionBackend::from(&self.question.source),
             capabilities: self.capabilities.clone(),
             metadata: self.question.metadata.clone(),
@@ -887,8 +968,10 @@ pub struct AssignmentRecord {
     pub course_id: CourseId,
     /// Human-facing assignment title.
     pub title: String,
-    /// Shared problem versions selected for the assignment.
-    pub problems: Vec<PublishedVersionRef>,
+    /// Stable ordered fixed items selected for the assignment.
+    pub items: Vec<question_model::AssignmentItem>,
+    /// Random-selection groups with pinned immutable candidates.
+    pub selection_groups: Vec<question_model::AssignmentSelectionGroup>,
     /// Four independent run policies.
     pub policies: RunPolicies,
 }
@@ -899,6 +982,10 @@ pub struct AssignmentRecord {
 pub struct StoredAssignment {
     pub record: AssignmentRecord,
     pub revision: AssignmentRevision,
+    /// Generation matched by current computed score rows.
+    pub scoring_generation: ScoringGeneration,
+    /// Whether scores for this generation may be presented.
+    pub scoring_status: ScoringStatus,
 }
 
 /// Editable assignment fields supplied after the server has bound identity and
@@ -907,8 +994,190 @@ pub struct StoredAssignment {
 #[serde(rename_all = "camelCase")]
 pub struct AssignmentUpdate {
     pub title: String,
-    pub problems: Vec<PublishedVersionRef>,
+    pub items: Vec<question_model::AssignmentItem>,
+    pub selection_groups: Vec<question_model::AssignmentSelectionGroup>,
     pub policies: RunPolicies,
+}
+
+/// Current timing policy paired with the assignment's shared revision token.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StoredAssignmentTiming {
+    pub tenant: TenantId,
+    pub course: CourseId,
+    pub assignment: AssignmentId,
+    pub policy: AssignmentTimingPolicy,
+    pub revision: AssignmentRevision,
+}
+
+/// Authorized current-state replacement for assignment timing and access.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UpdateAssignmentTimingCommand {
+    pub actor: UserId,
+    pub course: CourseId,
+    pub assignment: AssignmentId,
+    pub expected_revision: AssignmentRevision,
+    pub policy: AssignmentTimingPolicy,
+}
+
+/// Server-issued optimistic revision for one current course group.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct CourseGroupRevision(u64);
+
+impl CourseGroupRevision {
+    pub(crate) const INITIAL: Self = Self(1);
+    const MAX: u64 = i64::MAX as u64;
+
+    /// Returns the positive stored revision number.
+    pub fn value(self) -> u64 {
+        self.0
+    }
+
+    pub(crate) fn next(self) -> Result<Self, StoreError> {
+        self.0
+            .checked_add(1)
+            .filter(|value| *value <= Self::MAX)
+            .map(Self)
+            .ok_or_else(|| {
+                StoreError::Unavailable("course group revision limit reached".to_string())
+            })
+    }
+
+    #[cfg(feature = "postgres")]
+    pub(crate) fn from_stored(value: i64) -> Result<Self, StoreError> {
+        let value = u64::try_from(value).map_err(|_| {
+            StoreError::Unavailable("stored course group revision is invalid".to_string())
+        })?;
+        if value == 0 {
+            return Err(StoreError::Unavailable(
+                "stored course group revision is invalid".to_string(),
+            ));
+        }
+        Ok(Self(value))
+    }
+}
+
+/// Current course group whose members may share an assignment accommodation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CourseGroupRecord {
+    pub id: CourseGroupId,
+    pub tenant: TenantId,
+    pub course: CourseId,
+    pub title: String,
+    pub members: Vec<UserId>,
+}
+
+/// One course group together with its exact compare-and-swap revision.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredCourseGroup {
+    pub record: CourseGroupRecord,
+    pub revision: CourseGroupRevision,
+}
+
+/// Instructor-authenticated create or replacement of a course group.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PutCourseGroupCommand {
+    pub actor: UserId,
+    pub expected_revision: Option<CourseGroupRevision>,
+    pub record: CourseGroupRecord,
+}
+
+/// One exception target. A student target is assignment-enrollment identity;
+/// a group target is current course membership identity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AssignmentPolicyExceptionTarget {
+    Student(StudentId),
+    CourseGroup(CourseGroupId),
+}
+
+/// Explicit availability endpoint override. `Unrestricted` is distinct from
+/// an absent field, which means this exception does not address that endpoint.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AssignmentExceptionTimestamp {
+    Unrestricted,
+    At(ActivityTimestamp),
+}
+
+/// Explicit attempt/timer override. `Unlimited` is distinct from inheritance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AssignmentExceptionLimit {
+    Unlimited,
+    Value(u32),
+}
+
+/// Mutable current accommodation for one student or course group.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssignmentPolicyException {
+    pub id: AssignmentPolicyExceptionId,
+    pub target: AssignmentPolicyExceptionTarget,
+    pub available_at: Option<AssignmentExceptionTimestamp>,
+    pub closes_at: Option<AssignmentExceptionTimestamp>,
+    pub time_limit_seconds: Option<AssignmentExceptionLimit>,
+    pub attempt_limit: Option<AssignmentExceptionLimit>,
+}
+
+/// One stored exception paired with the assignment's shared revision.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredAssignmentPolicyException {
+    pub exception: AssignmentPolicyException,
+    pub assignment_revision: AssignmentRevision,
+}
+
+/// Effective learner policy and the exceptions that actually expanded it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolvedAssignmentTiming {
+    pub tenant: TenantId,
+    pub course: CourseId,
+    pub assignment: AssignmentId,
+    pub student: StudentId,
+    pub policy: AssignmentTimingPolicy,
+    pub contributors: Vec<AssignmentPolicyExceptionTarget>,
+    pub revision: AssignmentRevision,
+}
+
+/// Policy explanation recorded for one issued attempt. Terminal work retains
+/// the last policy that governed it instead of being rewritten by later edits.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolvedAttemptTiming {
+    pub attempt: QuestionAttemptId,
+    pub policy: AssignmentTimingPolicy,
+    pub contributors: Vec<AssignmentPolicyExceptionTarget>,
+}
+
+/// Revision-checked replacement for one target's current accommodation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SetAssignmentPolicyExceptionCommand {
+    pub actor: UserId,
+    pub course: CourseId,
+    pub assignment: AssignmentId,
+    pub expected_revision: AssignmentRevision,
+    pub exception: AssignmentPolicyException,
+}
+
+/// Revision-checked removal of one current accommodation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DeleteAssignmentPolicyExceptionCommand {
+    pub actor: UserId,
+    pub course: CourseId,
+    pub assignment: AssignmentId,
+    pub expected_revision: AssignmentRevision,
+    pub exception: AssignmentPolicyExceptionId,
+}
+
+/// Revision-checked instructor command behind the Delete and Regrade action.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DeleteAndRegradeAssignmentItemCommand {
+    pub course: CourseId,
+    pub assignment: AssignmentId,
+    pub item: AssignmentItemId,
+    pub expected_revision: AssignmentRevision,
 }
 
 /// Bounded client-generated key for replaying one submission safely.
@@ -1038,6 +1307,85 @@ impl std::fmt::Debug for SubmitQuestionAttemptCommand {
             .field("feedback", &"[redacted]")
             .finish()
     }
+}
+
+/// Stable idempotency and audit identity for one instructor support action.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AttemptSupportActionId(Uuid);
+
+impl AttemptSupportActionId {
+    /// Wraps an identity read from storage or a trusted server boundary.
+    pub fn from_uuid(value: Uuid) -> Self {
+        Self(value)
+    }
+
+    /// Returns the UUID persisted with the audit event.
+    pub fn as_uuid(self) -> Uuid {
+        self.0
+    }
+
+    /// Mints one server-owned action identity.
+    pub fn generate() -> Result<Self, StoreError> {
+        let mut bytes = [0_u8; 16];
+        getrandom::fill(&mut bytes).map_err(|error| {
+            StoreError::Unavailable(format!(
+                "attempt support action ID randomness unavailable: {error}"
+            ))
+        })?;
+        Ok(Self(Uuid::from_bytes(bytes)))
+    }
+}
+
+/// Closed set of sensitive attempt-support mutations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AttemptSupportAction {
+    /// Close an active question without fabricating a response or grade.
+    ForceSubmit,
+    /// Exclude an attempt from current scoring while retaining its evidence.
+    Clear,
+}
+
+impl AttemptSupportAction {
+    #[cfg(feature = "postgres")]
+    fn audit_name(self) -> &'static str {
+        match self {
+            Self::ForceSubmit => "attempt.force_submit",
+            Self::Clear => "attempt.clear",
+        }
+    }
+}
+
+/// Idempotent instructor request to close one still-active question attempt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ForceSubmitAttemptCommand {
+    pub action: AttemptSupportActionId,
+    pub actor: UserId,
+    pub attempt: QuestionAttemptId,
+}
+
+/// Idempotent instructor request to remove one attempt from current scoring.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClearAttemptCommand {
+    pub action: AttemptSupportActionId,
+    pub actor: UserId,
+    pub attempt: QuestionAttemptId,
+}
+
+/// Minimal retained evidence for one instructor attempt-support action.
+///
+/// No response, evaluation, score, student identity, or obsolete grade is
+/// copied into this record. The protected attempt remains the evidence owner.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AttemptSupportRecord {
+    pub tenant: TenantId,
+    pub action: AttemptSupportActionId,
+    pub actor: UserId,
+    pub attempt: QuestionAttemptId,
+    pub kind: AttemptSupportAction,
+    pub previous_status: AttemptStatus,
+    pub resulting_status: AttemptStatus,
+    pub occurred_at: ActivityTimestamp,
 }
 
 /// Exact immutable binding for one server-mediated external-tool exchange.
@@ -1760,6 +2108,39 @@ mod private_feedback_tests {
 }
 
 impl AssignmentRecord {
+    /// Every pinned immutable reference in the current assignment definition.
+    pub fn references(&self) -> impl Iterator<Item = ProblemVersionRef> + '_ {
+        self.items.iter().map(|item| item.reference).chain(
+            self.selection_groups
+                .iter()
+                .flat_map(|group| group.candidates.iter().map(|candidate| candidate.reference)),
+        )
+    }
+
+    /// Active fixed items in current future-run order.
+    pub fn active_items(&self) -> impl Iterator<Item = &question_model::AssignmentItem> {
+        self.items
+            .iter()
+            .filter(|item| item.delivery_state == question_model::AssignmentDeliveryState::Active)
+    }
+
+    /// Immutable content that may be delivered by a future run.
+    pub fn active_references(&self) -> impl Iterator<Item = ProblemVersionRef> + '_ {
+        self.active_items()
+            .map(|item| item.reference)
+            .chain(self.selection_groups.iter().flat_map(|group| {
+                group.candidates.iter().filter_map(|candidate| {
+                    (candidate.delivery_state == question_model::AssignmentDeliveryState::Active)
+                        .then_some(candidate.reference)
+                })
+            }))
+    }
+
+    /// Resolves one active fixed item by its future-run position.
+    pub fn active_item_at(&self, position: u32) -> Option<&question_model::AssignmentItem> {
+        self.active_items().find(|item| item.position == position)
+    }
+
     /// Builds the browser-safe assignment projection.
     pub fn summary(&self) -> AssignmentSummary {
         AssignmentSummary {
@@ -1767,9 +2148,564 @@ impl AssignmentRecord {
             tenant: self.tenant,
             course_id: self.course_id,
             title: self.title.clone(),
-            problems: self.problems.clone(),
+            items: self.items.clone(),
+            selection_groups: self.selection_groups.clone(),
             policies: self.policies,
         }
+    }
+}
+
+/// Freezes current fixed items and deterministic group selections for one new run.
+pub(crate) fn select_assignment_run_items(
+    assignment: &AssignmentRecord,
+    run: RunId,
+) -> Result<Vec<AssignmentRunItem>, StoreError> {
+    enum Source<'a> {
+        Fixed(&'a AssignmentItem),
+        Group(&'a AssignmentSelectionGroup),
+    }
+    let mut sources = assignment
+        .active_items()
+        .map(|item| (item.position, Source::Fixed(item)))
+        .chain(
+            assignment
+                .selection_groups
+                .iter()
+                .map(|group| (group.position, Source::Group(group))),
+        )
+        .collect::<Vec<_>>();
+    sources.sort_by_key(|(position, _)| *position);
+    let mut selected = Vec::new();
+    for (source_position, source) in sources {
+        match source {
+            Source::Fixed(item) => {
+                selected.push((item.id, source_position, item.reference, None, None))
+            }
+            Source::Group(group) => {
+                let seed = assignment_selection_seed(run, group);
+                let mut candidates = group
+                    .candidates
+                    .iter()
+                    .filter(|candidate| candidate.delivery_state == AssignmentDeliveryState::Active)
+                    .map(|candidate| (assignment_selection_rank(seed, candidate.id), candidate))
+                    .collect::<Vec<_>>();
+                candidates.sort_by_key(|(rank, candidate)| (*rank, candidate.id));
+                candidates.truncate(usize::try_from(group.draw_count).map_err(|_| {
+                    StoreError::InvalidRecord("selection draw count is too large".to_string())
+                })?);
+                if group.ordering == SelectionOrdering::CandidateOrder {
+                    candidates.sort_by_key(|(_, candidate)| (candidate.position, candidate.id));
+                }
+                for (_, candidate) in candidates {
+                    selected.push((
+                        candidate.id,
+                        source_position,
+                        candidate.reference,
+                        Some(group.id),
+                        Some(seed),
+                    ));
+                }
+            }
+        }
+    }
+    selected
+        .into_iter()
+        .enumerate()
+        .map(
+            |(
+                issued_position,
+                (assignment_item, source_position, reference, selection_group, selection_seed),
+            )| {
+                Ok(AssignmentRunItem {
+                    run,
+                    assignment_item,
+                    source_position,
+                    issued_position: u32::try_from(issued_position).map_err(|_| {
+                        StoreError::InvalidRecord("too many selected run items".to_string())
+                    })?,
+                    reference,
+                    selection_group,
+                    selection_seed,
+                })
+            },
+        )
+        .collect()
+}
+
+fn assignment_selection_seed(run: RunId, group: &AssignmentSelectionGroup) -> u64 {
+    let mut bytes = Vec::with_capacity(34);
+    bytes.extend_from_slice(run.as_uuid().as_bytes());
+    bytes.extend_from_slice(group.id.as_uuid().as_bytes());
+    bytes.extend_from_slice(&group.algorithm_version.to_be_bytes());
+    let digest = Sha256Digest::compute(&bytes);
+    let mut seed = [0_u8; 8];
+    seed.copy_from_slice(&digest.as_bytes()[..8]);
+    u64::from_be_bytes(seed) & 9_007_199_254_740_991
+}
+
+fn assignment_selection_rank(seed: u64, candidate: AssignmentItemId) -> u64 {
+    let mut bytes = Vec::with_capacity(24);
+    bytes.extend_from_slice(&seed.to_be_bytes());
+    bytes.extend_from_slice(candidate.as_uuid().as_bytes());
+    let digest = Sha256Digest::compute(&bytes);
+    let mut rank = [0_u8; 8];
+    rank.copy_from_slice(&digest.as_bytes()[..8]);
+    u64::from_be_bytes(rank)
+}
+
+fn delete_and_regrade_update(
+    stored: &StoredAssignment,
+    target: AssignmentItemId,
+) -> Result<Option<AssignmentUpdate>, StoreError> {
+    let mut update = AssignmentUpdate {
+        title: stored.record.title.clone(),
+        items: stored.record.items.clone(),
+        selection_groups: stored.record.selection_groups.clone(),
+        policies: stored.record.policies,
+    };
+    if let Some(item) = update.items.iter_mut().find(|item| item.id == target) {
+        if item.delivery_state == AssignmentDeliveryState::Retired
+            && item.scoring_mode == question_model::AssignmentScoringMode::Excluded
+        {
+            return Ok(None);
+        }
+        item.delivery_state = AssignmentDeliveryState::Retired;
+        item.scoring_mode = question_model::AssignmentScoringMode::Excluded;
+        return Ok(Some(update));
+    }
+    if let Some(candidate) = update
+        .selection_groups
+        .iter_mut()
+        .flat_map(|group| group.candidates.iter_mut())
+        .find(|candidate| candidate.id == target)
+    {
+        if candidate.delivery_state == AssignmentDeliveryState::Retired {
+            return Ok(None);
+        }
+        candidate.delivery_state = AssignmentDeliveryState::Retired;
+        return Ok(Some(update));
+    }
+    Err(StoreError::NotFound)
+}
+
+pub(crate) fn assignment_scoring_changed(
+    previous: &AssignmentRecord,
+    replacement: &AssignmentRecord,
+) -> bool {
+    let fixed = |assignment: &AssignmentRecord| {
+        assignment
+            .items
+            .iter()
+            .map(|item| {
+                (
+                    item.id,
+                    (item.points_possible, item.delivery_state, item.scoring_mode),
+                )
+            })
+            .collect::<std::collections::BTreeMap<_, _>>()
+    };
+    let groups = |assignment: &AssignmentRecord| {
+        assignment
+            .selection_groups
+            .iter()
+            .map(|group| {
+                (
+                    group.id,
+                    (
+                        group.points_per_item,
+                        group
+                            .candidates
+                            .iter()
+                            .map(|candidate| (candidate.id, candidate.delivery_state))
+                            .collect::<std::collections::BTreeMap<_, _>>(),
+                    ),
+                )
+            })
+            .collect::<std::collections::BTreeMap<_, _>>()
+    };
+    previous.policies.completion != replacement.policies.completion
+        || previous.policies.grade != replacement.policies.grade
+        || fixed(previous) != fixed(replacement)
+        || groups(previous) != groups(replacement)
+}
+
+/// Applies current assignment scoring to one normalized backend result.
+pub(crate) fn current_attempt_points(
+    assignment: &AssignmentRecord,
+    assignment_item: AssignmentItemId,
+    status: AttemptStatus,
+    result: AttemptResult,
+) -> Result<(f64, f64), StoreError> {
+    validate_attempt_result(result)?;
+    if matches!(status, AttemptStatus::Cleared | AttemptStatus::Exempt) {
+        return Ok((0.0, 0.0));
+    }
+    let (points, mode) = if let Some(item) = assignment
+        .items
+        .iter()
+        .find(|item| item.id == assignment_item)
+    {
+        (item.points_possible, item.scoring_mode)
+    } else if let Some(group) = assignment.selection_groups.iter().find(|group| {
+        group
+            .candidates
+            .iter()
+            .any(|candidate| candidate.id == assignment_item)
+    }) {
+        let candidate = group
+            .candidates
+            .iter()
+            .find(|candidate| candidate.id == assignment_item)
+            .expect("selection group was found through this candidate");
+        (
+            group.points_per_item,
+            if candidate.delivery_state == AssignmentDeliveryState::Retired {
+                question_model::AssignmentScoringMode::Excluded
+            } else {
+                question_model::AssignmentScoringMode::Normal
+            },
+        )
+    } else {
+        return Err(StoreError::InvalidRecord(
+            "run item no longer resolves to a current scoring definition".to_string(),
+        ));
+    };
+    let credit = result.points_earned / result.points_possible;
+    let possible_points = points.scaled() as f64 / 10_000.0;
+    let (earned, possible) = match mode {
+        question_model::AssignmentScoringMode::Normal => {
+            (credit * possible_points, possible_points)
+        }
+        question_model::AssignmentScoringMode::FullCredit => (possible_points, possible_points),
+        question_model::AssignmentScoringMode::ExtraCredit => (credit * possible_points, 0.0),
+        question_model::AssignmentScoringMode::Excluded => (0.0, 0.0),
+    };
+    let round_four = |value: f64| (value * 10_000.0).round() / 10_000.0;
+    Ok((round_four(earned), round_four(possible)))
+}
+
+pub(crate) fn assignment_item_is_retired(
+    assignment: &AssignmentRecord,
+    assignment_item: AssignmentItemId,
+) -> Option<bool> {
+    assignment
+        .items
+        .iter()
+        .find(|item| item.id == assignment_item)
+        .map(|item| item.delivery_state == AssignmentDeliveryState::Retired)
+        .or_else(|| {
+            assignment
+                .selection_groups
+                .iter()
+                .flat_map(|group| group.candidates.iter())
+                .find(|candidate| candidate.id == assignment_item)
+                .map(|candidate| candidate.delivery_state == AssignmentDeliveryState::Retired)
+        })
+}
+
+/// Replaces only the computed score fields and run pointers for one enrollment.
+pub(crate) fn recalculated_enrollment_projection(
+    mut enrollment: AssignmentEnrollment,
+    mut summary: StudentAssignmentSummary,
+    grade_policy: GradePolicy,
+    mut completed_runs: Vec<domain::scoring::CompletedRunScore>,
+) -> Result<(AssignmentEnrollment, StudentAssignmentSummary), StoreError> {
+    completed_runs.sort_by_key(|run| run.run_number);
+    let selected = domain::scoring::score(
+        &completed_runs,
+        grade_policy,
+        (grade_policy == GradePolicy::InstructorSelected)
+            .then_some(enrollment.current_grade_run)
+            .flatten(),
+    )
+    .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+    let best = domain::scoring::score(&completed_runs, GradePolicy::Highest, None)
+        .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+    summary.completed_run_count = u32::try_from(completed_runs.len())
+        .map_err(|_| StoreError::InvalidRecord("too many completed runs".to_string()))?;
+    summary.latest_score = completed_runs.last().map(|run| run.score);
+    summary.best_score = best.map(|selection| selection.score);
+    summary.current_score = selected.map(|selection| selection.score);
+    enrollment.best_grade_run = best.map(|selection| selection.run);
+    enrollment.current_grade_run = selected.map(|selection| selection.run);
+    Ok((enrollment, summary))
+}
+
+#[cfg(test)]
+mod assignment_selection_tests {
+    use super::*;
+    use question_model::{
+        AssignmentScoringMode, AssignmentSelectionCandidate, AttemptTimerRecord,
+        ImplementationVersion, PointValue, ProblemVersionRef,
+    };
+
+    fn id(value: u128) -> Uuid {
+        Uuid::from_u128(value)
+    }
+
+    #[test]
+    fn run_selection_is_reproducible_and_freezes_expanded_order() {
+        let reference = |value| ProblemVersionRef {
+            problem: ProblemId::from_uuid(id(10 + value)),
+            version: VersionId::from_uuid(id(20 + value)),
+        };
+        let assignment = AssignmentRecord {
+            id: AssignmentId::from_uuid(id(1)),
+            tenant: TenantId::from_uuid(id(2)),
+            course_id: CourseId::from_uuid(id(3)),
+            title: "Selection fixture".to_string(),
+            items: vec![AssignmentItem {
+                id: AssignmentItemId::from_uuid(id(30)),
+                reference: reference(0),
+                position: 0,
+                points_possible: PointValue::from_whole(1),
+                delivery_state: AssignmentDeliveryState::Active,
+                scoring_mode: AssignmentScoringMode::Normal,
+            }],
+            selection_groups: vec![AssignmentSelectionGroup {
+                id: question_model::AssignmentSelectionGroupId::from_uuid(id(31)),
+                position: 1,
+                draw_count: 2,
+                points_per_item: PointValue::from_whole(2),
+                ordering: SelectionOrdering::Randomized,
+                algorithm_version: 1,
+                candidates: (1..=4)
+                    .map(|value| AssignmentSelectionCandidate {
+                        id: AssignmentItemId::from_uuid(id(40 + value)),
+                        position: u32::try_from(value - 1).expect("fixture position"),
+                        reference: reference(value),
+                        delivery_state: if value == 4 {
+                            AssignmentDeliveryState::Retired
+                        } else {
+                            AssignmentDeliveryState::Active
+                        },
+                    })
+                    .collect(),
+            }],
+            policies: RunPolicies {
+                completion: question_model::CompletionRequirement::AnswerAll,
+                grade: GradePolicy::Highest,
+                continued_practice: question_model::ContinuedPractice::Unlimited,
+                variation: question_model::VariationPolicy::NewSeeds,
+            },
+        };
+        let run = RunId::from_uuid(id(100));
+        let first = select_assignment_run_items(&assignment, run).expect("valid selection");
+        let replay = select_assignment_run_items(&assignment, run).expect("repeat selection");
+
+        assert_eq!(first, replay);
+        assert_eq!(first.len(), 3);
+        assert_eq!(
+            first
+                .iter()
+                .map(|item| item.issued_position)
+                .collect::<Vec<_>>(),
+            vec![0, 1, 2]
+        );
+        assert!(first[0].selection_group.is_none());
+        assert!(first[1..].iter().all(|item| item.selection_seed.is_some()));
+        assert!(
+            first
+                .iter()
+                .all(|item| item.assignment_item != AssignmentItemId::from_uuid(id(44)))
+        );
+        let next = select_assignment_run_items(&assignment, RunId::from_uuid(id(101)))
+            .expect("next run selection");
+        assert_ne!(first[1].selection_seed, next[1].selection_seed);
+    }
+
+    #[test]
+    fn current_attempt_points_apply_every_scoring_mode_and_attempt_exclusion() {
+        let reference = ProblemVersionRef {
+            problem: ProblemId::from_uuid(id(200)),
+            version: VersionId::from_uuid(id(201)),
+        };
+        let modes = [
+            AssignmentScoringMode::Normal,
+            AssignmentScoringMode::FullCredit,
+            AssignmentScoringMode::ExtraCredit,
+            AssignmentScoringMode::Excluded,
+        ];
+        let assignment = AssignmentRecord {
+            id: AssignmentId::from_uuid(id(202)),
+            tenant: TenantId::from_uuid(id(203)),
+            course_id: CourseId::from_uuid(id(204)),
+            title: "Scoring modes".to_string(),
+            items: modes
+                .into_iter()
+                .enumerate()
+                .map(|(position, scoring_mode)| AssignmentItem {
+                    id: AssignmentItemId::from_uuid(id(210 + position as u128)),
+                    reference,
+                    position: u32::try_from(position).expect("fixture position"),
+                    points_possible: PointValue::from_whole(2),
+                    delivery_state: AssignmentDeliveryState::Active,
+                    scoring_mode,
+                })
+                .collect(),
+            selection_groups: Vec::new(),
+            policies: RunPolicies {
+                completion: question_model::CompletionRequirement::AnswerAll,
+                grade: GradePolicy::Highest,
+                continued_practice: question_model::ContinuedPractice::Unlimited,
+                variation: question_model::VariationPolicy::NewSeeds,
+            },
+        };
+        let result = |credit: f64| AttemptResult {
+            correct: credit == 1.0,
+            points_earned: credit,
+            points_possible: 1.0,
+        };
+
+        assert_eq!(
+            current_attempt_points(
+                &assignment,
+                assignment.items[0].id,
+                AttemptStatus::Submitted,
+                result(-0.5),
+            ),
+            Ok((-1.0, 2.0)),
+            "normal scoring retains negative credit"
+        );
+        assert_eq!(
+            current_attempt_points(
+                &assignment,
+                assignment.items[1].id,
+                AttemptStatus::Submitted,
+                result(-0.5),
+            ),
+            Ok((2.0, 2.0)),
+            "full credit ignores the normalized result"
+        );
+        assert_eq!(
+            current_attempt_points(
+                &assignment,
+                assignment.items[2].id,
+                AttemptStatus::Submitted,
+                result(1.25),
+            ),
+            Ok((2.5, 0.0)),
+            "extra credit changes only the numerator"
+        );
+        assert_eq!(
+            current_attempt_points(
+                &assignment,
+                assignment.items[3].id,
+                AttemptStatus::Submitted,
+                result(1.0),
+            ),
+            Ok((0.0, 0.0)),
+            "excluded items change neither numerator nor denominator"
+        );
+        assert_eq!(
+            current_attempt_points(
+                &assignment,
+                assignment.items[0].id,
+                AttemptStatus::Cleared,
+                result(1.0),
+            ),
+            Ok((0.0, 0.0)),
+            "cleared attempts are absent from current scoring"
+        );
+    }
+
+    #[test]
+    fn selected_group_items_complete_from_the_immutable_delivered_order() {
+        let tenant = TenantId::from_uuid(id(300));
+        let run = RunId::from_uuid(id(301));
+        let reference = |value| ProblemVersionRef {
+            problem: ProblemId::from_uuid(id(310 + value)),
+            version: VersionId::from_uuid(id(320 + value)),
+        };
+        let assignment = AssignmentRecord {
+            id: AssignmentId::from_uuid(id(302)),
+            tenant,
+            course_id: CourseId::from_uuid(id(303)),
+            title: "Selected completion".to_string(),
+            items: Vec::new(),
+            selection_groups: vec![AssignmentSelectionGroup {
+                id: question_model::AssignmentSelectionGroupId::from_uuid(id(304)),
+                position: 0,
+                draw_count: 2,
+                points_per_item: PointValue::from_whole(2),
+                ordering: SelectionOrdering::CandidateOrder,
+                algorithm_version: 1,
+                candidates: (0..2)
+                    .map(|position| AssignmentSelectionCandidate {
+                        id: AssignmentItemId::from_uuid(id(330 + u128::from(position))),
+                        position,
+                        reference: reference(u128::from(position)),
+                        delivery_state: AssignmentDeliveryState::Active,
+                    })
+                    .collect(),
+            }],
+            policies: RunPolicies {
+                completion: question_model::CompletionRequirement::AnswerAll,
+                grade: GradePolicy::Highest,
+                continued_practice: question_model::ContinuedPractice::Unlimited,
+                variation: question_model::VariationPolicy::NewSeeds,
+            },
+        };
+        let run_items = select_assignment_run_items(&assignment, run).expect("selected run items");
+        let attempts = run_items
+            .iter()
+            .enumerate()
+            .map(|(index, item)| QuestionAttempt {
+                id: QuestionAttemptId::from_uuid(id(340 + index as u128)),
+                tenant,
+                run,
+                problem: item.reference.problem,
+                question_version: item.reference.version,
+                assignment_position: item.issued_position,
+                seed: u64::try_from(index).expect("fixture seed"),
+                parameter_hash: format!("selected-{index}"),
+                response: Some(StudentResponse::Numeric { value: 1.0 }),
+                status: AttemptStatus::Submitted,
+                result: Some(AttemptResult {
+                    correct: true,
+                    points_earned: 1.0,
+                    points_possible: 1.0,
+                }),
+                timer: AttemptTimerRecord {
+                    issued_at: ActivityTimestamp::from_unix_millis(index as i64),
+                    deadline: None,
+                    submitted_at: Some(ActivityTimestamp::from_unix_millis(index as i64 + 1)),
+                },
+                provenance: AttemptProvenance {
+                    adapter: ImplementationVersion {
+                        id: "native".to_string(),
+                        version: "1".to_string(),
+                    },
+                    renderer: None,
+                    generator: None,
+                    source_artifact: None,
+                    asset_objects: Vec::new(),
+                    grading: ImplementationVersion {
+                        id: "native".to_string(),
+                        version: "1".to_string(),
+                    },
+                    rendered_question_sha256: format!("selected-render-{index}"),
+                },
+            })
+            .collect::<Vec<_>>();
+        let questions = current_run_questions(
+            &assignment,
+            &run_items,
+            &attempts,
+            attempts.last().expect("selected current attempt"),
+        )
+        .expect("selected questions resolve");
+
+        assert_eq!(questions.len(), 2);
+        assert_eq!(
+            completed_run_score(&questions, question_model::CompletionRequirement::AnswerAll),
+            Ok(Some(1.0))
+        );
+        assert!(questions.iter().all(|question| {
+            question.is_some_and(|question| {
+                question.earned_points == 2.0 && question.possible_points == 2.0
+            })
+        }));
     }
 }
 
@@ -1901,6 +2837,20 @@ pub trait CatalogStore: Send + Sync {
         context: TenantContext,
         reference: ProblemVersionRef,
     ) -> Result<Option<PublishedProblemRecord>, StoreError>;
+
+    /// Resolves a copyable catalog reference under the caller's visibility.
+    /// A stable reference selects the latest assignable version; an exact
+    /// reference never silently upgrades to another version.
+    async fn resolve_catalog_problem(
+        &self,
+        context: TenantContext,
+        reference: question_model::ProblemDisplayRef,
+    ) -> Result<Option<PublishedProblemRecord>, StoreError> {
+        let _ = (context, reference);
+        Err(StoreError::Unavailable(
+            "human catalog lookup is not implemented by this store".to_string(),
+        ))
+    }
 
     /// Lists discoverable hot metadata in stable cursor order.
     async fn list_catalog(
@@ -2142,6 +3092,22 @@ pub trait Store: Send + Sync {
         page: PageRequest,
     ) -> Result<Page<CourseSummary>, StoreError>;
 
+    /// Creates or conditionally replaces one instructor-owned course group.
+    /// Membership edits immediately re-resolve active attempts for every
+    /// assignment exception that targets this group.
+    async fn put_course_group(
+        &self,
+        context: TenantContext,
+        command: PutCourseGroupCommand,
+    ) -> Result<StoredCourseGroup, StoreError>;
+
+    /// Reads one current course group inside the active tenant.
+    async fn get_course_group(
+        &self,
+        context: TenantContext,
+        group: CourseGroupId,
+    ) -> Result<Option<StoredCourseGroup>, StoreError>;
+
     /// Creates a new assignment with an initial strong revision token.
     async fn create_assignment(
         &self,
@@ -2157,6 +3123,70 @@ pub trait Store: Send + Sync {
         assignment: AssignmentId,
         expected_revision: AssignmentRevision,
         update: AssignmentUpdate,
+    ) -> Result<StoredAssignment, StoreError>;
+
+    /// Reads the mutable access/time-limit policy and shared assignment revision.
+    async fn get_assignment_timing(
+        &self,
+        context: TenantContext,
+        assignment: AssignmentId,
+    ) -> Result<Option<StoredAssignmentTiming>, StoreError>;
+
+    /// Replaces current timing under instructor authority and immediately
+    /// re-resolves every active attempt. A newly elapsed deadline is submitted
+    /// in this transaction; an extension reschedules its durable job.
+    async fn update_assignment_timing(
+        &self,
+        context: TenantContext,
+        command: UpdateAssignmentTimingCommand,
+    ) -> Result<StoredAssignmentTiming, StoreError>;
+
+    /// Creates or replaces one target's current accommodation under the
+    /// assignment revision and immediately re-resolves affected active work.
+    async fn set_assignment_policy_exception(
+        &self,
+        context: TenantContext,
+        command: SetAssignmentPolicyExceptionCommand,
+    ) -> Result<StoredAssignmentPolicyException, StoreError>;
+
+    /// Removes one current accommodation and immediately re-resolves affected work.
+    async fn delete_assignment_policy_exception(
+        &self,
+        context: TenantContext,
+        command: DeleteAssignmentPolicyExceptionCommand,
+    ) -> Result<AssignmentRevision, StoreError>;
+
+    /// Reads one exception by its non-authorizing internal identity.
+    async fn get_assignment_policy_exception(
+        &self,
+        context: TenantContext,
+        assignment: AssignmentId,
+        exception: AssignmentPolicyExceptionId,
+    ) -> Result<Option<StoredAssignmentPolicyException>, StoreError>;
+
+    /// Resolves the exact current policy used for one assignment enrollment.
+    async fn resolve_assignment_timing(
+        &self,
+        context: TenantContext,
+        assignment: AssignmentId,
+        student: StudentId,
+    ) -> Result<Option<ResolvedAssignmentTiming>, StoreError>;
+
+    /// Reads the effective policy explanation recorded for one issued attempt.
+    async fn get_attempt_resolved_timing(
+        &self,
+        context: TenantContext,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<ResolvedAttemptTiming>, StoreError>;
+
+    /// Retires one fixed item or selection candidate and recalculates all current grades.
+    ///
+    /// The command is rejected while an affected attempt is in progress. Submitted
+    /// evidence remains protected; future runs omit the retired identity.
+    async fn delete_and_regrade_assignment_item(
+        &self,
+        context: TenantContext,
+        command: DeleteAndRegradeAssignmentItemCommand,
     ) -> Result<StoredAssignment, StoreError>;
 
     /// Reads one assignment and its current revision for an authenticated edit.
@@ -2207,6 +3237,13 @@ pub trait Store: Send + Sync {
         assignment: AssignmentId,
         proposed_run: RunId,
     ) -> Result<AssignmentRun, StoreError>;
+
+    /// Reads the immutable selected questions and issued order frozen at run start.
+    async fn assignment_run_items(
+        &self,
+        context: TenantContext,
+        run: RunId,
+    ) -> Result<Vec<AssignmentRunItem>, StoreError>;
 
     /// Issues a fresh question or returns the run's unresolved instance.
     ///
@@ -2295,6 +3332,27 @@ pub trait Store: Send + Sync {
         context: TenantContext,
         command: SubmitQuestionAttemptCommand,
     ) -> Result<SubmissionRecord, StoreError>;
+
+    /// Closes an active question without inventing a response or score.
+    ///
+    /// Only a persisted direct course instructor may perform this action.
+    /// The attempt becomes `needs_manual_grading` and exact action retries
+    /// return the original minimal audit record.
+    async fn force_submit_attempt(
+        &self,
+        context: TenantContext,
+        command: ForceSubmitAttemptCommand,
+    ) -> Result<AttemptSupportRecord, StoreError>;
+
+    /// Excludes an attempt from current scoring while retaining raw evidence.
+    ///
+    /// A submitted evaluation triggers generation-fenced assignment
+    /// recalculation; exact action retries never enqueue a duplicate job.
+    async fn clear_attempt(
+        &self,
+        context: TenantContext,
+        command: ClearAttemptCommand,
+    ) -> Result<AttemptSupportRecord, StoreError>;
 
     /// Atomically records an authorized instructor release of an existing
     /// first-grade feedback record. The original receipt is never rewritten.
@@ -2442,12 +3500,103 @@ pub(crate) fn validate_course(course: &CourseRecord) -> Result<(), StoreError> {
     Ok(())
 }
 
+/// Validates one current course group independently of backend authority.
+pub(crate) fn validate_course_group(group: &CourseGroupRecord) -> Result<(), StoreError> {
+    validate_title("course group", &group.title)?;
+    let unique_members: std::collections::BTreeSet<_> = group.members.iter().copied().collect();
+    if unique_members.len() != group.members.len() {
+        return Err(StoreError::InvalidRecord(
+            "course group members must be unique".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 /// Validates assignment fields independent of catalog visibility.
 pub(crate) fn validate_assignment(assignment: &AssignmentRecord) -> Result<(), StoreError> {
     validate_title("assignment", &assignment.title)?;
-    if assignment.problems.is_empty() {
+    if assignment.items.is_empty() && assignment.selection_groups.is_empty() {
         return Err(StoreError::InvalidRecord(
             "assignment must reference at least one published problem version".to_string(),
+        ));
+    }
+    let mut item_ids = std::collections::BTreeSet::new();
+    let mut positions = std::collections::BTreeSet::new();
+    for item in &assignment.items {
+        if !item_ids.insert(item.id) {
+            return Err(StoreError::InvalidRecord(
+                "assignment item identities must be unique".to_string(),
+            ));
+        }
+        if !positions.insert(item.position) {
+            return Err(StoreError::InvalidRecord(
+                "assignment positions must be unique".to_string(),
+            ));
+        }
+        if item.delivery_state == question_model::AssignmentDeliveryState::Retired
+            && item.scoring_mode != question_model::AssignmentScoringMode::Excluded
+        {
+            return Err(StoreError::InvalidRecord(
+                "retired assignment items must be excluded from current scoring".to_string(),
+            ));
+        }
+    }
+    let mut group_ids = std::collections::BTreeSet::new();
+    for group in &assignment.selection_groups {
+        if !group_ids.insert(group.id) || !positions.insert(group.position) {
+            return Err(StoreError::InvalidRecord(
+                "assignment selection identities and positions must be unique".to_string(),
+            ));
+        }
+        let active_candidates = group
+            .candidates
+            .iter()
+            .filter(|candidate| {
+                candidate.delivery_state == question_model::AssignmentDeliveryState::Active
+            })
+            .count();
+        if group.draw_count == 0
+            || usize::try_from(group.draw_count)
+                .map_or(true, |draw_count| draw_count > active_candidates)
+            || group.algorithm_version == 0
+        {
+            return Err(StoreError::InvalidRecord(
+                "selection groups need a positive bounded draw and algorithm version".to_string(),
+            ));
+        }
+        let mut candidate_positions = std::collections::BTreeSet::new();
+        for candidate in &group.candidates {
+            if !item_ids.insert(candidate.id) {
+                return Err(StoreError::InvalidRecord(
+                    "assignment item and candidate identities must be unique".to_string(),
+                ));
+            }
+            if !candidate_positions.insert(candidate.position) {
+                return Err(StoreError::InvalidRecord(
+                    "selection candidate positions must be unique within a group".to_string(),
+                ));
+            }
+        }
+        if candidate_positions
+            .iter()
+            .copied()
+            .ne(0..u32::try_from(candidate_positions.len()).map_err(|_| {
+                StoreError::InvalidRecord("too many selection candidates".to_string())
+            })?)
+        {
+            return Err(StoreError::InvalidRecord(
+                "selection candidate positions must be contiguous from zero".to_string(),
+            ));
+        }
+    }
+    if positions
+        .iter()
+        .copied()
+        .ne(0..u32::try_from(positions.len())
+            .map_err(|_| StoreError::InvalidRecord("too many assignment positions".to_string()))?)
+    {
+        return Err(StoreError::InvalidRecord(
+            "assignment positions must be contiguous from zero".to_string(),
         ));
     }
     if let question_model::CompletionRequirement::ScoreAtLeast { fraction } =
@@ -2459,6 +3608,275 @@ pub(crate) fn validate_assignment(assignment: &AssignmentRecord) -> Result<(), S
         ));
     }
     Ok(())
+}
+
+/// Validates one current assignment access/timing policy before persistence.
+pub(crate) fn validate_assignment_timing(policy: AssignmentTimingPolicy) -> Result<(), StoreError> {
+    if policy.time_limit_seconds == Some(0) {
+        return Err(StoreError::InvalidRecord(
+            "assignment time limit must be greater than zero".to_string(),
+        ));
+    }
+    if policy.attempt_limit == Some(0) {
+        return Err(StoreError::InvalidRecord(
+            "assignment attempt limit must be greater than zero".to_string(),
+        ));
+    }
+    let ordered = policy
+        .available_at
+        .zip(policy.due_at)
+        .is_none_or(|(available, due)| available <= due)
+        && policy
+            .due_at
+            .zip(policy.closes_at)
+            .is_none_or(|(due, closes)| due <= closes)
+        && policy
+            .available_at
+            .zip(policy.closes_at)
+            .is_none_or(|(available, closes)| available <= closes);
+    if !ordered {
+        return Err(StoreError::InvalidRecord(
+            "assignment availability, due date, and close date must be ordered".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Effective policy fields plus only the exception targets that expanded them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ResolvedAssignmentTimingPolicy {
+    pub policy: AssignmentTimingPolicy,
+    pub contributors: Vec<AssignmentPolicyExceptionTarget>,
+}
+
+/// Validates one exception before either backend mutates current state.
+pub(crate) fn validate_assignment_policy_exception(
+    exception: &AssignmentPolicyException,
+) -> Result<(), StoreError> {
+    if exception.available_at.is_none()
+        && exception.closes_at.is_none()
+        && exception.time_limit_seconds.is_none()
+        && exception.attempt_limit.is_none()
+    {
+        return Err(StoreError::InvalidRecord(
+            "an assignment policy exception must override at least one field".to_string(),
+        ));
+    }
+    for (label, value) in [
+        ("exception time limit", exception.time_limit_seconds),
+        ("exception attempt limit", exception.attempt_limit),
+    ] {
+        if value == Some(AssignmentExceptionLimit::Value(0)) {
+            return Err(StoreError::InvalidRecord(format!(
+                "{label} must be greater than zero"
+            )));
+        }
+    }
+    if let (
+        Some(AssignmentExceptionTimestamp::At(available_at)),
+        Some(AssignmentExceptionTimestamp::At(closes_at)),
+    ) = (exception.available_at, exception.closes_at)
+        && available_at > closes_at
+    {
+        return Err(StoreError::InvalidRecord(
+            "exception availability and close date must be ordered".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Resolves all applicable accommodations against the assignment policy.
+/// Every dimension can only become more permissive; an exception can never
+/// shorten another learner's access by accident.
+pub(crate) fn resolve_assignment_policy(
+    base: AssignmentTimingPolicy,
+    exceptions: &[AssignmentPolicyException],
+) -> Result<ResolvedAssignmentTimingPolicy, StoreError> {
+    validate_assignment_timing(base)?;
+    let mut policy = base;
+    let mut contributors = std::collections::BTreeSet::new();
+    for exception in exceptions {
+        validate_assignment_policy_exception(exception)?;
+        if exception_expands_policy(base, exception) {
+            contributors.insert(exception.target);
+        }
+        if let Some(value) = exception.available_at {
+            expand_start_boundary(&mut policy.available_at, value);
+        }
+        if let Some(value) = exception.closes_at {
+            expand_end_boundary(&mut policy.closes_at, value);
+        }
+        if let Some(value) = exception.time_limit_seconds {
+            expand_numeric_limit(&mut policy.time_limit_seconds, value);
+        }
+        if let Some(value) = exception.attempt_limit {
+            expand_numeric_limit(&mut policy.attempt_limit, value);
+        }
+    }
+    validate_assignment_timing(policy)?;
+    Ok(ResolvedAssignmentTimingPolicy {
+        policy,
+        contributors: contributors.into_iter().collect(),
+    })
+}
+
+fn exception_expands_policy(
+    base: AssignmentTimingPolicy,
+    exception: &AssignmentPolicyException,
+) -> bool {
+    let mut available_at = base.available_at;
+    let mut closes_at = base.closes_at;
+    let mut time_limit_seconds = base.time_limit_seconds;
+    let mut attempt_limit = base.attempt_limit;
+    exception
+        .available_at
+        .is_some_and(|value| expand_start_boundary(&mut available_at, value))
+        || exception
+            .closes_at
+            .is_some_and(|value| expand_end_boundary(&mut closes_at, value))
+        || exception
+            .time_limit_seconds
+            .is_some_and(|value| expand_numeric_limit(&mut time_limit_seconds, value))
+        || exception
+            .attempt_limit
+            .is_some_and(|value| expand_numeric_limit(&mut attempt_limit, value))
+}
+
+fn expand_start_boundary(
+    current: &mut Option<ActivityTimestamp>,
+    exception: AssignmentExceptionTimestamp,
+) -> bool {
+    match exception {
+        AssignmentExceptionTimestamp::Unrestricted if current.is_some() => {
+            *current = None;
+            true
+        }
+        AssignmentExceptionTimestamp::At(value)
+            if current.is_some_and(|existing| value < existing) =>
+        {
+            *current = Some(value);
+            true
+        }
+        AssignmentExceptionTimestamp::Unrestricted | AssignmentExceptionTimestamp::At(_) => false,
+    }
+}
+
+fn expand_end_boundary(
+    current: &mut Option<ActivityTimestamp>,
+    exception: AssignmentExceptionTimestamp,
+) -> bool {
+    match exception {
+        AssignmentExceptionTimestamp::Unrestricted if current.is_some() => {
+            *current = None;
+            true
+        }
+        AssignmentExceptionTimestamp::At(value)
+            if current.is_some_and(|existing| value > existing) =>
+        {
+            *current = Some(value);
+            true
+        }
+        AssignmentExceptionTimestamp::Unrestricted | AssignmentExceptionTimestamp::At(_) => false,
+    }
+}
+
+fn expand_numeric_limit(current: &mut Option<u32>, exception: AssignmentExceptionLimit) -> bool {
+    match exception {
+        AssignmentExceptionLimit::Unlimited if current.is_some() => {
+            *current = None;
+            true
+        }
+        AssignmentExceptionLimit::Value(value)
+            if current.is_some_and(|existing| value > existing) =>
+        {
+            *current = Some(value);
+            true
+        }
+        AssignmentExceptionLimit::Unlimited | AssignmentExceptionLimit::Value(_) => false,
+    }
+}
+
+#[cfg(test)]
+mod assignment_policy_exception_tests {
+    use super::*;
+
+    fn id(value: u128) -> Uuid {
+        Uuid::from_u128(value)
+    }
+
+    #[test]
+    fn applicable_exceptions_resolve_each_dimension_most_permissively() {
+        let student = StudentId::from_uuid(id(1));
+        let group = CourseGroupId::from_uuid(id(2));
+        let base = AssignmentTimingPolicy {
+            available_at: Some(ActivityTimestamp::from_unix_millis(100)),
+            closes_at: Some(ActivityTimestamp::from_unix_millis(200)),
+            time_limit_seconds: Some(10),
+            attempt_limit: Some(1),
+            ..AssignmentTimingPolicy::default()
+        };
+        let group_exception = AssignmentPolicyException {
+            id: AssignmentPolicyExceptionId::from_uuid(id(3)),
+            target: AssignmentPolicyExceptionTarget::CourseGroup(group),
+            available_at: Some(AssignmentExceptionTimestamp::At(
+                ActivityTimestamp::from_unix_millis(90),
+            )),
+            closes_at: Some(AssignmentExceptionTimestamp::At(
+                ActivityTimestamp::from_unix_millis(300),
+            )),
+            time_limit_seconds: Some(AssignmentExceptionLimit::Value(20)),
+            attempt_limit: Some(AssignmentExceptionLimit::Value(2)),
+        };
+        let student_exception = AssignmentPolicyException {
+            id: AssignmentPolicyExceptionId::from_uuid(id(4)),
+            target: AssignmentPolicyExceptionTarget::Student(student),
+            available_at: Some(AssignmentExceptionTimestamp::Unrestricted),
+            closes_at: Some(AssignmentExceptionTimestamp::At(
+                ActivityTimestamp::from_unix_millis(250),
+            )),
+            time_limit_seconds: Some(AssignmentExceptionLimit::Unlimited),
+            attempt_limit: Some(AssignmentExceptionLimit::Value(1)),
+        };
+        let resolved = resolve_assignment_policy(base, &[group_exception, student_exception])
+            .expect("valid accommodations");
+        assert_eq!(resolved.policy.available_at, None);
+        assert_eq!(
+            resolved.policy.closes_at,
+            Some(ActivityTimestamp::from_unix_millis(300))
+        );
+        assert_eq!(resolved.policy.time_limit_seconds, None);
+        assert_eq!(resolved.policy.attempt_limit, Some(2));
+        assert_eq!(
+            resolved.contributors,
+            vec![
+                AssignmentPolicyExceptionTarget::Student(student),
+                AssignmentPolicyExceptionTarget::CourseGroup(group),
+            ]
+        );
+    }
+
+    #[test]
+    fn exception_validation_refuses_empty_zero_and_reversed_overrides() {
+        let mut exception = AssignmentPolicyException {
+            id: AssignmentPolicyExceptionId::from_uuid(id(10)),
+            target: AssignmentPolicyExceptionTarget::Student(StudentId::from_uuid(id(11))),
+            available_at: None,
+            closes_at: None,
+            time_limit_seconds: None,
+            attempt_limit: None,
+        };
+        assert!(validate_assignment_policy_exception(&exception).is_err());
+        exception.time_limit_seconds = Some(AssignmentExceptionLimit::Value(0));
+        assert!(validate_assignment_policy_exception(&exception).is_err());
+        exception.time_limit_seconds = None;
+        exception.available_at = Some(AssignmentExceptionTimestamp::At(
+            ActivityTimestamp::from_unix_millis(2),
+        ));
+        exception.closes_at = Some(AssignmentExceptionTimestamp::At(
+            ActivityTimestamp::from_unix_millis(1),
+        ));
+        assert!(validate_assignment_policy_exception(&exception).is_err());
+    }
 }
 
 /// Validates that delivery metadata agrees with the typed immutable object key.
@@ -2532,18 +3950,96 @@ pub(crate) fn validate_asset_delivery(record: &AssetDeliveryRecord) -> Result<()
     Ok(())
 }
 
-/// Derives a completed run score from one current result per assignment position.
+/// One current submitted result resolved against the current assignment scoring definition.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct CurrentRunQuestion {
+    pub(crate) assignment_item: AssignmentItemId,
+    pub(crate) result: AttemptResult,
+    pub(crate) earned_points: f64,
+    pub(crate) possible_points: f64,
+}
+
+/// Resolves the latest submitted attempt for every immutable delivered position.
+pub(crate) fn current_run_questions(
+    assignment: &AssignmentRecord,
+    run_items: &[AssignmentRunItem],
+    attempts: &[QuestionAttempt],
+    current: &QuestionAttempt,
+) -> Result<Vec<Option<CurrentRunQuestion>>, StoreError> {
+    let mut delivered = run_items.iter().collect::<Vec<_>>();
+    delivered.sort_by_key(|item| item.issued_position);
+    for (position, item) in delivered.iter().enumerate() {
+        if item.run != current.run || usize::try_from(item.issued_position).ok() != Some(position) {
+            return Err(StoreError::InvalidRecord(
+                "immutable run items must have contiguous issued positions".to_string(),
+            ));
+        }
+    }
+    let mut latest: Vec<Option<(ActivityTimestamp, QuestionAttemptId, CurrentRunQuestion)>> =
+        vec![None; delivered.len()];
+    for attempt in attempts
+        .iter()
+        .filter(|attempt| attempt.id != current.id)
+        .chain(std::iter::once(current))
+    {
+        if attempt.run != current.run {
+            return Err(StoreError::InvalidRecord(
+                "attempt does not belong to the completed run".to_string(),
+            ));
+        }
+        let position = usize::try_from(attempt.assignment_position).map_err(|_| {
+            StoreError::InvalidRecord("attempt position is outside the delivered run".to_string())
+        })?;
+        let item = delivered.get(position).ok_or_else(|| {
+            StoreError::InvalidRecord("attempt position is outside the delivered run".to_string())
+        })?;
+        if attempt.problem != item.reference.problem
+            || attempt.question_version != item.reference.version
+        {
+            return Err(StoreError::InvalidRecord(
+                "attempt identity disagrees with its immutable run item".to_string(),
+            ));
+        }
+        let (Some(submitted_at), Some(result)) = (attempt.timer.submitted_at, attempt.result)
+        else {
+            continue;
+        };
+        let (earned_points, possible_points) =
+            current_attempt_points(assignment, item.assignment_item, attempt.status, result)?;
+        let question = CurrentRunQuestion {
+            assignment_item: item.assignment_item,
+            result,
+            earned_points,
+            possible_points,
+        };
+        let slot = &mut latest[position];
+        if slot
+            .as_ref()
+            .is_none_or(|(at, id, _)| (submitted_at, attempt.id) > (*at, *id))
+        {
+            *slot = Some((submitted_at, attempt.id, question));
+        }
+    }
+    Ok(latest
+        .into_iter()
+        .map(|entry| entry.map(|(_, _, question)| question))
+        .collect())
+}
+
+/// Derives a completed run score from one current result per delivered position.
 pub(crate) fn completed_run_score(
-    results: &[Option<AttemptResult>],
+    questions: &[Option<CurrentRunQuestion>],
     requirement: question_model::CompletionRequirement,
 ) -> Result<Option<f64>, StoreError> {
-    if results.iter().any(Option::is_none) {
+    if questions.iter().any(Option::is_none) {
         return Ok(None);
     }
-    let questions: Vec<_> = results
+    let completion: Vec<_> = questions
         .iter()
-        .map(|result| {
-            let result = result.expect("missing results returned before projection");
+        .map(|question| {
+            let result = question
+                .expect("missing results returned before projection")
+                .result;
             RequiredQuestionState {
                 answered: true,
                 correct: result.correct,
@@ -2552,22 +4048,34 @@ pub(crate) fn completed_run_score(
             }
         })
         .collect();
-    if derive_within_run_completion(&questions, requirement)? == WithinRunCompletion::InProgress {
+    if derive_within_run_completion(&completion, requirement)? == WithinRunCompletion::InProgress {
         return Ok(None);
     }
     let earned: f64 = questions
         .iter()
-        .map(|question| question.points_earned)
+        .map(|question| {
+            question
+                .expect("missing results returned before projection")
+                .earned_points
+        })
         .sum();
     let possible: f64 = questions
         .iter()
-        .map(|question| question.points_possible)
+        .map(|question| {
+            question
+                .expect("missing results returned before projection")
+                .possible_points
+        })
         .sum();
-    if !earned.is_finite() || !possible.is_finite() || possible <= 0.0 {
+    if !earned.is_finite() || !possible.is_finite() || possible < 0.0 {
         return Err(StoreError::RunModel(RunModelError::InvalidQuestionPoints));
     }
-    let score = earned / possible;
-    if !score.is_finite() || !(0.0..=1.0).contains(&score) {
+    let score = if possible > 0.0 {
+        earned / possible
+    } else {
+        earned
+    };
+    if !score.is_finite() || !(-1_000.0..=1_000.0).contains(&score) {
         return Err(StoreError::RunModel(RunModelError::InvalidQuestionPoints));
     }
     Ok(Some(score))
@@ -2575,14 +4083,15 @@ pub(crate) fn completed_run_score(
 
 /// Refuses malformed backend grades before they can enter attempt history.
 pub(crate) fn validate_attempt_result(result: AttemptResult) -> Result<(), StoreError> {
+    let credit = result.points_earned / result.points_possible;
     if !result.points_earned.is_finite()
         || !result.points_possible.is_finite()
-        || result.points_earned < 0.0
         || result.points_possible <= 0.0
-        || result.points_earned > result.points_possible
+        || !credit.is_finite()
+        || !(-1_000.0..=1_000.0).contains(&credit)
     {
         return Err(StoreError::InvalidRecord(
-            "attempt result points must be finite with 0 <= earned <= possible and possible > 0"
+            "attempt result must have positive possible points and normalized credit from -1000 to 1000"
                 .to_string(),
         ));
     }

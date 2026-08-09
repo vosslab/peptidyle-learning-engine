@@ -40,8 +40,8 @@ pub enum WithinRunCompletion {
 ///
 /// # Errors
 ///
-/// Returns [`RunModelError`] when a threshold or point value cannot represent
-/// a finite score fraction.
+/// Returns [`RunModelError`] when a threshold or normalized result cannot
+/// represent a finite bounded score.
 pub fn derive_within_run_completion(
     questions: &[RequiredQuestionState],
     requirement: CompletionRequirement,
@@ -76,11 +76,12 @@ fn score_fraction(questions: &[RequiredQuestionState]) -> Result<f64, RunModelEr
     let mut possible = 0.0;
 
     for question in questions {
+        let credit = question.points_earned / question.points_possible;
         if !question.points_earned.is_finite()
             || !question.points_possible.is_finite()
-            || question.points_earned < 0.0
             || question.points_possible <= 0.0
-            || question.points_earned > question.points_possible
+            || !credit.is_finite()
+            || !(-1_000.0..=1_000.0).contains(&credit)
         {
             return Err(RunModelError::InvalidQuestionPoints);
         }
@@ -89,8 +90,11 @@ fn score_fraction(questions: &[RequiredQuestionState]) -> Result<f64, RunModelEr
     }
 
     let fraction = earned / possible;
-    validate_fraction(fraction).map_err(|_| RunModelError::InvalidQuestionPoints)?;
-    Ok(fraction)
+    if fraction.is_finite() && (-1_000.0..=1_000.0).contains(&fraction) {
+        Ok(fraction)
+    } else {
+        Err(RunModelError::InvalidQuestionPoints)
+    }
 }
 
 #[cfg(test)]

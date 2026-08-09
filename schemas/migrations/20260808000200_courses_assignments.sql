@@ -135,6 +135,29 @@ CREATE TABLE public.course_member (
 
 ALTER TABLE ONLY public.course_member FORCE ROW LEVEL SECURITY;
 
+CREATE TABLE public.course_group (
+    tenant_id uuid NOT NULL,
+    course_id uuid NOT NULL,
+    course_group_id uuid NOT NULL,
+    title text NOT NULL,
+    created_at timestamp with time zone DEFAULT transaction_timestamp() NOT NULL,
+    updated_at timestamp with time zone DEFAULT transaction_timestamp() NOT NULL,
+    revision bigint DEFAULT 1 NOT NULL,
+    CONSTRAINT course_group_title_check CHECK ((char_length(title) BETWEEN 1 AND 200 AND title = btrim(title))),
+    CONSTRAINT course_group_revision_check CHECK ((revision > 0))
+);
+
+ALTER TABLE ONLY public.course_group FORCE ROW LEVEL SECURITY;
+
+CREATE TABLE public.course_group_member (
+    tenant_id uuid NOT NULL,
+    course_id uuid NOT NULL,
+    course_group_id uuid NOT NULL,
+    user_id uuid NOT NULL
+);
+
+ALTER TABLE ONLY public.course_group_member FORCE ROW LEVEL SECURITY;
+
 CREATE TABLE public.enrollment (
     tenant_id uuid NOT NULL,
     enrollment_id uuid NOT NULL,
@@ -146,6 +169,36 @@ CREATE TABLE public.enrollment (
 );
 
 ALTER TABLE ONLY public.enrollment FORCE ROW LEVEL SECURITY;
+
+CREATE TABLE public.assignment_policy_exception (
+    tenant_id uuid NOT NULL,
+    assignment_policy_exception_id uuid NOT NULL,
+    course_id uuid NOT NULL,
+    assignment_id uuid NOT NULL,
+    student_id uuid,
+    course_group_id uuid,
+    available_mode text,
+    available_at timestamp with time zone,
+    closes_mode text,
+    closes_at timestamp with time zone,
+    time_limit_mode text,
+    time_limit_seconds integer,
+    attempt_limit_mode text,
+    attempt_limit integer,
+    created_at timestamp with time zone DEFAULT transaction_timestamp() NOT NULL,
+    updated_at timestamp with time zone DEFAULT transaction_timestamp() NOT NULL,
+    revision bigint DEFAULT 1 NOT NULL,
+    CONSTRAINT assignment_policy_exception_target_check CHECK (((student_id IS NULL) <> (course_group_id IS NULL))),
+    CONSTRAINT assignment_policy_exception_available_check CHECK (((available_mode IS NULL AND available_at IS NULL) OR (available_mode = 'unrestricted' AND available_at IS NULL) OR (available_mode = 'at' AND available_at IS NOT NULL))),
+    CONSTRAINT assignment_policy_exception_closes_check CHECK (((closes_mode IS NULL AND closes_at IS NULL) OR (closes_mode = 'unrestricted' AND closes_at IS NULL) OR (closes_mode = 'at' AND closes_at IS NOT NULL))),
+    CONSTRAINT assignment_policy_exception_time_limit_check CHECK (((time_limit_mode IS NULL AND time_limit_seconds IS NULL) OR (time_limit_mode = 'unlimited' AND time_limit_seconds IS NULL) OR (time_limit_mode = 'value' AND time_limit_seconds > 0))),
+    CONSTRAINT assignment_policy_exception_attempt_limit_check CHECK (((attempt_limit_mode IS NULL AND attempt_limit IS NULL) OR (attempt_limit_mode = 'unlimited' AND attempt_limit IS NULL) OR (attempt_limit_mode = 'value' AND attempt_limit > 0))),
+    CONSTRAINT assignment_policy_exception_nonempty_check CHECK ((available_mode IS NOT NULL OR closes_mode IS NOT NULL OR time_limit_mode IS NOT NULL OR attempt_limit_mode IS NOT NULL)),
+    CONSTRAINT assignment_policy_exception_schedule_check CHECK ((available_mode <> 'at' OR closes_mode <> 'at' OR available_at <= closes_at)),
+    CONSTRAINT assignment_policy_exception_revision_check CHECK ((revision > 0))
+);
+
+ALTER TABLE ONLY public.assignment_policy_exception FORCE ROW LEVEL SECURITY;
 
 CREATE TABLE public.student_assignment_summary (
     tenant_id uuid NOT NULL,
@@ -159,6 +212,9 @@ ALTER TABLE ONLY public.student_assignment_summary FORCE ROW LEVEL SECURITY;
 
 ALTER TABLE ONLY public.assignment
     ADD CONSTRAINT assignment_pkey PRIMARY KEY (tenant_id, assignment_id);
+
+ALTER TABLE ONLY public.assignment
+    ADD CONSTRAINT assignment_course_identity_key UNIQUE (tenant_id, course_id, assignment_id);
 
 ALTER TABLE ONLY public.assignment_item
     ADD CONSTRAINT assignment_item_pkey PRIMARY KEY (tenant_id, assignment_item_id);
@@ -187,11 +243,26 @@ ALTER TABLE ONLY public.assignment_selection_candidate
 ALTER TABLE ONLY public.course_member
     ADD CONSTRAINT course_member_pkey PRIMARY KEY (tenant_id, course_id, user_id);
 
+ALTER TABLE ONLY public.course_group
+    ADD CONSTRAINT course_group_pkey PRIMARY KEY (tenant_id, course_group_id);
+
+ALTER TABLE ONLY public.course_group
+    ADD CONSTRAINT course_group_course_identity_key UNIQUE (tenant_id, course_id, course_group_id);
+
+ALTER TABLE ONLY public.course_group_member
+    ADD CONSTRAINT course_group_member_pkey PRIMARY KEY (tenant_id, course_group_id, user_id);
+
 ALTER TABLE ONLY public.course
     ADD CONSTRAINT course_pkey PRIMARY KEY (tenant_id, course_id);
 
 ALTER TABLE ONLY public.enrollment
     ADD CONSTRAINT enrollment_pkey PRIMARY KEY (tenant_id, enrollment_id);
+
+ALTER TABLE ONLY public.enrollment
+    ADD CONSTRAINT enrollment_assignment_student_key UNIQUE (tenant_id, assignment_id, student_id);
+
+ALTER TABLE ONLY public.assignment_policy_exception
+    ADD CONSTRAINT assignment_policy_exception_pkey PRIMARY KEY (tenant_id, assignment_policy_exception_id);
 
 ALTER TABLE public.enrollment
     ADD CONSTRAINT enrollment_user_required_check CHECK ((user_id IS NOT NULL)) NOT VALID;
@@ -206,6 +277,14 @@ CREATE INDEX assignment_item_assignment_idx ON public.assignment_item USING btre
 CREATE INDEX assignment_selection_candidate_group_idx ON public.assignment_selection_candidate USING btree (tenant_id, selection_group_id, "position", candidate_id) WHERE (delivery_state = 'active'::text);
 
 CREATE INDEX course_member_user_courses_idx ON public.course_member USING btree (tenant_id, user_id, course_id);
+
+CREATE INDEX course_group_member_user_idx ON public.course_group_member USING btree (tenant_id, course_id, user_id, course_group_id);
+
+CREATE UNIQUE INDEX assignment_policy_exception_student_key ON public.assignment_policy_exception USING btree (tenant_id, assignment_id, student_id) WHERE (student_id IS NOT NULL);
+
+CREATE UNIQUE INDEX assignment_policy_exception_group_key ON public.assignment_policy_exception USING btree (tenant_id, assignment_id, course_group_id) WHERE (course_group_id IS NOT NULL);
+
+CREATE INDEX assignment_policy_exception_course_idx ON public.assignment_policy_exception USING btree (tenant_id, course_id, assignment_id);
 
 CREATE INDEX enrollment_gradebook_summary_page_idx ON public.enrollment USING btree (tenant_id, assignment_id, enrollment_id);
 
@@ -232,8 +311,26 @@ ALTER TABLE ONLY public.assignment_selection_candidate
 ALTER TABLE ONLY public.course_member
     ADD CONSTRAINT course_member_tenant_id_course_id_fkey FOREIGN KEY (tenant_id, course_id) REFERENCES public.course(tenant_id, course_id) ON DELETE CASCADE;
 
+ALTER TABLE ONLY public.course_group
+    ADD CONSTRAINT course_group_course_fkey FOREIGN KEY (tenant_id, course_id) REFERENCES public.course(tenant_id, course_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.course_group_member
+    ADD CONSTRAINT course_group_member_group_fkey FOREIGN KEY (tenant_id, course_id, course_group_id) REFERENCES public.course_group(tenant_id, course_id, course_group_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.course_group_member
+    ADD CONSTRAINT course_group_member_course_member_fkey FOREIGN KEY (tenant_id, course_id, user_id) REFERENCES public.course_member(tenant_id, course_id, user_id) ON DELETE CASCADE;
+
 ALTER TABLE ONLY public.enrollment
     ADD CONSTRAINT enrollment_tenant_id_assignment_id_fkey FOREIGN KEY (tenant_id, assignment_id) REFERENCES public.assignment(tenant_id, assignment_id);
+
+ALTER TABLE ONLY public.assignment_policy_exception
+    ADD CONSTRAINT assignment_policy_exception_assignment_fkey FOREIGN KEY (tenant_id, course_id, assignment_id) REFERENCES public.assignment(tenant_id, course_id, assignment_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.assignment_policy_exception
+    ADD CONSTRAINT assignment_policy_exception_student_fkey FOREIGN KEY (tenant_id, assignment_id, student_id) REFERENCES public.enrollment(tenant_id, assignment_id, student_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.assignment_policy_exception
+    ADD CONSTRAINT assignment_policy_exception_group_fkey FOREIGN KEY (tenant_id, course_id, course_group_id) REFERENCES public.course_group(tenant_id, course_id, course_group_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.student_assignment_summary
     ADD CONSTRAINT student_assignment_summary_tenant_id_enrollment_id_fkey FOREIGN KEY (tenant_id, enrollment_id) REFERENCES public.enrollment(tenant_id, enrollment_id) ON DELETE CASCADE;
@@ -429,9 +526,21 @@ ALTER TABLE public.course_member ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY course_member_tenant ON public.course_member USING ((tenant_id = public.ple_current_tenant())) WITH CHECK ((tenant_id = public.ple_current_tenant()));
 
+ALTER TABLE public.course_group ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY course_group_tenant ON public.course_group USING ((tenant_id = public.ple_current_tenant())) WITH CHECK ((tenant_id = public.ple_current_tenant()));
+
+ALTER TABLE public.course_group_member ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY course_group_member_tenant ON public.course_group_member USING ((tenant_id = public.ple_current_tenant())) WITH CHECK ((tenant_id = public.ple_current_tenant()));
+
 CREATE POLICY course_tenant ON public.course USING ((tenant_id = public.ple_current_tenant())) WITH CHECK ((tenant_id = public.ple_current_tenant()));
 
 ALTER TABLE public.enrollment ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.assignment_policy_exception ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY assignment_policy_exception_tenant ON public.assignment_policy_exception USING ((tenant_id = public.ple_current_tenant())) WITH CHECK ((tenant_id = public.ple_current_tenant()));
 
 ALTER TABLE public.student_assignment_summary ENABLE ROW LEVEL SECURITY;
 
@@ -459,9 +568,18 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.course_member TO ple_app;
 GRANT SELECT ON TABLE public.course_member TO ple_student;
 GRANT SELECT,DELETE ON TABLE public.course_member TO ple_retention_broker;
 
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.course_group TO ple_app;
+GRANT SELECT,DELETE ON TABLE public.course_group TO ple_retention_broker;
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.course_group_member TO ple_app;
+GRANT SELECT,DELETE ON TABLE public.course_group_member TO ple_retention_broker;
+
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.enrollment TO ple_app;
 GRANT SELECT ON TABLE public.enrollment TO ple_student;
 GRANT SELECT,DELETE ON TABLE public.enrollment TO ple_retention_broker;
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.assignment_policy_exception TO ple_app;
+GRANT SELECT,DELETE ON TABLE public.assignment_policy_exception TO ple_retention_broker;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.student_assignment_summary TO ple_app;
 GRANT SELECT ON TABLE public.student_assignment_summary TO ple_student;

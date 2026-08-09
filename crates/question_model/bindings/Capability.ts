@@ -7,4 +7,12 @@
  * rather than eight struct fields so a caller cannot invent a ninth, and so
  * violations can name the capability they are about.
  */
-export type Capability = "algorithmicGeneration" | "clientRendering" | "serverGrading" | "partialCredit" | "hints" | "perQuestionTiming" | "printExport" | "offlinePreview";
+export type Capability =
+  | "algorithmicGeneration"
+  | "clientRendering"
+  | "serverGrading"
+  | "partialCredit"
+  | "hints"
+  | "perQuestionTiming"
+  | "printExport"
+  | "offlinePreview";

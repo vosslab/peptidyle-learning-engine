@@ -12,6 +12,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::ProblemVersionRef;
 use crate::UserId;
 use crate::generation::GeneratorReference;
 use crate::identity::{ObjectId, ProblemId, VersionId};
@@ -26,13 +27,29 @@ pub struct TenantId(Uuid);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct AssignmentId(Uuid);
 
+/// One stable current-state item within an assignment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct AssignmentItemId(Uuid);
+
+/// One random-selection group within an assignment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct AssignmentSelectionGroupId(Uuid);
+
 /// A tenant-owned course or section containing assignments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CourseId(Uuid);
 
+/// One current membership group inside a tenant-owned course.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct CourseGroupId(Uuid);
+
 /// A student enrolled in an assignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct StudentId(Uuid);
+
+/// One current student/group exception attached to an assignment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct AssignmentPolicyExceptionId(Uuid);
 
 /// One student's durable relationship with one assignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -77,8 +94,12 @@ macro_rules! impl_activity_identifier {
 
 impl_activity_identifier!(TenantId);
 impl_activity_identifier!(AssignmentId);
+impl_activity_identifier!(AssignmentItemId);
+impl_activity_identifier!(AssignmentSelectionGroupId);
 impl_activity_identifier!(CourseId);
+impl_activity_identifier!(CourseGroupId);
 impl_activity_identifier!(StudentId);
+impl_activity_identifier!(AssignmentPolicyExceptionId);
 impl_activity_identifier!(EnrollmentId);
 impl_activity_identifier!(RunId);
 impl_activity_identifier!(QuestionAttemptId);
@@ -192,6 +213,26 @@ pub struct AssignmentRun {
     pub variation: VariationPolicy,
 }
 
+/// Immutable question selection and issued order for one run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssignmentRunItem {
+    /// Run whose future sequencing is frozen by this row.
+    pub run: RunId,
+    /// Stable fixed-item or selection-candidate identity.
+    pub assignment_item: AssignmentItemId,
+    /// Position in the mutable assignment definition when the run began.
+    pub source_position: u32,
+    /// Expanded zero-based delivery order inside this run.
+    pub issued_position: u32,
+    /// Exact immutable catalog version selected for delivery.
+    pub reference: ProblemVersionRef,
+    /// Selection group that produced this item, if it was drawn.
+    pub selection_group: Option<AssignmentSelectionGroupId>,
+    /// Deterministic selection seed, absent for fixed items.
+    pub selection_seed: Option<u64>,
+}
+
 /// Server-recorded timing inputs for one issued question.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -202,6 +243,24 @@ pub struct AttemptTimerRecord {
     pub deadline: Option<ActivityTimestamp>,
     /// Server time at which the response arrived, if submitted.
     pub submitted_at: Option<ActivityTimestamp>,
+}
+
+/// Current operational state of one issued question attempt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AttemptStatus {
+    /// The learner may still submit a response.
+    InProgress,
+    /// A learner or instructor submitted the current response.
+    Submitted,
+    /// The server submitted automatically at the effective deadline.
+    AutoSubmitted,
+    /// The current response awaits an authorized manual grade.
+    NeedsManualGrading,
+    /// The attempt is excluded from current scoring but retained as evidence.
+    Cleared,
+    /// The attempt is explicitly exempt from current scoring.
+    Exempt,
 }
 
 /// A grading result without an answer key.
@@ -284,6 +343,8 @@ pub struct QuestionAttempt {
     pub parameter_hash: String,
     /// Student response, once submitted.
     pub response: Option<StudentResponse>,
+    /// Current operational state, independent of retained response evidence.
+    pub status: AttemptStatus,
     /// Server grading result, once graded.
     pub result: Option<AttemptResult>,
     /// Server-owned timing record.

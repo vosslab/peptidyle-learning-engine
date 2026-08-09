@@ -33,7 +33,12 @@ export function CourseAssignmentsPage(): JSX.Element {
                     <p class="card-kicker">Mastery practice</p>
                     <h2>{assignment.title}</h2>
                     <p>
-                      {assignment.problems.length} question family in this reference assignment.
+                      {assignment.items.filter((item) => item.deliveryState === "active").length +
+                        assignment.selectionGroups.reduce(
+                          (count, group) => count + group.drawCount,
+                          0,
+                        )}{" "}
+                      questions in each new run.
                     </p>
                     <A
                       class="primary-link"

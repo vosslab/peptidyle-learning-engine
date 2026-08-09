@@ -132,12 +132,15 @@ test("course browse carries membership role and exact version references only", 
   const assignment = assignments.items[0];
   assert.notEqual(assignment, undefined);
   assert.equal(assignment.courseId, course.id);
-  assert.deepEqual(assignment.problems, [
-    {
-      problem: publishedProblemFixture.publishedProblem.problem,
-      version: publishedProblemFixture.publishedProblem.version,
-    },
-  ]);
+  assert.deepEqual(
+    assignment.items.map((item) => item.reference),
+    [
+      {
+        problem: publishedProblemFixture.publishedProblem.problem,
+        version: publishedProblemFixture.publishedProblem.version,
+      },
+    ],
+  );
   assert.equal("prompt" in assignment, false);
   assert.equal("response" in assignment, false);
 });

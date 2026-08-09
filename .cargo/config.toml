@@ -4,6 +4,9 @@
 # tsconfig.json. Cargo's caches live in ~/.cargo, never in the repository.
 
 [alias]
+# Run repository automation with `cargo xtask <command>`.
+xtask = "run --quiet -p xtask --"
+
 # Regenerate the TypeScript definitions from the Rust question model.
 # ./build.sh runs this as its tsgen stage; the alias is for running it alone
 # while iterating on the model. Output goes to the ignored root generated/ tree.

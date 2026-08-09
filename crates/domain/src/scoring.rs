@@ -9,7 +9,19 @@ use std::collections::HashSet;
 
 use question_model::{ActivityTimestamp, GradePolicy, RunId, StudentAssignmentSummary};
 
-use crate::run::{RunModelError, validate_fraction};
+use crate::run::RunModelError;
+
+const MAX_ABSOLUTE_CURRENT_SCORE: f64 = 1_000.0;
+
+fn validate_current_score(score: f64) -> Result<(), ()> {
+    if score.is_finite()
+        && (-MAX_ABSOLUTE_CURRENT_SCORE..=MAX_ABSOLUTE_CURRENT_SCORE).contains(&score)
+    {
+        Ok(())
+    } else {
+        Err(())
+    }
+}
 
 /// One completed run eligible for grade selection.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -18,7 +30,7 @@ pub struct CompletedRunScore {
     pub run: RunId,
     /// One-based sequence number within the enrollment.
     pub run_number: u32,
-    /// Final score fraction in the inclusive range `0.0..=1.0`.
+    /// Current score ratio. Extra and negative credit may put it outside 0..=1.
     pub score: f64,
 }
 
@@ -39,7 +51,7 @@ pub enum ScoreModelError {
         /// Run carrying the invalid number.
         run: RunId,
     },
-    /// A score was non-finite or outside `0.0..=1.0`.
+    /// A score was non-finite or outside the bounded current-score range.
     InvalidScore {
         /// Run carrying the invalid score.
         run: RunId,
@@ -140,7 +152,7 @@ fn validate_completed_runs(completed_runs: &[CompletedRunScore]) -> Result<(), S
         if run.run_number == 0 {
             return Err(ScoreModelError::InvalidRunNumber { run: run.run });
         }
-        validate_fraction(run.score).map_err(|_| ScoreModelError::InvalidScore {
+        validate_current_score(run.score).map_err(|()| ScoreModelError::InvalidScore {
             run: run.run,
             score: run.score,
         })?;
@@ -218,7 +230,7 @@ pub fn project_summary(
             touch(&mut next, at);
         }
         RunTransition::Completed { score, at } => {
-            validate_fraction(score).map_err(|_| RunModelError::InvalidScore { score })?;
+            validate_current_score(score).map_err(|()| RunModelError::InvalidScore { score })?;
             next.completed_run_count = next
                 .completed_run_count
                 .checked_add(1)

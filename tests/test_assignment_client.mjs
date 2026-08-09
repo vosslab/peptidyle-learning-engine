@@ -18,9 +18,13 @@ import {
 import { createMockApiClient } from "../src/api/mock/client.ts";
 
 const assignment = publishedProblemFixture.assignment;
+const assignmentProblems = assignment.items
+  .filter((item) => item.deliveryState === "active")
+  .sort((left, right) => left.position - right.position)
+  .map((item) => item.reference);
 const input = {
   title: assignment.title,
-  problems: assignment.problems,
+  problems: assignmentProblems,
   policies: assignment.policies,
 };
 
@@ -35,7 +39,7 @@ test("assignment editor decoder accepts only the stable editable projection", ()
   const detail = decodeAssignmentEditorDetail(assignment);
   assert.equal(detail.id, assignment.id);
   assert.equal(detail.courseId, assignment.courseId);
-  assert.deepEqual(detail.problems, assignment.problems);
+  assert.deepEqual(detail.problems, assignmentProblems);
   assert.deepEqual(decodeAssignmentEditorInput(input), input);
 
   for (const forbidden of [
@@ -64,7 +68,7 @@ test("assignment editor decoder accepts only the stable editable projection", ()
         violations: [
           {
             title: assignment.title,
-            reference: assignment.problems[0],
+            reference: assignmentProblems[0],
             capability: "serverGrading",
             backend: "forged",
           },
@@ -76,7 +80,7 @@ test("assignment editor decoder accepts only the stable editable projection", ()
   const nestedUnknownInputs = [
     {
       ...input,
-      problems: [{ ...assignment.problems[0], source: "forged" }],
+      problems: [{ ...assignmentProblems[0], source: "forged" }],
     },
     {
       ...input,
@@ -126,7 +130,12 @@ test("assignment HTTP transport preserves the exact revisioned create/read/save 
       if (request.method === "POST") {
         assert.equal(path, `/api/courses/${assignment.courseId}/assignments`);
         const body = JSON.parse(await request.text());
-        current = { ...current, id: "0198e000-0000-7000-8000-000000000060", ...body };
+        current = {
+          ...current,
+          id: "0198e000-0000-7000-8000-000000000060",
+          title: body.title,
+          policies: body.policies,
+        };
         revision = 1;
         return jsonResponse(current, 201, { etag: '"1"' });
       }
@@ -134,7 +143,7 @@ test("assignment HTTP transport preserves the exact revisioned create/read/save 
         assert.equal(path, `/api/courses/${current.courseId}/assignments/${current.id}`);
         assert.equal(request.headers.get("if-match"), `"${revision}"`);
         const body = JSON.parse(await request.text());
-        current = { ...current, ...body };
+        current = { ...current, title: body.title, policies: body.policies };
         revision += 1;
         return jsonResponse(current, 200, { etag: `"${revision}"` });
       }
@@ -189,7 +198,7 @@ test("revisioned assignment responses must match the requested identity before t
 test("assignment HTTP transport distinguishes validation and stale-revision failures", async () => {
   const violation = {
     title: assignment.title,
-    reference: assignment.problems[0],
+    reference: assignmentProblems[0],
     capability: "serverGrading",
   };
   const validationClient = createHttpApiClient({
@@ -240,7 +249,7 @@ test("assignment mock mirrors strict body, capability report, and compare-and-sw
     ...input,
     problems: [
       {
-        problem: assignment.problems[0].problem,
+        problem: assignmentProblems[0].problem,
         version: "0198e000-0000-7000-8000-000000000005",
       },
     ],

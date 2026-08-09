@@ -16,6 +16,8 @@
 
 pub mod activity;
 pub mod answer;
+/// Stable assignment items, selection groups, and exact point values.
+pub mod assignment;
 pub mod auth;
 pub mod capability;
 /// Shared catalog metadata, visibility, lineage, and browse projections.
@@ -39,10 +41,16 @@ pub mod taxonomy;
 // they are re-exported to keep call sites short. Everything else stays
 // available under its module.
 pub use crate::activity::{
-    ActivityTimestamp, AssignmentEnrollment, AssignmentId, AssignmentRun, AttemptProvenance,
-    AttemptResult, AttemptTimerRecord, CourseId, EnrollmentId, EnrollmentStatus,
-    ImplementationVersion, QuestionAttempt, QuestionAttemptId, RunId, RunMode, SourceArtifact,
-    StudentAssignmentSummary, StudentId, TenantId,
+    ActivityTimestamp, AssignmentEnrollment, AssignmentId, AssignmentItemId,
+    AssignmentPolicyExceptionId, AssignmentRun, AssignmentRunItem, AssignmentSelectionGroupId,
+    AttemptProvenance, AttemptResult, AttemptStatus, AttemptTimerRecord, CourseGroupId, CourseId,
+    EnrollmentId, EnrollmentStatus, ImplementationVersion, QuestionAttempt, QuestionAttemptId,
+    RunId, RunMode, SourceArtifact, StudentAssignmentSummary, StudentId, TenantId,
+};
+pub use crate::assignment::{
+    AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentItem, AssignmentScoringMode,
+    AssignmentSelectionCandidate, AssignmentSelectionGroup, AssignmentTimingPolicy,
+    LateSubmissionPolicy, PointValue, ScoringGeneration, ScoringStatus, SelectionOrdering,
 };
 pub use crate::auth::{UserId, UserRole};
 pub use crate::capability::{BackendCapabilities, Capability};
@@ -51,7 +59,8 @@ pub use crate::catalog::{
     CatalogProblemDetail, CatalogProblemSummary, CatalogSearchFacets, CatalogSearchPage,
     CatalogSearchQuery, CatalogSearchQueryError, CatalogStatisticsAvailability,
     CatalogStatisticsFacet, CatalogStatisticsStatus, CatalogTaxonomyFacet, CatalogTaxonomyFilter,
-    MAX_CATALOG_TAXONOMY_FACETS, ProblemVersionRef, PublicationScope, QuestionBackend,
+    MAX_CATALOG_TAXONOMY_FACETS, ProblemDisplayRef, ProblemPublicId, ProblemVersionNumber,
+    ProblemVersionRef, PublicationScope, QuestionBackend,
 };
 pub use crate::course::{
     AssignmentSummary, CourseMembership, CourseMembershipRole, CourseRole, CourseSummary,

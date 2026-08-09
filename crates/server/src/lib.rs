@@ -44,6 +44,10 @@ pub mod retention;
 pub mod retention_worker;
 /// Student runs, question attempts, submissions, and grading summaries.
 pub mod run;
+/// Current-score worker with private staging and generation-fenced publication.
+pub mod scoring_worker;
+/// Server-owned, generation-fenced deadline finalization.
+pub mod timing_worker;
 /// Authenticated, key-free fallbacks for browser-safe pure validation.
 pub mod validation;
 /// Persisted-source bridge for the isolated WeBWorK renderer.

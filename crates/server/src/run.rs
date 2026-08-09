@@ -1238,11 +1238,19 @@ where
     if active.response.is_some() || run.completed_at.is_some() {
         return error_response(StatusCode::CONFLICT, "attempt is no longer active");
     }
-    let assignment =
-        match owned_assignment_for_run(state.store.as_ref(), &authenticated, &run).await {
-            Ok(value) => value,
-            Err(response) => return response,
-        };
+    if let Err(response) =
+        owned_assignment_for_run(state.store.as_ref(), &authenticated, &run).await
+    {
+        return response;
+    }
+    let run_items = match state
+        .store
+        .assignment_run_items(authenticated.tenant_context, run.id)
+        .await
+    {
+        Ok(items) => items,
+        Err(error) => return store_error_response(error),
+    };
     let attempts =
         match all_attempts(state.store.as_ref(), authenticated.tenant_context, run.id).await {
             Ok(value) => value,
@@ -1254,19 +1262,13 @@ where
     {
         return error_response(StatusCode::CONFLICT, "another question attempt is active");
     }
-    let Some((assignment_position, reference)) = assignment
-        .problems
-        .iter()
-        .copied()
-        .enumerate()
-        .find_map(|(index, reference)| {
-            let position = checked_assignment_position(index).ok()?;
-            attempts
-                .iter()
-                .all(|attempt| attempt.assignment_position != position)
-                .then_some((position, reference))
-        })
-    else {
+    let Some((assignment_position, reference)) = run_items.iter().find_map(|item| {
+        let position = item.issued_position;
+        attempts
+            .iter()
+            .all(|attempt| attempt.assignment_position != position)
+            .then_some((position, item.reference))
+    }) else {
         return no_store(StatusCode::NO_CONTENT.into_response());
     };
     let question = match load_run_question(state.store.as_ref(), &authenticated, reference).await {
@@ -1681,20 +1683,24 @@ where
         return Ok(());
     }
     let enrollment = owned_enrollment(store, authenticated, run.enrollment).await?;
-    let assignment = store
+    let _assignment = store
         .get_assignment(authenticated.tenant_context, enrollment.assignment)
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "assignment not found"))?;
+    let run_items = store
+        .assignment_run_items(authenticated.tenant_context, run.id)
+        .await
+        .map_err(store_error_response)?;
     let attempts = all_attempts(store, authenticated.tenant_context, run.id).await?;
 
     if attempts.iter().any(|attempt| attempt.response.is_none()) {
         return Ok(());
     }
 
-    for (position, reference) in assignment.problems.iter().copied().enumerate() {
-        let position = checked_assignment_position(position)
-            .map_err(|message| error_response(StatusCode::UNPROCESSABLE_ENTITY, message))?;
+    for item in &run_items {
+        let position = item.issued_position;
+        let reference = item.reference;
         if attempts
             .iter()
             .all(|attempt| attempt.assignment_position != position)
@@ -1738,9 +1744,9 @@ where
         }
     }
 
-    for (position, reference) in assignment.problems.iter().copied().enumerate() {
-        let position = checked_assignment_position(position)
-            .map_err(|message| error_response(StatusCode::UNPROCESSABLE_ENTITY, message))?;
+    for item in &run_items {
+        let position = item.issued_position;
+        let reference = item.reference;
         let position_attempts: Vec<_> = attempts
             .iter()
             .filter(|attempt| attempt.assignment_position == position)
@@ -1783,10 +1789,6 @@ where
         return Ok(());
     }
     Ok(())
-}
-
-fn checked_assignment_position(position: usize) -> Result<u32, &'static str> {
-    u32::try_from(position).map_err(|_| "assignment has too many question positions")
 }
 
 async fn load_run_question<S: CatalogStore>(
@@ -2648,6 +2650,24 @@ mod tests {
         Uuid::from_u128(value)
     }
 
+    fn assignment_items(references: Vec<ProblemVersionRef>) -> Vec<question_model::AssignmentItem> {
+        static NEXT_ITEM_ID: AtomicUsize = AtomicUsize::new(1_000_000);
+        references
+            .into_iter()
+            .enumerate()
+            .map(|(position, reference)| question_model::AssignmentItem {
+                id: question_model::AssignmentItemId::from_uuid(id(NEXT_ITEM_ID
+                    .fetch_add(1, Ordering::Relaxed)
+                    as u128)),
+                reference,
+                position: u32::try_from(position).expect("test assignment position fits u32"),
+                points_possible: question_model::PointValue::from_whole(1),
+                delivery_state: question_model::AssignmentDeliveryState::Active,
+                scoring_mode: question_model::AssignmentScoringMode::Normal,
+            })
+            .collect()
+    }
+
     /// Deliberately violates the immutable catalog identity contract to prove
     /// that run routes stop before any trusted backend can expose or grade it.
     #[derive(Debug)]
@@ -2893,7 +2913,8 @@ mod tests {
                     tenant,
                     course_id: course,
                     title: "Molar mass mastery".to_string(),
-                    problems: vec![ProblemVersionRef { problem, version }],
+                    items: assignment_items(vec![ProblemVersionRef { problem, version }]),
+                    selection_groups: Vec::new(),
                     policies: RunPolicies {
                         completion: CompletionRequirement::AllCorrect,
                         grade: GradePolicy::Highest,
@@ -3117,10 +3138,11 @@ mod tests {
                     tenant,
                     course_id: course,
                     title: "Peptide feedback".to_string(),
-                    problems: vec![
+                    items: assignment_items(vec![
                         ProblemVersionRef { problem, version },
                         ProblemVersionRef { problem, version },
-                    ],
+                    ]),
+                    selection_groups: Vec::new(),
                     policies: RunPolicies {
                         completion: CompletionRequirement::AnswerAll,
                         grade: GradePolicy::Highest,
@@ -3370,7 +3392,8 @@ mod tests {
                     tenant,
                     course_id: course,
                     title: "Recorded assignment".into(),
-                    problems: vec![reference],
+                    items: assignment_items(vec![reference]),
+                    selection_groups: Vec::new(),
                     policies: RunPolicies {
                         completion: CompletionRequirement::AllCorrect,
                         grade: GradePolicy::Highest,
@@ -5530,8 +5553,11 @@ mod tests {
             .await
             .expect("assignment read")
             .expect("fixture assignment");
-        let mut problems = stored_assignment.record.problems.clone();
-        problems.push(problems[0]);
+        let mut items = stored_assignment.record.items.clone();
+        let mut duplicate = items[0].clone();
+        duplicate.id = question_model::AssignmentItemId::from_uuid(id(1_100_000));
+        duplicate.position = u32::try_from(items.len()).expect("test assignment position fits u32");
+        items.push(duplicate);
         store
             .replace_assignment(
                 context,
@@ -5540,7 +5566,8 @@ mod tests {
                 stored_assignment.revision,
                 store::AssignmentUpdate {
                     title: stored_assignment.record.title,
-                    problems,
+                    items,
+                    selection_groups: stored_assignment.record.selection_groups,
                     policies: stored_assignment.record.policies,
                 },
             )

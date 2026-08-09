@@ -9,8 +9,8 @@ use crate::RetentionStage;
 use async_trait::async_trait;
 use objects::ObjectRecord;
 use question_model::{
-    AssignmentId, CourseId, ObjectId, ProblemVersionRef, TenantId, UserId, WorkspaceId,
-    WorkspaceImportId,
+    AssignmentId, CourseId, ObjectId, ProblemVersionRef, QuestionAttemptId, ScoringGeneration,
+    TenantId, UserId, WorkspaceId, WorkspaceImportId,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -260,6 +260,23 @@ impl std::fmt::Debug for JobLeaseToken {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum JobPayload {
+    /// Rebuild all current computed scores for one assignment generation.
+    /// Student, attempt, response, and grade data remain out of the queue.
+    RecalculateAssignment {
+        /// Tenant-owned assignment resolved by the worker under its claim context.
+        assignment: AssignmentId,
+        /// Stale-work fence; only this still-current generation may commit.
+        generation: ScoringGeneration,
+    },
+    /// Close one active attempt after its current effective deadline.
+    /// The worker rechecks the current timing generation and never carries a
+    /// response, grade, student identity, or authored answer material.
+    AutoSubmitAttempt {
+        /// Tenant-owned attempt resolved under the queue claim context.
+        attempt: QuestionAttemptId,
+        /// Stale-work fence advanced by every active timing-policy change.
+        timing_generation: u64,
+    },
     /// Process one private retention lifecycle stage. The Store resolves any
     /// notification recipients and exact object manifest; no learner or
     /// object identity is durable queue data.
@@ -508,7 +525,9 @@ pub trait ExportJobStore: Send + Sync {
 
 #[cfg(test)]
 mod tests {
+    use question_model::QuestionAttemptId;
     use serde_json::json;
+    use uuid::Uuid;
 
     use super::{EnqueueJob, JobPayload};
 
@@ -576,5 +595,21 @@ mod tests {
                 "{field} must not enter retention queue work"
             );
         }
+    }
+
+    #[test]
+    fn auto_submit_payload_is_a_minimal_numeric_generation_fence() {
+        let payload = JobPayload::AutoSubmitAttempt {
+            attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(1)),
+            timing_generation: 1,
+        };
+        assert_eq!(
+            serde_json::to_value(payload).expect("payload serialization"),
+            json!({
+                "kind": "autoSubmitAttempt",
+                "attempt": "00000000-0000-0000-0000-000000000001",
+                "timing_generation": 1
+            })
+        );
     }
 }

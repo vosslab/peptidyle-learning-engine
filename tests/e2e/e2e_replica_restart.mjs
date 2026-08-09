@@ -247,7 +247,9 @@ async function postgresCounts(project, envPath, tenantId, attemptId) {
     "SELECT",
     "(SELECT count(*) FROM question_attempt WHERE tenant_id = :'tenant'::uuid AND attempt_id = :'attempt'::uuid),",
     "(SELECT count(*) FROM submission WHERE tenant_id = :'tenant'::uuid AND attempt_id = :'attempt'::uuid),",
-    "(SELECT count(*) FROM submission_idempotency WHERE tenant_id = :'tenant'::uuid AND attempt_id = :'attempt'::uuid);",
+    "(SELECT count(*) FROM submission_idempotency WHERE tenant_id = :'tenant'::uuid AND attempt_id = :'attempt'::uuid),",
+    "(SELECT count(*) FROM submission_evaluation WHERE tenant_id = :'tenant'::uuid AND attempt_id = :'attempt'::uuid),",
+    "(SELECT count(*) FROM attempt_score_current WHERE tenant_id = :'tenant'::uuid AND attempt_id = :'attempt'::uuid);",
   ].join(" ");
   const result = await command(
     "podman",
@@ -274,8 +276,8 @@ async function postgresCounts(project, envPath, tenantId, attemptId) {
   );
   assert.equal(
     result.stdout.trim(),
-    "1|1|1",
-    "expected one scoped attempt, submission, and idempotency record",
+    "1|1|1|1|1",
+    "expected one scoped attempt, submission, idempotency, evaluation, and current score record",
   );
 }
 
@@ -337,7 +339,7 @@ async function staticCheck() {
 }
 
 async function runLive() {
-  const podman = await command("podman", ["info", "--format", "{{.Host.Os}}"], "checking Podman", {
+  const podman = await command("podman", ["info", "--format", "{{.Host.OS}}"], "checking Podman", {
     allowFailure: true,
   });
   if (podman.failed) {

@@ -15,6 +15,7 @@
 //! cargo run -p xtask -- e2e-seed --database-url <URL> --tenant <UUID> --instructor <UUID> --student <UUID>
 //! ```
 
+mod database;
 mod e2e_seed;
 mod fixtures;
 mod tsgen;
@@ -43,11 +44,12 @@ const DEFAULT_FIXTURE_TS: &str = "generated/fixtures/published_problem.ts";
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some(command) = args.first() else {
-        bail!("usage: xtask <bindgen|fixtures|tsgen|e2e-seed> ...");
+        bail!("usage: xtask <bindgen|database|fixtures|tsgen|e2e-seed> ...");
     };
 
     match command.as_str() {
         "bindgen" => run_bindgen(&args[1..]),
+        "database" => database::run(&args[1..]),
         "fixtures" => run_fixtures(&args[1..]),
         "tsgen" => run_tsgen(&args[1..]),
         "e2e-seed" => e2e_seed::run(&args[1..]),

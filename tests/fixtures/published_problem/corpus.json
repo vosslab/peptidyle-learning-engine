@@ -3,7 +3,9 @@
   "modelSchemaVersion": 1,
   "catalogProblem": {
     "problem": "0198e000-0000-7000-8000-000000000003",
+    "publicId": 1,
     "version": "0198e000-0000-7000-8000-000000000004",
+    "versionNumber": 1,
     "backend": "native",
     "capabilities": [
       "algorithmicGeneration",
@@ -290,12 +292,20 @@
     "tenant": "0198e000-0000-7000-8000-000000000001",
     "courseId": "0198e000-0000-7000-8000-000000000014",
     "title": "Peptide bond mastery",
-    "problems": [
+    "items": [
       {
-        "problem": "0198e000-0000-7000-8000-000000000003",
-        "version": "0198e000-0000-7000-8000-000000000004"
+        "id": "0198e000-0000-7000-8000-000000000017",
+        "reference": {
+          "problem": "0198e000-0000-7000-8000-000000000003",
+          "version": "0198e000-0000-7000-8000-000000000004"
+        },
+        "position": 0,
+        "pointsPossible": "1",
+        "deliveryState": "active",
+        "scoringMode": "normal"
       }
     ],
+    "selectionGroups": [],
     "policies": {
       "completion": {
         "kind": "allCorrect"
@@ -379,6 +389,7 @@
           "carbonyl"
         ]
       },
+      "status": "submitted",
       "result": {
         "correct": false,
         "pointsEarned": 0.0,
@@ -426,6 +437,7 @@
           "amide"
         ]
       },
+      "status": "submitted",
       "result": {
         "correct": true,
         "pointsEarned": 1.0,
@@ -473,6 +485,7 @@
           "carbonyl"
         ]
       },
+      "status": "submitted",
       "result": {
         "correct": false,
         "pointsEarned": 0.0,
@@ -515,6 +528,7 @@
       "seed": 1004,
       "parameterHash": "fed7321b1bbd81c51f4bf57347c8bb535f2b7faf3eac5b50dd7267bd857d001a",
       "response": null,
+      "status": "in_progress",
       "result": null,
       "timer": {
         "issuedAt": 1786000004100,

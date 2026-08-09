@@ -11,18 +11,22 @@ use domain::scoring::project_summary;
 use domain::statistics::CollapsedQuestionObservation;
 use domain::statistics::QuestionStatisticsAggregate;
 use domain::timing::{TimerEvaluation, TimerVerdict, timer_verdict};
+#[cfg(test)]
+use question_model::AttemptResult;
 use question_model::run_policy::TimingPolicy;
 use question_model::taxonomy::TaxonomyTerm;
 use question_model::{
-    ActivityTimestamp, AssignmentEnrollment, AssignmentId, AssignmentRun, AttemptResult,
-    AttemptTimerRecord, CatalogCapabilityFacet, CatalogLicenseFacet, CatalogLicenseValue,
-    CatalogLifecycle, CatalogProblemDetail, CatalogProblemSummary, CatalogSearchFacets,
-    CatalogSearchPage, CatalogSearchQuery, CatalogStatisticsAvailability, CatalogStatisticsFacet,
-    CatalogTaxonomyFacet, CourseId, CourseRole, CourseSummary, EnrollmentId, EnrollmentStatus,
-    MAX_CATALOG_TAXONOMY_FACETS, ProblemId, ProblemVersionRef, PublicationScope, QuestionAttempt,
-    QuestionAttemptId, QuestionStatisticsDisclosure, RunId, RunMode, StatisticsDisclosurePolicy,
-    StudentAssignmentSummary, StudentResponse, TenantId, UserId, UserRole, VersionId, WorkspaceId,
-    WorkspaceImportId,
+    ActivityTimestamp, AssignmentEnrollment, AssignmentId, AssignmentPolicyExceptionId,
+    AssignmentRun, AssignmentRunItem, AssignmentTimingPolicy, AttemptStatus, AttemptTimerRecord,
+    CatalogCapabilityFacet, CatalogLicenseFacet, CatalogLicenseValue, CatalogLifecycle,
+    CatalogProblemDetail, CatalogProblemSummary, CatalogSearchFacets, CatalogSearchPage,
+    CatalogSearchQuery, CatalogStatisticsAvailability, CatalogStatisticsFacet,
+    CatalogTaxonomyFacet, CourseGroupId, CourseId, CourseRole, CourseSummary, EnrollmentId,
+    EnrollmentStatus, MAX_CATALOG_TAXONOMY_FACETS, ProblemId, ProblemPublicId,
+    ProblemVersionNumber, ProblemVersionRef, PublicationScope, QuestionAttempt, QuestionAttemptId,
+    QuestionStatisticsDisclosure, RunId, RunMode, ScoringGeneration, ScoringStatus,
+    StatisticsDisclosurePolicy, StudentAssignmentSummary, StudentId, StudentResponse, TenantId,
+    UserId, UserRole, VersionId, WorkspaceId, WorkspaceImportId,
 };
 
 use crate::gradebook_cursor::GradebookCursor;
@@ -32,25 +36,34 @@ use crate::run_summary_cursor::RunSummaryCursor;
 use crate::statistics::{StatisticsContribution, derive_statistics_contributions};
 use crate::{
     ActivityTransition, AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope,
-    AssetStore, AssignmentDefinitionDisposition, AssignmentRecord, AssignmentRevision,
-    AssignmentUpdate, AuthorizedAssetDelivery, CatalogAssetBinding, CatalogSourceStore,
-    CatalogStore, CatalogTransition, CourseListScope, CourseRecord, CourseRecordsAccessStore,
-    CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState, CourseRetentionView,
-    Cursor, DraftRecord, FeedbackReleaseRecord, InstitutionRetentionPolicy,
-    IssueQuestionAttemptCommand, Page, PageRequest, PageSize, PrefetchedQuestion,
-    PublishDraftCommand, PublishedProblemRecord, PublishedSourceArtifact,
-    RETENTION_JOB_MAX_ATTEMPTS, ReleaseAttemptFeedbackCommand, ReservePrefetchedQuestionCommand,
-    RetentionApiStore, RetentionCleanupManifest, RetentionDays, RetentionDispatchBatch,
-    RetentionRevision, RetentionScheduleStore, RetentionStore, RetentionWork,
-    RetentionWorkerCommand, RetentionWorkerStore, RunSummaryOutcomeInput, RunSummaryPageInput,
-    SessionLifetime, SessionRecord, SessionStore, SessionSubject, SessionTokenHash, Store,
-    StoreError, StoredAssignment, SubmissionIdempotencyKey, SubmissionNextAttempt,
-    SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext, WorkspaceDraft,
-    WorkspaceDraftRevision, WorkspaceDraftRole, completed_run_score, decode_catalog_search_cursor,
-    encode_catalog_search_cursor, ensure_tenant, grade_policy, private_feedback_record,
-    project_enrollment_completion, summary_transition, validate_asset_delivery,
-    validate_assignment, validate_course, validate_draft, validate_published,
-    validate_qti_publication_promotion,
+    AssetStore, AssignmentDefinitionDisposition, AssignmentPolicyException,
+    AssignmentPolicyExceptionTarget, AssignmentRecord, AssignmentRevision, AssignmentUpdate,
+    AttemptSupportAction, AttemptSupportActionId, AttemptSupportRecord, AuthorizedAssetDelivery,
+    CatalogAssetBinding, CatalogSourceStore, CatalogStore, CatalogTransition, ClearAttemptCommand,
+    CourseGroupRecord, CourseGroupRevision, CourseListScope, CourseRecord,
+    CourseRecordsAccessStore, CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState,
+    CourseRetentionView, Cursor, DeleteAndRegradeAssignmentItemCommand,
+    DeleteAssignmentPolicyExceptionCommand, DraftRecord, FeedbackReleaseRecord,
+    ForceSubmitAttemptCommand, InstitutionRetentionPolicy, IssueQuestionAttemptCommand, Page,
+    PageRequest, PageSize, PrefetchedQuestion, PublishDraftCommand, PublishedProblemRecord,
+    PublishedSourceArtifact, PutCourseGroupCommand, RETENTION_JOB_MAX_ATTEMPTS,
+    ReleaseAttemptFeedbackCommand, ReservePrefetchedQuestionCommand, ResolvedAssignmentTiming,
+    ResolvedAttemptTiming, RetentionApiStore, RetentionCleanupManifest, RetentionDays,
+    RetentionDispatchBatch, RetentionRevision, RetentionScheduleStore, RetentionStore,
+    RetentionWork, RetentionWorkerCommand, RetentionWorkerStore, RunSummaryOutcomeInput,
+    RunSummaryPageInput, SessionLifetime, SessionRecord, SessionStore, SessionSubject,
+    SessionTokenHash, SetAssignmentPolicyExceptionCommand, Store, StoreError, StoredAssignment,
+    StoredAssignmentPolicyException, StoredAssignmentTiming, StoredCourseGroup,
+    SubmissionIdempotencyKey, SubmissionNextAttempt, SubmissionRecord,
+    SubmitQuestionAttemptCommand, TenantContext, UpdateAssignmentTimingCommand, WorkspaceDraft,
+    WorkspaceDraftRevision, WorkspaceDraftRole, assignment_item_is_retired,
+    assignment_scoring_changed, completed_run_score, current_run_questions,
+    decode_catalog_search_cursor, delete_and_regrade_update, encode_catalog_search_cursor,
+    ensure_tenant, grade_policy, private_feedback_record, project_enrollment_completion,
+    resolve_assignment_policy, select_assignment_run_items, summary_transition,
+    validate_asset_delivery, validate_assignment, validate_assignment_policy_exception,
+    validate_assignment_timing, validate_course, validate_course_group, validate_draft,
+    validate_published, validate_qti_publication_promotion,
 };
 
 #[async_trait]
@@ -177,9 +190,10 @@ impl MemoryStore {
 }
 
 /// All maps use tenant ID in their key for tenant-owned records.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct State {
     authoritative_time: ActivityTimestamp,
+    next_problem_public_id: u64,
     sessions: BTreeMap<SessionTokenHash, StoredSession>,
     catalog_grants: BTreeSet<(TenantId, ProblemId, VersionId)>,
     drafts: BTreeMap<(TenantId, WorkspaceId), DraftRecord>,
@@ -195,11 +209,27 @@ struct State {
     prepared_qti_grading:
         BTreeMap<(TenantId, WorkspaceId, WorkspaceImportId, String), QtiImportGradingPayload>,
     courses: BTreeMap<(TenantId, CourseId), CourseRecord>,
+    course_groups: BTreeMap<(TenantId, CourseGroupId), CourseGroupRecord>,
+    course_group_revisions: BTreeMap<(TenantId, CourseGroupId), CourseGroupRevision>,
     assignments: BTreeMap<(TenantId, AssignmentId), AssignmentRecord>,
     assignment_revisions: BTreeMap<(TenantId, AssignmentId), AssignmentRevision>,
+    assignment_timing: BTreeMap<(TenantId, AssignmentId), AssignmentTimingPolicy>,
+    assignment_policy_exceptions: BTreeMap<
+        (TenantId, AssignmentId, AssignmentPolicyExceptionTarget),
+        AssignmentPolicyException,
+    >,
+    assignment_scoring: BTreeMap<(TenantId, AssignmentId), (ScoringGeneration, ScoringStatus)>,
+    assignment_score_staging: BTreeMap<JobId, PreparedAssignmentScoring>,
+    attempt_scores: BTreeMap<(TenantId, QuestionAttemptId), MemoryAttemptScore>,
     enrollments: BTreeMap<(TenantId, EnrollmentId), AssignmentEnrollment>,
     runs: BTreeMap<(TenantId, RunId), AssignmentRun>,
+    run_items: BTreeMap<(TenantId, RunId), Vec<AssignmentRunItem>>,
     attempts: BTreeMap<(TenantId, QuestionAttemptId), QuestionAttempt>,
+    attempt_timing: BTreeMap<(TenantId, QuestionAttemptId), MemoryAttemptTiming>,
+    attempt_timing_resolution:
+        BTreeMap<(TenantId, QuestionAttemptId), crate::ResolvedAssignmentTimingPolicy>,
+    attempt_current: BTreeMap<(TenantId, QuestionAttemptId), QuestionAttempt>,
+    attempt_support_actions: BTreeMap<(TenantId, AttemptSupportActionId), AttemptSupportRecord>,
     prefetched_questions: BTreeMap<(TenantId, RunId, QuestionAttemptId, u32), PrefetchedQuestion>,
     submissions: BTreeMap<(TenantId, QuestionAttemptId), StoredSubmission>,
     submission_next_attempts: BTreeMap<(TenantId, QuestionAttemptId), Option<QuestionAttemptId>>,
@@ -280,6 +310,37 @@ struct StoredJob {
     failure: Option<JobFailureKind>,
 }
 
+#[derive(Debug, Clone)]
+struct MemoryAttemptScore {
+    assignment: AssignmentId,
+    assignment_item: question_model::AssignmentItemId,
+    generation: ScoringGeneration,
+    earned_points: f64,
+    possible_points: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct MemoryAttemptTiming {
+    assignment: AssignmentId,
+    authored_deadline: Option<ActivityTimestamp>,
+    authored_grace_seconds: u32,
+    effective_deadline: Option<ActivityTimestamp>,
+    effective_grace_seconds: u32,
+    auto_submit_at: Option<ActivityTimestamp>,
+    generation: u64,
+    job: Option<JobId>,
+}
+
+#[derive(Debug, Clone)]
+struct PreparedAssignmentScoring {
+    tenant: TenantId,
+    assignment: AssignmentId,
+    generation: ScoringGeneration,
+    attempts: BTreeMap<QuestionAttemptId, MemoryAttemptScore>,
+    enrollments: BTreeMap<EnrollmentId, AssignmentEnrollment>,
+    summaries: BTreeMap<EnrollmentId, StudentAssignmentSummary>,
+}
+
 /// Private request state; only `StudentExportView` crosses an HTTP boundary.
 #[derive(Debug, Clone)]
 struct StoredExport {
@@ -330,7 +391,7 @@ struct StoredExternalToolExchange {
     verified: Option<ExternalToolVerifiedPending>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct StoredExternalToolLaunchSession {
     actor: UserId,
     attempt: QuestionAttemptId,
@@ -395,6 +456,7 @@ impl JobStore for MemoryStore {
         }
         for id in expired_export_jobs {
             mark_export_failed(&mut state, id);
+            mark_assignment_scoring_failed(&mut state, id);
         }
 
         let id = state.jobs.iter().find_map(|(id, job)| {
@@ -465,6 +527,7 @@ impl JobStore for MemoryStore {
         if failure == JobFailureKind::Permanent || job.attempt_count >= job.max_attempts {
             job.state = JobState::Dead;
             mark_export_failed(&mut state, id);
+            mark_assignment_scoring_failed(&mut state, id);
             return Ok(JobFailureDisposition::Dead);
         }
         let delay_seconds = retry_delay_seconds(job.attempt_count);
@@ -507,6 +570,394 @@ impl JobStore for MemoryStore {
 }
 
 #[async_trait]
+impl crate::AttemptAutoSubmitWorkerStore for MemoryStore {
+    async fn commit_attempt_auto_submit(
+        &self,
+        context: TenantContext,
+        command: crate::AttemptAutoSubmitWorkerCommand,
+    ) -> Result<crate::AttemptAutoSubmitCommitOutcome, StoreError> {
+        let mut state = self.write_state()?;
+        let tenant = context.tenant_id();
+        let now = state.authoritative_time;
+        let expected_payload = JobPayload::AutoSubmitAttempt {
+            attempt: command.attempt,
+            timing_generation: command.timing_generation,
+        };
+        let claim_active = state.jobs.get(&command.job).is_some_and(|job| {
+            job.tenant == tenant
+                && job.state == JobState::Leased
+                && job.lease_token == Some(command.lease)
+                && job.lease_expires_at.is_some_and(|expiry| expiry > now)
+                && job.payload == expected_payload
+        });
+        if !claim_active {
+            return Ok(crate::AttemptAutoSubmitCommitOutcome::ClaimNoLongerActive);
+        }
+
+        let timing = state
+            .attempt_timing
+            .get(&(tenant, command.attempt))
+            .copied();
+        let base = state.attempts.get(&(tenant, command.attempt)).cloned();
+        let active = base.as_ref().is_some_and(|attempt| {
+            projected_attempt(&state, tenant, attempt).status == AttemptStatus::InProgress
+        });
+        let current_job = timing.and_then(|value| value.job);
+        if !active || current_job != Some(command.job) {
+            complete_memory_job(&mut state, command.job)?;
+            return Ok(crate::AttemptAutoSubmitCommitOutcome::Superseded);
+        }
+        let timing = timing.expect("active timing job has a timing row");
+        let Some(auto_submit_at) = timing.auto_submit_at else {
+            complete_memory_job(&mut state, command.job)?;
+            if let Some(current) = state.attempt_timing.get_mut(&(tenant, command.attempt)) {
+                current.job = None;
+            }
+            return Ok(crate::AttemptAutoSubmitCommitOutcome::Superseded);
+        };
+        if now < auto_submit_at {
+            let job = state
+                .jobs
+                .get_mut(&command.job)
+                .ok_or(StoreError::NotFound)?;
+            job.payload = JobPayload::AutoSubmitAttempt {
+                attempt: command.attempt,
+                timing_generation: timing.generation,
+            };
+            job.state = JobState::Ready;
+            job.available_at = auto_submit_at;
+            job.lease_token = None;
+            job.lease_expires_at = None;
+            job.failure = None;
+            return Ok(crate::AttemptAutoSubmitCommitOutcome::Rescheduled);
+        }
+
+        let mut current = projected_attempt(
+            &state,
+            tenant,
+            base.as_ref().expect("active attempt remains present"),
+        );
+        current.status = AttemptStatus::AutoSubmitted;
+        current.timer.deadline = timing.effective_deadline;
+        current.timer.submitted_at = Some(now);
+        state
+            .attempt_current
+            .insert((tenant, command.attempt), current);
+        if let Some(current_timing) = state.attempt_timing.get_mut(&(tenant, command.attempt)) {
+            current_timing.job = None;
+        }
+        complete_memory_job(&mut state, command.job)?;
+        Ok(crate::AttemptAutoSubmitCommitOutcome::AutoSubmitted)
+    }
+}
+
+fn complete_memory_job(state: &mut State, job: JobId) -> Result<(), StoreError> {
+    let job = state.jobs.get_mut(&job).ok_or(StoreError::NotFound)?;
+    job.state = JobState::Completed;
+    job.lease_token = None;
+    job.lease_expires_at = None;
+    Ok(())
+}
+
+#[async_trait]
+impl crate::AssignmentScoringWorkerStore for MemoryStore {
+    async fn prepare_assignment_scoring(
+        &self,
+        context: TenantContext,
+        command: crate::AssignmentScoringWorkerCommand,
+    ) -> Result<(), StoreError> {
+        let mut state = self.write_state()?;
+        let job = state.jobs.get(&command.job).ok_or(StoreError::NotFound)?;
+        if job.tenant != context.tenant_id()
+            || job.state != JobState::Leased
+            || job.lease_token != Some(command.lease)
+            || !job
+                .lease_expires_at
+                .is_some_and(|expiry| expiry > state.authoritative_time)
+            || job.payload
+                != (JobPayload::RecalculateAssignment {
+                    assignment: command.assignment,
+                    generation: command.generation,
+                })
+        {
+            return Err(StoreError::Conflict);
+        }
+        let prepared = build_memory_assignment_scoring(
+            &state,
+            context.tenant_id(),
+            command.assignment,
+            command.generation,
+        )?;
+        state.assignment_score_staging.insert(command.job, prepared);
+        Ok(())
+    }
+
+    async fn commit_assignment_scoring(
+        &self,
+        context: TenantContext,
+        command: crate::AssignmentScoringWorkerCommand,
+    ) -> Result<crate::AssignmentScoringCommitOutcome, StoreError> {
+        let mut state = self.write_state()?;
+        let claim_active = state.jobs.get(&command.job).is_some_and(|job| {
+            job.tenant == context.tenant_id()
+                && job.state == JobState::Leased
+                && job.lease_token == Some(command.lease)
+                && job
+                    .lease_expires_at
+                    .is_some_and(|expiry| expiry > state.authoritative_time)
+                && job.payload
+                    == (JobPayload::RecalculateAssignment {
+                        assignment: command.assignment,
+                        generation: command.generation,
+                    })
+        });
+        if !claim_active {
+            return Ok(crate::AssignmentScoringCommitOutcome::ClaimNoLongerActive);
+        }
+        let prepared = state
+            .assignment_score_staging
+            .remove(&command.job)
+            .ok_or(StoreError::Conflict)?;
+        if prepared.tenant != context.tenant_id()
+            || prepared.assignment != command.assignment
+            || prepared.generation != command.generation
+        {
+            return Err(StoreError::Conflict);
+        }
+        let key = (context.tenant_id(), command.assignment);
+        let current = state
+            .assignment_scoring
+            .get(&key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        let superseded = current.0 != command.generation;
+        if !superseded {
+            let current_attempt_count = state
+                .submissions
+                .values()
+                .filter(|submission| {
+                    let attempt =
+                        projected_attempt(&state, context.tenant_id(), &submission.record.attempt);
+                    attempt.tenant == context.tenant_id()
+                        && attempt.result.is_some()
+                        && !matches!(
+                            attempt.status,
+                            AttemptStatus::Cleared | AttemptStatus::Exempt
+                        )
+                        && state
+                            .runs
+                            .get(&(context.tenant_id(), attempt.run))
+                            .and_then(|run| {
+                                state
+                                    .enrollments
+                                    .get(&(context.tenant_id(), run.enrollment))
+                            })
+                            .is_some_and(|enrollment| enrollment.assignment == command.assignment)
+                })
+                .count();
+            if prepared.attempts.len() != current_attempt_count {
+                return Err(StoreError::Conflict);
+            }
+            let assignment = state.assignments.get(&key).ok_or(StoreError::NotFound)?;
+            if prepared.attempts.values().any(|score| {
+                score.assignment != command.assignment
+                    || score.generation != command.generation
+                    || !score.earned_points.is_finite()
+                    || !score.possible_points.is_finite()
+                    || score.possible_points < 0.0
+                    || (!assignment
+                        .items
+                        .iter()
+                        .any(|item| item.id == score.assignment_item)
+                        && !assignment.selection_groups.iter().any(|group| {
+                            group
+                                .candidates
+                                .iter()
+                                .any(|candidate| candidate.id == score.assignment_item)
+                        }))
+            }) {
+                return Err(StoreError::Conflict);
+            }
+            state.attempt_scores.retain(|(tenant, _), score| {
+                *tenant != context.tenant_id() || score.assignment != command.assignment
+            });
+            state.attempt_scores.extend(
+                prepared
+                    .attempts
+                    .into_iter()
+                    .map(|(attempt, score)| ((context.tenant_id(), attempt), score)),
+            );
+            for (enrollment, record) in prepared.enrollments {
+                state
+                    .enrollments
+                    .insert((context.tenant_id(), enrollment), record);
+            }
+            for (enrollment, summary) in prepared.summaries {
+                state
+                    .summaries
+                    .insert((context.tenant_id(), enrollment), summary);
+            }
+            state
+                .assignment_scoring
+                .insert(key, (command.generation, ScoringStatus::Current));
+        }
+        let job = state
+            .jobs
+            .get_mut(&command.job)
+            .ok_or(StoreError::NotFound)?;
+        job.state = JobState::Completed;
+        job.lease_token = None;
+        job.lease_expires_at = None;
+        Ok(if superseded {
+            crate::AssignmentScoringCommitOutcome::Superseded
+        } else {
+            crate::AssignmentScoringCommitOutcome::Committed
+        })
+    }
+}
+
+fn build_memory_assignment_scoring(
+    state: &State,
+    tenant: TenantId,
+    assignment_id: AssignmentId,
+    generation: ScoringGeneration,
+) -> Result<PreparedAssignmentScoring, StoreError> {
+    let assignment = state
+        .assignments
+        .get(&(tenant, assignment_id))
+        .ok_or(StoreError::NotFound)?;
+    if state.assignment_scoring.get(&(tenant, assignment_id))
+        != Some(&(generation, ScoringStatus::Recalculating))
+    {
+        return Err(StoreError::Conflict);
+    }
+    let mut attempts = BTreeMap::new();
+    let mut latest_by_position = BTreeMap::new();
+    for (key, submission) in &state.submissions {
+        if key.0 != tenant {
+            continue;
+        }
+        let attempted = projected_attempt(state, tenant, &submission.record.attempt);
+        if matches!(
+            attempted.status,
+            AttemptStatus::Cleared | AttemptStatus::Exempt
+        ) {
+            continue;
+        }
+        let Some(result) = attempted.result else {
+            continue;
+        };
+        let Some(run) = state.runs.get(&(tenant, attempted.run)) else {
+            continue;
+        };
+        let Some(enrollment) = state.enrollments.get(&(tenant, run.enrollment)) else {
+            continue;
+        };
+        if enrollment.assignment != assignment_id {
+            continue;
+        }
+        let run_item = state
+            .run_items
+            .get(&(tenant, run.id))
+            .and_then(|items| {
+                items
+                    .iter()
+                    .find(|item| item.issued_position == attempted.assignment_position)
+            })
+            .ok_or_else(|| {
+                StoreError::Unavailable("submitted attempt has no immutable run item".to_string())
+            })?;
+        let (earned_points, possible_points) = crate::current_attempt_points(
+            assignment,
+            run_item.assignment_item,
+            attempted.status,
+            result,
+        )?;
+        attempts.insert(
+            attempted.id,
+            MemoryAttemptScore {
+                assignment: assignment_id,
+                assignment_item: run_item.assignment_item,
+                generation,
+                earned_points,
+                possible_points,
+            },
+        );
+        let submitted_at = attempted.timer.submitted_at.ok_or_else(|| {
+            StoreError::Unavailable("stored submission has no submission time".to_string())
+        })?;
+        let position_key = (run.id, attempted.assignment_position);
+        let candidate = (submitted_at, attempted.id, earned_points, possible_points);
+        if latest_by_position
+            .get(&position_key)
+            .is_none_or(|existing| candidate > *existing)
+        {
+            latest_by_position.insert(position_key, candidate);
+        }
+    }
+    let mut enrollments = BTreeMap::new();
+    let mut summaries = BTreeMap::new();
+    for enrollment in state
+        .enrollments
+        .values()
+        .filter(|record| record.tenant == tenant && record.assignment == assignment_id)
+    {
+        let mut completed = Vec::new();
+        for run in state.runs.values().filter(|run| {
+            run.tenant == tenant && run.enrollment == enrollment.id && run.completed_at.is_some()
+        }) {
+            let (earned, possible) = latest_by_position
+                .iter()
+                .filter(|((candidate_run, _), _)| *candidate_run == run.id)
+                .fold((0.0, 0.0), |(earned, possible), (_, score)| {
+                    (earned + score.2, possible + score.3)
+                });
+            let score = if possible > 0.0 {
+                earned / possible
+            } else {
+                earned
+            };
+            if !score.is_finite() {
+                return Err(StoreError::InvalidRecord(
+                    "recalculated run score is not finite".to_string(),
+                ));
+            }
+            if latest_by_position
+                .keys()
+                .any(|(candidate_run, _)| *candidate_run == run.id)
+            {
+                completed.push(domain::scoring::CompletedRunScore {
+                    run: run.id,
+                    run_number: run.run_number,
+                    score,
+                });
+            }
+        }
+        let summary = state
+            .summaries
+            .get(&(tenant, enrollment.id))
+            .cloned()
+            .ok_or(StoreError::NotFound)?;
+        let (enrollment, summary) = crate::recalculated_enrollment_projection(
+            enrollment.clone(),
+            summary,
+            assignment.policies.grade,
+            completed,
+        )?;
+        enrollments.insert(enrollment.id, enrollment);
+        summaries.insert(summary.enrollment, summary);
+    }
+    Ok(PreparedAssignmentScoring {
+        tenant,
+        assignment: assignment_id,
+        generation,
+        attempts,
+        enrollments,
+        summaries,
+    })
+}
+
+#[async_trait]
 impl ExportJobStore for MemoryStore {
     async fn create_assignment_export(
         &self,
@@ -540,14 +991,7 @@ impl ExportJobStore for MemoryStore {
             title: assignment.title.clone(),
             requested_by: request.requested_by,
             manifest,
-            problems: assignment
-                .problems
-                .iter()
-                .map(|reference| ProblemVersionRef {
-                    problem: reference.problem,
-                    version: reference.version,
-                })
-                .collect(),
+            problems: assignment.active_references().collect(),
             job,
             state: StudentExportState::Queued,
             expected,
@@ -816,6 +1260,27 @@ fn mark_export_failed(state: &mut State, job: JobId) {
     }
 }
 
+fn mark_assignment_scoring_failed(state: &mut State, job: JobId) {
+    let Some(StoredJob {
+        tenant,
+        payload:
+            JobPayload::RecalculateAssignment {
+                assignment,
+                generation,
+            },
+        ..
+    }) = state.jobs.get(&job)
+    else {
+        return;
+    };
+    let key = (*tenant, *assignment);
+    if state.assignment_scoring.get(&key) == Some(&(*generation, ScoringStatus::Recalculating)) {
+        state
+            .assignment_scoring
+            .insert(key, (*generation, ScoringStatus::Failed));
+    }
+}
+
 fn retry_delay_seconds(attempt_count: u16) -> i32 {
     // 1, 2, 4, ... capped at five minutes. This is intentionally deterministic
     // so a later worker cannot turn retry timing into a second policy engine.
@@ -1066,7 +1531,7 @@ impl CatalogStore for MemoryStore {
             return Err(StoreError::AlreadyExists);
         }
 
-        let (authors, previous_version, derived_from) =
+        let (authors, previous_version, derived_from, public_id, version_number) =
             if let Some(revises) = command.expected_draft.revises {
                 if publication.problem != revises.problem {
                     return Err(StoreError::InvalidRecord(
@@ -1093,6 +1558,15 @@ impl CatalogStore for MemoryStore {
                     base.authors.clone(),
                     Some(revises.version),
                     base.derived_from,
+                    base.public_id,
+                    ProblemVersionNumber::new(
+                        base.version_number.value().checked_add(1).ok_or_else(|| {
+                            StoreError::Unavailable(
+                                "problem version number limit reached".to_string(),
+                            )
+                        })?,
+                    )
+                    .expect("incremented problem version remains positive"),
                 )
             } else {
                 if state
@@ -1111,10 +1585,17 @@ impl CatalogStore for MemoryStore {
                         return Err(StoreError::NotFound);
                     }
                 }
+                state.next_problem_public_id =
+                    state.next_problem_public_id.checked_add(1).ok_or_else(|| {
+                        StoreError::Unavailable("problem public ID limit reached".to_string())
+                    })?;
                 (
                     vec![command.publisher],
                     None,
                     command.expected_draft.derived_from,
+                    ProblemPublicId::new(state.next_problem_public_id)
+                        .expect("incremented public ID remains positive"),
+                    ProblemVersionNumber::new(1).expect("one is positive"),
                 )
             };
 
@@ -1126,7 +1607,9 @@ impl CatalogStore for MemoryStore {
         );
         let record = PublishedProblemRecord {
             problem: publication.problem,
+            public_id,
             version: publication.version,
+            version_number,
             question,
             capabilities: command.capabilities,
             scope: command.scope,
@@ -1179,6 +1662,27 @@ impl CatalogStore for MemoryStore {
             .published
             .get(&(reference.problem, reference.version))
             .filter(|record| catalog_record_visible(&state, context.tenant_id(), record))
+            .cloned())
+    }
+
+    async fn resolve_catalog_problem(
+        &self,
+        context: TenantContext,
+        reference: question_model::ProblemDisplayRef,
+    ) -> Result<Option<PublishedProblemRecord>, StoreError> {
+        let state = self.read_state()?;
+        Ok(state
+            .published
+            .values()
+            .filter(|record| {
+                record.public_id == reference.problem
+                    && record.lifecycle.is_assignable()
+                    && catalog_record_visible(&state, context.tenant_id(), record)
+                    && reference
+                        .version
+                        .is_none_or(|version| record.version_number == version)
+            })
+            .max_by_key(|record| record.version_number)
             .cloned())
     }
 
@@ -1386,7 +1890,7 @@ impl CatalogSourceStore for MemoryStore {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct StoredSession {
     record: SessionRecord,
     revoked: bool,
@@ -2650,6 +3154,23 @@ impl RetentionWorkerStore for MemoryStore {
                         }
                     })
                     .collect::<BTreeSet<_>>();
+                let auto_submit_job_ids = state
+                    .attempt_timing
+                    .iter()
+                    .filter_map(|((tenant_id, attempt_id), timing)| {
+                        (*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                            .then_some(timing.job)
+                            .flatten()
+                    })
+                    .collect::<BTreeSet<_>>();
+                let scoring_job_ids = state
+                    .assignment_score_staging
+                    .iter()
+                    .filter_map(|(job, staging)| {
+                        (staging.tenant == tenant && assignment_ids.contains(&staging.assignment))
+                            .then_some(*job)
+                    })
+                    .collect::<BTreeSet<_>>();
                 let export_ids = state
                     .exports
                     .iter()
@@ -2710,6 +3231,25 @@ impl RetentionWorkerStore for MemoryStore {
                 state.submissions.retain(|(tenant_id, attempt_id), _| {
                     !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
                 });
+                state.attempt_scores.retain(|(tenant_id, attempt_id), _| {
+                    !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                });
+                state.attempt_current.retain(|(tenant_id, attempt_id), _| {
+                    !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                });
+                state.attempt_timing.retain(|(tenant_id, attempt_id), _| {
+                    !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                });
+                state
+                    .attempt_timing_resolution
+                    .retain(|(tenant_id, attempt_id), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
+                state
+                    .attempt_support_actions
+                    .retain(|(tenant_id, _), action| {
+                        !(*tenant_id == tenant && attempt_ids.contains(&action.attempt))
+                    });
                 state.attempts.retain(|(tenant_id, attempt_id), _| {
                     !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
                 });
@@ -2740,16 +3280,41 @@ impl RetentionWorkerStore for MemoryStore {
                 for export_job in &export_job_ids {
                     state.jobs.remove(export_job);
                 }
+                for job in auto_submit_job_ids.iter().chain(&scoring_job_ids) {
+                    state.jobs.remove(job);
+                }
+                state
+                    .assignment_score_staging
+                    .retain(|job, _| !scoring_job_ids.contains(job));
                 if let Some(course_record) = state.courses.get_mut(&(tenant, course)) {
                     course_record.members.retain(|member| {
                         member.role != question_model::CourseMembershipRole::Student
                     });
                 }
+                for ((record_tenant, _), group) in &mut state.course_groups {
+                    if *record_tenant == tenant && group.course == course {
+                        group.members.clear();
+                    }
+                }
+                state.assignment_policy_exceptions.retain(
+                    |(record_tenant, assignment, target), _| {
+                        !(*record_tenant == tenant
+                            && assignment_ids.contains(assignment)
+                            && matches!(target, AssignmentPolicyExceptionTarget::Student(_)))
+                    },
+                );
                 if assignment_disposition == AssignmentDefinitionDisposition::Delete {
                     for assignment_id in &assignment_ids {
                         state.assignments.remove(&(tenant, *assignment_id));
                         state.assignment_revisions.remove(&(tenant, *assignment_id));
+                        state.assignment_timing.remove(&(tenant, *assignment_id));
+                        state.assignment_scoring.remove(&(tenant, *assignment_id));
                     }
+                    state.assignment_policy_exceptions.retain(
+                        |(record_tenant, assignment, _), _| {
+                            !(*record_tenant == tenant && assignment_ids.contains(assignment))
+                        },
+                    );
                 }
             }
             state.retention_cleanup_manifests.insert(
@@ -3260,9 +3825,54 @@ impl Store for MemoryStore {
     ) -> Result<(), StoreError> {
         ensure_tenant(context, course.tenant)?;
         validate_course(&course)?;
-        self.write_state()?
-            .courses
-            .insert((course.tenant, course.id), course);
+        let tenant = course.tenant;
+        let course_id = course.id;
+        let student_members = course
+            .members
+            .iter()
+            .filter_map(|membership| {
+                (membership.role == question_model::CourseMembershipRole::Student)
+                    .then_some(membership.user)
+            })
+            .collect::<BTreeSet<_>>();
+        let mut state = self.write_state()?;
+        let affected_groups = state
+            .course_groups
+            .iter()
+            .filter_map(|((record_tenant, group), record)| {
+                (*record_tenant == tenant && record.course == course_id).then_some(*group)
+            })
+            .collect::<BTreeSet<_>>();
+        let affected_assignments = state
+            .assignment_policy_exceptions
+            .iter()
+            .filter_map(|((record_tenant, assignment, target), _)| {
+                (*record_tenant == tenant
+                    && matches!(
+                        target,
+                        AssignmentPolicyExceptionTarget::CourseGroup(group)
+                            if affected_groups.contains(group)
+                    ))
+                .then_some(*assignment)
+            })
+            .collect::<BTreeSet<_>>();
+        let snapshot = state.clone();
+        state.courses.insert((tenant, course_id), course);
+        for group in &affected_groups {
+            if let Some(record) = state.course_groups.get_mut(&(tenant, *group)) {
+                record
+                    .members
+                    .retain(|member| student_members.contains(member));
+            }
+        }
+        for assignment in affected_assignments {
+            if let Err(error) =
+                apply_memory_assignment_timing_update(&mut state, tenant, assignment, None)
+            {
+                *state = snapshot;
+                return Err(error);
+            }
+        }
         Ok(())
     }
 
@@ -3304,6 +3914,101 @@ impl Store for MemoryStore {
         Ok(page_records(records, &page))
     }
 
+    async fn put_course_group(
+        &self,
+        context: TenantContext,
+        command: PutCourseGroupCommand,
+    ) -> Result<StoredCourseGroup, StoreError> {
+        ensure_tenant(context, command.record.tenant)?;
+        validate_course_group(&command.record)?;
+        let tenant = context.tenant_id();
+        let key = (tenant, command.record.id);
+        let mut state = self.write_state()?;
+        require_course_records_accessible(&state, tenant, command.record.course)?;
+        let course = state
+            .courses
+            .get(&(tenant, command.record.course))
+            .ok_or(StoreError::NotFound)?;
+        if course.role_for(command.actor) != Some(CourseRole::Instructor)
+            || command
+                .record
+                .members
+                .iter()
+                .any(|user| course.role_for(*user) != Some(CourseRole::Student))
+        {
+            return Err(StoreError::NotFound);
+        }
+        if state
+            .course_groups
+            .get(&key)
+            .is_some_and(|existing| existing.course != command.record.course)
+        {
+            return Err(StoreError::Conflict);
+        }
+        if let Some(existing) = state.course_groups.get(&key)
+            && existing == &command.record
+        {
+            return Ok(StoredCourseGroup {
+                record: existing.clone(),
+                revision: state
+                    .course_group_revisions
+                    .get(&key)
+                    .copied()
+                    .ok_or(StoreError::NotFound)?,
+            });
+        }
+        let revision = match state.course_group_revisions.get(&key).copied() {
+            Some(current) if command.expected_revision == Some(current) => current.next()?,
+            Some(_) => return Err(StoreError::Conflict),
+            None if command.expected_revision.is_none() => CourseGroupRevision::INITIAL,
+            None => return Err(StoreError::Conflict),
+        };
+        let affected = state
+            .assignment_policy_exceptions
+            .iter()
+            .filter_map(|((record_tenant, assignment, target), _)| {
+                (*record_tenant == tenant
+                    && *target == AssignmentPolicyExceptionTarget::CourseGroup(command.record.id))
+                .then_some(*assignment)
+            })
+            .collect::<BTreeSet<_>>();
+        let snapshot = state.clone();
+        state.course_groups.insert(key, command.record.clone());
+        state.course_group_revisions.insert(key, revision);
+        for assignment in affected {
+            if let Err(error) =
+                apply_memory_assignment_timing_update(&mut state, tenant, assignment, None)
+            {
+                *state = snapshot;
+                return Err(error);
+            }
+        }
+        Ok(StoredCourseGroup {
+            record: command.record,
+            revision,
+        })
+    }
+
+    async fn get_course_group(
+        &self,
+        context: TenantContext,
+        group: CourseGroupId,
+    ) -> Result<Option<StoredCourseGroup>, StoreError> {
+        let state = self.read_state()?;
+        let key = (context.tenant_id(), group);
+        let Some(record) = state.course_groups.get(&key).cloned() else {
+            return Ok(None);
+        };
+        Ok(Some(StoredCourseGroup {
+            record,
+            revision: state
+                .course_group_revisions
+                .get(&key)
+                .copied()
+                .ok_or(StoreError::NotFound)?,
+        }))
+    }
+
     async fn create_assignment(
         &self,
         context: TenantContext,
@@ -3320,9 +4025,17 @@ impl Store for MemoryStore {
         let stored = StoredAssignment {
             record: assignment,
             revision: AssignmentRevision::INITIAL,
+            scoring_generation: ScoringGeneration::INITIAL,
+            scoring_status: ScoringStatus::Current,
         };
         state.assignments.insert(key, stored.record.clone());
         state.assignment_revisions.insert(key, stored.revision);
+        state
+            .assignment_timing
+            .insert(key, AssignmentTimingPolicy::default());
+        state
+            .assignment_scoring
+            .insert(key, (stored.scoring_generation, stored.scoring_status));
         Ok(stored)
     }
 
@@ -3357,18 +4070,418 @@ impl Store for MemoryStore {
             tenant: context.tenant_id(),
             course_id: course,
             title: update.title,
-            problems: update.problems,
+            items: update.items,
+            selection_groups: update.selection_groups,
             policies: update.policies,
         };
         validate_assignment(&assignment)?;
         validate_memory_assignment_references(&state, context, &assignment)?;
+        let previous = state.assignments.get(&key).ok_or(StoreError::NotFound)?;
+        validate_memory_assignment_content_lock(&state, previous, &assignment)?;
+        let scoring_changed = assignment_scoring_changed(previous, &assignment);
+        let (generation, _) = state
+            .assignment_scoring
+            .get(&key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        let scoring_generation = if scoring_changed {
+            generation.next().ok_or(StoreError::Conflict)?
+        } else {
+            generation
+        };
+        let scoring_status =
+            if scoring_changed && memory_assignment_has_results(&state, &assignment) {
+                ScoringStatus::Recalculating
+            } else {
+                ScoringStatus::Current
+            };
+        if scoring_status == ScoringStatus::Recalculating {
+            let job = crate::JobId::generate()?;
+            let queued = StoredJob {
+                tenant: assignment.tenant,
+                payload: crate::JobPayload::RecalculateAssignment {
+                    assignment: assignment.id,
+                    generation: scoring_generation,
+                },
+                state: JobState::Ready,
+                available_at: state.authoritative_time,
+                lease_token: None,
+                lease_expires_at: None,
+                attempt_count: 0,
+                max_attempts: 10,
+                failure: None,
+            };
+            if state.jobs.insert(job, queued).is_some() {
+                return Err(StoreError::Conflict);
+            }
+        }
         let stored = StoredAssignment {
             record: assignment,
             revision: current.next()?,
+            scoring_generation,
+            scoring_status,
         };
         state.assignments.insert(key, stored.record.clone());
         state.assignment_revisions.insert(key, stored.revision);
+        state
+            .assignment_scoring
+            .insert(key, (stored.scoring_generation, stored.scoring_status));
         Ok(stored)
+    }
+
+    async fn get_assignment_timing(
+        &self,
+        context: TenantContext,
+        assignment: AssignmentId,
+    ) -> Result<Option<StoredAssignmentTiming>, StoreError> {
+        let state = self.read_state()?;
+        let key = (context.tenant_id(), assignment);
+        let Some(record) = state.assignments.get(&key) else {
+            return Ok(None);
+        };
+        let policy = state.assignment_timing.get(&key).copied().ok_or_else(|| {
+            StoreError::Unavailable(
+                "assignment timing policy is missing from memory state".to_string(),
+            )
+        })?;
+        let revision = state
+            .assignment_revisions
+            .get(&key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        Ok(Some(StoredAssignmentTiming {
+            tenant: context.tenant_id(),
+            course: record.course_id,
+            assignment,
+            policy,
+            revision,
+        }))
+    }
+
+    async fn update_assignment_timing(
+        &self,
+        context: TenantContext,
+        command: UpdateAssignmentTimingCommand,
+    ) -> Result<StoredAssignmentTiming, StoreError> {
+        validate_assignment_timing(command.policy)?;
+        let tenant = context.tenant_id();
+        let key = (tenant, command.assignment);
+        let mut state = self.write_state()?;
+        let assignment = state
+            .assignments
+            .get(&key)
+            .cloned()
+            .ok_or(StoreError::NotFound)?;
+        if assignment.course_id != command.course {
+            return Err(StoreError::NotFound);
+        }
+        require_course_records_accessible(&state, tenant, command.course)?;
+        let course = state
+            .courses
+            .get(&(tenant, command.course))
+            .ok_or(StoreError::NotFound)?;
+        if course.role_for(command.actor) != Some(CourseRole::Instructor) {
+            return Err(StoreError::NotFound);
+        }
+        let current_revision = state
+            .assignment_revisions
+            .get(&key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        let current_policy = state
+            .assignment_timing
+            .get(&key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        if current_policy == command.policy {
+            return Ok(StoredAssignmentTiming {
+                tenant,
+                course: command.course,
+                assignment: command.assignment,
+                policy: current_policy,
+                revision: current_revision,
+            });
+        }
+        if current_revision != command.expected_revision {
+            return Err(StoreError::Conflict);
+        }
+        let revision = current_revision.next()?;
+        apply_memory_assignment_timing_update(
+            &mut state,
+            tenant,
+            command.assignment,
+            Some(command.policy),
+        )?;
+        state.assignment_timing.insert(key, command.policy);
+        state.assignment_revisions.insert(key, revision);
+        Ok(StoredAssignmentTiming {
+            tenant,
+            course: command.course,
+            assignment: command.assignment,
+            policy: command.policy,
+            revision,
+        })
+    }
+
+    async fn set_assignment_policy_exception(
+        &self,
+        context: TenantContext,
+        command: SetAssignmentPolicyExceptionCommand,
+    ) -> Result<StoredAssignmentPolicyException, StoreError> {
+        validate_assignment_policy_exception(&command.exception)?;
+        let tenant = context.tenant_id();
+        let assignment_key = (tenant, command.assignment);
+        let exception_key = (tenant, command.assignment, command.exception.target);
+        let mut state = self.write_state()?;
+        let assignment = state
+            .assignments
+            .get(&assignment_key)
+            .cloned()
+            .ok_or(StoreError::NotFound)?;
+        if assignment.course_id != command.course {
+            return Err(StoreError::NotFound);
+        }
+        require_course_records_accessible(&state, tenant, command.course)?;
+        let course = state
+            .courses
+            .get(&(tenant, command.course))
+            .ok_or(StoreError::NotFound)?;
+        if course.role_for(command.actor) != Some(CourseRole::Instructor) {
+            return Err(StoreError::NotFound);
+        }
+        match command.exception.target {
+            AssignmentPolicyExceptionTarget::Student(student) => {
+                if !state.enrollments.values().any(|enrollment| {
+                    enrollment.tenant == tenant
+                        && enrollment.assignment == command.assignment
+                        && enrollment.student == student
+                }) {
+                    return Err(StoreError::NotFound);
+                }
+            }
+            AssignmentPolicyExceptionTarget::CourseGroup(group) => {
+                if state
+                    .course_groups
+                    .get(&(tenant, group))
+                    .is_none_or(|record| record.course != command.course)
+                {
+                    return Err(StoreError::NotFound);
+                }
+            }
+        }
+        if state.assignment_policy_exceptions.iter().any(
+            |((record_tenant, record_assignment, target), exception)| {
+                *record_tenant == tenant
+                    && *record_assignment == command.assignment
+                    && *target != command.exception.target
+                    && exception.id == command.exception.id
+            },
+        ) {
+            return Err(StoreError::Conflict);
+        }
+        let current_revision = state
+            .assignment_revisions
+            .get(&assignment_key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        if let Some(existing) = state.assignment_policy_exceptions.get(&exception_key)
+            && existing == &command.exception
+        {
+            return Ok(StoredAssignmentPolicyException {
+                exception: existing.clone(),
+                assignment_revision: current_revision,
+            });
+        }
+        if current_revision != command.expected_revision {
+            return Err(StoreError::Conflict);
+        }
+        if state
+            .assignment_policy_exceptions
+            .get(&exception_key)
+            .is_some_and(|existing| existing.id != command.exception.id)
+        {
+            return Err(StoreError::Conflict);
+        }
+        let revision = current_revision.next()?;
+        let snapshot = state.clone();
+        state
+            .assignment_policy_exceptions
+            .insert(exception_key, command.exception.clone());
+        if let Err(error) =
+            apply_memory_assignment_timing_update(&mut state, tenant, command.assignment, None)
+        {
+            *state = snapshot;
+            return Err(error);
+        }
+        state.assignment_revisions.insert(assignment_key, revision);
+        Ok(StoredAssignmentPolicyException {
+            exception: command.exception,
+            assignment_revision: revision,
+        })
+    }
+
+    async fn delete_assignment_policy_exception(
+        &self,
+        context: TenantContext,
+        command: DeleteAssignmentPolicyExceptionCommand,
+    ) -> Result<AssignmentRevision, StoreError> {
+        let tenant = context.tenant_id();
+        let assignment_key = (tenant, command.assignment);
+        let mut state = self.write_state()?;
+        let assignment = state
+            .assignments
+            .get(&assignment_key)
+            .cloned()
+            .ok_or(StoreError::NotFound)?;
+        if assignment.course_id != command.course {
+            return Err(StoreError::NotFound);
+        }
+        require_course_records_accessible(&state, tenant, command.course)?;
+        let course = state
+            .courses
+            .get(&(tenant, command.course))
+            .ok_or(StoreError::NotFound)?;
+        if course.role_for(command.actor) != Some(CourseRole::Instructor) {
+            return Err(StoreError::NotFound);
+        }
+        let current_revision = state
+            .assignment_revisions
+            .get(&assignment_key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        if current_revision != command.expected_revision {
+            return Err(StoreError::Conflict);
+        }
+        let exception_key = state
+            .assignment_policy_exceptions
+            .iter()
+            .find_map(|(key @ (record_tenant, record_assignment, _), exception)| {
+                (*record_tenant == tenant
+                    && *record_assignment == command.assignment
+                    && exception.id == command.exception)
+                    .then_some(*key)
+            })
+            .ok_or(StoreError::NotFound)?;
+        let revision = current_revision.next()?;
+        let snapshot = state.clone();
+        state.assignment_policy_exceptions.remove(&exception_key);
+        if let Err(error) =
+            apply_memory_assignment_timing_update(&mut state, tenant, command.assignment, None)
+        {
+            *state = snapshot;
+            return Err(error);
+        }
+        state.assignment_revisions.insert(assignment_key, revision);
+        Ok(revision)
+    }
+
+    async fn get_assignment_policy_exception(
+        &self,
+        context: TenantContext,
+        assignment: AssignmentId,
+        exception: AssignmentPolicyExceptionId,
+    ) -> Result<Option<StoredAssignmentPolicyException>, StoreError> {
+        let state = self.read_state()?;
+        let tenant = context.tenant_id();
+        let record = state.assignment_policy_exceptions.iter().find_map(
+            |((record_tenant, record_assignment, _), record)| {
+                (*record_tenant == tenant
+                    && *record_assignment == assignment
+                    && record.id == exception)
+                    .then_some(record.clone())
+            },
+        );
+        let Some(exception) = record else {
+            return Ok(None);
+        };
+        Ok(Some(StoredAssignmentPolicyException {
+            exception,
+            assignment_revision: state
+                .assignment_revisions
+                .get(&(tenant, assignment))
+                .copied()
+                .ok_or(StoreError::NotFound)?,
+        }))
+    }
+
+    async fn resolve_assignment_timing(
+        &self,
+        context: TenantContext,
+        assignment: AssignmentId,
+        student: StudentId,
+    ) -> Result<Option<ResolvedAssignmentTiming>, StoreError> {
+        let state = self.read_state()?;
+        let tenant = context.tenant_id();
+        let Some(record) = state.assignments.get(&(tenant, assignment)) else {
+            return Ok(None);
+        };
+        let Some(enrollment) = state.enrollments.values().find(|enrollment| {
+            enrollment.tenant == tenant
+                && enrollment.assignment == assignment
+                && enrollment.student == student
+        }) else {
+            return Ok(None);
+        };
+        let resolved =
+            memory_resolved_assignment_policy(&state, tenant, assignment, enrollment, None)?;
+        Ok(Some(ResolvedAssignmentTiming {
+            tenant,
+            course: record.course_id,
+            assignment,
+            student,
+            policy: resolved.policy,
+            contributors: resolved.contributors,
+            revision: state
+                .assignment_revisions
+                .get(&(tenant, assignment))
+                .copied()
+                .ok_or(StoreError::NotFound)?,
+        }))
+    }
+
+    async fn get_attempt_resolved_timing(
+        &self,
+        context: TenantContext,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<ResolvedAttemptTiming>, StoreError> {
+        let state = self.read_state()?;
+        let tenant = context.tenant_id();
+        let Some(resolution) = state.attempt_timing_resolution.get(&(tenant, attempt)) else {
+            return Ok(None);
+        };
+        Ok(Some(ResolvedAttemptTiming {
+            attempt,
+            policy: resolution.policy,
+            contributors: resolution.contributors.clone(),
+        }))
+    }
+
+    async fn delete_and_regrade_assignment_item(
+        &self,
+        context: TenantContext,
+        command: DeleteAndRegradeAssignmentItemCommand,
+    ) -> Result<StoredAssignment, StoreError> {
+        let stored = self
+            .get_assignment_for_edit(context, command.assignment)
+            .await?
+            .ok_or(StoreError::NotFound)?;
+        if stored.record.course_id != command.course {
+            return Err(StoreError::NotFound);
+        }
+        if stored.revision != command.expected_revision {
+            return Err(StoreError::Conflict);
+        }
+        let Some(update) = delete_and_regrade_update(&stored, command.item)? else {
+            return Ok(stored);
+        };
+        self.replace_assignment(
+            context,
+            command.course,
+            command.assignment,
+            command.expected_revision,
+            update,
+        )
+        .await
     }
 
     async fn get_assignment_for_edit(
@@ -3390,7 +4503,18 @@ impl Store for MemoryStore {
                     "assignment revision is missing from memory state".to_string(),
                 )
             })?;
-        Ok(Some(StoredAssignment { record, revision }))
+        let (scoring_generation, scoring_status) =
+            state.assignment_scoring.get(&key).copied().ok_or_else(|| {
+                StoreError::Unavailable(
+                    "assignment scoring state is missing from memory state".to_string(),
+                )
+            })?;
+        Ok(Some(StoredAssignment {
+            record,
+            revision,
+            scoring_generation,
+            scoring_status,
+        }))
     }
 
     async fn get_assignment(
@@ -3521,6 +4645,46 @@ impl Store for MemoryStore {
         }
         let assignment = assignment_record(&state, tenant, assignment_id)?;
         require_course_records_accessible(&state, tenant, assignment.course_id)?;
+        let timing =
+            memory_resolved_assignment_policy(&state, tenant, assignment_id, &enrollment, None)?
+                .policy;
+        let now = state.authoritative_time;
+        if !timing.visible {
+            return Err(StoreError::NotFound);
+        }
+        if timing
+            .available_at
+            .is_some_and(|available_at| now < available_at)
+        {
+            return Err(StoreError::InvalidRecord(
+                "assignment is not yet available".to_string(),
+            ));
+        }
+        if timing.closes_at.is_some_and(|closes_at| now >= closes_at) {
+            return Err(StoreError::InvalidRecord(
+                "assignment is closed".to_string(),
+            ));
+        }
+        if timing.late_submission == question_model::LateSubmissionPolicy::Reject
+            && timing.due_at.is_some_and(|due_at| now > due_at)
+        {
+            return Err(StoreError::InvalidRecord(
+                "assignment due date has passed".to_string(),
+            ));
+        }
+        let existing_run_count = state
+            .runs
+            .values()
+            .filter(|run| run.tenant == tenant && run.enrollment == enrollment.id)
+            .count();
+        if timing
+            .attempt_limit
+            .is_some_and(|limit| existing_run_count >= limit as usize)
+        {
+            return Err(StoreError::InvalidRecord(
+                "assignment attempt limit has been reached".to_string(),
+            ));
+        }
         let previous = state
             .summaries
             .get(&(tenant, enrollment.id))
@@ -3559,9 +4723,27 @@ impl Store for MemoryStore {
             summary_transition(&ActivityTransition::StartRun { run: run.clone() }),
             grade_policy(&assignment),
         )?;
+        let run_items = select_assignment_run_items(&assignment, run.id)?;
         state.runs.insert((tenant, run.id), run.clone());
+        state.run_items.insert((tenant, run.id), run_items);
         state.summaries.insert((tenant, enrollment.id), next);
         Ok(run)
+    }
+
+    async fn assignment_run_items(
+        &self,
+        context: TenantContext,
+        run: RunId,
+    ) -> Result<Vec<AssignmentRunItem>, StoreError> {
+        let state = self.read_state()?;
+        if !state.runs.contains_key(&(context.tenant_id(), run)) {
+            return Err(StoreError::NotFound);
+        }
+        Ok(state
+            .run_items
+            .get(&(context.tenant_id(), run))
+            .cloned()
+            .unwrap_or_default())
     }
 
     async fn issue_or_resume_question_attempt(
@@ -3587,7 +4769,11 @@ impl Store for MemoryStore {
         }
         let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
         require_course_records_accessible(&state, tenant, assignment.course_id)?;
-        validate_assignment_position(&assignment, &command)?;
+        let run_items = state
+            .run_items
+            .get(&(tenant, command.run))
+            .ok_or(StoreError::NotFound)?;
+        validate_assignment_position(run_items, &command)?;
 
         let prefetched = command.prefetched.as_ref();
         if let Some(prefetched) = prefetched {
@@ -3618,7 +4804,8 @@ impl Store for MemoryStore {
             .filter(|attempt| {
                 attempt.tenant == tenant
                     && attempt.run == run.id
-                    && !state.submissions.contains_key(&(tenant, attempt.id))
+                    && projected_attempt(&state, tenant, attempt).status
+                        == AttemptStatus::InProgress
             })
             .max_by_key(|attempt| (attempt.timer.issued_at, attempt.id));
         if let Some(active) = unresolved.cloned() {
@@ -3646,7 +4833,7 @@ impl Store for MemoryStore {
                         }
                     }
                 }
-                return Ok(active);
+                return Ok(projected_attempt(&state, tenant, &active));
             }
             return Err(StoreError::InvalidRecord(
                 "another question attempt is already active in this run".to_string(),
@@ -3659,13 +4846,15 @@ impl Store for MemoryStore {
                 attempt.tenant == tenant
                     && attempt.run == run.id
                     && attempt.assignment_position == command.assignment_position
+                    && !matches!(
+                        projected_attempt(&state, tenant, attempt).status,
+                        AttemptStatus::Cleared | AttemptStatus::Exempt
+                    )
             })
             .max_by_key(|attempt| (attempt.timer.issued_at, attempt.id));
         if latest_for_position.is_some_and(|latest| {
-            state
-                .submissions
-                .get(&(tenant, latest.id))
-                .and_then(|submission| submission.record.attempt.result)
+            projected_attempt(&state, tenant, latest)
+                .result
                 .is_some_and(|result| result.correct)
         }) {
             return Err(StoreError::InvalidRecord(
@@ -3697,11 +4886,58 @@ impl Store for MemoryStore {
             .published
             .get(&(command.problem, command.question_version))
             .ok_or(StoreError::NotFound)?;
-        let timer = issued_timer(
+        let authored_timer = issued_timer(
             state.authoritative_time,
             &run,
             question.question.timing_policy,
         )?;
+        let authored_grace_seconds = timing_policy_grace_seconds(question.question.timing_policy);
+        let resolved_assignment_timing =
+            memory_resolved_assignment_policy(&state, tenant, assignment.id, &enrollment, None)?;
+        let (effective_deadline, effective_grace_seconds, auto_submit_at) =
+            resolved_memory_attempt_timing(
+                resolved_assignment_timing.policy,
+                &run,
+                authored_timer.deadline,
+                authored_grace_seconds,
+            )?;
+        if effective_deadline.is_some_and(|deadline| deadline < state.authoritative_time)
+            || auto_submit_at.is_some_and(|deadline| deadline <= state.authoritative_time)
+        {
+            return Err(StoreError::TimedOut);
+        }
+        let timer = AttemptTimerRecord {
+            deadline: effective_deadline,
+            ..authored_timer
+        };
+        let timing_generation = 1;
+        let timing_job = if let Some(available_at) = auto_submit_at {
+            let job = loop {
+                let candidate = JobId::generate()?;
+                if !state.jobs.contains_key(&candidate) {
+                    break candidate;
+                }
+            };
+            Some((
+                job,
+                StoredJob {
+                    tenant,
+                    payload: JobPayload::AutoSubmitAttempt {
+                        attempt: command.attempt,
+                        timing_generation,
+                    },
+                    state: JobState::Ready,
+                    available_at,
+                    lease_token: None,
+                    lease_expires_at: None,
+                    attempt_count: 0,
+                    max_attempts: 10,
+                    failure: None,
+                },
+            ))
+        } else {
+            None
+        };
         let attempt = QuestionAttempt {
             id: command.attempt,
             tenant,
@@ -3712,6 +4948,7 @@ impl Store for MemoryStore {
             seed,
             parameter_hash,
             response: None,
+            status: AttemptStatus::InProgress,
             result: None,
             timer,
             provenance,
@@ -3747,6 +4984,26 @@ impl Store for MemoryStore {
                 }
             }
         }
+        let timing_job_id = timing_job.as_ref().map(|(job, _)| *job);
+        if let Some((job, queued)) = timing_job {
+            state.jobs.insert(job, queued);
+        }
+        state.attempt_timing.insert(
+            (tenant, attempt.id),
+            MemoryAttemptTiming {
+                assignment: assignment.id,
+                authored_deadline: authored_timer.deadline,
+                authored_grace_seconds,
+                effective_deadline,
+                effective_grace_seconds,
+                auto_submit_at,
+                generation: timing_generation,
+                job: timing_job_id,
+            },
+        );
+        state
+            .attempt_timing_resolution
+            .insert((tenant, attempt.id), resolved_assignment_timing);
         state.attempts.insert((tenant, attempt.id), attempt.clone());
         Ok(attempt)
     }
@@ -3794,17 +5051,12 @@ impl Store for MemoryStore {
         let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
         require_course_records_accessible(&state, tenant, assignment.course_id)?;
         let expected = assignment
-            .problems
-            .get(
-                usize::try_from(reservation.assignment_position).map_err(|_| {
-                    StoreError::InvalidRecord("prefetch position is too large".to_string())
-                })?,
-            )
+            .active_item_at(reservation.assignment_position)
             .ok_or_else(|| {
                 StoreError::InvalidRecord("prefetch position is outside the assignment".to_string())
             })?;
-        if expected.problem != reservation.problem
-            || expected.version != reservation.question_version
+        if expected.reference.problem != reservation.problem
+            || expected.reference.version != reservation.question_version
         {
             return Err(StoreError::InvalidRecord(
                 "prefetch identity does not match assignment position".to_string(),
@@ -4067,6 +5319,38 @@ impl Store for MemoryStore {
         submit_question_attempt_locked(&mut state, context, command)
     }
 
+    async fn force_submit_attempt(
+        &self,
+        context: TenantContext,
+        command: ForceSubmitAttemptCommand,
+    ) -> Result<AttemptSupportRecord, StoreError> {
+        let mut state = self.write_state()?;
+        apply_memory_attempt_support(
+            &mut state,
+            context,
+            command.action,
+            command.actor,
+            command.attempt,
+            AttemptSupportAction::ForceSubmit,
+        )
+    }
+
+    async fn clear_attempt(
+        &self,
+        context: TenantContext,
+        command: ClearAttemptCommand,
+    ) -> Result<AttemptSupportRecord, StoreError> {
+        let mut state = self.write_state()?;
+        apply_memory_attempt_support(
+            &mut state,
+            context,
+            command.action,
+            command.actor,
+            command.attempt,
+            AttemptSupportAction::Clear,
+        )
+    }
+
     async fn release_attempt_feedback(
         &self,
         context: TenantContext,
@@ -4195,6 +5479,33 @@ impl Store for MemoryStore {
             .values()
             .filter(|attempt| attempt.tenant == tenant && attempt.run == run.id)
         {
+            let current = projected_attempt(&state, tenant, attempt);
+            if actor == enrollment.user && current.status == AttemptStatus::Cleared {
+                continue;
+            }
+            if actor == enrollment.user {
+                let assignment_item = state
+                    .run_items
+                    .get(&(tenant, run.id))
+                    .and_then(|items| {
+                        items
+                            .iter()
+                            .find(|item| item.issued_position == attempt.assignment_position)
+                    })
+                    .map(|item| item.assignment_item)
+                    .ok_or_else(|| {
+                        StoreError::Unavailable(
+                            "summary attempt has no immutable run item".to_string(),
+                        )
+                    })?;
+                if assignment_item_is_retired(&assignment, assignment_item).ok_or_else(|| {
+                    StoreError::Unavailable(
+                        "summary run item has no current assignment tombstone".to_string(),
+                    )
+                })? {
+                    continue;
+                }
+            }
             let key = RunSummaryCursor {
                 assignment_position: attempt.assignment_position,
                 attempt: attempt.id.as_uuid(),
@@ -4206,7 +5517,6 @@ impl Store for MemoryStore {
                 .submissions
                 .get(&(tenant, attempt.id))
                 .map(|stored| &stored.record);
-            let current = submitted.map(|record| &record.attempt).unwrap_or(attempt);
             let published = state
                 .published
                 .get(&(attempt.problem, attempt.question_version))
@@ -4330,12 +5640,20 @@ impl Store for MemoryStore {
                 let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
                 let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
                 require_course_records_accessible(&state, tenant, assignment.course_id)?;
-                if !assignment.problems.iter().any(|reference| {
-                    reference.problem == attempt.problem
-                        && reference.version == attempt.question_version
-                }) {
+                let matches_run_item =
+                    state
+                        .run_items
+                        .get(&(tenant, attempt.run))
+                        .is_some_and(|items| {
+                            items.iter().any(|item| {
+                                item.issued_position == attempt.assignment_position
+                                    && item.reference.problem == attempt.problem
+                                    && item.reference.version == attempt.question_version
+                            })
+                        });
+                if !matches_run_item {
                     return Err(StoreError::InvalidRecord(
-                        "question attempt must reference a version in its assignment".to_string(),
+                        "question attempt must match an immutable run item".to_string(),
                     ));
                 }
                 (enrollment.id, assignment, summary_transition(&transition))
@@ -4381,6 +5699,8 @@ impl Store for MemoryStore {
 
         match transition {
             ActivityTransition::StartRun { run } => {
+                let run_items = select_assignment_run_items(&assignment, run.id)?;
+                state.run_items.insert((tenant, run.id), run_items);
                 state.runs.insert((tenant, run.id), run);
             }
             ActivityTransition::RecordQuestionAttempt { attempt } => {
@@ -5135,6 +6455,9 @@ fn submit_question_attempt_locked(
             Err(StoreError::Conflict)
         };
     }
+    if projected_attempt(state, tenant, &base).status != AttemptStatus::InProgress {
+        return Err(StoreError::Conflict);
+    }
     let feedback = private_feedback_record(command.feedback.clone())?;
     let mut run = state
         .runs
@@ -5146,18 +6469,33 @@ fn submit_question_attempt_locked(
     }
     let mut enrollment = enrollment_record(state, tenant, run.enrollment)?;
     let assignment = assignment_record(state, tenant, enrollment.assignment)?;
-    let question = state
+    let authored_policy = state
         .published
         .get(&(base.problem, base.question_version))
-        .ok_or(StoreError::NotFound)?;
+        .ok_or(StoreError::NotFound)?
+        .question
+        .timing_policy;
     crate::validate_attempt_result(command.result)?;
     let submitted_at = state.authoritative_time;
-    let mut submitted = base;
+    let mut submitted = projected_attempt(state, tenant, &base);
     submitted.response = Some(command.response.clone());
+    submitted.status = AttemptStatus::Submitted;
     submitted.result = Some(command.result);
     submitted.timer.submitted_at = Some(submitted_at);
+    let effective_policy =
+        state
+            .attempt_timing
+            .get(&(tenant, command.attempt))
+            .map_or(authored_policy, |timing| {
+                timing
+                    .effective_deadline
+                    .map_or(TimingPolicy::Untimed, |_| TimingPolicy::PerQuestion {
+                        seconds: 1,
+                        grace_seconds: timing.effective_grace_seconds,
+                    })
+            });
     let verdict = timer_verdict(&TimerEvaluation {
-        policy: question.question.timing_policy,
+        policy: effective_policy,
         timer: submitted.timer,
         evaluated_at: submitted_at,
         pause_extension_millis: 0,
@@ -5177,9 +6515,48 @@ fn submit_question_attempt_locked(
         domain::scoring::RunTransition::QuestionAttemptRecorded { at: submitted_at },
         grade_policy(&assignment),
     )?;
-    let results = current_results_by_position(state, tenant, &run, &assignment, &submitted);
+    let run_items = state
+        .run_items
+        .get(&(tenant, run.id))
+        .cloned()
+        .ok_or_else(|| StoreError::Unavailable("run has no immutable items".to_string()))?;
+    let attempts = state
+        .attempts
+        .values()
+        .filter(|attempt| attempt.tenant == tenant && attempt.run == run.id)
+        .map(|attempt| {
+            if attempt.id == submitted.id {
+                submitted.clone()
+            } else {
+                projected_attempt(state, tenant, attempt)
+            }
+        })
+        .collect::<Vec<_>>();
+    let questions = current_run_questions(&assignment, &run_items, &attempts, &submitted)?;
+    let results = questions
+        .iter()
+        .map(|question| question.map(|question| question.result))
+        .collect::<Vec<_>>();
+    let submitted_item = run_items
+        .iter()
+        .find(|item| item.issued_position == submitted.assignment_position)
+        .ok_or_else(|| {
+            StoreError::Unavailable("submitted attempt has no immutable run item".to_string())
+        })?;
+    let submitted_assignment_item = submitted_item.assignment_item;
+    let (earned_points, possible_points) = crate::current_attempt_points(
+        &assignment,
+        submitted_assignment_item,
+        submitted.status,
+        command.result,
+    )?;
+    let (scoring_generation, _) = state
+        .assignment_scoring
+        .get(&(tenant, assignment.id))
+        .copied()
+        .ok_or(StoreError::NotFound)?;
     let mut statistics_contributions = None;
-    if let Some(score) = completed_run_score(&results, assignment.policies.completion)? {
+    if let Some(score) = completed_run_score(&questions, assignment.policies.completion)? {
         next = project_summary(
             &next,
             domain::scoring::RunTransition::Completed {
@@ -5199,22 +6576,8 @@ fn submit_question_attempt_locked(
             submitted_at,
         );
         if run.mode == RunMode::Assigned && previous.completed_run_count == 0 {
-            let attempts = state
-                .attempts
-                .values()
-                .filter(|attempt| attempt.tenant == tenant && attempt.run == run.id)
-                .map(|attempt| {
-                    if attempt.id == submitted.id {
-                        submitted.clone()
-                    } else {
-                        projected_attempt(state, tenant, attempt)
-                    }
-                })
-                .collect::<Vec<_>>();
             statistics_contributions = Some(derive_statistics_contributions(
-                &assignment,
-                &results,
-                &attempts,
+                &run_items, &results, &attempts,
             )?);
         }
     }
@@ -5242,11 +6605,22 @@ fn submit_question_attempt_locked(
             record: record.clone(),
         },
     );
+    state.attempt_scores.insert(
+        (tenant, command.attempt),
+        MemoryAttemptScore {
+            assignment: assignment.id,
+            assignment_item: submitted_assignment_item,
+            generation: scoring_generation,
+            earned_points,
+            possible_points,
+        },
+    );
     state.runs.insert((tenant, run.id), run);
     state
         .enrollments
         .insert((tenant, enrollment.id), enrollment);
     state.summaries.insert((tenant, next.enrollment), next);
+    complete_memory_attempt_timing_job(state, tenant, command.attempt);
     Ok(record)
 }
 
@@ -5313,15 +6687,18 @@ fn stage_statistics_contributions(
 }
 
 fn validate_assignment_position(
-    assignment: &AssignmentRecord,
+    run_items: &[AssignmentRunItem],
     command: &IssueQuestionAttemptCommand,
 ) -> Result<(), StoreError> {
-    let position = usize::try_from(command.assignment_position)
-        .map_err(|_| StoreError::InvalidRecord("assignment position is too large".to_string()))?;
-    let expected = assignment.problems.get(position).ok_or_else(|| {
-        StoreError::InvalidRecord("question position is outside the assignment".to_string())
-    })?;
-    if expected.problem != command.problem || expected.version != command.question_version {
+    let expected = run_items
+        .iter()
+        .find(|item| item.issued_position == command.assignment_position)
+        .ok_or_else(|| {
+            StoreError::InvalidRecord("question position is outside the assignment".to_string())
+        })?;
+    if expected.reference.problem != command.problem
+        || expected.reference.version != command.question_version
+    {
         return Err(StoreError::InvalidRecord(
             "question identity does not match its assignment position".to_string(),
         ));
@@ -5342,7 +6719,7 @@ fn validate_memory_assignment_references(
             "assignment references a missing course".to_string(),
         ));
     }
-    for reference in &assignment.problems {
+    for reference in assignment.references() {
         let assignable = state
             .published
             .get(&(reference.problem, reference.version))
@@ -5356,6 +6733,382 @@ fn validate_memory_assignment_references(
                 reference.problem, reference.version
             )));
         }
+    }
+    Ok(())
+}
+
+fn validate_memory_assignment_content_lock(
+    state: &State,
+    previous: &AssignmentRecord,
+    replacement: &AssignmentRecord,
+) -> Result<(), StoreError> {
+    let has_run = state.runs.values().any(|run| {
+        state
+            .enrollments
+            .get(&(run.tenant, run.enrollment))
+            .is_some_and(|enrollment| {
+                enrollment.tenant == previous.tenant && enrollment.assignment == previous.id
+            })
+    });
+    if !has_run {
+        return Ok(());
+    }
+    let retirement_blocked = previous.items.iter().any(|item| {
+        item.delivery_state == question_model::AssignmentDeliveryState::Active
+            && replacement.items.iter().any(|candidate| {
+                candidate.id == item.id
+                    && candidate.delivery_state == question_model::AssignmentDeliveryState::Retired
+            })
+            && memory_item_has_active_attempt(state, previous, item.id)
+    }) || previous.selection_groups.iter().any(|group| {
+        group.candidates.iter().any(|candidate| {
+            candidate.delivery_state == question_model::AssignmentDeliveryState::Active
+                && replacement
+                    .selection_groups
+                    .iter()
+                    .any(|replacement_group| {
+                        replacement_group.candidates.iter().any(|replacement| {
+                            replacement.id == candidate.id
+                                && replacement.delivery_state
+                                    == question_model::AssignmentDeliveryState::Retired
+                        })
+                    })
+                && memory_item_has_active_attempt(state, previous, candidate.id)
+        })
+    });
+    if retirement_blocked {
+        return Err(StoreError::Conflict);
+    }
+    let previous_items = previous
+        .items
+        .iter()
+        .map(|item| (item.id, item.reference))
+        .collect::<BTreeMap<_, _>>();
+    let replacement_items = replacement
+        .items
+        .iter()
+        .map(|item| (item.id, item.reference))
+        .collect::<BTreeMap<_, _>>();
+    let previous_groups = previous
+        .selection_groups
+        .iter()
+        .map(|group| {
+            (
+                group.id,
+                group
+                    .candidates
+                    .iter()
+                    .map(|candidate| (candidate.id, candidate.reference))
+                    .collect::<BTreeMap<_, _>>(),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    let replacement_groups = replacement
+        .selection_groups
+        .iter()
+        .map(|group| {
+            (
+                group.id,
+                group
+                    .candidates
+                    .iter()
+                    .map(|candidate| (candidate.id, candidate.reference))
+                    .collect::<BTreeMap<_, _>>(),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    if previous_items != replacement_items || previous_groups != replacement_groups {
+        return Err(StoreError::Conflict);
+    }
+    Ok(())
+}
+
+fn memory_item_has_active_attempt(
+    state: &State,
+    assignment: &AssignmentRecord,
+    assignment_item: question_model::AssignmentItemId,
+) -> bool {
+    state.attempts.values().any(|base| {
+        if base.tenant != assignment.tenant
+            || projected_attempt(state, assignment.tenant, base).status != AttemptStatus::InProgress
+        {
+            return false;
+        }
+        let Some(run) = state.runs.get(&(assignment.tenant, base.run)) else {
+            return false;
+        };
+        let belongs_to_assignment = state
+            .enrollments
+            .get(&(assignment.tenant, run.enrollment))
+            .is_some_and(|enrollment| enrollment.assignment == assignment.id);
+        belongs_to_assignment
+            && state
+                .run_items
+                .get(&(assignment.tenant, run.id))
+                .and_then(|items| {
+                    items
+                        .iter()
+                        .find(|item| item.issued_position == base.assignment_position)
+                })
+                .is_some_and(|item| item.assignment_item == assignment_item)
+    })
+}
+
+fn memory_assignment_has_results(state: &State, assignment: &AssignmentRecord) -> bool {
+    state.submissions.values().any(|submission| {
+        let attempt = &submission.record.attempt;
+        attempt.result.is_some()
+            && state
+                .runs
+                .get(&(attempt.tenant, attempt.run))
+                .and_then(|run| state.enrollments.get(&(run.tenant, run.enrollment)))
+                .is_some_and(|enrollment| enrollment.assignment == assignment.id)
+    })
+}
+
+fn resolved_memory_attempt_timing(
+    policy: AssignmentTimingPolicy,
+    run: &AssignmentRun,
+    authored_deadline: Option<ActivityTimestamp>,
+    authored_grace_seconds: u32,
+) -> Result<(Option<ActivityTimestamp>, u32, Option<ActivityTimestamp>), StoreError> {
+    let mut resolved = authored_deadline.map(|deadline| (deadline, authored_grace_seconds));
+    let mut consider = |deadline: ActivityTimestamp, grace_seconds: u32| {
+        if resolved.is_none_or(|current| (deadline, grace_seconds) < current) {
+            resolved = Some((deadline, grace_seconds));
+        }
+    };
+    if let Some(seconds) = policy.time_limit_seconds {
+        consider(
+            add_seconds(run.started_at, seconds, "assignment time limit")?,
+            0,
+        );
+    }
+    if policy.late_submission == question_model::LateSubmissionPolicy::Reject
+        && let Some(due_at) = policy.due_at
+    {
+        consider(due_at, 0);
+    }
+    if let Some(closes_at) = policy.closes_at {
+        consider(closes_at, 0);
+    }
+    let auto_submit_at = resolved
+        .map(|(deadline, grace_seconds)| {
+            add_seconds(deadline, grace_seconds, "attempt auto-submit deadline")
+        })
+        .transpose()?;
+    Ok((
+        resolved.map(|(deadline, _)| deadline),
+        resolved.map_or(0, |(_, grace_seconds)| grace_seconds),
+        auto_submit_at,
+    ))
+}
+
+fn memory_resolved_assignment_policy(
+    state: &State,
+    tenant: TenantId,
+    assignment: AssignmentId,
+    enrollment: &AssignmentEnrollment,
+    base_override: Option<AssignmentTimingPolicy>,
+) -> Result<crate::ResolvedAssignmentTimingPolicy, StoreError> {
+    let base = base_override
+        .or_else(|| state.assignment_timing.get(&(tenant, assignment)).copied())
+        .ok_or_else(|| {
+            StoreError::Unavailable(
+                "assignment timing policy is missing from memory state".to_string(),
+            )
+        })?;
+    let applicable = state
+        .assignment_policy_exceptions
+        .iter()
+        .filter_map(|((record_tenant, record_assignment, target), exception)| {
+            if *record_tenant != tenant || *record_assignment != assignment {
+                return None;
+            }
+            let applies = match target {
+                AssignmentPolicyExceptionTarget::Student(student) => *student == enrollment.student,
+                AssignmentPolicyExceptionTarget::CourseGroup(group) => state
+                    .course_groups
+                    .get(&(tenant, *group))
+                    .is_some_and(|record| record.members.contains(&enrollment.user)),
+            };
+            applies.then_some(exception.clone())
+        })
+        .collect::<Vec<_>>();
+    resolve_assignment_policy(base, &applicable)
+}
+
+fn apply_memory_assignment_timing_update(
+    state: &mut State,
+    tenant: TenantId,
+    assignment: AssignmentId,
+    base_override: Option<AssignmentTimingPolicy>,
+) -> Result<(), StoreError> {
+    #[derive(Debug)]
+    enum JobChange {
+        Insert(JobId, StoredJob),
+        Reschedule(JobId, JobPayload, ActivityTimestamp),
+        Complete(JobId),
+        None,
+    }
+    struct Pending {
+        attempt: QuestionAttemptId,
+        timing: MemoryAttemptTiming,
+        resolution: crate::ResolvedAssignmentTimingPolicy,
+        current: Option<QuestionAttempt>,
+        job_change: JobChange,
+    }
+
+    let now = state.authoritative_time;
+    let existing = state
+        .attempt_timing
+        .iter()
+        .filter(|((record_tenant, _), timing)| {
+            *record_tenant == tenant && timing.assignment == assignment
+        })
+        .map(|((_, attempt), timing)| (*attempt, *timing))
+        .collect::<Vec<_>>();
+    let mut reserved_jobs = BTreeSet::new();
+    let mut pending = Vec::with_capacity(existing.len());
+    for (attempt_id, previous_timing) in existing {
+        let base = state
+            .attempts
+            .get(&(tenant, attempt_id))
+            .ok_or(StoreError::NotFound)?;
+        if projected_attempt(state, tenant, base).status != AttemptStatus::InProgress {
+            continue;
+        }
+        let run = state
+            .runs
+            .get(&(tenant, base.run))
+            .ok_or(StoreError::NotFound)?;
+        let enrollment = state
+            .enrollments
+            .get(&(tenant, run.enrollment))
+            .ok_or(StoreError::NotFound)?;
+        let resolution = memory_resolved_assignment_policy(
+            state,
+            tenant,
+            assignment,
+            enrollment,
+            base_override,
+        )?;
+        let (effective_deadline, grace_seconds, auto_submit_at) = resolved_memory_attempt_timing(
+            resolution.policy,
+            run,
+            previous_timing.authored_deadline,
+            previous_timing.authored_grace_seconds,
+        )?;
+        let generation = previous_timing
+            .generation
+            .checked_add(1)
+            .ok_or(StoreError::Conflict)?;
+        let payload = JobPayload::AutoSubmitAttempt {
+            attempt: attempt_id,
+            timing_generation: generation,
+        };
+        let immediate = auto_submit_at.is_some_and(|deadline| deadline <= now);
+        let mut current = None;
+        let mut job = previous_timing.job;
+        let existing_job = job.and_then(|id| state.jobs.get(&id).map(|stored| (id, stored.state)));
+        let job_change = if immediate {
+            let mut projected = projected_attempt(state, tenant, base);
+            projected.status = AttemptStatus::AutoSubmitted;
+            projected.timer.deadline = effective_deadline;
+            projected.timer.submitted_at = Some(now);
+            current = Some(projected);
+            let change = match existing_job {
+                Some((id, JobState::Ready | JobState::Leased)) => JobChange::Complete(id),
+                _ => JobChange::None,
+            };
+            job = None;
+            change
+        } else if let Some(available_at) = auto_submit_at {
+            match existing_job {
+                Some((id, JobState::Ready)) => {
+                    JobChange::Reschedule(id, payload.clone(), available_at)
+                }
+                Some((_id, JobState::Leased)) => JobChange::None,
+                Some((_, JobState::Completed | JobState::Dead)) | None => {
+                    let id = loop {
+                        let candidate = JobId::generate()?;
+                        if !state.jobs.contains_key(&candidate) && reserved_jobs.insert(candidate) {
+                            break candidate;
+                        }
+                    };
+                    job = Some(id);
+                    JobChange::Insert(
+                        id,
+                        StoredJob {
+                            tenant,
+                            payload: payload.clone(),
+                            state: JobState::Ready,
+                            available_at,
+                            lease_token: None,
+                            lease_expires_at: None,
+                            attempt_count: 0,
+                            max_attempts: 10,
+                            failure: None,
+                        },
+                    )
+                }
+            }
+        } else {
+            let change = match existing_job {
+                Some((id, JobState::Ready | JobState::Leased)) => JobChange::Complete(id),
+                _ => JobChange::None,
+            };
+            job = None;
+            change
+        };
+        pending.push(Pending {
+            attempt: attempt_id,
+            timing: MemoryAttemptTiming {
+                assignment,
+                authored_deadline: previous_timing.authored_deadline,
+                authored_grace_seconds: previous_timing.authored_grace_seconds,
+                effective_deadline,
+                effective_grace_seconds: grace_seconds,
+                auto_submit_at,
+                generation,
+                job,
+            },
+            resolution,
+            current,
+            job_change,
+        });
+    }
+    for update in pending {
+        match update.job_change {
+            JobChange::Insert(id, job) => {
+                state.jobs.insert(id, job);
+            }
+            JobChange::Reschedule(id, payload, available_at) => {
+                let job = state.jobs.get_mut(&id).ok_or(StoreError::NotFound)?;
+                job.payload = payload;
+                job.available_at = available_at;
+                job.failure = None;
+            }
+            JobChange::Complete(id) => {
+                if let Some(job) = state.jobs.get_mut(&id) {
+                    job.state = JobState::Completed;
+                    job.lease_token = None;
+                    job.lease_expires_at = None;
+                }
+            }
+            JobChange::None => {}
+        }
+        if let Some(current) = update.current {
+            state
+                .attempt_current
+                .insert((tenant, update.attempt), current);
+        }
+        state
+            .attempt_timing
+            .insert((tenant, update.attempt), update.timing);
+        state
+            .attempt_timing_resolution
+            .insert((tenant, update.attempt), update.resolution);
     }
     Ok(())
 }
@@ -5383,6 +7136,14 @@ fn issued_timer(
         deadline,
         submitted_at: None,
     })
+}
+
+fn timing_policy_grace_seconds(policy: TimingPolicy) -> u32 {
+    match policy {
+        TimingPolicy::Untimed => 0,
+        TimingPolicy::PerQuestion { grace_seconds, .. }
+        | TimingPolicy::PerAttempt { grace_seconds, .. } => grace_seconds,
+    }
 }
 
 fn add_seconds(
@@ -5429,57 +7190,168 @@ fn require_attempt_course_records_accessible(
     require_course_records_accessible(state, tenant, assignment.course_id)
 }
 
+fn apply_memory_attempt_support(
+    state: &mut State,
+    context: TenantContext,
+    action_id: AttemptSupportActionId,
+    actor: UserId,
+    attempt_id: QuestionAttemptId,
+    action: AttemptSupportAction,
+) -> Result<AttemptSupportRecord, StoreError> {
+    let tenant = context.tenant_id();
+    let base = state
+        .attempts
+        .get(&(tenant, attempt_id))
+        .cloned()
+        .ok_or(StoreError::NotFound)?;
+    let run = state
+        .runs
+        .get(&(tenant, base.run))
+        .ok_or(StoreError::NotFound)?;
+    let enrollment = enrollment_record(state, tenant, run.enrollment)?;
+    let assignment = assignment_record(state, tenant, enrollment.assignment)?;
+    require_course_records_accessible(state, tenant, assignment.course_id)?;
+    let course = state
+        .courses
+        .get(&(tenant, assignment.course_id))
+        .ok_or(StoreError::NotFound)?;
+    if course.role_for(actor) != Some(CourseRole::Instructor) {
+        return Err(StoreError::NotFound);
+    }
+    if let Some(existing) = state.attempt_support_actions.get(&(tenant, action_id)) {
+        return if existing.actor == actor
+            && existing.attempt == attempt_id
+            && existing.kind == action
+        {
+            Ok(*existing)
+        } else {
+            Err(StoreError::Conflict)
+        };
+    }
+
+    let previous = projected_attempt(state, tenant, &base);
+    let resulting_status = match action {
+        AttemptSupportAction::ForceSubmit if previous.status == AttemptStatus::InProgress => {
+            AttemptStatus::NeedsManualGrading
+        }
+        AttemptSupportAction::Clear
+            if matches!(
+                previous.status,
+                AttemptStatus::InProgress
+                    | AttemptStatus::Submitted
+                    | AttemptStatus::AutoSubmitted
+                    | AttemptStatus::NeedsManualGrading
+            ) =>
+        {
+            AttemptStatus::Cleared
+        }
+        _ => return Err(StoreError::Conflict),
+    };
+    let now = state.authoritative_time;
+    let mut current = previous.clone();
+    current.status = resulting_status;
+    if action == AttemptSupportAction::ForceSubmit {
+        current.timer.submitted_at = Some(now);
+    }
+
+    let scoring_update = if action == AttemptSupportAction::Clear && previous.result.is_some() {
+        let key = (tenant, assignment.id);
+        let (generation, _) = state
+            .assignment_scoring
+            .get(&key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        let generation = generation.next().ok_or(StoreError::Conflict)?;
+        let job = loop {
+            let candidate = crate::JobId::generate()?;
+            if !state.jobs.contains_key(&candidate) {
+                break candidate;
+            }
+        };
+        Some((key, generation, job))
+    } else {
+        None
+    };
+    let record = AttemptSupportRecord {
+        tenant,
+        action: action_id,
+        actor,
+        attempt: attempt_id,
+        kind: action,
+        previous_status: previous.status,
+        resulting_status,
+        occurred_at: now,
+    };
+
+    if let Some((key, generation, job)) = scoring_update {
+        let queued = StoredJob {
+            tenant,
+            payload: crate::JobPayload::RecalculateAssignment {
+                assignment: assignment.id,
+                generation,
+            },
+            state: JobState::Ready,
+            available_at: now,
+            lease_token: None,
+            lease_expires_at: None,
+            attempt_count: 0,
+            max_attempts: 10,
+            failure: None,
+        };
+        state.jobs.insert(job, queued);
+        state
+            .assignment_scoring
+            .insert(key, (generation, ScoringStatus::Recalculating));
+    }
+    state.attempt_current.insert((tenant, attempt_id), current);
+    complete_memory_attempt_timing_job(state, tenant, attempt_id);
+    state
+        .attempt_support_actions
+        .insert((tenant, action_id), record);
+    Ok(record)
+}
+
+fn complete_memory_attempt_timing_job(
+    state: &mut State,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+) {
+    let job = state
+        .attempt_timing
+        .get_mut(&(tenant, attempt))
+        .and_then(|timing| timing.job.take());
+    let Some(job) = job else {
+        return;
+    };
+    if let Some(stored) = state.jobs.get_mut(&job)
+        && matches!(stored.state, JobState::Ready | JobState::Leased)
+    {
+        stored.state = JobState::Completed;
+        stored.lease_token = None;
+        stored.lease_expires_at = None;
+    }
+}
+
 fn projected_attempt(
     state: &State,
     tenant: TenantId,
     attempt: &QuestionAttempt,
 ) -> QuestionAttempt {
-    state
-        .submissions
+    let mut projected = state
+        .attempt_current
         .get(&(tenant, attempt.id))
-        .map_or_else(|| attempt.clone(), |stored| stored.record.attempt.clone())
-}
-
-fn current_results_by_position(
-    state: &State,
-    tenant: TenantId,
-    run: &AssignmentRun,
-    assignment: &AssignmentRecord,
-    current: &QuestionAttempt,
-) -> Vec<Option<AttemptResult>> {
-    let mut latest: Vec<Option<(ActivityTimestamp, QuestionAttemptId, AttemptResult)>> =
-        vec![None; assignment.problems.len()];
-    for base in state
-        .attempts
-        .values()
-        .filter(|attempt| attempt.tenant == tenant && attempt.run == run.id)
-    {
-        let projected = if base.id == current.id {
-            current.clone()
-        } else {
-            projected_attempt(state, tenant, base)
-        };
-        let (Some(submitted_at), Some(result)) = (projected.timer.submitted_at, projected.result)
-        else {
-            continue;
-        };
-        let Ok(position) = usize::try_from(projected.assignment_position) else {
-            continue;
-        };
-        let Some(slot) = latest.get_mut(position) else {
-            continue;
-        };
-        if slot
-            .as_ref()
-            .is_none_or(|(at, id, _)| (submitted_at, projected.id) > (*at, *id))
-        {
-            *slot = Some((submitted_at, projected.id, result));
-        }
+        .cloned()
+        .or_else(|| {
+            state
+                .submissions
+                .get(&(tenant, attempt.id))
+                .map(|stored| stored.record.attempt.clone())
+        })
+        .unwrap_or_else(|| attempt.clone());
+    if let Some(timing) = state.attempt_timing.get(&(tenant, attempt.id)) {
+        projected.timer.deadline = timing.effective_deadline;
     }
-    latest
-        .into_iter()
-        .map(|entry| entry.map(|(_, _, result)| result))
-        .collect()
+    projected
 }
 
 impl MemoryStore {
@@ -6018,7 +7890,12 @@ mod catalog_search_tests {
         );
         PublishedProblemRecord {
             problem,
+            public_id: ProblemPublicId::new(
+                u64::try_from(number).expect("fixture number fits a public ID") + 1,
+            )
+            .expect("fixture public ID is positive"),
             version,
+            version_number: ProblemVersionNumber::new(1).expect("fixture version is positive"),
             question,
             capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
             scope: PublicationScope::Public,
@@ -6048,6 +7925,7 @@ mod catalog_search_tests {
             seed: number as u64,
             parameter_hash: format!("statistics-parameters-{number}"),
             response: None,
+            status: AttemptStatus::InProgress,
             result: None,
             timer: AttemptTimerRecord {
                 issued_at: ActivityTimestamp::from_unix_millis(issued_at),
@@ -6131,7 +8009,21 @@ mod catalog_search_tests {
             tenant,
             course_id: CourseId::from_uuid(Uuid::from_u128(72_006)),
             title: "Statistics completion fixture".to_string(),
-            problems: vec![a, b, a],
+            items: [a, b, a]
+                .into_iter()
+                .enumerate()
+                .map(|(position, reference)| question_model::AssignmentItem {
+                    id: question_model::AssignmentItemId::from_uuid(Uuid::from_u128(
+                        72_100 + position as u128,
+                    )),
+                    reference,
+                    position: u32::try_from(position).expect("fixture position fits"),
+                    points_possible: question_model::PointValue::from_whole(1),
+                    delivery_state: question_model::AssignmentDeliveryState::Active,
+                    scoring_mode: question_model::AssignmentScoringMode::Normal,
+                })
+                .collect(),
+            selection_groups: Vec::new(),
             policies: question_model::RunPolicies {
                 completion: question_model::CompletionRequirement::AnswerAll,
                 grade: question_model::GradePolicy::First,
@@ -6160,6 +8052,8 @@ mod catalog_search_tests {
             mode: RunMode::Assigned,
             variation: question_model::VariationPolicy::NewSeeds,
         };
+        let run_items = select_assignment_run_items(&assignment, assigned_run)
+            .expect("statistics fixture run items");
         {
             let mut state = store.write_state().expect("statistics fixture state");
             state.courses.insert(
@@ -6180,10 +8074,15 @@ mod catalog_search_tests {
             state
                 .assignments
                 .insert((tenant, assignment_id), assignment);
+            state.assignment_scoring.insert(
+                (tenant, assignment_id),
+                (ScoringGeneration::INITIAL, ScoringStatus::Current),
+            );
             state
                 .enrollments
                 .insert((tenant, enrollment_id), enrollment);
             state.runs.insert((tenant, assigned_run), run);
+            state.run_items.insert((tenant, assigned_run), run_items);
             state.summaries.insert(
                 (tenant, enrollment_id),
                 StudentAssignmentSummary::empty(tenant, enrollment_id),
@@ -6297,6 +8196,14 @@ mod catalog_search_tests {
         let practice_run = RunId::from_uuid(Uuid::from_u128(72_200));
         {
             let mut state = store.write_state().expect("practice statistics state");
+            let practice_items = state.run_items[&(tenant, assigned_run)]
+                .iter()
+                .cloned()
+                .map(|mut item| {
+                    item.run = practice_run;
+                    item
+                })
+                .collect();
             state.runs.insert(
                 (tenant, practice_run),
                 AssignmentRun {
@@ -6311,6 +8218,9 @@ mod catalog_search_tests {
                     variation: question_model::VariationPolicy::NewSeeds,
                 },
             );
+            state
+                .run_items
+                .insert((tenant, practice_run), practice_items);
         }
         for (number, reference, position, earned, possible) in [
             (72_201, a, 0, 1.0, 2.0),
