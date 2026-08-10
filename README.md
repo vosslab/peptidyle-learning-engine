@@ -2,19 +2,32 @@
 
 A backend-agnostic assignment platform for instructors who teach through repeated practice: students retry algorithmic questions until each one is correct, timers and grading stay on the server, and practice continues past completion.
 
-**Status: advanced code-first implementation, not production-ready.** The last accepted QTI package
-is WP-QTI-8: reviewed Canvas and Blackboard items can become canonical native flat source, private
-grading, and provenance-aware Memory/PostgreSQL state atomically. A fresh six-migration real-role
-baseline and focused frontend/backend security pass are green. WP-QTI-9 server routes are next;
-course appearance, seven required flat-question families, remaining M5 integration, and M6
-deployment are incomplete. See
-`docs/active_plans/project_status_report_2026-08-09.md` for verified evidence, milestone posture,
-blockers, and dependency order.
+**Status: advanced code-first implementation, not production-ready.** WP-RC1 course appearance and
+WP-RC2 production-seam closure are accepted. WP-RC3's private, source-pinned upstream WeBWorK
+`/render_rpc` implementation and static reviews are complete, but it is not accepted until the live
+build, authenticated PLE API path, and browser-boundary gates pass. Native questions and the regular
+local stack continue to work without the optional renderer profile. QTI Package Maker WP-FQ-0 owns
+the QTI-JSONL specification and reference artifacts; PLE adopts that contract through one versioned
+adapter/compiler with MATCH first. See the
+[current project status](docs/active_plans/project_status_report_2026-08-09.md) for verified
+evidence, milestone posture, blockers, and dependency order.
 
-The database is still a pre-data baseline. Once an environment accepts durable data, later schema
-changes must be forward migrations rather than edits to the six initial files. The maintained
-Compose stack is for local development and currently uses the PostgreSQL bootstrap credential; it
-is not a production deployment configuration.
+The accepted six-file database baseline is frozen. Every later schema change is a forward migration;
+the maintained course-appearance schema is the first one. The maintained Compose stack is for local
+development and currently uses the PostgreSQL bootstrap credential; it is not a production
+deployment configuration.
+
+## Practice past completion
+
+The central teaching promise is a mastery loop that does not disappear when an assignment is marked
+complete. An instructor can keep completion, scoring, variation, continued practice, and feedback
+disclosure as separate course policies, while students see one focused question at a time and can
+continue practicing with fresh values.
+
+<!-- screenshots:begin (managed by screenshot-docs) -->
+
+![Peptide bond mastery assignment overview with fresh variation and a Start or resume practice control](docs/screenshots/peptide_bond_mastery_overview.png)
+<!-- screenshots:end -->
 
 ## Why this project
 
@@ -113,14 +126,15 @@ clock and no database, which is what lets the same code run on the server and in
 The descriptive crate paths are `crates/learning-data-access` and `crates/project-tools`; their
 Rust names are `learning_data_access` and `in_memory` where imported as code. Run repository-only
 automation through `cargo tools`. See
-[CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) and `docs/FILE_STRUCTURE.md`
+[docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) and
+[docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md)
 for the ownership map.
 
 ## Quick start
 
-For the shortest useful first success, install current Rust through `rustup`. The repository's
+For the smallest verified first success, install current Rust through `rustup`. The repository's
 [rust-toolchain.toml](rust-toolchain.toml) selects stable Rust, rustfmt, Clippy, and the
-`wasm32-unknown-unknown` target.
+`wasm32-unknown-unknown` target. Clone the repository and run its Rust behavior suite:
 
 ```bash
 git clone https://github.com/vosslab/peptidyle-learning-engine.git
@@ -128,8 +142,9 @@ cd peptidyle-learning-engine
 cargo test --workspace
 ```
 
-Success is an exit status of zero after every Rust unit, integration, and documentation test. Test
-counts intentionally are not frozen in this page.
+Success is an exit status of zero after the domain, grading, storage, adapter, server, and
+documentation tests; counts intentionally are not frozen in this page. This path proves the
+mastery and server-side contracts without requiring containers or local credentials.
 
 The full repository gate also needs current Node.js and npm, plus Python 3.12 with pytest. Install
 the browser dependencies once, then use the repository front door:
@@ -148,10 +163,26 @@ with:
 ```
 
 A successful debug build ends with the client bundle in `dist/` and the WebAssembly bridge in
-`dist_wasm/`. The local container stack is an advanced development path because it deliberately
-requires local identities, credentials, and immutable gateway and renderer image choices. Read the
-storage and health model in [docs/CONTAINER.md](docs/CONTAINER.md), then supply the current required
-values from [containers/env.example](containers/env.example) rather than inventing defaults.
+`dist_wasm/`. The all-in-one local test command generates ignored local credentials, migrates and
+seeds its database, starts the supported Podman services, waits for semantic health, and opens the
+browser:
+
+```bash
+./launch_local_stack.sh
+```
+
+Paste an instructor or student value from `containers/local-login.txt` into the local sign-in form.
+Native questions work through this default path. To build and start the optional private WeBWorK
+profile as part of local integration work, use:
+
+```bash
+./launch_local_stack.sh --with-webwork
+```
+
+That profile builds the declared upstream sources and runs only the bounded, authored
+`content/pilot/webwork/which_hydrophobic-simple.pgml` RadioButtons fixture; it is not a claim of
+broad OPL compatibility or completed live acceptance. Read the storage, security, and health model
+in [docs/CONTAINER.md](docs/CONTAINER.md).
 
 ## One assignment through the system
 
@@ -174,20 +205,21 @@ generation is discarded without delaying or rolling back the current grade.
 
 ## What exists today
 
-| Area                                 | State                                                                                                                                                                           |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rust domain and learning data access | Attempt, timing, scoring, manual-grading, item-analysis, retention, catalog, and worker contracts; in-memory and PostgreSQL implementations share conformance tests             |
-| API server                           | Auth, catalog, course, assignment, run, submission, manual grade, item analysis, asset, export, workspace, and retention route groups                                           |
-| WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                  |
-| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, library, authoring, flat-question editing, assignment editing, and gradebook                                      |
-| PostgreSQL                           | Six domain-owned SQLx baseline migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL acceptance                                            |
-| Question engines                     | Native and static single-choice flat JSON implemented; WeBWorK private renderer client; QTI profiles through atomic conversion; contracted iMathAS broker; H5P is ungraded only |
-| DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                      |
-| Containers                           | Local-development PostgreSQL, MinIO, API replicas, worker, gateway, and private WeBWorK renderer; production runtime identities and deployment remain open                      |
-| Worker runtime                       | Production drains six complete families through a family-filtered registry; reserved Render and generic Import work stays unclaimed until its complete implementation lands     |
+| Area                                 | State                                                                                                                                                                                                                                      |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Rust domain and learning data access | Attempt, timing, scoring, manual-grading, item-analysis, retention, catalog, and worker contracts; in-memory and PostgreSQL implementations share conformance tests                                                                        |
+| API server                           | Auth, catalog, course, assignment, run, submission, manual grade, item analysis, asset, export, workspace, and retention route groups                                                                                                      |
+| WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                             |
+| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, library, authoring, flat-question editing, assignment editing, and gradebook                                                                                                 |
+| PostgreSQL                           | Six domain-owned SQLx baseline migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL acceptance                                                                                                       |
+| Question engines                     | Native and static single-choice flat JSON implemented; WeBWorK `/render_rpc` is implemented and statically reviewed, with live acceptance pending; QTI profiles through atomic conversion; contracted iMathAS broker; H5P is ungraded only |
+| DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                 |
+| Containers                           | Local PostgreSQL, MinIO, API, worker, and gateway; private source-pinned WeBWorK is an optional profile pending live acceptance; production runtime identities and deployment remain open                                                  |
+| Worker runtime                       | Production drains six complete families through a family-filtered registry; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                |
 
 The exact checkpoint, evidence, and remaining dependency order live in
-`docs/active_plans/project_status_report_2026-08-09.md` and
+[docs/active_plans/project_status_report_2026-08-09.md](docs/active_plans/project_status_report_2026-08-09.md)
+and
 [docs/active_plans/partial_commit_status.md](docs/active_plans/partial_commit_status.md). The full
 architecture and milestone plan remain in
 [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md).
@@ -196,9 +228,15 @@ architecture and milestone plan remain in
 
 - Flat-question JSON v1 supports static single choice. Multiple answer, fill-in-the-blank,
   multi-blank, numerical entry, matching, ordered list, and image hotspot remain required work.
-- QTI profile parsing, conversion, provenance, and persistence are implemented, but the instructor
-  upload/report/convert routes and UI are the next dependency-ordered packages.
-- Course themes and the centered course-entry banner have an accepted plan but no implementation.
+- QTI profile import is intentionally bounded to the reviewed Canvas and Blackboard subsets;
+  broader vendor compatibility, imported media, and optional exporters remain deferred.
+- The pending WeBWorK RC3 acceptance path supports only the licensed, user-authored single-radio
+  PGML fixture in `content/pilot/webwork/`; matching and broader problem compatibility are assigned
+  to WP-RC5 rather than inferred from the private renderer implementation.
+- Course appearance intentionally supports one theme and at most one 1200 by 328 entry banner per
+  course. Per-page themes, multiple banners, freeform CSS, SVG/animated uploads, and learner edits are
+  out of scope because the accepted version already supplies safe, accessible course identity without
+  active-content or styling injection.
 - File-upload responses deliberately fail closed until a server-issued, tenant/learner/attempt-bound
   upload capability exists.
 - The local container topology is not a production security or deployment configuration.
@@ -216,10 +254,19 @@ devel/      Maintenance and release helper scripts
 
 ## Documentation
 
-Start with the product and operating boundaries:
+Start with a local run and the system map:
 
+- [docs/INSTALL.md](docs/INSTALL.md) - required tools, setup, verification, and the optional
+  private WeBWorK profile.
+- [docs/USAGE.md](docs/USAGE.md) - native local-stack walkthrough, sign-in, health, and validation
+  commands.
 - [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) - system shape, crate ownership, storage,
   API, browser, and security boundaries.
+- [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) - repository map and the owner of each major
+  directory.
+
+Then use these focused boundaries and references:
+
 - [docs/CONTAINER.md](docs/CONTAINER.md) - local storage, bucket separation, health checks, and
   compose operations; required deployment selections live in `containers/env.example`.
 - [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) - server-only grading, tenant derivation,
@@ -228,13 +275,17 @@ Start with the product and operating boundaries:
   [docs/ACTIVITY_MODEL.md](docs/ACTIVITY_MODEL.md) - published question and learner-activity
   contracts.
 - [docs/CONTRACTS.md](docs/CONTRACTS.md) - frozen module ownership and atomic change rules.
+- [docs/DATABASE_STRUCTURE.md](docs/DATABASE_STRUCTURE.md) - implemented table relationships,
+  proposed production identity/passkey tables, FERPA isolation, and pilot-to-scale estimates.
+- [docs/ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md](docs/ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md)
+  - current student no-mouse task model, fixes, executable evidence, and remaining human evaluation.
 
 For status and contribution work:
 
 - [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md) - milestone
   plan, module catalog, contracts, and acceptance gates; the source of truth for this build.
-- `docs/active_plans/project_status_report_2026-08-09.md` - formal executive status, verification
-  evidence, milestone posture, blockers, and next work.
+- [docs/active_plans/project_status_report_2026-08-09.md](docs/active_plans/project_status_report_2026-08-09.md)
+  - formal executive status, verification evidence, milestone posture, blockers, and next work.
 - [docs/active_plans/partial_commit_status.md](docs/active_plans/partial_commit_status.md) - current
   implementation checkpoint, executable evidence, and remaining order.
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) - dated record of changes, decisions, and failures.

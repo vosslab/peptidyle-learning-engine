@@ -8,6 +8,7 @@ import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseSummary } from "../api/contracts";
 import { useApiRuntime } from "../api/runtime";
 import { useSessionBootstrap, type SessionBootstrapState } from "../auth/session_context";
+import { useCourseThemeRouteData } from "../features/course_appearance/course_theme_context";
 import { AssignmentEditorPage } from "./assignment_editor_page";
 import { createAssignmentEditorRepository } from "./assignment_editor_repository";
 
@@ -61,6 +62,7 @@ function AssignmentEditingUnavailable(): JSX.Element {
 export function AssignmentEditorLivePage(): JSX.Element {
   const runtime = useApiRuntime();
   const params = useParams();
+  const scopedRoute = useCourseThemeRouteData();
   const session = useSessionBootstrap().state();
   const authenticated = session.kind === "authenticated" ? session.session : undefined;
   if (authenticated === undefined) return <AssignmentEditingUnavailable />;
@@ -77,7 +79,10 @@ export function AssignmentEditorLivePage(): JSX.Element {
       return;
     }
     try {
-      const course = await runtime.client.getCourse(courseId);
+      const course =
+        scopedRoute?.kind === "course"
+          ? scopedRoute.course.summary
+          : await runtime.client.getCourse(courseId);
       if (course.id !== courseId || course.tenant !== sessionTenant) {
         setGate({ kind: "unavailable" });
         return;

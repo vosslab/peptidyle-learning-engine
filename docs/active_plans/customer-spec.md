@@ -1,3 +1,8 @@
+> **Historical discovery input, not current instructions.** Current authority is
+> [implementation_plan.md](implementation_plan.md),
+> [release_completion_plan.md](active/release_completion_plan.md), and
+> [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md). [m0-results.md](m0-results.md) is concluded evidence.
+
 # Peptidyle Learning Engine
 
 Peptidyle Learning Engine is a backend-agnostic assignment and assessment platform built around repeated attempts, algorithmic questions, and question-level timing.

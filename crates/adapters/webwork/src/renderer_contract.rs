@@ -113,4 +113,7 @@ pub struct GradeRequest<'a> {
     pub seed: u64,
     /// Browser-submitted response, never an answer key.
     pub response: &'a StudentResponse,
+    /// The published all-or-nothing score ceiling. The renderer returns only
+    /// a normalized score and never chooses the assignment's point value.
+    pub points_possible: f64,
 }

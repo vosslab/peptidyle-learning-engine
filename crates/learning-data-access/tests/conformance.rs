@@ -4,6 +4,8 @@
 mod assets;
 #[path = "conformance/catalog.rs"]
 mod catalog;
+#[path = "conformance/course_appearance.rs"]
+mod course_appearance;
 #[path = "conformance/external_tool.rs"]
 mod external_tool;
 #[path = "conformance/flat_import_provenance.rs"]

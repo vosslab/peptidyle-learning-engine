@@ -3,6 +3,9 @@
 import { publishedProblemFixture } from "../../../generated/fixtures/published_problem";
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { CourseId } from "../../../generated/api/CourseId";
+import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
+import type { CourseAppearanceUpdate } from "../../../generated/api/CourseAppearanceUpdate";
+import type { CourseBannerCandidateReceipt } from "../../../generated/api/CourseBannerCandidateReceipt";
 import type { CatalogProblemDetail } from "../../../generated/api/CatalogProblemDetail";
 import type { CatalogSearchPage } from "../../../generated/api/CatalogSearchPage";
 import type { GradebookSummaryRow } from "../../../generated/api/GradebookSummaryRow";
@@ -22,12 +25,16 @@ import {
   ApiRequestError,
   AssignmentConflictError,
   AssignmentValidationError,
+  CourseAppearanceConflictError,
+  CourseAppearanceFileError,
   WorkspaceConflictError,
 } from "../http_client";
 import { catalogSearchPath } from "../catalog_query";
 import {
   decodeCatalogProblemDetail,
   decodeCatalogSearchPage,
+  decodeCourseAppearance,
+  decodeCourseBannerCandidateReceipt,
   decodeAssignmentCapabilityViolations,
   decodeAssignmentEditorDetail,
   decodeAssignmentEditorInput,
@@ -58,6 +65,8 @@ import {
   createMockFetch,
   externalToolFixtureAttempt,
   issuedEnvelopeForAttempt,
+  mockCourseAppearance,
+  secondaryMockCourse,
   mockAttemptById,
   mockExternalToolSubmissionReceipt,
   mockFeedbackForAttempt,
@@ -143,6 +152,47 @@ export interface MockApiClientConfig {
   readonly workspaceAuthoring?: boolean;
   /** Assignment mutation is denied unless a focused instructor fixture explicitly enables it. */
   readonly assignmentAuthoring?: boolean;
+  /** Course appearance mutation is denied unless an instructor fixture explicitly enables it. */
+  readonly courseAppearanceAuthoring?: boolean;
+}
+
+function requireMockNoStore(response: Response, path: string): void {
+  const directives =
+    response.headers
+      .get("cache-control")
+      ?.split(",")
+      .map((directive) => directive.trim().toLowerCase()) ?? [];
+  if (!directives.includes("no-store")) {
+    throw new ApiProtocolError(`Mock API response ${path} must be no-store`);
+  }
+}
+
+async function requestMockCourseAppearance(
+  responsePromise: Promise<Response>,
+  path: string,
+): Promise<CourseAppearance> {
+  const response = await responsePromise;
+  requireMockNoStore(response, path);
+  if (response.status === 412) throw new CourseAppearanceConflictError(path);
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  const appearance = decodeCourseAppearance(JSON.parse(await response.text()), "response");
+  if (response.headers.get("etag") !== `"${appearance.revision}"`) {
+    throw new ApiProtocolError(`Mock API response ${path} ETag does not match its revision`);
+  }
+  return appearance;
+}
+
+async function requestMockBannerCandidate(
+  responsePromise: Promise<Response>,
+  path: string,
+): Promise<CourseBannerCandidateReceipt> {
+  const response = await responsePromise;
+  requireMockNoStore(response, path);
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  if (response.status !== 201) {
+    throw new ApiProtocolError(`Mock API response ${path} must use status 201`);
+  }
+  return decodeCourseBannerCandidateReceipt(JSON.parse(await response.text()), "response");
 }
 
 function validMockAssignmentRevision(revision: string): boolean {
@@ -217,6 +267,12 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
       : new Error("Mock assignment authoring is not authorized");
   }
 
+  function courseAppearanceAuthoringError(): Error | undefined {
+    return config.courseAppearanceAuthoring === true
+      ? undefined
+      : new Error("Mock course appearance authoring is not authorized");
+  }
+
   function workspaceDetail(): WorkspaceDraftDetail {
     if (workspaceDraft === undefined) throw new Error("Mock workspace draft is unavailable");
     return { draft: workspaceDraft, revision: `"${workspaceRevision}"` };
@@ -259,6 +315,26 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
         },
       };
       return expectSerialized(mockFetch("/api/auth/session"), expected);
+    },
+    loginWithLocalCredential: (credential: string) => {
+      if (credential.length === 0) return Promise.reject(new Error("credential is required"));
+      const expected: AuthSession = {
+        authenticated: true,
+        tenant: publishedProblemFixture.enrollment.tenant,
+        user: {
+          id: publishedProblemFixture.enrollment.user,
+          displayName: "Fixture Student",
+          roles: ["student"],
+        },
+      };
+      return expectSerialized(
+        mockFetch("/api/auth/login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ credential }),
+        }),
+        expected,
+      );
     },
     listWorkspaceDrafts: (): Promise<WorkspaceDraftPage> => {
       const authorizationError = workspaceAuthoringError();
@@ -424,12 +500,57 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
       return expectSerialized(mockFetch(`/api/courses${suffix}`), expected);
     },
     getCourse: (courseId: CourseId) => {
-      if (courseId !== publishedProblemFixture.course.id) {
+      const expected =
+        courseId === publishedProblemFixture.course.id
+          ? publishedProblemFixture.course
+          : courseId === secondaryMockCourse.id
+            ? secondaryMockCourse
+            : undefined;
+      if (expected === undefined)
         return Promise.reject(new Error(`Fixture has no course ${courseId}`));
+      return expectSerialized(mockFetch(`/api/courses/${courseId}`), expected);
+    },
+    getCourseAppearance: (courseId: CourseId) =>
+      requestMockCourseAppearance(
+        mockFetch(`/api/courses/${courseId}/appearance`),
+        `/api/courses/${courseId}/appearance`,
+      ),
+    uploadCourseBannerCandidate: (courseId: CourseId, image: Blob) => {
+      const authorizationError = courseAppearanceAuthoringError();
+      if (authorizationError !== undefined) return Promise.reject(authorizationError);
+      if (image.size <= 0) return Promise.reject(new CourseAppearanceFileError("image is empty"));
+      if (image.size > 2 * 1_024 * 1_024) {
+        return Promise.reject(new CourseAppearanceFileError("image exceeds 2 MiB"));
       }
-      return expectSerialized(
-        mockFetch(`/api/courses/${courseId}`),
-        publishedProblemFixture.course,
+      const path = `/api/courses/${courseId}/appearance/banner-candidates`;
+      return requestMockBannerCandidate(
+        mockFetch(path, {
+          method: "POST",
+          headers: { accept: "application/json", "content-type": image.type },
+          body: image,
+        }),
+        path,
+      );
+    },
+    saveCourseAppearance: (
+      courseId: CourseId,
+      update: CourseAppearanceUpdate,
+      revision: string,
+    ) => {
+      const authorizationError = courseAppearanceAuthoringError();
+      if (authorizationError !== undefined) return Promise.reject(authorizationError);
+      const path = `/api/courses/${courseId}/appearance`;
+      return requestMockCourseAppearance(
+        mockFetch(path, {
+          method: "PUT",
+          headers: {
+            accept: "application/json",
+            "content-type": "application/json",
+            "if-match": `"${revision}"`,
+          },
+          body: JSON.stringify(update),
+        }),
+        path,
       );
     },
     listGradebook: (courseId: CourseId, cursor?: string, pageSize?: number) => {
@@ -455,7 +576,7 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
     },
     listAssignments: (courseId: CourseId, cursor?: string) => {
       const expected = {
-        items: [publishedProblemFixture.assignment],
+        items: courseId === secondaryMockCourse.id ? [] : [publishedProblemFixture.assignment],
         nextCursor: null,
       } satisfies CursorPage<(typeof publishedProblemFixture)["assignment"]>;
       const suffix = cursor === undefined ? "" : `?cursor=${encodeURIComponent(cursor)}`;
@@ -694,7 +815,10 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
       }
       const issuedQuestion = await client.getIssuedQuestion(attempt.id);
       return {
-        course: publishedProblemFixture.course,
+        course: {
+          summary: publishedProblemFixture.course,
+          appearance: mockCourseAppearance,
+        },
         assignment: publishedProblemFixture.assignment,
         run,
         attempt,

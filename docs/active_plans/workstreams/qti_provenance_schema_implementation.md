@@ -50,9 +50,14 @@ conversion and object-copy orchestration remain WP-QTI-8.
   with named constraints.
 - Final independent checksum re-review: PASS with no P0/P1 findings.
 
-## Next package
+## Historical successor
 
-WP-QTI-8 implements the backend-owned atomic conversion in Memory and PostgreSQL. It must commit
-the CAS revision, draft, canonical source, private compiler payload, and current origin together;
-it must then promote only the locked current origin while copying the immutable archive. Its
-conformance and PostgreSQL feature tests must keep the accepted schema capabilities narrow.
+WP-QTI-8 was the immediate successor. It implemented backend-owned atomic conversion in Memory and
+PostgreSQL, committed the CAS revision, draft, canonical source, private compiler payload, and
+current origin together, and promoted only the locked current origin while copying the immutable
+archive. Its conformance and PostgreSQL feature tests kept schema capabilities narrow.
+
+WP-QTI-1 through WP-QTI-12 are now accepted history. Current authority is
+[release_completion_plan.md](../active/release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
+is current, WP-ARCH1 follows it, then WP-RC4 owns the QTI-JSONL contract, WP-RC5 owns families and
+Chapter 1 content, and WP-RC6 closes QTI export and H5P claims.

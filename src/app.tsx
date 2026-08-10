@@ -1,9 +1,10 @@
 // app.tsx - persistent application shell and route-level error boundary.
 
 import { A, useLocation, type RouteSectionProps } from "@solidjs/router";
-import { createEffect, ErrorBoundary, Show, type JSX } from "solid-js";
+import { createEffect, createSignal, ErrorBoundary, Show, type JSX } from "solid-js";
 
 import { useSessionBootstrap, type SessionBootstrapState } from "./auth/session_context";
+import { CourseThemeScope } from "./features/course_appearance/course_theme_scope";
 
 declare global {
   interface Window {
@@ -23,21 +24,29 @@ function canUseAuthoringTools(state: SessionBootstrapState): boolean {
   );
 }
 
-function SessionContent(props: RouteSectionProps): JSX.Element {
+type ScopedRouteSectionProps = RouteSectionProps & { readonly pathname: string };
+
+function SessionContent(props: ScopedRouteSectionProps): JSX.Element {
   const session = useSessionBootstrap();
   const state = session.state;
 
   return (
     <Show
       when={state().kind === "authenticated"}
-      fallback={<SessionRecovery state={state()} retry={session.retry} />}
+      fallback={
+        <SessionRecovery
+          state={state()}
+          retry={session.retry}
+          signInWithLocalCredential={session.signInWithLocalCredential}
+        />
+      }
     >
-      {props.children}
+      <CourseThemeScope pathname={props.pathname}>{props.children}</CourseThemeScope>
     </Show>
   );
 }
 
-function RouteContent(props: RouteSectionProps): JSX.Element {
+function RouteContent(props: ScopedRouteSectionProps): JSX.Element {
   const testFailure = window.__PLE_ROUTE_FAILURE_TEST__;
   if (testFailure?.() === true) {
     throw new Error("route-boundary-test-sentinel");
@@ -48,9 +57,24 @@ function RouteContent(props: RouteSectionProps): JSX.Element {
 interface SessionRecoveryProps {
   readonly state: SessionBootstrapState;
   readonly retry: () => Promise<void>;
+  readonly signInWithLocalCredential: (credential: string) => Promise<boolean>;
 }
 
 function SessionRecovery(props: SessionRecoveryProps): JSX.Element {
+  const [credential, setCredential] = createSignal("");
+  const [signInFailed, setSignInFailed] = createSignal(false);
+
+  async function signIn(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    setSignInFailed(false);
+    const accepted = await props.signInWithLocalCredential(credential());
+    if (accepted) {
+      setCredential("");
+    } else {
+      setSignInFailed(true);
+    }
+  }
+
   if (props.state.kind === "authenticated") {
     return <></>;
   }
@@ -75,6 +99,31 @@ function SessionRecovery(props: SessionRecoveryProps): JSX.Element {
       <p class="eyebrow">Session recovery</p>
       <h1>{title}</h1>
       <p>{description}</p>
+      <Show when={expired}>
+        <form class="local-sign-in" onSubmit={(event) => void signIn(event)}>
+          <label for="local-development-credential">Local development credential</label>
+          <input
+            id="local-development-credential"
+            type="password"
+            autocomplete="off"
+            spellcheck={false}
+            value={credential()}
+            onInput={(event) => setCredential(event.currentTarget.value)}
+            required
+          />
+          <p class="field-help">
+            Paste the instructor or student value from containers/local-login.txt.
+          </p>
+          <Show when={signInFailed()}>
+            <p class="inline-error" role="alert">
+              That local credential was not accepted. Copy it again and retry.
+            </p>
+          </Show>
+          <button class="primary-action" type="submit">
+            Sign in locally
+          </button>
+        </form>
+      </Show>
       <div class="action-row">
         <button class="primary-action" type="button" onClick={() => void props.retry()}>
           Try again
@@ -160,7 +209,7 @@ export function App(props: RouteSectionProps): JSX.Element {
               )}
             >
               <div data-current-path={pathname}>
-                <RouteContent {...props} />
+                <RouteContent {...props} pathname={pathname} />
               </div>
             </ErrorBoundary>
           )}

@@ -122,9 +122,14 @@ reviewed table covering all eight capabilities and the return-all behavior.
 ### Response shapes
 
 `ResponseDefinition` and `StudentResponse` are parallel enums: numeric,
-multiple choice, short text, ordering, file upload. Within a variant, invalid
-field combinations are unrepresentable, so a multiple-choice response carries
-choice identifiers and nothing else.
+multiple choice, short text, ordering, file upload, and external tool. Within
+a variant, invalid field combinations are unrepresentable, so a
+multiple-choice response carries choice identifiers and nothing else.
+
+`ExternalTool` is a fieldless marker variant in both enums. It carries no
+provider, launch, answer, score, token, or completion material. The server
+owns the later provider exchange through its external-tool broker, so the
+question envelope and generic submission record remain answer-free.
 
 Agreement _between_ the two and variant-specific format rules live in
 `domain::validation::validate_response_format`. The browser calls that pure

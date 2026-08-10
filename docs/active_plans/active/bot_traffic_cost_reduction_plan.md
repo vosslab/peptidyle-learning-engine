@@ -1,9 +1,37 @@
 # Plan: Bot traffic cost containment
 
-Status: proposed companion plan for M6 `MOD-DEPLOY`; it does not change the dependency order in the
-main implementation plan.
+## Status
 
-## Context
+Planning state: decision-complete companion to WP-RC10 and WP-RC11. OpenTofu in
+`deploy/opentofu/` owns production infrastructure, and standards-based institutional OIDC owns
+production login. WP-BOT-1 through WP-BOT-10 retain their dependency order; no setup patch waits for
+an infrastructure-language or identity-provider choice.
+
+## Decisions
+
+- Use OpenTofu with one declarative root at `deploy/opentofu/`; console changes are emergency-only
+  and must be imported before incident closure.
+- Use institutional OIDC Authorization Code with PKCE behind the existing `IdentityProvider`.
+- Ship no client analytics. Aggregate CloudFront, WAF, ALB, application, queue, database, and cost
+  metrics provide the version 1 evidence boundary.
+- Keep `www` as a static private-S3/CloudFront origin and `app` as same-origin SPA plus API.
+- Preserve legitimate shared-egress, VPN/datacenter, international, IPv4/IPv6, keyboard, and
+  screen-reader use as enforcement gates.
+
+## Objectives
+
+- Make anonymous crawling consume static edge bytes or a cheap refusal, never learning-engine
+  dependencies.
+- Keep production edge, identity, cost, accessibility, recovery, and rollback behavior declarative
+  and testable.
+- Prove controls against both adversarial traffic and the synthetic class-start workload.
+
+## Scope
+
+WP-BOT-1 through WP-BOT-10, their OpenTofu owners, permanent policy tests, disposable deployment
+rehearsals, cost evidence, runbooks, and independent reviews are in scope for version 1.
+
+## Background
 
 The local reference, [99% of My Website Traffic Is Bots](../../how-to-reduce-impact-of-bot-traffic.md),
 describes an extreme but useful asymmetry: anonymous crawlers can consume nearly all origin work
@@ -43,7 +71,7 @@ PLE production landing page will use a private S3 origin behind CloudFront. That
 asset-delivery architecture, separates anonymous bandwidth from API tasks, and keeps the generated
 landing artifact portable. GitHub Pages is not a production fallback in this plan.
 
-## Objectives
+## Package objectives
 
 - Make the cost of an anonymous landing-page crawl independent of API, database, object-store,
   renderer, provider, and worker capacity.
@@ -83,7 +111,7 @@ No edge verified-bot or challenge result grants application authority.
   evidence may revise the scenario and thresholds; the plan does not claim those observations exist
   today.
 
-## Scope
+## Detailed capability scope
 
 - Build one minimal public landing artifact with no API, authentication, or personalized content.
 - Separate the public and authenticated hosts with explicit DNS, cookie, CSP, CORS, and redirect
@@ -159,24 +187,14 @@ Durable ownership rules:
 
 ### Deployment artifact prerequisite
 
-The main M6 plan names AWS services but does not yet select Terraform, OpenTofu, AWS CDK, or
-CloudFormation. This companion plan therefore does **not** pretend an infrastructure implementation
-language is already frozen. Before WP-BOT-5 starts, the M6 `MOD-DEPLOY` architect must record one
-choice in the active M6 tracker and name its repository root. The decision is bounded to one working
-session and uses this order:
-
-1. Prefer an already maintained declarative deployment tool if current repository evidence shows
-   one; do not introduce a second tool.
-2. Otherwise compare OpenTofu and AWS CDK/CloudFormation using a disposable `www` distribution,
-   private S3 origin, and rollback. Record generated plan readability, secret materialization and
-   state handling, drift detection, policy-test access, deletion safety, and contributor toolchain
-   cost.
-3. Select the candidate only after a disposable proof shows that generated credentials stay out of
-   source, plan output, logs, and ordinary state inspection; remote state is encrypted and restricted
-   to the deployment identity; rotation can complete and roll back; drift is detectable; offline
-   policy tests need no live credentials; and destroy leaves no public origin. If no candidate meets
-   this boundary, record and review a replacement origin-authentication design before WP-BOT-6 or
-   block M6 rather than falling back to console-only changes.
+WP-RC10 creates one OpenTofu root at `deploy/opentofu/`. Its production files are
+`versions.tf`, `providers.tf`, `variables.tf`, `locals.tf`, `network.tf`, `database.tf`,
+`storage.tf`, `compute.tf`, `edge.tf`, `waf.tf`, `observability.tf`, and `outputs.tf`, with
+`env.example.tfvars` and `tests/policy.tftest.hcl`. The disposable proof must show that generated
+credentials stay out of source, plan output, logs, and ordinary state inspection; remote state is
+encrypted and restricted to the deployment identity; rotation can complete and roll back; drift is
+detectable; offline policy tests need no live credentials; and destroy removes only resources tagged
+with its exact deployment ID.
 
 The accepted deployment root is the only source of truth for DNS, certificates, distributions,
 origins, WAF, alarms, budgets, and runtime ceilings. Console edits are emergency-only, require an
@@ -275,14 +293,13 @@ Route authority is checked before request body parsing beyond the route's small 
 object fetch, signed-URL issuance, queue insertion, renderer/provider calls, or other work whose cost
 scales with attacker input. `GET /api/auth/session` follows the same absent/malformed/unknown rules.
 
-Production uses the owner-selected `IdentityProvider`; the architecture intentionally permits OIDC,
-SSO, LTI, or another reviewed provider without changing session mechanics. The local-development
-provider is never a production fallback. Credential entry, recovery, abuse controls, anti-replay,
-and login CSRF remain with the selected provider. PLE accepts only its bounded presentation,
+Production uses institutional OIDC Authorization Code with PKCE through `IdentityProvider`. The
+local-development provider is never a production fallback. Provider discovery, issuer allowlisting,
+state, nonce, PKCE, callback binding, credential recovery, abuse controls, anti-replay, and login
+CSRF are owned by WP-RC8. PLE accepts only its bounded presentation,
 performs at most one provider verification, and inserts a session only after successful verification;
 failure creates no session row and returns one provider-independent generic refusal. This plan does
-not add a database counter keyed by attacker-supplied account text. Patch 0B records the production
-provider and its provider-specific security and callback contract before WP-BOT-4 deploys that path.
+not add a database counter keyed by attacker-supplied account text.
 
 The edge login/callback allowance is calibrated from WP-BOT-1's versioned class-start/shared-egress
 scenario. Its initial retry and refresh assumptions are explicit rather than described as observed;
@@ -306,13 +323,13 @@ injected values and do not freeze a tunable production number.
 - Both S3 origins are private and readable only through their owning CloudFront origin access
   control.
 - The ALB accepts internet traffic only from the AWS-managed CloudFront origin-facing network list
-  and a second origin-authentication condition proven by Patch 0A. The preferred condition is the
+  and a second origin-authentication condition proven by WP-RC10. The condition is the
   rotated header below; failure of either condition is a refusal before an API task.
-- The preferred second condition is a rotated CloudFront-added header whose value lives in Secrets
-  Manager and is materialized only by the deployment identity. Patch 0A must first prove that the
-  selected tool keeps it out of source, plan output, logs, metrics, application configuration, and
-  ordinary state inspection. If it cannot, WP-BOT-6 selects another reviewed origin-authentication
-  mechanism rather than weakening the boundary. When the header design is selected, the ALB listener
+- The second condition is a rotated CloudFront-added header whose value lives in Secrets Manager and
+  is materialized only by the deployment identity. WP-RC10 proves that it stays out of source, plan
+  output, logs, metrics, and application configuration and is visible only to the restricted
+  encrypted-state and deployment identities required to configure it. Failure blocks WP-RC10; the
+  implementation may not weaken either condition. The ALB listener
   owns verification; application handlers never receive or interpret it. Rotation may accept old and
   new values concurrently only until the new distribution is verified. The deployment records an
   expiry derived from measured CloudFront propagation and the rehearsed rollback window; reaching it
@@ -457,9 +474,8 @@ later provider change is a DNS/deployment change, not a UI rewrite.
   authenticated app routing, scoped cookies, private origins/health, static security headers, and
   cheap anonymous refusal.
 - Workstreams: WS-LANDING, WS-AUTH, and WS-HOSTS.
-- Entry criteria: M1 exit criteria met, Patch 0A has selected one declarative tool and repository
-  root, and Patch 0B has recorded the production `IdentityProvider` before provider-specific auth
-  deployment begins.
+- Entry criteria: M1 exit criteria met; WP-RC10 owns OpenTofu at `deploy/opentofu/`; WP-RC8 owns
+  production institutional OIDC before provider-specific auth deployment begins.
 - Exit criteria:
   - Loading and crawling `www` causes zero PLE API, database, object, queue, renderer, and provider
     operations.
@@ -612,7 +628,7 @@ later provider change is a DNS/deployment change, not a UI rewrite.
 - Evidence or review: permanent pure redaction and bounded-configuration behavior tests with inline
   inputs; one-time generated crawler and versioned class-start/shared-egress baseline sized until the
   estimate is stable across repeated runs.
-- Obvious follow-ons: freeze the baseline artifact and pass its metric names to WP-BOT-7 and
+- Next dependency: freeze the baseline artifact and pass its metric names to WP-BOT-7 and
   WP-BOT-8.
 
 ### Work package: WP-BOT-2 freeze the route-cost inventory
@@ -630,7 +646,7 @@ later provider change is a DNS/deployment change, not a UI rewrite.
   - Internal health, worker, renderer, provider, and object origins are not public routes.
 - Evidence or review: permanent source/route-contract assertion that fails when a new route is
   unclassified or two classes claim it.
-- Obvious follow-ons: hand the inventory to landing, auth, and host owners.
+- Next dependency: WP-BOT-3 through WP-BOT-5 consume this inventory.
 
 ### Work package: WP-BOT-3 build the static landing
 
@@ -648,7 +664,7 @@ later provider change is a DNS/deployment change, not a UI rewrite.
 - Evidence or review: permanent local Playwright checks for the visible sign-in journey, keyboard
   access, and observed network behavior; one-time artifact review, responsive contact sheet,
   measured contrast, and compressed-transfer comparison with the authenticated app.
-- Obvious follow-ons: hand the exact `dist/landing/` artifact and response-header manifest to
+- Next dependency: hand the exact `dist/landing/` artifact and response-header manifest to
   WP-BOT-5.
 
 ### Work package: WP-BOT-4 reject anonymous work cheaply
@@ -673,9 +689,9 @@ later provider change is a DNS/deployment change, not a UI rewrite.
     concurrency and queue ceilings without affecting another tenant's class-start reserve.
 - Evidence or review: permanent offline mounted tests with inline inputs and counting Store/provider
   fakes for refusal, provider rejection parity, and production-provider fail-closed composition;
-  add OIDC replay/CSRF cases only when Patch 0B selects OIDC. Reuse the established replica E2E
+  include OIDC state/nonce/PKCE/replay/CSRF cases from WP-RC8. Reuse the established replica E2E
   instead of adding a second fixture.
-- Obvious follow-ons: expose the route classes needed by WP-BOT-5 without exposing secrets.
+- Next dependency: expose the route classes needed by WP-BOT-5 without exposing secrets.
 
 ### Work package: WP-BOT-5 configure hosts and cache behaviors
 
@@ -706,7 +722,7 @@ later provider change is a DNS/deployment change, not a UI rewrite.
     tests.
 - Evidence or review: permanent offline cache-policy behavior and SPA-fallback tests with injected
   TTLs; one-time disposable DNS/TLS/cache-poisoning/cookie browser probe.
-- Obvious follow-ons: hand the distribution IDs, origins, and exact path matchers to WP-BOT-6.
+- Next dependency: WP-BOT-6 consumes the distribution IDs, origins, and exact path matchers.
 
 ### Work package: WP-BOT-6 shield origins and private health
 
@@ -718,7 +734,7 @@ later provider change is a DNS/deployment change, not a UI rewrite.
   - Direct requests to each S3 origin, ALB address, object API, renderer, worker control, database,
     and semantic health path refuse from the public test network.
   - CloudFront reaches both S3 origins and the ALB only through the declared origin identities.
-  - The ALB requires both the CloudFront origin-facing network source and the Patch 0A-selected
+  - The ALB requires both the CloudFront origin-facing network source and the WP-RC10
     second condition; either condition alone is insufficient.
   - Target-group `/health` verifies application dependencies from inside the deployment network and
     never appears as a CloudFront behavior.
@@ -727,7 +743,7 @@ later provider change is a DNS/deployment change, not a UI rewrite.
 - Evidence or review: permanent offline infrastructure-policy behavior with injected representative
   current/next condition values, clock, expiry, and rollback state; one-time disposable public-
   versus-internal origin/health matrix.
-- Obvious follow-ons: provide the verified origin boundary to WP-BOT-7 and WP-BOT-8.
+- Next dependency: WP-BOT-7 and WP-BOT-8 consume the verified origin boundary.
 
 ### Work package: WP-BOT-7 implement edge controls
 
@@ -751,7 +767,7 @@ later provider change is a DNS/deployment change, not a UI rewrite.
 - Evidence or review: permanent offline rule-order/state-transition behavior with injected policy
   values; one-time generated crawler, verified-bot spoof, IPv4/IPv6, versioned shared-egress,
   VPN/datacenter, and challenge-accessibility comparison.
-- Obvious follow-ons: send rule action metrics and stable IDs to WP-BOT-8.
+- Next dependency: WP-BOT-8 consumes the rule action metrics and stable IDs.
 
 ### Work package: WP-BOT-8 add cost and scaling guardrails
 
@@ -774,7 +790,7 @@ later provider change is a DNS/deployment change, not a UI rewrite.
   lifecycle, and budget controls refuse and that anonymous traffic cannot raise worker/renderer
   capacity; one-time checked-plan review confirms live dashboard metadata, alarm injection,
   capacity/replica-loss, scale ceilings, and notification delivery.
-- Obvious follow-ons: supply the injectable policy schema to WP-BOT-9; deployed thresholds and live
+- Next dependency: supply the injectable policy schema to WP-BOT-9; deployed thresholds and live
   dashboard evidence go only to WP-BOT-10 and the operator runbook.
 
 ### Work package: WP-BOT-9 freeze permanent adversarial gates
@@ -795,7 +811,7 @@ later provider change is a DNS/deployment change, not a UI rewrite.
 - Evidence or review: the focused permanent suite passes once through its normal front-door command;
   temporary mutation probes demonstrate important test sensitivity during implementation and are
   removed before handoff.
-- Obvious follow-ons: freeze the exact command and hand it to WP-BOT-10 and the main M6 gate.
+- Next dependency: freeze the exact command for WP-BOT-10 and the main M6 gate.
 
 ### Work package: WP-BOT-10 run live acceptance and close the plan
 
@@ -820,7 +836,7 @@ later provider change is a DNS/deployment change, not a UI rewrite.
 - Evidence or review: one fresh disposable deployment rehearsal, one-time cost report, emergency
   enable/recover/expire rehearsal, and two independent reviews. These cloud checks are not invoked by
   `pytest tests/`, the ordinary Node/Rust suites, or the local Playwright runner.
-- Obvious follow-ons: update M6 status and changelog, preserve the evidence artifact, then archive
+- Next dependency: update M6 status and changelog, preserve the evidence artifact, then archive
   this plan with `git mv` only when every exit criterion passes.
 
 ## Acceptance criteria and gates
@@ -875,7 +891,7 @@ a useful implementation probe does not become a permanent test merely because it
   observes that the landing starts no cookie, storage, service worker, third-party request, or PLE
   API request. It uses web-first readiness rather than sleeps and asserts no pixel equality, elapsed
   milliseconds, byte total, or animation magnitude.
-- The selected declarative deployment tool may keep offline policy tests that evaluate a generated
+- OpenTofu keeps offline policy tests that evaluate a generated
   plan without AWS credentials. They assert security behavior -- private origins, disjoint cache/API
   behavior, finite limits and expiry, and rollback state -- while accepting injected TTLs, rate
   thresholds, budgets, and durations.
@@ -927,29 +943,29 @@ a useful implementation probe does not become a permanent test merely because it
 
 ## Risk register
 
-| Risk                                              | Impact | Trigger                                                                         | Owner               | Mitigation                                                                                                                                                  |
-| ------------------------------------------------- | ------ | ------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GitHub Pages use conflicts with service terms     | High   | A showcase starts serving commercial PLE operation                              | Architect           | Production is fixed to S3/CloudFront; remove the separate showcase if its current use no longer clearly fits GitHub's terms                                 |
-| Bots follow the sign-in link                      | High   | Anonymous app-origin ratio or `bot_cost_per_10k` exceeds its accepted baseline  | Edge owner          | Static app shell, exact WAF buckets, one-lookup unknown-session ceiling, and emergency mode                                                                 |
-| Random cookies force database lookups             | High   | Unknown-session lookups approach the API or database alarm                      | Auth owner          | One indexed lookup maximum, missing/malformed zero lookup, edge invalid-session bucket, no other dependency work                                            |
-| Challenge blocks legitimate students              | High   | A recorded legitimate-use scenario hard-blocks or cannot recover accessibly     | UI/UX owner         | Return the rule to report-only immediately; revise matcher or remove it before enforcement                                                                  |
-| Country or ASN rules exclude remote learners      | High   | Legitimate pilot/support evidence shares the proposed blocked geography/network | Operations owner    | Initial policy has no country/ASN block; later evidence record requires challenge-first action, exception path, removal date                                |
-| Public health endpoint amplifies DB/object probes | Medium | Any public probe reaches semantic `/health`                                     | Deployment owner    | No CloudFront health behavior; permanent offline policy behavior plus a one-time disposable public/internal matrix                                          |
-| Direct origin bypass defeats edge controls        | High   | Either origin-authentication condition alone reaches ALB/S3                     | Deployment owner    | Private S3 OAC plus two reviewed ALB origin conditions; the preferred design is CloudFront network allowlist plus a safely materialized rotated header       |
-| Cache poisoning crosses users                     | High   | Attacker-controlled query/header/cookie changes a cached clean response         | Deployment owner    | Permanent offline cache-key/response-policy behavior plus a one-time disposable clean-client replay                                                        |
-| Autoscaling converts bot traffic into spend       | High   | Anonymous traffic changes worker/renderer scale or exceeds API ceiling          | Operations owner    | Anonymous work cannot enqueue; API ceiling follows the versioned class-start and replica-failure evidence; alarms and emergency mode                        |
+| Risk                                              | Impact | Trigger                                                                               | Owner               | Mitigation                                                                                                                                                  |
+| ------------------------------------------------- | ------ | ------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub Pages use conflicts with service terms     | High   | A showcase starts serving commercial PLE operation                                    | Architect           | Production is fixed to S3/CloudFront; remove the separate showcase if its current use no longer clearly fits GitHub's terms                                 |
+| Bots follow the sign-in link                      | High   | Anonymous app-origin ratio or `bot_cost_per_10k` exceeds its accepted baseline        | Edge owner          | Static app shell, exact WAF buckets, one-lookup unknown-session ceiling, and emergency mode                                                                 |
+| Random cookies force database lookups             | High   | Unknown-session lookups approach the API or database alarm                            | Auth owner          | One indexed lookup maximum, missing/malformed zero lookup, edge invalid-session bucket, no other dependency work                                            |
+| Challenge blocks legitimate students              | High   | A recorded legitimate-use scenario hard-blocks or cannot recover accessibly           | UI/UX owner         | Return the rule to report-only immediately; revise matcher or remove it before enforcement                                                                  |
+| Country or ASN rules exclude remote learners      | High   | Legitimate pilot/support evidence shares the proposed blocked geography/network       | Operations owner    | Initial policy has no country/ASN block; later evidence record requires challenge-first action, exception path, removal date                                |
+| Public health endpoint amplifies DB/object probes | Medium | Any public probe reaches semantic `/health`                                           | Deployment owner    | No CloudFront health behavior; permanent offline policy behavior plus a one-time disposable public/internal matrix                                          |
+| Direct origin bypass defeats edge controls        | High   | Either origin-authentication condition alone reaches ALB/S3                           | Deployment owner    | Private S3 OAC plus two reviewed ALB origin conditions; the preferred design is CloudFront network allowlist plus a safely materialized rotated header      |
+| Cache poisoning crosses users                     | High   | Attacker-controlled query/header/cookie changes a cached clean response               | Deployment owner    | Permanent offline cache-key/response-policy behavior plus a one-time disposable clean-client replay                                                         |
+| Autoscaling converts bot traffic into spend       | High   | Anonymous traffic changes worker/renderer scale or exceeds API ceiling                | Operations owner    | Anonymous work cannot enqueue; API ceiling follows the versioned class-start and replica-failure evidence; alarms and emergency mode                        |
 | Defensive logs become the largest bot cost        | Medium | Logging materially changes the measured defense cost or exceeds its configured budget | Observability owner | Aggregate metrics first; finite evidence-based sample and expiry; cost alarm on the logging category                                                        |
-| Public immutable assets are scraped               | Medium | CDN egress alarm rises without authenticated catalog use                        | Asset owner         | Landing links no problem assets; authenticated catalog provides no public listing; URLs remain non-secret and answer-free; CDN cache absorbs repeated reads |
-| Static host outage blocks discovery               | Low    | `www` fails while `app` remains healthy                                         | Deployment owner    | Independent hosts, documented direct app URL, previous immutable landing manifest rollback                                                                  |
-| Console drift bypasses reviewed edge policy       | High   | Deployed DNS/CDN/WAF/alarm state differs from the checked declarative plan      | M6 architect        | One deployment root, drift gate before release, emergency console changes imported before incident closure                                                  |
+| Public immutable assets are scraped               | Medium | CDN egress alarm rises without authenticated catalog use                              | Asset owner         | Landing links no problem assets; authenticated catalog provides no public listing; URLs remain non-secret and answer-free; CDN cache absorbs repeated reads |
+| Static host outage blocks discovery               | Low    | `www` fails while `app` remains healthy                                               | Deployment owner    | Independent hosts, documented direct app URL, previous immutable landing manifest rollback                                                                  |
+| Console drift bypasses reviewed edge policy       | High   | Deployed DNS/CDN/WAF/alarm state differs from the checked declarative plan            | M6 architect        | One deployment root, drift gate before release, emergency console changes imported before incident closure                                                  |
 
 ## Rollout and release checklist
 
-- [ ] Freeze one declarative deployment tool and repository root in the M6 tracker; prove restricted
-      encrypted state, no-secret plan/log output, drift detection, policy-test access, rotation/
-      rollback, and safe disposable destroy.
-- [ ] Select the production `IdentityProvider`; record its credential, callback, anti-replay, login
-      CSRF, recovery, and abuse-control boundary before provider-specific deployment work.
+- [ ] Implement and accept the OpenTofu root in `deploy/opentofu/`; prove restricted encrypted state,
+      no-secret plan/log output, drift detection, policy-test access, rotation/rollback, and safe
+      disposable destroy.
+- [ ] Implement and accept institutional OIDC through WP-RC8; record its issuer/client, callback,
+      PKCE, anti-replay, login CSRF, recovery, and abuse-control evidence.
 - [ ] Freeze route classes and baseline metrics before selecting production rules.
 - [ ] Reconfirm and record the current S3/CloudFront terms, quotas, price model, region, and budget.
 - [ ] Build immutable landing/app manifests and prove rollback locally before DNS work.
@@ -982,10 +998,10 @@ a useful implementation probe does not become a permanent test merely because it
 
 ## Patch plan and reporting format
 
-- Patch 0A: M6 deployment-tool decision record, one declarative repository root, and disposable
+- Patch 0A: WP-RC10 creates the OpenTofu root and passes disposable
   secret-materialization/state/plan/drift/rotation/destroy proof. This blocks Patch 3, not
   measurement, inventory, or landing work.
-- Patch 0B: owner selection of the production `IdentityProvider` and its credential/callback security
+- Patch 0B: WP-RC8 implements institutional OIDC and passes its credential/callback/PKCE security
   contract. This blocks provider-specific parts of Patch 2B, not its provider-neutral refusal work.
 - Patch 1A: WP-BOT-1 privacy-bounded cost metrics and generated workload definitions.
 - Patch 1B: WP-BOT-2 closed route-cost inventory and source assertion; runs parallel with 1A.
@@ -1001,22 +1017,9 @@ a useful implementation probe does not become a permanent test merely because it
 Each patch report states: owned files, behavior changed, permanent tests, one-time checks, measured
 origin/cost effect, legitimate-user impact, rollback, and remaining dependency IDs.
 
-## Open questions and decisions needed
+## Decision completeness
 
-Two bounded M6 decisions remain. The M6 architect must select the single declarative deployment tool
-and repository root before WP-BOT-5. The owner must select the production `IdentityProvider` before
-provider-specific WP-BOT-4 deployment and tests; the server's provider-neutral session contract does
-not imply OIDC. S3/CloudFront is already the production host, the first landing ships without client
-analytics, and the evidence procedure for tunable rules is frozen above. WP-BOT-1 through WP-BOT-3
-and provider-neutral WP-BOT-4 refusal work can proceed in parallel; console-only deployment and the
-local-development provider are not fallbacks.
-
-- Manager/subagent decision procedure:
-  - Decision owner or dedicated class: product owner with operations evidence.
-  - Evidence and decision rule: after authorized traffic includes both ordinary use and a
-    representative class-start peak, name the specific product question that edge aggregate metrics
-    cannot answer. Keep the no-client-analytics design when no such question exists. If one exists,
-    write a separate plan for a first-party, aggregate-only measurement that preserves zero landing-
-    to-PLE API calls; third-party scripts and educational-record joins remain outside this plan.
-- Non-blocking follow-up: decide from that procedure whether a later aggregate-only landing metric is
-  worth its transfer, privacy, and operational cost.
+No bot-cost scope or implementation decision remains open. OpenTofu, institutional OIDC,
+S3/CloudFront, the host split, aggregate edge/server metrics, and the no-client-analytics boundary
+are fixed for version 1. A post-v1 analytics proposal requires a separate product question and plan;
+it cannot enter this package as implementation telemetry.

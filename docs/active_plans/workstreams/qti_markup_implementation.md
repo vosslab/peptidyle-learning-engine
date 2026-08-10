@@ -63,8 +63,13 @@ Canvas/Blackboard parser package consumes its entry points.
 - Tracked and staged whitespace checks passed.
 - Independent re-review reported PASS with no P0/P1 finding.
 
-## Next package
+## Historical successor
 
-Implement one exact vendor structural parser at a time, beginning with Canvas QTI 1.2. It must reuse
-the bounded archive/XML/markup/choice/mapped-item contracts and retain per-item refusal rather than
-widening this shared projector.
+The immediate successor was the Canvas QTI 1.2 structural parser. It reused the bounded
+archive/XML/markup/choice/mapped-item contracts and retained per-item refusal without widening this
+shared projector.
+
+WP-QTI-1 through WP-QTI-12 are now accepted history. Current authority is
+[release_completion_plan.md](../active/release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
+is current, WP-ARCH1 follows it, then WP-RC4 owns the QTI-JSONL contract, WP-RC5 owns families and
+Chapter 1 content, and WP-RC6 closes QTI export and H5P claims.

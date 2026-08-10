@@ -52,10 +52,15 @@ corpus.
 - Tracked, staged, and every new fixture/test-file whitespace check passed.
 - Independent review reported PASS with no remaining P0/P1 finding.
 
-## Next package
+## Historical successor
 
-Proceed to the exact profile parsers. The Canvas and Blackboard owners may share only a bounded
-markup/choice-ID helper with one explicit owner. They must consume this fixture corpus and frozen
-matrix, produce stable diagnostics and server-only mapped answer material, and preserve partial
-package success. They must not widen the existing generic archive-safety grammar or persist vendor
-XML as PLE source.
+The immediate successors were the exact profile parsers. The Canvas and Blackboard owners shared a
+bounded markup/choice-ID helper with one explicit owner. They consumed this fixture corpus and frozen
+matrix, produced stable diagnostics and server-only mapped answer material, and preserved partial
+package success without widening the generic archive-safety grammar or persisting vendor XML as PLE
+source.
+
+WP-QTI-1 through WP-QTI-12 are now accepted history. Current authority is
+[release_completion_plan.md](../active/release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
+is current, WP-ARCH1 follows it, then WP-RC4 owns the QTI-JSONL contract, WP-RC5 owns families and
+Chapter 1 content, and WP-RC6 closes QTI export and H5P claims.

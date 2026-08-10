@@ -28,11 +28,18 @@ import type { TenantId } from "../../generated/api/TenantId";
 import type { UserId } from "../../generated/api/UserId";
 import type { UserRole } from "../../generated/api/UserRole";
 import type { CourseId } from "../../generated/api/CourseId";
+import type { CourseAppearance } from "../../generated/api/CourseAppearance";
 import type { Seed } from "../../generated/api/Seed";
 import type { VersionId } from "../../generated/api/VersionId";
 
 export type { AssignmentSummary, CourseSummary };
 export type { GradebookSummaryRow };
+
+/** One authorized course identity and its browser-safe appearance projection. */
+export interface CourseRouteData {
+  readonly summary: CourseSummary;
+  readonly appearance: CourseAppearance;
+}
 
 /**
  * The instructor-only editable projection of a tenant-owned assignment.
@@ -133,6 +140,7 @@ export interface RunSummaryOutcome {
 
 /** Current server projection; it never includes a question key, result, or release policy. */
 export interface RunSummaryResponse {
+  readonly course: CourseRouteData;
   readonly run: AssignmentRun;
   readonly summary: StudentAssignmentSummary;
   readonly practiceAllowed: boolean;
@@ -239,7 +247,7 @@ export interface ExternalToolLaunch {
 
 /** Everything the reference run screen needs from one cached query. */
 export interface RunScreenData {
-  readonly course: CourseSummary;
+  readonly course: CourseRouteData;
   readonly assignment: AssignmentSummary;
   readonly run: AssignmentRun;
   readonly attempt: QuestionAttempt;

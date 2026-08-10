@@ -42,11 +42,17 @@ PostgreSQL/RLS/profile-to-native acceptance.
 - Independent route, worker, backend-lifecycle, and publication reviews reported PASS with no P0/P1
   finding.
 
-## Next dependency
+## Historical successor
 
-WP-QTI-10 owns the visible author UI over these stable safe DTOs. WP-QTI-11 remains responsible for
-the disposable live PostgreSQL/RLS/profile-to-native path, grading, archive/provenance, and cleanup.
-WP-QTI-12 remains the final independent review and documentation close-out.
+WP-QTI-10 was the immediate successor and owned the visible author UI over these stable safe DTOs.
+WP-QTI-11 then accepted the disposable live PostgreSQL/RLS/profile-to-native path, grading,
+archive/provenance, and cleanup; WP-QTI-12 completed final independent review and documentation
+close-out.
+
+WP-QTI-1 through WP-QTI-12 are now accepted history. Current authority is
+[release_completion_plan.md](../active/release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
+is current, WP-ARCH1 follows it, then WP-RC4 owns the QTI-JSONL contract, WP-RC5 owns families and
+Chapter 1 content, and WP-RC6 closes QTI export and H5P claims.
 
 ## Scope notes
 

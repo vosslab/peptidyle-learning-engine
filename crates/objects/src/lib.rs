@@ -19,7 +19,8 @@ pub mod minio;
 pub mod s3;
 
 pub use crate::bucket::{
-    Bucket, ObjectKey, published_import_archive_object_id, workspace_qti_archive_object_id,
+    Bucket, ObjectKey, course_banner_candidate_object_id, course_banner_object_id,
+    published_import_archive_object_id, workspace_qti_archive_object_id,
 };
 
 /// Semantic role of an object.
@@ -30,6 +31,8 @@ pub enum ObjectCategory {
     Source,
     /// Image, audio, or other referenced content asset.
     Asset,
+    /// Reusable tenant-owned course presentation content.
+    CourseContent,
     /// Regenerable rendered output.
     Render,
     /// Student-specific exported artifact.

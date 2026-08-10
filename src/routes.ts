@@ -1,8 +1,9 @@
-// routes.ts - executable copy of the frozen eleven-route product contract.
+// routes.ts - executable copy of the frozen product route contract.
 
 import type { Component } from "solid-js";
 import type { RouteDefinition } from "@solidjs/router";
 
+import { CourseAppearancePage } from "./features/course_appearance/course_appearance_page";
 import { AssignmentOverviewPage } from "./pages/assignment_overview_page";
 import { NotFoundPage } from "./pages/contract_pages";
 import { AssignmentEditorLivePage } from "./pages/assignment_editor_live_page";
@@ -30,6 +31,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   workspaceEditor: WorkspaceEditorLivePage,
   assignmentEditor: AssignmentEditorLivePage,
   gradebook: GradebookPage,
+  courseAppearance: CourseAppearancePage,
 };
 
 /** Router definitions derived from the frozen contract, not a second path list. */
@@ -39,7 +41,7 @@ export const appRoutes: ReadonlyArray<RouteDefinition> = ROUTE_CONTRACT.map((rou
   info: { id: route.id, surface: route.surface },
 }));
 
-/** Infrastructure fallback; intentionally excluded from the eleven product routes. */
+/** Infrastructure fallback; intentionally excluded from the product routes. */
 export const notFoundRoute: RouteDefinition = {
   path: "*unmatched",
   component: NotFoundPage,

@@ -349,6 +349,7 @@ test("the HTTP client decodes every implemented route and composes a run screen"
       roles: ["student"],
     },
   });
+  assert.equal((await client.loginWithLocalCredential("local-only-token")).authenticated, true);
   assert.equal(
     (await client.listProblems("next page")).items[0].problem,
     fixture.catalogProblem.problem,
@@ -365,6 +366,7 @@ test("the HTTP client decodes every implemented route and composes a run screen"
   assert.deepEqual((await client.listTaxonomy()).items, fixture.publishedProblem.metadata.taxonomy);
   assert.equal((await client.listCourses()).items[0].id, fixture.course.id);
   assert.equal((await client.getCourse(fixture.course.id)).role, "student");
+  assert.equal((await client.getCourseAppearance(fixture.course.id)).theme, "grass");
   const gradebook = await client.listGradebook(fixture.course.id, "next page", 25);
   assert.deepEqual(gradebook.items, fixture.gradebook);
   assert.equal(
@@ -403,7 +405,8 @@ test("the HTTP client decodes every implemented route and composes a run screen"
   );
   assert.equal((await client.getSummary(fixture.enrollment.id)).enrollment, fixture.enrollment.id);
   const screen = await client.getRunScreen(activeRun.id);
-  assert.equal(screen.course.id, fixture.course.id);
+  assert.equal(screen.course.summary.id, fixture.course.id);
+  assert.equal(screen.course.appearance.theme, "grass");
   assert.equal(screen.assignment.id, fixture.assignment.id);
   assert.equal(screen.attempt.run, activeRun.id);
   assert.equal(screen.issuedQuestion.version, screen.attempt.questionVersion);

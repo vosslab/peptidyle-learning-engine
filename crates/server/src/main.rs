@@ -23,6 +23,12 @@ fn process_mode(arguments: &[String]) -> anyhow::Result<ProcessMode> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .with_target(true)
+        .with_ansi(false)
+        .try_init()
+        .map_err(|error| anyhow::anyhow!("server logging could not be initialized: {error}"))?;
     let arguments = std::env::args().skip(1).collect::<Vec<_>>();
     let mode = process_mode(&arguments)?;
 

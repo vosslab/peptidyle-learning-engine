@@ -1,5 +1,9 @@
 # Partial commit status
 
+> Historical handoff snapshot. The current dated codebase status is
+> [project_status_report_2026-08-09.md](project_status_report_2026-08-09.md), and the authoritative
+> remaining dependency order is [active/release_completion_plan.md](active/release_completion_plan.md).
+
 Status recorded 2026-08-09 after the audited database-evolution checkpoint, independent PostgreSQL
 review remediation, the manual-grading and course-item-analysis packages, Store/server module
 extraction, the score precision/display package, the refreshed README, QTI import hardening,
@@ -11,25 +15,49 @@ contract, and its completed persistence/publication/runtime package.
 
 The status also includes accepted WP-QTI-7 schema/RLS/object-binding evidence, the completed,
 independently reviewed WP-QTI-8 Memory/PostgreSQL conversion boundary, accepted WP-QTI-9 server
-routes, and accepted WP-QTI-10 author UI. WP-QTI-11 live PostgreSQL/RLS/profile-to-native
-acceptance is next and remains unstarted.
+routes, accepted WP-QTI-10 author UI, and accepted WP-QTI-11 live
+PostgreSQL/RLS/profile-to-native acceptance. WP-QTI-12 independent close-out is also accepted with
+no remaining P0/P1 finding.
 
-The owner's Blackboard-inspired course appearance guidance now has an execution-ready M3 package in
+The seven missing flat-question families now have an integration plan in
+`docs/active_plans/active/flat_question_family_evolution_plan.md`. It
+preserves exact v1 single choice and assigns the QTI Package Maker QTI-JSONL specification, reference
+engine, examples, and tests to WP-FQ-0 instead of freezing a separate PLE schema. One versioned
+adapter/compiler protects the runtime from source-format change; MATCH is the first family vertical.
+
+The owner's Blackboard-inspired course appearance guidance is accepted through the M3 package in
 `docs/active_plans/decisions/course_appearance_plan.md`: 15 measured three-color biome/habitat
 themes (`woodland` consolidated into `forest`), one revisioned centered course-entry banner, and
-course-root theming with security, accessibility, object-lifecycle, and visual gates. This is a
-frozen future package whose architecture and HCI plan reviews both reported PASS, not an
-implementation claim, and it follows WP-QTI-11 and WP-QTI-12 in the QTI dependency order.
+course-root theming with security, accessibility, object-lifecycle, and visual gates. WP-CA1 is
+accepted: the Rust/generated browser contract and executable instructor route passed focused, full,
+and built-browser gates without widening Wasm. WP-CA2 is also accepted: tenant/course-bound banner
+candidate/current object identities passed classification, signing/refusal, memory conformance,
+S3-feature compilation, and full repository gates. WP-CA3 is accepted as well: one forward migration
+and the Memory/PostgreSQL owners now enforce revision CAS, persisted session authority, bytes-first
+promotion, exact-current delivery, and bounded two-phase cleanup. HTTP image normalization,
+production appearance routes, and current-only protected delivery are now accepted through WP-CA4.
+WP-CA5 is also accepted: Grass is the default, all 15 fail-closed theme projections are scoped below
+the global shell, run data is reused without a theme-only learner fetch, and cross-course/global
+navigation clears prior variables. WP-CA6/WP-CA7 and WP-RC1 are also accepted: the real
+keyboard-complete settings page, exact entry-only banner, all-seven-route scope, combined
+PostgreSQL/MinIO idempotent cleanup, current-pointer database guard, visual evidence, durable docs,
+and three independent no-P0/P1/P2 reviews passed. WP-RC2 is also accepted: production adapter names
+now match their implementation, catalog resolve/search are explicit Store requirements, the empty
+native renderer declaration is removed, and durable feedback release has one projection. The next
+dependency is WP-RC3 shipped upstream WeBWorK while independently owned WP-FQ-0 contract work may
+proceed.
+
+Later owner-requested support work is also present in the shared tree: the focused student no-mouse
+pass, the all-in-one local Podman launcher, and the implemented/proposed database structure and
+growth map. These do not make the incomplete course UI, production identity, FERPA deployment, or
+managed operations complete.
 
 ## Commit boundary
 
-This checkpoint is one coherent cross-layer transition from the disposable 34-migration history to
-the accepted six-file pre-data SQLx baseline. It includes the migrations, Store contracts and both
-backends, scoring/timing workers, server integrations, generated browser contracts, fixtures,
-tests, and documentation that use the new schema.
-
-The separately staged `docs/how-to-reduce-impact-of-bot-traffic.md` article is unrelated user work
-and is intentionally excluded from this database checkpoint.
+WP-QTI-11 started from clean `main` at `b297808`. Its bounded implementation and later accepted work
+now share a mixed staged/unstaged worktree for owner review. The historical database checkpoint
+below records the coherent cross-layer transition from the disposable 34-migration history to the
+accepted six-file pre-data SQLx baseline; it is not a claim that those paths form one current commit.
 
 ## Completed work
 
@@ -325,8 +353,8 @@ strong-ETag conversion rereads and reparses the retained archive before the atom
 command; flat publication copies the source to deterministic non-signable `PublishedImportArchive`.
 Memory and PostgreSQL both serialize prepared import work with draft deletion, preventing orphaned
 prepared evidence. Focused and full offline checks, one-time oversized/chunked ingress evidence,
-and independent route/worker reviews passed with no P0/P1 finding. The remaining QTI order is
-WP-QTI-11 live PostgreSQL/RLS/profile-to-native acceptance, then WP-QTI-12 independent close-out.
+and independent route/worker reviews passed with no P0/P1 finding. WP-QTI-10 through WP-QTI-12 are
+now also accepted.
 Evidence is recorded in
 `docs/active_plans/workstreams/qti_server_routes_implementation.md`.
 
@@ -345,15 +373,27 @@ import. Node contract tests and four real-route Chromium scenarios passed, inclu
 independent security and HCI reviews reported no P0/P1 findings. Evidence is in
 `docs/active_plans/workstreams/qti_author_ui_implementation.md`.
 
-The implementation-ready
-`docs/active_plans/decisions/qti_profile_mapping_plan.md` defines the remaining
+WP-QTI-11 is complete. A fresh isolated PostgreSQL 17 database applied and verified the six-file
+baseline, processed a minimized mixed accepted/rejected Canvas archive through the real upload and
+worker path, converted and published the accepted item as native flat content, and graded correct
+and incorrect responses through the isolated PostgreSQL grader. Real application, student, grader,
+and foreign-tenant probes enforced RLS and protected-capability boundaries. Current and published
+archive/provenance checksums agreed; workspace cleanup removed current private state while immutable
+published provenance remained. The complete disposable database gate, all 11 repository checks, 51
+built Playwright scenarios, and 1,644 Python tests passed. WP-QTI-12 then ran six separate review
+passes, corrected stale README and profile-to-native owner-map documentation, and passed re-review
+with no remaining P0/P1 finding. Evidence is in
+`docs/active_plans/workstreams/qti_live_acceptance_implementation.md`.
+
+The accepted
+`docs/active_plans/decisions/qti_profile_mapping_plan.md` defines the completed
 QTI-profile conversion sequence. It keeps the generic hostile-archive importer intact, adds
 separate exact Canvas QTI 1.2 and Blackboard QTI 2.1 static-single-choice
 profiles, maps accepted items through canonical PLE flat-question JSON, and
 preserves an immutable private provenance link to the unchanged archive.
 Unsupported scoring, feedback, rich markup, media, and policy remain visible
 per-item refusals rather than lossy conversion. Import and instructor review
-precede a separately gated export milestone.
+precede an optional, separately gated export milestone.
 
 QTI import now distinguishes unsafe archives from unsupported content. Path
 escapes, symlinks, unreferenced executable-like files, expansion limits, and
@@ -565,12 +605,13 @@ migration. The disposable acceptance container/database was removed after final 
 
 ## Remaining implementation order
 
-1. Continue bounded, compatibility-preserving extraction from the remaining oversized Rust parent
-   modules under those plain component names.
-2. Run the unstarted WP-QTI-11 live PostgreSQL/RLS/profile-to-native gate and WP-QTI-12 independent
-   documentation close-out in the documented dependency order.
-3. Implement the dependency-ordered course appearance package: closed course-theme contract,
-   protected banner object and revisioned forced-RLS persistence, atomic server save, course-scoped
-   Solid theme/settings surfaces, then live/browser/visual independent acceptance.
-4. Run the remaining deployed managed-PITR and object-store recovery drills from the database
-   evolution plan; the maintained local whole-system acceptance gate is complete.
+The exact authoritative sequence is WP-RC1 through WP-RC12 in
+`docs/active_plans/active/release_completion_plan.md`:
+
+1. WP-RC1 course appearance is accepted.
+2. WP-RC2 production-seam closure is accepted; WP-RC3 next integrates pinned upstream WeBWorK
+   `/render_rpc`; WP-FQ-0 proceeds in QTI Package Maker.
+3. WP-RC4 through WP-RC7 deliver eight families, two Chapter 1 assignments, QTI/H5P close-out,
+   object reconciliation, and the combined M2-M5 gate.
+4. WP-RC8 through WP-RC12 deliver OIDC, LTI, OpenTofu, bot-cost controls, managed recovery, and
+   working-codebase release acceptance.

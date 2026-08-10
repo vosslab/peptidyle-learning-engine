@@ -1,0 +1,99 @@
+ARG WEBWORK_BASE_IMAGE
+
+# Both build stages are immutable official manifests. The source stage is not
+# allowed to drift independently of the WebWork and PG revisions it verifies.
+FROM docker.io/alpine/git@sha256:3b44767883ac77bddae0160cc27b6b039345e23fa3504f4159efaa32264ab57f AS source
+ARG WEBWORK2_GIT_URL
+ARG WEBWORK2_GIT_SHA
+ARG PG_GIT_URL
+ARG PG_GIT_SHA
+WORKDIR /source
+RUN test "$(printf '%s' "$WEBWORK2_GIT_SHA" | grep -Ec '^[0-9a-f]{40}$')" = 1 \
+	&& test "$(printf '%s' "$PG_GIT_SHA" | grep -Ec '^[0-9a-f]{40}$')" = 1 \
+	&& test "$WEBWORK2_GIT_URL" = 'https://github.com/openwebwork/webwork2.git' \
+	&& test "$PG_GIT_URL" = 'https://github.com/openwebwork/pg.git' \
+	&& git init webwork2 \
+	&& git -C webwork2 remote add origin "$WEBWORK2_GIT_URL" \
+	&& git -C webwork2 fetch --depth 1 origin "$WEBWORK2_GIT_SHA" \
+	&& git -C webwork2 checkout --detach FETCH_HEAD \
+	&& test "$(git -C webwork2 rev-parse HEAD)" = "$WEBWORK2_GIT_SHA" \
+	&& git init pg \
+	&& git -C pg remote add origin "$PG_GIT_URL" \
+	&& git -C pg fetch --depth 1 origin "$PG_GIT_SHA" \
+	&& git -C pg checkout --detach FETCH_HEAD \
+	&& test "$(git -C pg rev-parse HEAD)" = "$PG_GIT_SHA"
+
+FROM docker.io/library/node@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS node_runtime
+
+FROM ${WEBWORK_BASE_IMAGE}
+ENV APP_ROOT=/opt/webwork WEBWORK_ROOT=/opt/webwork/webwork2 PG_ROOT=/opt/webwork/pg \
+	PATH=/opt/webwork/webwork2/bin:$PATH DEBIAN_FRONTEND=noninteractive \
+	DEBCONF_NONINTERACTIVE_SEEN=true WEBWORK_URL=/webwork2 \
+	WEBWORK_ROOT_URL=http://webwork-renderer:8080 WEBWORK_TIMEZONE=America/Chicago
+
+# Public WebWork Dockerfile package baseline. Sources above are exact public
+# revisions; the final COPY contains configuration, never a source fork.
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends \
+	apt-utils ca-certificates cpanminus culmus curl debconf-utils dvipng dvisvgm \
+	fonts-linuxlibertine gcc git imagemagick iputils-ping jq libarchive-extract-perl \
+	libarchive-zip-perl libarray-utils-perl libc6-dev libcapture-tiny-perl \
+	libclass-tiny-antlers-perl libclass-tiny-perl libcpanel-json-xs-perl libcrypt-dev \
+	libcrypt-jwt-perl libcrypt-openssl-x509-perl libcryptx-perl libdata-dump-perl \
+	libdata-structure-util-perl libdatetime-perl libdatetime-format-xsd-perl \
+	libdatetime-hires-perl libdbd-mysql-perl libdbd-mariadb-perl libdevel-checklib-perl \
+	libemail-address-xs-perl libemail-date-format-perl libemail-sender-perl \
+	libemail-stuffer-perl libexception-class-perl libextutils-config-perl libextutils-helpers-perl \
+	libextutils-installpaths-perl libextutils-xsbuilder-perl libfile-copy-recursive-perl \
+	libfile-find-rule-perl-perl libfile-sharedir-install-perl libfile-slurper-perl \
+	libfuture-asyncawait-perl libgd-barcode-perl libgd-perl libhtml-scrubber-perl \
+	libhtml-template-perl libhttp-async-perl libio-compress-perl libiterator-perl \
+	libiterator-util-perl liblocale-maketext-lexicon-perl libmariadb-dev \
+	libmath-random-secure-perl libmime-base32-perl libmime-tools-perl \
+	libminion-backend-sqlite-perl libminion-perl libmodule-build-perl \
+	libmodule-pluggable-perl libmojolicious-perl libmojolicious-plugin-renderfile-perl \
+	libmoose-perl libmoosex-types-common-perl libmoosex-types-datetime-perl \
+	libmoosex-types-perl libmoosex-types-uri-perl libnet-https-nb-perl libnet-ip-perl \
+	libnet-ldap-perl libnet-oauth-perl libossp-uuid-perl libpadwalker-perl \
+	libpandoc-wrapper-perl libpath-class-perl libpath-tiny-perl libperl-critic-perl \
+	libphp-serialization-perl libsql-abstract-perl libssl-dev libstring-shellquote-perl \
+	libsub-uplevel-perl libsvg-perl libtemplate-perl libtest-deep-perl \
+	libtest-exception-perl libtest-fatal-perl libtest-mockobject-perl libtest-pod-perl \
+	libtest-requires-perl libtest-warn-perl libtest-xml-perl libtext-csv-perl libthrowable-perl \
+	libtimedate-perl libtypes-serialiser-perl libuniversal-can-perl \
+	libuniversal-isa-perl liburi-encode-perl libuuid-tiny-perl libxml-generator-perl \
+	libxml-parser-easytree-perl libxml-parser-perl libxml-semanticdiff-perl \
+	libxml-simple-perl libxml-writer-perl libxml-xpath-perl libyaml-libyaml-perl \
+	lmodern locales make mariadb-client netpbm openssl patch pdf2svg preview-latex-style \
+	ssl-cert sudo texlive texlive-lang-arabic texlive-lang-other texlive-latex-extra texlive-plain-generic texlive-science \
+	texlive-xetex tzdata util-linux-extra zlib1g-dev zip \
+	&& apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/*
+
+# Copy Node 24 from an immutable official manifest rather than running a
+# mutable setup script during the build.
+COPY --from=node_runtime /usr/local /usr/local
+
+COPY --from=source /source/webwork2 /opt/webwork/webwork2
+COPY --from=source /source/pg /opt/webwork/pg
+COPY containers/webwork/site.conf /opt/ple-webwork/site.conf
+COPY containers/webwork/course.conf /opt/ple-webwork/course.conf
+COPY containers/webwork/webwork2.mojolicious.yml /opt/ple-webwork/webwork2.mojolicious.yml
+COPY containers/webwork/init_render_course.sh /usr/local/bin/init_render_course.sh
+COPY containers/webwork/reconcile_render_account.pl /usr/local/bin/reconcile_render_account.pl
+COPY containers/webwork/entrypoint.sh /usr/local/bin/ple_webwork_entrypoint.sh
+COPY containers/webwork/probe_render_rpc.sh /usr/local/bin/probe_render_rpc.sh
+RUN cpanm -n Perl::Tidy@20260204 Archive::Zip::SimpleZip Net::SAML2 \
+	&& rm -rf ./cpanm /root/.cpanm /tmp/* \
+	&& mkdir -p /opt/webwork/courses /run/webwork2 /etc/ssl/local /opt/webwork/webwork2/htdocs/tmp \
+	&& chown -R www-data:www-data /opt/webwork/courses /run/webwork2 \
+	/opt/webwork/webwork2/logs /opt/webwork/webwork2/tmp /opt/webwork/webwork2/DATA \
+	/opt/webwork/webwork2/htdocs/tmp /etc/ssl/local \
+	&& echo "en_US ISO-8859-1\nen_US.UTF-8 UTF-8" > /etc/locale.gen \
+	&& locale-gen \
+	&& cd /opt/webwork/webwork2/htdocs && npm install \
+	&& cd /opt/webwork/pg/htdocs && npm install \
+	&& chmod 0755 /usr/local/bin/init_render_course.sh /usr/local/bin/reconcile_render_account.pl /usr/local/bin/ple_webwork_entrypoint.sh /usr/local/bin/probe_render_rpc.sh
+EXPOSE 8080
+WORKDIR /opt/webwork/webwork2
+ENTRYPOINT ["/usr/local/bin/ple_webwork_entrypoint.sh"]
+CMD ["sudo", "-E", "-u", "www-data", "hypnotoad", "-f", "bin/webwork2"]

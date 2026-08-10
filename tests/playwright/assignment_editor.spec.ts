@@ -11,6 +11,7 @@ const assignmentProblems = publishedProblemFixture.assignment.items
   .sort((left, right) => left.position - right.position)
   .map((item) => item.reference);
 const editPath = `/instructor/courses/${courseId}/assignments/${assignmentId}/edit`;
+const appearance = { theme: "grass", revision: "1", banner: null } as const;
 const secondCatalogProblem = {
   ...publishedProblemFixture.catalogProblem,
   problem: "0198e000-0000-7000-8000-000000000097",
@@ -43,6 +44,10 @@ function session(roles: ReadonlyArray<string>): unknown {
   };
 }
 
+function appearanceJson(route: Route): Promise<void> {
+  return json(route, appearance, 200, { "cache-control": "no-store", etag: '"1"' });
+}
+
 async function openEditor(page: Page): Promise<void> {
   // `tools/mock_preview_server.mjs` is a static artifact server without an SPA
   // fallback; it returns 404 for this direct deep link. The managed deployment
@@ -71,6 +76,7 @@ async function routeStudentCourse(page: Page, requests: string[]): Promise<void>
     if (path === `/api/courses/${courseId}`) {
       return await json(route, { ...publishedProblemFixture.course, role: "student" });
     }
+    if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
     return await json(route, { error: "unexpected assignment editor request" }, 500);
   });
 }
@@ -84,7 +90,13 @@ test("student and global instructor who is a course learner see no assignment ed
   await expect(
     page.getByRole("heading", { name: "Assignment editing is not available for this account" }),
   ).toBeVisible();
-  expect(requests).toEqual(["/api/auth/session", `/api/courses/${courseId}`]);
+  expect(new Set(requests)).toEqual(
+    new Set([
+      "/api/auth/session",
+      `/api/courses/${courseId}`,
+      `/api/courses/${courseId}/appearance`,
+    ]),
+  );
   expect(requests.some((path) => path.includes("assignments") || path.includes("problems"))).toBe(
     false,
   );
@@ -118,6 +130,7 @@ test("hostile cross-tenant assignment detail is rejected before editor state ado
     if (path === `/api/courses/${courseId}`) {
       return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
     }
+    if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
     if (path === `/api/assignments/${assignmentId}`) {
       return await json(
         route,
@@ -132,11 +145,14 @@ test("hostile cross-tenant assignment detail is rejected before editor state ado
   await expect(
     page.getByRole("heading", { name: "This assignment could not be opened" }),
   ).toBeVisible();
-  expect(requests).toEqual([
-    "/api/auth/session",
-    `/api/courses/${courseId}`,
-    `/api/assignments/${assignmentId}`,
-  ]);
+  expect(new Set(requests)).toEqual(
+    new Set([
+      "/api/auth/session",
+      `/api/courses/${courseId}`,
+      `/api/courses/${courseId}/appearance`,
+      `/api/assignments/${assignmentId}`,
+    ]),
+  );
 });
 
 test("authorized editor saves exact immutable refs with CAS, retains all violations, and recovers from conflict", async ({
@@ -164,6 +180,7 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
     if (path === `/api/courses/${courseId}`) {
       return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
     }
+    if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
     if (path === `/api/assignments/${assignmentId}`) {
       assignmentReads += 1;
       return await json(route, publishedProblemFixture.assignment, 200, {

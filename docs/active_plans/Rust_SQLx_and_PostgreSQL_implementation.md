@@ -1,5 +1,13 @@
 # Independent static review: Rust, SQLx, and PostgreSQL implementation
 
+> **Historical and concluded review (2026-08-08).** This document preserves the static-review
+> evidence and the original remediation queue; it is not an active implementation plan and does not
+> authorize edits to the accepted SQLx baseline. The current migration policy is
+> [decisions/database_schema_evolution_plan.md](decisions/database_schema_evolution_plan.md), and
+> the current execution handoff is [implementation_status.md](implementation_status.md). Applied
+> migrations, including the six-file baseline, are immutable; future schema changes use a new
+> forward migration.
+
 ## Context
 
 `docs/active_plans/decisions/database_schema_evolution_plan.md`
@@ -12,18 +20,18 @@ applied, no query executed. Every finding below is derived from reading the SQL,
 reference corpus. Where a finding would benefit from measurement, it is named as validation work for
 whoever implements the fix, not claimed as evidence here.
 
-The forcing function is timing. The plan declares the baseline immutable and forward-only **after**
-durable data exists (plan line 388). No durable data exists yet, so schema defects are still
-one-line edits to the six baseline files. After the first production write they become permanent
-forward-migration scars.
+At the time of this review, the six-file epoch was still the pre-data baseline and the findings were
+candidate consolidation work. That condition has concluded: the accepted baseline and every later
+applied migration are immutable, and current schema work uses forward migrations under the current
+authority above.
 
 ## Method and skill routes
 
-| Skill | Route | Applicability |
-| --- | --- | --- |
-| `/postgresql-expert` | `topic_index.md` rows for table/constraint design, index selection, partitioning, isolation, and migration planning. Corpus used as a static inspection checklist: `PostgreSQL_16.0_Documentation-2023.md` for behavior and syntax authority, `PostgreSQL_Mistakes_and_How_to_Avoid_Them-2025.md` for production failure modes (FK indexing, data types, connections, long transactions). | Primary. The skill's execution-oriented steps (representative-workload baselines, `EXPLAIN (ANALYZE, BUFFERS)` before/after) are **out of scope for a read-only review** and are carried into remediation validation instead. |
-| `/rust-code-expert` | Contract classification, then ownership and error-contract review of the store boundary. | Primary for the Rust layer. |
-| `/wasm-rust-expert` | Checked and scoped out. | **Not applicable to the database path.** `crates/wasm/Cargo.toml:14-18` depends only on `question_model`, `domain`, and `wasm-bindgen` - no `store`, no `sqlx`. It becomes relevant to exactly one remediation task (task 8), because `AttemptResult` lives in `question_model`, which ships in the browser bundle via `web = ["question_model/wasm"]`. |
+| Skill                | Route                                                                                                                                                                                                                                                                                                                                                                                     | Applicability                                                                                                                                                                                                                                                                                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/postgresql-expert` | `topic_index.md` rows for table/constraint design, index selection, partitioning, isolation, and migration planning. Corpus used as a static inspection checklist: `PostgreSQL_16.0_Documentation-2023.md` for behavior and syntax authority, `PostgreSQL_Mistakes_and_How_to_Avoid_Them-2025.md` for production failure modes (FK indexing, data types, connections, long transactions). | Primary. The skill's execution-oriented steps (representative-workload baselines, `EXPLAIN (ANALYZE, BUFFERS)` before/after) are **out of scope for a read-only review** and are carried into remediation validation instead.                                                                                                                           |
+| `/rust-code-expert`  | Contract classification, then ownership and error-contract review of the store boundary.                                                                                                                                                                                                                                                                                                  | Primary for the Rust layer.                                                                                                                                                                                                                                                                                                                             |
+| `/wasm-rust-expert`  | Checked and scoped out.                                                                                                                                                                                                                                                                                                                                                                   | **Not applicable to the database path.** `crates/wasm/Cargo.toml:14-18` depends only on `question_model`, `domain`, and `wasm-bindgen` - no `store`, no `sqlx`. It becomes relevant to exactly one remediation task (task 8), because `AttemptResult` lives in `question_model`, which ships in the browser bundle via `web = ["question_model/wasm"]`. |
 
 Artifacts inspected: all six files in `schemas/migrations/` in full (6362 lines; 66 tables, 90
 foreign keys, 71 indexes, 52 functions, 150 policies, 53 triggers); `crates/learning-data-access/src/postgres.rs`
@@ -77,17 +85,17 @@ foreign key. Of 90 FKs, **75 have leading-prefix index coverage and 15 do not.**
 matter, because they are `ON DELETE CASCADE` (the cascade fires the scan automatically) or point at
 a high-volume parent:
 
-| Referencing table | Referencing columns | Parent | Why it matters | Cite |
-| --- | --- | --- | --- | --- |
-| `catalog_tenant_grant` | `(problem_id, version_id)` | `problem_version` | CASCADE with **no supporting index of any kind** | `catalog_authoring.sql:482` |
-| `attempt_timing_current` | `(tenant_id, attempt_id, attempt_occurred_at)` | `question_attempt` | CASCADE into the partitioned, highest-volume table; only a 2-of-3 PK prefix exists | `operations_analytics.sql:1084` |
-| `assignment_attempt_score_staging` | `(job_id)` | `worker_job` | CASCADE; every index on the staging tables leads with `tenant_id` | `operations_analytics.sql:1103` |
-| `assignment_scoring_staging` | `(job_id)` | `worker_job` | same | `operations_analytics.sql:1112` |
-| `assignment_summary_staging` | `(job_id)` | `worker_job` | same | `operations_analytics.sql:1118` |
-| `assignment_summary_staging` | `(tenant_id, enrollment_id)` | `enrollment` | CASCADE | `operations_analytics.sql:1124` |
-| `course_group_member` | `(tenant_id, course_id, course_group_id)` | `course_group` | CASCADE; an index exists but with `user_id` in position 3, so it is not a prefix | `courses_assignments.sql:318` |
-| `assignment_policy_exception` | `(tenant_id, course_id, course_group_id)` | `course_group` | CASCADE | `courses_assignments.sql:333` |
-| `assignment_selection_candidate` | `(tenant_id, assignment_id, selection_group_id)` | `assignment_selection_group` | CASCADE | `courses_assignments.sql:306` |
+| Referencing table                  | Referencing columns                              | Parent                       | Why it matters                                                                     | Cite                            |
+| ---------------------------------- | ------------------------------------------------ | ---------------------------- | ---------------------------------------------------------------------------------- | ------------------------------- |
+| `catalog_tenant_grant`             | `(problem_id, version_id)`                       | `problem_version`            | CASCADE with **no supporting index of any kind**                                   | `catalog_authoring.sql:482`     |
+| `attempt_timing_current`           | `(tenant_id, attempt_id, attempt_occurred_at)`   | `question_attempt`           | CASCADE into the partitioned, highest-volume table; only a 2-of-3 PK prefix exists | `operations_analytics.sql:1084` |
+| `assignment_attempt_score_staging` | `(job_id)`                                       | `worker_job`                 | CASCADE; every index on the staging tables leads with `tenant_id`                  | `operations_analytics.sql:1103` |
+| `assignment_scoring_staging`       | `(job_id)`                                       | `worker_job`                 | same                                                                               | `operations_analytics.sql:1112` |
+| `assignment_summary_staging`       | `(job_id)`                                       | `worker_job`                 | same                                                                               | `operations_analytics.sql:1118` |
+| `assignment_summary_staging`       | `(tenant_id, enrollment_id)`                     | `enrollment`                 | CASCADE                                                                            | `operations_analytics.sql:1124` |
+| `course_group_member`              | `(tenant_id, course_id, course_group_id)`        | `course_group`               | CASCADE; an index exists but with `user_id` in position 3, so it is not a prefix   | `courses_assignments.sql:318`   |
+| `assignment_policy_exception`      | `(tenant_id, course_id, course_group_id)`        | `course_group`               | CASCADE                                                                            | `courses_assignments.sql:333`   |
+| `assignment_selection_candidate`   | `(tenant_id, assignment_id, selection_group_id)` | `assignment_selection_group` | CASCADE                                                                            | `courses_assignments.sql:306`   |
 
 Also: `manual_grade_receipt` carries **no secondary index at all** - only its PK - yet has two FKs
 (`activity_feedback.sql:467,470`). Five more uncovered FKs are `RESTRICT`/no-action references to
@@ -116,9 +124,9 @@ establishes only that no currently inspected query appears able to use it. These
 forward-looking indexes, or support for administrative, debugging, and reporting access paths, or
 features whose Rust call sites do not exist yet - the shapes they serve (capability, metadata,
 category, and keyword facets, plus a lifecycle-filtered title browse) are precisely the discovery
-facets the plan names at lines 134-138. They may equally be unnecessary maintenance cost. Their
-intended access paths should be documented and reconsidered before the baseline becomes immutable;
-they should not be deleted on static evidence alone.
+facets the plan names at lines 134-138. They may equally be unnecessary maintenance cost. The review
+recommended documenting and reconsidering their intended access paths during historical
+consolidation; static evidence alone did not justify deleting them.
 
 Cost context for that judgment: `problem_version` is append-only and immutable - the immutability
 trigger permits only `lifecycle` transitions - so each index there costs roughly one write per
@@ -218,15 +226,15 @@ O(N) per-item statements. All three advisory locks are the blocking `pg_advisory
 
 **MVCC and churn.** Reviewed per table from the write statements:
 
-| Table | Pattern | HOT-eligible? | Note |
-| --- | --- | --- | --- |
-| `worker_job` | INSERT + repeated UPDATE of `state` | **No** | `state` is the predicate of two partial indexes, so every transition moves the row in and out of an index. Five indexes total. |
-| `course_retention_stage` | 9 UPDATE sites, all on `state` | **No** | Same partial-index-predicate pattern. |
-| `attempt_timing_current` | UPDATE `job_id = NULL` | **No** | `job_id` carries a UNIQUE index. |
-| `attempt_score_current` | bulk DELETE + bulk re-INSERT per recalculation | n/a | Generates a full generation of dead tuples on every recalculation. |
-| `student_assignment_summary` | set-based UPDATE of `payload`, `updated_at` | **Yes** | No index on the updated columns. Good. |
-| `assignment` | low-frequency UPDATE of `scoring_status`, `revision` | **Yes** | Updated columns unindexed. Good. |
-| `*_staging` (3) | INSERT + bulk DELETE per job | n/a | Clean scratch pattern. |
+| Table                        | Pattern                                              | HOT-eligible? | Note                                                                                                                           |
+| ---------------------------- | ---------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `worker_job`                 | INSERT + repeated UPDATE of `state`                  | **No**        | `state` is the predicate of two partial indexes, so every transition moves the row in and out of an index. Five indexes total. |
+| `course_retention_stage`     | 9 UPDATE sites, all on `state`                       | **No**        | Same partial-index-predicate pattern.                                                                                          |
+| `attempt_timing_current`     | UPDATE `job_id = NULL`                               | **No**        | `job_id` carries a UNIQUE index.                                                                                               |
+| `attempt_score_current`      | bulk DELETE + bulk re-INSERT per recalculation       | n/a           | Generates a full generation of dead tuples on every recalculation.                                                             |
+| `student_assignment_summary` | set-based UPDATE of `payload`, `updated_at`          | **Yes**       | No index on the updated columns. Good.                                                                                         |
+| `assignment`                 | low-frequency UPDATE of `scoring_status`, `revision` | **Yes**       | Updated columns unindexed. Good.                                                                                               |
+| `*_staging` (3)              | INSERT + bulk DELETE per job                         | n/a           | Clean scratch pattern.                                                                                                         |
 
 The queue is the problem: `worker_job` rows are **never deleted** for the common job kinds. The only
 two DELETEs are retention-scoped (`retention.sql:1344`, `:1423`), covering `autoSubmitAttempt` and
@@ -240,17 +248,17 @@ Defects from this phase are D1, D5, D6, D9, and D10 below.
 
 ## Phase 4: Comparison against upstream guidance
 
-| Implementation choice | Guidance | Verdict |
-| --- | --- | --- |
-| `set_config(..., true)` per transaction | PG16: RLS is default-deny when enabled with no policy; `BYPASSRLS` and superuser always bypass | Correct. The transient no-policy windows between migrations 000300 and 000500 fail closed. |
-| `REPEATABLE READ` with no retry | PG16 Transaction Isolation: "Applications using this level **must be prepared to retry** transactions due to serialization failures" | **Violated.** D5. |
-| `numeric` columns, `String` binds with `$N::numeric` | SQLx: `NUMERIC` maps to `bigdecimal::BigDecimal` or `rust_decimal::Decimal`; String is **not** an accepted encoding | Works only via the explicit casts. `rust_decimal` sqlx feature is enabled (`Cargo.toml:81`) and unused at the boundary. |
-| Pool sets only `max_connections` | SQLx `PoolOptions`: `test_before_acquire` defaults true; `acquire_timeout`, `idle_timeout`, `max_lifetime` defaulted. Mistakes book ch. 6.3-6.4 | Under-specified. D5. |
-| Range partitions with a `DEFAULT` partition | PG16 `CREATE TABLE`: adding a partition when a default exists **scans the default partition**; `ATTACH` takes `ACCESS EXCLUSIVE` on it | Upgrades D4 from hygiene to outage risk. |
-| Six `NOT VALID` constraints | PG16 `ALTER TABLE`: skips verification of existing rows; `VALIDATE CONSTRAINT` completes it | Tables were empty, so validation was free and skipped anyway. D3. |
-| Referencing-side FK columns unindexed | Mistakes book: PostgreSQL does not create indexes on referencing FK columns | 15 of 90 uncovered. Not automatically a defect - an index is warranted where parent deletions are expected and the child is large. The 9 CASCADE cases are where PostgreSQL searches the child automatically. D7. |
-| `character(64)` for fixed-length hashes | PG16: `character(n)` "is usually the slowest of the three"; prefer `text` | D8. |
-| `to_tsvector('simple', ...)`, no `pg_trgm` | Plan line 138 requires trigram; `simple` config does no stemming | D9. |
+| Implementation choice                                | Guidance                                                                                                                                        | Verdict                                                                                                                                                                                                           |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `set_config(..., true)` per transaction              | PG16: RLS is default-deny when enabled with no policy; `BYPASSRLS` and superuser always bypass                                                  | Correct. The transient no-policy windows between migrations 000300 and 000500 fail closed.                                                                                                                        |
+| `REPEATABLE READ` with no retry                      | PG16 Transaction Isolation: "Applications using this level **must be prepared to retry** transactions due to serialization failures"            | **Violated.** D5.                                                                                                                                                                                                 |
+| `numeric` columns, `String` binds with `$N::numeric` | SQLx: `NUMERIC` maps to `bigdecimal::BigDecimal` or `rust_decimal::Decimal`; String is **not** an accepted encoding                             | Works only via the explicit casts. `rust_decimal` sqlx feature is enabled (`Cargo.toml:81`) and unused at the boundary.                                                                                           |
+| Pool sets only `max_connections`                     | SQLx `PoolOptions`: `test_before_acquire` defaults true; `acquire_timeout`, `idle_timeout`, `max_lifetime` defaulted. Mistakes book ch. 6.3-6.4 | Under-specified. D5.                                                                                                                                                                                              |
+| Range partitions with a `DEFAULT` partition          | PG16 `CREATE TABLE`: adding a partition when a default exists **scans the default partition**; `ATTACH` takes `ACCESS EXCLUSIVE` on it          | Upgrades D4 from hygiene to outage risk.                                                                                                                                                                          |
+| Six `NOT VALID` constraints                          | PG16 `ALTER TABLE`: skips verification of existing rows; `VALIDATE CONSTRAINT` completes it                                                     | Tables were empty, so validation was free and skipped anyway. D3.                                                                                                                                                 |
+| Referencing-side FK columns unindexed                | Mistakes book: PostgreSQL does not create indexes on referencing FK columns                                                                     | 15 of 90 uncovered. Not automatically a defect - an index is warranted where parent deletions are expected and the child is large. The 9 CASCADE cases are where PostgreSQL searches the child automatically. D7. |
+| `character(64)` for fixed-length hashes              | PG16: `character(n)` "is usually the slowest of the three"; prefer `text`                                                                       | D8.                                                                                                                                                                                                               |
+| `to_tsvector('simple', ...)`, no `pg_trgm`           | Plan line 138 requires trigram; `simple` config does no stemming                                                                                | D9.                                                                                                                                                                                                               |
 
 ## Phase 5: Deviations and risks
 
@@ -267,11 +275,11 @@ missing grant surfaces in production.
 
 ### D2. Three tables have no row-level security
 
-| Table | Evidence | Assessment |
-| --- | --- | --- |
-| `problem` | `catalog_authoring.sql:150-162`; `GRANT SELECT,INSERT ... TO ple_app` line 765 | **Real leak.** Rows carry `owner_tenant_id`, `owner_user_id`, `public_id`, `visibility` (which admits `'institution'`), `lifecycle`. Every tenant's `ple_app` reads every row. The child `problem_version` gates on `publication_scope` plus `catalog_tenant_grant`; the parent gates on nothing. |
-| `answer_key` | `catalog_authoring.sql:135-140`; only `GRANT SELECT,INSERT ... TO ple_grader` line 759 | Grading secrets protected by grant alone, inconsistent with the RLS-enabled `published_qti_grading`. |
-| `question_statistics_aggregate` | `operations_analytics.sql:978` | Deliberate cross-tenant aggregate. Record the intent in SQL. |
+| Table                           | Evidence                                                                               | Assessment                                                                                                                                                                                                                                                                                        |
+| ------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `problem`                       | `catalog_authoring.sql:150-162`; `GRANT SELECT,INSERT ... TO ple_app` line 765         | **Real leak.** Rows carry `owner_tenant_id`, `owner_user_id`, `public_id`, `visibility` (which admits `'institution'`), `lifecycle`. Every tenant's `ple_app` reads every row. The child `problem_version` gates on `publication_scope` plus `catalog_tenant_grant`; the parent gates on nothing. |
+| `answer_key`                    | `catalog_authoring.sql:135-140`; only `GRANT SELECT,INSERT ... TO ple_grader` line 759 | Grading secrets protected by grant alone, inconsistent with the RLS-enabled `published_qti_grading`.                                                                                                                                                                                              |
+| `question_statistics_aggregate` | `operations_analytics.sql:978`                                                         | Deliberate cross-tenant aggregate. Record the intent in SQL.                                                                                                                                                                                                                                      |
 
 `ple_qti_staging_broker` and `ple_queue_broker` hold `BYPASSRLS` (`principals.sql:28,32`) -
 defensible, since the bypass is reachable only through definer functions with their own tenant
@@ -290,14 +298,15 @@ constraints never validated** - `catalog_authoring.sql:399`, `courses_assignment
 
 `activity_feedback.sql:644-647` calls
 `ple_ensure_activity_partitions((date_trunc('month', current_date) - interval '1 month')::date, 26)`
+
 - the partition set depends on the wall-clock date of first apply, so CI, staging, and production
-diverge. No scheduled maintenance extends the window, and nothing alerts on default-partition writes
-despite plan line 369. **The outage:** once the window lapses, rows land in
-`question_attempt_default` and `submission_default`; per PG16, creating the next month's partition
-then scans the default partition and holds `ACCESS EXCLUSIVE` on it. The routine fix for a missed
-partition becomes a locking full scan on the hottest tables in the system. Separately, the two
-hash-partition loops use `CREATE TABLE ... PARTITION OF` without `IF NOT EXISTS`
-(`catalog_authoring.sql:822-824`, `activity_feedback.sql:585-588`).
+  diverge. No scheduled maintenance extends the window, and nothing alerts on default-partition writes
+  despite plan line 369. **The outage:** once the window lapses, rows land in
+  `question_attempt_default` and `submission_default`; per PG16, creating the next month's partition
+  then scans the default partition and holds `ACCESS EXCLUSIVE` on it. The routine fix for a missed
+  partition becomes a locking full scan on the hottest tables in the system. Separately, the two
+  hash-partition loops use `CREATE TABLE ... PARTITION OF` without `IF NOT EXISTS`
+  (`catalog_authoring.sql:822-824`, `activity_feedback.sql:585-588`).
 
 ### D5. Rust and SQLx hardening gaps
 
@@ -384,12 +393,16 @@ advisory locks are blocking rather than `try_`.
 - `ple_migration_state` relies on default definer-view semantics; that is what makes the `ple_app`
   read work. Comment it so nobody "fixes" it with `security_invoker`.
 
-## Phase 6: Prioritized follow-up tasks
+## Phase 6: Historical follow-up record
 
-Ordered by dependency. Tasks 2-5 and 7-9 edit the baseline files and must land before durable data
-exists.
+This was the original dependency-ordered remediation queue. It is retained to connect findings to
+their validation evidence, not as present work direction. The later hardening record in
+[partial_commit_status.md](partial_commit_status.md) records the completed baseline, RLS,
+credential, partition, foreign-key, and retry work. Do not infer permission to rewrite an applied
+migration from any item below.
 
-1. **Live-PostgreSQL acceptance gate.** Add `tests/e2e/e2e_database_baseline.sh` per
+1. **Live-PostgreSQL acceptance gate.** The recommendation was to add
+   `tests/e2e/e2e_database_baseline.sh` per
    `docs/E2E_TESTS.md`, reusing the
    Postgres in `containers/compose.yaml`. Validation: six migrations apply to an empty database;
    re-run is a no-op; `cargo tools database verify` passes; a mutated migration file reports
@@ -397,28 +410,33 @@ exists.
    `ple_grader`, `ple_grading_reader`, tenant A cannot read tenant B on every RLS-protected table. This
    is the oracle for tasks 2-5 and the only place the execution-oriented parts of
    `/postgresql-expert` belong.
-2. **Close the RLS gaps.** `ENABLE` + `FORCE` plus policies on `problem` (mirroring
+2. **Close the RLS gaps.** The recommendation was `ENABLE` + `FORCE` plus policies on `problem`
+   (mirroring
    `problem_version`'s `publication_scope` / `catalog_tenant_grant` logic) and `answer_key`
    (grader-only); comment the deliberate scope of `question_statistics_aggregate`. Validation: the
    task 1 denial matrix, plus a catalog check that no `public` table has `relrowsecurity = false`.
-3. **De-dump the baseline.** Replace the six `NOT VALID` constraints with validated ones; remove
+3. **De-dump the baseline.** The recommendation was to replace the six `NOT VALID` constraints with
+   validated ones; remove
    `SET check_function_bodies = false` or comment the forward reference requiring it; add
    `IF NOT EXISTS` to the hash-partition loops. Validation: `pg_constraint WHERE NOT convalidated`
    returns zero rows.
-4. **Fix partition determinism and the default-partition trap.** Replace `current_date` with a fixed
+4. **Fix partition determinism and the default-partition trap.** The recommendation was to replace
+   `current_date` with a fixed
    epoch month; add a `cargo tools database` subcommand or worker job that extends the window ahead
    of time; add a default-partition row-count check callable by the gate and by operations.
    Validation: two applies on different simulated dates produce identical partition sets.
-5. **Separate the migration credential.** Read `PLE_MIGRATION_DATABASE_URL` in
+5. **Separate the migration credential.** The recommendation was to read `PLE_MIGRATION_DATABASE_URL` in
    `crates/project-tools/src/database.rs`, falling back to `DATABASE_URL` only for `status`/`verify`; refuse
    `migrate` when the connected role is `ple_app`; add an opt-in flag to `e2e_seed.rs`.
-6. **Harden the SQLx layer.** Set `acquire_timeout`, `idle_timeout`, `max_lifetime` on both pools;
+6. **Harden the SQLx layer.** The recommendation was to set `acquire_timeout`, `idle_timeout`,
+   `max_lifetime` on both pools;
    map `40001`/`40P01` to a distinct `StoreError` variant with bounded retry around the
    `REPEATABLE READ` and advisory-lock paths; replace forwarded `database_error.message()` with a
    constraint-name-keyed message; map post-`begin` connection failures in
    `verify_application_schema` to `Unavailable`. Validation: a concurrent fixture that forces a
    serialization failure commits after retry.
-7. **Review index intent.** Remove the two exact-duplicate indexes. For the five indexes without a
+7. **Review index intent.** The recommendation was to remove the two exact-duplicate indexes. For the
+   five indexes without a
    current matching query, document the intended access path in a SQL comment and retain those that
    support credible near-term schema or query evolution; reconsider only ones with no identified
    purpose. Evaluate the uncovered CASCADE foreign keys according to expected child-table size and
@@ -428,43 +446,50 @@ exists.
    `course_group_member_user_idx` or add a sibling so the `course_group` FK has a prefix. Validation:
    an FK-to-index coverage query in the task 1 gate that reports uncovered CASCADE FKs, reviewed
    rather than auto-failed.
-8. **Close the numeric boundary.** Move `AttemptResult` points to the same fixed-point representation
+8. **Close the numeric boundary.** The recommendation was to move `AttemptResult` points to the same
+   fixed-point representation
    as `PointValue`, or bind `rust_decimal::Decimal` directly and delete the `String` + `::numeric`
    round trip, removing the float division at `postgres.rs:9289`. **Crosses the Wasm boundary** -
    `AttemptResult` lives in `question_model`, which ships in the browser bundle - so validation is
    the `/wasm-rust-expert` native-versus-Wasm parity oracle plus regenerating
    `tests/fixtures/published_problem` without diff.
-9. **Search capability.** Add `CREATE EXTENSION IF NOT EXISTS pg_trgm` and the trigram index the plan
+9. **Search capability.** The recommendation was to add `CREATE EXTENSION IF NOT EXISTS pg_trgm` and
+   the trigram index the plan
    specifies; decide deliberately between the `simple` and `english` text-search configuration and
    record why; replace the `::text`-concatenated catalog keyset with a plain
    `(problem_id, version_id)` tuple comparison so the PK is usable; collapse the five facet queries
    into one filtered CTE.
-10. **Queue lifecycle and transaction scope.** Add a retention or scheduled sweep that deletes
+10. **Queue lifecycle and transaction scope.** The recommendation was to add a retention or scheduled
+    sweep that deletes
     terminal `worker_job` rows for all job kinds; add a standalone stale-lease reaper rather than
     relying on claim-time side effects; consider `fillfactor` on `worker_job` and
     `course_retention_stage` given the non-HOT churn; convert the four N+1 loops to set-based
     statements; evaluate `pg_try_advisory_xact_lock` with an explicit conflict error where callers
     can retry.
-11. **Adopt checked queries incrementally.** Convert one bounded module (`jobs.rs` or the retention
-    reads) to `sqlx::query!`, commit `.sqlx/` offline data, add `cargo sqlx prepare --check` to
-    `check_codebase.sh`. Validation: renaming a column in a baseline file fails the build. A pilot,
-    not a 247-site rewrite.
-12. **File the review.** Write this document to
+11. **Adopt checked queries incrementally.** The recommendation was to convert one bounded module
+    (`jobs.rs` or the retention reads) to `sqlx::query!` and commit `.sqlx/` offline data. The
+    proposed `cargo sqlx prepare --check` automation is obsolete: current database automation uses
+    the verified `cargo tools database verify` command shown below. Any checked-query pilot requires
+    separate current-plan approval and must not modify an applied migration.
+12. **File the review.** The recommendation was to write this document to
     `docs/active_plans/audits/database_schema_post_implementation_review.md` (snake_case, per the
     active-plans rules in
     `docs/REPO_STYLE.md` and add a
     `docs/CHANGELOG.md` entry under `### Decisions and Failures`.
 
-## Validation for the implementer
+## Historical validation evidence
 
-These are for whoever executes the remediation. This review executed none of them.
+These historical validation commands are retained for evidence. The database command forms below
+match the current CLI: `migrate` requires `PLE_MIGRATION_DATABASE_URL`, while `status` and `verify`
+may read that variable or `DATABASE_URL`.
 
 ```bash
 bash tests/e2e/e2e_database_baseline.sh          # task 1 gate; oracle for tasks 2-5, 7
 
-cargo tools database migrate                      # apply, then prove replay is a no-op
-cargo tools database migrate
-cargo tools database status
+PLE_MIGRATION_DATABASE_URL="<migration-database-url>" cargo tools database migrate
+PLE_MIGRATION_DATABASE_URL="<migration-database-url>" cargo tools database migrate
+PLE_MIGRATION_DATABASE_URL="<migration-database-url>" cargo tools database status
+PLE_MIGRATION_DATABASE_URL="<migration-database-url>" cargo tools database verify
 
 psql -c "SELECT conrelid::regclass, conname FROM pg_constraint WHERE NOT convalidated;"
 psql -c "SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class
@@ -477,7 +502,7 @@ cargo fmt --check && cargo clippy -- -D warnings && cargo test --workspace
 pytest tests/
 ```
 
-After tasks 4, 7, and 9 the implementer should capture `EXPLAIN (ANALYZE, BUFFERS)` on
+The review also prescribed `EXPLAIN (ANALYZE, BUFFERS)` captures after tasks 4, 7, and 9 on
 representative data for the gradebook summary read, one partitioned `question_attempt` range read,
 the catalog search page, and one CASCADE delete - comparing against a pre-change capture. That is
 the `/postgresql-expert` measured-evidence step, deferred out of this static review by scope.

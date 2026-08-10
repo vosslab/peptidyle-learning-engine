@@ -61,9 +61,14 @@ No owner exceeds the 600-line target.
 - Tracked, staged, and new-file whitespace checks passed.
 - Independent re-review reported PASS with no P0/P1 finding.
 
-## Next package
+## Historical successor
 
-Implement the shared strict markup projector over the ordered XML stream. Canvas escaped HTML and
-Blackboard direct XML must use separate entry points, one allowlisted CommonMark projection, explicit
-input/token/nesting/output limits, and refusal for unknown markup, attributes, comments, processing
-instructions, media, links, tables, styles, SVG, and MathML.
+The immediate successor was the shared strict markup projector over the ordered XML stream. Canvas
+escaped HTML and Blackboard direct XML used separate entry points, one allowlisted CommonMark
+projection, explicit input/token/nesting/output limits, and refusal for unknown markup, attributes,
+comments, processing instructions, media, links, tables, styles, SVG, and MathML.
+
+WP-QTI-1 through WP-QTI-12 are now accepted history. Current authority is
+[release_completion_plan.md](../active/release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
+is current, WP-ARCH1 follows it, then WP-RC4 owns the QTI-JSONL contract, WP-RC5 owns families and
+Chapter 1 content, and WP-RC6 closes QTI export and H5P claims.

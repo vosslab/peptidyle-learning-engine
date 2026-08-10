@@ -64,6 +64,8 @@ def test_gateway_uses_digest_pinned_dynamic_dns_without_private_credentials() ->
 		"${PLE_GATEWAY_IMAGE_SHA256:?",
 		"source: ./Caddyfile",
 		"target: /etc/caddy/Caddyfile",
+		"source: ../dist",
+		"target: /srv/peptidyle",
 		"read_only: true",
 		'user: "1000:1000"',
 		"cap_drop:\n      - ALL",
@@ -72,7 +74,9 @@ def test_gateway_uses_digest_pinned_dynamic_dns_without_private_credentials() ->
 		"mem_limit:",
 		"pids_limit:",
 		"http://127.0.0.1:8080/health",
-		'"curl", "--fail", "--silent"',
+		'"curl",',
+		'"--fail",',
+		'"--silent",',
 	):
 		assert requirement in gateway, f"gateway policy is missing {requirement!r}"
 	for requirement in (
@@ -97,6 +101,10 @@ def test_gateway_uses_digest_pinned_dynamic_dns_without_private_credentials() ->
 			f"gateway must not receive private service configuration: {forbidden}"
 		)
 	assert "dynamic a api 3000" in caddyfile
+	assert "@api path /api /api/* /health" in caddyfile
+	assert "root * /srv/peptidyle" in caddyfile
+	assert "try_files {path} /index.html" in caddyfile
+	assert "file_server" in caddyfile
 	assert "refresh 2s" in caddyfile
 	assert "lb_policy round_robin" in caddyfile
 	assert "fail_duration 10s" in caddyfile
@@ -123,3 +131,31 @@ def test_gateway_operator_inputs_are_documented_and_document_two_replica_startup
 	assert "${PLE_GATEWAY_HOST_PORT:-3000}" in compose
 	assert "PLE_GATEWAY_HOST_PORT=3000" in env_example
 	assert "--scale api=2" in env_example
+
+
+#============================================
+def test_native_infrastructure_uses_required_immutable_digests_and_a_read_only_major_guard() -> None:
+	"""Local persistence cannot silently start under a mutable or wrong-major image."""
+	compose = COMPOSE_PATH.read_text()
+	env_example = ENV_EXAMPLE_PATH.read_text()
+
+	for image, setting in (
+		("docker.io/library/postgres", "PLE_POSTGRES_IMAGE_SHA256"),
+		("quay.io/minio/minio", "PLE_MINIO_IMAGE_SHA256"),
+		("quay.io/minio/mc", "PLE_MINIO_MC_IMAGE_SHA256"),
+	):
+		assert f"{image}@sha256:${{{setting}:?" in compose
+		assert f"{setting}=" in env_example
+
+	for mutable in (
+		"docker.io/library/postgres:latest",
+		"quay.io/minio/minio:latest",
+		"quay.io/minio/mc:latest",
+	):
+		assert mutable not in compose
+
+	guard = _service_block(compose, "postgres-major-guard")
+	assert "ple_pgdata:/var/lib/postgresql:ro" in guard
+	assert "network_mode: none" in guard
+	assert "read_only: true" in guard
+	assert '"$${actual_major}" != "17"' in guard

@@ -16,7 +16,7 @@ parsers. It adds no vendor grammar, mapping, persistence, route, schema, or UI b
 - `crates/adapters/qti/src/xml.rs` owns the bounded XML tree: UTF-8, DTD/entity refusal, token/node/
   depth limits, duplicate attributes, pending tags, balanced names, a single root, and text
   normalization.
-- `crates/adapters/qti/src/parser_stub.rs` retains the existing generic grammar and QTI compatibility
+- `crates/adapters/qti/src/parser.rs` retains the existing generic grammar and QTI compatibility
   behavior. It supplies its unchanged `imsmanifest.xml`, `items/`, and `assets/` allowlist to the
   shared archive reader.
 
@@ -29,7 +29,7 @@ surface can construct a validated archive or XML tree.
 
 - `archive.rs`: 211 lines;
 - `xml.rs`: 269 lines;
-- generic `parser_stub.rs`: 613 lines, reduced from 976.
+- generic `parser.rs`: 613 lines, reduced from 976.
 
 The parent remains below the 1,000-line hard owner limit and will not absorb vendor parsers. A later
 asset-specific split may take it below the 600-line target without coupling that cleanup to profile
@@ -45,8 +45,13 @@ behavior.
 - Tracked, staged, and new-file whitespace checks passed.
 - Independent review reported PASS with no P0/P1 finding.
 
-## Next package
+## Historical successor
 
-Canvas and Blackboard parsers may now use the same bounded archive/XML foundation with separate
-exact entry grammars. They must keep their vendor rules in separate profile modules and must not
-widen the generic importer allowlist.
+The immediate successors were the Canvas and Blackboard parsers. They used the same bounded
+archive/XML foundation with separate exact entry grammars and kept vendor rules in separate profile
+modules without widening the generic importer allowlist.
+
+WP-QTI-1 through WP-QTI-12 are now accepted history. Current authority is
+[release_completion_plan.md](../active/release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
+is current, WP-ARCH1 follows it, then WP-RC4 owns the QTI-JSONL contract, WP-RC5 owns families and
+Chapter 1 content, and WP-RC6 closes QTI export and H5P claims.

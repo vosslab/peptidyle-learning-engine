@@ -22,9 +22,10 @@ const EXPECTED_ROUTE_PATHS = [
   "/workspace/:workspaceId",
   "/instructor/courses/:courseId/assignments/:assignmentId/edit",
   "/instructor/courses/:courseId/gradebook",
+  "/instructor/courses/:courseId/appearance",
 ];
 
-test("the product route data matches the frozen eleven-route contract", () => {
+test("the product route data matches the frozen route contract", () => {
   assert.deepEqual(
     ROUTE_CONTRACT.map((route) => route.path),
     EXPECTED_ROUTE_PATHS,
@@ -47,6 +48,15 @@ test("session bootstrap exposes only safe loading, authenticated, and recovery s
   assert.deepEqual(sessionFailureState(new Error("offline")), { kind: "error" });
 });
 
+test("local sign-in exchanges the credential once and retains only the safe session", async () => {
+  const client = createMockApiClient();
+  const bootstrap = createSessionBootstrap(client.getSession, client.loginWithLocalCredential);
+
+  assert.equal(await bootstrap.signInWithLocalCredential("local-only-token"), true);
+  assert.equal(bootstrap.state().kind, "authenticated");
+  assert.equal("credential" in bootstrap.state(), false);
+});
+
 test("the shell keeps client navigation role-aware and never echoes route exceptions", () => {
   const source = fs.readFileSync("src/app.tsx", "utf8");
 
@@ -56,6 +66,9 @@ test("the shell keeps client navigation role-aware and never echoes route except
   assert.match(source, /<Show when={location\.pathname} keyed>/);
   assert.doesNotMatch(source, /String\(error\)/);
   assert.doesNotMatch(source, /error\.message/);
+  assert.match(source, /Local development credential/);
+  assert.match(source, /type="password"/);
+  assert.doesNotMatch(source, /localStorage/);
 });
 
 test("the typed mock client loads a complete run screen with no backend", async () => {

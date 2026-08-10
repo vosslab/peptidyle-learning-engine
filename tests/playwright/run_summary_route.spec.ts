@@ -94,8 +94,13 @@ test.beforeAll(async () => {
         }));
 
         function summaryPage(cursor) {
+          const course = {
+            summary: publishedProblemFixture.course,
+            appearance: { theme: "grass", revision: "1", banner: null },
+          };
           if (cursor === null) {
             return {
+              course,
               run,
               summary: publishedProblemFixture.summary,
               practiceAllowed: true,
@@ -104,6 +109,7 @@ test.beforeAll(async () => {
           }
           if (cursor === nextCursor) {
             return {
+              course,
               run,
               summary: publishedProblemFixture.summary,
               practiceAllowed: true,
@@ -218,6 +224,11 @@ test("built run summary retries a bounded cursor and a fresh-practice start with
   expect(pageErrors).toEqual([]);
   await expect(fixture.getByRole("heading", { name: "Run summary" })).toBeVisible();
   await expect(fixture.locator(".feedback-panel")).toHaveCount(30);
+  await expect(fixture.locator(".feedback-panel button")).toHaveCount(0);
+  const feedbackHeadingIds = await fixture
+    .locator(".feedback-panel__heading")
+    .evaluateAll((headings) => headings.map((heading) => heading.id));
+  expect(new Set(feedbackHeadingIds).size).toBe(feedbackHeadingIds.length);
   await expect(fixture.getByRole("button", { name: "Start fresh practice" })).toBeVisible();
   await expect(fixture.getByText("Feedback is not available yet.").first()).toBeVisible();
 

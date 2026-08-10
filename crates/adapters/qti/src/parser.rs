@@ -607,5 +607,5 @@ fn unsupported(path: &str, feature: &str, detail: &str) -> UnsupportedFeature {
 }
 
 #[cfg(test)]
-#[path = "parser_stub/tests.rs"]
+#[path = "parser/tests.rs"]
 mod tests;

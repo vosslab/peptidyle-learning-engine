@@ -34,6 +34,7 @@ cookie = ">=0.18.1"
 getrandom = ">=0.4.3"
 hmac = ">=0.13.0"
 html5ever = ">=0.39.0"
+image = { version = ">=0.25.10", default-features = false, features = ["jpeg", "png", "webp"] }
 rand_chacha = ">=0.10.0"
 rand_core = ">=0.10.1"
 rust_decimal = ">=1.42.1"

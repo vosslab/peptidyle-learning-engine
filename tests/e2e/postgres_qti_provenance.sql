@@ -72,7 +72,7 @@ SELECT
     repeat('a', 64), 42, 'application/zip', 'CC0-1.0', 'e2e qti archive',
     '2026-08-08 00:00:00+00'::timestamptz,
     '11111111-1111-4111-8111-0000000000a6'::uuid,
-    repeat('你', 1024),
+    repeat(U&'\4F60', 1024),
     'canvas-qti-1.2-static-single-choice/v1', 'v1', 'v1', 'native-v1',
     repeat('b', 64), repeat('c', 64), repeat('d', 64), repeat('e', 64),
     repeat('f', 64), repeat('1', 64),
@@ -155,7 +155,7 @@ COMMIT;
 -- linked import/grading surfaces round-trip the exact same value.
 DO $$
 DECLARE
-    expected_identifier text := repeat('你', 1024);
+    expected_identifier text := repeat(U&'\4F60', 1024);
     actual_identifier text;
 BEGIN
     SELECT item_id INTO actual_identifier
@@ -201,7 +201,7 @@ BEGIN
             (tenant_id, workspace_id, import_id, item_id, payload, payload_sha256)
         VALUES ('11111111-1111-4111-8111-0000000000a1',
                 '11111111-1111-4111-8111-0000000000a2',
-                '11111111-1111-4111-8111-0000000000ac', repeat('你', 1025),
+                '11111111-1111-4111-8111-0000000000ac', repeat(U&'\4F60', 1025),
                 '{}'::jsonb, repeat('8', 64));
         RAISE EXCEPTION '1,025-scalar QTI item identifier was accepted';
     EXCEPTION WHEN check_violation THEN
@@ -216,7 +216,7 @@ BEGIN
              normalized_sha256, payload, payload_sha256)
         VALUES ('11111111-1111-4111-8111-0000000000a1',
                 '11111111-1111-4111-8111-0000000000a2',
-                '11111111-1111-4111-8111-0000000000ac', 0, repeat('你', 1025),
+                '11111111-1111-4111-8111-0000000000ac', 0, repeat(U&'\4F60', 1025),
                 'accepted', repeat('b', 64), '{}'::jsonb, repeat('9', 64));
         RAISE EXCEPTION '1,025-scalar QTI result identifier was accepted';
     EXCEPTION WHEN check_violation THEN
@@ -230,7 +230,7 @@ BEGIN
             (tenant_id, workspace_id, import_id, item_id, payload, payload_sha256)
         VALUES ('11111111-1111-4111-8111-0000000000a1',
                 '11111111-1111-4111-8111-0000000000a2',
-                '11111111-1111-4111-8111-0000000000ac', repeat('你', 1025),
+                '11111111-1111-4111-8111-0000000000ac', repeat(U&'\4F60', 1025),
                 decode('01', 'hex'), repeat('a', 64));
         RAISE EXCEPTION '1,025-scalar QTI grading identifier was accepted';
     EXCEPTION WHEN check_violation THEN
@@ -243,7 +243,7 @@ BEGIN
         INSERT INTO public.published_qti_grading
             (problem_id, version_id, item_id, payload, payload_sha256)
         VALUES ('11111111-1111-4111-8111-0000000000a7',
-                '11111111-1111-4111-8111-0000000000a8', repeat('你', 1025),
+                '11111111-1111-4111-8111-0000000000a8', repeat(U&'\4F60', 1025),
                 decode('01', 'hex'), repeat('a', 64));
         RAISE EXCEPTION '1,025-scalar published QTI grading identifier was accepted';
     EXCEPTION WHEN check_violation THEN
@@ -535,7 +535,7 @@ BEGIN
                 '11111111-1111-4111-8111-0000000000a4',
                 '11111111-1111-4111-8111-0000000000a5', repeat('0', 64), 42,
                 'application/zip', 'CC0-1.0', 'e2e qti archive', '2026-08-08 00:00:00+00',
-                repeat('你', 1024), 'canvas-qti-1.2-static-single-choice/v1', 'v1', 'v1',
+                repeat(U&'\4F60', 1024), 'canvas-qti-1.2-static-single-choice/v1', 'v1', 'v1',
                 'native-v1', repeat('b', 64), repeat('c', 64), repeat('d', 64),
                 repeat('e', 64), repeat('f', 64), repeat('1', 64),
                 encode(pg_catalog.sha256(decode('0102', 'hex')), 'hex'),

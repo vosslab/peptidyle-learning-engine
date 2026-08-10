@@ -30,6 +30,7 @@ use uuid::Uuid;
 
 mod activity_policy;
 mod asset_delivery;
+mod course_appearance;
 mod external_tool;
 mod feedback;
 mod flat_import_provenance;
@@ -61,6 +62,11 @@ mod statistics;
 pub use crate::asset_delivery::{
     AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssetStore,
     AuthorizedAssetDelivery, CatalogAssetBinding,
+};
+pub use crate::course_appearance::{
+    COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseAppearanceStore, CourseBannerCleanupBatch,
+    CourseBannerCleanupClaim, CourseBannerCleanupToken, CourseBannerPromotion,
+    RegisterCourseBannerCandidate, SaveCourseAppearance,
 };
 pub(crate) use crate::external_tool::fresh_external_tool_launch_id;
 pub use crate::external_tool::{
@@ -1804,12 +1810,7 @@ pub trait CatalogStore: Send + Sync {
         &self,
         context: TenantContext,
         reference: question_model::ProblemDisplayRef,
-    ) -> Result<Option<PublishedProblemRecord>, StoreError> {
-        let _ = (context, reference);
-        Err(StoreError::Unavailable(
-            "human catalog lookup is not implemented by this store".to_string(),
-        ))
-    }
+    ) -> Result<Option<PublishedProblemRecord>, StoreError>;
 
     /// Lists discoverable hot metadata in stable cursor order.
     async fn list_catalog(
@@ -1833,12 +1834,7 @@ pub trait CatalogStore: Send + Sync {
         &self,
         context: TenantContext,
         query: CatalogSearchQuery,
-    ) -> Result<CatalogSearchPage, StoreError> {
-        let _ = (context, query);
-        Err(StoreError::Unavailable(
-            "catalog search is not implemented by this store".to_string(),
-        ))
-    }
+    ) -> Result<CatalogSearchPage, StoreError>;
 
     /// Returns a safe exact immutable catalog-detail projection. This default
     /// retains compatibility for focused test stores while production stores

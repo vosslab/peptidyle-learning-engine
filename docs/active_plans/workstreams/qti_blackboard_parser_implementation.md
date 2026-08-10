@@ -58,9 +58,14 @@ separate capability owners.
 - Tracked/staged/new-file whitespace checks and `git diff --check` passed.
 - Independent review reported PASS with no P0/P1 finding.
 
-## Next package
+## Historical successor
 
-Implement the Q3 pure native flat bridge described in
-[qti_profile_mapping_plan.md](../decisions/qti_profile_mapping_plan.md). It must translate only
-trusted mapped items through native-owned flat-question validation and prove canonical public/private
+The immediate successor was the Q3 pure native flat bridge in
+[qti_profile_mapping_plan.md](../decisions/qti_profile_mapping_plan.md). It translated only trusted
+mapped items through native-owned flat-question validation and proved canonical public/private
 equivalence with hand-authored source, without Store or HTTP mutation.
+
+WP-QTI-1 through WP-QTI-12 are now accepted history. Current authority is
+[release_completion_plan.md](../active/release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
+is current, WP-ARCH1 follows it, then WP-RC4 owns the QTI-JSONL contract, WP-RC5 owns families and
+Chapter 1 content, and WP-RC6 closes QTI export and H5P claims.

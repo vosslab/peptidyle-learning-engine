@@ -8,11 +8,11 @@
 /// QTI XML parsing and the import pipeline.
 mod archive;
 mod model;
-pub mod parser_stub;
+pub mod parser;
 pub mod profiles;
 mod xml;
 
-pub use crate::parser_stub::{
+pub use crate::parser::{
     ImportedQtiPackage, ImportedQtiQuestion, QtiAssetObject, QtiAssetReferenceError,
     QtiImportError, QtiImportLimits, QtiImporter, QtiItemImportResult, QtiItemImportStatus,
     QtiManifest, QtiResource, UnsupportedFeature, qti_question_asset_checksums,

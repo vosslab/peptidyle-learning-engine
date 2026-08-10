@@ -1,0 +1,150 @@
+## TITLE('Biochemistry: Identify hydrophobic compounds from formulas')
+## DESCRIPTION
+## Based on their molecular formula, which one of the following compounds is most likely hydrophobic?
+## ENDDESCRIPTION
+## KEYWORDS('hydrophobic','hydrophilic','molecular formula')
+## DBsubject('Biochemistry')
+## DBchapter('Chemical Properties')
+## DBsection('Hydrophobic and Hydrophilic')
+## Level(2)
+## Date('2026-01-23')
+## Author('Dr. Neil R. Voss')
+## Institution('Roosevelt University')
+## Language(en)
+# https://github.com/vosslab
+# This work is licensed under CC BY 4.0 (Creative Commons Attribution 4.0
+# International License).
+# https://creativecommons.org/licenses/by/4.0/
+# Source code portions are licensed under LGPLv3.
+
+DOCUMENT();
+
+# ----------------------------
+# 1) Preamble
+# ----------------------------
+loadMacros(
+	'PGstandard.pl',
+	'PGML.pl',
+	'parserRadioButtons.pl',
+	'PGcourse.pl'
+);
+$showPartialCorrectAnswers = 0;
+
+# ----------------------------
+# 2) Setup
+# ----------------------------
+
+# ----------------------------
+# 2a) Data pools
+# ----------------------------
+
+@hydrophobic_compounds = (
+	'benzene, C<sub>6</sub>H<sub>6</sub>',
+	'toluene, C<sub>7</sub>H<sub>8</sub>',
+	'ethylene, CH<sub>2</sub>CH<sub>2</sub>',
+	'propane, CH<sub>3</sub>CH<sub>2</sub>CH<sub>3</sub>',
+	'butane, CH<sub>3</sub>CH<sub>2</sub>CH<sub>2</sub>CH<sub>3</sub>',
+	'cyclohexane, C<sub>6</sub>H<sub>12</sub>',
+	'hexane, CH<sub>3</sub>(CH<sub>2</sub>)<sub>4</sub>CH<sub>3</sub>',
+	'octane, CH<sub>3</sub>(CH<sub>2</sub>)<sub>6</sub>CH<sub>3</sub>',
+);
+
+@hydrophilic_compounds = (
+	'acetate, C<sub>2</sub>H<sub>3</sub>O<sub>2</sub>',
+	'water, H<sub>2</sub>O',
+	'erythrose, C<sub>4</sub>H<sub>8</sub>O<sub>4</sub>',
+	'glucose, C<sub>6</sub>H<sub>12</sub>O<sub>6</sub>',
+	'sucrose, C<sub>12</sub>H<sub>22</sub>O<sub>11</sub>',
+	'glycerol, C<sub>3</sub>H<sub>8</sub>O<sub>3</sub>',
+	'glycine, NH<sub>2</sub>CH<sub>2</sub>COOH',
+	'ethanol, CH<sub>3</sub>CH<sub>2</sub>OH',
+	'methanol, CH<sub>3</sub>OH',
+	'ammonia, NH<sub>3</sub>',
+	'sodium chloride, NaCl',
+	'phosphoric acid, H<sub>3</sub>PO<sub>4</sub>',
+	'urea, CO(NH<sub>2</sub>)<sub>2</sub>',
+);
+
+# ----------------------------
+# 2b) Randomization and choices
+# ----------------------------
+
+# Number of choices to display
+$num_choices = 5;
+
+# Use a local RNG so choice ordering is stable for a given seed.
+my $local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+
+# Select one correct answer (hydrophobic compound)
+my $correct_index = $local_random->random(0, $#hydrophobic_compounds, 1);
+$correct_answer = $hydrophobic_compounds[$correct_index];
+$correct_answer_plain = $correct_answer;
+$correct_answer_plain =~ s/<[^>]+>//g;
+
+# Select distractors (hydrophilic compounds)
+my %picked_distractors = ();
+my @distractors = ();
+while (scalar(@distractors) < ($num_choices - 1)) {
+	my $index = $local_random->random(0, $#hydrophilic_compounds, 1);
+	next if $picked_distractors{$index};
+	$picked_distractors{$index} = 1;
+	push @distractors, $hydrophilic_compounds[$index];
+}
+
+# ----------------------------
+# 2c) Build choices
+# ----------------------------
+
+# Insert the correct answer at a random position.
+@choices = @distractors;
+my $insert_at = $local_random->random(0, scalar(@choices), 1);
+splice(@choices, $insert_at, 0, $correct_answer);
+
+# ----------------------------
+# 2d) Build radio buttons
+# ----------------------------
+
+$rb = RadioButtons(
+	[@choices],
+	$correct_answer,
+	labels        => 'ABC',
+	displayLabels => 1,
+	separator     => '<div style="margin-bottom: 0.7em;"></div>',
+	uncheckable   => 0,
+);
+
+# ----------------------------
+# 3) Statement (PGML)
+# ----------------------------
+
+$hydrophobic_emph = "<span style='color:#997300;font-size:1.25em;font-weight:700;'>hydrophobic</span>";
+
+BEGIN_PGML
+
+Based on their molecular formula, which one of the following compounds is most likely [$hydrophobic_emph]*?
+
+[_]{$rb}
+
+END_PGML
+
+# ----------------------------
+# 4) Solution
+# ----------------------------
+
+BEGIN_PGML_HINT
+
+Hydrophobic compounds are composed mostly of carbon and hydrogen atoms with very few or no oxygen or nitrogen atoms.
+Look for simple hydrocarbon formulas that contain mainly C and H.
+
+END_PGML_HINT
+
+########################################################
+# SOLUTION
+########################################################
+
+BEGIN_PGML_SOLUTION
+The correct answer is: [$correct_answer_plain].
+END_PGML_SOLUTION
+
+ENDDOCUMENT();

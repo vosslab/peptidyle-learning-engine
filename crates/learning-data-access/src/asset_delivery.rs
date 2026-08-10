@@ -3,7 +3,8 @@
 use async_trait::async_trait;
 use objects::{Bucket, ObjectRecord};
 use question_model::{
-    ActivityTimestamp, AssetId, CourseId, ObjectId, ProblemVersionRef, TenantId, UserId,
+    ActivityTimestamp, AssetId, CourseBannerId, CourseId, ObjectId, ProblemVersionRef, TenantId,
+    UserId,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -28,6 +29,11 @@ impl AssetDeliveryId {
     /// Builds the route identifier for a tenant-owned physical artifact.
     pub fn from_object(object: ObjectId) -> Self {
         Self(object.as_uuid())
+    }
+
+    /// Builds the route identifier for one immutable course banner.
+    pub fn from_course_banner(banner: CourseBannerId) -> Self {
+        Self(banner.as_uuid())
     }
 
     /// Returns the storage UUID.
@@ -73,6 +79,15 @@ pub enum AssetDeliveryScope {
         course: CourseId,
         /// Authenticated users allowed to request a short-lived URL.
         authorized_users: Vec<UserId>,
+    },
+    /// Tenant course presentation authorized only through the exact current pointer.
+    CourseBanner {
+        /// Direct RLS boundary owning the course.
+        tenant: TenantId,
+        /// Course whose current appearance may select this banner.
+        course: CourseId,
+        /// Browser-safe identity which must equal the route delivery ID.
+        banner: CourseBannerId,
     },
 }
 

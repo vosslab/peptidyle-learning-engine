@@ -53,8 +53,13 @@ unchanged.
 - Tracked, staged, and new-file whitespace checks passed.
 - Independent re-review reported PASS with no remaining P0/P1 finding.
 
-## Next package
+## Historical successor
 
-Proceed to the Canvas and Blackboard parser packages using the completed WP-QTI-2 corpus. The
-profile parsers must consume this frozen contract; they must not relax the generic archive-safety
-grammar or invent a second profile identity or digest encoding.
+The immediate successors were the Canvas and Blackboard parser packages using the completed
+WP-QTI-2 corpus. They consumed this frozen contract without relaxing the generic archive-safety
+grammar or inventing a second profile identity or digest encoding.
+
+WP-QTI-1 through WP-QTI-12 are now accepted history. Current authority is
+[release_completion_plan.md](../active/release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
+is current, WP-ARCH1 follows it, then WP-RC4 owns the QTI-JSONL contract, WP-RC5 owns families and
+Chapter 1 content, and WP-RC6 closes QTI export and H5P claims.

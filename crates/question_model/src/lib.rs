@@ -24,6 +24,8 @@ pub mod capability;
 pub mod catalog;
 /// Tenant-owned course and assignment browser projections.
 pub mod course;
+/// Closed, browser-safe course appearance and banner presentation contracts.
+pub mod course_appearance;
 pub mod definition;
 pub mod envelope;
 /// Private teaching material and policy-redacted browser feedback.
@@ -65,6 +67,11 @@ pub use crate::catalog::{
 pub use crate::course::{
     AssignmentSummary, CourseMembership, CourseMembershipRole, CourseRole, CourseSummary,
     GradebookSummaryRow,
+};
+pub use crate::course_appearance::{
+    CourseAppearance, CourseAppearanceRevision, CourseAppearanceUpdate, CourseBannerAltText,
+    CourseBannerAlternativeText, CourseBannerCandidateId, CourseBannerCandidateReceipt,
+    CourseBannerId, CourseBannerMutation, CourseBannerPresentation, CourseThemeId,
 };
 pub use crate::definition::{
     DraftQuestionDefinition, DraftQuestionSource, DraftSourcePublicationError, GradingDefinition,

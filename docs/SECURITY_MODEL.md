@@ -19,9 +19,22 @@ example, it may reveal a numeric tolerance or that exactly two choices are
 required. The expected number and the two correct choice IDs remain in
 `crates/grading`.
 
-`crates/grading` is the only answer-bearing crate. Ungraded content has no
-`AnswerKey`; it does not use a browser-safe placeholder key. Native H5P remains
-ungraded practice because its own evaluation runs in the browser.
+`crates/grading` is the browser-excluded authority for checkers, answer keys,
+and correctness decisions. It is not the only server-only component that
+handles protected answer-bearing material. The native flat-source compiler
+parses canonical author source and splits it into answer-free public content
+and private key/feedback material. `crates/learning-data-access` then validates
+and carries that private material as an opaque grading payload, bound to the
+public definition, for authorized staging, publication, and grader retrieval.
+It does not expose the canonical bytes through browser-facing stores, routes,
+generated contracts, or the Wasm closure.
+
+Ungraded content has no `AnswerKey`; it does not use a browser-safe placeholder
+key. Native H5P remains ungraded practice because its own evaluation runs in
+the browser. The authenticated author-role-only flat-source `GET`/`PUT` route
+is the narrow exception for an instructor's own canonical source. It uses
+`Cache-Control: no-store` and a strong ETag, exposes no signed object URL or
+checksum, and does not widen learner, public, non-author, or Wasm contracts.
 
 `grading::grade(question, response, key)` repeats browser-safe format
 validation before consulting the key. Its generic all-or-nothing checker owns
@@ -335,6 +348,14 @@ never object keys, manifests, leases, source refs, failure details, or signed
 URLs. Downloads continue through the protected asset route and its audit log.
 
 ## Run authorization and grading boundary
+
+This section describes the implemented route. Before WP-RC5, the accepted
+[secure grading payload plan](active_plans/decisions/secure_question_grading_payload_plan.md)
+atomically narrows the learner wire to authenticated attempt ID, idempotency
+key, presentation digest, and a family-minimal answer. Its CRC16 rendered-item
+IDs and SHA-256 presentation digest detect inconsistent presentation state;
+they do not authenticate the learner or grade. All component scoring and
+partial credit remain server-owned.
 
 Run mutations require the authenticated `UserId` stored on the enrollment;
 they never infer authorization by equating that identity with `StudentId`.

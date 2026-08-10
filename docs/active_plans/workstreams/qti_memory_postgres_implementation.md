@@ -4,7 +4,8 @@
 
 WP-QTI-8 is complete and independently reviewed. Shared backend conformance, PostgreSQL feature
 coverage, and the full fresh database baseline reported PASS. Independent review reported PASS with
-no P0/P1 findings. WP-QTI-9 server routes are next.
+no P0/P1 findings. WP-QTI-9 through WP-QTI-12 subsequently completed and passed their independent
+gates.
 
 This handoff implements only the backend persistence boundary frozen by
 [qti_profile_mapping_plan.md](../decisions/qti_profile_mapping_plan.md). It does not add archive-copy
@@ -67,8 +68,13 @@ or HTTP orchestration. The separately frozen
   no-op reapply, ledger verification, real-role RLS/broker probes, and the WP-QTI-8 live path.
 - Independent implementation review: PASS with no P0/P1 findings.
 
-## Next package
+## Historical successor
 
-WP-QTI-9 owns archive-copy orchestration and the upload/replay/report/convert server routes. It must
-use the accepted Store commands and broker boundaries, preserve no-store/ETag/non-enumeration
-behavior, and add no direct private-table or secret read.
+WP-QTI-9 was the immediate successor. It owned archive-copy orchestration and the
+upload/replay/report/convert server routes, used the accepted Store commands and broker boundaries,
+and preserved no-store/ETag/non-enumeration behavior without direct private-table or secret reads.
+
+WP-QTI-1 through WP-QTI-12 are now accepted history. Current authority is
+[release_completion_plan.md](../active/release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
+is current, WP-ARCH1 follows it, then WP-RC4 owns the QTI-JSONL contract, WP-RC5 owns families and
+Chapter 1 content, and WP-RC6 closes QTI export and H5P claims.

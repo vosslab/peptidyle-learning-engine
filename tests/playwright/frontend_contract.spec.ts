@@ -32,7 +32,15 @@ async function navigateWithinSpa(page: Page, pathname: string): Promise<void> {
   }, pathname);
 }
 
-test("all eleven product routes resolve inside the persistent shell", async ({ page }) => {
+async function tabTo(page: Page, target: ReturnType<Page["locator"]>, limit = 20): Promise<void> {
+  for (let index = 0; index < limit; index += 1) {
+    if (await target.evaluate((element) => document.activeElement === element)) return;
+    await page.keyboard.press("Tab");
+  }
+  throw new Error(`Tab did not reach ${await target.getAttribute("aria-label")}`);
+}
+
+test("all product routes resolve inside the persistent shell", async ({ page }) => {
   const routes = [
     { path: "/", surface: "courses" },
     { path: `/courses/${IDS.course}`, surface: "courseAssignments" },
@@ -54,6 +62,10 @@ test("all eleven product routes resolve inside the persistent shell", async ({ p
       surface: "assignmentEditor",
     },
     { path: `/instructor/courses/${IDS.course}/gradebook`, surface: "gradebook" },
+    {
+      path: `/instructor/courses/${IDS.course}/appearance`,
+      surface: "courseAppearance",
+    },
   ];
 
   await page.goto("/");
@@ -210,6 +222,53 @@ test("a student reaches, validates, submits, and advances through the generated 
     page.getByRole("heading", { name: "Keep practicing with a fresh variation" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Start another practice run" })).toBeVisible();
+});
+
+test("a student completes the primary course-to-answer path without a pointer", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  await tabTo(page, page.getByRole("link", { name: "Skip to learning content" }));
+  await expect(page.getByRole("link", { name: "Skip to learning content" })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
+
+  const openCourse = page.getByRole("link", { name: "Open course" });
+  await tabTo(page, openCourse);
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
+
+  const reviewAssignment = page.getByRole("link", { name: "Review assignment" });
+  await tabTo(page, reviewAssignment);
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
+
+  const start = page.getByRole("button", { name: "Start or resume practice" });
+  await tabTo(page, start);
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
+
+  const radios = page.getByRole("radio");
+  await tabTo(page, radios.first());
+  await page.keyboard.press("ArrowDown");
+  await expect(radios.nth(1)).toBeChecked();
+  await expect(radios.nth(1)).toBeFocused();
+  await expect(page.getByRole("status", { name: "Response format" })).toContainText(
+    "ready to submit",
+  );
+
+  await page.keyboard.press("Enter");
+  await tabTo(page, page.getByRole("button", { name: "Continue" }));
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("heading", { name: "Keep practicing with a fresh variation" }),
+  ).toBeVisible();
+
+  const back = page.getByRole("button", { name: "Back to assignment" });
+  await tabTo(page, back);
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Peptide bond mastery" })).toBeVisible();
 });
 
 test("session recovery stays editable, never writes the attempt to local storage, and clears on exit", async ({

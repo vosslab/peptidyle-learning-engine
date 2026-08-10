@@ -1,17 +1,21 @@
 # Plan: Course appearance and banners
 
-## Context
+## Status
 
-Blackboard Original let an instructor give a course its own visual identity through a course theme
-and a centered banner at the course entry point. PLE needs the useful part of that idea without
-arbitrary instructor CSS, inaccessible color combinations, orphaned files, or theme state leaking
-between courses.
+Planning state: implementation-complete on 2026-08-09. WP-CA1 through WP-CA7 and release package
+WP-RC1 are accepted. Candidate expiry and delivery timing are fixed below, no course-appearance
+scope question remains, and WP-RC3 is the next dependency.
 
-The durable owner guidance is intentionally small: one preconfigured three-color biome or habitat
-theme across every page inside a course, plus one small centered banner at the course entry page.
-This plan translates that guidance into a bounded, tenant-owned course capability. It does not make
-the instructor a graphic designer and does not recolor authored scientific content or semantic
-grading states.
+## Decisions
+
+- Keep the accepted 15-theme catalog and Roosevelt-inspired `grass` default.
+- Store one authoritative tenant-owned appearance revision per course.
+- Normalize every banner to one 1200 by 328 pixel WebP center crop; browsers scale that exact
+  derivative without recropping.
+- Expire an unconsumed candidate 60 minutes after creation. Limit any protected object delivery grant
+  to 60 minutes and recheck the exact current course pointer on every delivery request.
+- Show one centered banner only at course entry; theme every course-owned route; preserve global and
+  semantic-status colors.
 
 ## Objectives
 
@@ -26,19 +30,40 @@ grading states.
 - Keep the implementation compartmentalized into small contract, object, persistence, API, and
   browser owners that can be implemented and reviewed independently.
 
+## Scope
+
+WP-CA6 and WP-CA7 completed the in-scope version 1 capability: the real instructor settings page,
+production client/route integration, keyboard/recovery/responsive behavior, disposable
+PostgreSQL/MinIO evidence, visual artifacts, durable documentation, and independent review.
+
+## Background
+
+Blackboard Original let an instructor give a course its own visual identity through a course theme
+and a centered banner at the course entry point. PLE needs the useful part of that idea without
+arbitrary instructor CSS, inaccessible color combinations, orphaned files, or theme state leaking
+between courses.
+
+The durable owner guidance is intentionally small: one preconfigured three-color biome or habitat
+theme across every page inside a course, plus one small centered banner at the course entry page.
+This plan translates that guidance into a bounded, tenant-owned course capability. It does not make
+the instructor a graphic designer and does not recolor authored scientific content or semantic
+grading states.
+
 ## Design philosophy
 
 Use a closed, measured design-token catalog and one course-root projection instead of arbitrary CSS
 or page-specific styling. Use one atomic appearance revision instead of independent theme and banner
 updates. The banner follows the low-noise Blackboard entry-point model: fixed centered cropping and
-two responsive previews, not a general-purpose image editor.
+two responsive previews, not a general-purpose image editor. The server emits one exact 1200 by 328
+pixel WebP, preserving the proportions of the centered 1546 by 423 pixel YouTube banner safe region
+at the existing 1200-pixel PLE width cap; the browser only scales that derivative down.
 
 - Evidence strategy for uncertain methods: measure every rendered foreground/background pair, emit
   an all-theme contact sheet, and compare role-matched palettes in OKLab before keeping or merging a
   theme. Validate object, RLS, and revision behavior against disposable PostgreSQL and MinIO rather
   than relying on mock wiring alone.
 
-## Scope
+## Detailed capability scope
 
 - Define a closed `CourseThemeId`, revisioned browser-safe appearance projection, banner alternative
   text choice, and strict update command.
@@ -74,14 +99,14 @@ two responsive previews, not a general-purpose image editor.
   or revision.
 - The object contract has no tenant-owned `CourseBanner` class. Current signed delivery knows only
   catalog and student-record assets.
-- The browser has global palette variables and six existing course-owned route surfaces, but no
-  route-scoped appearance provider or instructor settings route. This package adds the seventh
-  course-owned surface.
-- The route contract is frozen, so adding `/instructor/courses/:courseId/appearance` requires an
-  atomic contract, documentation, mock, and test update.
-- WP-QTI-8 remains the next backend package in the current repository order, followed by WP-QTI-9
-  through WP-QTI-12. This plan is frozen now; CA1 implementation begins after WP-QTI-12 closes the
-  QTI import route/UI/live/review chain and releases the shared client, route, Store, and docs seams.
+- The browser has a fail-closed route-scoped appearance provider across all seven course-owned
+  surfaces and a working instructor settings page with keyboard, conflict, responsive, and
+  forced-color evidence.
+- The frozen `/instructor/courses/:courseId/appearance` route, production client, mock, decoder,
+  documentation, and tests changed atomically.
+- WP-QTI-8 through WP-QTI-12 and WP-CA1 through WP-CA7 are accepted. The independently assigned QTI
+  Package Maker WP-FQ-0 contract can proceed without contending for these closed client, route,
+  Store, and documentation seams.
 
 ## Architecture boundaries and ownership
 
@@ -290,12 +315,18 @@ the same split rather than relying on tenant-only RLS.
 ### Work package WP-CA1: Freeze course appearance contracts
 
 - Owner: `architect`.
+- Status: complete on 2026-08-09. The Rust owner, generated TypeScript, executable route/reference
+  implementation, and
+  contract documents passed focused and full repository gates. WP-CA2 through WP-CA5 subsequently
+  passed; WP-CA6 and WP-CA7 subsequently passed. During WP-CA5 the owner changed the pre-data
+  default and Grass anchors;
+  the coordinated Rust, SQL, generated-TypeScript, and browser contracts now reflect that decision.
 - Touch points: `crates/question_model/src/course_appearance.rs`, generated API types,
   `src/route_contract.ts`, `docs/FRONTEND_ARCHITECTURE.md`, `docs/CONTRACTS.md`.
 - Depends on: WP-QTI-12.
 - Acceptance criteria:
   - Define `CourseThemeId`, `CourseAppearanceRevision`, safe banner presentation, strict mutation,
-    and exactly one default (`ocean`).
+    and exactly one default (`grass`).
   - Keep all storage identity and answer-bearing types out of generated/browser contracts.
   - Add `/instructor/courses/:courseId/appearance` atomically to route docs, executable route
     contract, mocks, and route tests.
@@ -308,34 +339,45 @@ reports Euclidean distance times 100 as `DeltaE_OK`. Merge a pair only when its 
 below 8 and its maximum role distance is below 10. Forest/Woodland measures 0/0. The closest retained
 pair, Coral reef/Salt marsh, has mean 8.2 with role distances 1.8 and 14.6, so it remains distinct.
 
-| Theme ID      | Canvas    | Secondary | Accent    | On colors C/S/A   | Minimum contrast |
-| ------------- | --------- | --------- | --------- | ----------------- | ---------------- |
-| `tundra`      | `#e3e1da` | `#725e72` | `#485b3c` | black/white/white | 5.90:1           |
-| `forest`      | `#e4ebdd` | `#166747` | `#aa831a` | black/white/black | 5.97:1           |
-| `desert`      | `#f3e2bd` | `#c07a3b` | `#68402a` | black/black/white | 6.09:1           |
-| `grass`       | `#e9f0c8` | `#72a94f` | `#245e8e` | black/black/white | 6.85:1           |
-| `arctic`      | `#e5f5f8` | `#7cbed1` | `#1f5d78` | black/black/white | 7.25:1           |
-| `ocean`       | `#ddeff5` | `#0b6c88` | `#123c69` | black/white/white | 5.97:1           |
-| `tropical`    | `#e4f2d6` | `#1b7646` | `#8a1976` | black/white/white | 5.64:1           |
-| `coral-reef`  | `#e8f6f1` | `#006d68` | `#b52d3d` | black/white/white | 6.16:1           |
-| `swamp`       | `#e8e5c9` | `#4e5f23` | `#4b3426` | black/white/white | 7.03:1           |
-| `underground` | `#e6e0d8` | `#59504a` | `#c9732c` | black/white/black | 5.97:1           |
-| `salt-marsh`  | `#e8f0df` | `#1e6a6d` | `#76511f` | black/white/white | 6.29:1           |
-| `wetland`     | `#e4eee7` | `#466f59` | `#3b648c` | black/white/white | 5.71:1           |
-| `sea-floor`   | `#dee8ed` | `#344e62` | `#086a72` | black/white/white | 6.33:1           |
-| `magma`       | `#f5e0cf` | `#a92720` | `#3b2928` | black/white/white | 7.00:1           |
-| `beach`       | `#f3e7c9` | `#56a8b0` | `#8a3d24` | black/black/white | 7.57:1           |
+| Theme ID      | Canvas    | Secondary | Accent    | On colors C/S/A    | Minimum contrast |
+| ------------- | --------- | --------- | --------- | ------------------ | ---------------- |
+| `tundra`      | `#e3e1da` | `#725e72` | `#485b3c` | black/white/white  | 5.90:1           |
+| `forest`      | `#e4ebdd` | `#166747` | `#aa831a` | black/white/black  | 5.97:1           |
+| `desert`      | `#f3e2bd` | `#c07a3b` | `#68402a` | black/black/white  | 6.09:1           |
+| `grass`       | `#bddeb1` | `#73c167` | `#008852` | ink/ink/decorative | 5.51:1 derived   |
+| `arctic`      | `#e5f5f8` | `#7cbed1` | `#1f5d78` | black/black/white  | 7.25:1           |
+| `ocean`       | `#ddeff5` | `#0b6c88` | `#123c69` | black/white/white  | 5.97:1           |
+| `tropical`    | `#e4f2d6` | `#1b7646` | `#8a1976` | black/white/white  | 5.64:1           |
+| `coral-reef`  | `#e8f6f1` | `#006d68` | `#b52d3d` | black/white/white  | 6.16:1           |
+| `swamp`       | `#e8e5c9` | `#4e5f23` | `#4b3426` | black/white/white  | 7.03:1           |
+| `underground` | `#e6e0d8` | `#59504a` | `#c9732c` | black/white/black  | 5.97:1           |
+| `salt-marsh`  | `#e8f0df` | `#1e6a6d` | `#76511f` | black/white/white  | 6.29:1           |
+| `wetland`     | `#e4eee7` | `#466f59` | `#3b648c` | black/white/white  | 5.71:1           |
+| `sea-floor`   | `#dee8ed` | `#344e62` | `#086a72` | black/white/white  | 6.33:1           |
+| `magma`       | `#f5e0cf` | `#a92720` | `#3b2928` | black/white/white  | 7.00:1           |
+| `beach`       | `#f3e7c9` | `#56a8b0` | `#8a3d24` | black/black/white  | 7.57:1           |
+
+Grass is Roosevelt-inspired, not an official institutional theme. The two vivid greens come from
+the [Roosevelt Lakers brand guide](https://rooseveltlakers.com/documents/2025/2/7/RooseveltLakers_BrandGuidelines_2024.pdf),
+while `#BDDEB1` is a pale fill observed in the public
+[Roosevelt University logo SVG](https://upload.wikimedia.org/wikipedia/commons/a/ad/Roosevelt_University_Logo.svg).
+Raw `#008852` remains a decorative anchor because it cannot meet the house 5.5:1 text target with
+black or white. The browser derives `#006B40` for white-on-action controls and `#005C38` for links on
+the Grass canvas; those projections are design-system outputs, not stored theme colors.
 
 `woodland` is consolidated into `forest` before persistence; the UI does not create two
 indistinguishable choices. Re-run the OKLab oracle whenever any anchor changes.
 
 - Evidence or review, when useful: generated-type gate, palette contrast/OKLab report, and an
   independent contract review.
-- Obvious follow-ons: WP-CA2, WP-CA3, and mock-backed WP-CA5/WP-CA6.
+- Next dependency: WP-CA2, WP-CA3, and mock-backed WP-CA5/WP-CA6 consume this accepted contract.
 
 ### Work package WP-CA2: Add protected banner objects
 
 - Owner: `expert_coder`.
+- Status: complete on 2026-08-09. Typed candidate/current identities, classification, signing
+  refusal/permission, memory conformance, S3-feature compilation, and full repository gates passed.
+  WP-CA3 subsequently passed; object identity remains owned here rather than by its persistence.
 - Touch points: typed object keys and object conformance tests only.
 - Depends on: WP-CA1.
 - Acceptance criteria:
@@ -345,11 +387,16 @@ indistinguishable choices. Re-run the OKLab oracle whenever any anchor changes.
     requiring WP-CA3 current-pointer authorization before any delivery record is usable.
   - Preserve every existing source-signing refusal and student-record retention rule.
 - Evidence or review, when useful: Memory/MinIO object conformance and exact signing/refusal tests.
-- Obvious follow-ons: hand the frozen identities to WP-CA3; do not edit asset-delivery persistence.
+- Next dependency: WP-CA3 consumes the frozen identities; WP-CA2 does not edit asset-delivery persistence.
 
 ### Work package WP-CA3: Persist revisioned course appearance
 
 - Owner: one `expert_coder`; a separate `postgresql-expert` reviews the SQL/RLS/lock boundary.
+- Status: complete on 2026-08-09. Memory and PostgreSQL now create the default appearance with the
+  course, enforce revision CAS and persisted session authority, persist bytes-first banner promotion,
+  authorize only the exact current pointer, and perform bounded two-phase cleanup. The new forward
+  migration and disposable PostgreSQL 17 oracle passed the full seven-migration database gate;
+  WP-CA4 through WP-CA7 subsequently passed.
 - Touch points: one forward migration, asset-delivery contract/backends/conformance, focused
   `course_appearance` contract/backends/conformance, initial course-creation seams, and bounded
   cleanup worker/capability.
@@ -370,19 +417,26 @@ indistinguishable choices. Re-run the OKLab oracle whenever any anchor changes.
     future explicit hard course deletion or bounded replacement cleanup.
 - Evidence or review, when useful: unchanged memory/PostgreSQL conformance plus one disposable
   real-role/RLS/CAS oracle.
-- Obvious follow-ons: expose only the narrow capability required by WP-CA4.
+- Next dependency: WP-CA4 consumes only this narrow capability.
 
 ### Work package WP-CA4: Implement atomic appearance HTTP behavior
 
 - Owner: `rust-code-expert`.
+- Status: complete on 2026-08-09. The production router now exposes bounded author candidate upload,
+  current appearance GET, atomic strong-ETag PUT, and current-only same-origin banner delivery.
+  Server-owned normalization accepts only JPEG/PNG/WebP, rejects animation/malformed/oversized or
+  undersized images, applies orientation, strips metadata, and emits one exact 1200 by 328 WebP.
+  Focused route/image tests, strict Clippy, the complete disposable PostgreSQL/RLS gate, and all 11
+  repository checks passed. WP-CA5 through WP-CA7 subsequently passed.
 - Touch points: `crates/server/src/course_appearance.rs`, composition, focused tests, image codec
   dependency owned only by the server.
 - Depends on: WP-CA2 and WP-CA3.
 - Acceptance criteria:
   - Accept JPEG, PNG, or WebP input at no more than 2 MiB and 20 decoded megapixels; reject SVG,
-    animation, malformed bytes, and inputs below 600 by 100 pixels.
-  - Correct orientation, strip metadata, center-crop without stretching, and emit one 6:1 WebP
-    derivative at no more than 1200 by 200 pixels. Do not upscale a smaller accepted image.
+    animation, malformed bytes, and images that cannot supply a 1200 by 328 pixel center crop after
+    orientation.
+  - Correct orientation, strip metadata, center-crop without stretching, and emit exactly one 1200
+    by 328 pixel WebP derivative. Never upscale and never create device-specific derivatives.
   - Require explicit decorative state or 1-160 character informative alternative text; never infer
     it from filename or course title.
   - Provide author-only candidate upload, strict atomic JSON save, current banner read, and no-store
@@ -392,11 +446,17 @@ indistinguishable choices. Re-run the OKLab oracle whenever any anchor changes.
     tenants. Preserve the old appearance on every failure.
 - Evidence or review, when useful: hostile image corpus, focused route tests, and bytes-first object
   failure tests.
-- Obvious follow-ons: regenerate/update strict client contracts through their owner.
+- Next dependency: the generated-contract owner updates strict client contracts before WP-CA6.
 
 ### Work package WP-CA5: Implement the course theme scope
 
 - Owner: `solid-js-expert`.
+- Status: complete on 2026-08-09. One course-root loader now supplies course and appearance data,
+  run attempts reuse `RunScreenData.course`, and authorized run summaries carry a server-derived
+  safe course projection. The exhaustive 15-theme registry rejects unknown IDs, scopes variables
+  below the persistent shell, clears them across course/global navigation, and leaves semantic
+  statuses unchanged. Focused Node/Rust checks, the complete 56-case built Playwright suite, and all
+  11 repository checks passed. WP-CA6 and WP-CA7 subsequently passed.
 - Touch points: `src/features/course_appearance/theme_catalog.ts`, provider/styles/tests, course route
   composition.
 - Depends on: WP-CA1; live transport integration depends on WP-CA4.
@@ -412,29 +472,38 @@ indistinguishable choices. Re-run the OKLab oracle whenever any anchor changes.
     browser-supplied course identity or issue a theme-only learner fetch after render.
   - Reject an unknown ID as a contract error rather than silently substituting a theme.
 - Evidence or review, when useful: Node token/route-scope tests and rendered pair measurements.
-- Obvious follow-ons: supply the same provider to WP-CA6 previews.
+- Next dependency: WP-CA6 uses this same provider for its previews.
 
 ### Work package WP-CA6: Build instructor appearance settings
 
 - Owner: `ui-ux-engineer` with HCI review.
+- Status: complete on 2026-08-09. The real settings route uses native radio cards, exact wide/narrow
+  previews, decorative/informative alternative text, one save action, explicit stale-revision
+  reload, replacement/removal, and locally preserved recovery state. Focused Node and built-browser
+  behavior, keyboard, axe, forced-color, and 320/480-pixel checks passed.
 - Touch points: `src/features/course_appearance/` model/client/components/page and focused tests.
 - Depends on: WP-CA1 for mocks, WP-CA4 for live transport, and WP-CA5 for preview.
 - Acceptance criteria:
   - Present labeled native radio cards with the theme name and three decorative swatches; preserve
     logical keyboard order and never rely on color alone.
   - Show exact centered wide and narrow banner previews; keep the course title as text outside the
-    image; require decorative/informative alt choice.
+    image; require decorative/informative alt choice. Both previews preserve the exact 1200 by 328
+    derivative ratio and differ only in CSS display width.
   - Use one `Save appearance` action; disable duplicate saves; preserve local theme/file/alt state on
     validation, network, auth, permission, and stale-revision errors; offer explicit conflict reload.
   - Make remove/cancel and remove/save visibly different; no empty banner frame appears to students.
   - Meet forced-colors, reduced-motion, 200 percent zoom, 320/480-pixel no-overflow, and touch/focus
     target requirements.
 - Evidence or review, when useful: behavior-focused Node tests and a keyboard cognitive walkthrough.
-- Obvious follow-ons: hand the real page to WP-CA7 without direct test state injection.
+- Next dependency: WP-CA7 exercises the real page without direct test-state injection.
 
 ### Work package WP-CA7: Run integrated appearance acceptance
 
 - Owner: `integrator`, then independent `reviewer`.
+- Status: complete on 2026-08-09. All seven course surfaces, entry-only learner banner, production
+  request shapes, real-role PostgreSQL/RLS/CAS, database-enforced current-pointer ownership,
+  combined PostgreSQL-to-MinIO idempotent cleanup, current delivery, hostile input, visual metrics,
+  and responsive artifacts passed. Three read-only reviewers reported no P0/P1/P2.
 - Touch points: route/client seams, disposable PostgreSQL/MinIO oracle, Playwright, visual artifacts,
   architecture/status/changelog docs.
 - Depends on: WP-CA2 through WP-CA6.
@@ -450,7 +519,7 @@ indistinguishable choices. Re-run the OKLab oracle whenever any anchor changes.
   - Keep grading/Wasm/generated answer secrecy and learner network-trace gates green.
 - Evidence or review, when useful: full commands and exact artifact paths in the implementation
   handoff; independent PASS with no P0/P1 finding.
-- Obvious follow-ons: update every durable owner doc and close this plan package.
+- Next dependency: WP-RC3 shipped upstream WeBWorK consumes the accepted package sequence.
 
 ## Acceptance criteria and gates
 
@@ -491,8 +560,8 @@ theme-card counts, or exact error prose. Assert stable behavior and named IDs in
 - Add a forward migration; do not rewrite the accepted six-file baseline after its audited boundary.
 - Persist only the 15 closed IDs. `woodland` is consolidated into `forest` before first persistence,
   so no compatibility alias is required unless prototype data is discovered during implementation.
-- New courses receive `ocean` transactionally. Existing courses receive `ocean` in the forward
-  migration and the same positive initial revision in both backends.
+- New courses receive `grass` transactionally. Existing pre-data courses receive `grass` in the
+  forward migration and the same positive initial revision in both backends.
 - Adding, renaming, or removing a theme is a coordinated Rust/SQL/generated-TS/browser-registry
   migration. Palette value changes retain the stable ID but require renewed contrast, dedup, contact-
   sheet, and visual review evidence.
@@ -514,15 +583,16 @@ theme-card counts, or exact error prose. Assert stable behavior and named IDs in
 
 ## Rollout and release checklist
 
-- [ ] Freeze the 15-ID catalog, exact palettes, Ocean default, image policy, and route/DTO contract.
-- [ ] Pass CA2 object, Store, schema, RLS, and conformance gates.
-- [ ] Pass CA3 upload/normalization/API behavior and hostile-image gates.
-- [ ] Pass CA4 course-scope, settings, keyboard, recovery, and responsive gates.
-- [ ] Inspect the contact sheet, responsive screenshots, and palette metrics.
-- [ ] Pass disposable PostgreSQL and MinIO live oracles.
-- [ ] Pass `./check_codebase.sh` and built Playwright acceptance.
-- [ ] Obtain independent no-P0/P1 review.
-- [ ] Update plan/status/changelog/architecture/file-structure/contracts docs.
+- [x] Freeze the 15-ID catalog, exact palettes, Grass default, image policy, and route/DTO contract.
+- [x] Pass CA2 object, Store, schema, RLS, and conformance gates.
+- [x] Pass CA3 upload/normalization/API behavior and hostile-image gates.
+- [x] Pass WP-CA5 course scope, cross-course cleanup, fail-closed decoding, and rendered contrast.
+- [x] Pass WP-CA6 settings, keyboard, recovery, and responsive gates.
+- [x] Inspect the contact sheet, responsive screenshots, and palette metrics.
+- [x] Pass disposable PostgreSQL and MinIO live oracles, including their combined cleanup lifecycle.
+- [x] Pass `./check_codebase.sh` and built Playwright acceptance.
+- [x] Obtain independent no-P0/P1 review.
+- [x] Update plan/status/changelog/architecture/file-structure/contracts docs.
 
 ## Documentation close-out requirements
 
@@ -558,14 +628,18 @@ verification artifact.
 - Use exactly three stored design colors: canvas, secondary, and accent. Derived text, border,
   surface, focus, and semantic status tokens remain design-system outputs rather than extra theme
   choices.
-- Default new and migrated courses to `ocean` because it is closest to the current PLE blue shell.
+- Default new and migrated courses to Roosevelt-inspired `grass` at the owner's direction. Keep
+  `#008852` decorative and use measured derived action/link projections where text contrast applies.
 - Show one centered banner only on the course entry page; theme every course-owned route.
-- Use a fixed server-owned center crop with previews instead of manual crop controls.
+- Use one exact 1200 by 328 pixel server-owned center crop with ratio-preserving browser previews
+  instead of manual crop controls, client recropping, or multiple responsive derivatives.
 - Treat appearance as authoritative tenant-owned server state with strong revisions, never a browser
   preference.
+- Expire an unconsumed candidate after 60 minutes. Limit a protected course-banner object grant to
+  60 minutes and retain the current-pointer authorization check as the actual access boundary.
 
-## Open questions and decisions needed
+## Decision completeness
 
-- Non-blocking: tune deploy-time candidate cleanup age and short-lived delivery TTL within the
-  existing bounded object-access policy during WP-CA3; behavior tests assert boundedness and current-
-  pointer authorization rather than one tunable number.
+No course-appearance scope or implementation decision remains open. Deployment may shorten the
+delivery grant, but it may not lengthen either accepted 60-minute ceiling without a reviewed contract
+change and renewed object/security evidence.

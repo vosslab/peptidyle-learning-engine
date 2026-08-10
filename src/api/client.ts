@@ -8,6 +8,9 @@ import type { CatalogProblemDetail } from "../../generated/api/CatalogProblemDet
 import type { CatalogSearchPage } from "../../generated/api/CatalogSearchPage";
 import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery";
 import type { CourseId } from "../../generated/api/CourseId";
+import type { CourseAppearance } from "../../generated/api/CourseAppearance";
+import type { CourseAppearanceUpdate } from "../../generated/api/CourseAppearanceUpdate";
+import type { CourseBannerCandidateReceipt } from "../../generated/api/CourseBannerCandidateReceipt";
 import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
 import type { EnrollmentId } from "../../generated/api/EnrollmentId";
 import type { ProblemId } from "../../generated/api/ProblemId";
@@ -48,6 +51,8 @@ import type {
 /** Browser-safe client contract. A future HTTP transport implements this interface. */
 export interface ApiClient {
   readonly getSession: () => Promise<AuthSession>;
+  /** Establishes the explicit local-development session; the credential is never retained. */
+  readonly loginWithLocalCredential: (credential: string) => Promise<AuthSession>;
   readonly listWorkspaceDrafts: (cursor?: string) => Promise<WorkspaceDraftPage>;
   readonly getWorkspaceDraft: (workspace: WorkspaceId) => Promise<WorkspaceDraftDetail>;
   readonly saveWorkspaceDraft: (
@@ -80,6 +85,19 @@ export interface ApiClient {
   readonly listTaxonomy: (cursor?: string) => Promise<CursorPage<TaxonomyTerm>>;
   readonly listCourses: (cursor?: string) => Promise<CursorPage<CourseSummary>>;
   readonly getCourse: (courseId: CourseId) => Promise<CourseSummary>;
+  /** Gets only the current authorized, browser-safe course appearance. */
+  readonly getCourseAppearance: (courseId: CourseId) => Promise<CourseAppearance>;
+  /** Uploads opaque image bytes and returns only a course-bound temporary candidate identity. */
+  readonly uploadCourseBannerCandidate: (
+    courseId: CourseId,
+    image: Blob,
+  ) => Promise<CourseBannerCandidateReceipt>;
+  /** Atomically saves the complete appearance using the last observed strong revision. */
+  readonly saveCourseAppearance: (
+    courseId: CourseId,
+    update: CourseAppearanceUpdate,
+    revision: string,
+  ) => Promise<CourseAppearance>;
   /**
    * Instructor gradebook projection. This cursor-paged route never loads
    * historical runs or question attempts.

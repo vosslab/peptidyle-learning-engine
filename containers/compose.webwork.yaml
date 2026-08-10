@@ -1,0 +1,21 @@
+# Applied only by launch_local_stack.sh --with-webwork. Native-only compose
+# never receives a renderer endpoint, credentials, or initializer dependency.
+services:
+  api:
+    depends_on:
+      webwork-api-secret-init:
+        condition: service_completed_successfully
+    environment:
+      PLE_WEBWORK_RENDERER_BASE_URL: http://webwork-renderer:8080/webwork2/
+      PLE_WEBWORK_RENDER_COURSE_ID: ${PLE_WEBWORK_RENDER_COURSE_ID:-ple-render}
+      PLE_WEBWORK_RENDER_USER: ${PLE_WEBWORK_RENDER_USER:-ple-renderer}
+      PLE_WEBWORK_RENDER_PASSWORD_FILE: /run/ple-secrets/webwork_render_password
+      PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:-15}
+      PLE_WEBWORK_MAX_RESPONSE_BYTES: ${PLE_WEBWORK_MAX_RESPONSE_BYTES:-1048576}
+      PLE_WEBWORK_RENDERER_ID: ${PLE_WEBWORK_RENDERER_ID:-openwebwork-webwork2}
+      PLE_WEBWORK_RENDERER_VERSION: ${PLE_WEBWORK_RENDERER_VERSION:-unconfigured}
+    volumes:
+      - type: volume
+        source: ple_webwork_api_runtime
+        target: /run/ple-secrets
+        read_only: true

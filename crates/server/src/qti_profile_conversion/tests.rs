@@ -458,7 +458,7 @@ async fn recognized_item_conversion_creates_answer_free_flat_draft_source_and_or
 
 #[tokio::test]
 async fn encoded_source_identifier_with_slash_and_unicode_is_one_path_segment() {
-    let fixture = fixture_for_item_identifier("canvas/beta-β").await;
+    let fixture = fixture_for_item_identifier("canvas/beta-\u{03b2}").await;
     let (status, headers, body) = convert(
         &fixture,
         &fixture.owner_cookie,

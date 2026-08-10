@@ -36,6 +36,12 @@ impl AssetStore for MemoryStore {
                 ensure_tenant(context, *tenant)?;
                 require_course_records_accessible(&state, *tenant, *course)?;
             }
+            AssetDeliveryScope::CourseBanner { .. } => {
+                return Err(StoreError::InvalidRecord(
+                    "course-banner delivery registration is owned by appearance promotion"
+                        .to_string(),
+                ));
+            }
         }
         if state.asset_deliveries.contains_key(&record.id) {
             return Err(StoreError::AlreadyExists);
@@ -86,9 +92,9 @@ impl AssetStore for MemoryStore {
                     asset,
                     object: record.object.id,
                 }),
-                AssetDeliveryScope::Catalog { .. } | AssetDeliveryScope::StudentRecord { .. } => {
-                    None
-                }
+                AssetDeliveryScope::Catalog { .. }
+                | AssetDeliveryScope::StudentRecord { .. }
+                | AssetDeliveryScope::CourseBanner { .. } => None,
             })
             .collect::<Vec<_>>();
         bindings.sort_unstable_by_key(|binding| binding.asset);
@@ -123,6 +129,7 @@ impl AssetStore for MemoryStore {
                     && course_records_accessible(&state, *tenant, *course)
                     && authorized_users.contains(&actor)
             }
+            AssetDeliveryScope::CourseBanner { .. } => false,
         };
         if !authorized {
             return Err(StoreError::NotFound);
@@ -137,6 +144,7 @@ impl AssetStore for MemoryStore {
             course: match record.scope {
                 AssetDeliveryScope::Catalog { .. } => None,
                 AssetDeliveryScope::StudentRecord { course, .. } => Some(course),
+                AssetDeliveryScope::CourseBanner { course, .. } => Some(course),
             },
             occurred_at: authorized_at,
         });

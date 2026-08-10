@@ -200,15 +200,15 @@ DATABASE_URL="$(database_url)"
 
 initial_status="$(run_project_tools status)"
 printf '%s\n' "$initial_status"
-[ "$(printf '%s\n' "$initial_status" | grep -c ': pending')" -eq 6 ] || \
-	fail "empty database did not report exactly six pending migrations"
+[ "$(printf '%s\n' "$initial_status" | grep -c ': pending')" -eq 7 ] || \
+	fail "empty database did not report the six-file baseline plus one forward migration"
 
 run_project_tools migrate
 run_project_tools migrate
 final_status="$(run_project_tools status)"
 printf '%s\n' "$final_status"
-[ "$(printf '%s\n' "$final_status" | grep -c ': applied')" -eq 6 ] || \
-	fail "migrated database did not report exactly six applied migrations"
+[ "$(printf '%s\n' "$final_status" | grep -c ': applied')" -eq 7 ] || \
+	fail "migrated database did not report all seven applied migrations"
 run_project_tools verify
 psql_in_container -d "$DATABASE_NAME" -c \
 	"ALTER ROLE ple_grading_reader PASSWORD '$GRADER_PASSWORD'"
@@ -228,6 +228,12 @@ echo "database baseline E2E: tenant-qualified public catalog ownership"
 PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_catalog_ownership_live \
 	postgres_public_catalog_writes_require_owner_tenant \
+	-- --ignored --exact --test-threads=1
+
+echo "database baseline E2E: course appearance revision, role, and current-pointer policy"
+PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_course_appearance_live \
+	postgres_course_appearance_is_revisioned_role_bound_and_current_only \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: activity partition pruning and bounded gradebook summaries"
@@ -458,4 +464,4 @@ done
 if [ "$GATE_FAILURES" -gt 0 ]; then
 	fail "$GATE_FAILURES actionable schema inventory check(s) failed"
 fi
-echo "database baseline E2E: PASS (six-migration SQLx baseline and representative role denial)"
+echo "database baseline E2E: PASS (six-file baseline plus course-appearance migration and representative role denial)"

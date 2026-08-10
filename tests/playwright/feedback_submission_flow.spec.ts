@@ -67,7 +67,10 @@ test.beforeAll(async () => {
             },
           });
           machine.start();
-          machine.setResponse({ kind: "externalTool" }, { valid: true, message: null });
+          machine.setResponse(
+            { kind: "multipleChoice", selected: ["carbonyl"] },
+            { valid: true, message: null },
+          );
           await machine.submit();
         };
       `,

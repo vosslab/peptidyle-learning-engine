@@ -34,7 +34,10 @@ const apiRuntime = createApiRuntime(apiClient);
 render(
   () => (
     <ApiRuntimeProvider runtime={apiRuntime}>
-      <SessionProvider getSession={apiClient.getSession}>
+      <SessionProvider
+        getSession={apiClient.getSession}
+        loginWithLocalCredential={apiClient.loginWithLocalCredential}
+      >
         <WasmRuntimeProvider
           formatFallback={apiClient.validateResponseFormatOnServer}
           timerFallback={apiClient.timerVerdictOnServer}

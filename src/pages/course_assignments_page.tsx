@@ -4,6 +4,7 @@ import { A, createAsync, useParams } from "@solidjs/router";
 import { For, Show, Suspense, type JSX } from "solid-js";
 
 import { useApiRuntime } from "../api/runtime";
+import { CourseEntryIdentity } from "../features/course_appearance/course_entry_identity";
 
 export function CourseAssignmentsPage(): JSX.Element {
   const runtime = useApiRuntime();
@@ -18,8 +19,8 @@ export function CourseAssignmentsPage(): JSX.Element {
 
   return (
     <section class="page" data-route-surface="courseAssignments">
-      <p class="eyebrow">Course work</p>
-      <h1>Assignments</h1>
+      <CourseEntryIdentity />
+      <h2>Assignments</h2>
       <Suspense fallback={<p class="loading-state">Loading assignments...</p>}>
         <Show
           when={assignments()}

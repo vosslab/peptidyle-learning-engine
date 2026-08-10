@@ -20,6 +20,7 @@ adapter_native.workspace = true
 anyhow.workspace = true
 domain.workspace = true
 grading.workspace = true
+objects = { workspace = true, features = ["s3"] }
 question_model.workspace = true
 learning-data-access = { workspace = true, features = ["postgres"] }
 serde.workspace = true
@@ -27,5 +28,6 @@ serde_json.workspace = true
 sha2.workspace = true
 syn.workspace = true
 tokio.workspace = true
+url = ">=2.5.8"
 uuid.workspace = true
 wasm-bindgen-cli-support = ">=0.2.126"

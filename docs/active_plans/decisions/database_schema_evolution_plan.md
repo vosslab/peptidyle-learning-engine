@@ -1,24 +1,34 @@
 # Plan: Build an adaptable, secure, and Blackboard-informed database
 
+Status: implemented and accepted on 2026-08-08 as the six-file SQLx baseline. The complete fresh
+PostgreSQL 17 gate passed again during WP-QTI-11 acceptance on 2026-08-09. This document retains
+the accepted baseline design as historical evidence, not as an implementation package to replay.
+The baseline is frozen: every later schema change uses a new forward migration. WP-CA3 followed that
+rule with the accepted `2026080907_course_appearance.sql` forward migration and a fresh
+seven-migration PostgreSQL/RLS gate on 2026-08-09. WP-RC1 acceptance strengthened that migration
+with a trigger enforcing exact current-banner delivery kind/tenant/course ownership; the real
+`ple_app` negative probe and combined PostgreSQL/MinIO cleanup oracle passed.
+
 ## Context
 
-PLE has no durable production data yet. The database can therefore be consolidated into a clean
-baseline before the first non-disposable database exists.
+Historical pre-baseline context: PLE had no durable production data, so the initial design could be
+consolidated into one reviewed SQLx baseline. That consolidation is complete and is no longer an
+available schema-evolution path.
 
 The database must serve several legitimate perspectives at once:
 
-| Perspective | Database need |
-| --- | --- |
-| Instructor | Change points, dates, policies, and remove and regrade bad questions |
-| Student | Stable active attempts, fair recalculation, and recovery from technical problems |
-| Problem author | Immutable published content, drafts, new versions, and provenance |
-| Problem finder | Human-readable IDs and discovery that is not restricted by subject |
-| Grader | Raw responses, deterministic evaluation, manual grading, and recalculation |
-| Support staff | Force-submit, clear attempts, access logs, and actionable statuses |
-| Analyst | Rebuildable item analysis without slowing operational queries |
-| Security and privacy | Tenant isolation, least privilege, retention, and access auditing |
-| Operations | Shard-ready tenant keys, bounded partitions, and current summaries |
-| Import and export | QTI provenance, partial failures, validation, and duplicate warnings |
+| Perspective          | Database need                                                                    |
+| -------------------- | -------------------------------------------------------------------------------- |
+| Instructor           | Change points, dates, policies, and remove and regrade bad questions             |
+| Student              | Stable active attempts, fair recalculation, and recovery from technical problems |
+| Problem author       | Immutable published content, drafts, new versions, and provenance                |
+| Problem finder       | Human-readable IDs and discovery that is not restricted by subject               |
+| Grader               | Raw responses, deterministic evaluation, manual grading, and recalculation       |
+| Support staff        | Force-submit, clear attempts, access logs, and actionable statuses               |
+| Analyst              | Rebuildable item analysis without slowing operational queries                    |
+| Security and privacy | Tenant isolation, least privilege, retention, and access auditing                |
+| Operations           | Shard-ready tenant keys, bounded partitions, and current summaries               |
+| Import and export    | QTI provenance, partial failures, validation, and duplicate warnings             |
 
 The design must preserve adaptability without creating assignment-history or scoring-history cruft.
 The unifying persistence model is:
@@ -33,7 +43,7 @@ The unifying persistence model is:
 
 ## Objectives
 
-- Produce a clean PostgreSQL baseline before durable data exists.
+- Historical implementation objective (completed): produce the reviewed PostgreSQL baseline.
 - Version published problems without versioning ordinary assignment edits.
 - Let instructors change points, schedules, time limits, and policies after publication.
 - Support Blackboard Original-style **Delete and Regrade** after submissions exist.
@@ -46,14 +56,14 @@ The unifying persistence model is:
 
 ## Design decisions and alternatives
 
-| Approach | Advantages | Disadvantages | Decision |
-| --- | --- | --- | --- |
-| Relational PostgreSQL plus versioned JSONB | Strong integrity, predictable queries, RLS, partitioning, and flexible question payloads | Requires deliberate migrations | **Use** |
-| Current custom SQL migration registry | Already works and verifies checksums | Manual registration and permanent custom migration machinery | Replace with SQLx migration support |
-| ADAPT-style executable migrations and cloned revision tables | Flexible application-driven changes | Model coupling, irreversible behavior, and accumulated versioning cruft | Do not adopt |
-| Sinedon runtime schema generation | Excellent universal IDs, timestamps, and typed records | Runtime DDL is unsafe for controlled production evolution | Adopt its record conventions only |
-| Xmipp or EAV-style flexible metadata | Fields can be added without normal migrations | Weak constraints, slower filtering, and difficult security classification | Limit this flexibility to problem JSONB |
-| Full event sourcing | Complete historical replay | High operational complexity and explicitly unwanted history | Do not adopt |
+| Approach                                                     | Advantages                                                                               | Disadvantages                                                             | Decision                                |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------- |
+| Relational PostgreSQL plus versioned JSONB                   | Strong integrity, predictable queries, RLS, partitioning, and flexible question payloads | Requires deliberate migrations                                            | **Use**                                 |
+| Current custom SQL migration registry                        | Already works and verifies checksums                                                     | Manual registration and permanent custom migration machinery              | Replace with SQLx migration support     |
+| ADAPT-style executable migrations and cloned revision tables | Flexible application-driven changes                                                      | Model coupling, irreversible behavior, and accumulated versioning cruft   | Do not adopt                            |
+| Sinedon runtime schema generation                            | Excellent universal IDs, timestamps, and typed records                                   | Runtime DDL is unsafe for controlled production evolution                 | Adopt its record conventions only       |
+| Xmipp or EAV-style flexible metadata                         | Fields can be added without normal migrations                                            | Weak constraints, slower filtering, and difficult security classification | Limit this flexibility to problem JSONB |
+| Full event sourcing                                          | Complete historical replay                                                               | High operational complexity and explicitly unwanted history               | Do not adopt                            |
 
 Use relational columns for authorization, lifecycle, points, dates, constraints, joins, sorting,
 frequent filters, retention, and partitioning. Use JSONB only for cohesive problem definitions and
@@ -383,9 +393,10 @@ Keep raw SQL while replacing custom orchestration:
   - `cargo tools database verify`
 - Use a dedicated migration role.
 - Application startup performs a read-only compatibility check and never changes the schema.
-- Before durable production data, consolidate existing migrations into one reviewed baseline
-  representing this design.
-- After the baseline freezes, applied migrations are immutable and forward-only.
+- Historical baseline-creation rule (completed): consolidate the pre-data design into one reviewed
+  baseline.
+- The accepted baseline and every applied migration are immutable. All later schema changes are new,
+  forward-only migrations.
 - Use expand, backfill, switch, and contract changes for populated tables.
 - Do not call mutable application models from migrations.
 - Do not use runtime schema generation or ORM-owned DDL.
@@ -394,8 +405,8 @@ Keep raw SQL while replacing custom orchestration:
 
 ### Initial epoch files
 
-The pre-data baseline contains exactly six ordered SQLx migrations. Each file owns a durable domain
-boundary rather than a chronological implementation slice:
+The completed pre-data baseline contains exactly six ordered SQLx migrations. Each file owns a
+durable domain boundary rather than a chronological implementation slice:
 
 1. `2026080801_principals.sql`: runtime principals, tenant/session helpers, authentication
    sessions, and the narrow read-only migration-state projection used by application compatibility
@@ -415,11 +426,11 @@ boundary rather than a chronological implementation slice:
    fences, typed cleanup manifests, private purge work sets, and the final lease-fenced archive and
    deletion functions.
 
-The baseline expresses final object shapes directly. It contains no historical `ALTER`/`DROP`
-repair sequence, milestone-named helper such as `r44a_*` or `r44b_*`, source-string assertion, or
-dumped `_sqlx_migrations` table. SQLx creates its own ledger before applying the first file. Roles,
-tables, functions, policies, triggers, grants, and revocations remain explicit SQL; generated ORM
-DDL is not introduced.
+The historical baseline expresses final object shapes directly. It contains no historical
+`ALTER`/`DROP` repair sequence, milestone-named helper such as `r44a_*` or `r44b_*`, source-string
+assertion, or dumped `_sqlx_migrations` table. SQLx creates its own ledger before applying the first
+file. Roles, tables, functions, policies, triggers, grants, and revocations remain explicit SQL;
+generated ORM DDL is not introduced.
 
 The dedicated migration login is deployment configuration, not an application principal created by
 the baseline. It applies SQL through `cargo tools database migrate`. `status` reports known applied
@@ -463,7 +474,8 @@ active attempts.
 
 ## Verification
 
-- Apply the clean baseline to an empty PostgreSQL database and reapply it as a no-op.
+- Retain the recorded fresh-install and no-op replay evidence for the frozen six-file baseline.
+- Apply and verify each new forward migration with its package's focused PostgreSQL acceptance gate.
 - Reject modified historical SQL, missing migrations, and concurrent migration races.
 - Verify published problem immutability and human-ID resolution.
 - Verify global discovery without a subject filter and authorization-aware direct-ID lookup.
@@ -491,7 +503,8 @@ active attempts.
 
 ## Resolved decisions
 
-- There is no durable production data to preserve.
+- Historical implementation condition: no durable production data required preservation during
+  baseline creation.
 - Published problem content is immutable and versioned.
 - Assignments and computed grades retain only current state.
 - Assignment items have stable identities but no historical versions.
@@ -502,7 +515,7 @@ active attempts.
 - Discovery is global by default and subject is an optional facet.
 - PostgreSQL and explicit SQL remain authoritative.
 - SQLx replaces the custom migration registry.
-- The baseline is consolidated before durable data exists and becomes immutable afterward.
+- The accepted six-file baseline is immutable; all schema evolution now uses new forward migrations.
 
 ## Explicit non-goals
 

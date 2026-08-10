@@ -34,10 +34,11 @@ use learning_data_access::postgres::{
     Pool, PostgresGraderStore, PostgresStore, SchemaCompatibilityError, lazy_pool,
 };
 use learning_data_access::{
-    AssetStore, AuthoritativeTimeStore, CatalogStore, CourseItemAnalysisStore,
-    CourseRecordsAccessStore, ExportJobStore, FlatImportProvenanceStore, FlatQuestionGradingStore,
-    FlatQuestionStore, ManualGradingStore, QtiImportApiStore, QtiImportStore, RetentionApiStore,
-    RetentionStore, SessionLifetime, SessionStore, SessionSubject, Store,
+    AssetStore, AuthoritativeTimeStore, CatalogStore, CourseAppearanceStore,
+    CourseItemAnalysisStore, CourseRecordsAccessStore, ExportJobStore, FlatImportProvenanceStore,
+    FlatQuestionGradingStore, FlatQuestionStore, ManualGradingStore, QtiImportApiStore,
+    QtiImportStore, RetentionApiStore, RetentionStore, SessionLifetime, SessionStore,
+    SessionSubject, Store,
 };
 use question_model::{TenantId, UserId, UserRole};
 use serde_json::json;
@@ -63,7 +64,7 @@ use adapter_imathas::http_transport::{
 };
 use adapter_imathas::scored_embed::ScoredEmbedProfileConfig;
 use adapter_imathas::{CorrelationIssuer, ImathasAdapter, SupportedProfile};
-use adapter_webwork::pg_parser_stub::RendererIdentity;
+use adapter_webwork::renderer_contract::RendererIdentity;
 use adapter_webwork::{HttpWebworkRenderer, HttpWebworkRendererConfig, WebworkAdapter};
 
 /// Builds the actual application router from explicit startup settings.
@@ -532,6 +533,7 @@ where
         + CourseRecordsAccessStore
         + SessionStore
         + AssetStore
+        + CourseAppearanceStore
         + AuthoritativeTimeStore
         + 'static,
     O: objects::ObjectStore + 'static,
@@ -582,6 +584,10 @@ where
             native_adapter,
         ))
         .merge(crate::course::router(Arc::clone(&store)))
+        .merge(crate::course_appearance::router(
+            Arc::clone(&store),
+            Arc::clone(&objects),
+        ))
         .merge(crate::item_analysis::router(Arc::clone(&store)))
         .merge(crate::export::router(Arc::clone(&store)))
         .merge(crate::retention::router(Arc::clone(&store)))
@@ -813,7 +819,9 @@ struct ProductionSettings {
     webwork_max_response_bytes: usize,
     webwork_renderer_id: String,
     webwork_renderer_version: String,
-    webwork_authentication_header: Option<(String, String)>,
+    webwork_course_id: String,
+    webwork_user: String,
+    webwork_password_file: String,
     imathas_provider_key: Option<String>,
     qti_runtime_enabled: Option<String>,
     grader_database_url: Option<String>,
@@ -831,10 +839,9 @@ impl ProductionSettings {
             webwork_max_response_bytes: positive_usize_env("PLE_WEBWORK_MAX_RESPONSE_BYTES")?,
             webwork_renderer_id: required_env("PLE_WEBWORK_RENDERER_ID")?,
             webwork_renderer_version: required_env("PLE_WEBWORK_RENDERER_VERSION")?,
-            webwork_authentication_header: optional_header_from_env(
-                "PLE_WEBWORK_RENDERER_AUTH_HEADER_NAME",
-                "PLE_WEBWORK_RENDERER_AUTH_HEADER_VALUE",
-            )?,
+            webwork_course_id: required_env("PLE_WEBWORK_RENDER_COURSE_ID")?,
+            webwork_user: required_env("PLE_WEBWORK_RENDER_USER")?,
+            webwork_password_file: required_env("PLE_WEBWORK_RENDER_PASSWORD_FILE")?,
             imathas_provider_key: std::env::var("PLE_IMATHAS_PROVIDER_KEY").ok(),
             qti_runtime_enabled: std::env::var("PLE_QTI_RUNTIME_ENABLED").ok(),
             grader_database_url: std::env::var("PLE_GRADER_DATABASE_URL").ok(),
@@ -856,14 +863,11 @@ impl ProductionSettings {
                 id: self.webwork_renderer_id.clone(),
                 version: self.webwork_renderer_version.clone(),
             },
+            &self.webwork_course_id,
+            &self.webwork_user,
+            &read_webwork_password_file(&self.webwork_password_file)?,
         )
         .context("PLE_WEBWORK renderer configuration is invalid")?;
-        let settings = match &self.webwork_authentication_header {
-            Some((name, value)) => settings
-                .with_authentication_header(name, value)
-                .context("PLE_WEBWORK renderer authentication configuration is invalid")?,
-            None => settings,
-        };
         HttpWebworkRenderer::new(settings).context("PLE_WEBWORK renderer configuration is invalid")
     }
 
@@ -1001,6 +1005,67 @@ fn required_env(name: &str) -> Result<String> {
     Ok(value)
 }
 
+fn read_webwork_password_file(path: &str) -> Result<String> {
+    #[cfg(unix)]
+    {
+        read_webwork_password_file_unix(path)
+    }
+    #[cfg(not(unix))]
+    read_webwork_password_file_portable(path)
+}
+
+#[cfg(unix)]
+fn read_webwork_password_file_unix(path: &str) -> Result<String> {
+    use std::io::Read as _;
+    use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
+
+    const MAX_SECRET_BYTES: u64 = 4096;
+    // O_NOFOLLOW makes the open itself reject a symlink, closing the race
+    // between metadata inspection and reading the mounted secret.
+    let mut file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(path)
+        .with_context(|| "PLE_WEBWORK_RENDER_PASSWORD_FILE could not be inspected")?;
+    let metadata = file
+        .metadata()
+        .with_context(|| "PLE_WEBWORK_RENDER_PASSWORD_FILE could not be inspected")?;
+    if !metadata.is_file() || metadata.len() > MAX_SECRET_BYTES {
+        bail!("PLE_WEBWORK_RENDER_PASSWORD_FILE must name a non-empty bounded regular file");
+    }
+    if metadata.permissions().mode() & 0o777 != 0o600 {
+        bail!("PLE_WEBWORK_RENDER_PASSWORD_FILE must have Unix mode 0600");
+    }
+    let mut password = String::new();
+    file.read_to_string(&mut password)
+        .with_context(|| "PLE_WEBWORK_RENDER_PASSWORD_FILE could not be read")?;
+    normalize_webwork_password(password)
+}
+
+#[cfg(not(unix))]
+fn read_webwork_password_file_portable(path: &str) -> Result<String> {
+    const MAX_SECRET_BYTES: u64 = 4096;
+    // Non-Unix platforms lack a portable O_NOFOLLOW equivalent in std.  They
+    // still reject a visible link and every non-regular or oversized target.
+    let metadata = std::fs::symlink_metadata(path)
+        .with_context(|| "PLE_WEBWORK_RENDER_PASSWORD_FILE could not be inspected")?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() || metadata.len() > MAX_SECRET_BYTES
+    {
+        bail!("PLE_WEBWORK_RENDER_PASSWORD_FILE must name a non-empty bounded regular file");
+    }
+    let password = std::fs::read_to_string(path)
+        .with_context(|| "PLE_WEBWORK_RENDER_PASSWORD_FILE could not be read")?;
+    normalize_webwork_password(password)
+}
+
+fn normalize_webwork_password(password: String) -> Result<String> {
+    let password = password.trim_end_matches(['\r', '\n']).to_string();
+    if password.trim().is_empty() {
+        bail!("PLE_WEBWORK_RENDER_PASSWORD_FILE must not be empty");
+    }
+    Ok(password)
+}
+
 fn positive_u64_env(name: &str) -> Result<u64> {
     let value = required_env(name)?;
     parse_positive_u64(name, &value)
@@ -1029,20 +1094,6 @@ fn parse_positive_usize(name: &str, value: &str) -> Result<usize> {
         bail!("{name} must be a positive whole number");
     }
     Ok(parsed)
-}
-
-fn optional_header_from_env(name: &str, value: &str) -> Result<Option<(String, String)>> {
-    let name = std::env::var(name).ok();
-    let value = std::env::var(value).ok();
-    match (name, value) {
-        (None, None) => Ok(None),
-        (Some(name), Some(value)) if !name.trim().is_empty() && !value.is_empty() => {
-            Ok(Some((name, value)))
-        }
-        _ => bail!(
-            "PLE_WEBWORK renderer authentication requires both a non-empty header name and value"
-        ),
-    }
 }
 
 #[cfg(test)]
@@ -1131,13 +1182,16 @@ mod tests {
         );
         let renderer = HttpWebworkRenderer::new(
             HttpWebworkRendererConfig::new(
-                "http://renderer.internal",
+                "http://renderer.internal/webwork2/",
                 std::time::Duration::from_secs(1),
                 1_024,
                 RendererIdentity {
                     id: "test-renderer".to_string(),
                     version: "1".to_string(),
                 },
+                "test-course",
+                "test-user",
+                "test-password",
             )
             .expect("valid test renderer configuration"),
         )
@@ -1304,12 +1358,14 @@ mod tests {
                 temp_processing_bucket: "temp-processing".to_string(),
             },
             public_asset_base_url: "https://cdn.example.test/content".to_string(),
-            webwork_renderer_base_url: "http://webwork-renderer:8080".to_string(),
+            webwork_renderer_base_url: "http://webwork-renderer:8080/webwork2/".to_string(),
             webwork_request_timeout_seconds: 15,
             webwork_max_response_bytes: 1_048_576,
             webwork_renderer_id: "ple-webwork-renderer".to_string(),
             webwork_renderer_version: "1".to_string(),
-            webwork_authentication_header: None,
+            webwork_course_id: "ple_render".to_string(),
+            webwork_user: "ple_service".to_string(),
+            webwork_password_file: "/private/tmp/ple-test-webwork-password".to_string(),
             imathas_provider_key: None,
             qti_runtime_enabled: None,
             grader_database_url: None,
@@ -1361,8 +1417,20 @@ mod tests {
 
     #[test]
     fn webwork_renderer_settings_fail_closed_before_router_construction() {
-        let valid = production_settings();
+        let password_file =
+            std::env::temp_dir().join(format!("ple-webwork-password-{}", std::process::id()));
+        std::fs::write(&password_file, "test-render-password\n")
+            .expect("test password file should be writable");
+        #[cfg(unix)]
+        std::fs::set_permissions(
+            &password_file,
+            std::os::unix::fs::PermissionsExt::from_mode(0o600),
+        )
+        .expect("test password file permissions should be writable");
+        let mut valid = production_settings();
+        valid.webwork_password_file = password_file.display().to_string();
         assert!(valid.webwork_renderer().is_ok());
+        std::fs::remove_file(&password_file).expect("test password file should be removable");
 
         let mut invalid_base = production_settings();
         invalid_base.webwork_renderer_base_url = "ftp://renderer.example.test".to_string();
@@ -1391,6 +1459,36 @@ mod tests {
 
         assert!(parse_positive_u64("PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS", "nan").is_err());
         assert!(parse_positive_usize("PLE_WEBWORK_MAX_RESPONSE_BYTES", "0").is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn webwork_password_file_refuses_symlink_and_permissive_mode() {
+        use std::os::unix::fs::{PermissionsExt as _, symlink};
+
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock is after the Unix epoch")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "ple-webwork-password-{}-{nonce}",
+            std::process::id()
+        ));
+        std::fs::create_dir(&root).expect("private test directory should be created");
+        let file = root.join("secret");
+        std::fs::write(&file, "test-render-password\n").expect("test secret should be written");
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644))
+            .expect("test secret permissions should be writable");
+        assert!(read_webwork_password_file(file.to_str().expect("UTF-8 test path")).is_err());
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600))
+            .expect("test secret permissions should be writable");
+        assert!(read_webwork_password_file(file.to_str().expect("UTF-8 test path")).is_ok());
+        let link = root.join("secret-link");
+        symlink(&file, &link).expect("test symlink should be created");
+        assert!(read_webwork_password_file(link.to_str().expect("UTF-8 test path")).is_err());
+        std::fs::remove_file(&link).expect("test symlink should be removable");
+        std::fs::remove_file(&file).expect("test secret should be removable");
+        std::fs::remove_dir(&root).expect("private test directory should be removable");
     }
 
     #[test]
@@ -1554,11 +1652,9 @@ mod tests {
     }
 
     #[test]
-    fn renderer_authentication_is_optional_but_never_exposed_by_debug() {
-        let mut authenticated = production_settings();
-        let secret = "renderer-shared-secret";
-        authenticated.webwork_authentication_header =
-            Some(("x-ple-renderer-auth".to_string(), secret.to_string()));
+    fn renderer_password_is_required_and_never_exposed_by_debug() {
+        let authenticated = production_settings();
+        let secret = "renderer-password-file-secret";
         let config = HttpWebworkRendererConfig::new(
             &authenticated.webwork_renderer_base_url,
             std::time::Duration::from_secs(authenticated.webwork_request_timeout_seconds),
@@ -1567,18 +1663,30 @@ mod tests {
                 id: authenticated.webwork_renderer_id.clone(),
                 version: authenticated.webwork_renderer_version.clone(),
             },
+            &authenticated.webwork_course_id,
+            &authenticated.webwork_user,
+            secret,
         )
-        .expect("valid renderer settings")
-        .with_authentication_header("x-ple-renderer-auth", secret)
-        .expect("valid private authentication header");
+        .expect("valid renderer settings");
         let debug = format!("{config:?}");
         assert!(!debug.contains(secret));
-        assert!(debug.contains("x-ple-renderer-auth"));
+        assert!(debug.contains("[REDACTED]"));
 
-        let mut invalid_header = production_settings();
-        invalid_header.webwork_authentication_header =
-            Some(("not a header".to_string(), "value".to_string()));
-        assert!(invalid_header.webwork_renderer().is_err());
+        assert!(
+            HttpWebworkRendererConfig::new(
+                &authenticated.webwork_renderer_base_url,
+                std::time::Duration::from_secs(authenticated.webwork_request_timeout_seconds),
+                authenticated.webwork_max_response_bytes,
+                RendererIdentity {
+                    id: authenticated.webwork_renderer_id.clone(),
+                    version: authenticated.webwork_renderer_version.clone()
+                },
+                &authenticated.webwork_course_id,
+                &authenticated.webwork_user,
+                "",
+            )
+            .is_err()
+        );
     }
 
     #[tokio::test]
@@ -1590,6 +1698,10 @@ mod tests {
             ("GET", "/api/problems"),
             ("GET", "/api/taxonomy"),
             ("GET", "/api/courses"),
+            (
+                "GET",
+                "/api/courses/00000000-0000-0000-0000-000000000001/appearance",
+            ),
             ("GET", "/api/runs/example"),
             (
                 "PUT",

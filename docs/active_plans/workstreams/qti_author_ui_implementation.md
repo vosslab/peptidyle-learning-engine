@@ -1,6 +1,7 @@
 # QTI author UI implementation
 
-Status: complete and independently accepted on 2026-08-09. WP-QTI-11 is next and unstarted.
+Status: complete and independently accepted on 2026-08-09. WP-QTI-11 subsequently passed; its
+evidence is in `qti_live_acceptance_implementation.md`. WP-QTI-12 subsequently passed as well.
 
 ## Scope
 
@@ -42,10 +43,17 @@ second authoring route.
 - `./check_codebase.sh` passed 11 of 11 checks, including 173 Node and 184 server tests.
 - Independent security and HCI re-reviews reported no P0/P1 findings.
 
-## Deferred boundary
+## Historical successor
 
-WP-QTI-11 remains unstarted. It owns the disposable live PostgreSQL/RLS/profile-to-native path,
-grading, archive/provenance checks, and cleanup. This UI acceptance does not claim that live gate.
+WP-QTI-11 was the immediate successor and accepted the disposable live PostgreSQL/RLS/profile-to-
+native path, grading, archive/provenance checks, and cleanup. This UI handoff remains scoped to
+WP-QTI-10 and does not retroactively claim the live gate or the separately completed WP-QTI-12
+independent close-out.
+
+WP-QTI-1 through WP-QTI-12 are now accepted history. Current authority is
+[release_completion_plan.md](../active/release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
+is current, WP-ARCH1 follows it, then WP-RC4 owns the QTI-JSONL contract, WP-RC5 owns families and
+Chapter 1 content, and WP-RC6 closes QTI export and H5P claims.
 
 ## Repository state
 

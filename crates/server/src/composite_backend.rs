@@ -149,7 +149,7 @@ impl<S, O, R> RunBackend for CompositeBackend<S, O, R>
 where
     S: AssetStore + CatalogSourceStore + ExternalToolBrokerStore + Send + Sync + 'static,
     O: objects::ObjectStore + Send + Sync + 'static,
-    R: adapter_webwork::pg_parser_stub::WebworkRenderer + Send + Sync + 'static,
+    R: adapter_webwork::renderer_contract::WebworkRenderer + Send + Sync + 'static,
 {
     async fn issue(
         &self,
@@ -327,7 +327,7 @@ impl<S, O, R> ExternalToolLaunchBackend for CompositeBackend<S, O, R>
 where
     S: AssetStore + CatalogSourceStore + ExternalToolBrokerStore + Send + Sync + 'static,
     O: objects::ObjectStore + Send + Sync + 'static,
-    R: adapter_webwork::pg_parser_stub::WebworkRenderer + Send + Sync + 'static,
+    R: adapter_webwork::renderer_contract::WebworkRenderer + Send + Sync + 'static,
 {
     async fn create_external_tool_launch(
         &self,
@@ -369,7 +369,7 @@ impl<S, O, R> ExternalToolSubmissionBackend for CompositeBackend<S, O, R>
 where
     S: AssetStore + CatalogSourceStore + ExternalToolBrokerStore + Send + Sync + 'static,
     O: objects::ObjectStore + Send + Sync + 'static,
-    R: adapter_webwork::pg_parser_stub::WebworkRenderer + Send + Sync + 'static,
+    R: adapter_webwork::renderer_contract::WebworkRenderer + Send + Sync + 'static,
 {
     async fn submit_external_tool(
         &self,
@@ -677,13 +677,16 @@ mod tests {
         let objects = Arc::new(objects::memory::MemoryObjectStore::default());
         let renderer = adapter_webwork::HttpWebworkRenderer::new(
             adapter_webwork::HttpWebworkRendererConfig::new(
-                "http://renderer.internal",
+                "http://renderer.internal/webwork2/",
                 std::time::Duration::from_secs(1),
                 1_024,
-                adapter_webwork::pg_parser_stub::RendererIdentity {
+                adapter_webwork::renderer_contract::RendererIdentity {
                     id: "recorded".into(),
                     version: "1".into(),
                 },
+                "test-course",
+                "test-user",
+                "test-password",
             )
             .expect("renderer config"),
         )
@@ -755,13 +758,16 @@ mod tests {
         let objects = Arc::new(objects::memory::MemoryObjectStore::default());
         let renderer = adapter_webwork::HttpWebworkRenderer::new(
             adapter_webwork::HttpWebworkRendererConfig::new(
-                "http://renderer.internal",
+                "http://renderer.internal/webwork2/",
                 std::time::Duration::from_secs(1),
                 1_024,
-                adapter_webwork::pg_parser_stub::RendererIdentity {
+                adapter_webwork::renderer_contract::RendererIdentity {
                     id: "recorded".into(),
                     version: "1".into(),
                 },
+                "test-course",
+                "test-user",
+                "test-password",
             )
             .expect("renderer config"),
         )

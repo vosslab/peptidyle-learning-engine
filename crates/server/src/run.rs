@@ -19,17 +19,17 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use grading::GradeOutcome;
 use learning_data_access::{
-    CatalogStore, Cursor, IssueQuestionAttemptCommand, ManualGradingStore, PageRequest, PageSize,
-    PaginationError, SessionStore, Store, StoreError, SubmissionIdempotencyKey, SubmissionRecord,
-    SubmitQuestionAttemptCommand, TenantContext,
+    CatalogStore, CourseAppearanceStore, Cursor, IssueQuestionAttemptCommand, ManualGradingStore,
+    PageRequest, PageSize, PaginationError, SessionStore, Store, StoreError,
+    SubmissionIdempotencyKey, SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext,
 };
 use question_model::generation::Seed;
 use question_model::run_policy::FeedbackDisclosure;
 use question_model::{
     AssignmentEnrollment, AssignmentId, AssignmentRun, AttemptProvenance, AttemptResult,
-    DisclosedFeedback, FeedbackContent, ProblemVersionRef, QuestionAttempt, QuestionAttemptId,
-    QuestionDefinition, QuestionEnvelope, RunId, StudentAssignmentSummary, StudentResponse,
-    UserRole,
+    CourseAppearance, CourseRole, CourseSummary, DisclosedFeedback, FeedbackContent,
+    ProblemVersionRef, QuestionAttempt, QuestionAttemptId, QuestionDefinition, QuestionEnvelope,
+    RunId, StudentAssignmentSummary, StudentResponse, UserRole,
 };
 use serde::{Deserialize, Serialize};
 
@@ -231,7 +231,7 @@ impl std::error::Error for RunBackendError {}
 /// Builds the authenticated run route group around a shared store and backend registry.
 pub fn router<S, B>(store: Arc<S>, backend: Arc<B>) -> Router
 where
-    S: Store + CatalogStore + ManualGradingStore + SessionStore + 'static,
+    S: Store + CatalogStore + CourseAppearanceStore + ManualGradingStore + SessionStore + 'static,
     B: RunBackend + 'static,
 {
     Router::new()
@@ -368,10 +368,19 @@ struct RunSummaryOutcome {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct RunSummaryResponse {
+    course: CourseRouteData,
     run: AssignmentRun,
     summary: StudentAssignmentSummary,
     practice_allowed: bool,
     outcomes: learning_data_access::Page<RunSummaryOutcome>,
+}
+
+/// Course identity and appearance derived from the authorized run, never browser input.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CourseRouteData {
+    summary: CourseSummary,
+    appearance: CourseAppearance,
 }
 
 #[derive(Debug, Serialize)]
@@ -455,7 +464,7 @@ async fn get_run<S, B>(
     Path(run_id): Path<RunId>,
 ) -> Response
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store + CatalogStore + CourseAppearanceStore + SessionStore + 'static,
     B: RunBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
@@ -480,7 +489,7 @@ async fn get_run_summary<S, B>(
     Query(query): Query<RunQuery>,
 ) -> Response
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store + CatalogStore + CourseAppearanceStore + SessionStore + 'static,
     B: RunBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
@@ -504,6 +513,10 @@ where
         Ok(page) => page,
         Err(error) => return store_error_response(error),
     };
+    let course = match run_summary_course(state.store.as_ref(), &authenticated, &page).await {
+        Ok(course) => course,
+        Err(response) => return response,
+    };
     let outcomes = page
         .outcomes
         .items
@@ -514,12 +527,10 @@ where
                 &empty_feedback,
                 learning_data_access::AttemptFeedbackRecord::content,
             );
-            let feedback = project_feedback(
+            let feedback = project_run_feedback(
                 outcome.feedback_policy,
-                FeedbackDisclosureState {
-                    run_completed: page.run.completed_at.is_some(),
-                    released: outcome.release.is_some(),
-                },
+                &page.run,
+                outcome.release.is_some(),
                 outcome.result,
                 content,
             );
@@ -534,6 +545,7 @@ where
         .collect();
     no_store(
         Json(RunSummaryResponse {
+            course,
             run: page.run,
             summary: page.summary,
             practice_allowed: page.practice_allowed,
@@ -1465,6 +1477,47 @@ async fn authorized_run<S: Store>(
     Ok(run)
 }
 
+async fn run_summary_course<S>(
+    store: &S,
+    authenticated: &AuthenticatedSession,
+    page: &learning_data_access::RunSummaryPageInput,
+) -> Result<CourseRouteData, Response>
+where
+    S: Store + CourseAppearanceStore,
+{
+    let course_id = page.assignment.course_id;
+    let record = store
+        .get_course(authenticated.tenant_context, course_id)
+        .await
+        .map_err(store_error_response)?
+        .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "course not found"))?;
+    let actor = authenticated.record.subject.user();
+    let role = record.role_for(actor).or_else(|| {
+        authenticated
+            .record
+            .subject
+            .roles()
+            .contains(&UserRole::Administrator)
+            .then_some(CourseRole::Administrator)
+    });
+    let Some(role) = role else {
+        return Err(error_response(StatusCode::NOT_FOUND, "course not found"));
+    };
+    let appearance = store
+        .course_appearance(
+            authenticated.tenant_context,
+            authenticated.record.token_hash,
+            course_id,
+        )
+        .await
+        .map_err(store_error_response)?
+        .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "course appearance not found"))?;
+    Ok(CourseRouteData {
+        summary: record.summary(role),
+        appearance,
+    })
+}
+
 async fn owned_run<S: Store>(
     store: &S,
     authenticated: &AuthenticatedSession,
@@ -1745,17 +1798,42 @@ async fn feedback_projection<S: CatalogStore>(
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "question version not found"))?;
-    Ok(project_feedback(
+    // A submission receipt is a historical result from the grade transition.
+    // An instructor can create an OnRelease record only after that transition,
+    // so this initial projection is unreleased. Replayed receipts retain this
+    // immutable state; the current run-summary projection receives the stored
+    // release fact above.
+    Ok(project_run_feedback(
         question.question.attempt_policy.feedback,
-        FeedbackDisclosureState {
-            run_completed: run.completed_at.is_some(),
-            // Release records are intentionally not implemented in this work
-            // package, so policy remains honestly locked until that boundary.
-            released: false,
-        },
+        run,
+        false,
         attempt.result,
         content,
     ))
+}
+
+/// Projects trusted feedback with the authoritative run-completion and release facts.
+///
+/// This is the sole server projection seam for both immutable submission receipts and current
+/// run summaries. The caller supplies `released` from the durable feedback-release record when a
+/// current view is requested; the initial receipt is necessarily unreleased and remains an
+/// immutable historical response on idempotent replay.
+fn project_run_feedback(
+    policy: FeedbackDisclosure,
+    run: &AssignmentRun,
+    released: bool,
+    result: Option<AttemptResult>,
+    content: &FeedbackContent,
+) -> Option<DisclosedFeedback> {
+    project_feedback(
+        policy,
+        FeedbackDisclosureState {
+            run_completed: run.completed_at.is_some(),
+            released,
+        },
+        result,
+        content,
+    )
 }
 
 fn fresh_seed() -> Result<u64, RunBackendError> {
@@ -1852,11 +1930,11 @@ mod tests {
     };
     use question_model::taxonomy::License;
     use question_model::{
-        ActivityTimestamp, BackendCapabilities, Capability, CatalogProblemSummary, CourseId,
-        CourseMembership, CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource,
-        EnrollmentId, GradingDefinition, ImplementationVersion, ObjectId, ProblemId,
-        PublicationScope, QuestionMetadata, QuestionSource, StudentId, TenantId, UserId, VersionId,
-        WorkspaceId,
+        ActivityTimestamp, BackendCapabilities, Capability, CatalogProblemSummary,
+        CatalogSearchPage, CatalogSearchQuery, CourseId, CourseMembership, CourseMembershipRole,
+        DraftQuestionDefinition, DraftQuestionSource, EnrollmentId, GradingDefinition,
+        ImplementationVersion, ObjectId, ProblemId, PublicationScope, QuestionMetadata,
+        QuestionSource, StudentId, TenantId, UserId, VersionId, WorkspaceId,
     };
     use tower::ServiceExt;
     use uuid::Uuid;
@@ -2231,12 +2309,12 @@ mod tests {
     /// Deliberately violates the immutable catalog identity contract to prove
     /// that run routes stop before any trusted backend can expose or grade it.
     #[derive(Debug)]
-    struct MismatchedCatalog {
+    struct MismatchedCatalogTestStore {
         record: PublishedProblemRecord,
     }
 
     #[async_trait]
-    impl CatalogStore for MismatchedCatalog {
+    impl CatalogStore for MismatchedCatalogTestStore {
         async fn publish_draft(
             &self,
             _context: TenantContext,
@@ -2256,6 +2334,16 @@ mod tests {
             Ok(Some(self.record.clone()))
         }
 
+        async fn resolve_catalog_problem(
+            &self,
+            _context: TenantContext,
+            _reference: question_model::ProblemDisplayRef,
+        ) -> Result<Option<PublishedProblemRecord>, StoreError> {
+            Err(StoreError::InvalidRecord(
+                "mismatched catalog test store only supports exact immutable lookups".to_string(),
+            ))
+        }
+
         async fn list_catalog(
             &self,
             _context: TenantContext,
@@ -2273,6 +2361,16 @@ mod tests {
         ) -> Result<Page<question_model::taxonomy::TaxonomyTerm>, StoreError> {
             Err(StoreError::InvalidRecord(
                 "test catalog is read-only".to_string(),
+            ))
+        }
+
+        async fn search_catalog(
+            &self,
+            _context: TenantContext,
+            _query: CatalogSearchQuery,
+        ) -> Result<CatalogSearchPage, StoreError> {
+            Err(StoreError::InvalidRecord(
+                "mismatched catalog test store does not support catalog search".to_string(),
             ))
         }
 
@@ -2329,7 +2427,7 @@ mod tests {
             .expect("catalog read")
             .expect("fixture published question");
         record.question.problem = ProblemId::from_uuid(id(99));
-        let malformed_catalog = MismatchedCatalog { record };
+        let malformed_catalog = MismatchedCatalogTestStore { record };
 
         let response = load_run_question(
             &malformed_catalog,
@@ -4502,6 +4600,14 @@ mod tests {
             assert_eq!(before.status(), StatusCode::OK);
             assert_eq!(before.headers()["cache-control"], "no-store");
             let before = json(before).await;
+            assert_eq!(
+                before["course"]["summary"]["id"],
+                CourseId::from_uuid(id(205)).to_string()
+            );
+            assert_eq!(before["course"]["summary"]["role"], "student");
+            assert_eq!(before["course"]["appearance"]["theme"], "grass");
+            assert_eq!(before["course"]["appearance"]["revision"], "1");
+            assert!(before["course"]["appearance"]["banner"].is_null());
             let instructor_summary = app
                 .clone()
                 .oneshot(
@@ -4515,9 +4621,11 @@ mod tests {
                 .expect("instructor summary response");
             assert_eq!(instructor_summary.status(), StatusCode::OK);
             assert_eq!(instructor_summary.headers()["cache-control"], "no-store");
+            let instructor_summary = json(instructor_summary).await;
+            assert_eq!(instructor_summary["run"]["id"], first.run.to_string());
             assert_eq!(
-                json(instructor_summary).await["run"]["id"],
-                first.run.to_string()
+                instructor_summary["course"]["summary"]["role"],
+                "instructor"
             );
             assert_eq!(
                 before["outcomes"]["items"].as_array().map(Vec::len),
@@ -4635,6 +4743,25 @@ mod tests {
                 assert_eq!(release.status(), StatusCode::OK);
                 assert_eq!(release.headers()["cache-control"], "no-store");
                 assert_eq!(json(release).await, serde_json::json!({ "released": true }));
+
+                let repeated_release = app
+                    .clone()
+                    .oneshot(
+                        Request::builder()
+                            .method("POST")
+                            .uri(format!("/api/attempts/{}/feedback-release", first.id))
+                            .header("cookie", &instructor_cookie)
+                            .body(Body::empty())
+                            .expect("repeated instructor release request"),
+                    )
+                    .await
+                    .expect("repeated instructor release response");
+                assert_eq!(repeated_release.status(), StatusCode::OK);
+                assert_eq!(repeated_release.headers()["cache-control"], "no-store");
+                assert_eq!(
+                    json(repeated_release).await,
+                    serde_json::json!({ "released": true })
+                );
             }
 
             let after = app

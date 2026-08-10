@@ -33,8 +33,6 @@ pub mod flat_question;
 pub mod generator;
 /// Reference family proving generation, rendering, and server grading end to end.
 pub mod peptide_bond_geometry;
-/// Response-widget rendering hooks, wired to the UI in M3.
-pub mod renderer_stub;
 
 /// Stable adapter implementation identifier persisted with every native attempt.
 pub const ADAPTER_ID: &str = "native-adapter";

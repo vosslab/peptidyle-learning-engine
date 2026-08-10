@@ -1,12 +1,40 @@
 # Plan: bounded QTI profile mappings
 
-Status: WP-QTI-9 server routes and WP-QTI-10 author UI are complete and independently accepted.
-The author UI has real-route Chromium evidence for upload, review, conversion, recovery, keyboard,
-and 375 px reflow. WP-QTI-11 is next and remains unstarted: it is the independent live
-PostgreSQL/RLS/profile-to-native gate. The frozen course appearance plan remains a separate later
-package.
+## Status
 
-## Context
+WP-QTI-9 server routes, WP-QTI-10 author UI, WP-QTI-11 live
+PostgreSQL/RLS/profile-to-native acceptance, and WP-QTI-12 independent review and documentation
+close-out are complete and accepted as of 2026-08-09. The release plan owns the remaining version 1
+profile-export work as WP-RC6. QTI-JSONL contract work is assigned to WP-FQ-0, and course appearance
+WP-RC1 course appearance and WP-RC2 production-seam closure are accepted; WP-RC3 shipped upstream
+WeBWorK is the next PLE package. See
+[release_completion_plan.md](../active/release_completion_plan.md) for the current package sequence.
+
+## Decisions
+
+- Keep Canvas QTI 1.2 and Blackboard Original QTI 2.1 profile v1 strict, static, text-only, and
+  single-choice. Unsupported media, feedback, `sub`, `sup`, scoring, or policy refuses explicitly.
+- Do not widen profile v1. Media/HOTSPOT support belongs to QTI-JSONL; fixture-backed vendor features
+  require a new named profile version.
+- Complete Canvas and Blackboard export as background jobs. The author UI exposes job state and a
+  protected download, not an in-request ZIP build.
+- Use minimized accepted/near-miss fixtures and the accepted live oracle as release evidence; broad
+  local-corpus statistics are out of scope because they do not define compatibility.
+
+## Objectives
+
+- Preserve the accepted lossless profile-to-native import/provenance boundary.
+- Preserve the accepted exporter boundary for WP-RC6 without weakening profile v1.
+- Keep every profile answer, archive, choice map, and export object behind server authorization.
+
+## Scope
+
+WP-QTI-1 through WP-QTI-12 are accepted history. This plan assigns no unfinished implementation
+package. [release_completion_plan.md](../active/release_completion_plan.md) owns the remaining
+version 1 profile-export work as WP-RC6, including its production, worker, UI, test, and
+documentation files.
+
+## Background
 
 PLE now has two complementary foundations:
 
@@ -15,12 +43,13 @@ PLE now has two complementary foundations:
 - a canonical PLE flat-question JSON format that atomically saves, publishes, edits, renders, and
   grades ordinary static single-choice questions without putting answers in learner contracts.
 
-The next package connects those foundations without making vendor XML an internal source format.
-Canvas QTI 1.2 and Blackboard QTI 2.1 are materially different dialects. The current generic QTI
-parser accepts a bounded QTI 2-style `assessmentItem` shape, but it does not recognize either vendor
-profile, construct canonical flat-question source, preserve a vendor-to-PLE choice identity map, or
-link a derived flat publication to the archived package. It is also currently labeled
-`qti-1.2-subset` even though its accepted root and fixture grammar are QTI 2-style.
+The completed import packages connect those foundations without making vendor XML an internal source
+format.
+Canvas QTI 1.2 and Blackboard QTI 2.1 are materially different dialects. Before this plan, the
+generic QTI parser accepted a bounded QTI 2-style `assessmentItem` shape, but it did not recognize
+either vendor profile, construct canonical flat-question source, preserve a vendor-to-PLE choice
+identity map, or link a derived flat publication to the archived package. It was also labeled
+`qti-1.2-subset` even though its accepted root and fixture grammar were QTI 2-style.
 
 The corpus audits behind this plan inspected actual local Canvas and Blackboard packages, not only
 standards documents:
@@ -31,13 +60,13 @@ standards documents:
   records the completed authoring surface.
 - [implementation_plan.md](../implementation_plan.md) requires QTI to remain an adapter and retain
   exact original packages.
-- [partial_commit_status.md](../partial_commit_status.md) names bounded Canvas and Blackboard
-  mappings as the next package.
+- [partial_commit_status.md](../partial_commit_status.md) records the completed bounded Canvas and
+  Blackboard mapping packages and the current dependency order.
 - [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) keeps answers server-only and PLE flat-question JSON
   canonical.
 - [QTI-JSON_OBJECT_FORMAT.md](../../QTI-JSON_OBJECT_FORMAT.md) defines the closed v1 source contract.
 
-## Objectives
+## Package objectives
 
 - Recognize two exact, versioned vendor profiles instead of guessing from XML element names.
 - Convert only semantically supported static single-choice items into canonical PLE flat-question
@@ -48,8 +77,8 @@ standards documents:
 - Keep partial package success: one unsupported item does not erase supported siblings.
 - Keep every answer, feedback value, vendor choice map, archive key, and canonical source byte out of
   learner, catalog, ordinary browser, generated API, and Wasm contracts.
-- Add import and conversion acceptance first. Add profile export only after import semantics and
-  provenance pass independent review.
+- Import and conversion acceptance are complete. Profile export follows under WP-RC6 only after the
+  accepted import semantics and provenance boundary.
 - Keep new Rust and TypeScript owners small and named by responsibility.
 
 ## Design philosophy
@@ -69,7 +98,7 @@ This package follows the repository's stated engineering philosophies:
 - **Compartmentalization.** Profile parsers, markup conversion, choice identity, flat conversion,
   provenance persistence, HTTP orchestration, and UI each have a focused owner.
 
-## Scope
+## Detailed profile scope
 
 - Canvas QTI 1.2 static single-choice import profile.
 - Blackboard Original QTI 2.1 static single-choice pool import profile.
@@ -84,7 +113,8 @@ This package follows the repository's stated engineering philosophies:
 - Author API and focused import/review/convert UI.
 - Permanent adapter, Store, server, TypeScript, and Playwright tests.
 - One disposable PostgreSQL profile-to-flat oracle in the maintained database gate.
-- Later Canvas and Blackboard profile exporters, after the import gate passes.
+- The future Canvas and Blackboard profile exporters retain the accepted background-job and protected
+  author-download boundary under WP-RC6.
 
 ## Non-goals
 
@@ -107,7 +137,7 @@ This package follows the repository's stated engineering philosophies:
 
 ### Existing strengths
 
-- `crates/adapters/qti/src/parser_stub.rs` enforces 32 MiB archive, 128 MiB expanded, entry,
+- `crates/adapters/qti/src/parser.rs` enforces 32 MiB archive, 128 MiB expanded, entry,
   per-file, XML-depth, token, and node limits before conversion.
 - The parser rejects unsafe paths, symlinks, DTDs, entities, malformed XML, tables, MathML, and
   unsupported interactions.
@@ -136,7 +166,8 @@ This package follows the repository's stated engineering philosophies:
 - No server-only type carries a complete mapped static question into the native flat compiler.
 - No API uploads a QTI ZIP, exposes safe results, or converts one accepted item into a flat draft.
 - No current or published relation links flat source to its archived import origin.
-- No exporter exists.
+- No profile exporter has shipped; [release_completion_plan.md](../active/release_completion_plan.md)
+  assigns the remaining work to WP-RC6.
 
 ## Architecture boundaries and ownership
 
@@ -159,7 +190,6 @@ This package follows the repository's stated engineering philosophies:
 | Schema                   | catalog/operations/retention migrations                   | Tables, functions, policies, grants, fences, purge order                               |
 | Object boundary          | `objects` typed keys                                      | Non-signable imported and published provenance archives                                |
 | Author UI                | `src/features/qti_profile_import/`                        | Upload, status, results, warning review, convert, editor handoff                       |
-| Profile export           | `adapter_qti::export_profiles`                            | Later lossless subset export after import acceptance                                   |
 
 No profile module imports a persistence or HTTP crate. `adapter_qti` and `adapter_native` do not
 depend on one another. The server depends on both and performs the narrow translation. The browser
@@ -193,7 +223,6 @@ immutable import provenance                 existing flat persistence/runtime
 | WS-QTI-4 flat bridge | native imported factory, server conversion          | Canonical source and public/private compilation |
 | WS-QTI-5 provenance  | Store contract, Memory, PostgreSQL, schema, objects | Current and immutable origin chain              |
 | WS-QTI-6 API/UI      | server routes, TS feature, Playwright               | Visible instructor import and recovery flow     |
-| WS-QTI-7 export      | export profiles, archive writer                     | Refusing, versioned semantic export             |
 | WS-QTI-8 acceptance  | live oracle, security scan, independent review      | Release evidence                                |
 
 ## Resolved decisions
@@ -346,10 +375,8 @@ digest set even when the browser acknowledgement is current.
 ### Import versus export
 
 - Import, conversion, provenance, and visible review land first.
-- Export is a later milestone, not a release claim for the import package.
-- Export refuses any PLE field the target profile cannot preserve; it never drops feedback,
-  policies, metadata, markup, points, or semantics silently.
-- Exported packages are new artifacts. The original imported archive remains unchanged.
+- Profile export remains separate from the accepted import claim and is owned by WP-RC6 in
+  [release_completion_plan.md](../active/release_completion_plan.md).
 
 ## Milestone plan
 
@@ -419,6 +446,8 @@ digest set even when the browser acknowledgement is current.
 
 ### Milestone: Q6 integrated acceptance
 
+- Status: complete on 2026-08-09; WP-QTI-11 live acceptance and WP-QTI-12 independent review and
+  final documentation close-out passed.
 - Depends on: Q1 through Q5.
 - Deliverables: disposable PostgreSQL profile-to-flat oracle, security scan, behavior gates,
   independent review, and implementation handoff.
@@ -428,17 +457,6 @@ digest set even when the browser acknowledgement is current.
   visible; exact source archive and published provenance agree; RLS and secrecy probes pass; no P0 or
   P1 remains.
 - Parallel-plan ready: yes. Maximum useful doers: 2, with review independent of implementation.
-
-### Milestone: Q7 profile export
-
-- Depends on: Q6 import acceptance and explicit exporter fixtures.
-- Deliverables: Canvas 1.2 and Blackboard 2.1 pool exporters for the exact lossless subset, semantic
-  re-import tests, downloadable artifacts, and refusal UI.
-- Workstreams: WS-QTI-7 Canvas and Blackboard lanes.
-- Entry criteria: supported Markdown and policy subset frozen; vendor import fixtures accepted.
-- Exit criteria: PLE to vendor to PLE preserves title, prompt, ordered IDs, correct choice, points,
-  and all permitted defaults; unsupported PLE fields refuse before object creation.
-- Parallel-plan ready: yes. Maximum useful doers: 3.
 
 ## Workstream breakdown
 
@@ -531,16 +549,6 @@ digest set even when the browser acknowledgement is current.
 - Add `src/features/qti_profile_import/` with upload, progress, recognized-profile summary,
   accepted/rejected item cards, warning review, conversion, conflict recovery, and flat-editor handoff.
 - Do not parse ZIP/XML, cache archive bytes, or show answer mappings in TypeScript.
-
-### WS-QTI-7: export
-
-- Add one exporter per profile; share only safe archive/XML writers and Markdown conversion.
-- Emit profile ID/version and canonical PLE source checksum in package provenance.
-- Generate stable vendor-safe response IDs from PLE semantic IDs.
-- Refuse non-default policies, unsupported markup, feedback, metadata, or points that cannot be
-  represented exactly.
-- Preserve choice order and correct binding through semantic re-import tests.
-- Store exports as new typed export objects; never overwrite imported archives.
 
 ### WS-QTI-8: acceptance
 
@@ -696,22 +704,28 @@ digest set even when the browser acknowledgement is current.
 - Owner: independent integration owner.
 - Depends on: WP-QTI-3 through WP-QTI-10.
 - Acceptance: full disposable profile-to-native-flat path, grading, RLS, archive/provenance, cleanup.
+- Status: complete on 2026-08-09. A fresh isolated PostgreSQL 17 database applied and verified the
+  six migrations, processed one mixed accepted/rejected Canvas profile archive through the real
+  upload route and worker, converted and published the accepted item as native flat content, graded
+  correct and incorrect responses, enforced application/student/grader/foreign-tenant boundaries,
+  verified current and published archive/provenance checksums, and removed only the exact disposable
+  project. Full Rust, TypeScript, Node, Playwright, Python, and repository gates passed.
+- Evidence: `docs/active_plans/workstreams/qti_live_acceptance_implementation.md`.
 
 ### WP-QTI-12 independent review and docs
 
 - Owner: reviewer and documentation owner, separate from implementers.
 - Depends on: WP-QTI-11.
 - Acceptance: no P0/P1; active plan/status/changelog/contracts/architecture updated with exact evidence.
-- Next package: release the shared Store/client/route/docs seams to the dependency-ordered
-  `docs/active_plans/decisions/course_appearance_plan.md`. WP-QTI-13 exporters remain optional and
-  follow that course package.
-
-### WP-QTI-13 exporters
-
-- Owner: separate Canvas and Blackboard export owners.
-- Depends on: WP-QTI-12 import PASS.
-- Acceptance: semantic round trip for accepted subset and refusal before output for every unsupported
-  PLE field.
+- Status: complete on 2026-08-09. Six separate plan, test, style, documentation, legacy, and comment
+  review passes found no production or test defect. The documentation review initially found two
+  close-out blockers: stale README status and missing profile-to-native ownership evidence in the
+  contracts, architecture, and file map. Those documents were corrected, their focused gates passed,
+  and the original documentation and style reviewers found no remaining issue. No P0/P1 finding
+  remains.
+- Next package: WP-RC3 shipped upstream WeBWorK. The current dependency order, including
+  QTI-JSONL, content families, and WP-RC6 profile export, is authoritative in
+  [release_completion_plan.md](../active/release_completion_plan.md).
 
 ## Acceptance criteria and gates
 
@@ -757,13 +771,6 @@ digest set even when the browser acknowledgement is current.
 - Errors preserve selected file/report context and give a next action.
 - Conversion navigates into the completed flat editor for normal review and publication.
 - Keyboard, focus, status, 375 px reflow, and double-action locking have Playwright evidence.
-
-### Export behavior
-
-- Export is absent from product claims until Q7 passes.
-- Export refuses unsupported source fields before writing an object.
-- Re-import of an exported profile preserves supported semantics and stable PLE choice identity.
-- A generated package never masquerades as the exact original vendor archive.
 
 ## Test and verification strategy
 
@@ -821,9 +828,10 @@ git diff --cached --check
 
 ## Migration and compatibility policy
 
-- The repository is still pre-data, so this package edits the six-file baseline directly rather
-  than adding a seventh corrective migration.
-- Migration filenames and ledger ordering remain unchanged during this package.
+- The accepted six-file baseline is historical evidence. All schema changes after that accepted
+  baseline use a new forward migration under
+  [release_completion_plan.md](../active/release_completion_plan.md).
+- Do not amend accepted migration files or insert, rename, or reuse an accepted migration version.
 - The generic QTI label correction must update fixtures, worker registry values, runtime adapter
   values, and any persisted schema checks in one atomic patch.
 - If compatibility evidence requires reading the old inaccurate label, readers may accept it as a
@@ -881,7 +889,6 @@ Patches land in dependency order and remain independently reviewable:
 6. Upload/report/convert server routes and focused HTTP tests.
 7. Author UI, Node tests, and Playwright acceptance.
 8. Disposable PostgreSQL oracle, independent review, and documentation handoff.
-9. Canvas and Blackboard exporters only after import PASS.
 
 Each handoff reports:
 
@@ -889,16 +896,18 @@ Each handoff reports:
 - contract and behavior completed;
 - focused and full validation commands with results;
 - security/tenancy evidence;
-- known limitations and deferred profile versions;
+- known limitations and explicitly out-of-scope profile versions;
 - confirmation that staging/index state was not changed.
 
-## Open questions and decisions needed
+## Decision completeness
 
-No question blocks Q1 through Q6. The following remain intentionally deferred:
+No QTI profile scope or implementation decision remains open:
 
-- Whether a later flat-source version supports imported images and asset references.
-- Which exact fixture-backed vendor feedback forms merit a new profile version.
-- Whether `sub` and `sup` gain a tested canonical representation in flat Markdown.
-- Whether profile exports are exposed in the first author UI or only through an export job initially.
-- Whether broad local-corpus compatibility statistics are worth a one-time report after the strict
-  profiles pass; those statistics do not widen the accepted contract.
+- Profile v1 remains text-only; QTI-JSONL WP-FQ-6 and WP-FQ-7 own rich media and HOTSPOT.
+- Vendor feedback, `sub`, and `sup` are out of scope for profile v1 because no accepted fixture proves
+  a lossless mapping; any later support requires a new named profile version.
+- WP-RC6 owns Canvas and Blackboard export through a background job that exposes only job state plus
+  a protected download in the author UI; see
+  [release_completion_plan.md](../active/release_completion_plan.md).
+- Broad local-corpus statistics are out of scope because strict minimized fixtures and the accepted
+  live oracle prove the version 1 compatibility claim.

@@ -13,6 +13,7 @@
 //! cargo tools fixtures <--check|--write>
 //! cargo tools tsgen [model-dir] [out-dir]
 //! cargo tools e2e-seed --database-url <URL> --apply-migrations --tenant <UUID> --instructor <UUID> --student <UUID>
+//! cargo tools e2e-seed --webwork-pilot --database-url <URL> --apply-migrations --tenant <UUID> --instructor <UUID> --student <UUID> --s3-endpoint <URL> --s3-region <REGION> --content-bucket <BUCKET>
 //! ```
 
 mod database;

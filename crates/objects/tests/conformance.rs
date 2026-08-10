@@ -5,8 +5,8 @@ use objects::{
     Bucket, ObjectCategory, ObjectKey, ObjectStore, ObjectStoreError, PutObject, Sha256Digest,
 };
 use question_model::{
-    ActivityTimestamp, AssetId, ObjectId, ProblemId, TenantId, VersionId, WorkspaceId,
-    WorkspaceImportId,
+    ActivityTimestamp, AssetId, CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId,
+    ProblemId, TenantId, VersionId, WorkspaceId, WorkspaceImportId,
 };
 use uuid::Uuid;
 
@@ -125,6 +125,61 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .await
         .expect("temporary put should succeed");
 
+    let banner_candidate_key = ObjectKey::CourseBannerCandidate {
+        tenant: TenantId::from_uuid(id(50)),
+        course: CourseId::from_uuid(id(51)),
+        candidate: CourseBannerCandidateId::from_uuid(id(52)),
+    };
+    let banner_candidate_record = store
+        .put(PutObject {
+            key: banner_candidate_key.clone(),
+            bytes: b"normalized candidate".to_vec(),
+            media_type: "image/webp".to_string(),
+            license: "tenant course branding".to_string(),
+            provenance: "fixture".to_string(),
+            created_at: ActivityTimestamp::from_unix_millis(1_000),
+        })
+        .await
+        .expect("course banner candidate put should succeed");
+    assert_eq!(banner_candidate_record.bucket, Bucket::TempProcessing);
+    assert_eq!(banner_candidate_record.category, ObjectCategory::Temporary);
+    assert_eq!(
+        store
+            .signed_url(
+                &banner_candidate_key,
+                ActivityTimestamp::from_unix_millis(2_000)
+            )
+            .await,
+        Err(ObjectStoreError::NotSignable),
+        "course banner candidates must never be delivery targets"
+    );
+
+    let course_banner_key = ObjectKey::CourseBanner {
+        tenant: TenantId::from_uuid(id(50)),
+        course: CourseId::from_uuid(id(51)),
+        banner: CourseBannerId::from_uuid(id(53)),
+    };
+    let course_banner_record = store
+        .put(PutObject {
+            key: course_banner_key.clone(),
+            bytes: b"current course banner".to_vec(),
+            media_type: "image/webp".to_string(),
+            license: "tenant course branding".to_string(),
+            provenance: "fixture".to_string(),
+            created_at: ActivityTimestamp::from_unix_millis(1_000),
+        })
+        .await
+        .expect("course banner put should succeed");
+    assert_eq!(course_banner_record.bucket, Bucket::Content);
+    assert_eq!(course_banner_record.category, ObjectCategory::CourseContent);
+    store
+        .signed_url(
+            &course_banner_key,
+            ActivityTimestamp::from_unix_millis(2_000),
+        )
+        .await
+        .expect("current course banners are signable after separate pointer authorization");
+
     let workspace_source = ObjectKey::WorkspaceSource {
         tenant: TenantId::from_uuid(id(7)),
         workspace: WorkspaceId::from_uuid(id(8)),
@@ -221,6 +276,14 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .delete(&temporary_key)
         .await
         .expect("temporary cleanup should succeed");
+    store
+        .delete(&banner_candidate_key)
+        .await
+        .expect("course banner candidate cleanup should succeed");
+    store
+        .delete(&course_banner_key)
+        .await
+        .expect("course banner cleanup should succeed");
     store
         .delete(&workspace_source)
         .await

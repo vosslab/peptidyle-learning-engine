@@ -52,9 +52,14 @@ single owner becomes a QTI catch-all module.
 - Tracked/staged/new-file whitespace checks and `git diff --check` passed.
 - Independent review reported PASS with no P0/P1 finding.
 
-## Next package
+## Historical successor
 
-Implement the exact Blackboard QTI 2.1 static-single-choice parser described in
-[qti_profile_mapping_plan.md](../decisions/qti_profile_mapping_plan.md). It must reuse the bounded
+The immediate successor was the exact Blackboard QTI 2.1 static-single-choice parser in
+[qti_profile_mapping_plan.md](../decisions/qti_profile_mapping_plan.md). It reused the bounded
 archive/XML, strict markup, deterministic choice-ID, mapped-item, and safe-report contracts without
 widening the Canvas grammar.
+
+WP-QTI-1 through WP-QTI-12 are now accepted history. Current authority is
+[release_completion_plan.md](../active/release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
+is current, WP-ARCH1 follows it, then WP-RC4 owns the QTI-JSONL contract, WP-RC5 owns families and
+Chapter 1 content, and WP-RC6 closes QTI export and H5P claims.

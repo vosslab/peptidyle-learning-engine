@@ -16,6 +16,8 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 
 - Treat `docs/active_plans/implementation_plan.md` as the source of truth for
   implementation order, architecture, contracts, security, tests, and gates.
+- Use `docs/active_plans/active/release_completion_plan.md` for the decision-complete remaining
+  package sequence and binary version 1 scope.
 - `docs/active_plans/m0-results.md` is concluded M0 evidence. Read it when M0
   history matters; do not treat it as an active task or reopen M0 without new
   evidence.
@@ -62,7 +64,10 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   independent tasks in parallel when doing so safely shortens wall time.
 - Use the hang check to distinguish a genuinely stuck agent from a healthy
   agent that is still working.
-- Use GPT-5.6 subagents from now on.
+- Use GPT-5.3-Codex-Spark subagents for simple, bounded tasks that can run independently. Keep
+  architecture, difficult cross-cutting decisions, coordination, and final integration with the
+  manager. Follow [docs/CODEX_SPARK_SUBAGENTS.md](CODEX_SPARK_SUBAGENTS.md) for the delegation
+  contract.
 
 ## Plan and test discipline
 
@@ -103,6 +108,12 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Favor behavior-focused evidence that reflects what instructors and students
   actually do over implementation-detail tests.
 
+## Student keyboard accessibility
+
+- Make every student browser action usable with the keyboard alone.
+- Support Tab, arrow keys, and Enter throughout student flows. Use Space and Escape where the native
+  interaction pattern calls for them.
+
 ## Flat question source
 
 - Use versioned PLE flat-question JSON as the canonical machine format for
@@ -114,16 +125,25 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Compile answer-bearing author input into separate checksummed public question
   content and grader-only key/feedback material. Neither authored nor published
   source objects may receive signed delivery URLs.
-- Stable semantic choice IDs own answers and feedback; display labels such as
-  A, B, and C do not.
+- Stable semantic choice IDs own answers and feedback inside PLE; display labels such as A, B, and C
+  do not. The QTI-JSONL adapter derives those IDs deterministically when the source
+  specification uses text or position instead of authored identifiers.
 - PLE QTI-JSON must support, at a minimum, multiple choice (MC), multiple answer
   (MA), fill-in-the-blank (FIB), multiple fill-in-the-blank (MULTI-FIB),
   numerical entry (NUM), matching (MATCH), ordered list (ORDER), and image hot
   spot (HOTSPOT) questions.
-- Use the owner's Python QTI Package Maker at
-  `OTHER_REPOS/qti-package-maker/` as a model for useful flat-question
-  conversion behavior. Port useful parts to Rust when needed, mainly for
-  import/export tooling; this is a low priority today.
+- Complete the owner-assigned QTI-JSONL WP-FQ-0 artifacts in
+  `OTHER_REPOS/qti-package-maker/` and adopt them as the semantic source contract for new flat-question
+  families. Use the simple readability of its `exam_yaml` engine while retaining the answer and
+  grading data that print-oriented YAML deliberately omits. Do not invent a competing PLE family
+  schema. WP-FQ-0 owns the specification, reference engine, all-family example, and contract/
+  round-trip tests before PLE family code consumes it.
+- Keep QTI-JSONL interpretation in one versioned adapter/compiler boundary. Preserve original source
+  and compile it into PLE's answer-free public model plus grader-only private material so a later
+  source version can be added without spreading its fields across storage, routes, UI, and grading.
+- Follow the QTI-JSONL specification for image and other binary references. Keep bytes, checksums,
+  media types, lifecycle, and authorization in PLE object storage rather than embedding bytes in
+  JSON or database rows. Port engine code to Rust only when a concrete integration needs it.
 - Treat `feedback_correct` and `feedback_incorrect` as optional sidecars shared
   by question types, following QTI Package Maker's `BaseItem`. Authors are often
   incomplete, so feedback is not required and missing feedback does not make a
@@ -162,7 +182,18 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Allow an instructor to upload a small banner image per course and select one
   of the preconfigured themes. Center the banner image at the top of the course
   entry page.
+- Normalize each banner to one fixed 1200 by 328 pixel wide image, using the
+  proportions of the centered YouTube banner safe region as the guide. Crop
+  once on the server without stretching; scale that same image down in the
+  browser without changing its aspect ratio.
 - Apply a three-color theme to all of the course pages.
+- Use `grass` as the default course theme. Its Roosevelt-inspired palette uses the official
+  `#73C167` and `#008852` greens plus the pale `#BDDEB1` fill observed in the public university
+  logo. Treat the pale fill as logo-derived inspiration, not as an official brand-guide swatch, and
+  do not present PLE as official Roosevelt branding.
+- Keep raw palette anchors decorative when they do not meet the product's contrast target. Derive
+  accessible action, link, text, focus, and boundary colors without expanding the three stored
+  theme choices.
 - Use biome and habitat theme names that give a sense of color on their own:
   tundra, forest, desert, grass, arctic, ocean, tropical, woodland, coral reef,
   swamp, underground, salt marsh, wetland, sea floor, magma, and beach.

@@ -4,10 +4,12 @@
   color-scheme: light;
   --ple-surface: white;
   --ple-surface-soft: color-mix(in srgb, #174f78 7%, white);
+  --ple-card-surface: white;
   --ple-ink: #172033;
   --ple-muted: #4d5a68;
   --ple-accent: #174f78;
   --ple-accent-strong: #0f3b5c;
+  --ple-action-hover: #0f3b5c;
   --ple-success: #176b3a;
   --ple-danger: #a12027;
   --ple-focus: #7a4b00;
@@ -211,7 +213,7 @@ h2 {
 .route-error {
   border: 1px solid var(--ple-border);
   border-radius: 1.15rem;
-  background: rgb(255 255 255 / 96%);
+  background: var(--ple-card-surface);
   box-shadow: var(--ple-shadow);
 }
 
@@ -259,8 +261,8 @@ h2 {
 
 .primary-link:hover,
 .primary-action:hover:not(:disabled) {
-  border-color: var(--ple-accent-strong);
-  background: var(--ple-accent-strong);
+  border-color: var(--ple-action-hover);
+  background: var(--ple-action-hover);
 }
 
 .primary-action:disabled {
@@ -272,7 +274,7 @@ h2 {
 .quiet-link,
 .quiet-action {
   border: 2px solid var(--ple-border);
-  background: white;
+  background: var(--ple-card-surface);
   color: var(--ple-accent-strong);
 }
 
@@ -298,7 +300,7 @@ h2 {
 
 .assignment-facts div {
   padding: 1.25rem;
-  background: white;
+  background: var(--ple-card-surface);
 }
 
 .assignment-facts dt {
@@ -321,7 +323,7 @@ h2 {
   overflow-x: auto;
   border: 1px solid var(--ple-border);
   border-radius: 1rem;
-  background: white;
+  background: var(--ple-card-surface);
   box-shadow: var(--ple-shadow);
 }
 
@@ -364,7 +366,7 @@ h2 {
 
 .gradebook-history-row td {
   padding: 0;
-  background: color-mix(in srgb, #174f78 4%, white);
+  background: var(--ple-surface-soft);
 }
 
 .gradebook-history-row section {
@@ -384,7 +386,7 @@ h2 {
   padding: 2rem;
   border: 1px solid var(--ple-border);
   border-radius: 1rem;
-  background: white;
+  background: var(--ple-card-surface);
 }
 
 .gradebook-empty h2 {
@@ -529,7 +531,7 @@ h2 {
   padding: 0.75rem 1rem;
   border: 2px solid var(--ple-border);
   border-radius: 0.85rem;
-  background: white;
+  background: var(--ple-card-surface);
   cursor: pointer;
   font-weight: 650;
 }
@@ -566,7 +568,7 @@ h2 {
   height: 1.7rem;
   place-items: center;
   border-radius: 0.45rem;
-  background: color-mix(in srgb, #174f78 12%, white);
+  background: var(--ple-surface-soft);
   color: var(--ple-accent-strong);
   font-size: 0.82rem;
   font-weight: 820;
@@ -633,6 +635,29 @@ h2 {
 .route-error {
   max-width: 48rem;
   margin: 0 auto;
+}
+
+.local-sign-in {
+  display: grid;
+  max-width: 36rem;
+  margin: 1.5rem 0;
+  gap: 0.65rem;
+}
+
+.local-sign-in label {
+  font-weight: 780;
+}
+
+.local-sign-in input {
+  width: 100%;
+}
+
+.local-sign-in .field-help {
+  margin: 0;
+}
+
+.local-sign-in .primary-action {
+  justify-self: start;
 }
 
 .action-row {
@@ -720,7 +745,7 @@ h2 {
     margin-bottom: 0.75rem;
     border: 1px solid var(--ple-border);
     border-radius: 1rem;
-    background: white;
+    background: var(--ple-card-surface);
     box-shadow: var(--ple-shadow);
   }
 
@@ -770,6 +795,21 @@ h2 {
 }
 
 @media (max-width: 30rem) {
+  .site-header {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .site-header nav {
+    width: 100%;
+  }
+
+  .site-header nav a {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 0.5rem;
+  }
+
   .shell {
     width: min(100% - 1rem, 72rem);
     padding-top: 2rem;

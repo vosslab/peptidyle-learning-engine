@@ -1,4 +1,4 @@
-// route_contract.ts - pure data form of the frozen eleven-route product contract.
+// route_contract.ts - pure data form of the frozen product route contract.
 
 export interface RouteContract {
   readonly id:
@@ -12,7 +12,8 @@ export interface RouteContract {
     | "workspaceList"
     | "workspaceEditor"
     | "assignmentEditor"
-    | "gradebook";
+    | "gradebook"
+    | "courseAppearance";
   readonly path: string;
   readonly surface: string;
 }
@@ -53,6 +54,11 @@ export const ROUTE_CONTRACT = [
     id: "gradebook",
     path: "/instructor/courses/:courseId/gradebook",
     surface: "Summary-row gradebook",
+  },
+  {
+    id: "courseAppearance",
+    path: "/instructor/courses/:courseId/appearance",
+    surface: "Course theme and entry-banner settings",
   },
 ] as const satisfies ReadonlyArray<RouteContract>;
 

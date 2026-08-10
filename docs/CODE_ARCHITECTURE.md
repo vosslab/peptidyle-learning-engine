@@ -7,14 +7,20 @@ one stateless Rust server composition, and focused Rust crates that enforce
 security and ownership boundaries at compile time. The authoritative plan is
 [active_plans/implementation_plan.md](active_plans/implementation_plan.md);
 this document is the working map. The path-by-path contributor map is
-`docs/FILE_STRUCTURE.md`; it becomes GitHub-browsable with this package.
+[FILE_STRUCTURE.md](FILE_STRUCTURE.md).
 
 The current code includes the question model, domain rules, server-only
 grading, object storage, learning data access, API routes, Solid browser client,
 WebAssembly bridge, question-engine adapters, export workers, manual grading,
-course item analysis, retention, and a six-file PostgreSQL baseline. The
-remaining dependency order is recorded in
-[active_plans/partial_commit_status.md](active_plans/partial_commit_status.md).
+course item analysis, retention, a six-file PostgreSQL baseline, and the first
+forward course-appearance migration. WP-RC3 source artifacts also implement a
+private, upstream WeBWorK `render_rpc` adapter, optional private local compose
+overlay, immutable PGML pilot seed, and opt-in E2E/browser gates. Their live
+container and browser acceptance remain verification work, not an accepted
+release claim. The remaining dependency order is recorded in
+[active_plans/active/release_completion_plan.md](active_plans/active/release_completion_plan.md),
+and the dated current snapshot is
+[active_plans/project_status_report_2026-08-09.md](active_plans/project_status_report_2026-08-09.md).
 
 ## Contributor vocabulary
 
@@ -31,7 +37,17 @@ hyphens; Rust import and module names use underscores.
 Use `cargo tools` for project-tool commands. The opaque `cargo xtask` alias is
 retired.
 
-## Shape of the system
+## Current and target topology
+
+The maintained local path is the browser bundle in `dist/`, the same-origin
+gateway, the `axum` API and worker, PostgreSQL, and MinIO, composed by
+[launch_local_stack.sh](../launch_local_stack.sh) and
+[containers/compose.yaml](../containers/compose.yaml). The optional private
+WeBWorK overlay is implementation evidence for WP-RC3, but it has not passed
+its live container or browser acceptance gates.
+
+The following is the planned production topology. It is owned by WP-RC10 and
+WP-RC11; it is not a deployed configuration or release claim.
 
 ```text
 browser                     ALB          stateless replicas
@@ -81,17 +97,21 @@ Both are enforced by the shape of the code, not by review discipline.
 Each crate's dependency list is exhaustive: the allowed set is the whole set,
 so a `Cargo.toml` matching this table satisfies the boundary by construction.
 
-| Crate                                      | Owns                                                                                                      | Depends only on                                  |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `crates/question_model`                    | Question types, capabilities, identity, taxonomy                                                          | external crates                                  |
-| `crates/domain`                            | Attempt state machine, run and completion rules, timing verdict, seeded generation, capability validation | `question_model`                                 |
-| `crates/grading`                           | Answer keys, checkers, correctness decisions                                                              | `question_model`, `domain`                       |
-| `crates/objects`                           | `ObjectStore` trait, S3 and MinIO backends, key construction, checksums                                   | `question_model`                                 |
-| `crates/learning-data-access`              | Learning data-access contracts, PostgreSQL, migrations, RLS                                               | `question_model`, `domain`, `objects`            |
-| `crates/adapters/{native,webwork,qti,h5p}` | Per-engine load, generate, grade delegation, capability declaration                                       | `question_model`, `domain`, `grading`, `objects` |
-| `crates/export`                            | Print model, DOCX and PDF writers                                                                         | `question_model`, `objects`                      |
-| `crates/wasm`                              | `wasm-bindgen` bridge delegating to `domain`                                                              | `question_model`, `domain`                       |
-| `crates/server`                            | axum routes, auth, worker mode, composition root                                                          | every crate above                                |
+| Crate                         | Owns                                                                                                      | Depends only on                                     |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `crates/question_model`       | Question types, capabilities, identity, taxonomy                                                          | external crates                                     |
+| `crates/domain`               | Attempt state machine, run and completion rules, timing verdict, seeded generation, capability validation | `question_model`                                    |
+| `crates/grading`              | Answer keys, checkers, correctness decisions                                                              | `question_model`, `domain`                          |
+| `crates/objects`              | `ObjectStore` trait, S3 and MinIO backends, key construction, checksums                                   | `question_model`                                    |
+| `crates/learning-data-access` | Learning data-access contracts, PostgreSQL, migrations, RLS                                               | `question_model`, `domain`, `objects`               |
+| `crates/adapters/native`      | First-party generated questions and static flat-question compilation                                      | `question_model`, `domain`, `grading`               |
+| `crates/adapters/webwork`     | Private renderer projection and server-side grade delegation                                              | `question_model`, `domain`, `grading`, `objects`    |
+| `crates/adapters/qti`         | Bounded package import, profile mapping, and private grade handoff                                        | `question_model`, `domain`, `grading`, `objects`    |
+| `crates/adapters/h5p`         | Ungraded practice import and capability declaration                                                       | `question_model`                                    |
+| `crates/adapters/imathas`     | Contracted/self-hosted scored embed boundary                                                              | `question_model`, `objects`, `learning-data-access` |
+| `crates/export`               | Print model, DOCX and PDF writers                                                                         | `question_model`, `objects`                         |
+| `crates/wasm`                 | `wasm-bindgen` bridge delegating to `domain`                                                              | `question_model`, `domain`                          |
+| `crates/server`               | axum routes, auth, worker mode, composition root                                                          | every crate above                                   |
 
 Two properties follow from that table. `crates/domain` reaches only
 `question_model`, so it has no clock and no database: `chrono` is declared with
@@ -134,6 +154,45 @@ Protected asset delivery follows the same four-file shape:
 That component owns immutable logical-to-physical bindings, public-catalog
 resolution, protected educational-record authorization, and access auditing.
 
+Course appearance follows the same backend-neutral ownership shape:
+`crates/learning-data-access/src/course_appearance.rs`,
+`crates/learning-data-access/src/in_memory/course_appearance.rs`,
+`crates/learning-data-access/src/postgres/course_appearance.rs`, and
+`crates/learning-data-access/tests/conformance/course_appearance.rs`.
+It owns default creation, revision compare-and-swap, persisted session authority, bytes-first banner
+promotion, exact-current delivery, and bounded two-phase cleanup. The PostgreSQL implementation uses
+a scoped security-definer actor resolver rather than granting `ple_app` direct access to
+`auth_session`; a second trigger rejects any current pointer whose delivery kind, tenant, or course
+does not match the appearance row. The disposable live oracle is
+`crates/learning-data-access/tests/postgres_course_appearance_live.rs`.
+
+The HTTP and image boundary remains in `server_core`:
+`crates/server/src/course_appearance.rs` owns authenticated GET/PUT/candidate orchestration,
+`crates/server/src/course_appearance/image.rs` owns bounded orientation and one 1200 by 328 WebP
+normalization, and `crates/server/src/course_appearance/tests.rs` owns route recovery and refusal
+behavior plus the combined PostgreSQL/MinIO cleanup oracle. Successful appearance traffic also runs
+one bounded best-effort tenant claim/delete/complete sweep; missing objects are idempotent, object
+failure never blocks a course read, and completion follows only successful exact-key deletion. The
+route never discloses the future banner identity held by persistence. It verifies and
+copies candidate bytes first, then asks the Store to apply one revision CAS. Existing
+`crates/server/src/asset.rs` remains the single same-origin delivery route and delegates course
+banners to exact-current-pointer authorization before object signing.
+
+The browser owner is `src/features/course_appearance/`. `theme_catalog.ts` is the exhaustive
+15-theme and derived-token registry; `course_theme_route.ts` classifies only course-owned paths;
+`course_theme_scope.tsx` loads the safe projection before rendering and owns its CSS-variable
+subtree; and `course_theme_context.ts` lets attempt, summary, and instructor pages reuse route data
+without importing router mechanics. `course_appearance_model.ts` owns the pure editable draft and
+atomic update, `course_appearance_repository.ts` owns the narrow client seam, and
+`course_appearance_page.tsx` owns the native-control form and preserved-error recovery.
+`course_entry_identity.tsx` renders the text title and optional current banner only from the existing
+course-route projection. `crates/server/src/run.rs` supplies the summary's authorized
+course/appearance projection from the stored assignment and session, never from a browser-supplied
+course ID. Global navigation, non-entry routes, and semantic status colors remain outside the banner
+projection. The integrated PostgreSQL/MinIO owner is `tests/e2e/e2e_course_appearance.sh`; the
+built-browser and generated visual owners are `tests/playwright/course_appearance*.ts` and
+`tests/playwright/course_theme_scope.spec.ts`.
+
 Authentication sessions are similarly isolated in
 [crates/learning-data-access/src/session.rs](../crates/learning-data-access/src/session.rs),
 `crates/learning-data-access/src/in_memory/sessions.rs`,
@@ -153,18 +212,65 @@ editor are separate vertical packages, so the codec does not absorb data-access
 or HTTP concerns.
 
 QTI import and its answer-bearing grader boundary are owned by
-`crates/learning-data-access/src/qti.rs`, `crates/learning-data-access/src/in_memory/qti.rs`,
+[crates/learning-data-access/src/qti.rs](../crates/learning-data-access/src/qti.rs),
+[crates/learning-data-access/src/in_memory/qti.rs](../crates/learning-data-access/src/in_memory/qti.rs),
 [crates/learning-data-access/src/postgres/qti.rs](../crates/learning-data-access/src/postgres/qti.rs), and
 [crates/learning-data-access/tests/conformance/qti.rs](../crates/learning-data-access/tests/conformance/qti.rs).
 The ordinary data-access handle can write validated private staging metadata,
 but only the separately injected grader handle can read opaque grading
 material. The QTI adapter keeps its public facade in
-`crates/adapters/qti/src/lib.rs`, its bounded archive/parser implementation in
-`parser_stub.rs`, its import data model in `model.rs`, and its hostile-package
-and partial-result cases in `parser_stub/tests.rs`. Unsafe archives fail as a
+[crates/adapters/qti/src/lib.rs](../crates/adapters/qti/src/lib.rs), its bounded archive/parser
+implementation in
+`crates/adapters/qti/src/parser.rs`, and its reviewed
+profile mapping under
+[crates/adapters/qti/src/profiles/](../crates/adapters/qti/src/profiles/). Unsafe archives fail as a
 whole; safe archives retain accepted items and record every semantic rejection.
 Normalized checksums report exact and likely duplicates within the batch
 without exposing the grading binding.
+
+The H5P adapter exposes its key-free practice importer through
+`crates/adapters/h5p/src/import.rs`.
+The WeBWorK adapter exposes its server-only renderer request, response,
+identity, failure, render, and grade boundary through
+`crates/adapters/webwork/src/renderer_contract.rs`. Its
+`http_renderer.rs` client joins only the configured application base and
+`render_rpc`, posts the authenticated upstream form, rejects redirects and
+unbounded/wrong-type responses, and projects the approved single-radio PG
+shape. It uses `html5ever` tokenization to extract the exact radio group,
+then discards upstream field names, hidden fields, session material, and source
+bytes before forming a PLE question envelope. `shipped_render_rpc.rs` fixes the
+upstream path and form media type. The adapter cache stores only the safe
+rendered projection and emits `ple.webwork.cache` `renderer_call` and
+`cache_hit` events. `crates/server/src/webwork_backend.rs` resolves immutable
+catalog source bytes under the attempt tenant before calling that adapter.
+The optional private upstream deployment is owned by the WP-RC3 workstream;
+it is not a browser-facing service.
+
+The profile-to-native author path keeps each ownership transition explicit:
+
+1. [crates/server/src/qti_profile_import.rs](../crates/server/src/qti_profile_import.rs) authorizes
+   the workspace before consuming the opaque archive, persists it in protected storage, queues the
+   worker, and returns only no-store safe projections.
+2. [crates/server/src/qti_import.rs](../crates/server/src/qti_import.rs) runs the Canvas/Blackboard
+   profile parser and commits the mixed accepted/rejected report with exact archive and result
+   digests.
+3. [crates/server/src/qti_profile_conversion.rs](../crates/server/src/qti_profile_conversion.rs)
+   re-reads the immutable archive and repeats the full report binding. It sends one acknowledged
+   accepted item through
+   [crates/server/src/qti_profile_flat_bridge.rs](../crates/server/src/qti_profile_flat_bridge.rs)
+   to the native flat compiler, then one Store command advances the draft revision while committing
+   canonical source, opaque grading material, provenance, and current origin atomically.
+4. [src/features/qti_profile_import/](../src/features/qti_profile_import/) owns upload, bounded
+   polling, answer-free review, acknowledgement, conversion, conflict recovery, and editor handoff.
+
+The browser never receives archive bytes, object keys, private choice maps, correct-choice material,
+or unreleased feedback. The production grading path can resolve the opaque payload only through the
+separately injected PostgreSQL grader handle. The live oracle in
+[crates/server/src/qti_profile_postgres_live.rs](../crates/server/src/qti_profile_postgres_live.rs),
+invoked by [tests/e2e/e2e_database_baseline.sh](../tests/e2e/e2e_database_baseline.sh), proves the
+full upload/worker/convert/edit/publish/correct-and-incorrect-grade path against PostgreSQL 17 with
+real application, student, grader, and foreign-tenant role denials, immutable checksum-bound
+provenance, retention, and exact disposable cleanup.
 
 The QTI publication HTTP capability is owned by
 [crates/server/src/qti_publication.rs](../crates/server/src/qti_publication.rs),
@@ -191,14 +297,21 @@ ranges.
 
 ## Database storage
 
-The six ordered SQLx baseline migrations under `schemas/migrations/` separate
-principals, catalog/authoring, courses/assignments, activity/feedback,
-operations/analytics, and retention. `cargo tools database status`, `migrate`,
-and `verify` expose the exact ledger/checksum boundary; application startup is
+The table-by-table revision, authentication, assignment, FERPA isolation, pilot-volume, and
+ten-million-question growth map lives in [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md). It marks
+implemented relations separately from the proposed production identity and passkey tables, so
+future authentication planning does not get confused with accepted schema state.
+
+The first six ordered SQLx migrations under `schemas/migrations/` are the accepted pre-data baseline
+for principals, catalog/authoring, courses/assignments, activity/feedback, operations/analytics, and
+retention. The forward `schemas/migrations/2026080907_course_appearance.sql` migration adds
+revisioned appearance, banner candidates, exact-current delivery policy, and forced RLS without
+rewriting that baseline. `cargo tools database status`, `migrate`, and `verify` expose the exact
+ledger/checksum boundary; application startup is
 verify-only and never mutates a deployed schema. The baseline creates shared immutable
 catalog tables separately from tenant-owned educational records. Compact
 problem-version metadata remains unpartitioned for browsing, while JSONB
-payloads use 16 hash partitions. Question attempts, submissions, grade events,
+payloads use 16 hash partitions. Question attempts, submissions, protected-record access logs,
 and audit events use monthly range partitions plus a default partition so an
 unexpected timestamp cannot make an otherwise valid write disappear.
 
@@ -261,10 +374,11 @@ concurrent publication.
 
 `crates/server/src/auth.rs` separates credential verification from session
 mechanics. An `IdentityProvider` establishes a validated `SessionSubject`; the
-same route and store contracts can therefore accept a future institutional
-OIDC, SSO, LTI, or explicit local-development provider without changing cookie
-handling or tenant derivation. The production provider remains an owner
-selection rather than an inferred implementation choice.
+same route and store contracts can therefore accept institutional OIDC, LTI,
+or the explicit local-development provider without changing cookie handling or
+tenant derivation. Institutional OIDC is the selected production identity
+decision and WP-RC8 owns its implementation; the provider abstraction remains
+the stable code boundary rather than an unresolved product choice.
 
 Successful login generates 256 bits from the operating-system random source.
 Only its SHA-256 hash enters `SessionStore`; the raw value appears solely in an
@@ -350,6 +464,15 @@ Responses contain browser-safe question-attempt projections only. Feedback
 policy may hide correctness and points, and no response contains an answer key,
 expected value, private rubric, or checker implementation.
 
+The current route still returns a broader learner attempt projection and uses
+a tagged `StudentResponse`. Before WP-RC5, the accepted
+[secure grading payload plan](active_plans/decisions/secure_question_grading_payload_plan.md)
+replaces that wire atomically with an attempt-bound minimal descriptor,
+CRC16-derived presentation-scoped rendered-item IDs, a SHA-256 presentation
+consistency digest, server-selected response decoding, and server-only partial
+credit. The CRC and digest are consistency checks; authenticated session,
+forced RLS, attempt state, and idempotency remain the security authority.
+
 ## Browser-safe validation fallback
 
 `crates/server/src/validation.rs` authenticates and bounds three HTTP fallbacks
@@ -389,12 +512,32 @@ minutes and `student-records` URLs at 5 minutes, marks protected redirects
 
 ## Containers
 
+The root [launch_local_stack.sh](../launch_local_stack.sh) is the maintained local-test front door.
+Its default local path creates ignored high-entropy credentials, selects an available gateway port,
+builds the host browser bundle, starts backing services, applies and verifies migrations,
+provisions the distinct grader login, seeds a bounded demonstration course, and then starts API,
+worker, and gateway. The gateway mounts `dist/` read-only, serves browser navigation, and proxies
+only `/api`, `/api/*`, and `/health` to the API replicas; API-shaped paths can never fall through to
+the single-page application. Normal shutdown preserves the named PostgreSQL and MinIO volumes. Passing
+`--with-webwork` adds `containers/compose.webwork.yaml`,
+which gives only the API a renderer endpoint and a read-only runtime password
+file. The overlay starts source-pinned upstream WeBWorK and a dedicated MariaDB
+on private networks; neither service publishes a host port or joins PLE
+PostgreSQL, MinIO, gateway, or worker networks. The image, course initializer,
+and semantic probe are under `containers/webwork/`.
+This source-level integration still requires its explicit live acceptance gate.
+Replica discovery, state ownership, worker scaling, network boundaries, and the
+separate planned production topology are documented in
+[MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md).
+
 | Service         | Image                                     | Purpose                                 |
 | --------------- | ----------------------------------------- | --------------------------------------- |
 | `api`           | built from `containers/Containerfile.api` | axum API server                         |
-| `postgres`      | `postgres:latest`                         | shared content and tenant-owned records |
-| `minio`         | `quay.io/minio/minio`                     | S3-compatible object storage            |
-| `createbuckets` | `quay.io/minio/mc`                        | one-shot bucket creation                |
+| `postgres`      | digest-pinned official PostgreSQL 17      | shared content and tenant-owned records |
+| `minio`         | digest-pinned official MinIO              | S3-compatible object storage            |
+| `createbuckets` | digest-pinned official MinIO Client       | one-shot bucket creation                |
+| `worker`        | built from `containers/Containerfile.api` | durable background work                 |
+| `gateway`       | pinned official Caddy derivative          | browser and same-origin API             |
 
 Details and commands are in [CONTAINER.md](CONTAINER.md); the macOS virtual
 machine setup is in [MACOS_PODMAN.md](MACOS_PODMAN.md).
@@ -434,6 +577,14 @@ passing silently.
 `tests/playwright/`, and slower whole-system checks in `tests/e2e/`, both
 outside the fast lane.
 
+The opt-in WP-RC3 checks are `tests/test_webwork_renderer_container.py`,
+`tests/e2e/e2e_webwork_render_rpc.sh`, and
+`tests/playwright/webwork_run.spec.ts`.
+They are intended to verify the private compose topology, one immutable PGML
+source through PLE, render-cache evidence, correct/incorrect scoring, and the
+browser's same-origin boundary. They do not run as part of the default fast
+gate and are not recorded here as completed acceptance.
+
 The in-memory and PostgreSQL data-access implementations share capability
 conformance tests. Disposable PostgreSQL acceptance runs prove migration
 checksums, real-role tenant isolation, serialization retry, family-filtered
@@ -461,6 +612,10 @@ set. Every generated project and volume is removed afterward.
 - Add question-engine behavior behind the adapter contracts in
   [crates/adapters/](../crates/adapters/); answer-bearing grading remains
   outside the WebAssembly dependency closure.
+- Extend the shipped WeBWorK projection in `http_renderer.rs` and its contract
+  tests only after defining a safe PLE response shape; RC3 accepts one
+  single-choice radio group, while matching has a separately owned release
+  package.
 - Add a learning data-access capability as a focused contract plus in-memory,
   PostgreSQL, and conformance modules. Keep
   [crates/learning-data-access/src/lib.rs](../crates/learning-data-access/src/lib.rs) as a facade.
@@ -476,12 +631,17 @@ set. Every generated project and volume is removed afterward.
 ## Known gaps
 
 - Several parent modules remain above the 1000-line owner limit. The current
-  dependency order continues compatibility-preserving capability extraction
-  around the remaining capability owners.
+  dependency order assigns compatibility-preserving capability extraction and
+  the permanent no-exception gate to
+  `docs/active_plans/active/source_module_decomposition_plan.md`
+  after WP-RC3 and before WP-RC4.
 - Deployed managed point-in-time recovery and object-store recovery drills are
   not complete. Local clean-cluster logical restore, the production-worker
   tenant-purge rehearsal, and the local whole-system replica gate have passed.
   Reserved Render and generic Import queue variants
   also remain intentionally unclaimed until each has a complete handler and
   atomic committer. See
-  [active_plans/partial_commit_status.md](active_plans/partial_commit_status.md).
+  [active_plans/active/release_completion_plan.md](active_plans/active/release_completion_plan.md).
+- WP-RC3 must still build the exact pinned upstream image and pass the private
+  semantic E2E and browser gates. The source artifacts document the intended
+  contract, but no local or deployed live acceptance is asserted in this map.

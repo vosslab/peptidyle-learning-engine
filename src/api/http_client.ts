@@ -3,6 +3,9 @@
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { AssignmentRun } from "../../generated/api/AssignmentRun";
 import type { CourseId } from "../../generated/api/CourseId";
+import type { CourseAppearance } from "../../generated/api/CourseAppearance";
+import type { CourseAppearanceUpdate } from "../../generated/api/CourseAppearanceUpdate";
+import type { CourseBannerCandidateReceipt } from "../../generated/api/CourseBannerCandidateReceipt";
 import type { CatalogProblemDetail } from "../../generated/api/CatalogProblemDetail";
 import type { CatalogSearchPage } from "../../generated/api/CatalogSearchPage";
 import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery";
@@ -47,6 +50,8 @@ import {
   decodeCatalogPage,
   decodeCatalogSearchPage,
   decodeCoursePage,
+  decodeCourseAppearance,
+  decodeCourseBannerCandidateReceipt,
   decodeCourseSummary,
   decodeEnrollmentView,
   decodeFeedbackReleaseResponse,
@@ -119,6 +124,24 @@ export class AssignmentConflictError extends ApiRequestError {
   public constructor(status: 409 | 428, path: string) {
     super(status, path);
     this.name = "AssignmentConflictError";
+  }
+}
+
+/** A course-appearance save lost its exact strong-revision race. */
+export class CourseAppearanceConflictError extends ApiRequestError {
+  declare public readonly status: 412;
+
+  public constructor(path: string) {
+    super(412, path);
+    this.name = "CourseAppearanceConflictError";
+  }
+}
+
+/** A local banner cannot satisfy the bounded upload transport contract. */
+export class CourseAppearanceFileError extends Error {
+  public constructor(message: string) {
+    super(message);
+    this.name = "CourseAppearanceFileError";
   }
 }
 
@@ -240,6 +263,94 @@ function gradebookPath(
 
 function encodedId(value: string): string {
   return encodeURIComponent(value);
+}
+
+function courseAppearancePath(courseId: CourseId): string {
+  return `/api/courses/${encodedId(courseId)}/appearance`;
+}
+
+function requireNoStore(response: Response, path: string): void {
+  const directives =
+    response.headers
+      .get("cache-control")
+      ?.split(",")
+      .map((directive) => directive.trim().toLowerCase()) ?? [];
+  if (!directives.includes("no-store")) {
+    throw new ApiProtocolError(`API response ${path} must be no-store`);
+  }
+}
+
+function strongAppearanceRevision(value: string): string {
+  if (!/^[1-9][0-9]*$/u.test(value) || BigInt(value) > 9_223_372_036_854_775_807n) {
+    throw new ApiProtocolError("Course appearance needs a canonical positive revision");
+  }
+  return `"${value}"`;
+}
+
+async function boundedResponseJson(response: Response, path: string): Promise<unknown> {
+  responseContentType(response, path);
+  const text = await response.text();
+  if (text.length === 0 || text.length > MAX_RESPONSE_CHARACTERS) {
+    throw new ApiProtocolError(`API response ${path} must contain bounded JSON`);
+  }
+  return decodeJson(text, path);
+}
+
+async function requestCourseAppearance(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  courseId: CourseId,
+  options: RequestOptions = {},
+): Promise<CourseAppearance> {
+  const path = courseAppearancePath(courseId);
+  const headers: Record<string, string> = { accept: "application/json", ...options.headers };
+  const body = options.body === undefined ? undefined : JSON.stringify(options.body);
+  if (body !== undefined) headers["content-type"] = "application/json";
+  const response = await fetchImplementation(requestPath(basePath, path), {
+    method: options.method ?? "GET",
+    headers,
+    body,
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  requireNoStore(response, path);
+  if (response.status === 412) throw new CourseAppearanceConflictError(path);
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  const appearance = decodeCourseAppearance(await boundedResponseJson(response, path));
+  const revision = response.headers.get("etag");
+  if (revision !== strongAppearanceRevision(appearance.revision)) {
+    throw new ApiProtocolError(`API response ${path} ETag does not match its appearance revision`);
+  }
+  return appearance;
+}
+
+async function uploadCourseBannerCandidate(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  courseId: CourseId,
+  image: Blob,
+): Promise<CourseBannerCandidateReceipt> {
+  if (image.size <= 0) throw new CourseAppearanceFileError("Course banner image is empty");
+  if (image.size > 2 * 1_024 * 1_024) {
+    throw new CourseAppearanceFileError("Course banner image exceeds 2 MiB");
+  }
+  if (!["image/jpeg", "image/png", "image/webp"].includes(image.type)) {
+    throw new CourseAppearanceFileError("Course banner must be JPEG, PNG, or WebP");
+  }
+  const path = `${courseAppearancePath(courseId)}/banner-candidates`;
+  const response = await fetchImplementation(requestPath(basePath, path), {
+    method: "POST",
+    headers: { accept: "application/json", "content-type": image.type },
+    body: image,
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  requireNoStore(response, path);
+  if (response.status !== 201) {
+    if (!response.ok) throw new ApiRequestError(response.status, path);
+    throw new ApiProtocolError(`API response ${path} must use status 201`);
+  }
+  return decodeCourseBannerCandidateReceipt(await boundedResponseJson(response, path));
 }
 
 async function catalogProblemDetail(
@@ -526,7 +637,7 @@ function verifyRunScreen(screen: RunScreenData): void {
   if (screen.run.id !== screen.attempt.run) {
     throw new ApiProtocolError("Run screen attempt does not belong to the requested run");
   }
-  if (screen.assignment.courseId !== screen.course.id) {
+  if (screen.assignment.courseId !== screen.course.summary.id) {
     throw new ApiProtocolError("Run screen assignment does not belong to its course");
   }
   if (
@@ -560,6 +671,11 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): ApiClient
   const client: ApiClient = {
     getSession: () =>
       requestJson(fetchImplementation, basePath, "/api/auth/session", decodeAuthSession),
+    loginWithLocalCredential: (credential: string) =>
+      requestJson(fetchImplementation, basePath, "/api/auth/login", decodeAuthSession, {
+        method: "POST",
+        body: { credential },
+      }),
     listWorkspaceDrafts: (cursor?: string) =>
       requestJson(
         fetchImplementation,
@@ -652,6 +768,16 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): ApiClient
         `/api/courses/${encodedId(courseId)}`,
         decodeCourseSummary,
       ),
+    getCourseAppearance: (courseId: CourseId) =>
+      requestCourseAppearance(fetchImplementation, basePath, courseId),
+    uploadCourseBannerCandidate: (courseId: CourseId, image: Blob) =>
+      uploadCourseBannerCandidate(fetchImplementation, basePath, courseId, image),
+    saveCourseAppearance: (courseId: CourseId, update: CourseAppearanceUpdate, revision: string) =>
+      requestCourseAppearance(fetchImplementation, basePath, courseId, {
+        method: "PUT",
+        headers: { "if-match": strongAppearanceRevision(revision) },
+        body: update,
+      }),
     listGradebook: (
       courseId: CourseId,
       cursor?: string,
@@ -906,10 +1032,12 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): ApiClient
       if (assignment.id !== enrollment.enrollment.assignment) {
         throw new ApiProtocolError("Run screen assignment does not match its enrollment");
       }
-      const [course, issuedQuestion] = await Promise.all([
+      const [courseSummary, appearance, issuedQuestion] = await Promise.all([
         client.getCourse(assignment.courseId),
+        client.getCourseAppearance(assignment.courseId),
         client.getIssuedQuestion(attempt.id),
       ]);
+      const course = { summary: courseSummary, appearance };
       const screen: RunScreenData = { course, assignment, run, attempt, issuedQuestion };
       if (attempt.tenant !== run.tenant) {
         throw new ApiProtocolError("Run screen attempt crosses a tenant boundary");

@@ -1,0 +1,56 @@
+# Disposable PostgreSQL and MinIO oracle for course-appearance acceptance.
+# The launcher supplies a unique project, credentials, ports, and volumes.
+services:
+  postgres:
+    image: docker.io/library/postgres@sha256:7958605b474b3d264a969cb3a123d6aa00ad1e1fe9da8a69984dabb704d93317
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set by e2e_course_appearance.sh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set by e2e_course_appearance.sh}
+      POSTGRES_DB: ${POSTGRES_DB:?set by e2e_course_appearance.sh}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "127.0.0.1:${PLE_POSTGRES_HOST_PORT:?set by e2e_course_appearance.sh}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+  minio:
+    image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set by e2e_course_appearance.sh}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set by e2e_course_appearance.sh}
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "127.0.0.1:${PLE_MINIO_API_HOST_PORT:?set by e2e_course_appearance.sh}:9000"
+    volumes:
+      - minio_data:/data
+
+  createbuckets:
+    image: quay.io/minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set by e2e_course_appearance.sh}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set by e2e_course_appearance.sh}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
+        mc mb --ignore-existing local/content
+        mc mb --ignore-existing local/student-records
+        mc mb --ignore-existing local/temp-processing
+
+volumes:
+  postgres_data:
+  minio_data:

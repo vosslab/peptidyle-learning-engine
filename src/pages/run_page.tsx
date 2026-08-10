@@ -23,6 +23,7 @@ import type {
 } from "../api/contracts";
 import { ApiProtocolError, ApiRequestError } from "../api/http_client";
 import { useApiRuntime } from "../api/runtime";
+import { useCourseThemeRouteData } from "../features/course_appearance/course_theme_context";
 import { QuestionRenderer } from "../components/question_renderer";
 import { FeedbackPanel, type FeedbackDisclosure } from "../components/feedback_panel";
 import { ResponseWidget } from "../components/response_widget";
@@ -128,7 +129,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
   });
 
   function escapeToAssignment(): void {
-    navigate(`/courses/${screen().course.id}/assignments/${screen().assignment.id}`);
+    navigate(`/courses/${screen().course.summary.id}/assignments/${screen().assignment.id}`);
   }
 
   function responseChanged(response: StudentResponse, validation: ResponseFormatReport): void {
@@ -365,8 +366,6 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
                       assetUrl={(asset) =>
                         new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
                       }
-                      onAdvance={escapeToAssignment}
-                      advanceLabel="Back to assignment"
                     />
                   )}
                 </For>
@@ -403,6 +402,9 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
             </button>
           </Show>
           <Show when={practiceError()}>{(message) => <p class="inline-error">{message()}</p>}</Show>
+          <button class="quiet-action" type="button" onClick={escapeToAssignment}>
+            Back to assignment
+          </button>
         </section>
       </Show>
 
@@ -518,6 +520,10 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
 export function RunPage(): JSX.Element {
   const runtime = useApiRuntime();
   const params = useParams();
+  const scopedRoute = useCourseThemeRouteData();
+  if (scopedRoute?.kind === "runAttempt") {
+    return <AttemptExperience initialScreen={scopedRoute.screen} />;
+  }
   const runScreen = createAsync(() => {
     const runId = params["runId"];
     if (runId === undefined) return Promise.reject(new Error("Run route is missing runId"));

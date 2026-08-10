@@ -13,7 +13,14 @@ import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRo
 import type { RunId } from "../../generated/api/RunId";
 import type { VersionId } from "../../generated/api/VersionId";
 import type { ApiClient } from "./client";
-import type { AssignmentSummary, CourseSummary, CursorPage, RunScreenData } from "./contracts";
+import type {
+  AssignmentSummary,
+  CourseRouteData,
+  CourseSummary,
+  CursorPage,
+  RunScreenData,
+  RunSummaryResponse,
+} from "./contracts";
 
 interface QueryFunction<Arguments extends ReadonlyArray<unknown>, Result> {
   (...arguments_: Arguments): Promise<Result>;
@@ -30,7 +37,9 @@ export interface ApiRuntime {
     readonly gradebook: QueryFunction<[CourseId], CursorPage<GradebookSummaryRow>>;
     readonly assignments: QueryFunction<[CourseId], CursorPage<AssignmentSummary>>;
     readonly assignment: QueryFunction<[AssignmentId], AssignmentSummary>;
+    readonly courseScope: QueryFunction<[CourseId], CourseRouteData>;
     readonly runScreen: QueryFunction<[RunId], RunScreenData>;
+    readonly runSummary: QueryFunction<[RunId], RunSummaryResponse>;
   };
 }
 
@@ -58,7 +67,21 @@ export function createApiRuntime(client: ApiClient): ApiRuntime {
         (assignmentId: AssignmentId) => client.getAssignment(assignmentId),
         "assignment-overview",
       ),
+      courseScope: query(async (courseId: CourseId) => {
+        const [summary, appearance] = await Promise.all([
+          client.getCourse(courseId),
+          client.getCourseAppearance(courseId),
+        ]);
+        if (summary.id !== courseId) {
+          throw new Error("Course scope response does not match the requested course");
+        }
+        return { summary, appearance };
+      }, "course-scope"),
       runScreen: query((runId: RunId) => client.getRunScreen(runId), "run-screen"),
+      runSummary: query(
+        (runId: RunId) => client.getRunSummary(runId, undefined, 30),
+        "run-summary",
+      ),
     },
   };
 }

@@ -2,7 +2,8 @@
 
 use question_model::generation::Seed;
 use question_model::{
-    AssetId, ObjectId, ProblemId, TenantId, VersionId, WorkspaceId, WorkspaceImportId,
+    AssetId, CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId, ProblemId, TenantId,
+    VersionId, WorkspaceId, WorkspaceImportId,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -134,6 +135,30 @@ pub enum ObjectKey {
         /// Physical object-record identity.
         object: ObjectId,
     },
+    /// Normalized banner bytes awaiting one authorized appearance save.
+    ///
+    /// Candidate bytes are short-lived, non-signable, and scoped to one
+    /// tenant/course before persistence adds actor and expiry ownership.
+    CourseBannerCandidate {
+        /// Tenant which owns the course.
+        tenant: TenantId,
+        /// Course whose authorized appearance flow created the candidate.
+        course: CourseId,
+        /// Opaque candidate identity returned to the authorized browser.
+        candidate: CourseBannerCandidateId,
+    },
+    /// Immutable current-or-retained course banner bytes.
+    ///
+    /// Typed-object signing is permitted, but the asset-delivery layer must
+    /// still verify that this banner is the course's exact current pointer.
+    CourseBanner {
+        /// Tenant which owns the course.
+        tenant: TenantId,
+        /// Course whose appearance may reference the banner.
+        course: CourseId,
+        /// Stable browser-safe banner delivery identity.
+        banner: CourseBannerId,
+    },
     /// A tenant-owned student-record artifact.
     StudentRecord {
         /// Tenant whose RLS-protected record owns this object.
@@ -158,7 +183,9 @@ impl ObjectKey {
             | Self::ProblemSource { .. }
             | Self::PublishedImportArchive { .. }
             | Self::ProblemAsset { .. }
-            | Self::ProblemRender { .. } => Bucket::Content,
+            | Self::ProblemRender { .. }
+            | Self::CourseBanner { .. } => Bucket::Content,
+            Self::CourseBannerCandidate { .. } => Bucket::TempProcessing,
             Self::StudentRecord { .. } => Bucket::StudentRecords,
             Self::Temporary { .. } => Bucket::TempProcessing,
         }
@@ -216,6 +243,22 @@ impl ObjectKey {
                 "problems/{problem}/versions/{version}/renders/{}/{object}",
                 seed.value()
             ),
+            Self::CourseBannerCandidate {
+                tenant,
+                course,
+                candidate,
+            } => format!(
+                "tenants/{tenant}/courses/{course}/banners/candidates/{candidate}/{}",
+                self.object_id()
+            ),
+            Self::CourseBanner {
+                tenant,
+                course,
+                banner,
+            } => format!(
+                "tenants/{tenant}/courses/{course}/banners/{banner}/{}",
+                self.object_id()
+            ),
             Self::StudentRecord { tenant, object } => {
                 format!("records/{tenant}/{object}")
             }
@@ -235,6 +278,16 @@ impl ObjectKey {
             | Self::ProblemRender { object, .. }
             | Self::StudentRecord { object, .. }
             | Self::Temporary { object } => *object,
+            Self::CourseBannerCandidate {
+                tenant,
+                course,
+                candidate,
+            } => course_banner_candidate_object_id(*tenant, *course, *candidate),
+            Self::CourseBanner {
+                tenant,
+                course,
+                banner,
+            } => course_banner_object_id(*tenant, *course, *banner),
         }
     }
 
@@ -248,6 +301,8 @@ impl ObjectKey {
             Self::PublishedImportArchive { .. } => ObjectCategory::Source,
             Self::ProblemAsset { .. } => ObjectCategory::Asset,
             Self::ProblemRender { .. } => ObjectCategory::Render,
+            Self::CourseBannerCandidate { .. } => ObjectCategory::Temporary,
+            Self::CourseBanner { .. } => ObjectCategory::CourseContent,
             Self::StudentRecord { .. } => ObjectCategory::Export,
             Self::Temporary { .. } => ObjectCategory::Temporary,
         }
@@ -263,6 +318,8 @@ impl ObjectKey {
             Self::WorkspaceSource { .. }
             | Self::WorkspaceQuestionSource { .. }
             | Self::WorkspaceAsset { .. }
+            | Self::CourseBannerCandidate { .. }
+            | Self::CourseBanner { .. }
             | Self::StudentRecord { .. }
             | Self::Temporary { .. } => None,
         }
@@ -278,9 +335,48 @@ impl ObjectKey {
     pub fn may_issue_signed_url(&self) -> bool {
         matches!(
             self,
-            Self::ProblemAsset { .. } | Self::ProblemRender { .. } | Self::StudentRecord { .. }
+            Self::ProblemAsset { .. }
+                | Self::ProblemRender { .. }
+                | Self::CourseBanner { .. }
+                | Self::StudentRecord { .. }
         )
     }
+}
+
+/// Derives the immutable physical identity for one banner candidate.
+pub fn course_banner_candidate_object_id(
+    tenant: TenantId,
+    course: CourseId,
+    candidate: CourseBannerCandidateId,
+) -> ObjectId {
+    domain_separated_object_id(
+        b"ple:course-banner-candidate:v1\0",
+        [tenant.as_uuid(), course.as_uuid(), candidate.as_uuid()],
+    )
+}
+
+/// Derives the immutable physical identity for one promoted course banner.
+pub fn course_banner_object_id(
+    tenant: TenantId,
+    course: CourseId,
+    banner: CourseBannerId,
+) -> ObjectId {
+    domain_separated_object_id(
+        b"ple:course-banner:v1\0",
+        [tenant.as_uuid(), course.as_uuid(), banner.as_uuid()],
+    )
+}
+
+fn domain_separated_object_id(domain: &[u8], components: [uuid::Uuid; 3]) -> ObjectId {
+    let mut hasher = Sha256::new();
+    hasher.update(domain);
+    for component in components {
+        hasher.update(component.as_bytes());
+    }
+    let digest = hasher.finalize();
+    let mut object_uuid = [0_u8; 16];
+    object_uuid.copy_from_slice(&digest[..16]);
+    ObjectId::from_uuid(uuid::Uuid::from_bytes(object_uuid))
 }
 
 /// Derives the stable object identity for a private workspace QTI archive.
@@ -357,6 +453,80 @@ mod tests {
 
         assert!(!source.may_issue_signed_url());
         assert!(asset.may_issue_signed_url());
+    }
+
+    #[test]
+    fn course_banner_keys_bind_scope_classification_and_signing() {
+        let tenant = TenantId::from_uuid(Uuid::from_u128(1));
+        let course = CourseId::from_uuid(Uuid::from_u128(2));
+        let candidate_id = CourseBannerCandidateId::from_uuid(Uuid::from_u128(3));
+        let banner_id = CourseBannerId::from_uuid(Uuid::from_u128(4));
+        let candidate = ObjectKey::CourseBannerCandidate {
+            tenant,
+            course,
+            candidate: candidate_id,
+        };
+        let banner = ObjectKey::CourseBanner {
+            tenant,
+            course,
+            banner: banner_id,
+        };
+
+        assert_eq!(candidate.bucket(), Bucket::TempProcessing);
+        assert_eq!(candidate.category(), ObjectCategory::Temporary);
+        assert_eq!(candidate.version_id(), None);
+        assert!(!candidate.may_issue_signed_url());
+        assert_eq!(banner.bucket(), Bucket::Content);
+        assert_eq!(banner.category(), ObjectCategory::CourseContent);
+        assert_eq!(banner.version_id(), None);
+        assert!(banner.may_issue_signed_url());
+        assert!(candidate.path().contains(&tenant.to_string()));
+        assert!(candidate.path().contains(&course.to_string()));
+        assert!(candidate.path().contains(&candidate_id.to_string()));
+        assert!(banner.path().contains(&tenant.to_string()));
+        assert!(banner.path().contains(&course.to_string()));
+        assert!(banner.path().contains(&banner_id.to_string()));
+        assert_ne!(candidate.object_id(), banner.object_id());
+    }
+
+    #[test]
+    fn banner_object_identity_changes_with_tenant_course_and_route_id() {
+        let tenant = TenantId::from_uuid(Uuid::from_u128(1));
+        let course = CourseId::from_uuid(Uuid::from_u128(2));
+        let banner = CourseBannerId::from_uuid(Uuid::from_u128(3));
+        let base = course_banner_object_id(tenant, course, banner);
+
+        assert_ne!(
+            base,
+            course_banner_object_id(TenantId::from_uuid(Uuid::from_u128(11)), course, banner)
+        );
+        assert_ne!(
+            base,
+            course_banner_object_id(tenant, CourseId::from_uuid(Uuid::from_u128(12)), banner)
+        );
+        assert_ne!(
+            base,
+            course_banner_object_id(
+                tenant,
+                course,
+                CourseBannerId::from_uuid(Uuid::from_u128(13))
+            )
+        );
+    }
+
+    #[test]
+    fn banner_keys_round_trip_without_a_caller_supplied_object_id() {
+        let key = ObjectKey::CourseBanner {
+            tenant: TenantId::from_uuid(Uuid::from_u128(1)),
+            course: CourseId::from_uuid(Uuid::from_u128(2)),
+            banner: CourseBannerId::from_uuid(Uuid::from_u128(3)),
+        };
+        let encoded = serde_json::to_string(&key).expect("banner key should serialize");
+        let decoded: ObjectKey =
+            serde_json::from_str(&encoded).expect("banner key should deserialize");
+
+        assert_eq!(decoded, key);
+        assert!(!encoded.contains("\"object\""));
     }
 
     #[test]

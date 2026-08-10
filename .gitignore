@@ -12,6 +12,10 @@ _temp*.?*
 /generated/
 containers/env.local
 containers/local-identities.json
+containers/local-login.txt
+containers/local-demo.json
+containers/local-webwork-demo.json
+containers/.secrets/
 .env
 # === PYTHON ===
 build/
@@ -40,5 +44,3 @@ stats.html
 **/target/
 **/*.rs.bk
 .rust_analyzer/
-
-

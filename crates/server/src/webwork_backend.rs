@@ -44,7 +44,7 @@ impl<S, O, R> WebworkBackend<S, O, R>
 where
     S: CatalogSourceStore + Send + Sync + 'static,
     O: ObjectStore + Send + Sync + 'static,
-    R: adapter_webwork::pg_parser_stub::WebworkRenderer + Send + Sync + 'static,
+    R: adapter_webwork::renderer_contract::WebworkRenderer + Send + Sync + 'static,
 {
     /// Issues a key-free WebWork instance from the only permitted source path.
     pub async fn issue(
@@ -202,9 +202,9 @@ fn map_store_error(error: StoreError) -> RunBackendError {
 fn map_adapter_error(error: WebworkAdapterError) -> RunBackendError {
     match error {
         WebworkAdapterError::Renderer(
-            adapter_webwork::pg_parser_stub::RendererFailure::Unavailable
-            | adapter_webwork::pg_parser_stub::RendererFailure::TimedOut
-            | adapter_webwork::pg_parser_stub::RendererFailure::ResourceExhausted,
+            adapter_webwork::renderer_contract::RendererFailure::Unavailable
+            | adapter_webwork::renderer_contract::RendererFailure::TimedOut
+            | adapter_webwork::renderer_contract::RendererFailure::ResourceExhausted,
         )
         | WebworkAdapterError::ObjectStore(ObjectStoreError::Unavailable(_)) => {
             RunBackendError::Unavailable("question backend is temporarily unavailable".to_string())
@@ -259,45 +259,47 @@ mod tests {
     }
 
     #[async_trait]
-    impl adapter_webwork::pg_parser_stub::WebworkRenderer for RecordedRenderer {
+    impl adapter_webwork::renderer_contract::WebworkRenderer for RecordedRenderer {
         async fn render(
             &self,
-            request: adapter_webwork::pg_parser_stub::RenderRequest<'_>,
+            request: adapter_webwork::renderer_contract::RenderRequest<'_>,
         ) -> Result<
-            adapter_webwork::pg_parser_stub::RenderedWebworkQuestion,
-            adapter_webwork::pg_parser_stub::RendererFailure,
+            adapter_webwork::renderer_contract::RenderedWebworkQuestion,
+            adapter_webwork::renderer_contract::RendererFailure,
         > {
             self.renders.fetch_add(1, Ordering::SeqCst);
             if self.unavailable.load(Ordering::SeqCst) {
-                return Err(adapter_webwork::pg_parser_stub::RendererFailure::Unavailable);
+                return Err(adapter_webwork::renderer_contract::RendererFailure::Unavailable);
             }
             if request.pg_source != OPL.as_bytes() || request.pg_path != "Library/OPL/select-one.pg"
             {
                 return Err(
-                    adapter_webwork::pg_parser_stub::RendererFailure::InvalidOutput(
+                    adapter_webwork::renderer_contract::RendererFailure::InvalidOutput(
                         "unexpected recorded source".to_string(),
                     ),
                 );
             }
-            Ok(adapter_webwork::pg_parser_stub::RenderedWebworkQuestion {
-                envelope: question_envelope(request.seed),
-                html: "<p>Which molecule is water?</p>".to_string(),
-                renderer: adapter_webwork::pg_parser_stub::RendererIdentity {
-                    id: "recorded-opl".to_string(),
-                    version: "1".to_string(),
+            Ok(
+                adapter_webwork::renderer_contract::RenderedWebworkQuestion {
+                    envelope: question_envelope(request.seed),
+                    html: "<p>Which molecule is water?</p>".to_string(),
+                    renderer: adapter_webwork::renderer_contract::RendererIdentity {
+                        id: "recorded-opl".to_string(),
+                        version: "1".to_string(),
+                    },
                 },
-            })
+            )
         }
 
         async fn grade(
             &self,
-            request: adapter_webwork::pg_parser_stub::GradeRequest<'_>,
-        ) -> Result<grading::GradeOutcome, adapter_webwork::pg_parser_stub::RendererFailure>
+            request: adapter_webwork::renderer_contract::GradeRequest<'_>,
+        ) -> Result<grading::GradeOutcome, adapter_webwork::renderer_contract::RendererFailure>
         {
             self.grades.fetch_add(1, Ordering::SeqCst);
             if request.pg_source != OPL.as_bytes() {
                 return Err(
-                    adapter_webwork::pg_parser_stub::RendererFailure::InvalidOutput(
+                    adapter_webwork::renderer_contract::RendererFailure::InvalidOutput(
                         "unexpected recorded source".to_string(),
                     ),
                 );

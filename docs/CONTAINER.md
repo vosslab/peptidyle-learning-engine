@@ -1,9 +1,13 @@
 # Container stack
 
-Local development stack for the Peptidyle Learning Engine: the API server,
-worker, PostgreSQL, and MinIO. Defined in
+Local development stack for the Peptidyle Learning Engine: the browser gateway,
+API server, worker, PostgreSQL, and MinIO. The native stack is the supported
+default; the private WeBWorK renderer path remains the pending WP-RC3 profile.
+The Compose model is defined in
 [containers/compose.yaml](../containers/compose.yaml) and
 [containers/Containerfile.api](../containers/Containerfile.api).
+Replica scaling, shared-state ownership, failure behavior, and the planned
+production topology are in [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md).
 
 The root `.containerignore` is an allowlist for this
 image build. Only the Cargo manifests, Rust crates, embedded SQLx migrations,
@@ -13,18 +17,24 @@ gateway image derives from the configured official Caddy digest and removes
 its low-port file capability before running on port 8080 as UID 1000 with an
 empty runtime capability set.
 
+The gateway also mounts the ignored `dist/` browser artifact read-only. It
+serves browser navigation while proxying `/api`, `/api/*`, and `/health` to the
+API, so the browser and its HttpOnly session use one origin.
+
 macOS setup for the Podman virtual machine lives in
 [MACOS_PODMAN.md](MACOS_PODMAN.md).
 
 ## Services
 
-| Service         | Image                                     | Purpose                                 | Local port                   |
-| --------------- | ----------------------------------------- | --------------------------------------- | ---------------------------- |
-| `api`           | built from `containers/Containerfile.api` | axum API server                         | 127.0.0.1:3000               |
-| `worker`        | built from `containers/Containerfile.api` | family-filtered durable job draining    | none                         |
-| `postgres`      | `postgres:latest`                         | shared content and tenant-owned records | 127.0.0.1:5432               |
-| `minio`         | `quay.io/minio/minio`                     | S3-compatible object storage            | 127.0.0.1:9000, console 9001 |
-| `createbuckets` | `quay.io/minio/mc`                        | one-shot bucket creation, then exits    | none                         |
+| Service            | Image                                         | Purpose                                    | Local port                   |
+| ------------------ | --------------------------------------------- | ------------------------------------------ | ---------------------------- |
+| `gateway`          | pinned official Caddy derivative              | browser files plus same-origin API gateway | 127.0.0.1:3000               |
+| `api`              | built from `containers/Containerfile.api`     | axum API server                            | none                         |
+| `worker`           | built from `containers/Containerfile.api`     | family-filtered durable job draining       | none                         |
+| `postgres`         | digest-pinned official PostgreSQL 17          | shared content and tenant-owned records    | 127.0.0.1:5432               |
+| `minio`            | digest-pinned official MinIO                  | S3-compatible object storage               | 127.0.0.1:9000, console 9001 |
+| `createbuckets`    | digest-pinned official MinIO Client           | one-shot bucket creation, then exits       | none                         |
+| `webwork-renderer` | local image built from pinned upstream source | optional private WebWork2/PG profile       | none                         |
 
 Every port binds to `127.0.0.1`, not `0.0.0.0`. The database holds educational
 records, so a development container must not be reachable from the local
@@ -47,17 +57,92 @@ shared prefix.
 
 ## First run
 
-Credentials arrive at run time from the environment. Nothing in the compose
-file has a default password, so the stack refuses to start until you provide
-one.
+The normal root command owns the local-only bootstrap:
 
 ```bash
-cp containers/env.example containers/env.local
-# edit containers/env.local and set real values
-podman compose -f containers/compose.yaml --env-file containers/env.local up -d
+./launch_local_stack.sh
 ```
 
-`containers/env.local` is gitignored.
+On its first default run, the launcher creates an ignored mode-0600
+`containers/env.local`, generates independent database/object-store/grader
+secrets, generates instructor and student bearer credentials, and mounts only
+their hashes into the API. It builds the host artifacts, starts PostgreSQL and
+MinIO, applies and verifies the embedded migrations, provisions the restricted
+`ple_grading_reader` login, seeds one small course/assignment/native-question
+scenario, starts the API/worker/gateway, waits for semantic `/health`, and opens
+the browser. Named data volumes remain available for repeated testing. If port
+3000 is already occupied during first-run bootstrap, the launcher records the
+first available port from 3000 through 3099 in the ignored env file.
+
+The recovery screen accepts either generated value from the ignored
+`containers/local-login.txt`. The browser sends it once to the same-origin
+local login endpoint; the established credential is the existing HttpOnly
+session cookie, not local or session storage. Do not copy these local files to
+a deployed environment.
+
+Use `./launch_local_stack.sh --check` for a read-only configuration preflight,
+`--no-open` on a headless machine, or `--skip-build` when the existing `dist/`
+bundle is intentionally current. A custom `--env-file` is never rewritten or
+seeded and must provide every required secret itself. `npm run launch` is an
+optional alias.
+
+The root launcher is the maintained startup path because API/worker startup is
+deliberately later than migration and grader-role provisioning. Running a bare
+`compose up` against an empty database is therefore not equivalent.
+
+## Private WebWork profile
+
+The optional `--with-webwork` profile builds WebWork2 and PG from the exact
+official source revisions declared in [containers/env.example](../containers/env.example):
+`c7060fe858cb27b17aad5cf77574ff7d1ae3e1fa` and
+`726ff42840f968a1d6dfcc270c23c297e1d963f4`. The build's Alpine/git, Node,
+Ubuntu, and MariaDB source images are immutable OCI digests with arm64
+manifests. The source build verifies each full Git revision before it copies
+the source into the final local image. It does not consume a legacy or
+operator-selected WebWork image.
+
+The base Compose file contains the private WebWork services behind the
+`webwork` profile. The normal native-only stack has no renderer configuration
+or secret-copy dependency. `--with-webwork` enables that profile and applies
+the narrowly scoped `containers/compose.webwork.yaml` overlay. The overlay
+injects the API renderer settings and its read-only secret-runtime volume; API
+then uses the internal
+`http://webwork-renderer:8080/webwork2/` application base and the renderer
+joins no public browser route. It is not a separate browser origin. The browser
+continues to call PLE through the loopback gateway only.
+
+The root launcher atomically creates and validates separate ignored mode-0600
+files for the direct render-course password and Mojolicious signing secret. It
+mounts both files read-only to WebWork. A networkless, capability-minimal
+one-shot service copies only the render password to a named volume owned by
+the API runtime UID; API mounts that copy read-only. Each `--with-webwork`
+start recreates the one-shot service, which refreshes the copy after a password
+rotation. Neither secret is an environment value, browser value, source mount,
+or object-store value.
+
+WebWork and its MariaDB use named `ple_webwork_courses` and
+`ple_webwork_dbdata` volumes together. They join only two internal networks:
+`renderer_private` has API and WebWork, and `webwork_db_private` has WebWork
+and MariaDB. Neither service publishes a host port or joins PLE PostgreSQL,
+MinIO, gateway, worker, or browser networks. WebWork owns no PLE content or
+student-record volume.
+
+Start the profile with:
+
+```bash
+./launch_local_stack.sh --with-webwork
+```
+
+The launcher writes an ignored provenance record with the final local OCI image
+ID and both source revisions, then configures that image identity for the API.
+This makes an arm64 local build auditable without claiming byte-identical OCI
+output across architectures or package mirrors.
+
+`probe_render_rpc.sh` is an authenticated direct service readiness check. It
+does not substitute for PLE issue/cache/grade behavior or a browser test.
+WP-RC3 live-profile, PLE-integration, and browser-boundary acceptance evidence
+is pending until the corresponding recorded gates complete. This does not
+change the native-only stack's supported-default status.
 
 The worker handles one job per bounded pass and concurrency comes from scaling
 the service. It claims only current scoring, course item analysis, attempt
@@ -111,11 +196,26 @@ curl -s http://localhost:3000/health          # {"status":"ready"} once compatib
 ## Common commands
 
 ```bash
-podman compose -f containers/compose.yaml ps                 # what is running
-podman compose -f containers/compose.yaml logs -f api        # follow api logs
-podman compose -f containers/compose.yaml logs -f worker     # follow bounded worker passes
-podman compose -f containers/compose.yaml build api worker   # rebuild after Rust changes
-podman compose -f containers/compose.yaml down               # stop, keep volumes
+./launch_local_stack.sh                                      # build, start, wait, and open
+./launch_local_stack.sh --skip-build --no-open               # fast restart without browser open
+./launch_local_stack.sh --with-webwork                       # pending WP-RC3 renderer profile
+
+# Native default: direct Compose commands always load the ignored local env file.
+podman compose -f containers/compose.yaml --env-file containers/env.local ps
+podman compose -f containers/compose.yaml --env-file containers/env.local logs -f api worker
+podman compose -f containers/compose.yaml --env-file containers/env.local build api worker
+podman compose -f containers/compose.yaml --env-file containers/env.local \
+  up -d --scale api=2 --scale worker=2 api worker gateway
+podman compose -f containers/compose.yaml --env-file containers/env.local down
+
+# Pending WP-RC3 WebWork path: retain both the overlay and the profile.
+podman compose -f containers/compose.yaml -f containers/compose.webwork.yaml \
+  --env-file containers/env.local --profile webwork \
+  up -d --scale api=2 --scale worker=2
+podman compose -f containers/compose.yaml -f containers/compose.webwork.yaml \
+  --env-file containers/env.local --profile webwork logs -f api worker webwork-renderer
+podman compose -f containers/compose.yaml -f containers/compose.webwork.yaml \
+  --env-file containers/env.local --profile webwork down
 ```
 
 ## Whole-system verification
@@ -136,10 +236,15 @@ running as UID 1000 with `cap_drop: ALL`. Generated projects and volumes are
 removed on both success and failure; the runner never targets a long-lived
 development project.
 
-Named volumes `ple_pgdata` and `ple_miniodata` survive `down`. PostgreSQL 18
-and later store versioned data below the mounted `/var/lib/postgresql` path.
-Removing either volume destroys local data, so it is a deliberate step rather
-than part of the normal stop command.
+Named volumes `ple_pgdata` and `ple_miniodata` survive `down`. The launcher
+runs the read-only `postgres-major-guard` before it starts PostgreSQL and
+accepts only a missing data directory or a populated PostgreSQL 17 directory.
+PostgreSQL data directories are not compatible across major versions. Upgrade
+through a documented, non-destructive migration: back up and verify the old
+cluster, create a new PostgreSQL-major volume, restore into it, validate the
+migration ledger and application behavior, then retain the old volume until
+recovery is accepted. Removing either volume destroys local data, so it is a
+deliberate step rather than part of the normal stop command.
 
 ## Image shape
 

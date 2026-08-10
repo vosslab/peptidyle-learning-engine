@@ -23,6 +23,10 @@ test("disclosed feedback preserves allowed accessible blocks and optional omissi
 test("run summary decoder accepts only its compact redacted wire shape", () => {
   const run = publishedProblemFixture.runs[0];
   const summary = {
+    course: {
+      summary: publishedProblemFixture.course,
+      appearance: { theme: "grass", revision: "1", banner: null },
+    },
     run,
     summary: publishedProblemFixture.summary,
     practiceAllowed: true,

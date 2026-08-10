@@ -77,11 +77,14 @@ and the raw 32-byte archive digest. The fixed `u128` 1/2/3/4 plus `archive fixtu
   crate-boundary, whitespace, and diff checks passed. Independent review reported PASS with no
   P0/P1 finding.
 
-## Next package
+## Historical successor
 
-WP-QTI-7 adds the schema, grants, RLS, retention, and object-copy implementation. Before writing
-the migration, reconcile the Rust source-item identifier bound of 1,024 characters with the
-existing SQL-side 512-character constraint. Choose one documented boundary (or a deliberate
-two-tier rule), encode it in both validators, and add a migration/conformance test so accepted
-Rust values cannot be rejected or truncated by PostgreSQL. Backend mutation remains after that
-schema/object gate.
+WP-QTI-7 was the immediate successor. It added the schema, grants, RLS, retention, and object-copy
+implementation, reconciled the Rust 1,024-character source-item bound with the SQL-side
+512-character constraint, and proved the chosen boundary through validators plus migration and
+conformance tests before backend mutation.
+
+WP-QTI-1 through WP-QTI-12 are now accepted history. Current authority is
+[release_completion_plan.md](../active/release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
+is current, WP-ARCH1 follows it, then WP-RC4 owns the QTI-JSONL contract, WP-RC5 owns families and
+Chapter 1 content, and WP-RC6 closes QTI export and H5P claims.

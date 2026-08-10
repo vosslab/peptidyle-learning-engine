@@ -1,3 +1,8 @@
+> **Historical discovery input, not current instructions.** Current authority is
+> [implementation_plan.md](implementation_plan.md),
+> [release_completion_plan.md](active/release_completion_plan.md), and
+> [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md). [m0-results.md](m0-results.md) is concluded evidence.
+
 my plan was a web frontend server/container and db server/container; I dunno what is best 2026 design; probably run
 everything using cloud containers like AWS; probably a separate webwork renderer server like adapt uses; the ability to
 launch more servers for high demand should be considered

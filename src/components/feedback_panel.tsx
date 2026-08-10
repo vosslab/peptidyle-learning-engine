@@ -1,6 +1,14 @@
 // feedback_panel.tsx - accessible display of server-disclosed learner feedback.
 
-import { createEffect, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
+import {
+  createEffect,
+  createSignal,
+  createUniqueId,
+  For,
+  onCleanup,
+  Show,
+  type JSX,
+} from "solid-js";
 
 import type { ContentBlock } from "../../generated/api/ContentBlock";
 import type { DisclosedFeedback } from "../../generated/api/DisclosedFeedback";
@@ -23,7 +31,8 @@ export interface FeedbackPanelProps {
   readonly learnerResponse?: ReadonlyArray<ContentBlock>;
   /** Resolves logical, public asset references without exposing storage locations. */
   readonly assetUrl: AssetUrlResolver;
-  readonly onAdvance: () => void;
+  /** Omit on read-only history surfaces so static feedback does not add a no-op tab stop. */
+  readonly onAdvance?: () => void;
   readonly advanceLabel?: string;
   /** Gives assistive technology time to announce the feedback before the advance control receives focus. */
   readonly focusAdvanceDelayMs?: number;
@@ -169,6 +178,7 @@ function scrollNewFeedbackIntoView(heading: HTMLHeadingElement): void {
  * It has no grading, policy, question-definition, answer-key, or raw-response dependencies.
  */
 export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
+  const headingId = `feedback-panel-heading-${createUniqueId()}`;
   const [heading, setHeading] = createSignal<HTMLHeadingElement>();
   const [advance, setAdvance] = createSignal<HTMLButtonElement>();
   let focusedFeedback: DisclosedFeedback | undefined;
@@ -205,17 +215,12 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
   const response = (): ReadonlyArray<ContentBlock> => props.learnerResponse ?? [];
 
   return (
-    <section class="feedback-panel" aria-labelledby="feedback-panel-heading">
+    <section class="feedback-panel" aria-labelledby={headingId}>
       <style>{FEEDBACK_PANEL_STYLES}</style>
       <p class="visually-hidden" role="status" aria-live="polite">
         {feedbackAnnouncement(props.disclosure)}
       </p>
-      <h2
-        id="feedback-panel-heading"
-        class="feedback-panel__heading"
-        ref={setHeading}
-        tabindex="-1"
-      >
+      <h2 id={headingId} class="feedback-panel__heading" ref={setHeading} tabindex="-1">
         Feedback
       </h2>
 
@@ -273,14 +278,16 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
         </p>
       </Show>
 
-      <button
-        class="primary-action feedback-panel__advance"
-        type="button"
-        ref={setAdvance}
-        onClick={props.onAdvance}
-      >
-        {advanceLabel()}
-      </button>
+      <Show when={props.onAdvance !== undefined}>
+        <button
+          class="primary-action feedback-panel__advance"
+          type="button"
+          ref={setAdvance}
+          onClick={() => props.onAdvance?.()}
+        >
+          {advanceLabel()}
+        </button>
+      </Show>
     </section>
   );
 }

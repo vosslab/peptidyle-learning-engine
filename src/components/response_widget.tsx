@@ -400,6 +400,20 @@ function MultipleChoiceBody(props: MultipleChoiceResponseProps): JSX.Element {
     void controller.submit(response());
   }
   function handleKeyDown(event: KeyboardEvent): void {
+    const target = event.target;
+    if (
+      target instanceof HTMLInputElement &&
+      target.type === "checkbox" &&
+      ["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft"].includes(event.key)
+    ) {
+      const current = props.definition.choices.findIndex((choice) => choice.id === target.value);
+      const direction = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : -1;
+      const next =
+        (current + direction + props.definition.choices.length) % props.definition.choices.length;
+      event.preventDefault();
+      document.getElementById(`${props.attemptId}-choice-${next}`)?.focus();
+      return;
+    }
     if (/^[1-9]$/.test(event.key)) {
       const index = Number(event.key) - 1;
       const choice = props.definition.choices[index];
@@ -572,6 +586,7 @@ function OrderingResponse(props: WidgetBodyProps<OrderingDefinition>): JSX.Eleme
   const initialOrder =
     props.initialResponse?.order ?? props.definition.items.map((item) => item.id);
   const [order, setOrder] = createSignal<ReadonlyArray<ChoiceId>>(initialOrder);
+  const [movementAnnouncement, setMovementAnnouncement] = createSignal("");
   const controller = createSubmissionController(props, {
     kind: "ordering",
     order: [...initialOrder],
@@ -580,6 +595,41 @@ function OrderingResponse(props: WidgetBodyProps<OrderingDefinition>): JSX.Eleme
   function update(next: ReadonlyArray<ChoiceId>): void {
     setOrder(next);
     void controller.validate({ kind: "ordering", order: [...next] });
+  }
+  function rowId(id: ChoiceId): string {
+    return `${props.attemptId}-order-${id}`;
+  }
+  function focusMovedItem(id: ChoiceId, preferredDirection: "earlier" | "later"): void {
+    queueMicrotask(() => {
+      const row = document.getElementById(rowId(id));
+      const preferred = row?.querySelector<HTMLButtonElement>(
+        `[data-order-direction="${preferredDirection}"]:not(:disabled)`,
+      );
+      const fallback = row?.querySelector<HTMLButtonElement>("button:not(:disabled)");
+      (preferred ?? fallback)?.focus();
+    });
+  }
+  function moveOrderItem(
+    id: ChoiceId,
+    from: number,
+    to: number,
+    preferredDirection: "earlier" | "later",
+  ): void {
+    const next = moveItem(order(), from, to);
+    if (next === order()) return;
+    update(next);
+    const item = choiceById(props.definition.items, id);
+    const label = item === undefined ? "Item" : textFromBlocks(item.body);
+    setMovementAnnouncement(`${label} moved to position ${to + 1}.`);
+    focusMovedItem(id, preferredDirection);
+  }
+  function handleOrderArrow(event: KeyboardEvent, id: ChoiceId, index: number): void {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    const direction = event.key === "ArrowUp" ? "earlier" : "later";
+    const nextIndex = index + (direction === "earlier" ? -1 : 1);
+    if (nextIndex < 0 || nextIndex >= order().length) return;
+    event.preventDefault();
+    moveOrderItem(id, index, nextIndex, direction);
   }
   function submit(): void {
     void controller.submit(response());
@@ -593,12 +643,22 @@ function OrderingResponse(props: WidgetBodyProps<OrderingDefinition>): JSX.Eleme
       }
     >
       <fieldset
-        aria-describedby={`${props.attemptId}-format-status`}
+        aria-describedby={`${props.attemptId}-order-help ${props.attemptId}-order-movement ${props.attemptId}-format-status`}
         aria-invalid={controller.invalid()}
         disabled={controller.pending()}
       >
         <legend>Put the items in order</legend>
-        <p class="keyboard-hint">Use the move controls to set your answer.</p>
+        <p class="keyboard-hint" id={`${props.attemptId}-order-help`}>
+          Tab to a move control, then press Enter or use the Up and Down Arrow keys.
+        </p>
+        <p
+          class="visually-hidden"
+          id={`${props.attemptId}-order-movement`}
+          role="status"
+          aria-live="polite"
+        >
+          {movementAnnouncement()}
+        </p>
         <ol class="ordering-list">
           <For each={order()}>
             {(id, index) => {
@@ -607,13 +667,15 @@ function OrderingResponse(props: WidgetBodyProps<OrderingDefinition>): JSX.Eleme
                 return item === undefined ? "Unavailable item" : textFromBlocks(item.body);
               };
               return (
-                <li class="ordering-row">
+                <li class="ordering-row" id={rowId(id)}>
                   <span>{itemText()}</span>
                   <button
                     class="order-action"
                     type="button"
+                    data-order-direction="earlier"
                     disabled={index() === 0 || controller.pending()}
-                    onClick={() => update(moveItem(order(), index(), index() - 1))}
+                    onClick={() => moveOrderItem(id, index(), index() - 1, "earlier")}
+                    onKeyDown={(event) => handleOrderArrow(event, id, index())}
                     aria-label={`Move item ${index() + 1} earlier`}
                   >
                     Up
@@ -621,8 +683,10 @@ function OrderingResponse(props: WidgetBodyProps<OrderingDefinition>): JSX.Eleme
                   <button
                     class="order-action"
                     type="button"
+                    data-order-direction="later"
                     disabled={index() === order().length - 1 || controller.pending()}
-                    onClick={() => update(moveItem(order(), index(), index() + 1))}
+                    onClick={() => moveOrderItem(id, index(), index() + 1, "later")}
+                    onKeyDown={(event) => handleOrderArrow(event, id, index())}
                     aria-label={`Move item ${index() + 1} later`}
                   >
                     Down

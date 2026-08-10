@@ -51,10 +51,69 @@ the `e2e_*` prefix as a secondary, human-readable convention.
 
 - Run a single shell runner: `bash tests/e2e/e2e_<name>.sh`.
 - Run a single Python runner: `source source_me.sh && python3 tests/e2e/e2e_<name>.py`.
-- Run all E2E tests: provide a `tests/e2e/run_all.sh` that iterates over the
-  `e2e_*` files and reports pass/fail for each.
 - For browser-driven Playwright runs, TypeScript repos include `PLAYWRIGHT_USAGE.md` in their propagated `docs/` folder.
 - Do not invoke E2E tests from `pytest tests/`. Keep the two suites separate.
+
+## Maintained baseline runner
+
+Run the maintained non-browser baseline with:
+
+```bash
+bash tests/e2e/e2e_run_all.sh
+```
+
+[tests/e2e/e2e_run_all.sh](../tests/e2e/e2e_run_all.sh) runs exactly these three
+checks, records each failure, prints a summary, and exits non-zero if any check
+fails:
+
+- `wasm_bridge`: `node tests/e2e/e2e_wasm_bridge.mjs`, which requires the Node
+  Wasm artifact from `./pipeline/build_wasm.sh`.
+- `database_baseline`: `bash tests/e2e/e2e_database_baseline.sh`, which creates
+  a disposable PostgreSQL project and exercises migrations, role/RLS policy,
+  and the QTI live PostgreSQL oracles. It requires `podman`, `podman-compose`,
+  `cargo`, and `python3`.
+- `replica_restart`: `node tests/e2e/e2e_replica_restart.mjs`, which proves a
+  learner session and idempotent submission survive an API-replica restart.
+  Its default mode requires a working Podman machine; an unavailable machine is
+  reported as a failing `BLOCKED` prerequisite, not a passing skip.
+
+This is a maintained baseline, not a discovery runner: it does not enumerate
+every `e2e_*` file, and it does not run the separately gated checks below.
+
+## Separately gated E2E checks
+
+- **Course appearance:** run `bash tests/e2e/e2e_course_appearance.sh`. It is
+  outside the baseline runner and requires `cargo`, `podman`, `podman-compose`,
+  and `python3`. The script sources `source_me.sh`, starts an isolated
+  PostgreSQL-and-MinIO Compose project, applies and verifies migrations, and
+  proves revision/current-pointer policy plus object-store promotion,
+  supersession, and cleanup. Set `PLE_E2E_KEEP=1` only when retaining its
+  disposable project for diagnosis.
+- **WebWork secret mode:** run
+  `bash tests/e2e/e2e_webwork_api_secret_mode.sh`. It is an isolated
+  secret-handoff check, not a full WebWork build or live learner path. It
+  requires a working Podman connection, OpenSSL, and the pinned Alpine digest
+  in `containers/env.example`; it proves mode `0600`, API-UID-only access, and
+  secret rotation in a temporary volume.
+- **WebWork full/live acceptance:** run
+  `bash tests/e2e/e2e_webwork_render_rpc.sh`. It requires a usable Podman
+  Compose provider; a configured readable environment file
+  (`containers/env.local` by default); the generated local student credential
+  and WebWork demo manifest; Python, curl, OpenSSL, and Playwright. The script
+  launches the WebWork profile through `launch_local_stack.sh`, tests only
+  PLE's public gateway, then runs
+  `tests/playwright/webwork_run.spec.ts`. It proves safe projection, cache
+  replay, correct and incorrect scoring, renderer-outage isolation, and
+  non-disclosure of private renderer material. This is an opt-in release gate:
+  do not treat it as run, passed, or release accepted unless this command and
+  its required browser test complete successfully in the target environment.
+- **QTI and other live coverage:** QTI PostgreSQL import, provenance, profile,
+  conversion, and private-grading checks are part of
+  `e2e_database_baseline`, so they run only when that disposable-Podman gate
+  can run successfully. The individual Wasm and replica checks listed above
+  are also baseline members, not substitutes for browser E2Es. Any E2E not
+  named by `e2e_run_all.sh` remains opt-in and must be invoked and recorded
+  separately; a passing baseline does not imply all E2Es or WP-RC3 acceptance.
 
 ## Naming conventions test
 

@@ -112,6 +112,8 @@ mod catalog;
 #[cfg(feature = "postgres")]
 mod connection;
 #[cfg(feature = "postgres")]
+mod course_appearance;
+#[cfg(feature = "postgres")]
 mod exports;
 #[cfg(feature = "postgres")]
 mod external_tool;

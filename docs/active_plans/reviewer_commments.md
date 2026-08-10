@@ -1,3 +1,8 @@
+> **Historical review input, not current instructions.** Current authority is
+> [implementation_plan.md](implementation_plan.md),
+> [release_completion_plan.md](active/release_completion_plan.md), and
+> [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md). [m0-results.md](m0-results.md) is concluded evidence.
+
 Recommended 2026 architecture
 
 Start with a containerized modular monolith, not a collection of microservices.

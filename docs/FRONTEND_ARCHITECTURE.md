@@ -41,6 +41,7 @@ recoverable failure. Continued practice remains available after completion.
 | `/workspace/:workspaceId`                                      | Draft editor, validation, and WASM preview | Draft and capability violations               |
 | `/instructor/courses/:courseId/assignments/:assignmentId/edit` | Assignment policy editor                   | Assignment and capability validation          |
 | `/instructor/courses/:courseId/gradebook`                      | Summary-row gradebook                      | Student assignment summaries only             |
+| `/instructor/courses/:courseId/appearance`                     | Course theme and entry banner settings     | Revisioned safe appearance projection         |
 
 `src/routes.ts` is the executable copy of this table. It also provides a
 catch-all not-found route, which is infrastructure rather than a product
@@ -113,6 +114,52 @@ course, and exact immutable question lookup. It verifies their ID and tenant
 relationships instead of assuming that independently valid responses belong
 together. List traversal remains cursor-only and rejects a repeated cursor.
 
+The frozen course-appearance boundary is Rust-owned under
+`crates/question_model/src/course_appearance.rs`. `CourseAppearance` contains
+only one closed `CourseThemeId`, an exact decimal-string
+`CourseAppearanceRevision`, and an optional `CourseBannerPresentation` whose
+opaque ID resolves through the same-origin asset route. It cannot carry a
+bucket, object key, checksum, filename, source bytes, upload metadata, signed
+URL, answer, or grading data. `CourseAppearanceUpdate` is the complete atomic
+body: it selects a theme and explicitly keeps, removes, or replaces the
+banner. Course identity comes only from the authenticated route and the
+expected revision comes only from the strong `If-Match` header.
+
+The production transport is one no-store `GET` and compare-and-swap
+`PUT` at `/api/courses/{courseId}/appearance`, plus an author-only candidate
+upload at `/api/courses/{courseId}/appearance/banner-candidates`. Candidate
+upload returns only `CourseBannerCandidateReceipt`; candidate bytes never use
+the delivery route. A current `CourseBannerId` uses the existing
+`/api/assets/{id}` route, whose persistence owner rechecks the exact current
+course pointer before delivery.
+
+`src/features/course_appearance/course_appearance_page.tsx` owns the working instructor form over a
+pure draft model and narrow repository. It uses native named theme radios, one raw raster file input,
+explicit decorative/informative alt state, exact wide/narrow previews, one atomic save, and a
+preserved-draft conflict reload. The selected local file lives only in component memory; its object
+URL is revoked through `onCleanup`, and neither browser storage nor the JSON mutation receives the
+filename or bytes. `course_entry_identity.tsx` consumes the same already-authorized route context and
+renders the text course title plus one optional current banner only on the course-entry page. A null
+or removed banner creates no learner image or empty frame.
+The server normalizes every accepted upload to one 1200 by 328 pixel WebP. The
+course entry and both settings previews preserve that intrinsic aspect and
+only scale the same derivative down with CSS; the browser never stretches,
+recrops, or selects a different banner rendition.
+
+`src/features/course_appearance/course_theme_scope.tsx` owns the one pre-render course subtree.
+Course-ID routes load `CourseRouteData` once; run attempts reuse `RunScreenData.course`; and run
+summaries reuse the server-derived safe course projection. The provider does not accept a
+browser-supplied course identity for a run, does not issue a post-render theme-only learner fetch,
+and renders no course subtree until its projection is available. Route-keyed ownership removes the
+old wrapper across course/global navigation. The persistent header, Library, Workspace, authored
+scientific content, and semantic success/danger states stay outside theme projection.
+
+`theme_catalog.ts` exhaustively maps the 15 generated IDs to three decorative anchors and measured
+derived text/action/link/focus/surface tokens. Grass is the default. Its Roosevelt-inspired anchors
+are `#BDDEB1`, `#73C167`, and `#008852`; raw `#008852` remains decorative because it does not meet
+the house text threshold, while the derived action and link colors do. An unknown ID throws rather
+than substituting another course's appearance.
+
 ## WebAssembly facade
 
 `src/wasm/index.ts` is the only browser import boundary for generated
@@ -120,16 +167,26 @@ together. List traversal remains cursor-only and rejects a repeated cursor.
 shape, initializes it, and converts JSON strings into a typed key-free format
 report. No component calls a raw snake-case export.
 
-The facade presents browser-style lower camel case:
+The facade presents four browser-style lower-camel-case operations:
 
 ```text
 validateResponseFormat(definition, response) -> ResponseFormatReport
+timerVerdict(evaluation) -> TimerVerdict
+validateAssignmentConfig(config) -> CapabilityViolation[]
+previewNativeDraft(request, seed) -> NativeDraftPreviewResult
 ```
 
-If WebAssembly initialization fails, the facade delegates validation to the
-typed server-format endpoint and reports one persistent degraded-mode status.
-The student may continue with a round trip per validation. There is no local
-grading fallback.
+If the generated module cannot import, has the wrong export shape, or fails to
+initialize, the shared facade enters `serverFallback` mode and the root renders
+one persistent degraded-mode status. Format validation, timer verdicts, and
+assignment-capability validation then call their injected typed API fallbacks:
+`/api/validation/response-format`, `/api/validation/timer`, and
+`/api/validation/assignment-capabilities`. Native-draft preview has no server
+fallback: it returns `{ kind: "unavailable", backend, capability:
+"offlinePreview" }` for the requested source backend. Thus a student may
+continue with a round trip for the three validation operations, while an
+instructor sees preview availability truthfully. There is no local grading
+fallback.
 
 The authenticated `/api/validation/response-format`, `/timer`, and
 `/assignment-capabilities` routes delegate to the same key-free domain
@@ -138,6 +195,10 @@ not authoritative decisions: publication re-resolves stored question and
 backend records, run timing uses server-owned timestamps, and correctness
 remains in the server-only grading path.
 
+Course appearance is data projection and route-scoped styling, not local
+computation. It adds no Wasm export and does not change the generated-module
+allowlist or the answer-free dependency closure.
+
 ## Persistence boundaries
 
 | Browser store    | Allowed contents                                                                                                      | Clear condition                       |
@@ -145,6 +206,11 @@ remains in the server-only grading path.
 | `localStorage`   | Nonessential preferences only after the applicable consent path permits them                                          | Consent withdrawal or explicit reset  |
 | `sessionStorage` | In-progress response only when classified as necessary for explicitly requested run recovery; otherwise consent-gated | Submit success, run exit, or sign-out |
 | Neither          | Session tokens, answer keys, grades, or feedback not yet disclosed                                                    | Never stored                          |
+
+Course appearance also belongs in neither browser store. The server-owned
+projection is loaded through course route data and cleared with its course
+scope; `localStorage` and `sessionStorage` never become an appearance source
+of truth.
 
 Session identity is carried by an `HttpOnly` cookie that browser JavaScript
 cannot read. It is host-only and has no `Max-Age` or `Expires` attribute; the
@@ -172,8 +238,11 @@ The reference widget and every later response widget must meet these testable
 conditions:
 
 - semantic fieldset, legend, labels, and a nonempty accessible name;
-- keyboard selection with Tab and number keys, Enter to submit, and Escape to
-  return to the run overview;
+- keyboard selection with Tab, native radio arrows, multiple-answer arrow focus,
+  Space, and optional number keys; Enter submits a ready response and Escape
+  returns to the run overview;
+- ordering controls that work with Tab plus Enter and with Up/Down Arrow while
+  preserving focus and announcing the new position;
 - validation changes announced through a polite live region;
 - `aria-invalid` paired with visible explanatory text;
 - at least 56 by 56 CSS pixels for primary response targets;
@@ -203,12 +272,25 @@ them.
 
 ## Validation gates
 
+The evidence below names what each lane proves. Mock routes and dynamically
+mounted fixtures are useful focused evidence, but neither is a live WebWork
+acceptance claim.
+
+| Evidence lane                          | Current evidence                                                                                                | What it proves                                                                                                                                                                | Boundary                                                                                                   | Status                                      |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Built mock route tests                 | `tests/playwright/frontend_contract.spec.ts` and the student keyboard audit                                     | The compiled mock-backed application resolves product routes and completes the reference course-to-answer journey with PLE controls.                                          | It does not exercise the live API, private renderer, or upstream WebWork.                                  | Complete for the audited mock route.        |
+| Dynamically mounted component fixtures | `tests/playwright/student_keyboard_accessibility.spec.ts` and `tests/playwright/external_tool_response.spec.ts` | Production Solid response components handle focused keyboard and broker interactions in isolated browser fixtures.                                                            | The fixture bundle is injected into a mock page, not mounted through a complete built route or live stack. | Complete for the named component behaviors. |
+| Source and contract evidence           | `src/wasm/index.ts`, `src/wasm/context.tsx`, `src/main.tsx`, and `tests/test_frontend_contract.mjs`             | The four-operation facade has one shared loader, typed fallbacks for three operations, an unavailable-only preview fallback, and no correctness field in mock format reports. | Source and mock-contract checks cannot prove a generated module or a deployed server behaved this way.     | Complete as implementation evidence.        |
+| Required live WebWork gate             | `tests/playwright/webwork_run.spec.ts` with `PLE_WEBWORK_LIVE_REQUIRED=1`                                       | A private live stack must prove the browser calls PLE only, remains answer-free, supports keyboard completion, and receives correct/incorrect outcomes through PLE.           | It requires the explicit private stack and credential inputs; the ordinary mock suite skips it.            | Pending required live execution.            |
+
 - Node tests freeze the route map, mock/client behavior, and absence of
   answer-bearing generated names.
 - TypeScript compilation checks the client, generated fixture projection, WASM
   facade, and response-widget props without `any` or unchecked casts.
-- Playwright proves the mock-backed run screen, mouse and number-key selection,
-  live format feedback, submission, route resolution, focus, and responsive
-  layout over the built artifact.
+- The focused keyboard evidence and its remaining human evaluation are in
+  [`ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md`](ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md).
+- The live renderer and browser acceptance commands, prerequisites, and
+  stop conditions are in
+  [`active_plans/workstreams/webwork_shipped_integration.md`](active_plans/workstreams/webwork_shipped_integration.md).
 - Palette tools record measured contrast for source colors in
   `docs/PALETTE_CONTRAST_AUDIT.md`.

@@ -285,9 +285,26 @@ pub(crate) fn validate_asset_delivery(record: &AssetDeliveryRecord) -> Result<()
                 ));
             }
         }
+        (
+            AssetDeliveryScope::CourseBanner {
+                tenant,
+                course,
+                banner,
+            },
+            ObjectKey::CourseBanner {
+                tenant: key_tenant,
+                course: key_course,
+                banner: key_banner,
+            },
+        ) if record.id == AssetDeliveryId::from_course_banner(*banner)
+            && *tenant == *key_tenant
+            && *course == *key_course
+            && *banner == *key_banner
+            && record.object.bucket == Bucket::Content
+            && record.object.category == ObjectCategory::CourseContent => {}
         _ => {
             return Err(StoreError::InvalidRecord(
-                "only matching catalog assets and student-record exports may be delivered"
+                "only matching catalog, student-record, and current course-banner objects may be delivered"
                     .to_string(),
             ));
         }

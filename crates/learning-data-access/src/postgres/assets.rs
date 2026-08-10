@@ -43,6 +43,12 @@ impl AssetStore for PostgresStore {
                     None,
                 )
             }
+            AssetDeliveryScope::CourseBanner { .. } => {
+                return Err(StoreError::InvalidRecord(
+                    "course-banner delivery registration is owned by appearance promotion"
+                        .to_string(),
+                ));
+            }
         };
         let mut transaction = self.begin_tenant(context).await?;
         if let (Some(problem), Some(version)) = (problem, version) {
@@ -182,6 +188,7 @@ impl AssetStore for PostgresStore {
                         Some(course.as_uuid()),
                     )
                 }
+                AssetDeliveryScope::CourseBanner { .. } => return Err(StoreError::NotFound),
             };
         if let AssetDeliveryScope::StudentRecord {
             tenant,

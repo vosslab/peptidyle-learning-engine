@@ -15,10 +15,13 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
-use learning_data_access::{AssetDeliveryId, AssetStore, SessionStore, StoreError};
+use learning_data_access::{
+    AssetDeliveryId, AssetStore, CourseAppearanceStore, SessionStore, StoreError,
+};
 use objects::{
     Bucket, ObjectCategory, ObjectKey, ObjectRecord, ObjectStore, ObjectStoreError, SignedUrl,
 };
+use question_model::CourseBannerId;
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
@@ -90,7 +93,7 @@ impl std::error::Error for PublicAssetUrlError {}
 /// Builds the asset-delivery route around independent metadata and byte stores.
 pub fn router<S, O, C>(store: Arc<S>, objects: Arc<O>, public_assets: Arc<C>) -> Router
 where
-    S: AssetStore + SessionStore + 'static,
+    S: AssetStore + CourseAppearanceStore + SessionStore + 'static,
     O: ObjectStore + 'static,
     C: PublicAssetUrlResolver + 'static,
 {
@@ -125,7 +128,7 @@ async fn get_asset<S, O, C>(
     Path(raw_id): Path<String>,
 ) -> Response
 where
-    S: AssetStore + SessionStore + 'static,
+    S: AssetStore + CourseAppearanceStore + SessionStore + 'static,
     O: ObjectStore + 'static,
     C: PublicAssetUrlResolver + 'static,
 {
@@ -163,6 +166,21 @@ where
         .await
     {
         Ok(authorized) => authorized,
+        Err(StoreError::NotFound) => {
+            let banner = CourseBannerId::from_uuid(delivery.as_uuid());
+            match state
+                .store
+                .authorize_course_banner_delivery(
+                    authenticated.tenant_context,
+                    authenticated.record.token_hash,
+                    banner,
+                )
+                .await
+            {
+                Ok(authorized) => authorized,
+                Err(error) => return store_error_response(error),
+            }
+        }
         Err(error) => return store_error_response(error),
     };
     let signed = match state

@@ -39,9 +39,13 @@ podman machine start
 
 ## Architecture notes
 
-Apple Silicon runs `arm64` images natively. The floating current images this
-stack uses (`postgres:latest`, `quay.io/minio/minio:latest`, `rust:latest`, and
-`debian:stable-slim`) publish `arm64` variants, so no emulation is involved.
+Apple Silicon runs `arm64` Linux images natively. The selected PostgreSQL,
+MinIO, MinIO Client, Alpine secret-initializer, and optional WebWork base-image
+digests are multi-architecture manifests in
+[containers/env.example](../containers/env.example). Podman selects their
+`linux/arm64` variant on Apple Silicon, so the normal local stack does not need
+emulation. Keep the manifest digests unchanged unless the selected replacement
+has an `arm64` variant too.
 
 If you need to reproduce an `amd64` deployment locally, pass the platform
 explicitly and expect it to run slowly under emulation:
@@ -60,9 +64,43 @@ name (`postgres`, `minio`), not `localhost`.
 ## Registry prefixes
 
 Podman does not assume Docker Hub. Image references in
-[containers/compose.yaml](../containers/compose.yaml) are fully qualified
-(`docker.io/library/postgres:latest`, `quay.io/minio/minio:latest`) so a
-pull never depends on local registry search order.
+[containers/compose.yaml](../containers/compose.yaml) are fully qualified and
+digest-pinned. The tracked contract takes this form:
+
+```text
+docker.io/library/postgres@sha256:${PLE_POSTGRES_IMAGE_SHA256}
+quay.io/minio/minio@sha256:${PLE_MINIO_IMAGE_SHA256}
+quay.io/minio/mc@sha256:${PLE_MINIO_MC_IMAGE_SHA256}
+docker.io/library/alpine@sha256:${PLE_SECRET_INIT_IMAGE_SHA256}
+```
+
+`containers/env.example` supplies the selected 64-character digest values.
+Copy it to ignored `containers/env.local` and retain the pins; do not replace
+them with a tag such as `latest`. The gateway and optional WebWork profile also
+take fully qualified digest-pinned Caddy, MariaDB, and Ubuntu build-base values
+from that file.
+
+These references are not all runtime images. `postgres`, `minio`,
+`createbuckets`, `webwork-api-secret-init`, and optional `webwork-db` run their
+specified external images. `api` and `worker` are built locally from
+`containers/Containerfile.api`; `gateway` is built locally from
+`containers/Containerfile.gateway` using the pinned Caddy build argument. The
+optional `webwork-renderer` is likewise a local image built from its pinned
+Ubuntu base and exact WebWork2/PG Git revisions. Its `localhost/` image name is
+a local build result, not a registry image that should be pulled or retagged.
+
+## PostgreSQL retained volumes
+
+The local stack is pinned to PostgreSQL 17. Before it starts PostgreSQL,
+`launch_local_stack.sh` runs the maintenance-profile `postgres-major-guard`.
+The guard mounts `ple_pgdata` read-only and checks its `PG_VERSION` file. A
+populated volume declaring a major other than `17` is refused before the
+database service starts.
+
+This guard never migrates, rewrites, or deletes the volume. If it refuses an
+older or newer volume, stop and choose a deliberate PostgreSQL migration or
+restore procedure with a backup; do not remove the volume merely to bypass the
+check.
 
 ## Cleaning up
 

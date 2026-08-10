@@ -1,20 +1,8 @@
-# compose.yaml - local development stack: api, postgres, minio, renderer (WP-F4, MOD-ADP-WW).
-#
-# Run from the repo root:
-#   podman compose -f containers/compose.yaml --env-file containers/env.local up -d
-#
-# Copy containers/env.example to containers/env.local first and set real
-# values. Every credential below is required with no default: a stack that
-# silently starts on a well-known password is the kind of convenience that
-# ships to a server one day.
-#
-# Bring-up order is enforced by health, not by sleep. The api container waits
-# for postgres to accept queries and for the buckets to exist, so its own
-# /health can be trusted the moment it reports ready.
-
+# compose.yaml - local development stack.  The optional WebWork profile is a
+# private, source-pinned upstream service; it never shares PLE storage.
 services:
   postgres:
-    image: docker.io/library/postgres:latest
+    image: docker.io/library/postgres@sha256:${PLE_POSTGRES_IMAGE_SHA256:?set PLE_POSTGRES_IMAGE_SHA256 to the selected official PostgreSQL 17 Linux image manifest digest}
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in the env file}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the env file}
@@ -26,13 +14,44 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-    # Published only on loopback: this database holds educational records, and
-    # a development container should not be reachable from the local network.
     ports:
       - "127.0.0.1:${PLE_POSTGRES_HOST_PORT:-5432}:5432"
 
+  # Invoked explicitly by launch_local_stack.sh before PostgreSQL starts.  A
+  # PostgreSQL data directory is not forward/backward compatible across major
+  # versions, so the guard refuses a populated volume whose declared major is
+  # not the pinned PostgreSQL 17 contract.  It mounts the data read-only.
+  postgres-major-guard:
+    image: docker.io/library/postgres@sha256:${PLE_POSTGRES_IMAGE_SHA256:?set PLE_POSTGRES_IMAGE_SHA256 to the selected official PostgreSQL 17 Linux image manifest digest}
+    profiles: ["maintenance"]
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        version_file=/var/lib/postgresql/data/PG_VERSION
+        if [ ! -e "$${version_file}" ]; then
+          exit 0
+        fi
+        if [ ! -f "$${version_file}" ]; then
+          echo "PostgreSQL data volume has an invalid PG_VERSION path" >&2
+          exit 1
+        fi
+        actual_major="$$(tr -d '\\r\\n' < "$${version_file}")"
+        if [ "$${actual_major}" != "17" ]; then
+          echo "PostgreSQL data volume requires major $${actual_major}; local stack is pinned to PostgreSQL 17" >&2
+          exit 1
+        fi
+    volumes:
+      - ple_pgdata:/var/lib/postgresql:ro
+    network_mode: none
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+
   minio:
-    image: quay.io/minio/minio:latest
+    image: quay.io/minio/minio@sha256:${PLE_MINIO_IMAGE_SHA256:?set PLE_MINIO_IMAGE_SHA256 to the selected official MinIO Linux image manifest digest}
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in the env file}
@@ -48,16 +67,8 @@ services:
       - "127.0.0.1:${PLE_MINIO_API_HOST_PORT:-9000}:9000"
       - "127.0.0.1:${PLE_MINIO_CONSOLE_HOST_PORT:-9001}:9001"
 
-  # One-shot: creates the three buckets, then exits. Separate from minio itself
-  # so the bucket layout is declared in this file rather than hidden in an
-  # image entrypoint.
-  #
-  # The three buckets exist because they have different rules, not for tidiness:
-  #   content          immutable shared assets and cached renders, CDN-served
-  #   student-records  educational records, short-lived authorized URLs, deletable
-  #   temp-processing  extraction workspaces, never served, lifecycle-expired
   createbuckets:
-    image: quay.io/minio/mc:latest
+    image: quay.io/minio/mc@sha256:${PLE_MINIO_MC_IMAGE_SHA256:?set PLE_MINIO_MC_IMAGE_SHA256 to the selected official MinIO Client Linux image manifest digest}
     depends_on:
       minio:
         condition: service_healthy
@@ -73,7 +84,6 @@ services:
         mc mb --ignore-existing local/content
         mc mb --ignore-existing local/student-records
         mc mb --ignore-existing local/temp-processing
-        echo "buckets ready: content, student-records, temp-processing"
 
   api:
     build:
@@ -86,14 +96,11 @@ services:
         condition: service_completed_successfully
     environment:
       PLE_BIND_ADDR: 0.0.0.0:3000
-      # The binary's only pre-deployment identity provider is explicit local
-      # development mode. The provider sees the in-container path only; the
-      # operator-selected host path remains a mount detail rather than process
-      # environment or application logging data.
       PLE_AUTH_PROVIDER: local-file
       PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH: "1"
       PLE_LOCAL_AUTH_FILE: /run/ple/local-identities.json
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-peptidyle}
+      PLE_GRADER_DATABASE_URL: postgres://ple_grading_reader:${PLE_LOCAL_GRADER_PASSWORD:?set PLE_LOCAL_GRADER_PASSWORD in the env file}@postgres:5432/${POSTGRES_DB:-peptidyle}
       PLE_S3_ENDPOINT: http://minio:9000
       PLE_S3_REGION: us-east-1
       PLE_CONTENT_BUCKET: content
@@ -102,57 +109,54 @@ services:
       PLE_PUBLIC_ASSET_BASE_URL: ${PLE_PUBLIC_ASSET_BASE_URL:?set PLE_PUBLIC_ASSET_BASE_URL in the env file}
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
-      # The adapter reads this server-only URL.  The renderer has no public
-      # port: this service name resolves only on renderer_private.
-      PLE_WEBWORK_RENDERER_BASE_URL: ${PLE_WEBWORK_RENDERER_BASE_URL:?set PLE_WEBWORK_RENDERER_BASE_URL to the private renderer URL}
-      # Bounded HTTP settings are deliberately server configuration, never
-      # browser input.  The adapter uses one deadline for connection and the
-      # complete request; it is also passed to the renderer so both ends
-      # enforce the same workload budget.
-      PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:?set PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS in the env file}
-      PLE_WEBWORK_MAX_RESPONSE_BYTES: ${PLE_WEBWORK_MAX_RESPONSE_BYTES:?set PLE_WEBWORK_MAX_RESPONSE_BYTES in the env file}
-      # The adapter rejects a renderer response whose implementation identity
-      # differs from these operator-selected compatibility values.
-      PLE_WEBWORK_RENDERER_ID: ${PLE_WEBWORK_RENDERER_ID:?set PLE_WEBWORK_RENDERER_ID in the env file}
-      PLE_WEBWORK_RENDERER_VERSION: ${PLE_WEBWORK_RENDERER_VERSION:?set PLE_WEBWORK_RENDERER_VERSION in the env file}
     volumes:
-      # This is intentionally an operator-created, untracked file. Compose
-      # stops with the named setting when it is absent, rather than creating an
-      # empty file that could make identity setup appear to work.
       - type: bind
         source: ${PLE_LOCAL_AUTH_HOST_FILE:?set PLE_LOCAL_AUTH_HOST_FILE to an operator-created local identities JSON file}
         target: /run/ple/local-identities.json
         read_only: true
         bind:
           create_host_path: false
-    # Declared here as well as in the Containerfile: podman compose does not
-    # always carry an image-level HEALTHCHECK onto the container, and a health
-    # check that silently is not running is worse than none.
-    #
-    # The binary probes its own /health, so the image needs no curl or wget.
     healthcheck:
       test: ["CMD", "/usr/local/bin/peptidyle-api", "--health-probe"]
       interval: 10s
       timeout: 3s
       retries: 5
       start_period: 5s
-    # API replicas are intentionally not published.  `gateway` is the only
-    # loopback listener, so `podman compose ... up --scale api=2` cannot create
-    # a host-port collision and every replica has the same persistent backing
-    # services rather than local session state.
-    #
-    # The API can reach the private renderer. It retains the default network
-    # for PostgreSQL and MinIO, while the renderer never joins that network and
-    # never receives their credentials. A future render-cache worker may join
-    # renderer_private under the same credential-free boundary.
     networks:
       - default
       - renderer_private
       - gateway_api
 
-  # The worker reuses the server image but starts the dedicated queue mode.
-  # It receives only PostgreSQL and object-storage configuration: no identity,
-  # grader, public URL, or renderer credential crosses this process boundary.
+  # Copies the host-owned strict secret once into a private named volume as the
+  # API's fixed runtime UID. API never mounts the host secret directly.
+  webwork-api-secret-init:
+    image: docker.io/library/alpine@sha256:${PLE_SECRET_INIT_IMAGE_SHA256:-0000000000000000000000000000000000000000000000000000000000000000}
+    environment:
+      PLE_WEBWORK_RENDER_PASSWORD_FILE: /run/source/webwork_render_password
+    volumes:
+      - type: bind
+        source: ${PLE_WEBWORK_RENDER_PASSWORD_HOST_FILE:-/dev/null}
+        target: /run/source/webwork_render_password
+        read_only: true
+        bind:
+          create_host_path: false
+      - ple_webwork_api_runtime:/run/ple-secrets
+    command: ["/bin/sh", "-ec", "if [ -s /run/source/webwork_render_password ]; then cp /run/source/webwork_render_password /run/ple-secrets/webwork_render_password; else : > /run/ple-secrets/webwork_render_password; fi; chmod 600 /run/ple-secrets/webwork_render_password; chown 10001:10001 /run/ple-secrets/webwork_render_password"]
+    network_mode: none
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      # Copying a host-owned strict file and assigning the API UID need these.
+      - CHOWN
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    cpus: "0.10"
+    mem_limit: 32m
+    pids_limit: 16
+    restart: "no"
+
   worker:
     build:
       context: ..
@@ -176,26 +180,13 @@ services:
       PLE_WORKER_PREPARATION_TIMEOUT_SECONDS: ${PLE_WORKER_PREPARATION_TIMEOUT_SECONDS:-90}
       PLE_WORKER_POLL_MILLIS: ${PLE_WORKER_POLL_MILLIS:-500}
     restart: on-failure
-    # Shutdown is observed between one-job bounded passes. This exceeds the
-    # default preparation deadline so an active pass can settle or cancel.
     stop_grace_period: 100s
-    # This mode intentionally exposes no HTTP port. Process liveness plus
-    # supported-family queue depth are its operational signals.
     healthcheck:
       disable: true
     networks:
       - default
 
-  # This is the sole host-facing listener.  Caddy discovers every `api`
-  # replica through Compose DNS on each refresh; do not replace this with a
-  # container name or a fixed replica count.  That would make restart and
-  # multi-replica behavior depend on whichever container happened to start
-  # first.
   gateway:
-    # Derive from the exact official Linux manifest. The tiny owning
-    # Containerfile removes Caddy's low-port file capability because this
-    # gateway listens on 8080 and runs with an empty capability set. The base
-    # image's published curl remains the readiness probe.
     build:
       context: ..
       dockerfile: containers/Containerfile.gateway
@@ -213,9 +204,12 @@ services:
         read_only: true
         bind:
           create_host_path: false
-    # A fixed non-root identity plus writable ephemeral Caddy state is safer
-    # than allowing the gateway to modify its image filesystem. The selected
-    # digest must support this standard Caddy identity and these paths.
+      - type: bind
+        source: ../dist
+        target: /srv/peptidyle
+        read_only: true
+        bind:
+          create_host_path: false
     user: "1000:1000"
     read_only: true
     cap_drop:
@@ -232,76 +226,127 @@ services:
     restart: on-failure
     stop_grace_period: 10s
     healthcheck:
-      # Probe through Caddy, rather than only parsing its config. curl --fail
-      # rejects 502 when no dynamic API upstream exists and 503 when every
-      # discovered API replica reports a degraded health state.
       test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--max-time", "2", "http://127.0.0.1:8080/health"]
       interval: 10s
       timeout: 3s
       retries: 3
       start_period: 5s
-    # The gateway receives neither database/object-store/auth/renderer
-    # configuration nor a persistent mount. It can speak only to API replicas.
     networks:
       - gateway_api
 
-  # The WeBWorK renderer is a separately shipped HTTP service.  PLE does not
-  # execute PG itself or select an upstream image for the operator: the image
-  # must be an immutable digest published by the renderer maintainer.  The
-  # required health command makes an unknown upstream HTTP contract fail at
-  # compose configuration time instead of assuming a path or a bundled tool.
-  #
-  # PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS is the shared deployment boundary for
-  # the server-side renderer client and this service.  Its value is deliberately
-  # runtime configuration so a local workload can be measured before a deploy.
-  webwork-renderer:
-    # Compose assembles `repository@sha256:digest`, so a mutable tag cannot be
-    # supplied in place of the immutable renderer artifact.
-    image: ${PLE_WEBWORK_RENDERER_IMAGE_REPOSITORY:?set PLE_WEBWORK_RENDERER_IMAGE_REPOSITORY in the env file}@sha256:${PLE_WEBWORK_RENDERER_IMAGE_SHA256:?set PLE_WEBWORK_RENDERER_IMAGE_SHA256 to the 64-character image manifest digest}
+  # A separate database confines upstream state and credentials.  It has no
+  # host port and never joins PLE's PostgreSQL/MinIO network.
+  webwork-db:
+    profiles: ["webwork"]
+    image: docker.io/library/mariadb@sha256:${PLE_WEBWORK_MARIADB_IMAGE_SHA256:-0000000000000000000000000000000000000000000000000000000000000000}
     environment:
-      PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:?set PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS in the env file}
-    # This is an immutable non-root numeric identity, not an operator override.
-    # The pinned renderer image must support this identity and writable /tmp.
-    user: "65532:65532"
-    read_only: true
+      MARIADB_DATABASE: ${PLE_WEBWORK_DATABASE_NAME:-webwork}
+      MARIADB_USER: ${PLE_WEBWORK_DATABASE_USER:-webwork}
+      MARIADB_PASSWORD: ${PLE_WEBWORK_DATABASE_PASSWORD:-unconfigured}
+      MARIADB_ROOT_PASSWORD: ${PLE_WEBWORK_DATABASE_ROOT_PASSWORD:-unconfigured}
+    volumes:
+      - ple_webwork_dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -u$$MARIADB_USER -p$$MARIADB_PASSWORD"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
     cap_drop:
       - ALL
+    cap_add:
+      # MariaDB's documented root bootstrap fixes ownership before dropping to
+      # its service user; these are the only filesystem/identity capabilities.
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
     security_opt:
       - no-new-privileges:true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=64m
     cpus: "1.0"
-    mem_limit: 512m
-    pids_limit: 128
+    mem_limit: 768m
+    pids_limit: 256
     restart: on-failure
-    stop_grace_period: 20s
-    healthcheck:
-      test: ["CMD-SHELL", "${PLE_WEBWORK_RENDERER_HEALTHCHECK:?set PLE_WEBWORK_RENDERER_HEALTHCHECK for the pinned renderer image}"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
-    # No ports, volumes, database endpoint, or object-store credential belong
-    # here.  The renderer receives trusted source bytes only through its
-    # private HTTP request contract.
+    networks:
+      - webwork_db_private
+
+  # This builds upstream WebWork2 and PG directly from full immutable Git
+  # revisions.  PLE supplies deployment configuration only; no forked source
+  # or PLE mount enters this image.
+  webwork-renderer:
+    profiles: ["webwork"]
+    build:
+      context: ..
+      dockerfile: containers/webwork/Containerfile
+      args:
+        WEBWORK_BASE_IMAGE: docker.io/library/ubuntu@sha256:${PLE_WEBWORK_BASE_IMAGE_SHA256:-0000000000000000000000000000000000000000000000000000000000000000}
+        WEBWORK2_GIT_URL: ${PLE_WEBWORK2_GIT_URL:-https://example.invalid/webwork2.git}
+        WEBWORK2_GIT_SHA: ${PLE_WEBWORK2_GIT_SHA:-0000000000000000000000000000000000}
+        PG_GIT_URL: ${PLE_WEBWORK_PG_GIT_URL:-https://example.invalid/pg.git}
+        PG_GIT_SHA: ${PLE_WEBWORK_PG_GIT_SHA:-0000000000000000000000000000000000}
+    image: localhost/ple-webwork-renderer:${PLE_WEBWORK_RENDERER_VERSION:-unconfigured}
+    depends_on:
+      webwork-db:
+        condition: service_healthy
+    environment:
+      WEBWORK_DB_HOST: webwork-db
+      WEBWORK_DB_PORT: "3306"
+      WEBWORK_DB_NAME: ${PLE_WEBWORK_DATABASE_NAME:-webwork}
+      WEBWORK_DB_USER: ${PLE_WEBWORK_DATABASE_USER:-webwork}
+      WEBWORK_DB_PASSWORD: ${PLE_WEBWORK_DATABASE_PASSWORD:-unconfigured}
+      PLE_WEBWORK_RENDER_COURSE_ID: ${PLE_WEBWORK_RENDER_COURSE_ID:-ple-render}
+      PLE_WEBWORK_RENDER_USER: ${PLE_WEBWORK_RENDER_USER:-ple-renderer}
+      PLE_WEBWORK_RENDER_PASSWORD_FILE: /run/ple-secrets/webwork_render_password
+      PLE_WEBWORK_MOJO_SECRET_FILE: /run/ple-secrets/webwork_mojolicious_secret
+    volumes:
+      # Course files and MariaDB must survive together. This is upstream state,
+      # not a PLE content/object-store mount.
+      - ple_webwork_courses:/opt/webwork/courses
+      - type: bind
+        source: ${PLE_WEBWORK_RENDER_PASSWORD_HOST_FILE:-/dev/null}
+        target: /run/ple-secrets/webwork_render_password
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${PLE_WEBWORK_MOJO_SECRET_HOST_FILE:-/dev/null}
+        target: /run/ple-secrets/webwork_mojolicious_secret
+        read_only: true
+        bind:
+          create_host_path: false
+    cap_drop:
+      - ALL
+    cap_add:
+      # Entry bootstrap owns files then invokes upstream sudo to run www-data.
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    # Upstream's documented bootstrap writes its course/config/log/temp paths.
+    # The entrypoint performs that short root-only phase then execs www-data.
+    read_only: false
+    cpus: "2.0"
+    mem_limit: 3g
+    pids_limit: 512
+    restart: on-failure
+    stop_grace_period: 30s
     networks:
       - renderer_private
+      - webwork_db_private
 
 volumes:
   ple_pgdata:
   ple_miniodata:
+  ple_webwork_dbdata:
+  ple_webwork_courses:
+  ple_webwork_api_runtime:
 
 networks:
-  # PostgreSQL, MinIO, API, and worker share the private application network.
-  # Declaring it explicitly keeps Compose implementations from treating the
-  # API's and worker's `default` attachment as a missing named network.
   default:
-  # Only API replicas and the host-facing gateway join this network. It keeps
-  # gateway containers unable to route to PostgreSQL, MinIO, or the renderer.
   gateway_api:
     internal: true
-  # Compose prevents this network from being published outside the stack.  The
-  # renderer has no default-network attachment, so postgres and minio are not
-  # even routable from its container.
   renderer_private:
+    internal: true
+  webwork_db_private:
     internal: true

@@ -50,9 +50,14 @@ does not absorb native validation, and the native adapter does not acquire QTI a
 - Strict Clippy, formatting, crate-boundary, staged/new-file whitespace, and diff checks passed.
 - Independent review reported PASS with no P0/P1 finding.
 
-## Next package
+## Historical successor
 
-Implement Q4/WP-QTI-6, the provenance contract and typed non-signable archive object key, as defined
-in [qti_profile_mapping_plan.md](../decisions/qti_profile_mapping_plan.md). Freeze the current and
-published origin types, object identity, lifecycle, lock order, and one atomic Store command shape
-before any backend mutation.
+The immediate successor was Q4/WP-QTI-6, the provenance contract and typed non-signable archive
+object key in [qti_profile_mapping_plan.md](../decisions/qti_profile_mapping_plan.md). It froze the
+current and published origin types, object identity, lifecycle, lock order, and one atomic Store
+command shape before backend mutation.
+
+WP-QTI-1 through WP-QTI-12 are now accepted history. Current authority is
+[release_completion_plan.md](../active/release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
+is current, WP-ARCH1 follows it, then WP-RC4 owns the QTI-JSONL contract, WP-RC5 owns families and
+Chapter 1 content, and WP-RC6 closes QTI export and H5P claims.

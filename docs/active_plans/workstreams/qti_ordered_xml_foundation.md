@@ -29,7 +29,7 @@ aggregate text behavior remains locked by an exact public-output regression test
 ## Ownership and size
 
 - `crates/adapters/qti/src/xml.rs`: 552 lines, including the bounded parser and focused tests;
-- `crates/adapters/qti/src/parser_stub/tests.rs`: one exact generic-output regression.
+- `crates/adapters/qti/src/parser/tests.rs`: one exact generic-output regression.
 
 All new accessors and content types are crate-private. Future Canvas and Blackboard parsers must use
 them through their focused profile modules; no browser or persistence contract can construct or
@@ -45,8 +45,13 @@ serialize the XML tree.
 - Tracked, staged, and new-file whitespace checks passed.
 - Independent review reported PASS with no P0/P1 finding.
 
-## Next package
+## Historical successor
 
-Add the server-only mapped-item capability, safe per-item report, and deterministic vendor-to-PLE
-choice-ID mapping before implementing markup conversion or either vendor parser. Private answer and
-identifier mappings must remain non-serializable and non-debuggable.
+The immediate successor added the server-only mapped-item capability, safe per-item report, and
+deterministic vendor-to-PLE choice-ID mapping before markup conversion and vendor parsers. Private
+answer and identifier mappings remained non-serializable and non-debuggable.
+
+WP-QTI-1 through WP-QTI-12 are now accepted history. Current authority is
+[release_completion_plan.md](../active/release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
+is current, WP-ARCH1 follows it, then WP-RC4 owns the QTI-JSONL contract, WP-RC5 owns families and
+Chapter 1 content, and WP-RC6 closes QTI export and H5P claims.

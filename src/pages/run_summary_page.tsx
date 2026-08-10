@@ -6,18 +6,28 @@ import { createSignal, For, onMount, Show, type JSX } from "solid-js";
 import type { RunSummaryOutcome, RunSummaryResponse } from "../api/contracts";
 import { FeedbackPanel } from "../components/feedback_panel";
 import { useApiRuntime } from "../api/runtime";
+import { useCourseThemeRouteData } from "../features/course_appearance/course_theme_context";
 
 export function RunSummaryPage(): JSX.Element {
   const runtime = useApiRuntime();
   const params = useParams();
   const navigate = useNavigate();
-  const [summary, setSummary] = createSignal<RunSummaryResponse>();
-  const [rows, setRows] = createSignal<ReadonlyArray<RunSummaryOutcome>>([]);
+  const scopedRoute = useCourseThemeRouteData();
+  const initialSummary = scopedRoute?.kind === "runSummary" ? scopedRoute.response : undefined;
+  const [summary, setSummary] = createSignal<RunSummaryResponse | undefined>(initialSummary);
+  const [rows, setRows] = createSignal<ReadonlyArray<RunSummaryOutcome>>(
+    initialSummary?.outcomes.items ?? [],
+  );
   const [error, setError] = createSignal<string | null>(null);
   const [loading, setLoading] = createSignal(false);
   const [assignmentId, setAssignmentId] = createSignal<string>();
   const [practiceError, setPracticeError] = createSignal<string | null>(null);
   const seen = new Set<string>();
+
+  async function loadAssignment(next: RunSummaryResponse): Promise<void> {
+    const enrollment = await runtime.client.getEnrollment(next.run.enrollment);
+    setAssignmentId(enrollment.enrollment.assignment);
+  }
 
   async function load(cursor?: string): Promise<void> {
     const runId = params["runId"];
@@ -32,8 +42,7 @@ export function RunSummaryPage(): JSX.Element {
       }
       if (cursor !== undefined) seen.add(cursor);
       setSummary(next);
-      const enrollment = await runtime.client.getEnrollment(next.run.enrollment);
-      setAssignmentId(enrollment.enrollment.assignment);
+      await loadAssignment(next);
       setRows((prior) => {
         const base = cursor === undefined ? [] : prior;
         const ids = new Set(base.map((row) => row.attempt));
@@ -46,7 +55,15 @@ export function RunSummaryPage(): JSX.Element {
     }
   }
 
-  onMount(() => void load());
+  onMount(() => {
+    if (initialSummary === undefined) {
+      void load();
+      return;
+    }
+    void loadAssignment(initialSummary).catch(() => {
+      setError("Could not restore assignment actions. Your displayed summary is still available.");
+    });
+  });
   async function startPractice(): Promise<void> {
     const assignment = assignmentId();
     if (assignment === undefined) return;
@@ -99,8 +116,6 @@ export function RunSummaryPage(): JSX.Element {
                   assetUrl={(asset) =>
                     new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
                   }
-                  onAdvance={() => {}}
-                  advanceLabel="Stay on summary"
                 />
               )}
             </For>

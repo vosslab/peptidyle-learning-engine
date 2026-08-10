@@ -4,6 +4,7 @@ mod assets;
 mod catalog;
 #[cfg(test)]
 mod catalog_search_tests;
+mod course_appearance;
 mod exports;
 mod external_tool;
 mod flat_import_provenance;
@@ -237,6 +238,11 @@ struct State {
     prepared_qti_grading:
         BTreeMap<(TenantId, WorkspaceId, WorkspaceImportId, String), QtiImportGradingPayload>,
     courses: BTreeMap<(TenantId, CourseId), CourseRecord>,
+    course_appearances: BTreeMap<(TenantId, CourseId), question_model::CourseAppearance>,
+    course_banner_candidates: BTreeMap<
+        (TenantId, CourseId, question_model::CourseBannerCandidateId),
+        course_appearance::StoredCourseBannerCandidate,
+    >,
     course_groups: BTreeMap<(TenantId, CourseGroupId), CourseGroupRecord>,
     course_group_revisions: BTreeMap<(TenantId, CourseGroupId), CourseGroupRevision>,
     assignments: BTreeMap<(TenantId, AssignmentId), AssignmentRecord>,
@@ -761,6 +767,14 @@ impl Store for MemoryStore {
             .collect::<BTreeSet<_>>();
         let snapshot = state.clone();
         state.courses.insert((tenant, course_id), course);
+        state
+            .course_appearances
+            .entry((tenant, course_id))
+            .or_insert_with(|| question_model::CourseAppearance {
+                theme: question_model::CourseThemeId::default(),
+                revision: question_model::CourseAppearanceRevision::INITIAL,
+                banner: None,
+            });
         for group in &affected_groups {
             if let Some(record) = state.course_groups.get_mut(&(tenant, *group)) {
                 record

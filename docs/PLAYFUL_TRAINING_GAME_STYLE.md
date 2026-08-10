@@ -1,9 +1,10 @@
 # Playful training game style
 
-Design guide for arcade-style onboarding trainers aimed at older learners
-(lab students, new hires, technical apprentices). Sibling document to
-[docs/FUN_VIBES_DESIGN_STYLE.md](FUN_VIBES_DESIGN_STYLE.md), which targets
-middle-school kids. Same engine. Tighter tone.
+Optional inspiration guide for standalone, ungraded arcade-style trainers for
+older learners (lab students, new hires, technical apprentices). It is a
+sibling to [FUN_VIBES_DESIGN_STYLE.md](FUN_VIBES_DESIGN_STYLE.md), which
+targets middle-school kids. It is not a PLE product requirement or an
+institutional-assessment specification.
 
 ## Scope
 
@@ -28,6 +29,28 @@ It is NOT for:
 - Formal certification exams or record-bearing assessments, unless used
   only as a practice layer before the real assessment.
 - Long-form courseware that needs lecture-style depth.
+
+## PLE institutional boundary
+
+This guide is non-normative for Peptidyle Learning Engine (PLE). The active
+plan, durable human guidance, course policy, and server contracts govern PLE;
+they override every game-design suggestion below.
+
+- PLE supports mastery through continued repetition and varied, server-issued
+  practice. It does not use coins, a shop, purchasable themes, or browser-owned
+  progress as an authority.
+- PLE's 15 course themes are instructor-selected and server-owned, with
+  `grass` as the default. They are not learner rewards, unlockables, or a
+  personal cosmetics catalog.
+- PLE feedback, disclosure timing, correctness, grades, and student records
+  remain server-owned and policy-controlled. A visual treatment cannot reveal
+  feedback before the server authorizes disclosure.
+- Nonessential browser storage, including preferences or standalone-game
+  progress, needs the applicable consent path and never becomes PLE's source
+  of truth.
+
+For PLE implementation, use [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
+[FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md), and the active plan.
 
 ## Framing
 
@@ -84,7 +107,7 @@ Five principles override others when they conflict.
 - Shaming copy. "Wrong" alone is shaming; "Not quite - here's why" is
   not.
 
-## Reward systems
+## Standalone-trainer reward systems
 
 - **One reward currency**, treated as professional progress, not loot.
   Suggested vocabulary: "lab credits", "XP", "competency points",
@@ -224,16 +247,16 @@ type - the engine handles draw, answer, scoring, feedback identically.
 - **Progress board** as the dominant home-screen element. Stats and
   competency stamps tell the learner where they stand.
 
-## Architecture rules that protect the vibe
+## Standalone-trainer architecture patterns
 
 Same as the kid game - these are Layer 1 rules.
 
 - **Centralized event dispatch** (`record_event(GameEvent)`). One funnel
   for every gameplay event. TS compiler enforces every goal/badge has a
   handler.
-- **Versioned save schema.** Single key, version field, forward
-  migration. Critical for a multi-session trainer - losing progress
-  destroys trust.
+- **Versioned save schema.** A standalone trainer may use one local key with
+  a version field and forward migration. Obtain consent when required; do not
+  use this pattern for PLE records or authoritative progress.
 - **One reward currency**, performance stats separate.
 - **Cachebust assets at build time.** Random dev-server port. Same
   rules as kid game.
@@ -274,12 +297,11 @@ valid findings on their own.
 
 ## Portability checklist
 
-Day-one MUST-HAVES:
+Standalone-trainer MUST-HAVES:
 
 - [ ] One reward currency, plus performance stats as feedback only.
 - [ ] Wrong-answer teaching contract: picked / correct / why.
 - [ ] Big touch targets (min 56px), keyboard parity, mobile padding.
-- [ ] Versioned save schema with forward migration.
 - [ ] Centralized event dispatch for rewardable events.
 - [ ] Cachebust at build time + random dev-server port.
 - [ ] At least one scenario mode wired end-to-end.

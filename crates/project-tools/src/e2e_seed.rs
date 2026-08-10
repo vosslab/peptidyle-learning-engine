@@ -13,16 +13,17 @@ use learning_data_access::{
     AssignmentPolicyExceptionTarget, AssignmentRecord, AssignmentScoringCommitOutcome,
     AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore, AssignmentUpdate,
     AttemptAutoSubmitCommitOutcome, AttemptAutoSubmitWorkerCommand, AttemptAutoSubmitWorkerStore,
-    AttemptSupportActionId, AuthoritativeTimeStore, CatalogStore, ClearAttemptCommand,
-    CourseGroupRecord, CourseRecord, DeleteAndRegradeAssignmentItemCommand,
+    AttemptSupportActionId, AuthoritativeTimeStore, CatalogSourceStore, CatalogStore,
+    ClearAttemptCommand, CourseGroupRecord, CourseRecord, DeleteAndRegradeAssignmentItemCommand,
     DeleteAssignmentPolicyExceptionCommand, DraftRecord, ForceSubmitAttemptCommand,
     IssueQuestionAttemptCommand, JobClaimFilter, JobLeaseDuration, JobPayload, JobStore,
     PageRequest, PageSize, PublishDraftCommand, PutCourseGroupCommand,
     SetAssignmentPolicyExceptionCommand, Store, StoreError, SubmissionIdempotencyKey,
     SubmitQuestionAttemptCommand, TenantContext, UpdateAssignmentTimingCommand,
 };
+use objects::{ObjectCategory, ObjectKey, ObjectStore, PutObject};
 use question_model::answer::SelectionCardinality;
-use question_model::capability::BackendCapabilities;
+use question_model::capability::{BackendCapabilities, Capability};
 use question_model::definition::{
     DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionMetadata,
     QuestionSource,
@@ -38,16 +39,25 @@ use question_model::taxonomy::{License, Tag};
 use question_model::{
     ActivityTimestamp, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId, AssignmentItem,
     AssignmentItemId, AssignmentPolicyExceptionId, AssignmentScoringMode, AssignmentTimingPolicy,
-    AttemptProvenance, AttemptResult, AttemptStatus, CourseGroupId, CourseId, CourseMembership,
-    CourseMembershipRole, EnrollmentId, FeedbackContent, ImplementationVersion, PointValue,
-    ProblemId, ProblemVersionRef, PublicationScope, QuestionAttemptId, RunId, StudentId, TenantId,
-    UserId, VersionId, WorkspaceId,
+    AttemptProvenance, AttemptResult, AttemptStatus, CatalogLifecycle, CourseGroupId, CourseId,
+    CourseMembership, CourseMembershipRole, EnrollmentId, FeedbackContent, ImplementationVersion,
+    ObjectId, PointValue, ProblemId, ProblemVersionRef, PublicationScope, QuestionAttemptId, RunId,
+    StudentId, TenantId, UserId, VersionId, WorkspaceId,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-const USAGE: &str = "usage: cargo tools e2e-seed --database-url <URL> --tenant <UUID> (--instructor <UUID>|--user <UUID>) --student <UUID> --apply-migrations [--exercise-scoring] [--exercise-timing]";
+const USAGE: &str = "usage: cargo tools e2e-seed --database-url <URL> --tenant <UUID> (--instructor <UUID>|--user <UUID>) --student <UUID> --apply-migrations [--exercise-scoring] [--exercise-timing] [--webwork-pilot --s3-endpoint <URL> --s3-region <REGION> --content-bucket <BUCKET>]";
+const WEBWORK_PILOT_SOURCE_PATH: &str = "content/pilot/webwork/which_hydrophobic-simple.pgml";
+const WEBWORK_PILOT_SOURCE: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../content/pilot/webwork/which_hydrophobic-simple.pgml"
+));
+const WEBWORK_PILOT_SOURCE_SHA256: &str =
+    "2a662d3af1385dc180c529509106208424c978ba3890c411ae451b1be0369b2b";
+const WEBWORK_PILOT_SOURCE_PROVENANCE: &str = "Copied byte-for-byte from OTHER_REPOS/biology-problems-website/site_docs/biochemistry/topic01/downloads/which_hydrophobic-simple.pgml; source header declares CC BY 4.0 and notes that source code portions are LGPLv3.";
+const WEBWORK_PILOT_CONVERGENCE_ATTEMPTS: u8 = 3;
 
 /// Non-secret identifiers the replica E2E runner needs to start an assignment.
 #[derive(Debug, Serialize)]
@@ -59,6 +69,7 @@ struct Manifest {
     version_id: VersionId,
 }
 
+#[derive(Debug)]
 struct SeedArguments {
     database_url: String,
     tenant: TenantId,
@@ -67,6 +78,18 @@ struct SeedArguments {
     apply_migrations: bool,
     exercise_scoring: bool,
     exercise_timing: bool,
+    webwork_pilot: Option<WebworkPilotStorage>,
+}
+
+/// Non-secret host-only connection parameters for the opt-in WebWork pilot.
+///
+/// Credentials remain in `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` so
+/// they never appear in command output or process arguments.
+#[derive(Debug)]
+struct WebworkPilotStorage {
+    endpoint_url: String,
+    region: String,
+    content_bucket: String,
 }
 
 /// Dispatches the host-only command without adding an API route or a service.
@@ -93,6 +116,10 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
     let mut apply_migrations = false;
     let mut exercise_scoring = false;
     let mut exercise_timing = false;
+    let mut webwork_pilot = false;
+    let mut s3_endpoint = None;
+    let mut s3_region = None;
+    let mut content_bucket = None;
     let mut index = 0;
     while index < args.len() {
         let flag = &args[index];
@@ -109,6 +136,10 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
             apply_migrations = true;
             continue;
         }
+        if flag == "--webwork-pilot" && !webwork_pilot {
+            webwork_pilot = true;
+            continue;
+        }
         let Some(value) = args.get(index) else {
             bail!("{flag} requires a value; {USAGE}");
         };
@@ -120,9 +151,30 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
                 instructor = Some(parse_user(value, "instructor")?);
             }
             "--student" if student.is_none() => student = Some(parse_user(value, "student")?),
+            "--s3-endpoint" if s3_endpoint.is_none() => s3_endpoint = Some(value.clone()),
+            "--s3-region" if s3_region.is_none() => s3_region = Some(value.clone()),
+            "--content-bucket" if content_bucket.is_none() => content_bucket = Some(value.clone()),
             _ => bail!("unknown, duplicate, or misplaced argument {flag}; {USAGE}"),
         }
     }
+    let webwork_pilot = match (webwork_pilot, s3_endpoint, s3_region, content_bucket) {
+        (false, None, None, None) => None,
+        (false, _, _, _) => {
+            bail!(
+                "--s3-endpoint, --s3-region, and --content-bucket require --webwork-pilot; {USAGE}"
+            )
+        }
+        (true, Some(endpoint_url), Some(region), Some(content_bucket)) => {
+            Some(WebworkPilotStorage {
+                endpoint_url: validate_s3_endpoint(&endpoint_url)?,
+                region,
+                content_bucket,
+            })
+        }
+        (true, _, _, _) => bail!(
+            "--webwork-pilot requires --s3-endpoint, --s3-region, and --content-bucket; {USAGE}"
+        ),
+    };
     let arguments = SeedArguments {
         database_url: database_url
             .ok_or_else(|| anyhow::anyhow!("--database-url is required; {USAGE}"))?,
@@ -133,6 +185,7 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
         apply_migrations,
         exercise_scoring,
         exercise_timing,
+        webwork_pilot,
     };
     if arguments.instructor == arguments.student {
         bail!("--instructor and --student must identify different users for the E2E course");
@@ -141,6 +194,21 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
         bail!("--apply-migrations is required because e2e-seed changes database schema; {USAGE}");
     }
     Ok(arguments)
+}
+
+fn validate_s3_endpoint(value: &str) -> Result<String> {
+    let endpoint =
+        url::Url::parse(value).context("--s3-endpoint must be an absolute HTTP(S) URL")?;
+    if !matches!(endpoint.scheme(), "http" | "https") || endpoint.host_str().is_none() {
+        bail!("--s3-endpoint must be an absolute HTTP(S) URL");
+    }
+    if !endpoint.username().is_empty() || endpoint.password().is_some() {
+        bail!("--s3-endpoint must not include credentials");
+    }
+    if endpoint.query().is_some() || endpoint.fragment().is_some() {
+        bail!("--s3-endpoint must not include a query or fragment");
+    }
+    Ok(endpoint.into())
 }
 
 fn parse_tenant(value: &str, name: &str) -> Result<TenantId> {
@@ -156,6 +224,13 @@ fn parse_user(value: &str, name: &str) -> Result<UserId> {
 }
 
 async fn seed(arguments: SeedArguments) -> Result<Manifest> {
+    if arguments.webwork_pilot.is_some() {
+        return seed_webwork_pilot(&arguments).await;
+    }
+    seed_native(arguments).await
+}
+
+async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
     let pool = learning_data_access::postgres::lazy_pool(&arguments.database_url)
         .context("invalid --database-url for e2e seed")?;
     if arguments.apply_migrations {
@@ -326,6 +401,455 @@ async fn seed(arguments: SeedArguments) -> Result<Manifest> {
         problem_id: ids.problem,
         version_id: ids.version,
     })
+}
+
+/// Seeds one licensed, immutable PGML source through the same PostgreSQL
+/// catalog binding that the production WebWork backend later resolves. This is
+/// an opt-in host tool: no HTTP route or browser-supplied storage value exists.
+async fn seed_webwork_pilot(arguments: &SeedArguments) -> Result<Manifest> {
+    let storage = arguments
+        .webwork_pilot
+        .as_ref()
+        .expect("WebWork pilot storage exists after explicit flag dispatch");
+    let pool = learning_data_access::postgres::lazy_pool(&arguments.database_url)
+        .context("invalid --database-url for WebWork E2E seed")?;
+    learning_data_access::postgres::apply_migrations(&pool)
+        .await
+        .context("applying embedded migrations for WebWork E2E seed")?;
+    let store = learning_data_access::postgres::PostgresStore::new(pool);
+    let context = TenantContext::from_authenticated_session(arguments.tenant);
+    let ids = WebworkPilotSeedIds::for_tenant(arguments.tenant);
+    let reference = ProblemVersionRef {
+        problem: ids.problem,
+        version: ids.version,
+    };
+    let source_record =
+        put_webwork_pilot_source(&store, context, storage, reference, ids.source_object).await?;
+    let draft = DraftRecord {
+        tenant: arguments.tenant,
+        question: webwork_pilot_draft(ids.workspace),
+        revises: None,
+        derived_from: None,
+    };
+    let capabilities = webwork_capabilities();
+    let violations = domain::policy::validate_draft_for_publication(&draft.question, &capabilities);
+    if !violations.is_empty() {
+        bail!("WebWork pilot seed draft failed publication capability admission: {violations:?}");
+    }
+    ensure_webwork_pilot_publication(
+        &store,
+        context,
+        arguments.instructor,
+        draft,
+        reference,
+        source_record,
+        capabilities,
+    )
+    .await?;
+    let course = CourseRecord {
+        id: ids.course,
+        tenant: arguments.tenant,
+        title: "PLE WebWork pilot E2E course".to_string(),
+        members: vec![
+            CourseMembership {
+                user: arguments.instructor,
+                role: CourseMembershipRole::Instructor,
+            },
+            CourseMembership {
+                user: arguments.student,
+                role: CourseMembershipRole::Student,
+            },
+        ],
+    };
+    ensure_webwork_pilot_course(&store, context, course).await?;
+    let assignment = AssignmentRecord {
+        id: ids.assignment,
+        tenant: arguments.tenant,
+        course_id: ids.course,
+        title: "PLE WebWork pilot E2E assignment".to_string(),
+        items: vec![AssignmentItem {
+            id: ids.assignment_item,
+            reference,
+            position: 0,
+            points_possible: PointValue::from_whole(1),
+            delivery_state: AssignmentDeliveryState::Active,
+            scoring_mode: AssignmentScoringMode::Normal,
+        }],
+        selection_groups: Vec::new(),
+        policies: RunPolicies {
+            completion: CompletionRequirement::AnswerAll,
+            grade: GradePolicy::Highest,
+            continued_practice: ContinuedPractice::Unlimited,
+            variation: VariationPolicy::NewSeeds,
+        },
+    };
+    ensure_webwork_pilot_assignment(&store, context, assignment).await?;
+    ensure_webwork_pilot_enrollment(
+        &store,
+        context,
+        AssignmentEnrollment {
+            id: ids.enrollment,
+            tenant: arguments.tenant,
+            assignment: ids.assignment,
+            user: arguments.student,
+            student: StudentId::from_uuid(arguments.student.as_uuid()),
+            first_completed_at: None,
+            current_grade_run: None,
+            best_grade_run: None,
+        },
+    )
+    .await?;
+    Ok(Manifest {
+        assignment_id: ids.assignment,
+        enrollment_id: ids.enrollment,
+        problem_id: ids.problem,
+        version_id: ids.version,
+    })
+}
+
+async fn put_webwork_pilot_source(
+    store: &learning_data_access::postgres::PostgresStore,
+    context: TenantContext,
+    storage: &WebworkPilotStorage,
+    reference: ProblemVersionRef,
+    object: ObjectId,
+) -> Result<objects::ObjectRecord> {
+    if objects::Sha256Digest::compute(WEBWORK_PILOT_SOURCE).to_string()
+        != WEBWORK_PILOT_SOURCE_SHA256
+    {
+        bail!("tracked WebWork pilot source digest differs from its recorded provenance");
+    }
+    let access_key_id = required_secret_environment("AWS_ACCESS_KEY_ID")?;
+    let secret_access_key = required_secret_environment("AWS_SECRET_ACCESS_KEY")?;
+    let client = objects::minio::client(&objects::minio::EndpointConfig {
+        endpoint_url: storage.endpoint_url.clone(),
+        region: storage.region.clone(),
+        access_key_id,
+        secret_access_key,
+    });
+    let objects = objects::s3::S3ObjectStore::new(
+        client,
+        objects::s3::BucketNames {
+            content: storage.content_bucket.clone(),
+            ..objects::s3::BucketNames::default()
+        },
+    );
+    let key = webwork_pilot_source_key(reference, object);
+    let request = PutObject {
+        key: key.clone(),
+        bytes: WEBWORK_PILOT_SOURCE.to_vec(),
+        media_type: "text/x-wework-pg".to_string(),
+        license: "CC-BY-4.0".to_string(),
+        provenance: WEBWORK_PILOT_SOURCE_PROVENANCE.to_string(),
+        created_at: store
+            .authoritative_time(context)
+            .await
+            .context("reading database time for WebWork source provenance")?,
+    };
+    let record = match objects.put(request).await {
+        Ok(record) => record,
+        Err(objects::ObjectStoreError::AlreadyExists) => {
+            objects
+                .get(&key)
+                .await
+                .context("reading existing immutable WebWork pilot source")?
+                .record
+        }
+        Err(error) => return Err(error).context("writing immutable WebWork pilot source"),
+    };
+    if record.id != object
+        || record.key != key
+        || record.category != ObjectCategory::Source
+        || record.version != Some(reference.version)
+        || record.sha256.to_string() != WEBWORK_PILOT_SOURCE_SHA256
+        || record.size_bytes != u64::try_from(WEBWORK_PILOT_SOURCE.len()).expect("source fits u64")
+        || record.media_type != "text/x-wework-pg"
+        || record.license != "CC-BY-4.0"
+        || record.provenance != WEBWORK_PILOT_SOURCE_PROVENANCE
+    {
+        bail!("existing WebWork pilot source does not match its immutable provenance record");
+    }
+    Ok(record)
+}
+
+fn required_secret_environment(name: &str) -> Result<String> {
+    let value = std::env::var(name)
+        .with_context(|| format!("{name} is required for WebWork pilot object storage"))?;
+    if value.is_empty() {
+        bail!("{name} must not be empty for WebWork pilot object storage");
+    }
+    Ok(value)
+}
+
+async fn ensure_webwork_pilot_publication<S>(
+    store: &S,
+    context: TenantContext,
+    publisher: UserId,
+    draft: DraftRecord,
+    reference: ProblemVersionRef,
+    source_record: objects::ObjectRecord,
+    capabilities: BackendCapabilities,
+) -> Result<()>
+where
+    S: Store + CatalogStore + CatalogSourceStore,
+{
+    let expected_question = question_model::QuestionDefinition::from_draft(
+        draft.question.clone(),
+        reference.problem,
+        reference.version,
+        webwork_pilot_published_source(),
+    );
+    let expected_artifact = learning_data_access::PublishedSourceArtifact {
+        reference,
+        backend: question_model::QuestionBackend::Webwork,
+        object: source_record,
+    };
+    for _ in 0..WEBWORK_PILOT_CONVERGENCE_ATTEMPTS {
+        if let Some(existing) = store
+            .get_catalog_problem(context, reference)
+            .await
+            .context("reading deterministic WebWork pilot publication")?
+        {
+            return verify_webwork_pilot_publication(
+                store,
+                context,
+                publisher,
+                &existing,
+                &expected_question,
+                &expected_artifact,
+                &capabilities,
+            )
+            .await;
+        }
+        let Some(saved_draft) =
+            ensure_webwork_pilot_draft(store, context, publisher, draft.clone()).await?
+        else {
+            // A colliding seeder may have consumed the exact draft while this
+            // caller reread it. Recheck the immutable publication first.
+            continue;
+        };
+        let command = PublishDraftCommand {
+            expected_draft: draft.clone(),
+            expected_revision: saved_draft.revision,
+            publication: reference,
+            published_source: webwork_pilot_published_source(),
+            source_artifact: Some(expected_artifact.clone()),
+            qti_promotion: None,
+            flat_question_promotion: None,
+            publisher,
+            scope: PublicationScope::Institution,
+            capabilities: capabilities.clone(),
+        };
+        match store.publish_draft(context, publisher, command).await {
+            Ok(published) => {
+                return verify_webwork_pilot_publication(
+                    store,
+                    context,
+                    publisher,
+                    &published,
+                    &expected_question,
+                    &expected_artifact,
+                    &capabilities,
+                )
+                .await;
+            }
+            Err(StoreError::AlreadyExists) => continue,
+            Err(error) => {
+                return Err(error).context("publishing deterministic WebWork pilot E2E question");
+            }
+        }
+    }
+    bail!("WebWork pilot publication did not converge after concurrent seed retries")
+}
+
+/// Returns a matching draft to publish, or `None` when another seeder consumed
+/// it between a conflict and reread so the caller must recheck publication.
+async fn ensure_webwork_pilot_draft<S>(
+    store: &S,
+    context: TenantContext,
+    publisher: UserId,
+    expected: DraftRecord,
+) -> Result<Option<learning_data_access::WorkspaceDraft>>
+where
+    S: Store,
+{
+    let existing = store
+        .get_draft(context, publisher, expected.question.workspace)
+        .await
+        .context("reading resumable WebWork pilot draft")?;
+    match existing {
+        Some(stored) => reconcile_webwork_pilot_draft(Some(stored), &expected),
+        None => match store
+            .upsert_draft(context, publisher, None, expected.clone())
+            .await
+        {
+            Ok(stored) => reconcile_webwork_pilot_draft(Some(stored), &expected),
+            Err(StoreError::Conflict | StoreError::AlreadyExists) => {
+                let raced = store
+                    .get_draft(context, publisher, expected.question.workspace)
+                    .await
+                    .context("rereading WebWork pilot draft after seed conflict")?;
+                reconcile_webwork_pilot_draft(raced, &expected)
+            }
+            Err(error) => Err(error).context("writing deterministic WebWork pilot E2E draft"),
+        },
+    }
+}
+
+/// The pure post-conflict decision used by the injected draft-create race test.
+fn reconcile_webwork_pilot_draft(
+    stored: Option<learning_data_access::WorkspaceDraft>,
+    expected: &DraftRecord,
+) -> Result<Option<learning_data_access::WorkspaceDraft>> {
+    match stored {
+        Some(stored) if stored.record == *expected => Ok(Some(stored)),
+        Some(_) => bail!("existing WebWork pilot draft differs from the deterministic seed"),
+        None => Ok(None),
+    }
+}
+
+async fn verify_webwork_pilot_publication<S>(
+    store: &S,
+    context: TenantContext,
+    publisher: UserId,
+    actual: &learning_data_access::PublishedProblemRecord,
+    expected_question: &question_model::QuestionDefinition,
+    expected_artifact: &learning_data_access::PublishedSourceArtifact,
+    expected_capabilities: &BackendCapabilities,
+) -> Result<()>
+where
+    S: CatalogSourceStore,
+{
+    let reference = expected_artifact.reference;
+    if actual.problem != reference.problem
+        || actual.version != reference.version
+        || actual.version_number.value() != 1
+        || actual.question != *expected_question
+        || actual.capabilities != *expected_capabilities
+        || actual.scope != PublicationScope::Institution
+        || actual.lifecycle != CatalogLifecycle::Published
+        || actual.authors != vec![publisher]
+        || actual.previous_version.is_some()
+        || actual.derived_from.is_some()
+    {
+        bail!("existing WebWork pilot publication differs from the deterministic seed");
+    }
+    let artifact = store
+        .catalog_source_artifact(context, reference)
+        .await
+        .context("reading immutable WebWork pilot source binding")?
+        .ok_or_else(|| {
+            anyhow::anyhow!("existing WebWork pilot publication has no source binding")
+        })?;
+    if artifact != *expected_artifact {
+        bail!("existing WebWork pilot source binding differs from the deterministic seed");
+    }
+    Ok(())
+}
+
+async fn ensure_webwork_pilot_course<S>(
+    store: &S,
+    context: TenantContext,
+    expected: CourseRecord,
+) -> Result<()>
+where
+    S: Store,
+{
+    match store
+        .get_course(context, expected.id)
+        .await
+        .context("reading deterministic WebWork pilot course")?
+    {
+        Some(actual) if actual == expected => Ok(()),
+        Some(_) => bail!("existing WebWork pilot course differs from the deterministic seed"),
+        None => {
+            store
+                .upsert_course(context, expected.clone())
+                .await
+                .context("creating WebWork pilot E2E course")?;
+            let actual = store
+                .get_course(context, expected.id)
+                .await
+                .context("reloading created WebWork pilot course")?
+                .ok_or_else(|| anyhow::anyhow!("created WebWork pilot course disappeared"))?;
+            if actual != expected {
+                bail!("created WebWork pilot course differs from the deterministic seed");
+            }
+            Ok(())
+        }
+    }
+}
+
+async fn ensure_webwork_pilot_assignment<S>(
+    store: &S,
+    context: TenantContext,
+    expected: AssignmentRecord,
+) -> Result<()>
+where
+    S: Store,
+{
+    match store
+        .get_assignment_for_edit(context, expected.id)
+        .await
+        .context("reading deterministic WebWork pilot assignment")?
+    {
+        Some(actual) if actual.record == expected => Ok(()),
+        Some(_) => bail!("existing WebWork pilot assignment differs from the deterministic seed"),
+        None => {
+            let created = match store.create_assignment(context, expected.clone()).await {
+                Ok(record) => record,
+                Err(StoreError::AlreadyExists) => store
+                    .get_assignment_for_edit(context, expected.id)
+                    .await
+                    .context("reading concurrently created WebWork pilot assignment")?
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("WebWork pilot assignment disappeared after conflict")
+                    })?,
+                Err(error) => return Err(error).context("creating WebWork pilot E2E assignment"),
+            };
+            if created.record != expected {
+                bail!("created WebWork pilot assignment differs from the deterministic seed");
+            }
+            Ok(())
+        }
+    }
+}
+
+async fn ensure_webwork_pilot_enrollment<S>(
+    store: &S,
+    context: TenantContext,
+    expected: AssignmentEnrollment,
+) -> Result<()>
+where
+    S: Store,
+{
+    match store
+        .get_enrollment(context, expected.id)
+        .await
+        .context("reading deterministic WebWork pilot enrollment")?
+    {
+        Some(actual) if actual == expected => Ok(()),
+        Some(_) => bail!("existing WebWork pilot enrollment differs from the deterministic seed"),
+        None => match store.create_enrollment(context, expected.clone()).await {
+            Ok(()) => Ok(()),
+            Err(StoreError::AlreadyExists) => {
+                let actual = store
+                    .get_enrollment(context, expected.id)
+                    .await
+                    .context("reading concurrently created WebWork pilot enrollment")?
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("WebWork pilot enrollment disappeared after conflict")
+                    })?;
+                if actual != expected {
+                    bail!(
+                        "concurrently created WebWork pilot enrollment differs from the deterministic seed"
+                    );
+                }
+                Ok(())
+            }
+            Err(error) => Err(error).context("creating WebWork pilot E2E enrollment"),
+        },
+    }
 }
 
 async fn exercise_assignment_timing(
@@ -1731,6 +2255,13 @@ fn native_capabilities() -> Result<BackendCapabilities> {
         .context("resolving capabilities for the native E2E question family")
 }
 
+/// The shipped WebWork adapter declares these two capabilities for every PG
+/// source. This seed stays within that contract: it is algorithmic and grades
+/// only on the server; it does not claim partial credit or hints.
+fn webwork_capabilities() -> BackendCapabilities {
+    BackendCapabilities::from_iter([Capability::AlgorithmicGeneration, Capability::ServerGrading])
+}
+
 #[derive(Clone, Copy)]
 struct SeedIds {
     workspace: WorkspaceId,
@@ -1764,6 +2295,36 @@ struct SeedIds {
     timing_student_exception: AssignmentPolicyExceptionId,
     timing_exception_run: RunId,
     timing_exception_attempt: QuestionAttemptId,
+}
+
+/// A disjoint deterministic ID namespace lets the opt-in WebWork pilot seed
+/// coexist with the native replica seed in the same disposable database.
+#[derive(Clone, Copy)]
+struct WebworkPilotSeedIds {
+    workspace: WorkspaceId,
+    problem: ProblemId,
+    version: VersionId,
+    source_object: ObjectId,
+    course: CourseId,
+    assignment: AssignmentId,
+    assignment_item: AssignmentItemId,
+    enrollment: EnrollmentId,
+}
+
+impl WebworkPilotSeedIds {
+    fn for_tenant(tenant: TenantId) -> Self {
+        let id = |label| webwork_pilot_uuid(tenant, label);
+        Self {
+            workspace: WorkspaceId::from_uuid(id("workspace")),
+            problem: ProblemId::from_uuid(id("problem")),
+            version: VersionId::from_uuid(id("version")),
+            source_object: ObjectId::from_uuid(id("source-object")),
+            course: CourseId::from_uuid(id("course")),
+            assignment: AssignmentId::from_uuid(id("assignment")),
+            assignment_item: AssignmentItemId::from_uuid(id("assignment-item")),
+            enrollment: EnrollmentId::from_uuid(id("enrollment")),
+        }
+    }
 }
 
 impl SeedIds {
@@ -1856,6 +2417,19 @@ fn derived_uuid(tenant: TenantId, label: &str) -> Uuid {
     Uuid::from_bytes(bytes)
 }
 
+fn webwork_pilot_uuid(tenant: TenantId, label: &str) -> Uuid {
+    let mut hasher = Sha256::new();
+    hasher.update(b"ple-webwork-pilot-e2e-seed-v1:");
+    hasher.update(tenant.as_uuid().as_bytes());
+    hasher.update(label.as_bytes());
+    let digest = hasher.finalize();
+    let mut bytes = [0_u8; 16];
+    bytes.copy_from_slice(&digest[..16]);
+    bytes[6] = (bytes[6] & 0x0f) | 0x50;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    Uuid::from_bytes(bytes)
+}
+
 fn native_draft(workspace: WorkspaceId) -> DraftQuestionDefinition {
     let mut parameters = BTreeMap::new();
     parameters.insert(
@@ -1903,6 +2477,59 @@ fn native_draft(workspace: WorkspaceId) -> DraftQuestionDefinition {
     }
 }
 
+fn webwork_pilot_draft(workspace: WorkspaceId) -> DraftQuestionDefinition {
+    DraftQuestionDefinition {
+        workspace,
+        source: DraftQuestionSource::Webwork {
+            pg_path: WEBWORK_PILOT_SOURCE_PATH.to_string(),
+        },
+        // The renderer replaces this neutral catalog placeholder with the
+        // immutable PGML's prompt and radio choices before learner delivery.
+        // No answer value is stored here.
+        prompt: vec![ContentBlock::Text {
+            markdown: "This question is rendered by the private WeBWorK service.".to_string(),
+        }],
+        response: ResponseDefinition::MultipleChoice {
+            choices: vec![choice("renderer-owned", "Rendered by WeBWorK")],
+            selection: SelectionCardinality::ExactlyOne,
+        },
+        attempt_policy: AttemptPolicy {
+            max_attempts: Some(1),
+            feedback: FeedbackDisclosure::Deferred,
+        },
+        timing_policy: TimingPolicy::Untimed,
+        randomization: RandomizationDefinition::Seeded {
+            generator: GeneratorReference {
+                id: "webwork-problem-seed".to_string(),
+                version: "1".to_string(),
+            },
+            parameters: BTreeMap::new(),
+        },
+        grading: GradingDefinition::AllOrNothing { points: 1.0 },
+        metadata: QuestionMetadata {
+            title: "Biochemistry: Identify hydrophobic compounds from formulas".to_string(),
+            tags: vec![Tag::new("webwork-pilot"), Tag::new("hydrophobicity")],
+            taxonomy: Vec::new(),
+            license: License::CcBy,
+            language: "en".to_string(),
+        },
+    }
+}
+
+fn webwork_pilot_published_source() -> QuestionSource {
+    QuestionSource::Webwork {
+        pg_path: WEBWORK_PILOT_SOURCE_PATH.to_string(),
+    }
+}
+
+fn webwork_pilot_source_key(reference: ProblemVersionRef, object: ObjectId) -> ObjectKey {
+    ObjectKey::ProblemSource {
+        problem: reference.problem,
+        version: reference.version,
+        object,
+    }
+}
+
 fn choice(id: &str, text: &str) -> ChoiceOption {
     ChoiceOption {
         id: ChoiceId::new(id),
@@ -1921,6 +2548,8 @@ mod tests {
         assert!(USAGE.contains("e2e-seed"));
         assert!(!USAGE.contains("token"));
         assert!(!USAGE.contains("answer"));
+        assert!(!USAGE.contains("SECRET_ACCESS_KEY"));
+        assert!(!USAGE.contains("secret-access-key"));
     }
 
     #[test]
@@ -1960,6 +2589,329 @@ mod tests {
         assert!(
             violations.is_empty(),
             "the host seed must pass the same capability check as catalog publication: {violations:?}"
+        );
+    }
+
+    #[test]
+    fn webwork_pilot_requires_all_host_storage_coordinates_without_secret_arguments() {
+        let tenant = "00000000-0000-0000-0000-000000000001".to_string();
+        let instructor = "00000000-0000-0000-0000-000000000002".to_string();
+        let student = "00000000-0000-0000-0000-000000000003".to_string();
+        let result = parse_arguments(&[
+            "--database-url".to_string(),
+            "postgres://example".to_string(),
+            "--tenant".to_string(),
+            tenant,
+            "--instructor".to_string(),
+            instructor,
+            "--student".to_string(),
+            student,
+            "--apply-migrations".to_string(),
+            "--webwork-pilot".to_string(),
+            "--s3-endpoint".to_string(),
+            "http://127.0.0.1:9000".to_string(),
+        ]);
+        let error = result.expect_err("partial WebWork storage settings must refuse");
+        assert!(error.to_string().contains("--content-bucket"));
+        assert!(!error.to_string().contains("AWS_SECRET_ACCESS_KEY"));
+    }
+
+    #[test]
+    fn webwork_pilot_storage_settings_are_opt_in_and_deterministic() {
+        let parsed = parse_arguments(&[
+            "--database-url".to_string(),
+            "postgres://example".to_string(),
+            "--tenant".to_string(),
+            "00000000-0000-0000-0000-000000000001".to_string(),
+            "--instructor".to_string(),
+            "00000000-0000-0000-0000-000000000002".to_string(),
+            "--student".to_string(),
+            "00000000-0000-0000-0000-000000000003".to_string(),
+            "--apply-migrations".to_string(),
+            "--webwork-pilot".to_string(),
+            "--s3-endpoint".to_string(),
+            "http://127.0.0.1:9000".to_string(),
+            "--s3-region".to_string(),
+            "us-east-1".to_string(),
+            "--content-bucket".to_string(),
+            "content".to_string(),
+        ])
+        .expect("complete opt-in settings parse");
+        let storage = parsed
+            .webwork_pilot
+            .expect("WebWork pilot settings retained");
+        assert_eq!(storage.endpoint_url, "http://127.0.0.1:9000/");
+        assert_eq!(storage.region, "us-east-1");
+        assert_eq!(storage.content_bucket, "content");
+    }
+
+    #[test]
+    fn tracked_webwork_fixture_matches_declared_digest_and_provenance() {
+        assert_eq!(
+            objects::Sha256Digest::compute(WEBWORK_PILOT_SOURCE).to_string(),
+            WEBWORK_PILOT_SOURCE_SHA256
+        );
+        let provenance: serde_json::Value = serde_json::from_slice(include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../content/pilot/webwork/which_hydrophobic-simple.provenance.json"
+        )))
+        .expect("tracked provenance is JSON");
+        assert_eq!(provenance["sha256"], WEBWORK_PILOT_SOURCE_SHA256);
+        assert_eq!(
+            provenance["copiedFrom"],
+            "OTHER_REPOS/biology-problems-website/site_docs/biochemistry/topic01/downloads/which_hydrophobic-simple.pgml"
+        );
+        assert_eq!(
+            provenance["title"],
+            "Biochemistry: Identify hydrophobic compounds from formulas"
+        );
+        assert_eq!(provenance["license"], "CC-BY-4.0");
+        assert_eq!(
+            provenance["licenseUrl"],
+            "https://creativecommons.org/licenses/by/4.0/"
+        );
+        assert_eq!(provenance["author"], "Dr. Neil R. Voss");
+        assert_eq!(provenance["institution"], "Roosevelt University");
+        assert_eq!(provenance["date"], "2026-01-23");
+        assert!(
+            String::from_utf8_lossy(WEBWORK_PILOT_SOURCE)
+                .contains("# Source code portions are licensed under LGPLv3.")
+        );
+    }
+
+    #[test]
+    fn webwork_pilot_draft_uses_immutable_source_and_declared_capabilities() {
+        let draft = webwork_pilot_draft(WorkspaceId::from_uuid(Uuid::from_u128(12)));
+        assert_eq!(
+            draft.source,
+            DraftQuestionSource::Webwork {
+                pg_path: WEBWORK_PILOT_SOURCE_PATH.to_string(),
+            }
+        );
+        let capabilities = webwork_capabilities();
+        assert!(capabilities.supports(Capability::AlgorithmicGeneration));
+        assert!(capabilities.supports(Capability::ServerGrading));
+        assert!(!capabilities.supports(Capability::PartialCredit));
+        assert_eq!(draft.attempt_policy.feedback, FeedbackDisclosure::Deferred);
+        assert!(domain::policy::validate_draft_for_publication(&draft, &capabilities).is_empty());
+    }
+
+    #[test]
+    fn webwork_pilot_published_source_binds_one_deterministic_problem_object_key() {
+        let tenant = TenantId::from_uuid(Uuid::from_u128(9));
+        let ids = WebworkPilotSeedIds::for_tenant(tenant);
+        let reference = ProblemVersionRef {
+            problem: ids.problem,
+            version: ids.version,
+        };
+        assert_eq!(
+            webwork_pilot_published_source(),
+            QuestionSource::Webwork {
+                pg_path: WEBWORK_PILOT_SOURCE_PATH.to_string(),
+            }
+        );
+        assert_eq!(
+            webwork_pilot_source_key(reference, ids.source_object),
+            ObjectKey::ProblemSource {
+                problem: ids.problem,
+                version: ids.version,
+                object: ids.source_object,
+            }
+        );
+    }
+
+    #[test]
+    fn webwork_pilot_ids_are_stable_and_disjoint_from_native_seed() {
+        let tenant = TenantId::from_uuid(Uuid::from_u128(9));
+        let first = WebworkPilotSeedIds::for_tenant(tenant);
+        let second = WebworkPilotSeedIds::for_tenant(tenant);
+        let native = SeedIds::for_tenant(tenant);
+        assert_eq!(first.assignment, second.assignment);
+        assert_ne!(first.problem.as_uuid(), first.source_object.as_uuid());
+        assert_ne!(first.problem.as_uuid(), native.problem.as_uuid());
+        assert_ne!(first.assignment.as_uuid(), native.assignment.as_uuid());
+    }
+
+    #[test]
+    fn webwork_pilot_refuses_s3_endpoint_credentials_without_echoing_them() {
+        let error = validate_s3_endpoint("http://public-value:private-value@127.0.0.1:9000")
+            .expect_err("credential-bearing endpoint must refuse");
+        assert!(error.to_string().contains("must not include credentials"));
+        assert!(!error.to_string().contains("public-value"));
+        assert!(!error.to_string().contains("private-value"));
+    }
+
+    #[tokio::test]
+    async fn injected_draft_create_conflict_rereads_and_accepts_only_exact_seed_content() {
+        let store = learning_data_access::in_memory::MemoryStore::default();
+        let tenant = TenantId::from_uuid(Uuid::from_u128(81));
+        let actor = UserId::from_uuid(Uuid::from_u128(82));
+        let context = TenantContext::from_authenticated_session(tenant);
+        let draft = DraftRecord {
+            tenant,
+            question: webwork_pilot_draft(WorkspaceId::from_uuid(Uuid::from_u128(83))),
+            revises: None,
+            derived_from: None,
+        };
+        let raced = store
+            .upsert_draft(context, actor, None, draft.clone())
+            .await
+            .expect("the competing seeder wrote the draft first");
+        let resumed = reconcile_webwork_pilot_draft(Some(raced), &draft)
+            .expect("typed conflict reread accepts the exact competing draft")
+            .expect("competing draft remains available");
+        assert_eq!(resumed.record, draft);
+        assert!(
+            reconcile_webwork_pilot_draft(None, &draft)
+                .expect("a competing publisher may consume the draft before reread")
+                .is_none()
+        );
+        let mut different = draft.clone();
+        different.question.metadata.title = "different seeded content".to_string();
+        assert!(reconcile_webwork_pilot_draft(Some(resumed), &different).is_err());
+    }
+
+    #[tokio::test]
+    async fn webwork_pilot_converges_after_every_persisted_prefix_and_on_rerun() {
+        let store = learning_data_access::in_memory::MemoryStore::default();
+        let tenant = TenantId::from_uuid(Uuid::from_u128(91));
+        let instructor = UserId::from_uuid(Uuid::from_u128(92));
+        let student = UserId::from_uuid(Uuid::from_u128(93));
+        let context = TenantContext::from_authenticated_session(tenant);
+        let ids = WebworkPilotSeedIds::for_tenant(tenant);
+        let reference = ProblemVersionRef {
+            problem: ids.problem,
+            version: ids.version,
+        };
+        let source_key = webwork_pilot_source_key(reference, ids.source_object);
+        let source_record = objects::ObjectRecord {
+            id: ids.source_object,
+            bucket: objects::Bucket::Content,
+            key: source_key,
+            sha256: objects::Sha256Digest::compute(WEBWORK_PILOT_SOURCE),
+            size_bytes: u64::try_from(WEBWORK_PILOT_SOURCE.len()).expect("fixture fits u64"),
+            media_type: "text/x-wework-pg".to_string(),
+            category: ObjectCategory::Source,
+            version: Some(ids.version),
+            license: "CC-BY-4.0".to_string(),
+            provenance: WEBWORK_PILOT_SOURCE_PROVENANCE.to_string(),
+            created_at: ActivityTimestamp::from_unix_millis(1),
+        };
+        let draft = DraftRecord {
+            tenant,
+            question: webwork_pilot_draft(ids.workspace),
+            revises: None,
+            derived_from: None,
+        };
+        let capabilities = webwork_capabilities();
+        ensure_webwork_pilot_publication(
+            &store,
+            context,
+            instructor,
+            draft.clone(),
+            reference,
+            source_record.clone(),
+            capabilities.clone(),
+        )
+        .await
+        .expect("publication prefix converges");
+
+        let course = CourseRecord {
+            id: ids.course,
+            tenant,
+            title: "PLE WebWork pilot E2E course".to_string(),
+            members: vec![
+                CourseMembership {
+                    user: instructor,
+                    role: CourseMembershipRole::Instructor,
+                },
+                CourseMembership {
+                    user: student,
+                    role: CourseMembershipRole::Student,
+                },
+            ],
+        };
+        ensure_webwork_pilot_course(&store, context, course.clone())
+            .await
+            .expect("course prefix converges");
+        let assignment = AssignmentRecord {
+            id: ids.assignment,
+            tenant,
+            course_id: ids.course,
+            title: "PLE WebWork pilot E2E assignment".to_string(),
+            items: vec![AssignmentItem {
+                id: ids.assignment_item,
+                reference,
+                position: 0,
+                points_possible: PointValue::from_whole(1),
+                delivery_state: AssignmentDeliveryState::Active,
+                scoring_mode: AssignmentScoringMode::Normal,
+            }],
+            selection_groups: Vec::new(),
+            policies: RunPolicies {
+                completion: CompletionRequirement::AnswerAll,
+                grade: GradePolicy::Highest,
+                continued_practice: ContinuedPractice::Unlimited,
+                variation: VariationPolicy::NewSeeds,
+            },
+        };
+        ensure_webwork_pilot_assignment(&store, context, assignment.clone())
+            .await
+            .expect("assignment prefix converges");
+        let enrollment = AssignmentEnrollment {
+            id: ids.enrollment,
+            tenant,
+            assignment: ids.assignment,
+            user: student,
+            student: StudentId::from_uuid(student.as_uuid()),
+            first_completed_at: None,
+            current_grade_run: None,
+            best_grade_run: None,
+        };
+        ensure_webwork_pilot_enrollment(&store, context, enrollment.clone())
+            .await
+            .expect("enrollment prefix converges");
+
+        ensure_webwork_pilot_publication(
+            &store,
+            context,
+            instructor,
+            draft,
+            reference,
+            source_record.clone(),
+            capabilities,
+        )
+        .await
+        .expect("published rerun verifies rather than republishes");
+        ensure_webwork_pilot_course(&store, context, course)
+            .await
+            .expect("course rerun verifies rather than mutates");
+        ensure_webwork_pilot_assignment(&store, context, assignment)
+            .await
+            .expect("assignment rerun verifies rather than mutates");
+        ensure_webwork_pilot_enrollment(&store, context, enrollment)
+            .await
+            .expect("enrollment rerun verifies rather than mutates");
+        let error = ensure_webwork_pilot_publication(
+            &store,
+            context,
+            instructor,
+            DraftRecord {
+                tenant,
+                question: webwork_pilot_draft(ids.workspace),
+                revises: None,
+                derived_from: None,
+            },
+            reference,
+            source_record,
+            BackendCapabilities::from_iter([Capability::ServerGrading]),
+        )
+        .await
+        .expect_err("capability mismatch must refuse instead of mutating a published source");
+        assert!(
+            error
+                .to_string()
+                .contains("publication differs from the deterministic seed")
         );
     }
 }

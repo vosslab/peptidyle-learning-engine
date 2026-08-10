@@ -2,8 +2,9 @@
 
 Status: accepted v1 source contract; native parsing/compilation, atomic
 workspace persistence, immutable publication, and isolated runtime grading are
-implemented. The next package is the instructor editor; bounded QTI-profile
-mappings follow it.
+implemented. The instructor editor, bounded Canvas/Blackboard profile import,
+profile-to-native conversion, live PostgreSQL/RLS acceptance, and independent
+documentation review are also complete.
 
 ## Decision
 
@@ -16,6 +17,41 @@ Version 1 deliberately supports one exactly-one-choice question. A new question
 shape or incompatible contract change receives a new explicit schema version.
 PLE does not add optional QTI expression trees, arbitrary response processing,
 or vendor extension containers to version 1.
+
+## Required family roadmap
+
+The complete product must support at least these eight flat-question families:
+
+- multiple choice (MC), implemented by version 1 as `singleChoice`;
+- multiple answer (MA);
+- fill-in-the-blank (FIB);
+- multiple fill-in-the-blank (MULTI-FIB);
+- numerical entry (NUM);
+- matching (MATCH);
+- ordered list (ORDER); and
+- image hot spot (HOTSPOT).
+
+Version 1 remains the closed MC contract described below. WP-FQ-0 owns the QTI-JSONL specification,
+reference engine, all-family example, and contract/round-trip tests in QTI Package Maker. PLE adopts
+that accepted specification
+through the integration boundary in
+`docs/active_plans/active/flat_question_family_evolution_plan.md`
+rather than freeze a competing version 2 source shape. MATCH is the first implementation vertical
+because each initial Chapter 1 assignment calls for
+one WeBWorK MATCH and one flat MATCH alongside their MC counterparts.
+
+The local QTI Package Maker item model covers MC, MA, MATCH, NUM, FIB, MULTI-FIB, and ORDER; it does
+not define HOTSPOT. Its print-oriented `exam_yaml` writer demonstrates a concise `statement`, list,
+and table presentation but intentionally loses several answer keys. WP-FQ-0's QTI-JSONL specification
+retain the lossless item semantics while keeping that readable spirit. `BaseItem` supplies optional
+`feedback_correct` and `feedback_incorrect`, so missing outcome feedback must remain valid in PLE
+too. A wholesale Rust port of QTI Package Maker is out of scope; PLE ports only the bounded
+parser/compiler/export behavior required by WP-RC4 through WP-RC6.
+
+WP-FQ-0 defines portable image, binary-reference, and HOTSPOT source semantics with normative fixtures.
+PLE will resolve accepted references through an adapter-owned binding step while object storage owns
+the bytes, checksums, media types, lifecycle, and authorization. WP-FQ-6 and WP-FQ-7 implement those
+accepted fields and geometry without adding a second vocabulary.
 
 ## Example
 
@@ -94,13 +130,13 @@ public question  private grader material
 model            answer key + feedback
 ```
 
-| Value | Storage and readers | Contents |
-| --- | --- | --- |
-| Authoring source | Private workspace source; authenticated author-source route and server-side compiler only | The complete PLE document, including `correctChoice` and feedback |
-| Published source | Immutable private `ProblemSource` object | The canonical PLE JSON promoted at publication for provenance, recovery, and exact re-import |
-| Public compiled model | Checksummed `problem_version_payload` JSONB | Prompt, choices, policies, points, taxonomy, license, and language; no answer or private feedback |
-| Private compiled material | Checksummed grader-only `answer_key` JSONB | Answer key, per-choice and outcome feedback, schema version, and binding to the exact public model |
-| Search and identity metadata | Normal relational columns | IDs, title, lifecycle, visibility, and indexed browse fields |
+| Value                        | Storage and readers                                                                       | Contents                                                                                           |
+| ---------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Authoring source             | Private workspace source; authenticated author-source route and server-side compiler only | The complete PLE document, including `correctChoice` and feedback                                  |
+| Published source             | Immutable private `ProblemSource` object                                                  | The canonical PLE JSON promoted at publication for provenance, recovery, and exact re-import       |
+| Public compiled model        | Checksummed `problem_version_payload` JSONB                                               | Prompt, choices, policies, points, taxonomy, license, and language; no answer or private feedback  |
+| Private compiled material    | Checksummed grader-only `answer_key` JSONB                                                | Answer key, per-choice and outcome feedback, schema version, and binding to the exact public model |
+| Search and identity metadata | Normal relational columns                                                                 | IDs, title, lifecycle, visibility, and indexed browse fields                                       |
 
 The private material carries the SHA-256 binding of the public model. Grading
 refuses a different prompt, choice set, policy, metadata record, source family,
@@ -139,8 +175,8 @@ The native codec currently enforces these bounds:
 - a question has 2 through 100 choices and exactly one correct choice;
 - choice IDs start with a lowercase ASCII letter, use only lowercase letters,
   digits, `_`, or `-`, are unique, and are at most 64 bytes;
-- prompt, choice, feedback, title, tag, taxonomy, language, and license text is
-  nonblank and bounded;
+- prompt, choice, title, tag, taxonomy, language, and license text is nonblank and bounded;
+- per-choice and correct/incorrect feedback is optional; when present, it is nonblank and bounded;
 - points are finite and nonnegative, using the shared `f64` score model; and
 - `maxAttempts` is positive or `null` for unlimited attempts.
 
@@ -171,5 +207,8 @@ with focused in-memory and PostgreSQL implementations, and the server owner is
 atomically with its typed draft, publication copies its exact canonical bytes
 to an immutable non-signable source object, and the runtime obtains private
 material only through an injected grader capability. The instructor editor is
-complete; bounded Canvas/Blackboard QTI profile mappings are the next
-dependency-ordered package.
+complete; bounded Canvas/Blackboard QTI profile mappings, profile-to-native conversion, and their
+live and independent-review gates are accepted. The eight-family integration plan is recorded in
+`docs/active_plans/active/flat_question_family_evolution_plan.md`.
+WP-FQ-0 owns the QTI-JSONL source contract and reference implementation; PLE consumes that accepted
+contract without silently widening version 1.

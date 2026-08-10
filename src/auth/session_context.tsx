@@ -25,10 +25,15 @@ export type SessionBootstrapState =
 export interface SessionBootstrap {
   readonly state: Accessor<SessionBootstrapState>;
   readonly retry: () => Promise<void>;
+  readonly signInWithLocalCredential: (credential: string) => Promise<boolean>;
 }
 
 /** Creates a retryable, injected session bootstrap without coupling it to HTTP. */
-export function createSessionBootstrap(getSession: ApiClient["getSession"]): SessionBootstrap {
+export function createSessionBootstrap(
+  getSession: ApiClient["getSession"],
+  loginWithLocalCredential: ApiClient["loginWithLocalCredential"] = () =>
+    Promise.reject(new Error("local sign-in unavailable")),
+): SessionBootstrap {
   const [state, setState] = createSignal<SessionBootstrapState>({ kind: "loading" });
 
   async function retry(): Promise<void> {
@@ -41,7 +46,19 @@ export function createSessionBootstrap(getSession: ApiClient["getSession"]): Ses
     }
   }
 
-  return { state, retry };
+  async function signInWithLocalCredential(credential: string): Promise<boolean> {
+    setState({ kind: "loading" });
+    try {
+      const session = await loginWithLocalCredential(credential);
+      setState({ kind: "authenticated", session });
+      return true;
+    } catch (error: unknown) {
+      setState(sessionFailureState(error));
+      return false;
+    }
+  }
+
+  return { state, retry, signInWithLocalCredential };
 }
 
 /** Classifies only the safe recovery path; the original error remains private. */
@@ -63,12 +80,13 @@ const SessionContext = createContext<SessionBootstrap>();
 
 export interface SessionProviderProps {
   readonly getSession: ApiClient["getSession"];
+  readonly loginWithLocalCredential: ApiClient["loginWithLocalCredential"];
   readonly children: JSX.Element;
 }
 
 /** Installs the one session bootstrap at the application composition root. */
 export function SessionProvider(props: SessionProviderProps): JSX.Element {
-  const bootstrap = createSessionBootstrap(props.getSession);
+  const bootstrap = createSessionBootstrap(props.getSession, props.loginWithLocalCredential);
   onMount(() => {
     void bootstrap.retry();
   });

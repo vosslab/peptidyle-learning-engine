@@ -69,6 +69,7 @@ test.beforeAll(async () => {
           if (method === "GET" && path === "/api/runs/" + runId + "/attempts") return json({ items: [current], nextCursor: null });
           if (method === "GET" && path === "/api/attempts/" + current.id + "/question") return json(envelope(current));
           if (method === "GET" && path === "/api/courses/" + publishedProblemFixture.course.id) return json(publishedProblemFixture.course);
+          if (method === "GET" && path === "/api/courses/" + publishedProblemFixture.course.id + "/appearance") return new Response(JSON.stringify({ theme: "grass", revision: "1", banner: null }), { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store", "etag": '"1"' } });
           if (method === "GET" && path === "/api/assignments/" + publishedProblemFixture.assignment.id) return json(publishedProblemFixture.assignment);
           if (method === "GET" && path === "/api/enrollments/" + publishedProblemFixture.enrollment.id) return json({ enrollment: publishedProblemFixture.enrollment, summary: publishedProblemFixture.summary });
           if (method === "POST" && path === "/api/attempts/" + current.id + "/prefetch-next") {

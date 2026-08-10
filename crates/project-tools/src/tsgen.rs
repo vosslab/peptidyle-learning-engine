@@ -315,6 +315,7 @@ fn apply_rename(name: &str, rule: Option<&str>) -> Result<String> {
         None => Ok(name.to_string()),
         Some("camelCase") => Ok(to_camel_case(name)),
         Some("snake_case") => Ok(to_snake_case(name)),
+        Some("kebab-case") => Ok(to_snake_case(name).replace('_', "-")),
         Some(other) => bail!("unsupported serde rename_all rule: {other}"),
     }
 }
@@ -704,6 +705,20 @@ mod tests {
         };
         let generated = generate_enum(&item).expect("generation should succeed");
         assert_eq!(generated.body, "\"deepRed\" | \"blue\"");
+    }
+
+    #[test]
+    fn kebab_case_enums_preserve_hyphenated_wire_identifiers() {
+        let item: syn::ItemEnum = syn::parse_quote! {
+            #[derive(Serialize)]
+            #[serde(rename_all = "kebab-case")]
+            pub enum Habitat {
+                CoralReef,
+                SaltMarsh,
+            }
+        };
+        let generated = generate_enum(&item).expect("generation should support kebab-case");
+        assert_eq!(generated.body, "\"coral-reef\" | \"salt-marsh\"");
     }
 
     #[test]

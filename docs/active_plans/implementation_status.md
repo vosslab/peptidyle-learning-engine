@@ -39,7 +39,14 @@ The shared tree contains independently reviewed, behavior-tested verticals for:
   survival;
 - retention R1 through R4.4: pure policy, authorized persistence, worker cleanup,
   trusted due dispatch, schedule extension, archive-time assignment disposition, a revisioned
-  manager API, and truthful archive completion gates.
+  manager API, and truthful archive completion gates; and
+- course appearance WP-CA1 through WP-CA7/WP-RC1: closed themes, Grass default, revisioned
+  persistence, protected current-only banner objects, safe image normalization, all-seven-route
+  Solid scope, keyboard-complete settings, live PostgreSQL/MinIO cleanup, visual evidence, and
+  independent acceptance; and
+- production-seam closure WP-RC2: implemented H5P/QTI/WeBWorK module names, no native renderer
+  declaration, explicit catalog resolve/search Store capabilities, and durable feedback-release
+  projection with independent no-P0/P1 review.
 
 These statements describe code-first acceptance. Environment-dependent live PostgreSQL, object
 storage, and deployed worker/replica exercises remain one-time deployment gates where documented.
@@ -70,10 +77,10 @@ truthful only after exact cleanup and idempotent replay.
 - Current gates are stable: server lib 140, Store lib postgres 44, Store conformance 16,
   Store retention postgres 18, object conformance 2, strict Store/server all-target Clippy,
   rustfmt, ASCII 337, Markdown links 45, PG conformance no-run, global/scoped diff clean.
-- `PLE_POSTGRES_TEST_URL` is absent; live forced-RLS, SDF, trigger, and query-plan tests are
-  deferred deployment gates.
+- `PLE_POSTGRES_TEST_URL` was absent at that handoff; WP-RC7 and WP-RC12 own the live forced-RLS,
+  SDF, trigger, and query-plan production-activation evidence and require PASS before release.
 
-## Most recently accepted task: MOD-RETENTION R4.4
+## Accepted task: MOD-RETENTION R4.4
 
 R4.4A remains independently accepted. R4.4B had reached an accepted functional handoff, but the
 later partial-commit audit correctly reopened its transaction-scale design. The non-destructive
@@ -156,7 +163,7 @@ ACCEPT with no P0/P1 findings. Current commit readiness and safe partial-commit 
 [partial_commit_status.md](partial_commit_status.md); do not commit the mixed index before that
 index is rebuilt from the accepted working tree.
 
-## Most recently accepted task: WP-QTI-10
+## Most recently accepted task: WP-QTI-12
 
 The provenance-aware Memory and PostgreSQL conversion boundary is complete and independently
 accepted:
@@ -218,80 +225,127 @@ The WP-QTI-10 author UI is complete and independently accepted:
   and HCI re-reviews reported no P0/P1 finding. Detailed evidence is in
   `docs/active_plans/workstreams/qti_author_ui_implementation.md`.
 
-## Dependency-ordered future work
+The WP-QTI-11 live gate is complete:
+
+- A fresh isolated PostgreSQL 17 database applied and verified the six-file SQLx baseline and ran
+  the real profile upload, worker, conversion, publication, native grading, and cleanup path.
+- One minimized Canvas archive produced an accepted item and a visible rejected sibling. The
+  accepted item remained editable, published as native flat content, and graded one correct and one
+  incorrect response through the isolated PostgreSQL grader.
+- Workspace and published archive bytes, canonical source, current and published origins, and their
+  checksums agreed. Workspace cleanup removed current private state while immutable published
+  provenance remained.
+- Application, student, grader, and foreign-tenant probes enforced the RLS and protected-capability
+  boundaries. Safe DTO scans found no archive bytes, object keys, correct-choice material, private
+  choice maps, grader payloads, or unreleased feedback.
+- The full disposable database gate, focused Rust/Node/Playwright checks, strict workspace Clippy,
+  workspace tests, all 11 repository checks, 51 built Playwright scenarios, and 1,644 Python tests
+  passed. Detailed evidence is in
+  `docs/active_plans/workstreams/qti_live_acceptance_implementation.md`.
+
+The WP-QTI-12 independent review and documentation close-out is complete:
+
+- Six separate plan, test, style, documentation, legacy, and comment review passes found no
+  production or test defect.
+- Documentation review found stale README status plus missing profile-to-native ownership evidence
+  in the contracts, code architecture, and file map. The four owner documents were corrected and the
+  original reviewer confirmed both findings resolved.
+- The contract and architecture maps now name the profile parser, author upload/report route, worker,
+  conversion bridge, Solid author workflow, protected grader boundary, and disposable PostgreSQL/RLS
+  oracle. The flat-question contract also records the complete eight-family minimum, optional
+  feedback sidecars, and QTI Package Maker WP-FQ-0 as the assigned QTI-JSONL source-contract owner.
+- Focused Markdown link, ASCII, README first-paragraph, whitespace, and Prettier gates passed. No
+  P0/P1 finding remains.
+
+## Recent owner-requested support work
+
+- The current PLE-owned student browser flow and all implemented response families passed a focused
+  no-mouse audit. Tab, arrow keys, Space, Enter, and Escape cover the applicable task patterns;
+  representative VoiceOver and NVDA sessions remain a fall-pilot human gate.
+- `launch_local_stack.sh` is the maintained all-in-one local test front door. It preflights the
+  private configuration, generates ignored local identities and secrets, builds the code, migrates
+  and seeds PostgreSQL before API/worker startup, provisions the distinct grader login, waits for
+  the semantic gateway health response, and opens the browser without deleting persistent volumes.
+  The WeBWorK renderer remains an explicit profile until WP-RC3 replaces the invented `/v1` dialect
+  with the pinned upstream `/render_rpc` integration.
+- [docs/DATABASE_STRUCTURE.md](../DATABASE_STRUCTURE.md) maps implemented revision, assignment, and
+  isolated-score relations. WP-RC8 now owns institutional OIDC; passkeys, local passwords, and
+  email-code login are explicitly out of version 1 scope. The document records pilot and
+  ten-million-question growth formulas without claiming institutional credentials or legal sign-off.
+
+## Most recently accepted task: WP-RC1 course appearance
+
+WP-CA1 through WP-CA7 and WP-RC1 are accepted on 2026-08-09. The production contract, Store/RLS,
+object, server, Solid, and learner-entry owners now implement one of 15 measured themes and one
+optional exact 1200 by 328 course-entry banner. The instructor settings page is keyboard complete,
+preserves local state through validation/network/auth/permission/CAS failures, and supports explicit
+reload, replacement, and removal. A bounded request-triggered cleanup executes the real claim,
+tenant-owned MinIO deletion, and completion sequence without deleting the exact current object.
+
+Acceptance evidence is recorded in
+`docs/active_plans/workstreams/course_appearance_implementation.md`: the disposable PostgreSQL and
+MinIO stack passed, including the `ple_app` cross-course pointer refusal and combined lifecycle;
+`./check_codebase.sh` passed all 11 checks; the rebuilt browser passed 62 tests with the opt-in
+visual generator separately passing 1/1; Python passed 1,743 tests; staged and unstaged diff checks
+are clean; and three independent reviewers reported no P0/P1/P2.
+
+## Dependency-ordered remaining work
 
 ### Current package order
 
-1. Complete the unstarted WP-QTI-11 live PostgreSQL/RLS/profile-to-native acceptance and WP-QTI-12
-   independent documentation close-out in
-   [the QTI profile plan](decisions/qti_profile_mapping_plan.md).
-2. Implement the compartmentalized M3 course appearance package in
-   `docs/active_plans/decisions/course_appearance_plan.md`: 15 measured three-color
-   themes, one revisioned centered entry banner, protected object/persistence/API behavior, all-
-   course-route theming, and live/browser/visual acceptance.
-3. Continue the remaining M5 integration/recovery work below.
+The complete sequence is authoritative in
+`docs/active_plans/active/release_completion_plan.md`:
 
-The course appearance contract is frozen for execution but is not implemented. It remains separate
-and follows WP-QTI-11 and WP-QTI-12 in the QTI dependency order. Its pure theme-scope and settings
-workstreams become parallel only at the explicit CA4 boundary; shared object, asset-delivery,
-schema, and Store owners remain dependency ordered.
+1. WP-RC1 course appearance is accepted.
+2. WP-RC2 production-seam closure is accepted; WP-RC3 next integrates pinned upstream WeBWorK
+   `/render_rpc`.
+3. WP-ARCH1 follows accepted WP-RC3 and precedes WP-RC4. It extracts every maintained source at
+   1,000 lines or more into capability modules behind stable facades and lands a permanent
+   no-exception size gate. The exact inventory, module map, owners, and validation commands are in
+   `docs/active_plans/active/source_module_decomposition_plan.md`.
+4. WP-RC4 completes the cross-repository QTI-JSONL contract; WP-RC5 implements all eight families and
+   the two exact Chapter 1 assignments; WP-RC6 closes QTI export and H5P claims.
+5. WP-P2 first adds the secure learner-payload binding migration
+   `2026080908_secure_question_grading_payloads.sql`; WP-RC7 then adds bounded inventory, object
+   reconciliation, `2026080909_object_reconciliation.sql`, and
+   the combined M2-M5 acceptance gate.
+6. WP-RC8 implements institutional OIDC with `2026080910_oidc_identity.sql`; WP-RC9 implements LTI
+   Advantage with `2026080911_lti_advantage.sql`.
+7. WP-RC10 adds OpenTofu under `deploy/opentofu/`; WP-RC11 adds the measured bot-cost controls.
+8. WP-RC12 runs working-codebase release acceptance and documentation closure after WP-ARCH1.
 
-### Pre-M5 database baseline
+The accepted pre-data schema evolution is complete. SQLx owns the directory-backed migration ledger,
+and `2026080907_course_appearance.sql` is the first forward migration. The release plan reserves
+`2026080908_secure_question_grading_payloads.sql`, `2026080909_object_reconciliation.sql`,
+`2026080910_oidc_identity.sql`, and `2026080911_lti_advantage.sql`; accepted filenames are not
+renamed or reordered.
 
-- Apply the accepted pre-data evolution decision in
-  [decisions/database_schema_evolution_plan.md](decisions/database_schema_evolution_plan.md):
-  consolidate the working migration diary into the six-file initial epoch and replace the manual
-  migration registry with SQLx's checksummed, locking migrator.
-- The migration execution seam now uses SQLx's directory-backed migrator, so new migration files
-  cannot be omitted from a handwritten Rust registry. Store behavior tests and PostgreSQL
-  conformance compilation remain permanent; exact SQL/source-string checks were removed under the
-  fixture and permanent-test policy. The ignored credentialed PostgreSQL mega-test was also removed:
-  it required an external database, carried complex mutable setup, and never belonged in the fast
-  permanent suite. Fresh-install, no-op replay, checksum, missing-version, role/RLS, and concurrent-
-  runner exercises remain one-time environment gates for the consolidated six-file baseline rather
-  than committed fixtures.
-- Run the fresh-install/no-op replay, catalog, forced-RLS, grants, constraint, assignment-CAS,
-  run-snapshot, partition, and payload-upcast gates before declaring the first-data boundary.
-- Keep this as a deliberate schema task. Do not append new M5 persistence to the 27-file disposable
-  history and then preserve another intermediate design.
+### Immediate package: WP-RC3 shipped upstream WeBWorK
 
-### M5 integration hardening after retention
-
-- Audit the remaining M5 deliverables against current source: cross-cutting E2E, orphaned-object
-  reconciliation, asynchronous analytics, and the retention/security documentation set.
-- Object reconciliation currently lacks a bounded object-store inventory API and a database record
-  for deterministic WeBWorK/iMathAS render-cache objects. The durable design needs a database-
-  authoritative object record, typed domain references, first-observed orphan quarantine, and a
-  separate broken-reference alert path that never deletes the database record. Quarantine duration
-  remains injected policy rather than a hardcoded permanent-test default.
-- Run the plan's combined hostile-input, tenant-isolation, answer-key, partition-pruning, renderer
-  outage, course-deletion, and below-k statistics gates together rather than relying on lane-local
-  green results.
-- Keep environment-backed database, object-storage, replica, and provider exercises one-time unless
-  they satisfy the permanent-test checklist.
-
-### Cross-cutting completion and deployment
-
-- Re-audit every implementation-plan requirement against current source and behavior evidence.
-- Complete remaining documentation and changelog synchronization without restoring Claude-specific
-  guidance.
-- Run environment-backed PostgreSQL role/RLS/concurrency tests, object-storage deletion/retry tests,
-  multi-replica and worker soak tests, and container/browser deployment checks as one-time gates.
-- Add actual server/worker deployment only in the later deployment milestone; code-first readiness
-  does not imply operational activation.
+- Owner: `rust-code-expert` for the adapter, `integrator` for containers, then independent security
+  review.
+- Files: the exact renderer, server backend, private upstream container, launcher, live gate,
+  browser test, contract/map/status, and changelog owners named in `active/release_completion_plan.md`.
+- Behavior: call private pinned upstream `/render_rpc` using server-owned immutable source,
+  credentials, version, seed, and bounded submission fields; return only sanitized answer-free
+  output and server-side grade outcomes.
+- Success and validation: local `--with-webwork` renders and grades a real source deterministically,
+  proves cache and protected-material boundaries, and passes private-container, outage, browser, full
+  repository, and independent security gates.
 
 ## Known operational notes
 
-- The worktree is intentionally broad and dirty from the implementation program; unrelated changes
-  belong to the user and other accepted slices.
+- WP-QTI-11 started from clean `main` at `b297808`; its bounded implementation and later accepted
+  work now share a mixed staged/unstaged worktree for owner review. Preserve unrelated user changes
+  and do not alter the index.
 - Global and scoped `git diff --check` were clean at the R4.4 handoff. Recheck the current shared
   tree before attributing any later formatting failure to this retention slice.
 - No credentialed PostgreSQL retention fixture remains in the permanent suite. Fresh role/RLS,
   populated-graph, and migration-replay exercises are recorded as one-time gates and their temporary
   source is removed after execution.
-- Cargo artifacts were previously cleaned after `target/` exhausted disk space; rebuild time is
-  expected, and source files were not removed.
+- Cargo artifacts are cleaned as needed during implementation work; source files are never removed.
 - Finished agent records cannot be pruned from the current collaboration history. Avoid spawning
   redundant agents; a new conversation is the only way to obtain a short agent-history list.
-- GPT-5.3-Codex-Spark is exhausted. Use GPT-5.6 agents for new delegated work and keep each task
-  narrowly bounded with one owner, one outcome, and one verification step.
+- Use Spark for simple, bounded independent work under
+  [docs/CODEX_SPARK_SUBAGENTS.md](../CODEX_SPARK_SUBAGENTS.md); retain manager ownership
+  for architecture, coordination, difficult cross-cutting decisions, and final integration.

@@ -6,6 +6,8 @@
 //! grading back to that service.  Answer material never enters this crate's
 //! public results or the browser cache.
 
+#[cfg(test)]
+use std::cell::RefCell;
 use std::fmt::Write as _;
 
 use objects::{ObjectKey, ObjectStore, ObjectStoreError, PutObject};
@@ -19,15 +21,17 @@ use question_model::{
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use crate::pg_parser_stub::{GradeRequest, RenderRequest, RendererFailure, WebworkRenderer};
+use crate::renderer_contract::{GradeRequest, RenderRequest, RendererFailure, WebworkRenderer};
 use crate::sanitizer::sanitize_webwork_html;
 
 /// Bounded, deployment-configured private HTTP client for a renderer service.
 pub mod http_renderer;
 /// PG source handling and the isolated renderer client contract.
-pub mod pg_parser_stub;
+pub mod renderer_contract;
 /// The server-side allowlist applied to untrusted renderer markup.
 pub mod sanitizer;
+/// Fixed upstream `/render_rpc` endpoint facts for the shipped client.
+pub(crate) mod shipped_render_rpc;
 
 pub use crate::http_renderer::{
     HttpWebworkRenderer, HttpWebworkRendererConfig, RendererConfigError,
@@ -41,6 +45,25 @@ pub const ADAPTER_ID: &str = "webwork-adapter";
 pub const ADAPTER_VERSION: &str = "1";
 /// Stable identifier for renderer-owned grading.
 pub const GRADING_ID: &str = "webwork-renderer-grader";
+
+/// Emits one fixed, non-sensitive cache witness for the local-stack E2E.
+/// The event name is the entire payload: request and content identifiers stay
+/// out of operational logs.
+fn cache_witness(event: &'static str) {
+    tracing::info!(target: "ple.webwork.cache", event);
+    #[cfg(test)]
+    TEST_CACHE_EVENTS.with(|events| events.borrow_mut().push(event));
+}
+
+#[cfg(test)]
+thread_local! {
+    static TEST_CACHE_EVENTS: RefCell<Vec<&'static str>> = const { RefCell::new(Vec::new()) };
+}
+
+#[cfg(test)]
+fn take_test_cache_events() -> Vec<&'static str> {
+    TEST_CACHE_EVENTS.with(|events| std::mem::take(&mut *events.borrow_mut()))
+}
 
 /// Immutable PG source resolved from trusted object storage before adapter use.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -227,10 +250,12 @@ where
                     source,
                     &question.metadata.title,
                 )?;
+                cache_witness("cache_hit");
                 self.issued(cached, seed, source, true)
             }
             Err(ObjectStoreError::NotFound) => {
                 let version = question.version.to_string();
+                cache_witness("renderer_call");
                 let mut untrusted = self
                     .renderer
                     .render(RenderRequest {
@@ -295,6 +320,7 @@ where
                             source,
                             &question.metadata.title,
                         )?;
+                        cache_witness("cache_hit");
                         self.issued(cached, seed, source, true)
                     }
                     Err(error) => Err(WebworkAdapterError::ObjectStore(error)),
@@ -315,6 +341,21 @@ where
         let (problem, pg_path) = webwork_identity(question)?;
         verify_source(source)?;
         verify_source_binding(source, problem, question.version)?;
+        let points_possible = match question.grading {
+            question_model::GradingDefinition::AllOrNothing { points }
+                if points.is_finite() && points >= 0.0 =>
+            {
+                points
+            }
+            question_model::GradingDefinition::Ungraded => {
+                return Ok(grading::GradeOutcome::Ungraded);
+            }
+            _ => {
+                return Err(WebworkAdapterError::InvalidRendererEnvelope(
+                    "WeBWorK RC3 supports only finite all-or-nothing grading".to_string(),
+                ));
+            }
+        };
         let version = question.version.to_string();
         self.renderer
             .grade(GradeRequest {
@@ -323,6 +364,7 @@ where
                 version: &version,
                 seed: seed.value(),
                 response,
+                points_possible,
             })
             .await
             .map_err(WebworkAdapterError::Renderer)
@@ -414,7 +456,7 @@ const CACHE_SCHEMA_VERSION: u8 = 1;
 struct SafeRenderedWebworkQuestion {
     envelope: QuestionEnvelope,
     sanitized_html: String,
-    renderer: crate::pg_parser_stub::RendererIdentity,
+    renderer: crate::renderer_contract::RendererIdentity,
 }
 
 /// Immutable render-cache record with the evidence required for reproduction.
@@ -534,7 +576,7 @@ mod tests {
     use question_model::{GradingDefinition, QuestionMetadata, WorkspaceId};
 
     use super::*;
-    use crate::pg_parser_stub::{RenderedWebworkQuestion, RendererIdentity};
+    use crate::renderer_contract::{RenderedWebworkQuestion, RendererIdentity};
 
     const OPL_FIXTURE: &str = concat!(
         "## Recorded OPL-style example: a small multiple-choice PG question.\n",
@@ -782,6 +824,45 @@ mod tests {
         assert_eq!(calls.load(Ordering::SeqCst), 1);
         assert_eq!(first.envelope, second.envelope);
         assert_eq!(second.envelope.title, question.metadata.title);
+    }
+
+    #[test]
+    fn cache_boundary_emits_one_renderer_call_then_one_cache_hit() {
+        let _ = take_test_cache_events();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("current-thread runtime builds");
+        let (first, second, calls) = runtime.block_on(async {
+            let calls = Arc::new(AtomicUsize::new(0));
+            let store = MemoryObjectStore::default();
+            let adapter = WebworkAdapter::new(store.clone(), recorded_renderer(calls.clone()));
+            let question = question_with_response(fixture_response());
+            let source = source(&store, &question).await;
+            let first = adapter
+                .issue(
+                    &question,
+                    Seed::new(181),
+                    &source,
+                    ActivityTimestamp::from_unix_millis(1),
+                )
+                .await
+                .expect("first render should fill the cache");
+            let second = adapter
+                .issue(
+                    &question,
+                    Seed::new(181),
+                    &source,
+                    ActivityTimestamp::from_unix_millis(2),
+                )
+                .await
+                .expect("second render should use the verified cache");
+            (first, second, calls.load(Ordering::SeqCst))
+        });
+        assert!(!first.cache_hit);
+        assert!(second.cache_hit);
+        assert_eq!(calls, 1);
+        assert_eq!(take_test_cache_events(), ["renderer_call", "cache_hit"]);
     }
 
     #[tokio::test]
