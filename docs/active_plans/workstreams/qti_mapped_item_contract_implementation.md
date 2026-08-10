@@ -1,5 +1,9 @@
 # QTI Mapped-Item Contract Implementation
 
+> **Historical accepted package.** WP-QTI-1 through WP-QTI-12 are accepted history. Current
+> dependency order and remaining QTI scope are in the [release completion plan](../active/release_completion_plan.md)
+> and [implementation status](../implementation_status.md).
+
 ## Status
 
 Complete. The shared Q2 mapped-item, safe-report, and deterministic choice-ID package passed its

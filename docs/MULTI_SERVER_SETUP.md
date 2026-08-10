@@ -95,19 +95,21 @@ volume as an upgrade procedure.
 
 Caddy uses `dynamic a api 3000` rather than resolving one API container name at
 gateway startup. It refreshes Compose DNS every two seconds and round-robins
-the current A records. Passive health marks an upstream unhealthy after one
-failure for ten seconds; `503` is explicitly unhealthy. The five-second retry
-window and 250 ms retry interval give a transient replica failure a bounded
-recovery opportunity.
+the current A records. Network failures retain the bounded ten-second passive
+failure window; a five-second active check calls each replica's semantic
+`/health` endpoint and requires HTTP 200. The five-second retry window and
+250 ms retry interval give a transient replica failure a bounded recovery
+opportunity.
 
 An API's `/health` endpoint is readiness, not a process liveness ping. It
 rechecks the expected PostgreSQL migration states and checksummed compatibility
 with a two-second bound, then performs a real object-store `HeadBucket` on the
 content bucket. It returns `200 {"status":"ready"}` only when both pass;
-otherwise it returns `503` with safe failing dependency names. Caddy does not
-actively poll each upstream. After a proxied request observes a replica's `503`,
-passive health temporarily avoids that replica for ten seconds; the first
-request that discovers degradation can still receive the bounded failure.
+otherwise it returns `503` with safe failing dependency names. Caddy actively
+polls only this route. It deliberately does not classify every application 503
+as replica failure: a feature-local dependency such as the private WebWork
+renderer may fail one request closed while the same replica remains healthy
+for authentication, courses, native questions, and navigation.
 
 The worker intentionally has no HTTP readiness endpoint. It verifies schema
 compatibility at startup, its supervisor restarts failed processes, and its
@@ -241,16 +243,16 @@ free port other than 3000. Use that printed port for `curl` and browser access.
 
 ## Failure behavior
 
-| Failure                             | Implemented response                                                                              | Operator action                                                                                  |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| One API replica stops               | Caddy rediscovers/retries peers; shared session and attempt state permit continuation             | Inspect logs, replace the replica, run the replica restart E2E before changing topology          |
-| API returns readiness `503`         | Caddy passive health removes it temporarily from rotation                                         | Repair PostgreSQL/object-store access or schema compatibility; do not force traffic to it        |
-| PostgreSQL unavailable/incompatible | API readiness is `503`; workers refuse schema-incompatible draining                               | Restore database service and expected migration state; do not fabricate migration rows           |
-| Object store unavailable            | API readiness is `503`; object operations return a bounded unavailable result                     | Restore endpoint, credentials, bucket, or network; preserve object checksum evidence             |
-| Worker crashes after claim          | Lease expires; another worker can reclaim according to bounded policy                             | Inspect safe worker logs and queue depth; scale workers only after dependency health is restored |
-| Browser retries submission          | Durable idempotency returns the original authorized outcome rather than grading twice             | Keep the same request identity and investigate repeated transport failure                        |
-| Renderer/MariaDB unavailable        | Native API/readiness remains independent; WebWork-backed work returns its bounded backend failure | Restore only the private WebWork profile; never expose its port to the browser                   |
-| Gateway fails                       | Browser origin is unavailable even though API replicas may be healthy                             | Restart/repair gateway; do not publish API ports as an emergency browser bypass                  |
+| Failure                             | Implemented response                                                                                                 | Operator action                                                                                  |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| One API replica stops               | Caddy rediscovers/retries peers; shared session and attempt state permit continuation                                | Inspect logs, replace the replica, run the replica restart E2E before changing topology          |
+| API returns readiness `503`         | Caddy's active `/health` check removes it from rotation                                                              | Repair PostgreSQL/object-store access or schema compatibility; do not force traffic to it        |
+| PostgreSQL unavailable/incompatible | API readiness is `503`; workers refuse schema-incompatible draining                                                  | Restore database service and expected migration state; do not fabricate migration rows           |
+| Object store unavailable            | API readiness is `503`; object operations return a bounded unavailable result                                        | Restore endpoint, credentials, bucket, or network; preserve object checksum evidence             |
+| Worker crashes after claim          | Lease expires; another worker can reclaim according to bounded policy                                                | Inspect safe worker logs and queue depth; scale workers only after dependency health is restored |
+| Browser retries submission          | Durable idempotency returns the original authorized outcome rather than grading twice                                | Keep the same request identity and investigate repeated transport failure                        |
+| Renderer/MariaDB unavailable        | Native API/readiness remains independent; WebWork-backed work returns a bounded 503 without evicting the healthy API | Restore only the private WebWork profile; never expose its port to the browser                   |
+| Gateway fails                       | Browser origin is unavailable even though API replicas may be healthy                                                | Restart/repair gateway; do not publish API ports as an emergency browser bypass                  |
 
 ## Optional WebWork isolation
 

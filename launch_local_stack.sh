@@ -338,6 +338,9 @@ if [ "$WITH_WEBWORK" -eq 1 ] && [ "$CHECK_ONLY" -eq 1 ] && [ "$ENV_FILE" = "$LOC
 	done
 fi
 if [ "$WITH_WEBWORK" -eq 1 ]; then
+	for required_setting in PLE_WEBWORK_BASE_IMAGE_SHA256 PLE_SECRET_INIT_IMAGE_SHA256 PLE_WEBWORK_MARIADB_IMAGE_SHA256; do
+		require_sha256_env_value "$required_setting"
+	done
 	for required_setting in PLE_WEBWORK_BASE_IMAGE_SHA256 PLE_SECRET_INIT_IMAGE_SHA256 PLE_WEBWORK2_GIT_URL PLE_WEBWORK2_GIT_SHA PLE_WEBWORK_PG_GIT_URL PLE_WEBWORK_PG_GIT_SHA PLE_WEBWORK_MARIADB_IMAGE_SHA256 PLE_WEBWORK_DATABASE_PASSWORD PLE_WEBWORK_DATABASE_ROOT_PASSWORD PLE_WEBWORK_RENDER_COURSE_ID PLE_WEBWORK_RENDER_USER PLE_WEBWORK_RENDER_PASSWORD_HOST_FILE PLE_WEBWORK_MOJO_SECRET_HOST_FILE PLE_WEBWORK_RENDERER_ID PLE_WEBWORK_RENDERER_VERSION; do
 		require_env_value "$required_setting"
 	done
@@ -411,7 +414,7 @@ esac
 
 echo "==> Starting PostgreSQL and object storage"
 echo "==> Verifying PostgreSQL data-volume major"
-if ! compose run --rm --no-deps postgres-major-guard; then
+if ! compose --profile maintenance run --rm --no-deps postgres-major-guard; then
 	die "the existing PostgreSQL data volume is not compatible with the pinned PostgreSQL 17 image; preserve it and migrate it with an explicit major-version procedure"
 fi
 compose up -d postgres minio createbuckets
@@ -455,7 +458,11 @@ if [ "$WITH_WEBWORK" -eq 1 ]; then
 	# host password never leaves a stale secret in the named runtime volume.
 	compose rm -f webwork-api-secret-init >/dev/null 2>&1 || true
 	compose up -d webwork-api-secret-init
-	compose up -d --build webwork-db webwork-renderer
+	compose up -d webwork-db
+	# The renderer is stateless application code. Recreate it after each build
+	# so podman-compose cannot reuse a stopped container tied to an older local
+	# image tag; keep the private MariaDB dependency and volume untouched.
+	compose up -d --build --force-recreate --no-deps webwork-renderer
 	renderer_image_ref="localhost/ple-webwork-renderer:$(env_value PLE_WEBWORK_RENDERER_VERSION)"
 	renderer_image_id="$(podman image inspect --format '{{.Id}}' "$renderer_image_ref")"
 	[ -n "$renderer_image_id" ] || die "the built WebWork renderer image has no OCI image ID"
@@ -464,7 +471,11 @@ if [ "$WITH_WEBWORK" -eq 1 ]; then
 		"$renderer_image_ref" "$renderer_image_id" "$(env_value PLE_WEBWORK2_GIT_SHA)" "$(env_value PLE_WEBWORK_PG_GIT_SHA)" \
 		>"$LOCAL_WEBWORK_PROVENANCE_FILE"
 	chmod 600 "$LOCAL_WEBWORK_PROVENANCE_FILE"
-	write_env_value PLE_WEBWORK_RENDERER_VERSION "${renderer_image_id#sha256:}-ww$(env_value PLE_WEBWORK2_GIT_SHA)-pg$(env_value PLE_WEBWORK_PG_GIT_SHA)"
+	# The configured value is the stable build tag. The runtime identity is bound
+	# to the inspected image and exact source revisions for this process only;
+	# custom and local env files remain operator-owned and unchanged.
+	PLE_WEBWORK_RENDERER_VERSION="${renderer_image_id#sha256:}-ww$(env_value PLE_WEBWORK2_GIT_SHA)-pg$(env_value PLE_WEBWORK_PG_GIT_SHA)"
+	export PLE_WEBWORK_RENDERER_VERSION
 	echo "==> Waiting for authenticated WeBWorK render_rpc readiness"
 	started_at=$SECONDS
 	until compose exec -T webwork-renderer /usr/local/bin/probe_render_rpc.sh >/dev/null 2>&1; do
@@ -500,7 +511,11 @@ fi
 
 echo "==> Building images and starting API, worker, and browser gateway"
 services=(api worker gateway)
-compose up -d --build "${services[@]}"
+# podman-compose can leave a stopped container attached to the previous image
+# ID even after rebuilding the same local tag. Recreate only the stateless
+# application services so their running binaries always match this build;
+# PostgreSQL, MinIO, and their named volumes remain untouched.
+compose up -d --build --force-recreate --no-deps "${services[@]}"
 
 gateway_port="$({
 	awk -F= '

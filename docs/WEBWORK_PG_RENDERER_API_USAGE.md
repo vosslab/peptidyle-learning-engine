@@ -14,11 +14,11 @@ WeBWorK, projects it into PLE's multiple-choice envelope, and keeps all
 upstream state server-side.
 
 The Rust client, Compose profile, launcher, static topology checks, and
-recorded-contract tests are implemented. They are not live accepted until the
-source-pinned container build, authenticated semantic RPC probe, PLE
-render/grade/cache run, browser boundary trace, and independent security
-review have passed. Do not describe the WebWork profile as accepted before
-those live gates produce their evidence.
+recorded-contract tests are implemented. The source-pinned container build,
+authenticated semantic RPC probe, PLE render/grade/cache run, browser boundary
+trace, and final independent review passed on 2026-08-10. RC3 is accepted for
+this bounded path; it does not claim production deployment or generic PG
+control compatibility.
 
 ## Private deployment boundary
 
@@ -195,9 +195,8 @@ a claim that OCI output is byte-identical across platforms or times.
 
 ## Required commands and current evidence state
 
-The following checks are the acceptance evidence; only static/recorded checks
-are complete at this writing. Run live gates without substituting a public,
-unauthenticated, or invented protocol.
+The following checks are the RC3 acceptance evidence. They were executed
+without substituting a public, unauthenticated, or invented protocol.
 
 ```bash
 cargo test -p adapter_webwork
@@ -212,9 +211,9 @@ npx playwright test tests/playwright/webwork_run.spec.ts
 source source_me.sh && python3 -m pytest -q tests/
 ```
 
-The static and recorded checks above are complete at this writing. The live
-checks remain pending; running a static check does not accept a container or
-browser boundary.
+Static/recorded and live checks passed. Static checks alone never establish a
+container or browser boundary, which is why acceptance also required the live
+render/grade profile and Playwright trace.
 
 `tests/e2e/e2e_webwork_api_secret_mode.sh` is a separate strict API
 secret-mode E2E. It uses a pinned minimal container to prove that the

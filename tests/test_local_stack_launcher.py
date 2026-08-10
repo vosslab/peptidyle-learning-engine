@@ -21,7 +21,7 @@ def test_launcher_has_a_safe_complete_default_workflow() -> None:
 	for requirement in (
 		'set -euo pipefail',
 		'./build.sh "$BUILD_PROFILE"',
-		'compose up -d --build "${services[@]}"',
+		'compose up -d --build --force-recreate --no-deps "${services[@]}"',
 		'cargo tools database migrate',
 		'cargo tools e2e-seed',
 		'PLE_LOCAL_GRADER_PASSWORD',
@@ -35,7 +35,7 @@ def test_launcher_has_a_safe_complete_default_workflow() -> None:
 		'PLE_POSTGRES_IMAGE_SHA256',
 		'PLE_MINIO_IMAGE_SHA256',
 		'PLE_MINIO_MC_IMAGE_SHA256',
-		'compose run --rm --no-deps postgres-major-guard',
+		'compose --profile maintenance run --rm --no-deps postgres-major-guard',
 	):
 		assert requirement in launcher, f"launcher workflow is missing {requirement!r}"
 
@@ -105,7 +105,7 @@ def test_webwork_live_e2e_is_a_required_gateway_acceptance_not_a_readiness_probe
 		'npx playwright test tests/playwright/webwork_run.spec.ts',
 		'[ -f tests/playwright/webwork_run.spec.ts ]',
 		'first PLE question GET did not produce exactly one WebWork cache_hit event',
-		'renderer outage did not fail the WebWork question closed with HTTP 503',
+		'renderer outage did not fail WebWork run issuance closed with HTTP 503',
 		'assert_summary_score "$summary_one" 1.0',
 		'assert_summary_score "$summary_two" 0.0',
 		'ple.webwork.cache',

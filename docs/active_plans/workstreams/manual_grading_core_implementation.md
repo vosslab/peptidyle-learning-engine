@@ -1,5 +1,9 @@
 # Manual grading core implementation handoff
 
+> **Historical workstream record.** This package is retained as implementation evidence, not
+> current task direction. Current authority is the [release completion plan](../active/release_completion_plan.md)
+> and [implementation status](../implementation_status.md).
+
 ## Scope delivered
 
 Implemented the native shared contract and `MemoryStore` behavior for one

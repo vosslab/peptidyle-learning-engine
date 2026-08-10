@@ -1,5 +1,9 @@
 # Course appearance implementation handoff
 
+> **Historical workstream record.** This accepted package is retained as implementation evidence,
+> not current task direction. Current authority is the [release completion plan](../active/release_completion_plan.md)
+> and [implementation status](../implementation_status.md).
+
 ## Status
 
 WP-CA1 through WP-CA7 and release package WP-RC1 are complete and accepted on 2026-08-09. The

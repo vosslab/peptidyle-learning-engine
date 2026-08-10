@@ -283,9 +283,15 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
     const optionCount =
       response.kind === "multipleChoice"
         ? response.choices.length
-        : response.kind === "ordering"
-          ? response.items.length
-          : null;
+        : response.kind === "multiBlank"
+          ? response.blanks.length
+          : response.kind === "matching"
+            ? response.prompts.length
+            : response.kind === "ordering"
+              ? response.items.length
+              : response.kind === "hotspot"
+                ? response.regions.length
+                : null;
     return {
       sourceBackend: draft.source.backend,
       title: draft.metadata.title,

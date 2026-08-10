@@ -1,167 +1,224 @@
 # Playwright usage
 
-Playwright drives Chromium, Firefox, and WebKit for browser tests, screenshots,
-PDF output, and bounded browser automation. This guide covers the repository's
-normal test and capture workflows. For durable test authoring rules, read
-[PLAYWRIGHT_TEST_STYLE.md](PLAYWRIGHT_TEST_STYLE.md).
+General guidance for using Playwright across repositories. This document covers browser automation,
+screenshots, PDF generation, and browser testing. Repository-specific conventions should complement,
+not replace, the guidance here.
+
+## What Playwright is
+
+Playwright is a browser automation library for Chromium, Firefox, and WebKit. Common uses include:
+
+- Browser-driven testing
+- Screenshot generation
+- PDF generation
+- Visual regression
+- Browser automation
+- HTML validation
+- Scripted user workflows
+- Documentation image generation
 
 ## Installation
 
-This repository keeps Playwright in its Node development dependencies. From the
-repository root, install dependencies and the required browser when setting up a
-new checkout:
+### Existing Node project
+
+If the repository already has a `package.json`:
 
 ```bash
-npm install
+npm install --save-dev playwright
 npx playwright install
 ```
 
-Other repositories may provide a setup helper. Use the repository-owned helper
-when one exists, because it may install the expected browsers and dependencies.
-
-## Run browser tests
-
-Run the maintained browser suite through the repository runner:
+If the repository uses the Playwright test runner:
 
 ```bash
-./run_playwright_tests.sh
+npm install --save-dev @playwright/test
+npx playwright install
 ```
 
-The runner rebuilds `dist/` when its required artifacts are absent. Pass
-`--build` to force a fresh build, and pass remaining arguments through to the
-Playwright test runner:
+### Repository without Node setup
+
+Some repositories use Playwright only as a browser automation tool.
+
+A lightweight install script may install Playwright locally without creating a
+`package.json` or `package-lock.json`:
 
 ```bash
-./run_playwright_tests.sh --build
-./run_playwright_tests.sh tests/playwright/course_appearance.spec.ts
+bash devel/install_playwright_capture.sh
 ```
 
-The runner delegates server ownership to `playwright.config.ts`. The config
-serves the built `dist/` application at `http://127.0.0.1:<port>/`; managed
-tests use that HTTP URL through their configured `baseURL`. Do not start
-`run_web_server.sh` for this suite.
+Use this approach when browser automation is needed but the repository is not a
+Node project.
 
-## Maintained test rules
+### Repository setup script
 
-Tests under `tests/playwright/` exercise the shipped browser output, not raw
-source files.
-
-- Build first and serve `dist/` over HTTP through the config `webServer` block.
-- Navigate with a configured relative URL such as `await page.goto("/")`.
-- Let Playwright wait for server readiness through `webServer.url` and wait for
-  application readiness with web-first assertions such as `expect(locator).toBeVisible()`.
-- Use `expect.poll`, `page.waitForFunction`, or locator state waits when an
-  explicit app-state condition is needed.
-- Drive visible controls with accessible selectors, usually `getByRole` or
-  `getByLabel`, and assert visible behavior or meaningful application state.
-
-Do not use `file://` loading or fixed `page.waitForTimeout(...)` delays in
-permanent tests. They bypass shipped HTTP behavior or make the test depend on
-machine timing rather than a condition that proves readiness.
-
-## Ad-hoc captures
-
-For documentation or local debugging captures, use the repository's existing
-capture script when it fits the target:
+Some repositories provide a helper such as:
 
 ```bash
-node tools/capture_readme_screenshot.mjs /tmp/peptidyle_assignment_overview.png
+bash devel/setup_playwright.sh
 ```
 
-It starts a local HTTP preview of built `dist/`, waits for the intended visible
-controls, and writes a disposable image. Keep such capture scripts outside the
-permanent suite unless they assert durable user-visible behavior.
+Use the repository's preferred setup script when available.
 
-A `file://` URL is acceptable only for a one-off capture of a self-contained
-static HTML file that has no fetches, routes, modules, or browser-security
-requirements. It is not a test of the shipped app:
+## Running scripts
+
+Run Playwright scripts from the repository root so local dependencies resolve
+correctly.
+
+```bash
+node tools/capture_page.mjs
+```
+
+When a repository provides a runner such as `run_playwright_tests.sh`, prefer that runner over
+invoking `npx playwright test` directly. Repository-owned runners may provide required preflight
+checks, configuration paths, server coordination, argument handling, and consistent result
+reporting.
+
+This general guidance does not assume a TypeScript build, a `dist/` directory, or a development
+server. Each repository owns its build and server lifecycle through its local scripts and
+configuration.
+
+## Common automation
+
+### Open a local HTML file
 
 ```javascript
 import { chromium } from "playwright";
 import path from "node:path";
 
-const htmlPath = path.resolve("scratch.html");
+const html_path = path.resolve("index.html");
+
 const browser = await chromium.launch();
 const page = await browser.newPage();
-await page.goto(`file://${htmlPath}`);
-await page.screenshot({ path: "/tmp/scratch.png", fullPage: true });
+
+await page.goto(`file://${html_path}`);
 await browser.close();
 ```
-
-For any capture that depends on normal application loading, use an HTTP server
-and wait for the visible page state before writing the screenshot.
-
-## Common automation
 
 ### Take a screenshot
 
 ```javascript
 await page.screenshot({
-  path: "capture.png",
-  fullPage: true,
+	path: "capture.png",
+	fullPage: true,
 });
 ```
 
 ### Generate a PDF
 
-PDF generation requires Chromium:
-
 ```javascript
 await page.pdf({
-  path: "report.pdf",
-  format: "Letter",
-  printBackground: true,
+	path: "report.pdf",
+	format: "Letter",
+	printBackground: true,
 });
 ```
 
-### Evaluate page state
+### Evaluate JavaScript
 
 ```javascript
-const value = await page.evaluate(() => document.title);
+const value = await page.evaluate(() => {
+	return document.title;
+});
 ```
 
-### Wait for a condition
-
-Wait for the state that makes the next operation valid:
+### Wait for animations
 
 ```javascript
-await page.getByRole("button", { name: "Start or resume practice" }).waitFor();
+await page.click("#start");
+await page.waitForTimeout(500);
+```
+
+### Measure layout
+
+```javascript
+const box = await page.locator("#panel").boundingBox();
+console.log(box);
 ```
 
 ## Output locations
 
 Choose output locations according to the purpose of the generated files.
 
-| Purpose                 | Suggested location                   |
-| ----------------------- | ------------------------------------ |
-| Temporary test evidence | `test-results/`                      |
-| Temporary debugging     | `/tmp/` or another ignored directory |
-| Documentation assets    | `docs/screenshots/` by default       |
-| Product assets          | Repository output location           |
-| Reference images        | Repository asset folder              |
+| Purpose | Suggested location |
+| --- | --- |
+| Temporary test evidence | `test-results/` |
+| Temporary debugging | `/tmp/` or another ignored directory |
+| Documentation assets | `docs/screenshots/` by default |
+| Product assets | Repository output location |
+| Reference images | Repository asset folder |
 
-Follow established repository locations when they differ. Keep temporary
-screenshots, recordings, traces, and local PDF output out of version control.
+Playwright does not dictate where generated files belong. Follow the repository's
+normal conventions. Repositories may override `docs/screenshots/` when they have an established
+location for committed documentation captures.
 
-## Test locations
+## Repository helpers
 
-Browser tests live under `tests/playwright/`; longer walkthroughs may use its
-`e2e/` subfolder. They remain separate from the fast pytest lane. For the full
-test-tier layout, see [E2E_TESTS.md](E2E_TESTS.md).
+Repositories may provide helper modules or wrappers such as:
+
+- `repo_root.mjs`
+- HTML-to-PDF wrappers
+- Browser helper utilities
+- Shared launch functions
+
+These helpers are conveniences rather than Playwright requirements.
+
+## Packages
+
+| Package | Purpose |
+| --- | --- |
+| `playwright` | Browser automation library |
+| `@playwright/test` | Playwright test runner |
+| `playwright-core` | Browser library without bundled browsers |
+
+## Browser testing
+
+This section applies only when Playwright is used as a browser testing framework.
+
+### Test location
+
+A common convention is:
+
+```
+tests/playwright/
+```
+
+Some repositories further organize complete browser walkthroughs under:
+
+```
+tests/playwright/e2e/
+```
+
+Repositories may use different layouts if they better fit the project.
+
+### Headless execution
+
+Automated browser tests normally run headless.
+
+Developers may temporarily use headed mode for local debugging when appropriate.
+
+### Pytest integration
+
+Python repositories commonly exclude browser tests from normal pytest collection.
+See `E2E_TESTS.md` for repository testing conventions.
+
+### Test artifacts
+
+Temporary screenshots, recordings, traces, and similar evidence normally belong
+in an ignored output directory such as `test-results/`.
 
 ## Troubleshooting
 
-| Problem                       | Resolution                                                                      |
-| ----------------------------- | ------------------------------------------------------------------------------- |
-| Browser executable is missing | Run `npx playwright install`.                                                   |
-| `node_modules/` is absent     | Run `npm install` from the repository root.                                     |
-| A test server does not start  | Build with `./run_playwright_tests.sh --build` and inspect the server error.    |
-| An element times out          | Verify its selector and wait for the state that makes it visible or actionable. |
-| PDF generation fails          | Use Chromium and confirm the browser installation.                              |
+| Problem | Possible solution |
+| --- | --- |
+| Cannot find module `playwright` | Run from the repository root or verify installation. |
+| Browser executable missing | Run `npx playwright install`. |
+| Element timeout | Verify selectors and page state. |
+| PDF generation unavailable | PDF generation requires Chromium. |
+| Browser opens unexpectedly | Check launch options and debugging settings. |
 
 ## Related documentation
 
-- [PLAYWRIGHT_TEST_STYLE.md](PLAYWRIGHT_TEST_STYLE.md)
-- [E2E_TESTS.md](E2E_TESTS.md)
-- [MARKDOWN_STYLE.md](MARKDOWN_STYLE.md)
-- [REPO_STYLE.md](REPO_STYLE.md)
+- `REPO_STYLE.md`
+- `E2E_TESTS.md`
+- `PLAYWRIGHT_TEST_STYLE.md`
+- `MARKDOWN_STYLE.md`

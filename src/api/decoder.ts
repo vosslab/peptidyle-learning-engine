@@ -46,7 +46,11 @@ export function decodeNonemptyString(value: unknown, path: string): string {
 
 export function decodeUuid(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
-  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  // Rust's UUID-backed domain IDs and PostgreSQL's uuid type accept every
+  // canonical 16-byte UUID value, including deterministic local/test IDs
+  // without an RFC version or variant nibble. The browser validates the wire
+  // shape; it must not invent a stricter identity policy than the server.
+  const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
   if (!uuid.test(decoded)) {
     throw new DecodeError(path, "a UUID");
   }

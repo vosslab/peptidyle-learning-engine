@@ -35,11 +35,20 @@ identifiers are distinct newtypes over `Uuid`. They cannot substitute for one
 another, so passing a draft identifier where published content is expected or
 an assignment identifier where a course is required fails to compile.
 
-Identifiers are UUIDv7: random enough that a catalog number reveals no volume
-information, time-ordered enough to index well, never sequential. Minting sits
+Fresh server-minted identifiers are UUIDv7: random enough that a catalog number
+reveals no volume information, time-ordered enough to index well, and never
+sequential. The storage and wire contract is the canonical 36-character UUID
+shape backed by PostgreSQL's native 16-byte `uuid` value; it does not require a
+v7 nibble when reading an existing deterministic/local identity. Minting sits
 behind the `generate` feature, which the server enables and the WebAssembly
 bridge leaves off, because identifiers are created server-side on the publish
 transition.
+
+UUIDs name durable records; they are not credentials, authorization evidence,
+or browser-facing choice codes. A submission places its `QuestionAttemptId`
+once in the route. The server resolves learner, assignment, version, seed,
+backend, and policy from that authenticated attempt instead of asking the
+browser to resend their UUIDs.
 
 The draft rule is carried by the type rather than a flag:
 `QuestionDefinition::problem` is `Option<ProblemId>`, and `is_draft()` reads
@@ -122,9 +131,11 @@ reviewed table covering all eight capabilities and the return-all behavior.
 ### Response shapes
 
 `ResponseDefinition` and `StudentResponse` are parallel enums: numeric,
-multiple choice, short text, ordering, file upload, and external tool. Within
-a variant, invalid field combinations are unrepresentable, so a
-multiple-choice response carries choice identifiers and nothing else.
+multiple choice or multiple answer, short text, multi-blank, matching,
+ordering, hotspot, file upload, and external tool. Within a variant, invalid
+field combinations are unrepresentable, so a matching response carries only
+prompt-to-choice associations and a hotspot response carries only normalized
+points.
 
 `ExternalTool` is a fieldless marker variant in both enums. It carries no
 provider, launch, answer, score, token, or completion material. The server
@@ -136,8 +147,11 @@ Agreement _between_ the two and variant-specific format rules live in
 function through WebAssembly, and the server repeats it before grading. A
 client-side check is a convenience rather than an authority.
 
-Choices are compared by identifier, not by displayed label, so presenting them
-in a shuffled order leaves a submitted response meaningful.
+Choices, blanks, matching prompts, ordering items, and hotspot regions are
+compared by identifier rather than by displayed label or position. Presenting
+them in a different order therefore does not change answer meaning. Hotspot
+coordinates use the integer range 0 through 10,000 so zoom, image density, and
+responsive layout do not alter the submitted location.
 
 Server-side grading loads the attempt's exact published `QuestionDefinition`
 and calls `grading::grade(question, response, key)`. The definition supplies

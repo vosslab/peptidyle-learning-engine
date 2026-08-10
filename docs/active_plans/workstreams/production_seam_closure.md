@@ -1,5 +1,9 @@
 # WP-RC2 production seam closure
 
+> **Historical accepted package.** This record is retained as acceptance evidence, not current task
+> direction. Current authority is the [release completion plan](../active/release_completion_plan.md)
+> and [implementation status](../implementation_status.md).
+
 ## Status
 
 Accepted on 2026-08-09. WP-RC2 removes misleading production seam names and

@@ -43,8 +43,8 @@ try {
 
   await page.goto(`${baseUrl}/`);
   await page.evaluate((nextPath) => {
-    history.pushState({}, "", nextPath);
-    dispatchEvent(new PopStateEvent("popstate"));
+    globalThis.history.pushState({}, "", nextPath);
+    globalThis.dispatchEvent(new globalThis.PopStateEvent("popstate"));
   }, assignmentPath);
   await page.getByRole("heading", { name: "Peptide bond mastery", exact: true }).waitFor();
   await page.getByRole("button", { name: "Start or resume practice" }).waitFor();

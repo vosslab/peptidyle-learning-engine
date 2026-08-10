@@ -109,8 +109,12 @@ def test_gateway_uses_digest_pinned_dynamic_dns_without_private_credentials() ->
 	assert "lb_policy round_robin" in caddyfile
 	assert "fail_duration 10s" in caddyfile
 	assert "max_fails 1" in caddyfile
-	assert "unhealthy_status 503" in caddyfile, (
-		"A degraded API readiness response must remove that replica from rotation."
+	assert "health_uri /health" in caddyfile
+	assert "health_interval 5s" in caddyfile
+	assert "health_timeout 2s" in caddyfile
+	assert "health_status 200" in caddyfile
+	assert "unhealthy_status 503" not in caddyfile, (
+		"A feature-local 503 must not evict a healthy API replica from rotation."
 	)
 	assert "reverse_proxy api:3000" not in caddyfile
 	assert "network_proxy none" in caddyfile
@@ -155,7 +159,7 @@ def test_native_infrastructure_uses_required_immutable_digests_and_a_read_only_m
 		assert mutable not in compose
 
 	guard = _service_block(compose, "postgres-major-guard")
-	assert "ple_pgdata:/var/lib/postgresql:ro" in guard
+	assert "ple_pgdata:/var/lib/postgresql/data:ro" in guard
 	assert "network_mode: none" in guard
 	assert "read_only: true" in guard
 	assert '"$${actual_major}" != "17"' in guard

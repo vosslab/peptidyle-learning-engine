@@ -297,9 +297,9 @@ pub(crate) fn validate_upsert_flat_question_command(
     command: &UpsertFlatQuestionCommand,
 ) -> Result<(), StoreError> {
     crate::validate_draft(&command.draft)?;
-    grading::flat_question::validate_flat_single_choice_draft(&command.draft.question).map_err(
-        |error| StoreError::InvalidRecord(format!("flat-question draft is invalid: {error}")),
-    )?;
+    grading::flat_question::validate_for_draft(&command.draft.question).map_err(|error| {
+        StoreError::InvalidRecord(format!("flat-question draft is invalid: {error}"))
+    })?;
     let private = command.grading.decode_private()?;
     private
         .validate_for_draft(&command.draft.question)

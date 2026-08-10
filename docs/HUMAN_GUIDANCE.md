@@ -111,8 +111,15 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 ## Student keyboard accessibility
 
 - Make every student browser action usable with the keyboard alone.
-- Support Tab, arrow keys, and Enter throughout student flows. Use Space and Escape where the native
-  interaction pattern calls for them.
+- Make the browser platform contract the primary path: Tab and Shift+Tab move focus, Space performs
+  native selection or activates a focused button, and native links retain Enter activation. The
+  complete student journey must work through visible controls without a widget shortcut.
+- Treat Enter-to-submit from a response input, Arrow keys, visible-choice digits 1-9, and Escape as
+  widget-specific extensions. Scope and test each extension separately; never let it replace the
+  visible platform path or override text editing, input-method composition, or native dialogs.
+- Apply the exact journey, response-family, recovery, and evidence rules in
+  `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`. New question families satisfy that contract in their
+  owning package rather than waiting for a later generic audit.
 
 ## Flat question source
 
@@ -125,25 +132,25 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Compile answer-bearing author input into separate checksummed public question
   content and grader-only key/feedback material. Neither authored nor published
   source objects may receive signed delivery URLs.
-- Stable semantic choice IDs own answers and feedback inside PLE; display labels such as A, B, and C
-  do not. The QTI-JSONL adapter derives those IDs deterministically when the source
-  specification uses text or position instead of authored identifiers.
+- Stable semantic choice, blank, prompt, item, and region IDs own answer meaning inside PLE; display
+  labels such as A, B, and C do not. An import adapter derives those IDs deterministically when an
+  external source uses text or position instead of authored identifiers.
 - PLE QTI-JSON must support, at a minimum, multiple choice (MC), multiple answer
   (MA), fill-in-the-blank (FIB), multiple fill-in-the-blank (MULTI-FIB),
   numerical entry (NUM), matching (MATCH), ordered list (ORDER), and image hot
   spot (HOTSPOT) questions.
-- Complete the owner-assigned QTI-JSONL WP-FQ-0 artifacts in
-  `OTHER_REPOS/qti-package-maker/` and adopt them as the semantic source contract for new flat-question
-  families. Use the simple readability of its `exam_yaml` engine while retaining the answer and
-  grading data that print-oriented YAML deliberately omits. Do not invent a competing PLE family
-  schema. WP-FQ-0 owns the specification, reference engine, all-family example, and contract/
-  round-trip tests before PLE family code consumes it.
-- Keep QTI-JSONL interpretation in one versioned adapter/compiler boundary. Preserve original source
-  and compile it into PLE's answer-free public model plus grader-only private material so a later
-  source version can be added without spreading its fields across storage, routes, UI, and grading.
-- Follow the QTI-JSONL specification for image and other binary references. Keep bytes, checksums,
-  media types, lifecycle, and authorization in PLE object storage rather than embedding bytes in
-  JSON or database rows. Port engine code to Rust only when a concrete integration needs it.
+- Use closed PLE flat-question JSON version 2 as the internal source contract for all eight families.
+  Base MC, MA, MATCH, NUM, FIB, MULTI-FIB, and ORDER semantics on the reviewed QTI Package Maker item
+  model while retaining accepted answers and grading data that print-oriented writers omit. HOTSPOT
+  is a bounded PLE extension because the reviewed item model does not define it. Preserve version 1
+  `singleChoice` bytes and behavior exactly.
+- Treat a future external QTI-JSONL format as an adapter/interchange concern, not a prerequisite for
+  native family support. Keep any accepted external interpretation in one versioned adapter and map
+  it into PLE's answer-free public model plus grader-only private material; never spread external
+  fields across storage, routes, UI, and grading.
+- For image and other binary references, keep bytes, checksums, media types, lifecycle, and
+  authorization in PLE object storage rather than embedding bytes in JSON or database rows. Port
+  engine code to Rust only when a concrete integration needs it.
 - Treat `feedback_correct` and `feedback_incorrect` as optional sidecars shared
   by question types, following QTI Package Maker's `BaseItem`. Authors are often
   incomplete, so feedback is not required and missing feedback does not make a

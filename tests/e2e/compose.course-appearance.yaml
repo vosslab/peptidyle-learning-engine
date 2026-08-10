@@ -15,7 +15,7 @@ services:
     ports:
       - "127.0.0.1:${PLE_POSTGRES_HOST_PORT:?set by e2e_course_appearance.sh}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql
+      - postgres_data:/var/lib/postgresql/data
 
   minio:
     image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e

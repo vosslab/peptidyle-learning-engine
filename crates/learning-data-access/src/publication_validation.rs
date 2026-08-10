@@ -11,10 +11,6 @@ use question_model::{
 };
 use question_model::{DraftQuestionSource, QuestionSource};
 
-/// The native family whose authored source and private grading material must
-/// cross the publication boundary together.
-const FLAT_SINGLE_CHOICE_FAMILY: &str = "flat_single_choice_v1";
-
 /// Profile item identities and per-item result source identities are bounded
 /// in Unicode scalar values to match the QTI adapter's safe source-identifier
 /// contract. The optional package-level registry identifier intentionally has
@@ -579,7 +575,7 @@ pub(crate) fn validate_source_artifact_for_publication(
     }
     let is_flat_family = matches!(
         source,
-        QuestionSource::Native { family } if family == FLAT_SINGLE_CHOICE_FAMILY
+        QuestionSource::Native { family } if grading::flat_question::is_flat_question_family(family)
     );
     match (is_flat_family, artifact, has_flat_promotion) {
         (false, None, false) => Ok(()),
@@ -626,10 +622,9 @@ pub(crate) fn validate_flat_question_publication(
         command.publication,
         promotion.import_origin.as_ref(),
     )?;
-    grading::flat_question::validate_flat_single_choice_draft(&command.expected_draft.question)
-        .map_err(|error| {
-            StoreError::InvalidRecord(format!("flat-question draft is invalid: {error}"))
-        })?;
+    grading::flat_question::validate_for_draft(&command.expected_draft.question).map_err(
+        |error| StoreError::InvalidRecord(format!("flat-question draft is invalid: {error}")),
+    )?;
     match (
         &command.expected_draft.question.source,
         &command.published_source,
@@ -641,11 +636,11 @@ pub(crate) fn validate_flat_question_publication(
             QuestionSource::Native {
                 family: published_family,
             },
-        ) if draft_family == FLAT_SINGLE_CHOICE_FAMILY
-            && published_family == FLAT_SINGLE_CHOICE_FAMILY => {}
+        ) if draft_family == published_family
+            && grading::flat_question::is_flat_question_family(draft_family) => {}
         _ => {
             return Err(StoreError::InvalidRecord(
-                "flat-question promotion requires matching flat_single_choice_v1 native sources"
+                "flat-question promotion requires matching supported native flat sources"
                     .to_string(),
             ));
         }

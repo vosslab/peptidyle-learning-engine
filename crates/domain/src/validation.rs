@@ -7,7 +7,9 @@
 use std::collections::BTreeSet;
 
 use question_model::answer::SelectionCardinality;
-use question_model::response::{ChoiceId, ResponseDefinition, StudentResponse};
+use question_model::response::{
+    ChoiceId, HotspotRegion, ResponseDefinition, StudentResponse, TextEntrySlot,
+};
 use serde::{Deserialize, Serialize};
 
 /// One reason a student response cannot be submitted in its current form.
@@ -46,8 +48,26 @@ pub enum ResponseFormatViolation {
         /// Submitted Unicode scalar values.
         actual_length: u64,
     },
+    /// A multi-blank response does not name every declared slot exactly once.
+    BlankSlotsMismatch,
+    /// A matching response does not name every prompt exactly once.
+    MatchingPromptsMismatch,
+    /// A matching response repeats a choice where the definition requires a permutation.
+    DuplicateMatchChoice {
+        /// Reused choice identifier.
+        choice: ChoiceId,
+    },
+    /// A matching response names a choice absent from the definition.
+    UnknownMatchChoice {
+        /// Unrecognized choice identifier.
+        choice: ChoiceId,
+    },
     /// An ordering response is not an exact permutation of the defined items.
     OrderingItemsMismatch,
+    /// A hotspot coordinate lies outside the normalized 0 through 10,000 surface.
+    HotspotPointOutOfBounds,
+    /// A hotspot point does not fall within exactly one public candidate region.
+    HotspotPointOutsideRegion,
     /// A file-upload response does not contain its server-issued object key.
     MissingUploadReference,
 }
@@ -96,6 +116,13 @@ pub fn validate_response_format(
                 });
             }
         }
+        (ResponseDefinition::MultiBlank { blanks }, StudentResponse::MultiBlank { answers }) => {
+            validate_multi_blank(blanks, answers, &mut violations);
+        }
+        (
+            ResponseDefinition::Matching { prompts, choices },
+            StudentResponse::Matching { matches },
+        ) => validate_matching(prompts, choices, matches, &mut violations),
         (ResponseDefinition::Ordering { items }, StudentResponse::Ordering { order }) => {
             let expected: BTreeSet<ChoiceId> = items.iter().map(|item| item.id.clone()).collect();
             let actual: BTreeSet<ChoiceId> = order.iter().cloned().collect();
@@ -107,6 +134,12 @@ pub fn validate_response_format(
                 violations.push(ResponseFormatViolation::OrderingItemsMismatch);
             }
         }
+        (
+            ResponseDefinition::Hotspot {
+                regions, selection, ..
+            },
+            StudentResponse::Hotspot { points },
+        ) => validate_hotspot(regions, *selection, points, &mut violations),
         (ResponseDefinition::FileUpload { .. }, StudentResponse::FileUpload { object_key }) => {
             if object_key.trim().is_empty() {
                 violations.push(ResponseFormatViolation::MissingUploadReference);
@@ -117,6 +150,118 @@ pub fn validate_response_format(
     }
 
     ResponseFormatReport { violations }
+}
+
+fn validate_multi_blank(
+    blanks: &[TextEntrySlot],
+    answers: &[question_model::response::TextEntryAnswer],
+    violations: &mut Vec<ResponseFormatViolation>,
+) {
+    let expected: BTreeSet<_> = blanks.iter().map(|blank| blank.id.clone()).collect();
+    let actual: BTreeSet<_> = answers.iter().map(|answer| answer.slot.clone()).collect();
+    if expected.len() != blanks.len()
+        || actual.len() != answers.len()
+        || answers.len() != blanks.len()
+        || actual != expected
+    {
+        violations.push(ResponseFormatViolation::BlankSlotsMismatch);
+        return;
+    }
+    for answer in answers {
+        let blank = blanks
+            .iter()
+            .find(|blank| blank.id == answer.slot)
+            .expect("validated slot set is exact");
+        let actual_length = count(answer.text.chars());
+        if actual_length > u64::from(blank.max_length) {
+            violations.push(ResponseFormatViolation::TextTooLong {
+                max_length: blank.max_length,
+                actual_length,
+            });
+        }
+    }
+}
+
+fn validate_matching(
+    prompts: &[question_model::response::ChoiceOption],
+    choices: &[question_model::response::ChoiceOption],
+    matches: &[question_model::response::MatchPair],
+    violations: &mut Vec<ResponseFormatViolation>,
+) {
+    let expected_prompts: BTreeSet<_> = prompts.iter().map(|prompt| prompt.id.clone()).collect();
+    let actual_prompts: BTreeSet<_> = matches.iter().map(|pair| pair.prompt.clone()).collect();
+    if expected_prompts.len() != prompts.len()
+        || actual_prompts.len() != matches.len()
+        || matches.len() != prompts.len()
+        || actual_prompts != expected_prompts
+    {
+        violations.push(ResponseFormatViolation::MatchingPromptsMismatch);
+    }
+    let available_choices: BTreeSet<_> = choices.iter().map(|choice| choice.id.clone()).collect();
+    let mut observed = BTreeSet::new();
+    for pair in matches {
+        if !available_choices.contains(&pair.choice) {
+            violations.push(ResponseFormatViolation::UnknownMatchChoice {
+                choice: pair.choice.clone(),
+            });
+        }
+        if !observed.insert(pair.choice.clone()) {
+            violations.push(ResponseFormatViolation::DuplicateMatchChoice {
+                choice: pair.choice.clone(),
+            });
+        }
+    }
+}
+
+fn validate_hotspot(
+    regions: &[HotspotRegion],
+    selection: SelectionCardinality,
+    points: &[question_model::response::HotspotPoint],
+    violations: &mut Vec<ResponseFormatViolation>,
+) {
+    validate_selection_count(selection, points.len(), violations);
+    for point in points {
+        if point.x > 10_000 || point.y > 10_000 {
+            violations.push(ResponseFormatViolation::HotspotPointOutOfBounds);
+            continue;
+        }
+        if regions
+            .iter()
+            .filter(|region| region_contains(region, point.x, point.y))
+            .count()
+            != 1
+        {
+            violations.push(ResponseFormatViolation::HotspotPointOutsideRegion);
+        }
+    }
+}
+
+fn region_contains(region: &HotspotRegion, x: u16, y: u16) -> bool {
+    let right = u32::from(region.x) + u32::from(region.width);
+    let bottom = u32::from(region.y) + u32::from(region.height);
+    u32::from(x) >= u32::from(region.x)
+        && u32::from(x) <= right
+        && u32::from(y) >= u32::from(region.y)
+        && u32::from(y) <= bottom
+}
+
+fn validate_selection_count(
+    selection: SelectionCardinality,
+    actual: usize,
+    violations: &mut Vec<ResponseFormatViolation>,
+) {
+    let valid = match selection {
+        SelectionCardinality::ExactlyOne => actual == 1,
+        SelectionCardinality::Exactly { count } => actual == count as usize,
+        SelectionCardinality::AnyNumber => true,
+        SelectionCardinality::AtLeastOne => actual >= 1,
+    };
+    if !valid {
+        violations.push(ResponseFormatViolation::SelectionCount {
+            expected: selection,
+            actual: actual as u64,
+        });
+    }
 }
 
 /// Validates multiple-choice cardinality and identifier membership.
@@ -165,7 +310,9 @@ fn count(values: impl Iterator) -> u64 {
 mod tests {
     use super::*;
     use question_model::answer::{NumericTolerance, TextMatchMode};
-    use question_model::response::ChoiceOption;
+    use question_model::response::{
+        ChoiceOption, HotspotPoint, HotspotRegion, MatchPair, TextEntryAnswer, TextEntrySlot,
+    };
 
     fn choice(id: &str) -> ChoiceOption {
         ChoiceOption {
@@ -277,6 +424,95 @@ mod tests {
         assert_eq!(
             validate_response_format(&definition, &response).violations,
             vec![ResponseFormatViolation::OrderingItemsMismatch]
+        );
+    }
+
+    #[test]
+    fn compound_flat_responses_refuse_stale_slots_pairs_and_regions() {
+        let multi_blank = ResponseDefinition::MultiBlank {
+            blanks: vec![
+                TextEntrySlot {
+                    id: ChoiceId::new("first"),
+                    label: Vec::new(),
+                    match_mode: TextMatchMode::Normalized,
+                    max_length: 4,
+                },
+                TextEntrySlot {
+                    id: ChoiceId::new("second"),
+                    label: Vec::new(),
+                    match_mode: TextMatchMode::Exact,
+                    max_length: 4,
+                },
+            ],
+        };
+        assert_eq!(
+            validate_response_format(
+                &multi_blank,
+                &StudentResponse::MultiBlank {
+                    answers: vec![TextEntryAnswer {
+                        slot: ChoiceId::new("first"),
+                        text: "value".to_string(),
+                    }],
+                },
+            )
+            .violations,
+            vec![ResponseFormatViolation::BlankSlotsMismatch]
+        );
+
+        let matching = ResponseDefinition::Matching {
+            prompts: vec![choice("dna"), choice("rna")],
+            choices: vec![choice("deoxy"), choice("ribose")],
+        };
+        assert_eq!(
+            validate_response_format(
+                &matching,
+                &StudentResponse::Matching {
+                    matches: vec![
+                        MatchPair {
+                            prompt: ChoiceId::new("dna"),
+                            choice: ChoiceId::new("deoxy"),
+                        },
+                        MatchPair {
+                            prompt: ChoiceId::new("dna"),
+                            choice: ChoiceId::new("deoxy"),
+                        },
+                    ],
+                },
+            )
+            .violations,
+            vec![
+                ResponseFormatViolation::MatchingPromptsMismatch,
+                ResponseFormatViolation::DuplicateMatchChoice {
+                    choice: ChoiceId::new("deoxy"),
+                },
+            ]
+        );
+
+        let hotspot = ResponseDefinition::Hotspot {
+            surface: question_model::envelope::AssetRef {
+                asset: question_model::AssetId::from_uuid(uuid::Uuid::from_u128(1)),
+                checksum: "a".repeat(64),
+            },
+            description: "A diagram".to_string(),
+            regions: vec![HotspotRegion {
+                id: ChoiceId::new("target"),
+                label: Vec::new(),
+                x: 1_000,
+                y: 1_000,
+                width: 2_000,
+                height: 2_000,
+            }],
+            selection: SelectionCardinality::ExactlyOne,
+        };
+        assert_eq!(
+            validate_response_format(
+                &hotspot,
+                &StudentResponse::Hotspot {
+                    points: vec![HotspotPoint { x: 9_000, y: 9_000 }],
+                },
+            )
+            .violations,
+            vec![ResponseFormatViolation::HotspotPointOutsideRegion]
         );
     }
 

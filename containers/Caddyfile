@@ -22,10 +22,14 @@
 			lb_try_interval 250ms
 			fail_duration 10s
 			max_fails 1
-			# Readiness is semantic: a replica that can answer HTTP but reports its
-			# persistent dependencies degraded must leave the round-robin pool until
-			# the short passive-health window elapses.
-			unhealthy_status 503
+			# Replica readiness is determined only by the dedicated semantic health
+			# route. A bounded backend such as WebWork can intentionally return 503
+			# without evicting an otherwise healthy API replica or breaking native
+			# learning, authentication, and course navigation.
+			health_uri /health
+			health_interval 5s
+			health_timeout 2s
+			health_status 200
 			transport http {
 				network_proxy none
 				dial_timeout 2s

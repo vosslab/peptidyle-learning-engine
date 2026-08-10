@@ -44,9 +44,15 @@ def read_shebang(path: str) -> str:
 	if line.startswith(b"#!["):
 		return ""
 	try:
-		return line.decode("utf-8").rstrip("\n")
+		decoded = line.decode("utf-8").rstrip("\n")
 	except UnicodeDecodeError:
-		return line.decode("utf-8", errors="replace").rstrip("\n")
+		decoded = line.decode("utf-8", errors="replace").rstrip("\n")
+	# WeBWorK emits Perl configuration files with this marker and loads them as
+	# configuration; they are deliberately non-executable. It is not an OS
+	# interpreter path and must not trigger executable-script policy.
+	if decoded == "#!perl" and path.endswith(".conf"):
+		return ""
+	return decoded
 
 
 #============================================
@@ -206,3 +212,11 @@ def test_shebang_executable_alignment(path: str) -> None:
 	assert rel not in VIOLATIONS_BY_FILE, file_utils.format_violation_assert_message(
 		rel, VIOLATIONS_BY_FILE.get(rel, []), REPORT_NAME
 	)
+
+
+#============================================
+def test_non_executable_perl_configuration_marker_is_not_a_shebang() -> None:
+	"""Treat WeBWorK's ``#!perl`` config marker as data, not an executable script."""
+	path = os.path.join(REPO_ROOT, "containers", "webwork", "course.conf")
+	assert read_shebang(path) == ""
+	assert not is_executable(path)

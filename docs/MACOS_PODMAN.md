@@ -105,7 +105,7 @@ check.
 ## Cleaning up
 
 ```bash
-podman compose -f containers/compose.yaml down    # stop the stack, keep data
+podman compose -f containers/compose.yaml --env-file containers/env.local down # stop the stack, keep data
 podman machine stop                                # stop the virtual machine
 ```
 

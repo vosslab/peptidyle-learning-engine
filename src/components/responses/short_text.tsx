@@ -1,0 +1,59 @@
+// short_text.tsx - controlled short-text response entry.
+
+import { createSignal, type JSX } from "solid-js";
+
+import type { StudentResponse } from "../../../generated/api/StudentResponse";
+
+import { handleWidgetKeyDown } from "../response_widget/keyboard";
+import {
+  Actions,
+  createSubmissionController,
+  Status,
+  type ShortTextDefinition,
+  type WidgetBodyProps,
+} from "./common";
+
+export function ShortTextResponse(props: WidgetBodyProps<ShortTextDefinition>): JSX.Element {
+  const initialText = props.initialResponse?.text ?? "";
+  const [text, setText] = createSignal(initialText);
+  const controller = createSubmissionController(props, { kind: "shortText", text: initialText });
+  const characterCount = (): number => [...text()].length;
+  const response = (): StudentResponse => ({ kind: "shortText", text: text() });
+  function update(next: string): void {
+    setText(next);
+    void controller.validate({ kind: "shortText", text: next });
+  }
+  function submit(): void {
+    void controller.submit(response());
+  }
+  return (
+    <section
+      class="response-widget"
+      data-phase={controller.phase().kind}
+      onKeyDown={(event) =>
+        handleWidgetKeyDown(event, props.onEscape, submit, controller.canSubmit)
+      }
+    >
+      <label for={`${props.attemptId}-short-text`}>Short written response</label>
+      <p class="field-help" id={`${props.attemptId}-short-text-help`}>
+        Up to {props.definition.maxLength} characters. {characterCount()} used.
+      </p>
+      <textarea
+        id={`${props.attemptId}-short-text`}
+        class="response-control"
+        value={text()}
+        maxlength={props.definition.maxLength}
+        aria-describedby={`${props.attemptId}-short-text-help ${props.attemptId}-format-status`}
+        aria-invalid={controller.invalid()}
+        disabled={controller.pending()}
+        onInput={(event) => update(event.currentTarget.value)}
+      />
+      <Status attemptId={props.attemptId} controller={controller} />
+      <Actions
+        disabled={!controller.canSubmit() || controller.pending()}
+        onSubmit={submit}
+        onEscape={props.onEscape}
+      />
+    </section>
+  );
+}

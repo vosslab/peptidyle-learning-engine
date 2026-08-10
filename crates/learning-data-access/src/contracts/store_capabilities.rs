@@ -1,0 +1,503 @@
+use async_trait::async_trait;
+
+use super::*;
+
+/// Focused persistence capability composed by [`Store`].
+#[async_trait]
+pub trait StatisticsStore: Send + Sync {
+    /// Returns only the globally k-anonymous metrics visible for one catalog
+    /// version.  This has no contribution-write counterpart: submission
+    /// completion owns that server-only capability.
+    async fn question_statistics_impl(
+        &self,
+        _context: TenantContext,
+        _reference: ProblemVersionRef,
+    ) -> Result<QuestionStatisticsDisclosure, StoreError> {
+        Ok(QuestionStatisticsDisclosure::Suppressed)
+    }
+
+    /// Lists compact gradebook rows for one tenant-owned course.
+    ///
+    /// The stable cursor is the backend-owned `(assignment_id, enrollment_id)`
+    /// key. Implementations read assignment, enrollment, and maintained
+    /// summary rows only; they do not scan run or attempt history.
+    async fn list_gradebook_rows_impl(
+        &self,
+        context: TenantContext,
+        course: CourseId,
+        page: PageRequest,
+    ) -> Result<Page<GradebookSummaryRow>, StoreError>;
+}
+
+/// Focused persistence capability composed by [`Store`].
+#[async_trait]
+pub trait AuthoringStore: Send + Sync {
+    /// Creates or replaces a tenant-owned editable draft for an authorized actor.
+    ///
+    /// The first save must pass `None` and atomically establishes `actor` as
+    /// owner. Later saves require the exact revision returned by a prior read
+    /// or save, so a stale browser tab cannot overwrite newer author work.
+    async fn upsert_draft_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        expected_revision: Option<WorkspaceDraftRevision>,
+        draft: DraftRecord,
+    ) -> Result<WorkspaceDraft, StoreError>;
+
+    /// Reads a draft only when `actor` has an explicit workspace binding.
+    async fn get_draft_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        workspace: WorkspaceId,
+    ) -> Result<Option<WorkspaceDraft>, StoreError>;
+
+    /// Lists compact private workspace-draft summaries visible to `actor` in
+    /// tenant-bound cursor order.
+    async fn list_drafts_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        page: PageRequest,
+    ) -> Result<Page<WorkspaceDraftSummary>, StoreError>;
+
+    /// Removes only one unversioned draft in the active tenant.
+    ///
+    /// The caller supplies the revision obtained from a successful read or
+    /// save.  The implementation compares that revision and verifies owner
+    /// authority in the same removal operation, so a stale tab cannot delete
+    /// newer author work.
+    ///
+    /// `false` deliberately covers an absent or foreign-tenant workspace, so
+    /// callers do not gain an existence oracle through deletion.
+    async fn delete_draft_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        workspace: WorkspaceId,
+        expected_revision: WorkspaceDraftRevision,
+    ) -> Result<bool, StoreError>;
+
+    /// Adds a collaborator to an existing workspace.
+    ///
+    /// Only the persisted owner may grant this access. Repeating the same
+    /// grant is idempotent so an interrupted invitation retry is harmless.
+    async fn grant_draft_collaborator_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        workspace: WorkspaceId,
+        collaborator: UserId,
+    ) -> Result<(), StoreError>;
+
+    /// Resolves one exact globally public version.
+    ///
+    /// Tenant-visible institution content is intentionally absent; use
+    /// [`CatalogStore::get_catalog_problem`] when a session tenant is known.
+    async fn get_published_problem_impl(
+        &self,
+        problem: ProblemId,
+        version: VersionId,
+    ) -> Result<Option<PublishedProblemRecord>, StoreError>;
+
+    /// Lists globally public, discoverable versions in stable cursor order.
+    ///
+    /// Tenant-visible institution content is intentionally absent; use
+    /// [`CatalogStore::list_catalog`] when a session tenant is known.
+    async fn list_published_problems_impl(
+        &self,
+        page: PageRequest,
+    ) -> Result<Page<PublishedProblemRecord>, StoreError>;
+}
+
+/// Focused persistence capability composed by [`Store`].
+#[async_trait]
+pub trait CourseStore: Send + Sync {
+    /// Creates or replaces a tenant-owned course and its explicit memberships.
+    async fn upsert_course_impl(
+        &self,
+        context: TenantContext,
+        course: CourseRecord,
+    ) -> Result<(), StoreError>;
+
+    /// Reads one course inside the active tenant for authorization checks.
+    async fn get_course_impl(
+        &self,
+        context: TenantContext,
+        course: CourseId,
+    ) -> Result<Option<CourseRecord>, StoreError>;
+
+    /// Lists courses visible to a member or tenant administrator.
+    async fn list_courses_impl(
+        &self,
+        context: TenantContext,
+        scope: CourseListScope,
+        page: PageRequest,
+    ) -> Result<Page<CourseSummary>, StoreError>;
+
+    /// Creates or conditionally replaces one instructor-owned course group.
+    /// Membership edits immediately re-resolve active attempts for every
+    /// assignment exception that targets this group.
+    async fn put_course_group_impl(
+        &self,
+        context: TenantContext,
+        command: PutCourseGroupCommand,
+    ) -> Result<StoredCourseGroup, StoreError>;
+
+    /// Reads one current course group inside the active tenant.
+    async fn get_course_group_impl(
+        &self,
+        context: TenantContext,
+        group: CourseGroupId,
+    ) -> Result<Option<StoredCourseGroup>, StoreError>;
+}
+
+/// Focused persistence capability composed by [`Store`].
+#[async_trait]
+pub trait CourseAssignmentStore: Send + Sync {
+    /// Creates a new assignment with an initial strong revision token.
+    async fn create_assignment_impl(
+        &self,
+        context: TenantContext,
+        assignment: AssignmentRecord,
+    ) -> Result<StoredAssignment, StoreError>;
+
+    /// Replaces one assignment only when the caller holds its exact revision.
+    async fn replace_assignment_impl(
+        &self,
+        context: TenantContext,
+        course: CourseId,
+        assignment: AssignmentId,
+        expected_revision: AssignmentRevision,
+        update: AssignmentUpdate,
+    ) -> Result<StoredAssignment, StoreError>;
+
+    /// Retires one fixed item or selection candidate and recalculates all current grades.
+    ///
+    /// The command is rejected while an affected attempt is in progress. Submitted
+    /// evidence remains protected; future runs omit the retired identity.
+    async fn delete_and_regrade_assignment_item_impl(
+        &self,
+        context: TenantContext,
+        command: DeleteAndRegradeAssignmentItemCommand,
+    ) -> Result<StoredAssignment, StoreError>;
+
+    /// Reads one assignment and its current revision for an authenticated edit.
+    async fn get_assignment_for_edit_impl(
+        &self,
+        context: TenantContext,
+        assignment: AssignmentId,
+    ) -> Result<Option<StoredAssignment>, StoreError>;
+
+    /// Reads one assignment inside the active tenant.
+    async fn get_assignment_impl(
+        &self,
+        context: TenantContext,
+        assignment: AssignmentId,
+    ) -> Result<Option<AssignmentRecord>, StoreError>;
+
+    /// Lists assignments inside the active tenant in stable cursor order.
+    async fn list_assignments_impl(
+        &self,
+        context: TenantContext,
+        course: CourseId,
+        page: PageRequest,
+    ) -> Result<Page<AssignmentRecord>, StoreError>;
+
+    /// Creates one enrollment and its empty compact summary.
+    async fn create_enrollment_impl(
+        &self,
+        context: TenantContext,
+        enrollment: AssignmentEnrollment,
+    ) -> Result<(), StoreError>;
+
+    /// Reads one enrollment inside the active tenant.
+    async fn get_enrollment_impl(
+        &self,
+        context: TenantContext,
+        enrollment: EnrollmentId,
+    ) -> Result<Option<AssignmentEnrollment>, StoreError>;
+}
+
+/// Focused persistence capability composed by [`Store`].
+#[async_trait]
+pub trait AssignmentPolicyStore: Send + Sync {
+    /// Reads the mutable access/time-limit policy and shared assignment revision.
+    async fn get_assignment_timing_impl(
+        &self,
+        context: TenantContext,
+        assignment: AssignmentId,
+    ) -> Result<Option<StoredAssignmentTiming>, StoreError>;
+
+    /// Replaces current timing under instructor authority and immediately
+    /// re-resolves every active attempt. A newly elapsed deadline is submitted
+    /// in this transaction; an extension reschedules its durable job.
+    async fn update_assignment_timing_impl(
+        &self,
+        context: TenantContext,
+        command: UpdateAssignmentTimingCommand,
+    ) -> Result<StoredAssignmentTiming, StoreError>;
+
+    /// Creates or replaces one target's current accommodation under the
+    /// assignment revision and immediately re-resolves affected active work.
+    async fn set_assignment_policy_exception_impl(
+        &self,
+        context: TenantContext,
+        command: SetAssignmentPolicyExceptionCommand,
+    ) -> Result<StoredAssignmentPolicyException, StoreError>;
+
+    /// Removes one current accommodation and immediately re-resolves affected work.
+    async fn delete_assignment_policy_exception_impl(
+        &self,
+        context: TenantContext,
+        command: DeleteAssignmentPolicyExceptionCommand,
+    ) -> Result<AssignmentRevision, StoreError>;
+
+    /// Reads one exception by its non-authorizing internal identity.
+    async fn get_assignment_policy_exception_impl(
+        &self,
+        context: TenantContext,
+        assignment: AssignmentId,
+        exception: AssignmentPolicyExceptionId,
+    ) -> Result<Option<StoredAssignmentPolicyException>, StoreError>;
+
+    /// Resolves the exact current policy used for one assignment enrollment.
+    async fn resolve_assignment_timing_impl(
+        &self,
+        context: TenantContext,
+        assignment: AssignmentId,
+        student: StudentId,
+    ) -> Result<Option<ResolvedAssignmentTiming>, StoreError>;
+
+    /// Reads the effective policy explanation recorded for one issued attempt.
+    async fn get_attempt_resolved_timing_impl(
+        &self,
+        context: TenantContext,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<ResolvedAttemptTiming>, StoreError>;
+}
+
+/// Focused persistence capability composed by [`Store`].
+#[async_trait]
+pub trait RunStore: Send + Sync {
+    /// Starts the next run or returns the enrollment's existing active run.
+    ///
+    /// The backend owns the timestamp, one-based run number, mode, policy,
+    /// and compact-summary transition. The proposed ID is used only when a new
+    /// run is actually inserted.
+    async fn start_or_resume_run_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        assignment: AssignmentId,
+        proposed_run: RunId,
+    ) -> Result<AssignmentRun, StoreError>;
+
+    /// Reads the immutable selected questions and issued order frozen at run start.
+    async fn assignment_run_items_impl(
+        &self,
+        context: TenantContext,
+        run: RunId,
+    ) -> Result<Vec<AssignmentRunItem>, StoreError>;
+
+    /// Issues a fresh question or returns the run's unresolved instance.
+    ///
+    /// Storage supplies the authoritative issue time and deadline and permits
+    /// at most one unresolved question in a run.
+    async fn issue_or_resume_question_attempt_impl(
+        &self,
+        context: TenantContext,
+        command: IssueQuestionAttemptCommand,
+    ) -> Result<QuestionAttempt, StoreError>;
+
+    /// Reads the server-only presentation binding for one owned attempt.
+    async fn get_attempt_presentation_binding_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<PresentationBindingV1>, StoreError>;
+
+    /// Reads the private answer-free WeBWorK replay state for one owned attempt.
+    async fn get_webwork_grade_replay_state_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<WebworkGradeReplayStateV1>, StoreError>;
+
+    /// Reserves a key-free future variant for an owned unresolved predecessor.
+    /// This operation never creates a question attempt or starts a timer.
+    async fn reserve_or_resume_prefetched_question_impl(
+        &self,
+        context: TenantContext,
+        command: ReservePrefetchedQuestionCommand,
+    ) -> Result<PrefetchedQuestion, StoreError>;
+
+    /// Finds a reservation selected by trusted server sequencing. Promotion
+    /// remains atomic in `issue_or_resume_question_attempt`.
+    async fn get_prefetched_question_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        run: RunId,
+        predecessor: QuestionAttemptId,
+        assignment_position: u32,
+    ) -> Result<Option<PrefetchedQuestion>, StoreError>;
+
+    /// Reads the immutable next-attempt result for an owned submission.
+    async fn submission_next_attempt_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        predecessor: QuestionAttemptId,
+    ) -> Result<SubmissionNextAttempt, StoreError>;
+
+    /// Returns the sole owned committed submission in a run whose successor
+    /// receipt has not yet been finalized. Ambiguity is a conflict, never a
+    /// route-level guess.
+    async fn pending_submission_for_run_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        run: RunId,
+    ) -> Result<Option<QuestionAttemptId>, StoreError>;
+
+    /// Finalizes a no-successor receipt after the server has checked current
+    /// run state. Repeating the exact decision is safe; a different decision
+    /// conflicts rather than rewriting an earlier receipt.
+    async fn finalize_submission_next_attempt_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        predecessor: QuestionAttemptId,
+        next: Option<QuestionAttemptId>,
+    ) -> Result<(), StoreError>;
+
+    /// Lists browser-safe attempt projections for one run in stable cursor order.
+    async fn list_question_attempts_impl(
+        &self,
+        context: TenantContext,
+        run: RunId,
+        page: PageRequest,
+    ) -> Result<Page<QuestionAttempt>, StoreError>;
+
+    /// Returns a prior exact submission before invoking a grading backend again.
+    ///
+    /// A changed response or key for an already submitted attempt is a conflict.
+    async fn replay_submission_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+        response: &StudentResponse,
+        idempotency_key: &SubmissionIdempotencyKey,
+    ) -> Result<Option<SubmissionRecord>, StoreError>;
+
+    /// Atomically records the first response, grade event, run completion, and summary.
+    ///
+    /// The backend supplies the submission timestamp and applies the authored
+    /// timing policy. Exact retries return the first committed record.
+    async fn submit_question_attempt_impl(
+        &self,
+        context: TenantContext,
+        command: SubmitQuestionAttemptCommand,
+    ) -> Result<SubmissionRecord, StoreError>;
+
+    /// Closes an active question without inventing a response or score.
+    ///
+    /// Only a persisted direct course instructor may perform this action.
+    /// The attempt becomes `needs_manual_grading` and exact action retries
+    /// return the original minimal audit record.
+    async fn force_submit_attempt_impl(
+        &self,
+        context: TenantContext,
+        command: ForceSubmitAttemptCommand,
+    ) -> Result<AttemptSupportRecord, StoreError>;
+
+    /// Excludes an attempt from current scoring while retaining raw evidence.
+    ///
+    /// A submitted evaluation triggers generation-fenced assignment
+    /// recalculation; exact action retries never enqueue a duplicate job.
+    async fn clear_attempt_impl(
+        &self,
+        context: TenantContext,
+        command: ClearAttemptCommand,
+    ) -> Result<AttemptSupportRecord, StoreError>;
+}
+
+/// Focused persistence capability composed by [`Store`].
+#[async_trait]
+pub trait FeedbackStore: Send + Sync {
+    /// Atomically records an authorized instructor release of an existing
+    /// first-grade feedback record. The original receipt is never rewritten.
+    async fn release_attempt_feedback_impl(
+        &self,
+        context: TenantContext,
+        command: ReleaseAttemptFeedbackCommand,
+    ) -> Result<FeedbackReleaseRecord, StoreError>;
+
+    /// Reads the current release state for one attempt after proving the actor
+    /// owns that educational record or directly instructs its course.
+    async fn get_attempt_feedback_release_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<FeedbackReleaseRecord>, StoreError>;
+
+    /// Reads the bounded, private material for one run-summary projection.
+    ///
+    /// The actor must own the enrollment or directly instruct its course. A
+    /// failed authorization is deliberately indistinguishable from absence.
+    /// Implementations use a stable `(assignment_position, attempt_id)` cursor
+    /// and never consult question envelopes or re-run an adapter.
+    async fn get_run_summary_page_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        run: RunId,
+        page: PageRequest,
+    ) -> Result<RunSummaryPageInput, StoreError>;
+}
+
+/// Focused persistence capability composed by [`Store`].
+#[async_trait]
+pub trait ActivityStore: Send + Sync {
+    /// Atomically writes activity and its compact summary projection.
+    async fn apply_activity_transition_impl(
+        &self,
+        context: TenantContext,
+        transition: ActivityTransition,
+    ) -> Result<StudentAssignmentSummary, StoreError>;
+
+    /// Reads one run inside the active tenant.
+    async fn get_run_impl(
+        &self,
+        context: TenantContext,
+        run: RunId,
+    ) -> Result<Option<AssignmentRun>, StoreError>;
+
+    /// Lists runs for one enrollment in stable cursor order.
+    async fn list_runs_impl(
+        &self,
+        context: TenantContext,
+        enrollment: EnrollmentId,
+        page: PageRequest,
+    ) -> Result<Page<AssignmentRun>, StoreError>;
+
+    /// Reads one question attempt inside the active tenant.
+    async fn get_question_attempt_impl(
+        &self,
+        context: TenantContext,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<QuestionAttempt>, StoreError>;
+
+    /// Reads the transactionally maintained summary for one enrollment.
+    async fn get_summary_impl(
+        &self,
+        context: TenantContext,
+        enrollment: EnrollmentId,
+    ) -> Result<Option<StudentAssignmentSummary>, StoreError>;
+}

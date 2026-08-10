@@ -1,5 +1,9 @@
 # Flat-question editor HCI and UI brief
 
+> **Historical design input.** This brief is retained as evidence, not current task direction.
+> Current authority is the [release completion plan](../active/release_completion_plan.md),
+> [implementation status](../implementation_status.md), and [human guidance](../../HUMAN_GUIDANCE.md).
+
 Status: **DONE_WITH_CONCERNS**
 
 Scope used: `docs/active_plans/implementation_plan.md`, `docs/HUMAN_GUIDANCE.md`,
@@ -67,47 +71,51 @@ for immediate feedback (`implementation_plan.md:1035-1037`).
 
 ## 4) State behavior matrix (actual evidence)
 
-| Surface | State | User-visible behavior | Evidence |
-|---|---|---|---|
-| Route access | Permission denied | "Workspace authoring is not available for this account" + no editor surface | `editor_live_pages.tsx:19-35`, `frontend_contract.spec.ts:57-63` |
-| Workspace list/editor container | `loading` | `role= status` with "Loading workspace drafts..." | `editor_page.tsx:500-504` |
-| Workspace list/editor container | `empty` | panel: "No drafts yet" | `editor_page.tsx:505-510` |
-| Workspace list/editor container | `error` | route error panel + retry action | `editor_page.tsx:511-518` |
-| Draft edit state | dirty local edits | "Save draft" available; "Draft saved..."/error message text region | `editor_page.tsx:555-583`, `editor_page.tsx:496-498` |
-| Student preview | `idle` | "Seed" input + Preview button | `editor_page.tsx:649-665` |
-| Student preview | `loading` | `role=status` "Generating preview..." | `editor_page.tsx:673-675` |
-| Student preview | `ready` | question and response widget rendered (same components as learner) | `editor_page.tsx:691-709` |
-| Student preview | `error` | error region with message | `editor_page.tsx:676-680` |
-| Instructor preview | `idle` | button available unless backend capability unavailable | `editor_page.tsx:713-733` |
-| Instructor preview | `loading` | `role=status` "Loading protected instructor preview..." | `editor_page.tsx:737-739` |
-| Instructor preview | `available` | question card + `Correct response` + optional `Why this works` | `editor_page.tsx:754-777` |
-| Instructor preview | `unavailable` | saved status notice from backend reason text | `editor_page.tsx:740-746` |
-| Instructor preview | `error` | inline retry guidance, stale/conflict messages | `editor_page.tsx:747-753` |
-| Publish | `idle/error` | "Review publication changes" action + status/error message | `editor_page.tsx:859-869`, `851-854` |
-| Publish | `loadingDiff` | `role=status` "Preparing publication review..." | `editor_page.tsx:856-858` |
-| Publish | `confirm` | version comparison + proposed title + scope + confirm action | `editor_page.tsx:795-837` |
-| Publish | `published` | immutable version link + confirmation | `editor_page.tsx:841-848` |
-| Conflict states | stale conflict | inline recovery notice + "Reload newest draft" | `editor_page.tsx:584-595`, `304`-`309`, `471-474` |
+| Surface                         | State             | User-visible behavior                                                       | Evidence                                                         |
+| ------------------------------- | ----------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Route access                    | Permission denied | "Workspace authoring is not available for this account" + no editor surface | `editor_live_pages.tsx:19-35`, `frontend_contract.spec.ts:57-63` |
+| Workspace list/editor container | `loading`         | `role= status` with "Loading workspace drafts..."                           | `editor_page.tsx:500-504`                                        |
+| Workspace list/editor container | `empty`           | panel: "No drafts yet"                                                      | `editor_page.tsx:505-510`                                        |
+| Workspace list/editor container | `error`           | route error panel + retry action                                            | `editor_page.tsx:511-518`                                        |
+| Draft edit state                | dirty local edits | "Save draft" available; "Draft saved..."/error message text region          | `editor_page.tsx:555-583`, `editor_page.tsx:496-498`             |
+| Student preview                 | `idle`            | "Seed" input + Preview button                                               | `editor_page.tsx:649-665`                                        |
+| Student preview                 | `loading`         | `role=status` "Generating preview..."                                       | `editor_page.tsx:673-675`                                        |
+| Student preview                 | `ready`           | question and response widget rendered (same components as learner)          | `editor_page.tsx:691-709`                                        |
+| Student preview                 | `error`           | error region with message                                                   | `editor_page.tsx:676-680`                                        |
+| Instructor preview              | `idle`            | button available unless backend capability unavailable                      | `editor_page.tsx:713-733`                                        |
+| Instructor preview              | `loading`         | `role=status` "Loading protected instructor preview..."                     | `editor_page.tsx:737-739`                                        |
+| Instructor preview              | `available`       | question card + `Correct response` + optional `Why this works`              | `editor_page.tsx:754-777`                                        |
+| Instructor preview              | `unavailable`     | saved status notice from backend reason text                                | `editor_page.tsx:740-746`                                        |
+| Instructor preview              | `error`           | inline retry guidance, stale/conflict messages                              | `editor_page.tsx:747-753`                                        |
+| Publish                         | `idle/error`      | "Review publication changes" action + status/error message                  | `editor_page.tsx:859-869`, `851-854`                             |
+| Publish                         | `loadingDiff`     | `role=status` "Preparing publication review..."                             | `editor_page.tsx:856-858`                                        |
+| Publish                         | `confirm`         | version comparison + proposed title + scope + confirm action                | `editor_page.tsx:795-837`                                        |
+| Publish                         | `published`       | immutable version link + confirmation                                       | `editor_page.tsx:841-848`                                        |
+| Conflict states                 | stale conflict    | inline recovery notice + "Reload newest draft"                              | `editor_page.tsx:584-595`, `304`-`309`, `471-474`                |
 
 ## 5) Error recovery model
 
 ### A) Save/publish conflicts (CAS gate)
+
 - Save uses `if-match` and throws `WorkspaceConflictError` on mismatch.
 - UI sets `staleConflict` and preserves unsaved edits.
 - Explicit recovery action: **Reload newest draft**.
 - Same preserved-edit pattern used for save/delete/publish conflicts.
 
 ### B) Instructor preview conflicts
+
 - Instructor preview always saves draft first to obtain exact server revision.
 - If revision mismatch returns conflict, UI shows "Reload...try again" and keeps current draft visible.
 - If server returns unavailable, UI shows backend reason and does not inject secret fields.
 
 ### C) Publication capability refusal
+
 - Publication review includes live capability check.
 - Validation failures block confirmation and retain editability with clear violation text.
 - If read-only backend unavailable, previous local violations remain visible.
 
 ### D) Network/service failure
+
 - Any caught non-conflict error is surfaced in inline `inline-error` role text.
 - No specialized offline badge is implemented; offline/unreachable routes appear through generic error text.
 
@@ -164,6 +172,7 @@ for immediate feedback (`implementation_plan.md:1035-1037`).
 ## 10) Acceptance evidence (test-level)
 
 ### Editor contract and security boundaries
+
 - **No network during student preview**
   - `editor_mock_surface.spec.ts` asserts local student preview has zero `/api`/`key` requests while clicking "Preview this variation".
 - **Instructor preview is explicit + save-first + no save leakage**

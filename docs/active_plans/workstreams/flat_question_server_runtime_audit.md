@@ -1,5 +1,9 @@
 # Flat-question server vertical audit
 
+> **Historical audit.** This dated audit is retained as evidence, not current task direction.
+> Current authority is the [release completion plan](../active/release_completion_plan.md) and
+> [implementation status](../implementation_status.md).
+
 Status: **DONE_WITH_CONCERNS**
 
 This is a bounded server-path audit. It does not prescribe an editor UI; the
@@ -49,10 +53,10 @@ as their generic, answer-free routes; both are already sizeable facades.
 
 The new module should own these two routes and their private state type:
 
-| Route | Body and response | Required bounds |
-| --- | --- | --- |
-| `PUT /api/workspaces/{workspace}/flat-question` | Body is the complete PLE flat JSON source, received as bounded raw `Bytes`; response is the compiled answer-free `DraftQuestionDefinition` with the new workspace revision as a strong `ETag`. Do not echo source bytes, key, feedback, object record, or checksums. | `S: Store + FlatQuestionStore + SessionStore`; `O: ObjectStore` |
-| `POST /api/problems/{workspace}/flat-question-publish` | Strict `{ "scope": ... }`; response is the existing published `QuestionDefinition`, status 201. | `S: Store + CatalogStore + FlatQuestionStore + SessionStore`; `O: ObjectStore`; `B: BackendRegistry`; `R: PublicReviewGate` |
+| Route                                                  | Body and response                                                                                                                                                                                                                                                    | Required bounds                                                                                                             |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `PUT /api/workspaces/{workspace}/flat-question`        | Body is the complete PLE flat JSON source, received as bounded raw `Bytes`; response is the compiled answer-free `DraftQuestionDefinition` with the new workspace revision as a strong `ETag`. Do not echo source bytes, key, feedback, object record, or checksums. | `S: Store + FlatQuestionStore + SessionStore`; `O: ObjectStore`                                                             |
+| `POST /api/problems/{workspace}/flat-question-publish` | Strict `{ "scope": ... }`; response is the existing published `QuestionDefinition`, status 201.                                                                                                                                                                      | `S: Store + CatalogStore + FlatQuestionStore + SessionStore`; `O: ObjectStore`; `B: BackendRegistry`; `R: PublicReviewGate` |
 
 Place both on `DefaultBodyLimit::max(256 * 1024)` (the adapter/store source
 limit) and an `axum::middleware::map_response(no_store_response)` layer. The
@@ -120,7 +124,7 @@ The dedicated publish handler should follow QTI's double-read/review pattern:
    again, compile it again, and require its answer-free draft equals the
    stored draft and its public-binding checksum equals the staged metadata.
    This prevents a source-object substitution or a stale metadata bridge.
-4. Only then mint `ProblemVersionRef`, copy the *canonical* bytes to a fresh
+4. Only then mint `ProblemVersionRef`, copy the _canonical_ bytes to a fresh
    `ObjectKey::ProblemSource`, and construct `PublishedSourceArtifact` with
    `QuestionBackend::Native`. Preserve source checksum/size/media type, set
    the published license from the answer-free draft, and use a server-owned
@@ -242,4 +246,3 @@ the currently inspected migration grants the application role no `UPDATE` on
 workspace rows (`2026080805_operations_analytics.sql:427-506`) and needs its
 owner privileges/RLS semantics proven. Resolve these schema findings and pass
 the live PostgreSQL gate before merging or exposing the HTTP route.
-

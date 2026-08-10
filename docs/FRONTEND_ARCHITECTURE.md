@@ -238,11 +238,16 @@ The reference widget and every later response widget must meet these testable
 conditions:
 
 - semantic fieldset, legend, labels, and a nonempty accessible name;
-- keyboard selection with Tab, native radio arrows, multiple-answer arrow focus,
-  Space, and optional number keys; Enter submits a ready response and Escape
-  returns to the run overview;
-- ordering controls that work with Tab plus Enter and with Up/Down Arrow while
-  preserving focus and announcing the new position;
+- a primary platform path where Tab and Shift+Tab move focus, Space selects or
+  activates, and the explicit Submit answer button completes the response;
+- separately scoped widget extensions for native radio arrows,
+  multiple-answer arrow focus, digits 1-9, response-input Enter-to-submit, and
+  Escape; none replaces the visible platform path or native text editing;
+- ordering controls that work with Tab plus Space, with separately tested
+  Up/Down Arrow movement that preserves focus and announces the new position;
+- labeled text fields for every multi-blank slot, native radio groups for each
+  matching prompt, and a labeled candidate-region radio/checkbox list as the
+  primary no-mouse HOTSPOT path;
 - validation changes announced through a polite live region;
 - `aria-invalid` paired with visible explanatory text;
 - at least 56 by 56 CSS pixels for primary response targets;
@@ -276,12 +281,12 @@ The evidence below names what each lane proves. Mock routes and dynamically
 mounted fixtures are useful focused evidence, but neither is a live WebWork
 acceptance claim.
 
-| Evidence lane                          | Current evidence                                                                                                | What it proves                                                                                                                                                                | Boundary                                                                                                   | Status                                      |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Built mock route tests                 | `tests/playwright/frontend_contract.spec.ts` and the student keyboard audit                                     | The compiled mock-backed application resolves product routes and completes the reference course-to-answer journey with PLE controls.                                          | It does not exercise the live API, private renderer, or upstream WebWork.                                  | Complete for the audited mock route.        |
-| Dynamically mounted component fixtures | `tests/playwright/student_keyboard_accessibility.spec.ts` and `tests/playwright/external_tool_response.spec.ts` | Production Solid response components handle focused keyboard and broker interactions in isolated browser fixtures.                                                            | The fixture bundle is injected into a mock page, not mounted through a complete built route or live stack. | Complete for the named component behaviors. |
-| Source and contract evidence           | `src/wasm/index.ts`, `src/wasm/context.tsx`, `src/main.tsx`, and `tests/test_frontend_contract.mjs`             | The four-operation facade has one shared loader, typed fallbacks for three operations, an unavailable-only preview fallback, and no correctness field in mock format reports. | Source and mock-contract checks cannot prove a generated module or a deployed server behaved this way.     | Complete as implementation evidence.        |
-| Required live WebWork gate             | `tests/playwright/webwork_run.spec.ts` with `PLE_WEBWORK_LIVE_REQUIRED=1`                                       | A private live stack must prove the browser calls PLE only, remains answer-free, supports keyboard completion, and receives correct/incorrect outcomes through PLE.           | It requires the explicit private stack and credential inputs; the ordinary mock suite skips it.            | Pending required live execution.            |
+| Evidence lane                          | Current evidence                                                                                                | What it proves                                                                                                                                                                                 | Boundary                                                                                                   | Status                                  |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| Built mock route tests                 | `tests/playwright/frontend_contract.spec.ts` and the student keyboard audit                                     | The compiled mock-backed application resolves product routes and completes the reference course-to-answer journey with Tab, Shift+Tab, Space, explicit submission, and native link activation. | It does not exercise the live API, private renderer, or upstream WebWork.                                  | Complete for the primary platform path. |
+| Dynamically mounted component fixtures | `tests/playwright/student_keyboard_accessibility.spec.ts` and `tests/playwright/external_tool_response.spec.ts` | Production Solid response components isolate Arrow, digit, Enter-to-submit, Escape, and broker interactions so shortcut failures are classified separately.                                    | The fixture bundle is injected into a mock page, not mounted through a complete built route or live stack. | Complete for named widget extensions.   |
+| Source and contract evidence           | `src/wasm/index.ts`, `src/wasm/context.tsx`, `src/main.tsx`, and `tests/test_frontend_contract.mjs`             | The four-operation facade has one shared loader, typed fallbacks for three operations, an unavailable-only preview fallback, and no correctness field in mock format reports.                  | Source and mock-contract checks cannot prove a generated module or a deployed server behaved this way.     | Complete as implementation evidence.    |
+| Required live WebWork gate             | `tests/playwright/webwork_run.spec.ts` through `tests/e2e/e2e_webwork_render_rpc.sh`                            | The private live stack proves the browser calls PLE only, remains answer-free, supports keyboard completion, and receives correct/incorrect outcomes through PLE.                              | It requires explicit private stack and credential inputs; the ordinary mock suite still skips it.          | Passed on 2026-08-10.                   |
 
 - Node tests freeze the route map, mock/client behavior, and absence of
   answer-bearing generated names.
@@ -289,6 +294,9 @@ acceptance claim.
   facade, and response-widget props without `any` or unchecked casts.
 - The focused keyboard evidence and its remaining human evaluation are in
   [`ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md`](ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md).
+- The durable student interaction requirements, including future MATCH, FIB,
+  MULTI-FIB, and HOTSPOT behavior, are in
+  `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`.
 - The live renderer and browser acceptance commands, prerequisites, and
   stop conditions are in
   [`active_plans/workstreams/webwork_shipped_integration.md`](active_plans/workstreams/webwork_shipped_integration.md).

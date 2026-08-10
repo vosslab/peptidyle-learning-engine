@@ -1,10 +1,10 @@
 # PLE flat-question JSON
 
-Status: accepted v1 source contract; native parsing/compilation, atomic
-workspace persistence, immutable publication, and isolated runtime grading are
-implemented. The instructor editor, bounded Canvas/Blackboard profile import,
-profile-to-native conversion, live PostgreSQL/RLS acceptance, and independent
-documentation review are also complete.
+Status: accepted v1 and v2 source contracts. Version 1 remains the immutable
+single-choice compatibility contract. Version 2 implements all eight required
+flat-question families through strict parsing, answer-free compilation,
+publication validation, learner rendering, response validation, and isolated
+server grading.
 
 ## Decision
 
@@ -13,10 +13,10 @@ questions. The contract is named **PLE flat-question JSON**, not QTI JSON. QTI
 is an import/export adapter and archival interchange format; it does not define
 the internal model.
 
-Version 1 deliberately supports one exactly-one-choice question. A new question
-shape or incompatible contract change receives a new explicit schema version.
-PLE does not add optional QTI expression trees, arbitrary response processing,
-or vendor extension containers to version 1.
+Version 1 deliberately supports one exactly-one-choice question and is never
+reinterpreted. Version 2 adds a closed type-specific `response` object. PLE
+does not add QTI expression trees, arbitrary response processing, or vendor
+extension containers to either contract.
 
 ## Required family roadmap
 
@@ -31,27 +31,18 @@ The complete product must support at least these eight flat-question families:
 - ordered list (ORDER); and
 - image hot spot (HOTSPOT).
 
-Version 1 remains the closed MC contract described below. WP-FQ-0 owns the QTI-JSONL specification,
-reference engine, all-family example, and contract/round-trip tests in QTI Package Maker. PLE adopts
-that accepted specification
-through the integration boundary in
-`docs/active_plans/active/flat_question_family_evolution_plan.md`
-rather than freeze a competing version 2 source shape. MATCH is the first implementation vertical
-because each initial Chapter 1 assignment calls for
-one WeBWorK MATCH and one flat MATCH alongside their MC counterparts.
+Version 1 remains the closed MC contract described below. Version 2 is based on
+the lossless semantics of QTI Package Maker's `MC`, `MA`, `MATCH`, `NUM`,
+`FIB`, `MULTI_FIB`, and `ORDER` item models: visible content and stable item
+identifiers compile separately from accepted answers. PLE adds one bounded
+`hotspot` extension because the reviewed QTI Package Maker model does not
+define that family. A wholesale Rust port of QTI Package Maker remains out of
+scope.
 
-The local QTI Package Maker item model covers MC, MA, MATCH, NUM, FIB, MULTI-FIB, and ORDER; it does
-not define HOTSPOT. Its print-oriented `exam_yaml` writer demonstrates a concise `statement`, list,
-and table presentation but intentionally loses several answer keys. WP-FQ-0's QTI-JSONL specification
-retain the lossless item semantics while keeping that readable spirit. `BaseItem` supplies optional
-`feedback_correct` and `feedback_incorrect`, so missing outcome feedback must remain valid in PLE
-too. A wholesale Rust port of QTI Package Maker is out of scope; PLE ports only the bounded
-parser/compiler/export behavior required by WP-RC4 through WP-RC6.
-
-WP-FQ-0 defines portable image, binary-reference, and HOTSPOT source semantics with normative fixtures.
-PLE will resolve accepted references through an adapter-owned binding step while object storage owns
-the bytes, checksums, media types, lifecycle, and authorization. WP-FQ-6 and WP-FQ-7 implement those
-accepted fields and geometry without adding a second vocabulary.
+This is an internal PLE source contract, not an implementation of a missing or
+future external QTI-JSONL specification. A later QTI-JSONL adapter may map an
+accepted external record into these public/private compiler outputs, but it
+must not silently reinterpret version 1 or version 2 bytes.
 
 ## Example
 
@@ -109,6 +100,81 @@ Prompt, choice, and feedback content is Markdown. It passes through the normal
 sanitized content renderer; the format does not accept raw browser HTML or
 executable content.
 
+## Version 2 contract
+
+Version 2 keeps the same top-level metadata and policies but places family data
+inside one closed `response` object. The common top-level members are
+`format`, `version`, `title`, `prompt`, `response`, optional `feedback`,
+`points`, `attemptPolicy`, `timingPolicy`, optional `tags`, optional
+`taxonomy`, `license`, and `language`. Unknown and duplicate members are
+refused at every level.
+
+The eight exact response shapes are:
+
+| `response.kind` | Answer-bearing source members | Browser-safe compiled shape |
+| ---------------- | ----------------------------- | --------------------------- |
+| `singleChoice` | `choices`, `correctChoice` | radio choices with stable IDs |
+| `multipleAnswer` | `choices`, `correctChoices` | checkbox choices; the correct count is not disclosed |
+| `fillIn` | `answers`, `matchMode`, `maxLength` | one bounded text field |
+| `multiFillIn` | `blanks`, each with `id`, `label`, `answers`, `matchMode`, and `maxLength` | named bounded text fields |
+| `numeric` | `answer`, `tolerance`, optional `unit` | numeric field, public tolerance rule, and unit |
+| `matching` | `prompts`, `choices`, `matches` | one accessible radio group per prompt |
+| `ordering` | `items`, `correctOrder` | one reorderable list |
+| `hotspot` | `surface`, `regions`, `correctRegions` | immutable image reference plus keyboard-operable candidate regions |
+
+Choice, prompt, blank, ordering-item, and region identifiers use the same
+stable identifier grammar as version 1 choices. They identify semantics, not
+display positions. The server may later project attempt-specific rendered item
+IDs at the learner wire boundary without changing these durable source IDs.
+
+For example, a matching question is:
+
+```json
+{
+  "format": "pleFlatQuestion",
+  "version": 2,
+  "title": "Nucleic-acid sugars",
+  "prompt": "Match each nucleic acid with its sugar.",
+  "response": {
+    "kind": "matching",
+    "prompts": [
+      { "id": "dna", "text": "DNA" },
+      { "id": "rna", "text": "RNA" }
+    ],
+    "choices": [
+      { "id": "deoxy", "text": "Deoxyribose" },
+      { "id": "ribose", "text": "Ribose" }
+    ],
+    "matches": [
+      { "prompt": "dna", "choice": "deoxy" },
+      { "prompt": "rna", "choice": "ribose" }
+    ]
+  },
+  "points": 2.0,
+  "attemptPolicy": {
+    "maxAttempts": null,
+    "feedback": "immediateFull"
+  },
+  "timingPolicy": { "kind": "untimed" },
+  "tags": ["nucleic-acids"],
+  "taxonomy": [],
+  "license": { "kind": "ccBySa" },
+  "language": "en-US"
+}
+```
+
+Text matching is one of `exact`, `caseInsensitive`, or `normalized`. Numeric
+tolerance is one of `exact`, `absolute` with nonnegative finite `epsilon`,
+`relative` with nonnegative finite `fraction`, or `significantFigures` with a
+positive `digits` count.
+
+Hotspot surfaces name an existing immutable asset UUID, its lowercase SHA-256
+checksum, and a nonblank description. Candidate rectangles use integer
+coordinates from 0 through 10,000, independent of browser pixels. Rectangles
+must be nonempty, contained by that normalized surface, and nonoverlapping.
+The candidate labels are the primary no-mouse response path; the image itself
+is not the only way to identify a region.
+
 ## Compilation and security boundary
 
 The authored document contains answers. It is never a learner, public,
@@ -132,7 +198,7 @@ model            answer key + feedback
 
 | Value                        | Storage and readers                                                                       | Contents                                                                                           |
 | ---------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Authoring source             | Private workspace source; authenticated author-source route and server-side compiler only | The complete PLE document, including `correctChoice` and feedback                                  |
+| Authoring source             | Private workspace source; authenticated author-source route and server-side compiler only | The complete PLE document, including accepted answers, pairings, regions, order, and feedback       |
 | Published source             | Immutable private `ProblemSource` object                                                  | The canonical PLE JSON promoted at publication for provenance, recovery, and exact re-import       |
 | Public compiled model        | Checksummed `problem_version_payload` JSONB                                               | Prompt, choices, policies, points, taxonomy, license, and language; no answer or private feedback  |
 | Private compiled material    | Checksummed grader-only `answer_key` JSONB                                                | Answer key, per-choice and outcome feedback, schema version, and binding to the exact public model |
@@ -164,7 +230,7 @@ bounded YAML reader must translate it once into this exact typed contract. The
 canonical JSON and its checksum remain authoritative; YAML never becomes a
 second persisted interpretation of the same question.
 
-## Version 1 validation
+## Validation
 
 The native codec currently enforces these bounds:
 
@@ -172,13 +238,20 @@ The native codec currently enforces these bounds:
 - the exact format and schema version are required;
 - unknown and duplicate members are rejected, including nested policies,
   taxonomy terms, and licenses;
-- a question has 2 through 100 choices and exactly one correct choice;
+- a choice question has 2 through 100 choices; v1 and v2 `singleChoice` have exactly one correct choice;
 - choice IDs start with a lowercase ASCII letter, use only lowercase letters,
   digits, `_`, or `-`, are unique, and are at most 64 bytes;
 - prompt, choice, title, tag, taxonomy, language, and license text is nonblank and bounded;
 - per-choice and correct/incorrect feedback is optional; when present, it is nonblank and bounded;
 - points are finite and nonnegative, using the shared `f64` score model; and
 - `maxAttempts` is positive or `null` for unlimited attempts.
+
+Version 2 additionally enforces exact family-specific bindings: accepted text
+answers are nonempty and unique; multi-blank IDs and answers are complete;
+numeric answers and tolerance parameters are finite; matching binds every
+prompt once to one unique available choice; ordering names every item exactly
+once; and hotspot assets, checksums, rectangles, accessible labels, and correct
+region subsets are complete and internally consistent.
 
 Per-choice feedback is selected for the submitted choice. Correct or incorrect
 outcome feedback is appended according to the server-derived grade. The normal
@@ -190,9 +263,10 @@ Whitespace and JSON object-member order do not change the canonical checksum.
 
 ## Evolution and QTI adapters
 
-Version 1 is never silently reinterpreted. Additive optional fields require a
-review of old-reader behavior; incompatible changes use version 2 with an
-explicit upcaster or republishing path and a committed historical fixture.
+Version 1 and version 2 are never silently reinterpreted. Additive optional
+fields require a review of old-reader behavior; an incompatible later change
+uses a new explicit version with an upcaster or republishing path and a
+committed historical fixture.
 
 Canvas QTI and Blackboard QTI remain separate import/export profiles. Each
 adapter may map the supported flat subset into the same public/private compiler
@@ -200,7 +274,9 @@ outputs, retain the original package for provenance, and record unsupported
 features. Vendor-specific XML is not copied into the PLE flat-question schema
 merely because one exporter emits it.
 
-The parser/compiler owner is `crates/adapters/native/src/flat_question.rs`.
+The compatibility parser/compiler facade is
+`crates/adapters/native/src/flat_question.rs`; version 2 family shapes and
+compilation live in `crates/adapters/native/src/flat_question/v2.rs`.
 The persistence boundary is `crates/learning-data-access/src/flat_question.rs`
 with focused in-memory and PostgreSQL implementations, and the server owner is
 `crates/server/src/flat_question_publication.rs`. The private source saves
@@ -208,7 +284,6 @@ atomically with its typed draft, publication copies its exact canonical bytes
 to an immutable non-signable source object, and the runtime obtains private
 material only through an injected grader capability. The instructor editor is
 complete; bounded Canvas/Blackboard QTI profile mappings, profile-to-native conversion, and their
-live and independent-review gates are accepted. The eight-family integration plan is recorded in
-`docs/active_plans/active/flat_question_family_evolution_plan.md`.
-WP-FQ-0 owns the QTI-JSONL source contract and reference implementation; PLE consumes that accepted
-contract without silently widening version 1.
+live and independent-review gates are accepted. The remaining visual authoring,
+external QTI-JSONL, pilot-content, and hotspot pointer-overlay work is tracked
+without weakening this accepted internal source and runtime contract.

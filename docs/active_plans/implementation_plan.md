@@ -8,7 +8,8 @@ question-level timing. M0 and M1 are complete, the main M2 through M4 learning p
 retention R4.4, QTI profile import WP-QTI-12, course appearance WP-CA1 through WP-CA7/WP-RC1, and
 production-seam closure WP-RC2 are accepted. The authoritative remaining package sequence, binary scope ledger, owners,
 files, behavior, success conditions, and validation are in
-`docs/active_plans/active/release_completion_plan.md`. WP-RC3 shipped upstream WeBWorK is next.
+[release_completion_plan.md](active/release_completion_plan.md). WP-RC3 shipped upstream WeBWorK is
+next.
 
 ADAPT (`OTHER_REPOS/adapt/`) is the surface model and the source of the sharpest lessons, because its
 weaknesses are visible in its own schema. Three review passes (`reviewer_commments.md`,
@@ -667,11 +668,11 @@ PostgreSQL 17 database exercised the real upload worker, mixed accepted/rejected
 conversion and publication, correct/incorrect grading, role denials, provenance, and exact cleanup.
 WP-QTI-12 independent review and documentation close-out are also complete: six separate passes
 reported no remaining P0/P1 issue after stale README and ownership-map findings were corrected and
-re-reviewed. MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT source adopts the owner-assigned
-QTI Package Maker WP-FQ-0 specification through the versioned adapter/compiler plan in
-`docs/active_plans/active/flat_question_family_evolution_plan.md`. The
-source schema is frozen by WP-FQ-0 before PLE consumes it; exact v1 remains preserved and MATCH stays
-first. The course appearance package is accepted through WP-CA7/WP-RC1 and production-seam closure
+re-reviewed. PLE flat JSON v2 now implements MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT
+source/runtime semantics based on the reviewed QTI Package Maker item models, while exact v1 remains
+preserved. Remaining acceptance is recorded in
+`docs/active_plans/active/flat_question_family_evolution_plan.md`; external QTI-JSONL is a separate
+future adapter concern. The course appearance package is accepted through WP-CA7/WP-RC1 and production-seam closure
 WP-RC2 is accepted; WP-RC3 shipped upstream WeBWorK is the current implementation package. The dependency order and exact
 profiles, refusal semantics, provenance
 boundary, author workflow, and acceptance gates are frozen in
@@ -999,14 +1000,20 @@ designed rather than discovered:
 ### Accessibility
 
 An assessment platform carries institutional accessibility obligations, so this is a gate rather than
-a polish pass. Every response widget is reachable and operable by keyboard, with the training-game
-document's key map: number keys select choices, Enter advances, Escape returns to the run overview.
-Every widget carries a programmatic label and announces its validation state through a live region, so
-a screen-reader user learns that an entry is malformed at the same moment a sighted user sees it.
-Timers announce at meaningful intervals rather than on every tick. Touch targets meet the 56 px floor
-from the training-game document, which also serves benchtop tablet use. Contrast is verified against
-`docs/COLOR_CONTRAST_ACCESSIBILITY.md` with measured values, and color never carries meaning alone:
-correct and incorrect states pair their color with an icon and text.
+a polish pass. `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md` owns the complete student interaction
+contract. Every response widget has a visible platform path: Tab and Shift+Tab move focus, Space
+selects choices and activates buttons, and native links retain Enter activation. The primary
+acceptance journey reaches the explicit Submit answer button without requiring an Arrow key, digit,
+response-input Enter, or Escape. Enter-to-submit, Arrows, visible-choice digits 1-9, and Escape are
+widget extensions with separate scenarios so their failures do not hide a platform-path regression.
+Every widget carries a programmatic label and
+announces its validation state through a live region, so a screen-reader user learns that an entry is
+malformed at the same moment a sighted user sees it. Timers announce at meaningful intervals rather
+than on every tick. Touch targets meet the 56 px floor, which also serves benchtop tablet use. Contrast
+is verified against `docs/PALETTE_CONTRAST_AUDIT.md` with measured values, and color never carries
+meaning alone: correct and incorrect states pair their color with an icon and text. MATCH, FIB,
+MULTI-FIB, and HOTSPOT must pass both their platform path and separately scoped extension behavior
+before WP-RC5 acceptance.
 
 ### Client architecture
 
@@ -1153,7 +1160,7 @@ substitution for a required production path.
 | MOD-CLIENT       | Typed API client                                                         | TS client from generated types                                                | Generated types                                                       | Mock handler set                     | Type tests; no `any`, no unchecked `as`                                                                                                                                                                                             |
 | MOD-UI-SHELL     | App shell, routing, session context, error boundaries, focus conventions | Route tree, boundaries, layout                                                | MOD-CLIENT, WP-C9                                                     | Mock handlers                        | Every route resolves; a thrown render error leaves the shell usable                                                                                                                                                                 |
 | MOD-UI-COURSE    | Course shell and appearance settings                                     | Course-scoped three-color theme, entry banner, instructor appearance workflow | MOD-UI-SHELL, MOD-CLIENT, MOD-API-COURSE, MOD-OBJ                     | Appearance mock repository           | Theme follows all course routes without global bleed; keyboard save/conflict flow; contrast and visual artifact gates                                                                                                               |
-| MOD-UI-WIDGETS   | Response widget set                                                      | One component per response type, with local format validation                 | MOD-WASM, WP-C9                                                       | Reference widget                     | Each widget keyboard-operable and label-announced; invalid shape flagged with no request issued                                                                                                                                     |
+| MOD-UI-WIDGETS   | Response widget set                                                      | One component per response type, with local format validation                 | MOD-WASM, WP-C9                                                       | Reference widget                     | Each widget satisfies `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`, is label-announced, and flags invalid shape without issuing a request                                                                                              |
 | MOD-UI-RENDER    | Question renderer                                                        | Envelope-to-component mapping, asset resolution, math and figure alternatives | MOD-UI-WIDGETS                                                        | Fixture envelopes                    | Every block kind renders; a sanitized-markup fixture renders without script execution; missing accessibility text surfaces as an authoring error                                                                                    |
 | MOD-UI-ATTEMPT   | Attempt loop                                                             | Submit, pending state, feedback disclosure, timer, prefetch, retry            | MOD-UI-RENDER, MOD-CLIENT                                             | Mock handlers                        | Full mastery run; 31st run; timer expiry; offline submit recovers; disclosure policy respected per mode                                                                                                                             |
 | MOD-UI-BROWSE    | Catalog browser                                                          | Virtualized cursor-paged list, facets, problem detail                         | MOD-CLIENT                                                            | Mock handlers                        | Ten-thousand-row synthetic list scrolls without a full fetch; facet counts come from aggregates                                                                                                                                     |
@@ -1529,9 +1536,8 @@ or implementer-authored specification is required.
 - Owner: `architect` coordinates the seven atomic owners defined in
   `docs/active_plans/decisions/course_appearance_plan.md`. Depends on: WP-QTI-12 plus the
   existing course, auth, object, Store, schema, client, and frontend contracts. WP-QTI-12 and
-  WP-CA1 through WP-CA7/WP-RC1 are accepted. The
-  owner-authored QTI-JSONL artifacts are assigned separately to WP-RC4 rather than represented as an
-  unowned wait.
+  WP-CA1 through WP-CA7/WP-RC1 are accepted. The current owner decision uses PLE flat JSON v2 for
+  native all-family source; external QTI-JSONL is a separate future adapter concern.
 - Touch points: focused `course_appearance` modules in `question_model`, `learning-data-access`,
   `server_core`, and Solid; typed course-banner object/delivery owners; one forward migration; route,
   generated client, Playwright, and durable documentation owners.
@@ -1563,20 +1569,21 @@ or implementer-authored specification is required.
 
 ### M3 flat-question family evolution package
 
-#### Work package: WP-M3-FLAT-FAMILIES adopt QTI-JSONL and add seven new families
+#### Work package: WP-M3-FLAT-FAMILIES complete all flat families
 
-- Owner: `architect` coordinates WP-FQ-0 through WP-FQ-8 in
+- Owner: `architect` coordinates the family closeout in
   `docs/active_plans/active/flat_question_family_evolution_plan.md`.
-  Depends on: accepted WP-FQ-0, accepted WP-M3-COURSE-APPEARANCE, and
+  Depends on: accepted WP-M3-COURSE-APPEARANCE, the secure learner-payload package, and
   the existing native flat, grading, object, Store, schema, server, client, and frontend contracts.
-- Touch points: v1 compatibility; adapter-scoped QTI-JSONL parsing and version maps; public/private
-  compilation; family response/checker types only where required; source-to-object bindings;
-  persistence, author editors, learner widgets, live evidence, and durable documentation.
-- Acceptance criteria: preserve exact v1 behavior; implement MA, FIB, MULTI-FIB, NUM, MATCH, ORDER,
-  and HOTSPOT from normative QTI-JSONL records rather than a competing PLE source schema; keep
-  answers and optional feedback protected; prove accessible author/learner flows, immutable
-  publication, forced RLS, asset lifecycle, correct/incorrect grading, cleanup, historical-version
-  compatibility, and no browser/Wasm answer association.
+- Touch points: v1 compatibility; closed PLE flat JSON v2 source/compiler; public/private
+  compilation; family response/checker types; source-to-object bindings; persistence, author
+  editors, learner widgets, live evidence, and durable documentation.
+- Current implementation: the version 2 source/runtime core covers MC, MA, FIB, MULTI-FIB, NUM,
+  MATCH, ORDER, and HOTSPOT, while version 1 single choice remains compatible.
+- Acceptance criteria: keep answers and optional feedback protected; complete family-specific visual
+  authoring and the Memory/PostgreSQL/object-store paths; prove accessible author/learner flows,
+  immutable publication, forced RLS, asset lifecycle, correct/incorrect grading, cleanup,
+  historical-version compatibility, and no browser/Wasm answer association.
 - Evidence or review: focused Rust/Node/Playwright gates, disposable PostgreSQL/object-store oracles,
   the full repository gate, and independent PASS with no remaining P0/P1 finding.
 - Next dependency: WP-RC5 publishes the exact Chapter 1 content after MATCH and completes the other

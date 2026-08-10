@@ -7,15 +7,45 @@
 
 use async_trait::async_trait;
 use grading::GradeOutcome;
+use question_model::response::ChoiceId;
 use question_model::{QuestionEnvelope, StudentResponse};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+/// One private upstream form control/value pair for a visible item.
+#[derive(Clone, PartialEq, Eq)]
+pub struct UpstreamControlV1 {
+    pub field: String,
+    pub value: String,
+}
+
+/// One private matching prompt and its visible-choice value map.
+#[derive(Clone, PartialEq, Eq)]
+pub struct UpstreamMatchPromptV1 {
+    pub field: String,
+    pub choices: BTreeMap<ChoiceId, String>,
+}
+
+/// Bounded answer-free replay state captured during trusted issuance.
+///
+/// This contains form field names and visible option values, never the
+/// correct response, session key, password, source, or renderer credential.
+#[derive(Clone, PartialEq, Eq)]
+pub enum WebworkReplayMappingV1 {
+    SingleChoice {
+        controls: BTreeMap<ChoiceId, UpstreamControlV1>,
+    },
+    Matching {
+        prompts: BTreeMap<ChoiceId, UpstreamMatchPromptV1>,
+    },
+}
 
 /// Untrusted result of rendering one PG question.
 ///
 /// The adapter sanitizes `html` before it reaches its render cache or a
 /// browser-facing issued result.  The renderer is intentionally not trusted
 /// to make that security decision.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderedWebworkQuestion {
     /// Backend-neutral prompt and response definition safe for a browser.
@@ -27,6 +57,21 @@ pub struct RenderedWebworkQuestion {
     /// This is part of renderer output rather than sampled from a client on a
     /// cache hit, so historical output is never relabelled after an upgrade.
     pub renderer: RendererIdentity,
+    /// Private issuance-only mapping excluded from every serialized form.
+    #[serde(skip)]
+    pub replay: Option<WebworkReplayMappingV1>,
+}
+
+impl std::fmt::Debug for RenderedWebworkQuestion {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("RenderedWebworkQuestion")
+            .field("envelope", &self.envelope)
+            .field("html", &self.html)
+            .field("renderer", &self.renderer)
+            .field("replay", &self.replay.as_ref().map(|_| "[REDACTED]"))
+            .finish()
+    }
 }
 
 /// Stable renderer implementation identity recorded with an attempt.
@@ -101,7 +146,7 @@ pub struct RenderRequest<'a> {
 }
 
 /// Trusted server-only grading request.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct GradeRequest<'a> {
     /// Immutable PG source bytes, resolved by the server from object storage.
     pub pg_source: &'a [u8],
@@ -113,7 +158,11 @@ pub struct GradeRequest<'a> {
     pub seed: u64,
     /// Browser-submitted response, never an answer key.
     pub response: &'a StudentResponse,
+    /// Exact issuance mapping already bound to the persisted attempt.
+    pub replay: &'a WebworkReplayMappingV1,
     /// The published all-or-nothing score ceiling. The renderer returns only
     /// a normalized score and never chooses the assignment's point value.
     pub points_possible: f64,
+    /// Whether a validated 0--100 upstream fraction is permitted.
+    pub partial_credit: bool,
 }

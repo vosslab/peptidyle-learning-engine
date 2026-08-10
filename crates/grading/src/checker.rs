@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 
 use domain::validation::{ResponseFormatViolation, validate_response_format};
 use question_model::answer::{NumericTolerance, TextMatchMode};
-use question_model::response::{ChoiceId, ResponseDefinition, StudentResponse};
+use question_model::response::{ChoiceId, HotspotRegion, ResponseDefinition, StudentResponse};
 use question_model::{AttemptResult, GradingDefinition, QuestionDefinition};
 
 use crate::AnswerKey;
@@ -169,6 +169,47 @@ fn answer_is_correct(
             AnswerKey::ShortText { accepted },
         ) => Ok(text_is_correct(text, accepted, *match_mode)),
         (
+            ResponseDefinition::MultiBlank { blanks },
+            StudentResponse::MultiBlank { answers },
+            AnswerKey::MultiBlank { accepted },
+        ) => {
+            if accepted.len() != blanks.len()
+                || blanks.iter().any(|blank| !accepted.contains_key(&blank.id))
+            {
+                return Err(GradingError::InvalidDefinition(
+                    "multi-blank key must name every available slot exactly once".to_string(),
+                ));
+            }
+            Ok(answers.iter().all(|answer| {
+                let blank = blanks
+                    .iter()
+                    .find(|blank| blank.id == answer.slot)
+                    .expect("format validation proved the slot set");
+                accepted.get(&answer.slot).is_some_and(|accepted| {
+                    text_is_correct(&answer.text, accepted, blank.match_mode)
+                })
+            }))
+        }
+        (
+            ResponseDefinition::Matching { prompts, choices },
+            StudentResponse::Matching { matches },
+            AnswerKey::Matching { correct },
+        ) => {
+            let prompt_ids: BTreeSet<_> = prompts.iter().map(|prompt| prompt.id.clone()).collect();
+            let choice_ids: BTreeSet<_> = choices.iter().map(|choice| choice.id.clone()).collect();
+            if correct.len() != prompts.len()
+                || correct.keys().cloned().collect::<BTreeSet<_>>() != prompt_ids
+                || correct.values().any(|choice| !choice_ids.contains(choice))
+            {
+                return Err(GradingError::InvalidDefinition(
+                    "matching key must bind every prompt to an available choice".to_string(),
+                ));
+            }
+            Ok(matches
+                .iter()
+                .all(|pair| correct.get(&pair.prompt) == Some(&pair.choice)))
+        }
+        (
             ResponseDefinition::Ordering { items },
             StudentResponse::Ordering { order },
             AnswerKey::Ordering { correct },
@@ -182,8 +223,41 @@ fn answer_is_correct(
             }
             Ok(order == correct)
         }
+        (
+            ResponseDefinition::Hotspot { regions, .. },
+            StudentResponse::Hotspot { points },
+            AnswerKey::Hotspot { correct },
+        ) => {
+            let available: BTreeSet<_> = regions.iter().map(|region| region.id.clone()).collect();
+            if !correct.is_subset(&available) {
+                return Err(GradingError::InvalidDefinition(
+                    "hotspot key names an unavailable region".to_string(),
+                ));
+            }
+            let selected = points
+                .iter()
+                .map(|point| {
+                    regions
+                        .iter()
+                        .find(|region| region_contains(region, point.x, point.y))
+                        .expect("format validation proved each point maps to one region")
+                        .id
+                        .clone()
+                })
+                .collect::<BTreeSet<_>>();
+            Ok(selected == *correct)
+        }
         _ => Err(GradingError::KindMismatch),
     }
+}
+
+fn region_contains(region: &HotspotRegion, x: u16, y: u16) -> bool {
+    let right = u32::from(region.x) + u32::from(region.width);
+    let bottom = u32::from(region.y) + u32::from(region.height);
+    u32::from(x) >= u32::from(region.x)
+        && u32::from(x) <= right
+        && u32::from(y) >= u32::from(region.y)
+        && u32::from(y) <= bottom
 }
 
 fn numeric_is_correct(

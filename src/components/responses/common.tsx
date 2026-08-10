@@ -1,0 +1,251 @@
+// common.tsx - shared browser-safe response-controller contracts and controls.
+
+import { createSignal, type JSX } from "solid-js";
+
+import type { ContentBlock } from "../../../generated/api/ContentBlock";
+import type { ResponseDefinition } from "../../../generated/api/ResponseDefinition";
+import type { StudentResponse } from "../../../generated/api/StudentResponse";
+import type { ExternalToolLaunch } from "../../api/contracts";
+import type { ResponseFormatReport, ResponseFormatViolation, WasmFacade } from "../../wasm/index";
+
+export type MultipleChoiceDefinition = Extract<ResponseDefinition, { kind: "multipleChoice" }>;
+export type NumericDefinition = Extract<ResponseDefinition, { kind: "numeric" }>;
+export type ShortTextDefinition = Extract<ResponseDefinition, { kind: "shortText" }>;
+export type OrderingDefinition = Extract<ResponseDefinition, { kind: "ordering" }>;
+export type MultiBlankDefinition = Extract<ResponseDefinition, { kind: "multiBlank" }>;
+export type MatchingDefinition = Extract<ResponseDefinition, { kind: "matching" }>;
+export type HotspotDefinition = Extract<ResponseDefinition, { kind: "hotspot" }>;
+export type FileUploadDefinition = Extract<ResponseDefinition, { kind: "fileUpload" }>;
+
+type WidgetPhase =
+  | { readonly kind: "idle" }
+  | { readonly kind: "validating" }
+  | { readonly kind: "ready" }
+  | { readonly kind: "invalid"; readonly message: string }
+  | { readonly kind: "submitting" }
+  | { readonly kind: "submitted" }
+  | { readonly kind: "failed"; readonly message: string };
+
+export interface ResponseWidgetBaseProps {
+  readonly attemptId: string;
+  readonly validator: WasmFacade;
+  readonly onSubmit: (response: StudentResponse) => Promise<void>;
+  readonly onEscape: () => void;
+  readonly onResponseChange?: (response: StudentResponse, validation: ResponseFormatReport) => void;
+  readonly getExternalToolLaunch?: () => Promise<ExternalToolLaunch>;
+}
+
+export interface ResponseWidgetProps extends ResponseWidgetBaseProps {
+  readonly definition: ResponseDefinition;
+  readonly initialResponse?: StudentResponse;
+}
+
+export interface WidgetBodyProps<D extends ResponseDefinition> extends ResponseWidgetBaseProps {
+  readonly definition: D;
+  readonly initialResponse?: Extract<StudentResponse, { readonly kind: D["kind"] }>;
+}
+
+export type MultipleChoiceResponseProps = WidgetBodyProps<MultipleChoiceDefinition>;
+
+export interface SubmissionController {
+  readonly phase: () => WidgetPhase;
+  readonly invalid: () => boolean;
+  readonly pending: () => boolean;
+  readonly canSubmit: () => boolean;
+  readonly validate: (response: StudentResponse) => Promise<void>;
+  readonly submit: (response: StudentResponse) => Promise<void>;
+}
+
+export function textFromBlocks(blocks: ReadonlyArray<ContentBlock>): string {
+  return blocks
+    .map((block) => {
+      switch (block.kind) {
+        case "text":
+          return block.markdown;
+        case "math":
+        case "image":
+        case "table":
+          return block.description;
+        case "code":
+          return block.source;
+      }
+    })
+    .join(" ");
+}
+
+function violationMessage(violation: ResponseFormatViolation): string {
+  switch (violation.kind) {
+    case "selectionCount":
+      return "Choose the requested number of responses.";
+    case "duplicateChoice":
+      return "Each response may be selected only once.";
+    case "unknownChoice":
+      return "That response is not available for this question.";
+    case "numericNotFinite":
+      return "Enter a finite number.";
+    case "textTooLong":
+      return `Keep the response within ${violation.maxLength} characters.`;
+    case "orderingItemsMismatch":
+      return "Place every item in the requested order.";
+    case "blankSlotsMismatch":
+      return "Complete every blank once.";
+    case "matchingPromptsMismatch":
+      return "Match every prompt once.";
+    case "duplicateMatchChoice":
+      return "Use each matching choice only once.";
+    case "unknownMatchChoice":
+      return "That matching choice is not available.";
+    case "hotspotPointOutOfBounds":
+      return "Choose a point within the image.";
+    case "hotspotPointOutsideRegion":
+      return "Choose one of the available labeled regions.";
+    case "missingUploadReference":
+      return "Choose an uploaded file before submitting.";
+    case "responseKindMismatch":
+      return "This response does not match the question format.";
+  }
+}
+
+function reportMessage(report: ResponseFormatReport): string {
+  const first = report.violations[0];
+  return first === undefined ? "Response format is ready to submit." : violationMessage(first);
+}
+
+/** Browser-only format check: deliberately has no submit or grading dependency. */
+export async function validateResponseLocally(
+  validator: WasmFacade,
+  definition: ResponseDefinition,
+  response: StudentResponse,
+): Promise<ResponseFormatReport> {
+  return validator.validateResponseFormat(definition, response);
+}
+
+/** Preserve an empty numeric control as invalid rather than coercing it to zero. */
+export function numericResponseFromInput(input: string): StudentResponse {
+  return { kind: "numeric", value: input.trim() === "" ? Number.NaN : Number(input) };
+}
+
+function phaseMessage(phase: WidgetPhase): string {
+  switch (phase.kind) {
+    case "idle":
+      return "Complete the response, then submit it.";
+    case "validating":
+      return "Checking response format...";
+    case "ready":
+      return "Response format is ready to submit.";
+    case "invalid":
+    case "failed":
+      return phase.message;
+    case "submitting":
+      return "Submitting your response. Please wait.";
+    case "submitted":
+      return "Answer submitted. Server feedback will appear when it is released.";
+  }
+}
+
+/** Key-free validation state machine. Validation never invokes server grading. */
+export function createSubmissionController(
+  props: ResponseWidgetProps,
+  initialResponse?: StudentResponse,
+): SubmissionController {
+  const [phase, setPhase] = createSignal<WidgetPhase>({ kind: "idle" });
+  let validationRequest = 0;
+  let submissionRequest = 0;
+
+  async function validate(response: StudentResponse): Promise<void> {
+    if (phase().kind === "submitting") return;
+    validationRequest += 1;
+    const request = validationRequest;
+    setPhase({ kind: "validating" });
+    try {
+      const report = await validateResponseLocally(props.validator, props.definition, response);
+      if (request !== validationRequest || phase().kind === "submitting") return;
+      props.onResponseChange?.(response, report);
+      setPhase(
+        report.violations.length === 0
+          ? { kind: "ready" }
+          : { kind: "invalid", message: reportMessage(report) },
+      );
+    } catch (error: unknown) {
+      if (request !== validationRequest || phase().kind === "submitting") return;
+      const message = error instanceof Error ? error.message : "format validation was unavailable";
+      setPhase({ kind: "failed", message: `Cannot check this response yet: ${message}.` });
+    }
+  }
+
+  async function submit(response: StudentResponse): Promise<void> {
+    if (phase().kind !== "ready") {
+      await validate(response);
+      if (phase().kind !== "ready") return;
+    }
+    submissionRequest += 1;
+    const request = submissionRequest;
+    setPhase({ kind: "submitting" });
+    try {
+      await props.onSubmit(response);
+      if (request === submissionRequest) setPhase({ kind: "submitted" });
+    } catch (error: unknown) {
+      if (request !== submissionRequest) return;
+      const message =
+        error instanceof Error
+          ? `Your response is still available. Submission failed: ${error.message}. Try again.`
+          : "Your response is still available. Submission failed. Try again.";
+      setPhase({ kind: "failed", message });
+    }
+  }
+
+  if (initialResponse !== undefined) void validate(initialResponse);
+  return {
+    phase,
+    invalid: () => phase().kind === "invalid" || phase().kind === "failed",
+    pending: () => phase().kind === "submitting",
+    canSubmit: () => phase().kind === "ready",
+    validate,
+    submit,
+  };
+}
+
+export function Status(props: {
+  readonly attemptId: string;
+  readonly controller: SubmissionController;
+}): JSX.Element {
+  return (
+    <p
+      id={`${props.attemptId}-format-status`}
+      class="format-status"
+      classList={{
+        error: props.controller.invalid(),
+        ready:
+          props.controller.phase().kind === "ready" ||
+          props.controller.phase().kind === "submitted",
+      }}
+      role="status"
+      aria-label="Response format"
+      aria-live="polite"
+    >
+      {phaseMessage(props.controller.phase())}
+    </p>
+  );
+}
+
+export function Actions(props: {
+  readonly disabled: boolean;
+  readonly onSubmit: () => void;
+  readonly onEscape: () => void;
+}): JSX.Element {
+  return (
+    <>
+      <button
+        class="primary-action"
+        type="button"
+        disabled={props.disabled}
+        onClick={props.onSubmit}
+      >
+        Submit answer
+      </button>
+      <button class="quiet-action" type="button" onClick={props.onEscape}>
+        Return to assignment <span aria-hidden="true">(Esc)</span>
+      </button>
+    </>
+  );
+}

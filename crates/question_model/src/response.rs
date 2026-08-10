@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::answer::{NumericTolerance, SelectionCardinality, TextMatchMode};
-use crate::envelope::ContentBlock;
+use crate::envelope::{AssetRef, ContentBlock};
 
 /// Identifies one selectable choice within a question.
 ///
@@ -39,6 +39,72 @@ pub struct ChoiceOption {
     pub id: ChoiceId,
     /// What the student sees, in render order.
     pub body: Vec<ContentBlock>,
+}
+
+/// One named text-entry slot in a multi-blank question.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TextEntrySlot {
+    /// Stable semantic slot identifier.
+    pub id: ChoiceId,
+    /// Learner-visible label or surrounding prompt fragment.
+    pub label: Vec<ContentBlock>,
+    /// How the server compares this slot's text.
+    pub match_mode: TextMatchMode,
+    /// Longest accepted response, in characters.
+    pub max_length: u32,
+}
+
+/// One learner-supplied value for a named text-entry slot.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TextEntryAnswer {
+    /// Slot being answered.
+    pub slot: ChoiceId,
+    /// Learner text before server-owned normalization.
+    pub text: String,
+}
+
+/// One prompt-to-choice association in a matching response.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MatchPair {
+    /// Prompt being matched.
+    pub prompt: ChoiceId,
+    /// Choice assigned to that prompt.
+    pub choice: ChoiceId,
+}
+
+/// A scale-independent point on a hotspot surface.
+///
+/// Coordinates use the inclusive integer range 0 through 10,000 rather than
+/// browser pixels. This keeps submissions stable across zoom, responsive
+/// layout, and image density.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HotspotPoint {
+    /// Horizontal normalized coordinate.
+    pub x: u16,
+    /// Vertical normalized coordinate.
+    pub y: u16,
+}
+
+/// One public candidate region and its accessible learner label.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HotspotRegion {
+    /// Stable semantic region identifier. Correctness remains server-only.
+    pub id: ChoiceId,
+    /// Nonvisual alternative used by the keyboard-first response control.
+    pub label: Vec<ContentBlock>,
+    /// Left edge in normalized coordinates.
+    pub x: u16,
+    /// Top edge in normalized coordinates.
+    pub y: u16,
+    /// Width in normalized coordinates.
+    pub width: u16,
+    /// Height in normalized coordinates.
+    pub height: u16,
 }
 
 /// The shape of response a question expects.
@@ -74,10 +140,33 @@ pub enum ResponseDefinition {
         /// Longest accepted response, in characters.
         max_length: u32,
     },
+    /// Several independently identified short-text entries.
+    MultiBlank {
+        /// Slots in learner presentation order.
+        blanks: Vec<TextEntrySlot>,
+    },
+    /// A set of prompt-to-choice associations.
+    Matching {
+        /// Prompts in learner presentation order.
+        prompts: Vec<ChoiceOption>,
+        /// Available choices in learner presentation order.
+        choices: Vec<ChoiceOption>,
+    },
     /// An arrangement of items into the correct order.
     Ordering {
         /// The items to arrange, in their presented order.
         items: Vec<ChoiceOption>,
+    },
+    /// One or more points selected on an image-backed surface.
+    Hotspot {
+        /// Immutable image used as the coordinate surface.
+        surface: AssetRef,
+        /// Text alternative describing the whole surface.
+        description: String,
+        /// Public candidate regions; the correct region set remains private.
+        regions: Vec<HotspotRegion>,
+        /// Number of points the learner must select.
+        selection: SelectionCardinality,
     },
     /// An uploaded file, for work done outside the browser.
     FileUpload {
@@ -120,10 +209,25 @@ pub enum StudentResponse {
         /// The text the student entered.
         text: String,
     },
+    /// Values supplied for named blanks.
+    MultiBlank {
+        /// Answers in issued slot order.
+        answers: Vec<TextEntryAnswer>,
+    },
+    /// Prompt-to-choice associations.
+    Matching {
+        /// Matches in issued prompt order.
+        matches: Vec<MatchPair>,
+    },
     /// Items in the order the student arranged them.
     Ordering {
         /// Choice identifiers, first to last.
         order: Vec<ChoiceId>,
+    },
+    /// Normalized points selected on a hotspot surface.
+    Hotspot {
+        /// Points in learner selection order.
+        points: Vec<HotspotPoint>,
     },
     /// A reference to an uploaded object in the `student-records` bucket.
     FileUpload {

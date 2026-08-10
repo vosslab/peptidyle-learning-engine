@@ -11,8 +11,9 @@ use question_model::run_policy::FeedbackDisclosure;
 use question_model::{DraftQuestionDefinition, WorkspaceId};
 
 use super::{
-    CompiledFlatQuestion, FlatAttemptPolicy, FlatChoice, FlatLicense, FlatOutcomeFeedback,
-    FlatQuestionDocument, FlatQuestionError, FlatQuestionKind, FlatTimingPolicy,
+    CompiledFlatQuestion, FlatAttemptPolicy, FlatChoice, FlatDocumentVersion, FlatLicense,
+    FlatOutcomeFeedback, FlatQuestionDocument, FlatQuestionError, FlatQuestionKind,
+    FlatSingleChoiceV1, FlatTimingPolicy,
 };
 
 /// One ordered PLE choice from a trusted profile mapping.
@@ -144,9 +145,9 @@ impl ImportedFlatQuestion {
         input: ImportedSingleChoiceInput,
     ) -> Result<Self, ImportedFlatQuestionError> {
         let points = parse_canonical_points(&input.canonical_points)?;
-        let document = FlatQuestionDocument {
+        let document = FlatQuestionDocument(FlatDocumentVersion::V1(FlatSingleChoiceV1 {
             format: super::FORMAT_NAME.to_string(),
-            version: super::FORMAT_VERSION,
+            version: super::FORMAT_VERSION_V1,
             kind: FlatQuestionKind::SingleChoice,
             title: input.title,
             prompt: input.prompt,
@@ -171,7 +172,7 @@ impl ImportedFlatQuestion {
             taxonomy: Vec::new(),
             license: FlatLicense::AllRightsReserved,
             language: "en-US".to_string(),
-        };
+        }));
         document
             .validate()
             .map_err(|_| ImportedFlatQuestionError::InvalidFlatQuestion)?;

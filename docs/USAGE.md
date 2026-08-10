@@ -122,6 +122,6 @@ pruning images destroys local state or build cache, so make that decision delibe
 
 ## Known gaps
 
-- The opt-in profile is documented from its checked-in launcher contract. Record a successful live
-  upstream build, PLE API path, and browser acceptance separately; neither `--check` nor static
-  tests establishes live WeBWorK acceptance.
+- The opt-in RC3 profile's live upstream build, PLE API path, and browser acceptance were accepted
+  on 2026-08-10. For later changes, neither `--check` nor static tests replaces that recorded live
+  evidence. Broad OPL compatibility and WeBWorK MATCH remain separately owned by WP-RC5.

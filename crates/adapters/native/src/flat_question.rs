@@ -1,7 +1,8 @@
 //! Strict JSON source and compiler for static flat questions.
 //!
-//! This format is intentionally narrower than QTI. Version 1 represents one
-//! static, exactly-one multiple-choice question. Parsing produces two values:
+//! Version 1 remains the original static exactly-one multiple-choice contract.
+//! Version 2 adds the closed family set based on the reviewed QTI Package Maker item model.
+//! Parsing produces two values:
 //! a browser-safe draft and answer-bearing private material. The latter stays
 //! in this server-only adapter crate and is bound by checksum to the public
 //! definition it grades.
@@ -12,8 +13,12 @@ use std::fmt::Write as _;
 use crate::generator::NativeQuestionFamily;
 use grading::AnswerKey;
 pub use grading::flat_question::{
-    FLAT_SINGLE_CHOICE_FAMILY, FlatQuestionError, FlatQuestionEvaluation, FlatQuestionPrivate,
-    validate_flat_single_choice_draft, validate_flat_single_choice_question, validate_for_draft,
+    FLAT_FILL_IN_FAMILY, FLAT_HOTSPOT_FAMILY, FLAT_MATCHING_FAMILY, FLAT_MULTI_FILL_IN_FAMILY,
+    FLAT_MULTIPLE_ANSWER_FAMILY, FLAT_NUMERIC_FAMILY, FLAT_ORDERING_FAMILY,
+    FLAT_SINGLE_CHOICE_FAMILY, FLAT_SINGLE_CHOICE_V2_FAMILY, FlatQuestionError,
+    FlatQuestionEvaluation, FlatQuestionPrivate, is_flat_question_family,
+    validate_flat_question_question, validate_flat_single_choice_draft,
+    validate_flat_single_choice_question, validate_for_draft,
 };
 use question_model::answer::SelectionCardinality;
 use question_model::envelope::ContentBlock;
@@ -31,6 +36,7 @@ use sha2::{Digest, Sha256};
 
 /// Trusted QTI-profile mapping bridge for canonical flat-question source.
 pub mod imported;
+mod v2;
 
 /// Canonical media type for canonicalized flat-question source payloads.
 pub const FLAT_QUESTION_MEDIA_TYPE: &str = "application/vnd.peptidyle.flat-question+json";
@@ -39,7 +45,7 @@ pub const FLAT_QUESTION_MEDIA_TYPE: &str = "application/vnd.peptidyle.flat-quest
 pub const MAX_FLAT_QUESTION_BYTES: usize = grading::flat_question::MAX_FLAT_QUESTION_BYTES;
 
 const FORMAT_NAME: &str = "pleFlatQuestion";
-const FORMAT_VERSION: u32 = 1;
+const FORMAT_VERSION_V1: u32 = 1;
 const MAX_CHOICES: usize = 100;
 const MAX_CHOICE_ID_BYTES: usize = 64;
 const MAX_PROMPT_CHARS: usize = 65_536;
@@ -54,8 +60,20 @@ const MAX_METADATA_TEXT_CHARS: usize = 256;
 /// the correct choice and private teaching feedback. Use [`Self::compile`] to
 /// split it before persistence or delivery.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct FlatQuestionDocument(FlatDocumentVersion);
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+enum FlatDocumentVersion {
+    V1(FlatSingleChoiceV1),
+    V2(v2::FlatQuestionV2),
+}
+
+/// Preserved answer-bearing version 1 single-choice document.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct FlatQuestionDocument {
+struct FlatSingleChoiceV1 {
     format: String,
     version: u32,
     kind: FlatQuestionKind,
@@ -264,6 +282,66 @@ impl NativeQuestionFamily for FlatSingleChoiceFamily {
     }
 }
 
+/// One registered static version 2 family.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct FlatV2Family(&'static str);
+
+impl NativeQuestionFamily for FlatV2Family {
+    fn family(&self) -> &'static str {
+        self.0
+    }
+
+    fn generator(&self) -> Option<question_model::GeneratorReference> {
+        None
+    }
+
+    fn capabilities(&self) -> BackendCapabilities {
+        BackendCapabilities::from_iter([
+            Capability::ClientRendering,
+            Capability::ServerGrading,
+            Capability::Hints,
+            Capability::PerQuestionTiming,
+        ])
+    }
+
+    fn derive_answer_key(
+        &self,
+        question: &QuestionDefinition,
+        _generated: &domain::generator::GeneratedVariant,
+    ) -> Result<Option<AnswerKey>, crate::NativeAdapterError> {
+        let question_model::QuestionSource::Native { family } = &question.source else {
+            return Err(crate::NativeAdapterError::InvalidFamilyDefinition {
+                family: self.0.to_string(),
+                message: "flat family requires a native source".to_string(),
+            });
+        };
+        if family != self.0 {
+            return Err(crate::NativeAdapterError::InvalidFamilyDefinition {
+                family: self.0.to_string(),
+                message: "flat family registry selection changed".to_string(),
+            });
+        }
+        validate_flat_question_question(question).map_err(|error| {
+            crate::NativeAdapterError::InvalidFamilyDefinition {
+                family: self.0.to_string(),
+                message: error.to_string(),
+            }
+        })?;
+        Ok(None)
+    }
+}
+
+pub(crate) const FLAT_V2_FAMILIES: [FlatV2Family; 8] = [
+    FlatV2Family(FLAT_SINGLE_CHOICE_V2_FAMILY),
+    FlatV2Family(FLAT_MULTIPLE_ANSWER_FAMILY),
+    FlatV2Family(FLAT_FILL_IN_FAMILY),
+    FlatV2Family(FLAT_MULTI_FILL_IN_FAMILY),
+    FlatV2Family(FLAT_NUMERIC_FAMILY),
+    FlatV2Family(FLAT_MATCHING_FAMILY),
+    FlatV2Family(FLAT_ORDERING_FAMILY),
+    FlatV2Family(FLAT_HOTSPOT_FAMILY),
+];
+
 impl FlatQuestionDocument {
     /// Parses and validates one complete answer-bearing JSON source.
     ///
@@ -309,6 +387,22 @@ impl FlatQuestionDocument {
         &self,
         workspace: WorkspaceId,
     ) -> Result<CompiledFlatQuestion, FlatQuestionError> {
+        match &self.0 {
+            FlatDocumentVersion::V1(document) => document.compile(workspace),
+            FlatDocumentVersion::V2(document) => document.compile(workspace),
+        }
+    }
+
+    fn validate(&self) -> Result<(), FlatQuestionError> {
+        match &self.0 {
+            FlatDocumentVersion::V1(document) => document.validate(),
+            FlatDocumentVersion::V2(document) => document.validate(),
+        }
+    }
+}
+
+impl FlatSingleChoiceV1 {
+    fn compile(&self, workspace: WorkspaceId) -> Result<CompiledFlatQuestion, FlatQuestionError> {
         self.validate()?;
         let choices = self
             .choices
@@ -366,7 +460,7 @@ impl FlatQuestionDocument {
         if self.format != FORMAT_NAME {
             return Err(FlatQuestionError::UnsupportedFormat);
         }
-        if self.version != FORMAT_VERSION {
+        if self.version != FORMAT_VERSION_V1 {
             return Err(FlatQuestionError::UnsupportedVersion(self.version));
         }
         question_model::validate_question_title(&self.title)

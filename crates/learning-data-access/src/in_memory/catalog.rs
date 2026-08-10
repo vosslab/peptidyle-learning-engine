@@ -553,3 +553,235 @@ impl CatalogSourceStore for MemoryStore {
             .cloned())
     }
 }
+
+pub(super) fn catalog_record_visible(
+    state: &State,
+    tenant: TenantId,
+    record: &PublishedProblemRecord,
+) -> bool {
+    // Exact-version reads intentionally retain deprecated and archived content
+    // for historical assignments. This is the same scope/grant predicate used
+    // by PostgreSQL RLS and the published-QTI grader capability.
+    record.scope == PublicationScope::Public
+        || state
+            .catalog_grants
+            .contains(&(tenant, record.problem, record.version))
+}
+
+/// Converts the wire-owned bounded search request into the shared pagination
+/// primitive.  The opaque token is checked for query binding below rather than
+/// treated as an untrusted stable key.
+pub(super) fn search_page_request(query: &CatalogSearchQuery) -> Result<PageRequest, StoreError> {
+    let size = PageSize::new(query.page_size.unwrap_or(50))
+        .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+    match query.cursor.clone() {
+        Some(cursor) => Cursor::parse(cursor)
+            .map(|cursor| PageRequest::after(cursor, size))
+            .map_err(|error| StoreError::InvalidRecord(error.to_string())),
+        None => Ok(PageRequest::first(size)),
+    }
+}
+
+/// Stable digest of filters only. The digest avoids exposing title/taxonomy
+/// contents through a cursor and makes a cursor from a different filter set a
+/// deterministic client error rather than a subtly stale page.
+pub(super) fn catalog_search_fingerprint(query: &CatalogSearchQuery) -> String {
+    let mut canonical = String::new();
+    canonical.push_str(query.text.as_deref().unwrap_or(""));
+    canonical.push('\u{1f}');
+    for term in &query.taxonomy {
+        canonical.push_str(&term.scheme);
+        canonical.push('\u{1e}');
+        canonical.push_str(&term.code);
+        canonical.push('\u{1f}');
+    }
+    canonical.push('|');
+    for capability in &query.capabilities {
+        canonical.push_str(capability.as_str());
+        canonical.push('\u{1f}');
+    }
+    canonical.push('|');
+    for license in &query.licenses {
+        canonical.push_str(&format!("{license:?}"));
+        canonical.push('\u{1f}');
+    }
+    canonical.push('|');
+    canonical.push_str(&format!("{:?}", query.statistics));
+    Sha256Digest::compute(canonical.as_bytes()).to_string()
+}
+
+pub(super) fn catalog_search_matches(
+    record: &PublishedProblemRecord,
+    query: &CatalogSearchQuery,
+    statistics_available: bool,
+) -> bool {
+    if matches!(query.statistics, CatalogStatisticsAvailability::Available) && !statistics_available
+    {
+        return false;
+    }
+    if matches!(query.statistics, CatalogStatisticsAvailability::Unavailable)
+        && statistics_available
+    {
+        return false;
+    }
+    if let Some(text) = &query.text {
+        let searchable = std::iter::once(record.question.metadata.title.as_str())
+            .chain(record.question.metadata.language.split_whitespace())
+            .chain(record.question.metadata.tags.iter().map(|tag| tag.as_str()))
+            .chain(record.question.metadata.taxonomy.iter().flat_map(|term| {
+                [
+                    term.scheme.as_str(),
+                    term.code.as_str(),
+                    term.label.as_str(),
+                ]
+            }))
+            .any(|value| value.to_lowercase().contains(text));
+        if !searchable {
+            return false;
+        }
+    }
+    if !query.taxonomy.iter().all(|wanted| {
+        record
+            .question
+            .metadata
+            .taxonomy
+            .iter()
+            .any(|term| term.scheme == wanted.scheme && term.code == wanted.code)
+    }) {
+        return false;
+    }
+    if !query
+        .capabilities
+        .iter()
+        .all(|capability| record.capabilities.supports(*capability))
+    {
+        return false;
+    }
+    query.licenses.is_empty()
+        || query
+            .licenses
+            .iter()
+            .any(|license| license.matches(&record.question.metadata.license))
+}
+
+fn catalog_search_facets<'a>(
+    records: impl Iterator<Item = (&'a PublishedProblemRecord, bool)>,
+) -> CatalogSearchFacets {
+    let mut taxonomy = BTreeMap::<String, (TaxonomyTerm, u64)>::new();
+    let mut capabilities = BTreeMap::new();
+    let mut licenses = BTreeMap::new();
+    let mut unavailable = 0_u64;
+    let mut available = 0_u64;
+    for (record, statistics_available) in records {
+        if statistics_available {
+            available += 1;
+        } else {
+            unavailable += 1;
+        }
+        for term in &record.question.metadata.taxonomy {
+            let entry = taxonomy
+                .entry(taxonomy_cursor_key(term))
+                .or_insert_with(|| (term.clone(), 0));
+            entry.1 += 1;
+            // A controlled identity is `(scheme, code)`. Legacy imports may
+            // disagree on display text; choose the lexicographically smallest
+            // label so Memory and PostgreSQL remain deterministic.
+            if term.label < entry.0.label {
+                entry.0.label = term.label.clone();
+            }
+        }
+        for capability in record.capabilities.declared() {
+            *capabilities.entry(capability).or_insert(0_u64) += 1;
+        }
+        *licenses
+            .entry(CatalogLicenseValue::from_license(
+                &record.question.metadata.license,
+            ))
+            .or_insert(0_u64) += 1;
+    }
+    let mut taxonomy = taxonomy
+        .into_values()
+        .map(|(term, count)| CatalogTaxonomyFacet { term, count })
+        .collect::<Vec<_>>();
+    taxonomy.sort_by(|left, right| {
+        right
+            .count
+            .cmp(&left.count)
+            .then_with(|| left.term.scheme.cmp(&right.term.scheme))
+            .then_with(|| left.term.code.cmp(&right.term.code))
+    });
+    taxonomy.truncate(MAX_CATALOG_TAXONOMY_FACETS);
+    CatalogSearchFacets {
+        taxonomy,
+        capabilities: capabilities
+            .into_iter()
+            .map(|(capability, count)| CatalogCapabilityFacet { capability, count })
+            .collect(),
+        licenses: licenses
+            .into_iter()
+            .map(|(license, count)| CatalogLicenseFacet { license, count })
+            .collect(),
+        statistics: CatalogStatisticsFacet {
+            available,
+            unavailable,
+        },
+    }
+}
+
+pub(super) fn validated_deprecation_reason(reason: String) -> Result<String, StoreError> {
+    const MAX_REASON_CHARS: usize = 1_000;
+    let reason = reason.trim();
+    if reason.is_empty() {
+        return Err(StoreError::InvalidRecord(
+            "deprecation requires a nonempty reason".to_string(),
+        ));
+    }
+    if reason.chars().count() > MAX_REASON_CHARS {
+        return Err(StoreError::InvalidRecord(format!(
+            "deprecation reason must contain at most {MAX_REASON_CHARS} characters"
+        )));
+    }
+    Ok(reason.to_string())
+}
+
+pub(super) fn taxonomy_cursor_key(term: &TaxonomyTerm) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+
+    let mut key = String::with_capacity((term.scheme.len() + term.code.len()) * 2 + 1);
+    for byte in term.scheme.bytes() {
+        key.push(char::from(HEX[usize::from(byte >> 4)]));
+        key.push(char::from(HEX[usize::from(byte & 0x0f)]));
+    }
+    key.push('/');
+    for byte in term.code.bytes() {
+        key.push(char::from(HEX[usize::from(byte >> 4)]));
+        key.push(char::from(HEX[usize::from(byte & 0x0f)]));
+    }
+    key
+}
+
+/// Applies stable-key cursor paging without a positional index parameter.
+pub(super) fn page_records<T>(mut records: Vec<(String, T)>, request: &PageRequest) -> Page<T> {
+    records.sort_by(|left, right| left.0.cmp(&right.0));
+    let after = request.after.as_ref().map(Cursor::as_str);
+    let mut selected: Vec<(String, T)> = records
+        .into_iter()
+        .filter(|(key, _)| after.is_none_or(|cursor| key.as_str() > cursor))
+        .take(usize::from(request.size.get()) + 1)
+        .collect();
+    let has_more = selected.len() > usize::from(request.size.get());
+    if has_more {
+        selected.pop();
+    }
+    let next_cursor = if has_more {
+        selected
+            .last()
+            .map(|(key, _)| Cursor::from_stable_key(key.clone()))
+    } else {
+        None
+    };
+    Page {
+        items: selected.into_iter().map(|(_, item)| item).collect(),
+        next_cursor,
+    }
+}

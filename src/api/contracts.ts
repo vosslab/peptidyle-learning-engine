@@ -225,7 +225,15 @@ export interface PublicationSemanticProjection {
 
 export type PublicationPromptBlockKind = "text" | "math" | "image" | "code" | "table";
 export type PublicationResponseKind =
-  "numeric" | "multipleChoice" | "shortText" | "ordering" | "fileUpload" | "externalTool";
+  | "numeric"
+  | "multipleChoice"
+  | "shortText"
+  | "multiBlank"
+  | "matching"
+  | "ordering"
+  | "hotspot"
+  | "fileUpload"
+  | "externalTool";
 
 export interface PublicationResult {
   readonly reference: ProblemVersionRef;

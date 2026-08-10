@@ -67,12 +67,8 @@ struct Generated {
 pub fn run(model_dir: &Path, out_dir: &Path) -> Result<usize> {
     let mut generated: Vec<Generated> = Vec::new();
 
-    let mut source_paths: Vec<_> = fs::read_dir(model_dir)
-        .with_context(|| format!("reading {}", model_dir.display()))?
-        .filter_map(|entry| entry.ok())
-        .map(|entry| entry.path())
-        .filter(|path| path.extension().is_some_and(|ext| ext == "rs"))
-        .collect();
+    let mut source_paths = Vec::new();
+    collect_model_sources(model_dir, &mut source_paths)?;
     // Sorted so the output is identical run to run; generated files that
     // reorder themselves produce noisy diffs and hide real changes.
     source_paths.sort();
@@ -136,6 +132,48 @@ pub fn run(model_dir: &Path, out_dir: &Path) -> Result<usize> {
     }
 
     Ok(generated.len())
+}
+
+/// Recursively discovers production Rust modules in the model crate.
+///
+/// Capability-focused Rust modules may live below the crate root. Test-only
+/// modules are excluded because their public fixtures are not browser
+/// contracts, even when a fixture derives serde traits for a local assertion.
+fn collect_model_sources(
+    directory: &Path,
+    source_paths: &mut Vec<std::path::PathBuf>,
+) -> Result<()> {
+    let entries =
+        fs::read_dir(directory).with_context(|| format!("reading {}", directory.display()))?;
+
+    for entry in entries {
+        let entry =
+            entry.with_context(|| format!("reading an entry in {}", directory.display()))?;
+        let file_type = entry
+            .file_type()
+            .with_context(|| format!("reading file type for {}", entry.path().display()))?;
+        let path = entry.path();
+        if file_type.is_symlink() {
+            bail!(
+                "refusing symlink in question-model source tree: {}",
+                path.display()
+            );
+        }
+        if file_type.is_dir() {
+            if entry.file_name() != "tests" {
+                collect_model_sources(&path, source_paths)?;
+            }
+            continue;
+        }
+        if file_type.is_file()
+            && path.extension().is_some_and(|extension| extension == "rs")
+            && path.file_stem().is_none_or(|stem| stem != "tests")
+        {
+            source_paths.push(path);
+        }
+    }
+
+    Ok(())
 }
 
 /// Removes stale owned TypeScript before writing the current complete set.
@@ -788,6 +826,40 @@ mod tests {
             !out_dir.join("FeedbackContent.ts").exists(),
             "a non-serializable server contract must not become a browser type"
         );
+
+        fs::remove_dir_all(model_dir).expect("temporary model directory should be removed");
+        fs::remove_dir_all(out_dir).expect("temporary output directory should be removed");
+    }
+
+    #[test]
+    fn nested_production_modules_are_generated_but_test_modules_are_not() {
+        let model_dir = temporary_output_dir("nested-model");
+        let out_dir = temporary_output_dir("nested-output");
+        let capability_dir = model_dir.join("presentation");
+        let test_dir = capability_dir.join("tests");
+        fs::create_dir_all(&test_dir).expect("temporary model directories should be created");
+        fs::write(
+            capability_dir.join("model.rs"),
+            "#[derive(Serialize)]\npub struct BrowserContract { pub label: String }\n",
+        )
+        .expect("nested production fixture should be written");
+        fs::write(
+            capability_dir.join("tests.rs"),
+            "#[derive(Serialize)]\npub struct FileTestFixture { pub secret: String }\n",
+        )
+        .expect("file test fixture should be written");
+        fs::write(
+            test_dir.join("fixture.rs"),
+            "#[derive(Serialize)]\npub struct DirectoryTestFixture { pub secret: String }\n",
+        )
+        .expect("directory test fixture should be written");
+
+        let generated = run(&model_dir, &out_dir).expect("nested generation should succeed");
+
+        assert_eq!(generated, 1);
+        assert!(out_dir.join("BrowserContract.ts").exists());
+        assert!(!out_dir.join("FileTestFixture.ts").exists());
+        assert!(!out_dir.join("DirectoryTestFixture.ts").exists());
 
         fs::remove_dir_all(model_dir).expect("temporary model directory should be removed");
         fs::remove_dir_all(out_dir).expect("temporary output directory should be removed");

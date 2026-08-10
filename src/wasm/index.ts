@@ -1,6 +1,7 @@
 // index.ts - the only browser boundary around generated wasm-bindgen glue.
 
 import type { ChoiceId } from "../../generated/api/ChoiceId";
+import type { AssetBindingV1 } from "../../generated/api/AssetBindingV1";
 import type { ActivityTimestamp } from "../../generated/api/ActivityTimestamp";
 import type { AttemptTimerRecord } from "../../generated/api/AttemptTimerRecord";
 import type { BackendCapabilities } from "../../generated/api/BackendCapabilities";
@@ -8,6 +9,8 @@ import type { Capability } from "../../generated/api/Capability";
 import type { ResponseDefinition } from "../../generated/api/ResponseDefinition";
 import type { QuestionDefinition } from "../../generated/api/QuestionDefinition";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
+import type { PresentationDigestTokenV1 } from "../../generated/api/PresentationDigestTokenV1";
+import type { PresentationEnvelopeV1 } from "../../generated/api/PresentationEnvelopeV1";
 import type { ContentBlock } from "../../generated/api/ContentBlock";
 import type { DraftQuestionSource } from "../../generated/api/DraftQuestionSource";
 import type { RandomizationDefinition } from "../../generated/api/RandomizationDefinition";
@@ -32,7 +35,13 @@ export type ResponseFormatViolation =
       readonly maxLength: number;
       readonly actualLength: number;
     }
+  | { readonly kind: "blankSlotsMismatch" }
+  | { readonly kind: "matchingPromptsMismatch" }
+  | { readonly kind: "duplicateMatchChoice"; readonly choice: ChoiceId }
+  | { readonly kind: "unknownMatchChoice"; readonly choice: ChoiceId }
   | { readonly kind: "orderingItemsMismatch" }
+  | { readonly kind: "hotspotPointOutOfBounds" }
+  | { readonly kind: "hotspotPointOutsideRegion" }
   | { readonly kind: "missingUploadReference" };
 
 export interface ResponseFormatReport {
@@ -107,6 +116,15 @@ export type NativeDraftPreviewer = (
   seed: number,
 ) => Promise<NativeDraftPreviewResult>;
 
+export type PresentationVerification =
+  { readonly kind: "match" } | { readonly kind: "mismatch" } | { readonly kind: "unavailable" };
+
+export type PresentationVerifier = (
+  envelope: PresentationEnvelopeV1,
+  assets: ReadonlyArray<AssetBindingV1>,
+  digest: PresentationDigestTokenV1,
+) => Promise<PresentationVerification>;
+
 export interface WasmFacade {
   readonly mode: "wasm" | "serverFallback";
   readonly degradedReason?: string;
@@ -114,6 +132,7 @@ export interface WasmFacade {
   readonly timerVerdict: TimerEvaluator;
   readonly validateAssignmentConfig: CapabilityValidator;
   readonly previewNativeDraft: NativeDraftPreviewer;
+  readonly verifyPresentationDescriptor: PresentationVerifier;
 }
 
 interface WasmBindgenModule {
@@ -122,6 +141,11 @@ interface WasmBindgenModule {
   readonly validate_assignment_config: (configJson: string) => string;
   readonly validate_response_format: (definitionJson: string, responseJson: string) => string;
   readonly preview_native_draft: (draftJson: string, seedJson: string) => string;
+  readonly verify_presentation_descriptor: (
+    envelopeJson: string,
+    assetBindingsJson: string,
+    digest: string,
+  ) => boolean;
 }
 
 let sharedFacade: Promise<WasmFacade> | undefined;
@@ -139,7 +163,8 @@ function isWasmBindgenModule(value: unknown): value is WasmBindgenModule {
     typeof value["timer_verdict"] === "function" &&
     typeof value["validate_assignment_config"] === "function" &&
     typeof value["validate_response_format"] === "function" &&
-    typeof value["preview_native_draft"] === "function"
+    typeof value["preview_native_draft"] === "function" &&
+    typeof value["verify_presentation_descriptor"] === "function"
   );
 }
 
@@ -245,6 +270,10 @@ function parseViolation(value: unknown): ResponseFormatViolation {
     case "responseKindMismatch":
     case "numericNotFinite":
     case "orderingItemsMismatch":
+    case "blankSlotsMismatch":
+    case "matchingPromptsMismatch":
+    case "hotspotPointOutOfBounds":
+    case "hotspotPointOutsideRegion":
     case "missingUploadReference":
       return { kind };
     case "selectionCount":
@@ -255,6 +284,8 @@ function parseViolation(value: unknown): ResponseFormatViolation {
       };
     case "duplicateChoice":
     case "unknownChoice":
+    case "duplicateMatchChoice":
+    case "unknownMatchChoice":
       return { kind, choice: requiredString(value, "choice") };
     case "textTooLong":
       return {
@@ -358,12 +389,23 @@ async function initializeWasmFacade(
           loaded.preview_native_draft(JSON.stringify(request), JSON.stringify(seed)),
         ),
       );
+    const verifyPresentationDescriptor: PresentationVerifier = (envelope, assets, digest) =>
+      Promise.resolve({
+        kind: loaded.verify_presentation_descriptor(
+          JSON.stringify(envelope),
+          JSON.stringify(assets),
+          digest,
+        )
+          ? "match"
+          : "mismatch",
+      });
     return {
       mode: "wasm",
       validateResponseFormat,
       timerVerdict,
       validateAssignmentConfig,
       previewNativeDraft,
+      verifyPresentationDescriptor,
     };
   } catch (error: unknown) {
     return {
@@ -378,6 +420,7 @@ async function initializeWasmFacade(
           backend: request.source.backend,
           capability: "offlinePreview",
         }),
+      verifyPresentationDescriptor: () => Promise.resolve({ kind: "unavailable" }),
     };
   }
 }

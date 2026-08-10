@@ -5,9 +5,11 @@ path second. The system architecture and security boundaries are documented in
 [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md). Package and release status comes
 from the active [release_completion_plan.md](active_plans/active/release_completion_plan.md)
 and the dated [project_status_report_2026-08-09.md](active_plans/project_status_report_2026-08-09.md):
-WP-RC1 and WP-RC2 are accepted, while WP-RC3 remains implemented but not
-accepted until its live gates pass. Later release packages describe planned
-work, not files already present in this tree.
+WP-RC1, WP-RC2, WP-RC3, and WP-ARCH1 are accepted. WP-RC3 is a bounded local
+WeBWorK integration, not broad OPL compatibility. WP-RC4's PLE flat JSON v2
+implementation is present for all eight families and awaits independent
+closeout; later release packages describe remaining work, not files already
+present in this tree.
 
 ## Top-level layout
 
@@ -51,7 +53,10 @@ adapter facades. The native engine owns generated families in `generator.rs`
 and the strict static PLE JSON source compiler in
 [flat_question.rs](../crates/adapters/native/src/flat_question.rs). The latter
 has no data-access or HTTP concerns: it only validates, canonicalizes, splits
-public/private content, and performs server-only evaluation.
+public/private content, and performs server-only evaluation. Its
+`flat_question/v2.rs` child owns the closed MC, MA, FIB, MULTI-FIB, NUM,
+MATCH, ORDER, and HOTSPOT source shapes; version 1 single-choice remains in the
+facade-compatible owner so its historical bytes do not change.
 
 The adapter-level QTI parser is split into focused owners:
 
@@ -67,9 +72,11 @@ The adapter-level QTI parser is split into focused owners:
 
 The H5P practice importer is `crates/adapters/h5p/src/import.rs`. The
 server-only WeBWorK renderer boundary is
-`crates/adapters/webwork/src/renderer_contract.rs`; its HTTP implementation is
-`http_renderer.rs`, fixed upstream details are in `shipped_render_rpc.rs`, and
-safe cached markup passes through `sanitizer.rs`. The HTTP implementation uses
+`crates/adapters/webwork/src/renderer_contract.rs`; its HTTP facade is
+`http_renderer.rs`, while `http_renderer/{client,protocol,response_shape,html_projection,grade}.rs`
+own the focused implementation. Fixed upstream details are in
+`shipped_render_rpc.rs`, and safe cached markup passes through `sanitizer.rs`.
+The HTTP implementation uses
 `html5ever` to project the one supported single-radio group and refuses the
 other upstream control shapes. `crates/server/src/webwork_backend.rs` resolves
 the immutable catalog source and joins the adapter to the run backend without
@@ -104,6 +111,7 @@ files.
 crates/learning-data-access/
 +- src/
 |  +- lib.rs                 Contract facade and stable re-exports
+|  +- contracts/             Store, catalog, course, run, and worker contracts
 |  +- activity_policy.rs     Activity, timing, score, and completion policy
 |  +- asset_delivery.rs      Immutable asset registration and protected delivery
 |  +- course_appearance.rs   Revisioned appearance, banner promotion, and cleanup contract
@@ -117,13 +125,14 @@ crates/learning-data-access/
 |  +- qti.rs                 Private QTI registry and isolated grader contract
 |  +- retention.rs           Retention policy and contract types
 |  +- session.rs             Authentication-session persistence contract
-|  +- memory.rs              In-memory data-access composition
-|  +- memory/                In-memory capability implementations
+|  +- in_memory.rs           In-memory data-access composition facade
+|  +- in_memory/             In-memory capability implementations
 |  +- postgres.rs            PostgreSQL data-access composition
 |  `- postgres/              PostgreSQL capability implementations
 `- tests/
    +- conformance.rs         Shared conformance facade and broad activity cases
    +- conformance/           Capability-focused conformance cases
+   +- postgres_flat_import_provenance_live/  Split live provenance cases
    `- postgres_*_live.rs     Opt-in disposable PostgreSQL behavior gates
 ```
 
@@ -209,10 +218,12 @@ concrete dependencies; it should not own route behavior.
 
 Key route and worker owners include:
 
-- `auth.rs`, `catalog.rs`, `course.rs`, `workspace.rs`, and `run.rs` for HTTP
-  capability groups.
-- `run/external_tool.rs` and `run/manual_grading.rs` for focused run-domain
-  routes.
+- `auth.rs` plus `catalog/{routes,query,response,publication,lifecycle,capabilities}.rs` for
+  catalog HTTP and publication behavior behind stable facades.
+- `course/{routing,queries,assignments,policy,projection}.rs` and
+  `workspace/{crud,publication,state,support}.rs` for focused course and authoring behavior.
+- `run/{routes,queries,prefetch,submission,contracts,manual_grading,external_tool}.rs` for
+  focused run-domain routes and state behavior.
 - [qti_publication.rs](../crates/server/src/qti_publication.rs) for the QTI
   publication route and `qti_publication/tests.rs` for its bytes-first,
   authorization, revision, and immutable-promotion contract.
@@ -329,21 +340,29 @@ intentional source material, not disposable generated output.
 - [docs/CONTAINER.md](CONTAINER.md) documents the local container lifecycle;
   [docs/MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md) owns replica scaling,
   shared-state configuration, failure behavior, and planned production shape.
+- `docs/ASSESSMENT_PAYLOAD_DESIGN.md` explains the current and target learner
+  render, compact response, native grading, private WeBWorK, consistency,
+  caching, and prefetch boundaries.
 - [docs/active_plans/decisions/secure_question_grading_payload_plan.md](active_plans/decisions/secure_question_grading_payload_plan.md)
   owns the accepted pre-WP-RC5 render/response payload cutover.
-- `docs/active_plans/active/source_module_decomposition_plan.md` owns the post-WP-RC3 capability
-  extraction and permanent source-size gate.
+- [source_module_decomposition_plan.md](active_plans/active/source_module_decomposition_plan.md)
+  records the accepted capability extraction and permanent source-size gate.
+  Its evidence is in
+  `docs/active_plans/reports/source_module_decomposition_evidence.md`.
 - [docs/ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md](ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md)
   records the student no-mouse task model, response-family key contracts,
   corrections, limitations, and executable acceptance evidence.
+- `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md` defines the durable keyboard-only
+  student journey, response-family behavior, failure recovery, and
+  permanent-versus-human evidence boundary.
 - [docs/HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) records durable owner
   decisions.
 - [docs/active_plans/implementation_plan.md](active_plans/implementation_plan.md)
   is the architecture and milestone source of truth.
-- [docs/active_plans/project_status_report_2026-08-09.md](active_plans/project_status_report_2026-08-09.md)
-  is the current dated status snapshot; `docs/active_plans/partial_commit_status.md`
-  is a historical handoff record, not a competing status authority.
-- `docs/active_plans/workstreams/webwork_shipped_integration.md` owns the
+- [project_status_report_2026-08-09.md](active_plans/project_status_report_2026-08-09.md) is the
+  current dated status snapshot; [partial_commit_status.md](active_plans/partial_commit_status.md) is
+  a historical handoff record, not a competing status authority.
+- [webwork_shipped_integration.md](active_plans/workstreams/webwork_shipped_integration.md) owns the
   explicit WP-RC3 source, private-stack, and acceptance contract.
 
 ## Where to add new work
@@ -361,6 +380,27 @@ intentional source material, not disposable generated output.
   `cargo tools` command.
 - Keep every new source file below 1000 lines and split by capability before a
   parent becomes an implementation warehouse.
+
+The principal WP-ARCH1 contributor paths are:
+
+- persistence: `crates/learning-data-access/src/contracts/`, `in_memory/`,
+  `postgres/`, and `tests/conformance/`;
+- server: `catalog/`, `course/`, `workspace/`, and `run/` route, query, policy,
+  projection, CRUD, prefetch, and submission owners behind stable facades;
+- server support: `retention/{access,parsing,projection,routes}.rs` owns retention access and HTTP
+  behavior; `composition/{backend,local_identity,router,settings,worker}.rs` owns dependency
+  assembly; and `imathas_backend/{launch_state,projection,provider_dispatch,submission}.rs` owns
+  the brokered provider boundary behind their stable facades;
+- adapters and tools: child modules beside the existing adapter facades,
+  `crates/project-tools/src/e2e_seed/`, and `devel/bump_version/`;
+- browser: `src/api/decoders/`, `src/api/http_client/`,
+  `src/api/mock/handlers/{auth,catalog,courses,runs,authoring,assets}.ts`,
+  `src/components/responses/` family controllers, and
+  `src/components/response_widget/` keyboard/external-tool extensions.
+
+These paths describe capability ownership. The stable parent modules remain
+the consumer-facing imports, and the permanent test protects the size boundary
+rather than freezing this exact module list.
 
 ## Naming convention
 

@@ -15,10 +15,11 @@
 
 - Relationship: companion CLI, library, or demo repo
 - Link: https://pypi.org/project/qti-package-maker/
-- Evidence: [README.md](../README.md) assigns QTI Package Maker WP-FQ-0 as the owner of the
-  QTI-JSONL contract that PLE adopts through a versioned adapter and compiler.
+- Evidence: [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) records that PLE flat JSON v2
+  follows the reviewed QTI Package Maker MC, MA, MATCH, NUM, FIB, MULTI_FIB, and ORDER semantics.
 - Notes: The package creates assessment packages for Canvas, Blackboard, Moodle, and LibreTexts
-  ADAPT; PLE consumes its specified interchange boundary rather than duplicating its exporters.
+  ADAPT. PLE reuses its item semantics rather than duplicating its exporters; a future QTI-JSONL
+  contract would remain a separate interchange adapter.
 
 ### Biology Problems OER
 

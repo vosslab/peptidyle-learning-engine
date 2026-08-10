@@ -22,9 +22,11 @@ grep -qx 'allow_unsecured_rpc: 0' /opt/ple-webwork/webwork2.mojolicious.yml
 
 # Start from the complete pinned upstream configuration. The PLE fragment is
 # intentionally appended only after the distribution configuration is present.
-install -m 0640 -o www-data -g www-data /opt/webwork/webwork2/conf/site.conf.dist /opt/webwork/webwork2/conf/site.conf
+rm -f /opt/webwork/webwork2/conf/site.conf
+install -m 0640 /opt/webwork/webwork2/conf/site.conf.dist /opt/webwork/webwork2/conf/site.conf
 cat /opt/ple-webwork/site.conf >> /opt/webwork/webwork2/conf/site.conf
-install -m 0640 -o www-data -g www-data /opt/webwork/webwork2/conf/webwork2.mojolicious.dist.yml /opt/webwork/webwork2/conf/webwork2.mojolicious.yml
+rm -f /opt/webwork/webwork2/conf/webwork2.mojolicious.yml
+install -m 0640 /opt/webwork/webwork2/conf/webwork2.mojolicious.dist.yml /opt/webwork/webwork2/conf/webwork2.mojolicious.yml
 sed -i "0,/^  - /s//  - ${mojo_secret}/" /opt/webwork/webwork2/conf/webwork2.mojolicious.yml
 sed -i "s|^    - http://\*:8080$|    - ${mojo_listen}|" /opt/webwork/webwork2/conf/webwork2.mojolicious.yml
 sed -i "s/^  workers: 25$/  workers: ${mojo_workers}/" /opt/webwork/webwork2/conf/webwork2.mojolicious.yml
@@ -37,7 +39,11 @@ grep -q '^secrets:$' /opt/webwork/webwork2/conf/webwork2.mojolicious.yml
 grep -q '^pg_dir: /opt/webwork/pg$' /opt/webwork/webwork2/conf/webwork2.mojolicious.yml
 grep -q '^allow_unsecured_rpc: 0$' /opt/webwork/webwork2/conf/webwork2.mojolicious.yml
 if [ ! -f /opt/webwork/webwork2/conf/localOverrides.conf ]; then
-	install -m 0640 -o www-data -g www-data /opt/webwork/webwork2/conf/localOverrides.conf.dist /opt/webwork/webwork2/conf/localOverrides.conf
+	install -m 0640 /opt/webwork/webwork2/conf/localOverrides.conf.dist /opt/webwork/webwork2/conf/localOverrides.conf
 fi
+chown www-data:www-data \
+	/opt/webwork/webwork2/conf/site.conf \
+	/opt/webwork/webwork2/conf/webwork2.mojolicious.yml \
+	/opt/webwork/webwork2/conf/localOverrides.conf
 /usr/local/bin/init_render_course.sh
 exec "$@"

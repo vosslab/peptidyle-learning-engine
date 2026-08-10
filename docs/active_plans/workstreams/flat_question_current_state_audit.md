@@ -1,5 +1,9 @@
 # Flat-question current state audit (post-migration rename)
 
+> **Historical audit.** This dated snapshot is retained as evidence, not current task direction.
+> Current authority is the [release completion plan](../active/release_completion_plan.md) and
+> [implementation status](../implementation_status.md).
+
 Date: 2026-08-09
 Scope: read-only bounded audit of uncommitted flat-question publication state after migration rename.
 
@@ -55,20 +59,24 @@ Schema and DB function evidence:
 ## Remaining gaps (bounded, next-package scoped)
 
 Compile gaps:
+
 - No compile errors or missing symbols in current check results.
 - Runtime path for flat-question publication is not fully connected; this is not a compile-time but an end-to-end functional gap.
 
 Contract gaps:
+
 - No PostgreSQL atomic publication path for flat-question `PublishDraftCommand`.
 - Missing invocation of `validate_flat_question_publication` in Postgres catalog publish; native flat-question path is only validated/implemented in memory store.
 - Missing call to SQL function `ple_promote_flat_question_grading` during Postgres publication.
 - No server endpoint/caller path currently supplies `flat_question_promotion` to `publish_draft`.
 
 Security boundaries:
+
 - Schema/rules exist (`workspace_flat_question_source` and `published`-oriented RBAC/tenant policies), and `ple_promote_flat_question_grading` requires tenant-match and hash checks.
 - Because the publication route is not sourcing flat-question promotion objects, the runtime cannot yet exercise those protections for actual static flat-question publishes.
 
 Test gaps:
+
 - Conformance suite currently validates QTI publication behavior (`tests/conformance.rs:...qti`), but no flat-question publication promotion test exists.
 - `cargo test -p learning-data-access flat_question -- --list` lists only flat-question model/store unit tests and an in-memory unauthorized visibility test; no end-to-end publish-path test appears.
 - No `flat_question_promotion: Some(...)` callsites exist to exercise contract enforcement.
@@ -81,6 +89,7 @@ Test gaps:
 - `cargo test -p learning-data-access flat_question -- --list`
 
 Observed outputs:
+
 - all targeted checks completed successfully, with existing conformance tests passing.
 
 ## Suggested next vertical package

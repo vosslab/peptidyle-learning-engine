@@ -5,17 +5,17 @@
 WP-QTI-9 server routes, WP-QTI-10 author UI, WP-QTI-11 live
 PostgreSQL/RLS/profile-to-native acceptance, and WP-QTI-12 independent review and documentation
 close-out are complete and accepted as of 2026-08-09. The release plan owns the remaining version 1
-profile-export work as WP-RC6. QTI-JSONL contract work is assigned to WP-FQ-0, and course appearance
-WP-RC1 course appearance and WP-RC2 production-seam closure are accepted; WP-RC3 shipped upstream
-WeBWorK is the next PLE package. See
+profile-export work as WP-RC6. PLE flat JSON v2 owns native all-family source/runtime semantics;
+external QTI-JSONL is a separate future adapter concern. WP-RC1 through WP-RC3 and WP-ARCH1 are
+accepted. See
 [release_completion_plan.md](../active/release_completion_plan.md) for the current package sequence.
 
 ## Decisions
 
 - Keep Canvas QTI 1.2 and Blackboard Original QTI 2.1 profile v1 strict, static, text-only, and
   single-choice. Unsupported media, feedback, `sub`, `sup`, scoring, or policy refuses explicitly.
-- Do not widen profile v1. Media/HOTSPOT support belongs to QTI-JSONL; fixture-backed vendor features
-  require a new named profile version.
+- Do not widen profile v1. Native media/HOTSPOT support belongs to PLE flat JSON v2; fixture-backed
+  vendor features require a new named profile version.
 - Complete Canvas and Blackboard export as background jobs. The author UI exposes job state and a
   protected download, not an in-request ZIP build.
 - Use minimized accepted/near-miss fixtures and the accepted live oracle as release evidence; broad
@@ -723,8 +723,8 @@ digest set even when the browser acknowledgement is current.
   contracts, architecture, and file map. Those documents were corrected, their focused gates passed,
   and the original documentation and style reviewers found no remaining issue. No P0/P1 finding
   remains.
-- Next package: WP-RC3 shipped upstream WeBWorK. The current dependency order, including
-  QTI-JSONL, content families, and WP-RC6 profile export, is authoritative in
+- Next package: the current dependency order, including flat-family closeout, the secure learner
+  payload, content, and WP-RC6 profile export, is authoritative in
   [release_completion_plan.md](../active/release_completion_plan.md).
 
 ## Acceptance criteria and gates
@@ -903,7 +903,7 @@ Each handoff reports:
 
 No QTI profile scope or implementation decision remains open:
 
-- Profile v1 remains text-only; QTI-JSONL WP-FQ-6 and WP-FQ-7 own rich media and HOTSPOT.
+- Profile v1 remains text-only; PLE flat JSON v2 owns the bounded native rich-media/HOTSPOT path.
 - Vendor feedback, `sub`, and `sup` are out of scope for profile v1 because no accepted fixture proves
   a lossless mapping; any later support requires a new named profile version.
 - WP-RC6 owns Canvas and Blackboard export through a background job that exposes only job state plus

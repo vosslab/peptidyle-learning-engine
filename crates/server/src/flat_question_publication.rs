@@ -7,8 +7,10 @@
 
 use std::sync::Arc;
 
+#[cfg(test)]
+use adapter_native::flat_question::FLAT_SINGLE_CHOICE_FAMILY;
 use adapter_native::flat_question::{
-    FLAT_QUESTION_MEDIA_TYPE, FLAT_SINGLE_CHOICE_FAMILY, FlatQuestionDocument,
+    FLAT_QUESTION_MEDIA_TYPE, FlatQuestionDocument, is_flat_question_family,
 };
 use axum::body::Bytes;
 use axum::extract::{DefaultBodyLimit, Path, State};
@@ -124,7 +126,7 @@ where
     };
     // A normal workspace draft that is not a flat source is indistinguishable
     // from a workspace the caller may not read through this narrow endpoint.
-    if !matches!(&draft.record.question.source, DraftQuestionSource::Native { family } if family == FLAT_SINGLE_CHOICE_FAMILY)
+    if !matches!(&draft.record.question.source, DraftQuestionSource::Native { family } if is_flat_question_family(family))
     {
         return error_response(StatusCode::NOT_FOUND, "workspace not found");
     }
@@ -137,7 +139,7 @@ where
         Ok(None) => return error_response(StatusCode::NOT_FOUND, "workspace not found"),
         Err(error) => return private_store_error(error),
     };
-    if staged.source_family != FLAT_SINGLE_CHOICE_FAMILY {
+    if !is_flat_question_family(&staged.source_family) {
         return error_response(StatusCode::NOT_FOUND, "workspace not found");
     }
     if staged.workspace_revision != draft.revision
@@ -539,12 +541,16 @@ where
         Ok(record) => record,
         Err(error) => return object_error_response(error),
     };
+    let published_family = match &current.record.question.source {
+        DraftQuestionSource::Native { family } if is_flat_question_family(family) => family.clone(),
+        _ => return flat_source_changed_response(),
+    };
     let command = PublishDraftCommand {
         expected_draft: current.record,
         expected_revision,
         publication,
         published_source: QuestionSource::Native {
-            family: FLAT_SINGLE_CHOICE_FAMILY.to_string(),
+            family: published_family,
         },
         source_artifact: Some(PublishedSourceArtifact {
             reference: publication,
@@ -730,7 +736,7 @@ where
     B: BackendRegistry,
 {
     if draft.question.metadata.validate_title().is_err()
-        || !matches!(&draft.question.source, DraftQuestionSource::Native { family } if family == FLAT_SINGLE_CHOICE_FAMILY)
+        || !matches!(&draft.question.source, DraftQuestionSource::Native { family } if is_flat_question_family(family))
     {
         return Err(error_response(
             StatusCode::UNPROCESSABLE_ENTITY,

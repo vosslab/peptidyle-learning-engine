@@ -2,7 +2,7 @@
 
 Local development stack for the Peptidyle Learning Engine: the browser gateway,
 API server, worker, PostgreSQL, and MinIO. The native stack is the supported
-default; the private WeBWorK renderer path remains the pending WP-RC3 profile.
+default; the private WeBWorK renderer path is the accepted bounded WP-RC3 profile.
 The Compose model is defined in
 [containers/compose.yaml](../containers/compose.yaml) and
 [containers/Containerfile.api](../containers/Containerfile.api).
@@ -140,9 +140,10 @@ output across architectures or package mirrors.
 
 `probe_render_rpc.sh` is an authenticated direct service readiness check. It
 does not substitute for PLE issue/cache/grade behavior or a browser test.
-WP-RC3 live-profile, PLE-integration, and browser-boundary acceptance evidence
-is pending until the corresponding recorded gates complete. This does not
-change the native-only stack's supported-default status.
+WP-RC3 live-profile, PLE-integration, and browser-boundary evidence was
+accepted on 2026-08-10. Static checks do not supersede that recorded live
+evidence when the profile changes. This does not change the native-only stack's
+supported-default status.
 
 The worker handles one job per bounded pass and concurrency comes from scaling
 the service. It claims only current scoring, course item analysis, attempt
@@ -159,6 +160,12 @@ confirms the exact migration versions, states, and checksums expected by the
 running binary, plus a real `HeadBucket` request against the object store. It
 is not a liveness ping: a process that is running but cannot reach its database
 or reaches an incompatible schema reports 503.
+
+The gateway actively checks this dedicated route every five seconds. It does
+not treat an arbitrary application 503 as replica unhealthiness. That
+distinction keeps authentication, native questions, and navigation available
+when an optional feature-local dependency such as the private WebWork renderer
+fails closed.
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/health
@@ -187,9 +194,9 @@ Prove both directions before trusting the gate. A health check that only ever
 returns 200 is indistinguishable from one that is not checking anything:
 
 ```bash
-podman compose -f containers/compose.yaml stop postgres
+podman compose -f containers/compose.yaml --env-file containers/env.local stop postgres
 curl -s http://localhost:3000/health          # {"status":"degraded","failing":["postgres"]}
-podman compose -f containers/compose.yaml start postgres
+podman compose -f containers/compose.yaml --env-file containers/env.local start postgres
 curl -s http://localhost:3000/health          # {"status":"ready"} once compatibility verifies
 ```
 
@@ -198,7 +205,7 @@ curl -s http://localhost:3000/health          # {"status":"ready"} once compatib
 ```bash
 ./launch_local_stack.sh                                      # build, start, wait, and open
 ./launch_local_stack.sh --skip-build --no-open               # fast restart without browser open
-./launch_local_stack.sh --with-webwork                       # pending WP-RC3 renderer profile
+./launch_local_stack.sh --with-webwork                       # accepted bounded RC3 renderer profile
 
 # Native default: direct Compose commands always load the ignored local env file.
 podman compose -f containers/compose.yaml --env-file containers/env.local ps
@@ -208,7 +215,7 @@ podman compose -f containers/compose.yaml --env-file containers/env.local \
   up -d --scale api=2 --scale worker=2 api worker gateway
 podman compose -f containers/compose.yaml --env-file containers/env.local down
 
-# Pending WP-RC3 WebWork path: retain both the overlay and the profile.
+# Accepted bounded WP-RC3 WebWork path: retain both the overlay and the profile.
 podman compose -f containers/compose.yaml -f containers/compose.webwork.yaml \
   --env-file containers/env.local --profile webwork \
   up -d --scale api=2 --scale worker=2

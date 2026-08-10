@@ -26,9 +26,10 @@ use question_model::{
     AssignmentDeliveryState, AssignmentEnrollment, AssignmentId, AssignmentItem, AssignmentItemId,
     AssignmentScoringMode, AttemptProvenance, AttemptResult, BackendCapabilities, Capability,
     CourseId, CourseMembership, CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource,
-    EnrollmentId, FeedbackContent, GradingDefinition, ImplementationVersion, PointValue, ProblemId,
-    ProblemVersionRef, PublicationScope, QuestionAttemptId, QuestionMetadata, QuestionSource,
-    RunId, UserId, UserRole, VersionId, WorkspaceId,
+    EnrollmentId, FeedbackContent, GradingDefinition, ImplementationVersion, PointValue,
+    PresentationBindingV1, PresentationDigestV1, PresentationNonceV1, ProblemId, ProblemVersionRef,
+    PublicationScope, QuestionAttemptId, QuestionMetadata, QuestionSource, RunId, UserId, UserRole,
+    VersionId, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -43,6 +44,13 @@ fn implementation(name: &str) -> ImplementationVersion {
         id: name.to_string(),
         version: "1".to_string(),
     }
+}
+
+fn presentation_binding(marker: u8) -> PresentationBindingV1 {
+    PresentationBindingV1::new(
+        PresentationNonceV1::from_bytes([marker; 16]),
+        PresentationDigestV1::compute(&[marker]),
+    )
 }
 
 fn provenance(name: &str) -> AttemptProvenance {
@@ -174,6 +182,7 @@ async fn issue(
                 problem: reference.problem,
                 question_version: reference.version,
                 seed: u64::from(position) + 1,
+                presentation: presentation_binding(position as u8),
                 parameter_hash: format!("item-analysis-parameters-{position}"),
                 provenance: provenance(if position == 0 { "automatic" } else { "manual" }),
                 prefetched: None,

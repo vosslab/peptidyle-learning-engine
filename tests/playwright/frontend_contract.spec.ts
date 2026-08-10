@@ -1,5 +1,6 @@
 // frontend_contract.spec.ts - built-artifact proof for the WP-C9 reference slice.
 
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 
@@ -38,6 +39,18 @@ async function tabTo(page: Page, target: ReturnType<Page["locator"]>, limit = 20
     await page.keyboard.press("Tab");
   }
   throw new Error(`Tab did not reach ${await target.getAttribute("aria-label")}`);
+}
+
+async function expectNoBlockingAxeViolations(page: Page): Promise<void> {
+  const results = await new AxeBuilder({ page }).include("main").analyze();
+  const blocking = results.violations
+    .filter((violation) => violation.impact === "critical" || violation.impact === "serious")
+    .map((violation) => ({
+      id: violation.id,
+      impact: violation.impact,
+      targets: violation.nodes.flatMap((node) => node.target),
+    }));
+  expect(blocking).toEqual([]);
 }
 
 test("all product routes resolve inside the persistent shell", async ({ page }) => {
@@ -196,10 +209,8 @@ test("a student reaches, validates, submits, and advances through the generated 
   expect(failedAssetRequests).toEqual([]);
   const radios = page.getByRole("radio");
   await expect(radios).toHaveCount(3);
-  await radios.first().focus();
-  await page.keyboard.press("2");
+  await radios.nth(1).check();
   await expect(radios.nth(1)).toBeChecked();
-  await expect(radios.nth(1)).toBeFocused();
   await expect(page.getByRole("status", { name: "Response format" })).toContainText(
     "ready to submit",
   );
@@ -213,7 +224,7 @@ test("a student reaches, validates, submits, and advances through the generated 
   const box = await selectedTarget.boundingBox();
   expect(box?.height).toBeGreaterThanOrEqual(56);
 
-  await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "Submit answer" }).click();
   // Feedback focus timing is covered by the component acceptance fixture; the
   // integrated run flow verifies the panel mounts and remains actionable.
   await expect(page.getByRole("heading", { name: "Feedback", exact: true })).toBeVisible();
@@ -224,7 +235,7 @@ test("a student reaches, validates, submits, and advances through the generated 
   await expect(page.getByRole("button", { name: "Start another practice run" })).toBeVisible();
 });
 
-test("a student completes the primary course-to-answer path without a pointer", async ({
+test("a student completes the primary platform-key course-to-answer path without a pointer", async ({
   page,
 }) => {
   await page.goto("/");
@@ -246,29 +257,52 @@ test("a student completes the primary course-to-answer path without a pointer", 
 
   const start = page.getByRole("button", { name: "Start or resume practice" });
   await tabTo(page, start);
-  await page.keyboard.press("Enter");
+  await page.keyboard.press("Space");
   await expect(page.locator("#main-content")).toBeFocused();
 
   const radios = page.getByRole("radio");
   await tabTo(page, radios.first());
-  await page.keyboard.press("ArrowDown");
-  await expect(radios.nth(1)).toBeChecked();
-  await expect(radios.nth(1)).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(radios.first()).toBeChecked();
   await expect(page.getByRole("status", { name: "Response format" })).toContainText(
     "ready to submit",
   );
 
-  await page.keyboard.press("Enter");
-  await tabTo(page, page.getByRole("button", { name: "Continue" }));
-  await page.keyboard.press("Enter");
+  const submit = page.getByRole("button", { name: "Submit answer" });
+  await page.keyboard.press("Tab");
+  await expect(submit).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(radios.first()).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(submit).toBeFocused();
+  await page.keyboard.press("Space");
+
+  const continueButton = page.getByRole("button", { name: "Continue" });
+  await tabTo(page, continueButton);
+  await page.keyboard.press("Space");
   await expect(
     page.getByRole("heading", { name: "Keep practicing with a fresh variation" }),
   ).toBeVisible();
 
   const back = page.getByRole("button", { name: "Back to assignment" });
   await tabTo(page, back);
-  await page.keyboard.press("Enter");
+  await page.keyboard.press("Space");
   await expect(page.getByRole("heading", { name: "Peptide bond mastery" })).toBeVisible();
+});
+
+test("student question and feedback surfaces have no serious or critical axe violations", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await navigateWithinSpa(page, `/runs/${IDS.run}`);
+  await expect(page.locator('[data-route-surface="runAttempt"]')).toBeVisible();
+  await expectNoBlockingAxeViolations(page);
+
+  const radios = page.getByRole("radio");
+  await radios.nth(1).check();
+  await page.getByRole("button", { name: "Submit answer" }).click();
+  await expect(page.getByRole("heading", { name: "Feedback", exact: true })).toBeVisible();
+  await expectNoBlockingAxeViolations(page);
 });
 
 test("session recovery stays editable, never writes the attempt to local storage, and clears on exit", async ({

@@ -155,18 +155,35 @@ pub struct ImportedQtiQuestion {
 pub fn qti_question_asset_checksums(
     question: &ImportedQtiQuestion,
 ) -> Result<BTreeMap<AssetId, String>, QtiAssetReferenceError> {
-    let choice_blocks: Box<dyn Iterator<Item = &ContentBlock> + '_> = match &question.response {
+    let mut response_blocks: Vec<&ContentBlock> = Vec::new();
+    let mut assets = BTreeMap::new();
+    match &question.response {
         question_model::ResponseDefinition::MultipleChoice { choices, .. }
         | question_model::ResponseDefinition::Ordering { items: choices } => {
-            Box::new(choices.iter().flat_map(|choice| choice.body.iter()))
+            response_blocks.extend(choices.iter().flat_map(|choice| choice.body.iter()));
+        }
+        question_model::ResponseDefinition::MultiBlank { blanks } => {
+            response_blocks.extend(blanks.iter().flat_map(|blank| blank.label.iter()))
+        }
+        question_model::ResponseDefinition::Matching { prompts, choices } => response_blocks
+            .extend(
+                prompts
+                    .iter()
+                    .chain(choices)
+                    .flat_map(|choice| choice.body.iter()),
+            ),
+        question_model::ResponseDefinition::Hotspot {
+            surface, regions, ..
+        } => {
+            assets.insert(surface.asset, surface.checksum.clone());
+            response_blocks.extend(regions.iter().flat_map(|region| region.label.iter()));
         }
         question_model::ResponseDefinition::Numeric { .. }
         | question_model::ResponseDefinition::ShortText { .. }
         | question_model::ResponseDefinition::FileUpload { .. }
-        | question_model::ResponseDefinition::ExternalTool {} => Box::new(std::iter::empty()),
-    };
-    let mut assets = BTreeMap::new();
-    for block in question.prompt.iter().chain(choice_blocks) {
+        | question_model::ResponseDefinition::ExternalTool {} => {}
+    }
+    for block in question.prompt.iter().chain(response_blocks) {
         if let ContentBlock::Image { asset, .. } = block
             && let Some(previous) = assets.insert(asset.asset, asset.checksum.clone())
             && previous != asset.checksum

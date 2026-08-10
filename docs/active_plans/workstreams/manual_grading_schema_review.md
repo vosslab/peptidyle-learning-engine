@@ -1,5 +1,9 @@
 # Manual grading schema review
 
+> **Historical review.** This concluded review is retained as evidence, not current task direction.
+> Current authority is the [release completion plan](../active/release_completion_plan.md) and
+> [implementation status](../implementation_status.md).
+
 ## Verdict
 
 **PASS for the pre-data baseline schema slice.** The two changed migrations

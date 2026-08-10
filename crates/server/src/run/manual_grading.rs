@@ -16,9 +16,10 @@ use learning_data_access::{
 use question_model::{QuestionAttemptId, StudentResponse};
 use serde::{Deserialize, Serialize};
 
-use super::{
-    CatalogStore, RunBackend, RunRouteState, SessionStore, Store, error_response, no_store,
-    resolve_request_session, store_error_response,
+use super::contracts::RunBackend;
+use super::support::{
+    CatalogStore, RunRouteState, SessionStore, Store, auth_error_response, error_response,
+    no_store, resolve_request_session, store_error_response,
 };
 
 const IDEMPOTENCY_HEADER: &str = "idempotency-key";
@@ -60,7 +61,7 @@ where
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
-        Err(error) => return super::auth_error_response(error),
+        Err(error) => return auth_error_response(error),
     };
     let actor = authenticated.record.subject.user();
     let evaluation = match state
@@ -102,7 +103,7 @@ where
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
-        Err(error) => return super::auth_error_response(error),
+        Err(error) => return auth_error_response(error),
     };
     let expected_revision = match required_revision(&headers) {
         Ok(revision) => revision,

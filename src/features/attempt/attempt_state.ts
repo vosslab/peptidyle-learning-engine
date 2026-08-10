@@ -195,6 +195,10 @@ function isStringArray(value: unknown): value is Array<string> {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
+function isRecordArray(value: unknown): value is Array<Record<string, unknown>> {
+  return Array.isArray(value) && value.every((item) => typeof item === "object" && item !== null);
+}
+
 function isStudentResponse(value: unknown): value is StudentResponse {
   if (typeof value !== "object" || value === null || !("kind" in value)) return false;
   const keys = Object.keys(value);
@@ -207,8 +211,47 @@ function isStudentResponse(value: unknown): value is StudentResponse {
   if (value.kind === "shortText") {
     return keys.length === 2 && "text" in value && typeof value.text === "string";
   }
+  if (value.kind === "multiBlank") {
+    return (
+      keys.length === 2 &&
+      "answers" in value &&
+      isRecordArray(value.answers) &&
+      value.answers.every(
+        (answer) =>
+          Object.keys(answer).length === 2 &&
+          typeof answer.slot === "string" &&
+          typeof answer.text === "string",
+      )
+    );
+  }
+  if (value.kind === "matching") {
+    return (
+      keys.length === 2 &&
+      "matches" in value &&
+      isRecordArray(value.matches) &&
+      value.matches.every(
+        (pair) =>
+          Object.keys(pair).length === 2 &&
+          typeof pair.prompt === "string" &&
+          typeof pair.choice === "string",
+      )
+    );
+  }
   if (value.kind === "ordering") {
     return keys.length === 2 && "order" in value && isStringArray(value.order);
+  }
+  if (value.kind === "hotspot") {
+    return (
+      keys.length === 2 &&
+      "points" in value &&
+      isRecordArray(value.points) &&
+      value.points.every(
+        (point) =>
+          Object.keys(point).length === 2 &&
+          typeof point.x === "number" &&
+          typeof point.y === "number",
+      )
+    );
   }
   if (value.kind === "fileUpload") {
     return keys.length === 2 && "objectKey" in value && typeof value.objectKey === "string";
@@ -230,8 +273,17 @@ function responsesEqual(left: StudentResponse, right: StudentResponse): boolean 
     return JSON.stringify(leftSelected) === JSON.stringify(rightSelected);
   }
   if (left.kind === "shortText" && right.kind === "shortText") return left.text === right.text;
+  if (left.kind === "multiBlank" && right.kind === "multiBlank") {
+    return JSON.stringify(left.answers) === JSON.stringify(right.answers);
+  }
+  if (left.kind === "matching" && right.kind === "matching") {
+    return JSON.stringify(left.matches) === JSON.stringify(right.matches);
+  }
   if (left.kind === "ordering" && right.kind === "ordering") {
     return JSON.stringify(left.order) === JSON.stringify(right.order);
+  }
+  if (left.kind === "hotspot" && right.kind === "hotspot") {
+    return JSON.stringify(left.points) === JSON.stringify(right.points);
   }
   if (left.kind === "externalTool" && right.kind === "externalTool") return true;
   return (

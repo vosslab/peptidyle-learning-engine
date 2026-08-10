@@ -1,161 +1,122 @@
-# QTI-JSONL flat-question companion
+# Flat-question family evolution companion
 
 > **Authority:** This is a non-authoritative companion to
 > [release_completion_plan.md](release_completion_plan.md). That plan owns package names, sequence,
-> scope, acceptance, and release status. If the two documents differ, the release-completion plan
-> controls. This companion preserves the detailed QTI-JSONL family contract for WP-RC4 and WP-RC5;
-> it does not create a parallel `WP-FQ-*` work-package sequence.
+> milestone acceptance, and release status. This companion records the detailed source/runtime
+> contract and remaining family work.
 
 ## Status
 
-The current immediate package is WP-RC3, shipped WeBWorK integration. After WP-RC3 acceptance,
-WP-ARCH1 completes the source-module decomposition before WP-RC4 begins. WP-RC4 freezes and adopts
-the owner-authored QTI-JSONL v1 contract; WP-RC5 then implements all flat families and Chapter 1
-content in the release plan's stated order.
+PLE flat-question JSON version 2 now implements the eight required runtime families: MC, MA, FIB,
+MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. Version 1 `singleChoice` parsing, canonical bytes, family
+identity, publication, and grading remain compatible.
 
-Before the first WP-RC5 family, accept the atomic learner render/response boundary in
-[secure_question_grading_payload_plan.md](../decisions/secure_question_grading_payload_plan.md).
-It makes an authenticated `QuestionAttemptId` and `Idempotency-Key` the only submission authority.
-It is a prerequisite for family work, not a delay to current WP-RC3 live acceptance.
+The implemented slice includes strict answer-bearing source parsing, public/private compilation,
+family registration, answer-free publication validation, browser decoding, key-free response
+validation, accessible learner controls, and isolated all-or-nothing server grading. It does not
+complete WP-RC5: the visual author editor is still version 1 single choice, the secure learner
+payload cutover remains a prerequisite, and all-family PostgreSQL/object-store acceptance, pilot
+content, hotspot pointer authoring, and independent family review remain open.
 
-## Companion purpose
+## Source decision
 
-This document records the exact family and source-boundary details that WP-RC4 and WP-RC5 must
-preserve. It does not authorize implementation before the release plan's prerequisites and does not
-replace the authoritative files, owners, or validation gates there.
+PLE flat-question JSON version 2 is the internal all-family source contract. It follows the reviewed
+lossless semantics of QTI Package Maker's `MC`, `MA`, `MATCH`, `NUM`, `FIB`, `MULTI_FIB`, and
+`ORDER` item models while keeping PLE metadata, policies, stable IDs, and public/private compilation
+explicit. HOTSPOT is a bounded PLE extension because the reviewed QTI Package Maker item model does
+not define it.
 
-## Family contract
-
-QTI Package Maker QTI-JSONL v1 is the only new flat-source vocabulary. Version 1 covers:
-
-- multiple choice (MC);
-- multiple answer (MA);
-- fill-in-the-blank (FIB);
-- multiple fill-in-the-blank (MULTI-FIB);
-- numerical entry (NUM);
-- matching (MATCH);
-- ordered list (ORDER); and
-- image hot spot (HOTSPOT).
-
-The source contract includes optional overall correct/incorrect feedback and typed media references.
-MC remains compatible with existing PLE flat `singleChoice` v1; its accepted bytes, parser
-behavior, family ID, persistence, routes, editor, QTI profile bridge, and grading remain unchanged.
-No background rewrite or in-place reinterpretation is required.
-
-WP-RC5 implements MATCH first, then MA, FIB, NUM, ORDER, MULTI-FIB, media, and HOTSPOT. Each family
-uses strict parsing, author edit and answer-free preview, compare-and-swap save, immutable
-publication, accessible learner interaction, server grading, optional feedback, summary, retention,
-and cleanup. A family advances only after its source fixture, protected answer key, complete
-Memory/PostgreSQL author-to-learner path, and correct/incorrect behavior pass.
+This decision does not claim an external QTI-JSONL contract. If QTI Package Maker later supplies a
+normative QTI-JSONL specification and fixtures, a dedicated adapter may translate them into the same
+PLE compiler outputs. External line framing and vendor vocabulary do not enter the question model,
+grading API, storage schema, or learner response format.
 
 ## Source and runtime boundary
 
-The QTI-JSONL source remains authoring- and conversion-friendly. PLE runtime types remain optimized
-for safe rendering, response validation, and grading.
-
 ```text
-private QTI-JSONL source record
-              |
-              v
-  versioned QTI-JSONL adapter
-              |
-              v
-     native compiler boundary
+private PLE flat JSON source
+             |
+             v
+ strict versioned native compiler
           /             \
          v               v
 answer-free public     grader-only key,
 question model         feedback, and binding
 ```
 
-- Only the adapter owns QTI-JSONL field names and source-version compatibility.
-- Store, SQL, HTTP, generated clients, Solid components, and grading consume PLE types rather than
-  parsing QTI-JSONL independently.
-- The authored source remains private and answer-bearing. The public projection remains answer-free;
-  private keys, feedback, and bindings stay behind the injected grader capability.
-- Publication preserves the exact accepted source bytes, or the exact canonical form required by the
-  owner specification, and binds the source and both compiled halves by checksum.
-- A named adapter handles every later incompatible source version. Existing source is never silently
-  reinterpreted, and unknown fields or versions are refused rather than guessed.
-- QTI-JSONL line framing stays at the adapter/import/export edge. A bounded bank operation persists
-  each accepted record through its own workspace/publication transaction; JSONL framing never enters
-  the question model, grading API, or learner response format.
+- `crates/adapters/native/src/flat_question.rs` owns the stable facade and version 1 compatibility.
+- `crates/adapters/native/src/flat_question/v2.rs` owns the closed version 2 source shapes and
+  compiler.
+- Stores, SQL, HTTP, generated clients, Solid components, and grading consume PLE runtime types;
+  they do not parse source JSON independently.
+- Authored and published source remains private and answer-bearing. Public questions contain only
+  render content, response shape, policies, metadata, and typed asset references.
+- Grader material binds the private key and feedback to the exact public question by SHA-256.
+- Existing source is never silently reinterpreted. Unknown fields, duplicate members, and unknown
+  versions refuse.
 
-PLE response and grading contracts use opaque stable identifiers so display reordering cannot change
-answer meaning. The adapter preserves a valid portable identifier when the accepted specification
-supplies one; otherwise it derives deterministic PLE identifiers during compilation and freezes them
-in the published projection.
+PLE runtime response IDs are semantic and independent of display labels or positions. The secure
+payload package may project attempt-specific rendered item IDs and a presentation digest at the
+browser boundary without changing these durable source identities.
 
-## RC4 contract ownership
+## Family contract
 
-WP-RC4 owns contract freeze and strict adoption, with the product owner in QTI Package Maker owning
-the external source specification and reference artifacts. The authoritative release plan names the
-full owners, files, success conditions, and validation gates.
+| Family | Implemented source/runtime contract | Remaining milestone work |
+| ------ | ----------------------------------- | ------------------------ |
+| MC | Exactly one stable choice ID; version 1 and version 2 both compile to native radio choices | Add version 2 visual author form |
+| MA | Unique correct choice set; public checkboxes disclose no correct IDs or correct count | Add visual author form and full path acceptance |
+| FIB | One or more accepted strings, explicit match mode, bounded entry | Add visual author form and feedback presentation |
+| MULTI-FIB | Stable blank IDs, labels, accepted strings, match modes, and per-blank bounds | Add inline visual authoring and complete screen-reader review |
+| NUM | Finite answer, exact/absolute/relative/significant-figures tolerance, optional unit | Add visual author form and tolerance explanation text |
+| MATCH | Explicit prompt/choice IDs and one-to-one private pairing; native radio groups per prompt | Add visual author form and Chapter 1 source |
+| ORDER | Stable item IDs and an exact private permutation; accessible move controls | Add visual author form and full path acceptance |
+| HOTSPOT | Immutable asset/checksum, normalized nonoverlapping candidate regions, private correct set, and keyboard region list | Add secure media selection, pointer overlay authoring/interaction, and object lifecycle E2E |
 
-The accepted external contract must provide a named specification version and family; lossless answer
-semantics; optional overall feedback; media references; HOTSPOT geometry and accessible fallback;
-strict validation; and deterministic JSONL framing. It must include one valid reference record for
-each family plus meaningful invalid boundaries. PLE accepts only the named version, rejects duplicate
-members, unknown versions, and invalid family data, preserves exact source, and compiles answer-free
-public and grader-only private values without redefining owner fields.
+The family compiler currently uses all-or-nothing scoring. Partial-credit policy remains server-owned
+and requires a deliberate grading contract rather than browser-supplied component scores.
 
-Within PLE, the RC4 adapter ownership boundary is:
-
-- `crates/adapters/native/src/qti_jsonl/` for `mod.rs`, `schema.rs`, `parser.rs`, `compiler.rs`, and
-  `media.rs`;
-- `crates/adapters/native/src/qti_jsonl/families/` for responsibility-named family modules; and
-- `crates/adapters/native/tests/qti_jsonl/` for normative valid, invalid, and historical sources.
-
-These are complete parser/compiler owners, not empty scaffolding. Other layers receive PLE runtime
-types. QTI XML, Canvas QTI, Blackboard QTI, arbitrary response-processing expressions, vendor
-extension bags, executable markup, and plugin-defined graders are not the PLE domain model.
-
-## RC5 family details
-
-RC5 reuses existing PLE primitives when their semantics match the accepted QTI-JSONL specification.
-A material mismatch changes the shared type deliberately and validates every consumer; it never adds
-an adapter-only grading shortcut.
-
-| Family    | Contract detail                                                                                                                                            |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| MATCH     | Preserve accepted prompt/choice pairing, render and grade through the protected server boundary, and use one real reference fixture in the Chapter 1 path. |
-| MA        | Preserve selection bounds and server-only accepted-answer association.                                                                                     |
-| FIB       | Preserve accepted answer forms without leaking them into the learner payload.                                                                              |
-| NUM       | Preserve numeric value, tolerance, and tolerance message semantics.                                                                                        |
-| ORDER     | Preserve ordering meaning independently of display presentation.                                                                                           |
-| MULTI-FIB | Map accepted blank markers and answer map exactly; refuse missing, duplicate, unknown, or malformed blanks.                                                |
-| Media     | Resolve accepted references to typed PLE assets; preserve source and assets separately for provenance.                                                     |
-| HOTSPOT   | Use accepted normalized geometry, scale-independent display, and a keyboard/list alternative; refuse unsupported geometry or interaction.                  |
+## Media and hotspot rules
 
 Media bytes remain outside JSON. PLE object storage owns bytes, sniffed media type, size, checksum,
-lifecycle, delivery authorization, replacement, publication, and cleanup. The adapter-owned binding
-step resolves accepted source references to typed `AssetRef` values; it does not create a second media
-vocabulary in the question model. Missing, unsafe, mismatched, or inaccessible assets fail with
-actionable author recovery.
+lifecycle, delivery authorization, replacement, publication, and cleanup. Version 2 HOTSPOT source
+references an existing immutable asset UUID and lowercase SHA-256 checksum.
 
-## Evidence and acceptance
+Hotspot geometry uses integer coordinates from 0 through 10,000. Candidate rectangles must be
+nonempty, contained by the normalized surface, nonoverlapping, uniquely identified, and visibly
+labeled. The candidate-region list is the primary no-mouse interaction. A pointer overlay is a later
+enhancement, not a replacement for the accessible path.
 
-RC4 and RC5 use the release plan's gates. This companion requires the resulting evidence to show:
+## Remaining dependency order
 
-- lossless QTI Package Maker contract round trips for all eight valid records and refusal at invalid
-  boundaries;
-- deterministic PLE compilation of the accepted records while existing v1 `singleChoice` bytes stay
-  unchanged;
-- no answer-bearing browser, Wasm, generated-contract, or learner payload output;
-- Memory/PostgreSQL parity, forced RLS, tenant refusal, cleanup, and source-to-public/private checksum
-  binding for each completed family;
-- keyboard and screen-reader operation, including the HOTSPOT accessible alternative; and
-- disposable PostgreSQL/RLS and object-store evidence, built-browser Playwright acceptance, and
-  independent contract and family reviews before a milestone is accepted.
+1. Accept the atomic learner render/response boundary in
+   [secure_question_grading_payload_plan.md](../decisions/secure_question_grading_payload_plan.md).
+2. Add family-specific instructor authoring controls without widening the closed source decoder.
+3. Run one complete Memory/PostgreSQL/object-store author-to-learner path for every family, including
+   correct, incorrect, retry, retention, cleanup, and tenant-refusal behavior.
+4. Add the exact Chapter 1 genetics and biochemistry content and the separate WeBWorK MATCH path.
+5. Complete keyboard, screen-reader, 320 px, zoom, and pointer/alternative HOTSPOT review.
+6. Run the full repository and disposable integration gates, then obtain independent family and
+   content reviews before accepting WP-RC5.
 
-Chapter 1 acceptance remains the release plan's exact outcome: genetics and biochemistry each publish
-four reviewed questions, WeBWorK MC, WeBWorK MATCH, flat MC, and flat MATCH, with immutable source,
-license/provenance, correct/incorrect grading, and no answer-bearing learner payload.
+## Evidence required for acceptance
+
+- version 1 canonical compatibility remains unchanged;
+- every version 2 family has valid and meaningful invalid source fixtures;
+- public, generated, Wasm, cache, and learner payloads contain no accepted answer or private
+  feedback;
+- the exact public/private checksum binding refuses substitutions;
+- student responses contain only learner-provided values or rendered item IDs;
+- server grading proves correct and incorrect outcomes for every family;
+- Memory and PostgreSQL behavior, forced RLS, cleanup, and immutable source/object binding agree;
+- every learner control works through the platform keyboard contract; and
+- the two Chapter 1 assignments each publish their four reviewed questions with license and
+  provenance.
 
 ## Reference map
 
-- Authority, package sequence, owners, and release gates:
-  [release_completion_plan.md](release_completion_plan.md).
-- Required secure submission boundary:
-  [secure_question_grading_payload_plan.md](../decisions/secure_question_grading_payload_plan.md).
+- Internal source contract: [QTI-JSON_OBJECT_FORMAT.md](../../QTI-JSON_OBJECT_FORMAT.md).
+- Runtime response types: [QUESTION_MODEL.md](../../QUESTION_MODEL.md).
+- Submission boundary: [secure_question_grading_payload_plan.md](../decisions/secure_question_grading_payload_plan.md).
+- Keyboard contract: `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`.
 - Durable source and answer-secrecy decisions:
   [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md#flat-question-source).

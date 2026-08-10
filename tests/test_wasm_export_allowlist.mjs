@@ -21,6 +21,7 @@ const EXPECTED_EXPORTS = [
   { name: "timer_verdict", kind: "function" },
   { name: "validate_assignment_config", kind: "function" },
   { name: "validate_response_format", kind: "function" },
+  { name: "verify_presentation_descriptor", kind: "function" },
 ];
 
 const repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {

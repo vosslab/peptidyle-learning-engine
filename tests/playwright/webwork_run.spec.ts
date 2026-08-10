@@ -8,6 +8,7 @@
 // - src/components/feedback_panel.tsx: correctness-only feedback projection.
 
 import { configuredLiveWebworkInputs, mockPreviewServerEnabled } from "../../playwright.config";
+import { decodeAuthSession } from "../../src/api/decoders";
 import { liveInputsFromEnvironment, type LiveWebworkInputs } from "./webwork_live_config";
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
@@ -256,10 +257,21 @@ function attachTrace(page: Page): BrowserTrace {
 }
 
 async function signInAsDeterministicStudent(page: Page, inputs: LiveWebworkInputs): Promise<void> {
+  const login = await page.context().request.post(new URL("/api/auth/login", inputs.baseUrl).href, {
+    data: { credential: inputs.studentCredential },
+    failOnStatusCode: false,
+  });
+  if (login.status() !== 200) {
+    throw new Error(`local browser-context login returned HTTP ${login.status()}`);
+  }
+  const sessionResponse = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === "/api/auth/session",
+  );
   await page.goto(inputs.baseUrl);
-  await expect(page.getByLabel("Local development credential")).toBeVisible();
-  await page.getByLabel("Local development credential").fill(inputs.studentCredential);
-  await page.getByRole("button", { name: "Sign in locally" }).click();
+  const session = await sessionResponse;
+  if (session.status() !== 200) {
+    throw new Error(`authenticated browser session returned HTTP ${session.status()}`);
+  }
   await expect(page.getByRole("heading", { name: "Pick up where you left off" })).toBeVisible();
 }
 
@@ -304,7 +316,9 @@ async function selectChoiceWithTabAndArrows(page: Page, targetIndex: number): Pr
   const radios = page.getByRole("radio");
   const count = await radios.count();
   expect(count).toBe(5);
-  await expect(radios).not.toBeChecked();
+  for (const radio of await radios.all()) {
+    await expect(radio).not.toBeChecked();
+  }
   const first = radios.first();
   await tabTo(page, first);
   await expect(first).toBeFocused();
@@ -348,6 +362,7 @@ async function completeRun(
 async function startFreshRun(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Start another practice run" }).click();
   await expect(page.getByRole("heading", { name: WEBWORK_QUESTION_TITLE })).toBeVisible();
+  await expect(page.getByRole("radio")).toHaveCount(5);
 }
 
 async function inspectBrowserStorage(page: Page): Promise<{
@@ -465,6 +480,21 @@ test("live-required configuration is explicit and rejects incomplete activation"
   }
 });
 
+test("browser session decoding accepts canonical deterministic local UUIDs", () => {
+  const session = decodeAuthSession({
+    authenticated: true,
+    tenant: "00000000-0000-0000-0000-000000000100",
+    user: {
+      id: "00000000-0000-0000-0000-000000000102",
+      displayName: "Local Student",
+      roles: ["student"],
+    },
+  });
+
+  expect(session.tenant).toBe("00000000-0000-0000-0000-000000000100");
+  expect(session.user.roles).toEqual(["student"]);
+});
+
 test.describe("private live WebWork browser acceptance", () => {
   test.skip(
     configuredLiveWebworkInputs === undefined,
@@ -477,8 +507,8 @@ test.describe("private live WebWork browser acceptance", () => {
       throw new Error("the declaration-time live WebWork skip did not apply");
     }
 
-    const trace = attachTrace(page);
     await signInAsDeterministicStudent(page, inputs);
+    const trace = attachTrace(page);
     await openWebworkAssignment(page, inputs);
 
     const radios = page.getByRole("radio");
@@ -502,8 +532,8 @@ test.describe("private live WebWork browser acceptance", () => {
     await completeRun(page, "Correct");
 
     await trace.waitForBodies();
-    // Deferred feedback keeps the immutable submission receipts redacted, then
-    // exposes correctness only through PLE's completed-run summary projection.
+    // Deferred feedback remains hidden until this one-question run completes;
+    // the completed receipt and summary then expose only policy-approved results.
     expect(trace.completedRunCorrectness).toEqual([false, true]);
     const storage = await inspectBrowserStorage(page);
     assertPrivateMaterialNeverCrossedBrowser(inputs, trace, storage);

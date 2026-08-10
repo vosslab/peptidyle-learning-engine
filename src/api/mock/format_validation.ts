@@ -105,12 +105,106 @@ export function validateResponseFormatInMock(
               ]
             : [],
       });
+    case "multiBlank": {
+      if (response.kind !== "multiBlank") return Promise.resolve(responseKindMismatch());
+      const expected = new Set(definition.blanks.map((blank) => blank.id));
+      const actual = new Set(response.answers.map((answer) => answer.slot));
+      if (
+        actual.size !== response.answers.length ||
+        actual.size !== expected.size ||
+        [...expected].some((slot) => !actual.has(slot))
+      ) {
+        return Promise.resolve({ violations: [{ kind: "blankSlotsMismatch" }] });
+      }
+      const tooLong = response.answers.find((answer) => {
+        const blank = definition.blanks.find((candidate) => candidate.id === answer.slot);
+        return blank !== undefined && [...answer.text].length > blank.maxLength;
+      });
+      const blank =
+        tooLong === undefined
+          ? undefined
+          : definition.blanks.find((candidate) => candidate.id === tooLong.slot);
+      return Promise.resolve({
+        violations:
+          tooLong === undefined || blank === undefined
+            ? []
+            : [
+                {
+                  kind: "textTooLong",
+                  maxLength: blank.maxLength,
+                  actualLength: [...tooLong.text].length,
+                },
+              ],
+      });
+    }
+    case "matching": {
+      if (response.kind !== "matching") return Promise.resolve(responseKindMismatch());
+      const prompts = new Set(definition.prompts.map((prompt) => prompt.id));
+      const actualPrompts = new Set(response.matches.map((pair) => pair.prompt));
+      if (
+        actualPrompts.size !== response.matches.length ||
+        actualPrompts.size !== prompts.size ||
+        [...prompts].some((prompt) => !actualPrompts.has(prompt))
+      ) {
+        return Promise.resolve({ violations: [{ kind: "matchingPromptsMismatch" }] });
+      }
+      const choices = new Set(definition.choices.map((choice) => choice.id));
+      const observed = new Set<string>();
+      const violations: ResponseFormatViolation[] = [];
+      for (const pair of response.matches) {
+        if (!choices.has(pair.choice))
+          violations.push({ kind: "unknownMatchChoice", choice: pair.choice });
+        if (observed.has(pair.choice))
+          violations.push({ kind: "duplicateMatchChoice", choice: pair.choice });
+        observed.add(pair.choice);
+      }
+      return Promise.resolve({ violations });
+    }
     case "ordering":
       return Promise.resolve(
         response.kind === "ordering"
           ? validateOrdering(definition, response)
           : responseKindMismatch(),
       );
+    case "hotspot": {
+      if (response.kind !== "hotspot") return Promise.resolve(responseKindMismatch());
+      const required =
+        definition.selection.kind === "exactlyOne"
+          ? 1
+          : definition.selection.kind === "exactly"
+            ? definition.selection.count
+            : undefined;
+      if (
+        (required !== undefined && response.points.length !== required) ||
+        (definition.selection.kind === "atLeastOne" && response.points.length === 0)
+      ) {
+        return Promise.resolve({
+          violations: [
+            {
+              kind: "selectionCount",
+              expected: definition.selection,
+              actual: response.points.length,
+            },
+          ],
+        });
+      }
+      const violations: ResponseFormatViolation[] = [];
+      for (const point of response.points) {
+        if (point.x < 0 || point.x > 10_000 || point.y < 0 || point.y > 10_000) {
+          violations.push({ kind: "hotspotPointOutOfBounds" });
+          continue;
+        }
+        const containing = definition.regions.filter(
+          (region) =>
+            point.x >= region.x &&
+            point.x <= region.x + region.width &&
+            point.y >= region.y &&
+            point.y <= region.y + region.height,
+        );
+        if (containing.length !== 1) violations.push({ kind: "hotspotPointOutsideRegion" });
+      }
+      return Promise.resolve({ violations });
+    }
     case "fileUpload":
       if (response.kind !== "fileUpload") {
         return Promise.resolve(responseKindMismatch());

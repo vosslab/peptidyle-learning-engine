@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the env file}
       POSTGRES_DB: ${POSTGRES_DB:-peptidyle}
     volumes:
-      - ple_pgdata:/var/lib/postgresql
+      - ple_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -41,7 +41,7 @@ services:
           exit 1
         fi
     volumes:
-      - ple_pgdata:/var/lib/postgresql:ro
+      - ple_pgdata:/var/lib/postgresql/data:ro
     network_mode: none
     read_only: true
     cap_drop:

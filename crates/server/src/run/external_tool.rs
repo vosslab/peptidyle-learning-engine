@@ -1,15 +1,24 @@
 //! Protected same-origin routes for contracted external learning tools.
 //!
 //! This keeps provider-facing launch, activity, and submission behavior out of
-//! the ordinary run-route module. The parent owns shared run authorization,
-//! issuance, and submission-finalization helpers.
+//! the ordinary run-route module. It composes the sibling authorization,
+//! issuance, and submission-finalization capabilities without widening the
+//! ordinary run facade.
 
-use super::*;
-
+use async_trait::async_trait;
+use axum::Router;
 use axum::body::Bytes;
+use axum::extract::DefaultBodyLimit;
 use axum::http::HeaderValue;
+use axum::routing::{get, post};
 use base64::Engine as _;
 use cookie::{Cookie, SameSite};
+
+use super::contracts::{RunBackend, RunBackendError, SubmissionDisposition};
+use super::prefetch::load_run_question;
+use super::queries::owned_run;
+use super::submission::finish_submission;
+use super::support::*;
 
 const EXTERNAL_LAUNCH_COOKIE: &str = "ple_external_launch";
 

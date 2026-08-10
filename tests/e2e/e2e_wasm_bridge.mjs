@@ -95,6 +95,40 @@ assert.deepEqual(
   ["algorithmicGeneration", "serverGrading"],
 );
 
+const presentation = {
+  version: "01923f4b-5c6d-7e8f-9012-3456789abcde",
+  seed: 42,
+  presentationNonce: "11111111111111111111111111111111",
+  title: "Peptide bond",
+  prompt: [{ kind: "text", markdown: "Which group forms the peptide bond?" }],
+  response: {
+    kind: "singleChoice",
+    choices: [
+      { id: "cfdf", body: [{ kind: "text", markdown: "Amino group" }] },
+      { id: "6603", body: [{ kind: "text", markdown: "Carboxyl group" }] },
+    ],
+  },
+};
+const presentationDigest = "pd1_hL2BEeGIfzUHyaDMW5so6A";
+assert.equal(
+  bridge.verify_presentation_descriptor(
+    JSON.stringify(presentation),
+    JSON.stringify([]),
+    presentationDigest,
+  ),
+  true,
+  "Wasm must reproduce the native Rust presentation vector",
+);
+assert.equal(
+  bridge.verify_presentation_descriptor(
+    JSON.stringify({ ...presentation, title: "Changed title" }),
+    JSON.stringify([]),
+    presentationDigest,
+  ),
+  false,
+  "Wasm must reject a visible presentation mutation",
+);
+
 console.log(
-  `PASS: WASM bridge ${actualVersion} returned camelCase format, timer, and capability results`,
+  `PASS: WASM bridge ${actualVersion} returned format, timer, capability, and presentation results`,
 );

@@ -34,7 +34,7 @@ def _service_block(compose: str, service: str) -> str:
 def test_webwork_services_are_private_and_separate_from_ple_storage() -> None:
 	"""The renderer reaches only its upstream database, never PLE data services."""
 	compose = COMPOSE_PATH.read_text()
-	override = (REPO_ROOT / "containers" / "compose.webwork.yaml").read_text()
+	#override = (REPO_ROOT / "containers" / "compose.webwork.yaml").read_text()
 	renderer = _service_block(compose, "webwork-renderer")
 	database = _service_block(compose, "webwork-db")
 	active_renderer = "\n".join(line.split("#", 1)[0] for line in renderer.splitlines())
@@ -90,12 +90,17 @@ def test_container_build_uses_verified_immutable_public_source_revisions() -> No
 	assert "FROM docker.io/alpine/git@sha256:" in containerfile
 	assert "FROM docker.io/library/node@sha256:" in containerfile
 	assert "libemail-stuffer-perl" in containerfile
+	assert "libdbd-mysql-perl" in containerfile
+	assert "libdbd-mariadb-perl" not in containerfile
 	assert "libtest-xml-perl" in containerfile
 	assert "texlive-lang-arabic" in containerfile
 	assert "texlive-lang-other" in containerfile
 	assert "Perl::Tidy@20260204 Archive::Zip::SimpleZip Net::SAML2" in containerfile
 	assert "npm install" in containerfile
 	assert "locale-gen" in containerfile
+	entrypoint = (WEBWORK_DIR / "entrypoint.sh").read_text()
+	assert "install -m 0640 -o www-data" not in entrypoint
+	assert "chown www-data:www-data" in entrypoint
 	assert "RadioButtons" in (WEBWORK_DIR / "probe_render_rpc.sh").read_text()
 	assert '"score"[[:space:]]*:[[:space:]]*100' in (WEBWORK_DIR / "probe_render_rpc.sh").read_text()
 
@@ -104,17 +109,26 @@ def test_container_build_uses_verified_immutable_public_source_revisions() -> No
 def test_render_course_and_mojolicious_configuration_keep_authenticated_rpc() -> None:
 	"""Provision only the source-render service account and forbid insecure RPC."""
 	course = (WEBWORK_DIR / "course.conf").read_text()
+	site = (WEBWORK_DIR / "site.conf").read_text()
 	mojo = (WEBWORK_DIR / "webwork2.mojolicious.yml").read_text()
 	bootstrap = (WEBWORK_DIR / "init_render_course.sh").read_text()
 	entrypoint = (WEBWORK_DIR / "entrypoint.sh").read_text()
 	probe = (WEBWORK_DIR / "probe_render_rpc.sh").read_text()
 
 	assert "allow_unsecured_rpc: 0" in mojo
+	assert "$twoFA{enabled} = 0;" in course
 	assert "webservice_render_source" in course
 	assert "login_proctor" in course
+	assert "$database_driver = 'mysql';" in site
+	assert "$database_driver = 'MariaDB';" not in site
+	assert '$database_dsn = "DBI:mysql:database=$ENV{WEBWORK_DB_NAME};' in site
+	assert 'host=$ENV{WEBWORK_DB_HOST};port=$ENV{WEBWORK_DB_PORT}";' in site
 	assert "addcourse --users=" in bootstrap
 	assert ",2\\n'" in bootstrap
 	assert "--professors" not in bootstrap
+	assert 'rm -f "$course_dir/course.conf"' in bootstrap
+	assert 'install -m 0640 /opt/ple-webwork/course.conf "$course_dir/course.conf"' in bootstrap
+	assert "install -m 0640 -o www-data" not in bootstrap
 	assert "exec \"$@\"" in entrypoint
 	assert "site.conf.dist" in entrypoint
 	assert "webwork2.mojolicious.dist.yml" in entrypoint
@@ -143,7 +157,11 @@ def test_launcher_builds_and_probes_webwork_before_starting_ple_api() -> None:
 		"PLE_WEBWORK_RENDER_PASSWORD_HOST_FILE",
 	):
 		assert setting in launcher
-	assert 'compose up -d --build webwork-db webwork-renderer' in launcher
+	assert "compose up -d webwork-db" in launcher
+	assert (
+		"compose up -d --build --force-recreate --no-deps webwork-renderer"
+		in launcher
+	)
 	assert 'compose exec -T webwork-renderer /usr/local/bin/probe_render_rpc.sh' in launcher
 	assert launcher.index("Building and provisioning private upstream WeBWorK") < launcher.index(
 		"Building images and starting API, worker, and browser gateway"
@@ -199,7 +217,10 @@ def test_render_password_is_an_ignored_file_not_an_env_value() -> None:
 	assert "tr '+/' '-_'" in launcher
 	assert "reconcile_render_account.pl" in (WEBWORK_DIR / "init_render_course.sh").read_text()
 	assert "information_schema.tables" in (WEBWORK_DIR / "init_render_course.sh").read_text()
-	assert ".orphaned-" in (WEBWORK_DIR / "init_render_course.sh").read_text()
+	course_init = (WEBWORK_DIR / "init_render_course.sh").read_text()
+	assert ".orphaned-" in course_init
+	assert 'mktemp -d "/opt/webwork/courses/.orphaned-' in course_init
+	assert 'mv "$course_dir" "$orphan_dir/course"' in course_init
 	assert "*[!A-Za-z0-9_-]*" in (WEBWORK_DIR / "init_render_course.sh").read_text()
 	assert "must have mode 0600" in launcher
 	assert "stat -f '%Lp'" in launcher
@@ -211,6 +232,12 @@ def test_render_password_is_an_ignored_file_not_an_env_value() -> None:
 	assert "Podman read-only bind changed strict secret mode" in e2e
 	assert "stat -c '%a' /run/ple-secrets/secret" in e2e
 	assert "WebWork secret $secret_path must be at least 32 random bytes" in launcher
-	assert "write_env_value PLE_WEBWORK_RENDERER_VERSION" in launcher
+	assert "write_env_value PLE_WEBWORK_RENDERER_VERSION" not in launcher
+	assert "export PLE_WEBWORK_RENDERER_VERSION" in launcher
+	assert (
+		"for required_setting in PLE_WEBWORK_BASE_IMAGE_SHA256 "
+		"PLE_SECRET_INIT_IMAGE_SHA256 PLE_WEBWORK_MARIADB_IMAGE_SHA256; do"
+	) in launcher
+	assert 'require_sha256_env_value "$required_setting"' in launcher
 	assert "PLE_WEBWORK_RENDERER_BASE_URL \"http://webwork-renderer:8080/webwork2/\"" in launcher
 	assert "PLE_WEBWORK_RENDERER_BASE_URL=http://webwork-renderer:8080/webwork2/" in ENV_EXAMPLE_PATH.read_text()

@@ -33,6 +33,8 @@ pub mod feedback;
 pub mod generation;
 pub mod identity;
 pub mod lifecycle;
+/// Browser-safe, attempt-presentation-scoped question contracts.
+pub mod presentation;
 pub mod response;
 pub mod run_policy;
 /// Browser-safe anonymous-statistics projections and disclosure policy.
@@ -86,6 +88,12 @@ pub use crate::identity::{
     AssetId, ObjectId, ProblemId, VersionId, WorkspaceId, WorkspaceImportId,
 };
 pub use crate::lifecycle::{Lifecycle, LifecycleError, LifecycleEvent};
+pub use crate::presentation::{
+    AssetBindingV1, LearnerAttemptDescriptorV1, LearnerRunScreenRunV1, LearnerRunScreenScopeV1,
+    LearnerRunScreenV1, PresentationBindingV1, PresentationDigestTokenV1, PresentationDigestV1,
+    PresentationEnvelopeV1, PresentationNonceV1, PresentedBlankV1, PresentedChoiceV1,
+    PresentedHotspotRegionV1, PresentedHotspotSurfaceV1, RenderedItemIdV1, ResponseSchemaV1,
+};
 pub use crate::response::{ResponseDefinition, StudentResponse};
 pub use crate::run_policy::{
     CompletionRequirement, ContinuedPractice, GradePolicy, RunPolicies, VariationPolicy,

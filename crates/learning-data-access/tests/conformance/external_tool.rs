@@ -159,6 +159,7 @@ where
                 problem,
                 question_version: version,
                 seed: binding.seed,
+                presentation: presentation_binding(14),
                 parameter_hash: "external-tool-parameters".to_string(),
                 provenance: AttemptProvenance {
                     adapter: implementation("imathas"),
@@ -172,6 +173,7 @@ where
                     grading: implementation("imathas"),
                     rendered_question_sha256: "external-tool-rendered".to_string(),
                 },
+                webwork_replay: None,
                 prefetched: None,
                 predecessor_submission: None,
             },

@@ -1,0 +1,402 @@
+use super::*;
+
+pub(super) struct CountingExternalRouteBackend {
+    pub(super) inner: Arc<ContractedRouteBackend>,
+    pub(super) create_calls: AtomicUsize,
+    pub(super) proxy_calls: AtomicUsize,
+    pub(super) submission_calls: AtomicUsize,
+}
+
+#[async_trait]
+impl RunBackend for CountingExternalRouteBackend {
+    async fn issue(
+        &self,
+        context: TenantContext,
+        reference: ProblemVersionRef,
+        question: &QuestionDefinition,
+        seed: u64,
+    ) -> Result<IssuedAttemptMetadata, RunBackendError> {
+        self.inner.issue(context, reference, question, seed).await
+    }
+
+    async fn reproduce(
+        &self,
+        context: TenantContext,
+        reference: ProblemVersionRef,
+        question: &QuestionDefinition,
+        attempt: &QuestionAttempt,
+    ) -> Result<QuestionEnvelope, RunBackendError> {
+        self.inner
+            .reproduce(context, reference, question, attempt)
+            .await
+    }
+
+    async fn grade(
+        &self,
+        context: TenantContext,
+        reference: ProblemVersionRef,
+        question: &QuestionDefinition,
+        attempt: &QuestionAttempt,
+        response: &StudentResponse,
+    ) -> Result<GradeOutcome, RunBackendError> {
+        self.inner
+            .grade(context, reference, question, attempt, response)
+            .await
+    }
+
+    async fn submit(
+        &self,
+        submission: RunSubmission<'_>,
+    ) -> Result<SubmissionDisposition, RunBackendError> {
+        self.inner.submit(submission).await
+    }
+}
+
+#[async_trait]
+impl ExternalToolLaunchBackend for CountingExternalRouteBackend {
+    async fn create_external_tool_launch(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        reference: ProblemVersionRef,
+        question: &QuestionDefinition,
+        attempt: &QuestionAttempt,
+        aead: &crate::imathas_backend::LaunchStateAead,
+    ) -> Result<learning_data_access::CreatedExternalToolLaunchSession, RunBackendError> {
+        self.create_calls.fetch_add(1, Ordering::SeqCst);
+        self.inner
+            .create_external_tool_launch(context, actor, reference, question, attempt, aead)
+            .await
+    }
+
+    async fn proxy_external_tool_activity(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        reference: ProblemVersionRef,
+        question: &QuestionDefinition,
+        attempt: &QuestionAttempt,
+        session_id: Uuid,
+        token: &learning_data_access::ExternalToolLaunchToken,
+        method: adapter_imathas::broker_provider::ProxyMethod,
+        body: &[u8],
+        aead: &crate::imathas_backend::LaunchStateAead,
+    ) -> Result<adapter_imathas::broker_provider::ProxyResponse, RunBackendError> {
+        self.proxy_calls.fetch_add(1, Ordering::SeqCst);
+        self.inner
+            .proxy_external_tool_activity(
+                context, actor, reference, question, attempt, session_id, token, method, body, aead,
+            )
+            .await
+    }
+}
+
+#[async_trait]
+impl ExternalToolSubmissionBackend for CountingExternalRouteBackend {
+    async fn submit_external_tool(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        reference: ProblemVersionRef,
+        question: &QuestionDefinition,
+        attempt: &QuestionAttempt,
+        idempotency_key: learning_data_access::SubmissionIdempotencyKey,
+        launch_proof: learning_data_access::ExternalToolLaunchProof,
+        state_aead: &crate::imathas_backend::LaunchStateAead,
+    ) -> Result<SubmissionDisposition, RunBackendError> {
+        self.submission_calls.fetch_add(1, Ordering::SeqCst);
+        self.inner
+            .submit_external_tool(
+                context,
+                actor,
+                reference,
+                question,
+                attempt,
+                idempotency_key,
+                launch_proof,
+                state_aead,
+            )
+            .await
+    }
+}
+
+pub(super) type ContractedRouteBackend = ImathasBackend<
+    MemoryStore,
+    objects::memory::MemoryObjectStore,
+    adapter_imathas::broker_provider::ContractedScoredEmbedProvider<
+        adapter_imathas::test_support::RecordedContractedTransport,
+    >,
+>;
+
+pub(super) struct ContractedRouteFixture {
+    pub(super) store: Arc<MemoryStore>,
+    pub(super) objects: Arc<objects::memory::MemoryObjectStore>,
+    pub(super) source_key: objects::ObjectKey,
+    pub(super) backend: Arc<ContractedRouteBackend>,
+    pub(super) route_backend: Arc<CountingExternalRouteBackend>,
+    pub(super) transport: adapter_imathas::test_support::RecordedContractedTransport,
+    pub(super) aead: Arc<crate::imathas_backend::LaunchStateAead>,
+    pub(super) app: Router,
+    pub(super) student_cookie: String,
+    pub(super) outsider_cookie: String,
+    pub(super) attempt: QuestionAttempt,
+    pub(super) context: TenantContext,
+    pub(super) question: QuestionDefinition,
+}
+
+pub(super) async fn contracted_route_fixture(
+    transport_mode: adapter_imathas::test_support::RecordedContractedTransportMode,
+) -> ContractedRouteFixture {
+    use adapter_imathas::test_support::RecordedContractedTransportFactory;
+    use learning_data_access::{IssueQuestionAttemptCommand, PublishedSourceArtifact};
+    use objects::{ObjectKey, ObjectStore, PutObject, Sha256Digest};
+    use question_model::generation::RandomizationDefinition;
+
+    let store = Arc::new(MemoryStore::default());
+    store
+        .set_authoritative_time(ActivityTimestamp::from_unix_millis(10_000))
+        .expect("fixture clock");
+    let objects = Arc::new(objects::memory::MemoryObjectStore::default());
+    let tenant = TenantId::from_uuid(id(801));
+    let context = TenantContext::from_authenticated_session(tenant);
+    let instructor = UserId::from_uuid(id(802));
+    let actor = UserId::from_uuid(id(803));
+    let outsider = UserId::from_uuid(id(804));
+    let workspace = WorkspaceId::from_uuid(id(805));
+    let problem = ProblemId::from_uuid(id(806));
+    let version = VersionId::from_uuid(id(807));
+    let snapshot = question_model::ObjectId::from_uuid(id(808));
+    let source_bytes = br#"{"recorded":true}"#.to_vec();
+    let source_sha256 = Sha256Digest::compute(&source_bytes).to_string();
+    let source = QuestionSource::Imathas {
+        provider: "institution-imathas".into(),
+        item_ref: "17".into(),
+        snapshot,
+        snapshot_sha256: source_sha256,
+        integration_profile: adapter_imathas::scored_embed::SCORED_EMBED_BROKER_PROFILE_ID.into(),
+    };
+    let draft = DraftRecord {
+        tenant,
+        question: DraftQuestionDefinition {
+            workspace,
+            source: DraftQuestionSource::Imathas {
+                provider: "institution-imathas".into(),
+                item_ref: "17".into(),
+            },
+            prompt: Vec::new(),
+            response: ResponseDefinition::ExternalTool {},
+            attempt_policy: AttemptPolicy {
+                max_attempts: None,
+                feedback: FeedbackDisclosure::ImmediateCorrectness,
+            },
+            timing_policy: TimingPolicy::Untimed,
+            randomization: RandomizationDefinition::Static,
+            grading: GradingDefinition::AllOrNothing { points: 1.0 },
+            metadata: QuestionMetadata {
+                title: "Recorded contracted iMathAS question".into(),
+                tags: Vec::new(),
+                taxonomy: Vec::new(),
+                license: License::CcBySa,
+                language: "en-US".into(),
+            },
+        },
+        revises: None,
+        derived_from: None,
+    };
+    let reference = ProblemVersionRef { problem, version };
+    let object_key = ObjectKey::ProblemSource {
+        problem,
+        version,
+        object: snapshot,
+    };
+    objects
+        .put(PutObject {
+            key: object_key.clone(),
+            bytes: source_bytes,
+            media_type: "application/json".into(),
+            license: "CC-BY-SA-4.0".into(),
+            provenance: "recorded contracted route fixture".into(),
+            created_at: ActivityTimestamp::from_unix_millis(10_000),
+        })
+        .await
+        .expect("source object");
+    let saved = store
+        .upsert_draft(context, instructor, None, draft.clone())
+        .await
+        .expect("draft");
+    let artifact = objects
+        .get(&object_key)
+        .await
+        .expect("source record")
+        .record;
+    store
+        .publish_draft(
+            context,
+            instructor,
+            PublishDraftCommand {
+                expected_draft: draft,
+                expected_revision: saved.revision,
+                publication: reference,
+                published_source: source,
+                source_artifact: Some(PublishedSourceArtifact {
+                    reference,
+                    backend: question_model::QuestionBackend::Imathas,
+                    object: artifact,
+                }),
+                qti_promotion: None,
+                flat_question_promotion: None,
+                publisher: instructor,
+                scope: PublicationScope::Public,
+                capabilities: BackendCapabilities::from_iter([
+                    Capability::AlgorithmicGeneration,
+                    Capability::ServerGrading,
+                ]),
+            },
+        )
+        .await
+        .expect("publish");
+    let question = store
+        .get_catalog_problem(context, reference)
+        .await
+        .expect("catalog")
+        .expect("published")
+        .question;
+    let course = CourseId::from_uuid(id(809));
+    let assignment = AssignmentId::from_uuid(id(810));
+    let enrollment = EnrollmentId::from_uuid(id(811));
+    store
+        .upsert_course(
+            context,
+            CourseRecord {
+                id: course,
+                tenant,
+                title: "Recorded course".into(),
+                members: vec![
+                    CourseMembership {
+                        user: instructor,
+                        role: CourseMembershipRole::Instructor,
+                    },
+                    CourseMembership {
+                        user: actor,
+                        role: CourseMembershipRole::Student,
+                    },
+                ],
+            },
+        )
+        .await
+        .expect("course");
+    store
+        .create_assignment(
+            context,
+            AssignmentRecord {
+                id: assignment,
+                tenant,
+                course_id: course,
+                title: "Recorded assignment".into(),
+                items: assignment_items(vec![reference]),
+                selection_groups: Vec::new(),
+                policies: RunPolicies {
+                    completion: CompletionRequirement::AllCorrect,
+                    grade: GradePolicy::Highest,
+                    continued_practice: ContinuedPractice::Unlimited,
+                    variation: VariationPolicy::NewSeeds,
+                },
+            },
+        )
+        .await
+        .expect("assignment");
+    store
+        .create_enrollment(
+            context,
+            AssignmentEnrollment {
+                id: enrollment,
+                tenant,
+                assignment,
+                user: actor,
+                student: StudentId::from_uuid(id(812)),
+                first_completed_at: None,
+                current_grade_run: None,
+                best_grade_run: None,
+            },
+        )
+        .await
+        .expect("enrollment");
+    let (provider, transport) = RecordedContractedTransportFactory::new(transport_mode)
+        .contracted_provider_with_transport();
+    let adapter = Arc::new(adapter_imathas::ImathasAdapter::new(
+        objects.as_ref().clone(),
+        provider,
+        [adapter_imathas::SupportedProfile::new(
+            adapter_imathas::scored_embed::SCORED_EMBED_BROKER_PROFILE_ID,
+            true,
+            true,
+            true,
+        )
+        .expect("profile")],
+    ));
+    let backend = Arc::new(ImathasBackend::new(
+        Arc::clone(&store),
+        Arc::clone(&objects),
+        adapter,
+        Arc::new(adapter_imathas::CorrelationIssuer::from_server_secret(
+            [83; 32],
+        )),
+    ));
+    let run = store
+        .start_or_resume_run(context, actor, assignment, RunId::from_uuid(id(813)))
+        .await
+        .expect("run");
+    let issued = backend
+        .issue(context, reference, &question, 17)
+        .await
+        .expect("issue");
+    let attempt = store
+        .issue_or_resume_question_attempt(
+            context,
+            IssueQuestionAttemptCommand {
+                actor,
+                attempt: QuestionAttemptId::from_uuid(id(814)),
+                run: run.id,
+                assignment_position: 0,
+                problem,
+                question_version: version,
+                seed: 17,
+                presentation: presentation_binding(17),
+                parameter_hash: issued.parameter_hash,
+                provenance: issued.provenance,
+                prefetched: None,
+                predecessor_submission: None,
+            },
+        )
+        .await
+        .expect("attempt");
+    let aead = Arc::new(
+        crate::imathas_backend::LaunchStateAead::from_server_secret([84; 32]).expect("aead"),
+    );
+    let route_backend = Arc::new(CountingExternalRouteBackend {
+        inner: Arc::clone(&backend),
+        create_calls: AtomicUsize::new(0),
+        proxy_calls: AtomicUsize::new(0),
+        submission_calls: AtomicUsize::new(0),
+    });
+    let app = external_tool_router(
+        Arc::clone(&store),
+        Arc::clone(&route_backend),
+        Arc::clone(&aead),
+    );
+    ContractedRouteFixture {
+        student_cookie: issued_cookie_for(store.as_ref(), tenant, actor, "Student").await,
+        outsider_cookie: issued_cookie_for(store.as_ref(), tenant, outsider, "Outsider").await,
+        store,
+        objects,
+        source_key: object_key,
+        backend,
+        route_backend,
+        transport,
+        aead,
+        app,
+        attempt,
+        context,
+        question,
+    }
+}

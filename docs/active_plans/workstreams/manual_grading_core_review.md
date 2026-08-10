@@ -1,5 +1,9 @@
 # Manual grading core review
 
+> **Historical review.** This concluded review is retained as evidence; its former pending lane is
+> not current task direction. Current authority is the [release completion plan](../active/release_completion_plan.md)
+> and [implementation status](../implementation_status.md).
+
 ## Status
 
 **RE-REVIEW: PASS for the corrected shared Rust/MemoryStore slice.** The
@@ -119,8 +123,8 @@ not a Wasm change.
 
 - `cargo test -p grading` - passed (6 tests).
 - `cargo test -p learning-data-access --test conformance
-  memory_manual_grading_is_response_bearing_revisioned_and_generation_fenced
-  --no-default-features -- --exact` - passed (1 test).
+memory_manual_grading_is_response_bearing_revisioned_and_generation_fenced
+--no-default-features -- --exact` - passed (1 test).
 - `cargo test -p learning-data-access --no-default-features` - passed (38 unit, 14
   conformance tests).
 - `cargo clippy -p learning-data-access --no-default-features --all-targets -- -D warnings`
@@ -202,8 +206,8 @@ workspace check before database integration.
 
 - `cargo test -p grading` - passed (6 tests).
 - `cargo test -p learning-data-access --test conformance
-  manual_grading::memory_manual_grading_is_response_bearing_revisioned_and_generation_fenced
-  --no-default-features -- --exact` - passed (1 test).
+manual_grading::memory_manual_grading_is_response_bearing_revisioned_and_generation_fenced
+--no-default-features -- --exact` - passed (1 test).
 - `cargo test -p learning-data-access --no-default-features` - passed (38 unit, 14
   conformance tests).
 - `cargo check -p learning-data-access --features postgres` - passed.

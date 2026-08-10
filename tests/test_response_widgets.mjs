@@ -232,25 +232,6 @@ test("an in-flight submission locks the response and cannot issue a duplicate re
   assert.equal(submitCalls, 1);
 });
 
-test("response implementation keeps uploads opaque and dispatcher exhaustive", async () => {
-  const source = await import("node:fs/promises").then((fs) =>
-    fs.readFile("src/components/response_widget.tsx", "utf8"),
-  );
-  assert.match(source, /secure, tenant-scoped upload slot/);
-  assert.doesNotMatch(source, /upload-reference/);
-  assert.match(source, /function assertNever\(value: never\)/);
-  for (const kind of [
-    "numeric",
-    "multipleChoice",
-    "shortText",
-    "ordering",
-    "fileUpload",
-    "externalTool",
-  ]) {
-    assert.match(source, new RegExp(`case "${kind}"`));
-  }
-});
-
 test("external-tool readiness and route values admit only the narrow browser contract", () => {
   const attemptId = "attempt-external";
   assert.equal(

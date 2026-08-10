@@ -1,5 +1,9 @@
 # Manual grading server/API audit
 
+> **Historical audit.** This dated audit is retained as evidence, not current task direction.
+> Current authority is the [release completion plan](../active/release_completion_plan.md) and
+> [implementation status](../implementation_status.md).
+
 ## Status
 
 **Ready for implementation.** The current schema already distinguishes a pending manual evaluation
@@ -57,9 +61,9 @@ Add these two instructor-only routes to `crates/server/src/run.rs`, under its ex
 limit and route state. They operate on an attempt's **current evaluation**, never an immutable
 problem version or an assignment revision.
 
-| Method and path | Request | Success response | Purpose |
-| --- | --- | --- | --- |
-| `GET /api/attempts/{attemptId}/manual-grade` | no body | `200` `ManualGradeView` plus `ETag: "<evaluationRevision>"` | Loads the student evidence and the small current evaluation projection needed to grade it. |
+| Method and path                              | Request                                                                                           | Success response                                               | Purpose                                                                                                                                |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/attempts/{attemptId}/manual-grade` | no body                                                                                           | `200` `ManualGradeView` plus `ETag: "<evaluationRevision>"`    | Loads the student evidence and the small current evaluation projection needed to grade it.                                             |
 | `PUT /api/attempts/{attemptId}/manual-grade` | `If-Match: "<evaluationRevision>"`; `Idempotency-Key`; JSON `{"creditFraction":"0.750000000000"}` | `200` `ManualGradeResult` plus the incremented evaluation ETag | Replaces only the current pending manual evaluation with the instructor's normalized credit and schedules current-score recalculation. |
 
 Both responses, including every error, carry `Cache-Control: no-store`. The route accepts one
@@ -143,20 +147,20 @@ closes or clears an attempt.
 
 ### Status and error matrix
 
-| Situation | GET | PUT | Required result |
-| --- | --- | --- | --- |
-| No valid session | `401` | `401` | Generic authentication error, `no-store`. |
-| Foreign tenant/course, outsider, or non-manager | `404` | `404` | `attempt not found`; never expose existence. |
-| Authorized course instructor but unknown attempt | `404` | `404` | Same error shape. |
-| Attempt has submitted response and pending evaluation | `200` + ETag | eligible | The only mutable manual-grade state. |
-| Force-submitted with no response/evaluation | `200` support view may show pending state, but omit a gradeable evaluation ETag | `409` | `manual grade requires a submitted response`; use clear/support recovery, never fabricate evidence. |
-| Already automatic/previously manually graded, cleared, exempt, or auto-submitted without pending evaluation | `200` read-only view where authorized | `409` | `manual grade is no longer pending`; no queue or audit mutation. |
-| Missing `If-Match` | n/a | `428` | Exact local precondition convention. |
-| Multiple/malformed/non-quoted/stale `If-Match` | n/a | `422` / `412` | `422` for syntax; `412` for a valid stale ETag, return current ETag only on the latter. |
-| Missing/malformed key or strict body | n/a | `400` / `422` | No mutation; malformed identity header is `400`, invalid JSON/decimal/body is `422`. |
-| Exact key + exact fingerprint replay | n/a | `200` | Stored `ManualGradeResult`, same committed revision/generation, no second job. |
-| Same key but changed actor/attempt/body/If-Match fingerprint | n/a | `409` | Key is not reusable for another mutation. |
-| Store/backend unavailable | `503` | `503` | Generic storage message; no partial score publication. |
+| Situation                                                                                                   | GET                                                                             | PUT           | Required result                                                                                     |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------- |
+| No valid session                                                                                            | `401`                                                                           | `401`         | Generic authentication error, `no-store`.                                                           |
+| Foreign tenant/course, outsider, or non-manager                                                             | `404`                                                                           | `404`         | `attempt not found`; never expose existence.                                                        |
+| Authorized course instructor but unknown attempt                                                            | `404`                                                                           | `404`         | Same error shape.                                                                                   |
+| Attempt has submitted response and pending evaluation                                                       | `200` + ETag                                                                    | eligible      | The only mutable manual-grade state.                                                                |
+| Force-submitted with no response/evaluation                                                                 | `200` support view may show pending state, but omit a gradeable evaluation ETag | `409`         | `manual grade requires a submitted response`; use clear/support recovery, never fabricate evidence. |
+| Already automatic/previously manually graded, cleared, exempt, or auto-submitted without pending evaluation | `200` read-only view where authorized                                           | `409`         | `manual grade is no longer pending`; no queue or audit mutation.                                    |
+| Missing `If-Match`                                                                                          | n/a                                                                             | `428`         | Exact local precondition convention.                                                                |
+| Multiple/malformed/non-quoted/stale `If-Match`                                                              | n/a                                                                             | `422` / `412` | `422` for syntax; `412` for a valid stale ETag, return current ETag only on the latter.             |
+| Missing/malformed key or strict body                                                                        | n/a                                                                             | `400` / `422` | No mutation; malformed identity header is `400`, invalid JSON/decimal/body is `422`.                |
+| Exact key + exact fingerprint replay                                                                        | n/a                                                                             | `200`         | Stored `ManualGradeResult`, same committed revision/generation, no second job.                      |
+| Same key but changed actor/attempt/body/If-Match fingerprint                                                | n/a                                                                             | `409`         | Key is not reusable for another mutation.                                                           |
+| Store/backend unavailable                                                                                   | `503`                                                                           | `503`         | Generic storage message; no partial score publication.                                              |
 
 The `412` distinction is intentional: an ETag is a current-evaluation compare-and-swap, whereas
 `409` is a state-machine or idempotency-identity conflict. Existing assignment updates currently

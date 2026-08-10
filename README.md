@@ -3,12 +3,13 @@
 A backend-agnostic assignment platform for instructors who teach through repeated practice: students retry algorithmic questions until each one is correct, timers and grading stay on the server, and practice continues past completion.
 
 **Status: advanced code-first implementation, not production-ready.** WP-RC1 course appearance and
-WP-RC2 production-seam closure are accepted. WP-RC3's private, source-pinned upstream WeBWorK
-`/render_rpc` implementation and static reviews are complete, but it is not accepted until the live
-build, authenticated PLE API path, and browser-boundary gates pass. Native questions and the regular
-local stack continue to work without the optional renderer profile. QTI Package Maker WP-FQ-0 owns
-the QTI-JSONL specification and reference artifacts; PLE adopts that contract through one versioned
-adapter/compiler with MATCH first. See the
+WP-RC2 production-seam closure, WP-RC3's bounded private WeBWorK integration, and WP-ARCH1
+capability-sized source ownership are accepted. RC3's source-pinned upstream `/render_rpc` path
+passed its live build, authenticated PLE API, outage-isolation, cache, grading, and keyboard-browser
+gates; ARCH1 closed the dated 26-file source-size baseline with no maintained source at 1,000 lines
+or more. Native questions and the regular local stack continue to work without the optional renderer
+profile. PLE flat-question JSON v2 now implements the eight required flat families using the
+reviewed QTI Package Maker item semantics while preserving version 1 single-choice bytes. See the
 [current project status](docs/active_plans/project_status_report_2026-08-09.md) for verified
 evidence, milestone posture, blockers, and dependency order.
 
@@ -28,6 +29,9 @@ continue practicing with fresh values.
 
 ![Peptide bond mastery assignment overview with fresh variation and a Start or resume practice control](docs/screenshots/peptide_bond_mastery_overview.png)
 <!-- screenshots:end -->
+
+This deterministic mock-backed assignment overview demonstrates the current interface; it is not
+live production or WP-RC3 acceptance evidence.
 
 ## Why this project
 
@@ -205,32 +209,36 @@ generation is discarded without delaying or rolling back the current grade.
 
 ## What exists today
 
-| Area                                 | State                                                                                                                                                                                                                                      |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Rust domain and learning data access | Attempt, timing, scoring, manual-grading, item-analysis, retention, catalog, and worker contracts; in-memory and PostgreSQL implementations share conformance tests                                                                        |
-| API server                           | Auth, catalog, course, assignment, run, submission, manual grade, item analysis, asset, export, workspace, and retention route groups                                                                                                      |
-| WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                             |
-| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, library, authoring, flat-question editing, assignment editing, and gradebook                                                                                                 |
-| PostgreSQL                           | Six domain-owned SQLx baseline migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL acceptance                                                                                                       |
-| Question engines                     | Native and static single-choice flat JSON implemented; WeBWorK `/render_rpc` is implemented and statically reviewed, with live acceptance pending; QTI profiles through atomic conversion; contracted iMathAS broker; H5P is ungraded only |
-| DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                 |
-| Containers                           | Local PostgreSQL, MinIO, API, worker, and gateway; private source-pinned WeBWorK is an optional profile pending live acceptance; production runtime identities and deployment remain open                                                  |
-| Worker runtime                       | Production drains six complete families through a family-filtered registry; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                |
+| Area                                 | State                                                                                                                                                                                                                                                                    |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Rust domain and learning data access | Attempt, timing, scoring, manual-grading, item-analysis, retention, catalog, and worker contracts; in-memory and PostgreSQL implementations share conformance tests                                                                                                      |
+| API server                           | Auth, catalog, course, assignment, run, submission, manual grade, item analysis, asset, export, workspace, and retention route groups                                                                                                                                    |
+| WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                           |
+| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, library, authoring, flat-question editing, assignment editing, and gradebook                                                                                                                               |
+| PostgreSQL                           | Six domain-owned SQLx baseline migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL acceptance                                                                                                                                     |
+| Question engines                     | PLE flat-question JSON v2 implements all eight required native families while preserving v1 single choice; WeBWorK `/render_rpc` passed live PLE render/grade/cache/outage/browser acceptance for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
+| DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                                               |
+| Containers                           | Local PostgreSQL, MinIO, API, worker, and gateway; the private source-pinned WeBWorK optional profile passed its live local acceptance; production runtime identities and deployment remain open                                                                         |
+| Worker runtime                       | Production drains six complete families through a family-filtered registry; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                                              |
 
-The exact checkpoint, evidence, and remaining dependency order live in
-[docs/active_plans/project_status_report_2026-08-09.md](docs/active_plans/project_status_report_2026-08-09.md)
-and
-[docs/active_plans/partial_commit_status.md](docs/active_plans/partial_commit_status.md). The full
-architecture and milestone plan remain in
+The current checkpoint, evidence, and remaining dependency order live in
+[docs/active_plans/project_status_report_2026-08-09.md](docs/active_plans/project_status_report_2026-08-09.md),
+[docs/active_plans/implementation_status.md](docs/active_plans/implementation_status.md), and
+[docs/active_plans/active/release_completion_plan.md](docs/active_plans/active/release_completion_plan.md).
+The full architecture and milestone plan remain in
 [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md).
 
 ## Current limitations
 
-- Flat-question JSON v1 supports static single choice. Multiple answer, fill-in-the-blank,
-  multi-blank, numerical entry, matching, ordered list, and image hotspot remain required work.
+- Flat-question JSON v2 strictly parses, splits, publishes, renders, validates, and server-grades
+  multiple choice, multiple answer, fill-in-the-blank, multi-blank, numerical entry, matching,
+  ordered list, and image hotspot; version 1 single choice remains compatible. The visual instructor
+  editor still supports only version 1 single choice. Family-specific visual authoring, external
+  QTI-JSONL adoption, hotspot pointer-overlay and media-upload workflows, and the Chapter 1 pilot
+  content remain planned work.
 - QTI profile import is intentionally bounded to the reviewed Canvas and Blackboard subsets;
   broader vendor compatibility, imported media, and optional exporters remain deferred.
-- The pending WeBWorK RC3 acceptance path supports only the licensed, user-authored single-radio
+- The accepted live WeBWorK RC3 path supports only the licensed, user-authored single-radio
   PGML fixture in `content/pilot/webwork/`; matching and broader problem compatibility are assigned
   to WP-RC5 rather than inferred from the private renderer implementation.
 - Course appearance intentionally supports one theme and at most one 1200 by 328 entry banner per
@@ -279,6 +287,8 @@ Then use these focused boundaries and references:
   proposed production identity/passkey tables, FERPA isolation, and pilot-to-scale estimates.
 - [docs/ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md](docs/ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md)
   - current student no-mouse task model, fixes, executable evidence, and remaining human evaluation.
+- `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`
+  - durable Tab, arrow, Enter, Space, Escape, focus, recovery, and response-family requirements.
 
 For status and contribution work:
 
@@ -286,8 +296,8 @@ For status and contribution work:
   plan, module catalog, contracts, and acceptance gates; the source of truth for this build.
 - [docs/active_plans/project_status_report_2026-08-09.md](docs/active_plans/project_status_report_2026-08-09.md)
   - formal executive status, verification evidence, milestone posture, blockers, and next work.
-- [docs/active_plans/partial_commit_status.md](docs/active_plans/partial_commit_status.md) - current
-  implementation checkpoint, executable evidence, and remaining order.
+- [docs/active_plans/partial_commit_status.md](docs/active_plans/partial_commit_status.md) - historical
+  handoff record; it is not the current status authority.
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) - dated record of changes, decisions, and failures.
 - [AGENTS.md](AGENTS.md) - working method, validation loop, and constraints for contributors and
   coding agents.

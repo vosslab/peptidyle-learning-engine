@@ -98,6 +98,16 @@ Preferred structure:
 ## Pytest failure triage
 - For pytest test-writing rules, commands, and failure triage, see [PYTEST_STYLE.md](PYTEST_STYLE.md).
 
+## Source file size
+- Tracked authored source files contain fewer than 1000 physical lines: 999 passes and 1000 fails.
+- The universal `tests/test_source_file_line_limit.py` allowlist defines the exact scope. It includes
+  code, build/query/template sources, and authored documentation such as `.md`; generic `.txt`,
+  data, configuration, generated artifacts, notebooks, and binary files stay outside the gate.
+- Keep uncommitted local reference books out of Git. For a tracked source outside local control,
+  such as a downloaded normative specification, a manager may add its exact repo-relative path to
+  `tests/source_file_line_limit_overrides.txt`. The optional tracked list accepts blank lines and
+  full-line `#` comments; it does not accept globs, absolute paths, or parent traversal.
+
 ## Changelog rotation
 - Rotate `docs/CHANGELOG.md` when it reaches about 1000 lines (`wc -l docs/CHANGELOG.md`).
 - Keep complete day blocks together. Do not split entries from the same `## YYYY-MM-DD` heading across files.

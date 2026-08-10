@@ -200,15 +200,15 @@ DATABASE_URL="$(database_url)"
 
 initial_status="$(run_project_tools status)"
 printf '%s\n' "$initial_status"
-[ "$(printf '%s\n' "$initial_status" | grep -c ': pending')" -eq 7 ] || \
-	fail "empty database did not report the six-file baseline plus one forward migration"
+[ "$(printf '%s\n' "$initial_status" | grep -c ': pending')" -eq 8 ] || \
+	fail "empty database did not report the six-file baseline plus two forward migrations"
 
 run_project_tools migrate
 run_project_tools migrate
 final_status="$(run_project_tools status)"
 printf '%s\n' "$final_status"
-[ "$(printf '%s\n' "$final_status" | grep -c ': applied')" -eq 7 ] || \
-	fail "migrated database did not report all seven applied migrations"
+[ "$(printf '%s\n' "$final_status" | grep -c ': applied')" -eq 8 ] || \
+	fail "migrated database did not report all eight applied migrations"
 run_project_tools verify
 psql_in_container -d "$DATABASE_NAME" -c \
 	"ALTER ROLE ple_grading_reader PASSWORD '$GRADER_PASSWORD'"
@@ -266,8 +266,7 @@ PLE_TEST_DATABASE_URL="$DATABASE_URL" \
 PLE_TEST_GRADER_DATABASE_URL="$(grader_database_url)" \
 	cargo test -p learning-data-access --features postgres \
 	--test postgres_flat_import_provenance_live \
-	postgres_flat_import_conversion_edit_and_publication_are_atomic_and_private \
-	-- --ignored --exact --test-threads=1
+	-- --ignored --test-threads=1
 
 echo "database baseline E2E: flat-question private grading boundary"
 PLE_TEST_DATABASE_URL="$DATABASE_URL" \
@@ -464,4 +463,4 @@ done
 if [ "$GATE_FAILURES" -gt 0 ]; then
 	fail "$GATE_FAILURES actionable schema inventory check(s) failed"
 fi
-echo "database baseline E2E: PASS (six-file baseline plus course-appearance migration and representative role denial)"
+echo "database baseline E2E: PASS (six-file baseline plus two forward migrations and representative role denial)"

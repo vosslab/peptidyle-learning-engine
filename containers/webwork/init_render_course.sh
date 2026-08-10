@@ -24,8 +24,8 @@ esac
 if [ -d "$course_dir" ] && [ "$course_table_count" -eq 0 ]; then
 	# The database was reset while the separate courses volume survived. Preserve
 	# the unusable tree for diagnosis, then let upstream addcourse rebuild it.
-	orphan_dir="/opt/webwork/courses/.orphaned-${PLE_WEBWORK_RENDER_COURSE_ID}-$(date +%s)"
-	mv "$course_dir" "$orphan_dir"
+	orphan_dir="$(mktemp -d "/opt/webwork/courses/.orphaned-${PLE_WEBWORK_RENDER_COURSE_ID}-XXXXXX")"
+	mv "$course_dir" "$orphan_dir/course"
 fi
 if [ ! -d "$course_dir" ]; then
 	classlist_file="$(mktemp)"
@@ -35,6 +35,7 @@ if [ ! -d "$course_dir" ]; then
 	umask 027
 	/opt/webwork/webwork2/bin/addcourse --users="$classlist_file" "$PLE_WEBWORK_RENDER_COURSE_ID"
 fi
-install -m 0640 -o www-data -g www-data /opt/ple-webwork/course.conf "$course_dir/course.conf"
+rm -f "$course_dir/course.conf"
+install -m 0640 /opt/ple-webwork/course.conf "$course_dir/course.conf"
 /usr/local/bin/reconcile_render_account.pl "$PLE_WEBWORK_RENDER_COURSE_ID" "$PLE_WEBWORK_RENDER_USER" "$PLE_WEBWORK_RENDER_PASSWORD_FILE"
 chown -R www-data:www-data "$course_dir"

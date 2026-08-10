@@ -1,5 +1,9 @@
 # Flat-question schema security implementation
 
+> **Historical workstream record.** This package is retained as implementation evidence, not
+> current task direction. Current authority is the [release completion plan](../active/release_completion_plan.md)
+> and [implementation status](../implementation_status.md).
+
 ## Scope
 
 This change implements the database-only private-grading boundary for the

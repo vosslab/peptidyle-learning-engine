@@ -164,8 +164,9 @@ async fn submit_pending_manual_question_attempt(
     .map_err(map_sqlx_error)?;
     sqlx::query(
         "INSERT INTO submission_idempotency \
-         (tenant_id, attempt_id, idempotency_key, response_sha256, submitted_at, payload, payload_sha256) \
-         VALUES ($1, $2, $3, $4, transaction_timestamp(), $5, $6)",
+         (tenant_id, attempt_id, idempotency_key, request_contract_version, request_sha256, \
+          submitted_at, payload, payload_sha256) \
+         VALUES ($1, $2, $3, 0, $4, transaction_timestamp(), $5, $6)",
     )
     .bind(tenant.as_uuid())
     .bind(submitted.id.as_uuid())

@@ -388,6 +388,41 @@ fn append_response_flow(
                 .to_string(),
             keep_with_next: false,
         }),
+        ResponseDefinition::MultiBlank { blanks } => {
+            for blank in blanks {
+                for block in &blank.label {
+                    append_block_flow(target, block, layout);
+                }
+                target.push(FlowBlock::Text {
+                    text: "Answer: ______________________________".to_string(),
+                    keep_with_next: false,
+                });
+            }
+        }
+        ResponseDefinition::Matching { prompts, choices } => {
+            target.push(FlowBlock::Text {
+                text: "Match each prompt to one choice.".to_string(),
+                keep_with_next: true,
+            });
+            for prompt in prompts {
+                target.push(FlowBlock::Text {
+                    text: "Prompt: ____".to_string(),
+                    keep_with_next: true,
+                });
+                for block in &prompt.body {
+                    append_block_flow(target, block, layout);
+                }
+            }
+            target.push(FlowBlock::Text {
+                text: "Choices:".to_string(),
+                keep_with_next: true,
+            });
+            for choice in choices {
+                for block in &choice.body {
+                    append_block_flow(target, block, layout);
+                }
+            }
+        }
         ResponseDefinition::Ordering { items } => {
             target.push(FlowBlock::Text {
                 text: "Write the order: ______________________________".to_string(),
@@ -399,6 +434,25 @@ fn append_response_flow(
                     keep_with_next: true,
                 });
                 for block in &item.body {
+                    append_block_flow(target, block, layout);
+                }
+            }
+        }
+        ResponseDefinition::Hotspot {
+            description,
+            regions,
+            ..
+        } => {
+            target.push(FlowBlock::Text {
+                text: format!("Hotspot surface: {description}"),
+                keep_with_next: true,
+            });
+            target.push(FlowBlock::Text {
+                text: "Accessible region choices:".to_string(),
+                keep_with_next: true,
+            });
+            for region in regions {
+                for block in &region.label {
                     append_block_flow(target, block, layout);
                 }
             }

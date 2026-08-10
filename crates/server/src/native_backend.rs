@@ -300,7 +300,7 @@ fn is_flat_question(question: &QuestionDefinition) -> bool {
     matches!(
         &question.source,
         QuestionSource::Native { family }
-            if family == adapter_native::flat_question::FLAT_SINGLE_CHOICE_FAMILY
+            if adapter_native::flat_question::is_flat_question_family(family)
     )
 }
 

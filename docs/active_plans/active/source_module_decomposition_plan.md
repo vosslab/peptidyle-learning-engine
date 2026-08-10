@@ -1,5 +1,12 @@
 # Plan: Capability-sized source module decomposition
 
+## Status
+
+Accepted on 2026-08-10. The dated 26-file maintained-source baseline now has zero maintained-code
+violations, stable facades preserve the public boundaries, and the permanent size gate is green.
+Independent PostgreSQL, server-security, provider-security, TypeScript/HCI, test, size-policy, and
+final architecture reviews found no unresolved P0/P1 issue.
+
 ## Context
 
 `docs/HUMAN_GUIDANCE.md` requires every maintained source file to stay below 1,000 lines by moving
@@ -9,9 +16,9 @@ facades, but the same ownership problem also appears in adapters, project toolin
 mocks, and response widgets.
 
 The system behavior is working and broadly tested. This is therefore a compatibility-preserving
-architecture extraction, not a rewrite. It runs after WP-RC3 acceptance and before WP-RC4 so the
-payload and flat-family packages add behavior to focused owners rather than expanding the existing
-warehouses. It must be accepted before WP-RC12.
+architecture extraction, not a rewrite. It runs after the passed WP-RC3 live gate, before final RC3
+acceptance and WP-RC4, so the payload and flat-family packages add behavior to focused owners rather
+than expanding the existing warehouses. It must be accepted before WP-RC12.
 
 ## Objectives
 
@@ -39,7 +46,8 @@ to its owning feature plan; it is not smuggled into a structural patch.
   26-file baseline snapshot below establishes the initial decomposition scope and expected owners.
 - Preserve the existing facade/module import paths when Rust or TypeScript consumers rely on them.
 - Split oversized tests by behavior and fixture ownership, not by line number.
-- Add `tests/test_source_file_size.py` with an exact maintained-root/extension/exclusion contract.
+- Adopt `tests/test_source_file_line_limit.py` with an exact maintained-source and approved-artifact
+  exclusion contract.
 - Update architecture, file-map, status, and changelog documentation with the final module owners.
 - Re-run focused, package, browser, repository, and independent architecture gates.
 
@@ -52,8 +60,9 @@ to its owning feature plan; it is not smuggled into a structural patch.
 - Split accepted SQL migrations, generated output, vendored repositories, lockfiles, or Markdown;
   they are immutable ledgers, generated artifacts, external sources, or documentation rather than
   maintained capability source modules.
-- Introduce a temporary exception list; the package succeeds only when the permanent gate passes
-  with no oversized maintained source.
+- Exempt a maintained code or test module. The exact approved override list is limited to immutable
+  applied migration ledgers and documentation/history artifacts governed by their own structure or
+  rotation rules; the package succeeds only when no oversized maintained code remains.
 - Replace PostgreSQL, Solid, Axum, adapter, or Store architecture; current boundaries remain valid.
 
 ## Dated baseline snapshot and inventory discipline
@@ -156,8 +165,9 @@ directly; they rerun its owner when a move changes generation inputs.
 
 ### Milestone M1: Extract capability owners
 
-- Depends on: accepted WP-RC3, because its adapter/server/container changes establish the source
-  baseline; no RC4 or payload implementation patch may overlap these owners during extraction.
+- Depends on: the passed WP-RC3 live gate, because its adapter/server/container changes establish
+  the source baseline; no RC4 or payload implementation patch may overlap these owners during
+  extraction.
 - Deliverables: WP-SIZE1 through WP-SIZE4 source moves, focused tests, and per-lane ownership notes.
 - Workstreams: WS-PERSIST, WS-SERVER, WS-ADAPTER, WS-BROWSER.
 - Entry criteria: clean focused baseline tests for every affected package; the exact inventory command
@@ -303,9 +313,11 @@ directly; they rerun its owner when a move changes generation inputs.
   - Recorded upstream request/response fixtures, answer-free projections, cache identity, grading,
     S3 publication, statistics, and PDF behavior remain unchanged.
   - CLI arguments, stdout/stderr secrecy, deterministic IDs, and rerun semantics remain unchanged.
-  - `python3 devel/bump_version.py --help`, `--help-advanced`, dry-run discovery, version parsing,
-    Cargo normalization, and atomic rewrite behavior remain unchanged and receive focused
-    `tests/test_bump_version.py` coverage before extraction is accepted.
+  - `python3 devel/bump_version.py --help`, `--help-advanced`, and dry-run discovery remain
+    unchanged and are verified with one-time command probes before extraction is accepted. Pure
+    version parsing, Cargo normalization, and atomic rewrite behavior remain importable for future
+    behavior tests when a concrete regression warrants one; CLI wiring and the current discovered
+    path inventory do not receive a permanent pytest solely to prove this refactor.
   - Each crate's tests, strict Clippy, fixture hashes, and generated output checks pass.
   - Every touched maintained source is at most 999 lines.
 - Evidence or review, when useful: per-crate focused suites and separate WebWork/iMathAS security
@@ -335,19 +347,22 @@ directly; they rerun its owner when a move changes generation inputs.
 ### Work package WP-SIZE5: Enforce source-size ownership
 
 - Owner: `integrator`; independent `architect` review.
-- Touch points: new `tests/test_source_file_size.py`; `docs/CODE_ARCHITECTURE.md`,
+- Touch points: `tests/test_source_file_line_limit.py`,
+  `tests/source_file_line_limit_overrides.txt`; `docs/CODE_ARCHITECTURE.md`,
   `docs/FILE_STRUCTURE.md`, release/status docs, and `docs/CHANGELOG.md`.
 - Depends on: WP-SIZE1, WP-SIZE2, WP-SIZE3, and WP-SIZE4.
 - Acceptance criteria:
   - Regenerate the exact inventory at package start and acceptance; reconcile its current violation
     list against this dated baseline before accepting the package.
-  - Discovery begins at the repository root, including root-level source files and `containers/`,
-    and accepts only the exact extensions `.rs`, `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`,
-    `.cjs`, `.py`, and `.sh`.
+  - Discovery begins at the repository root and uses the test's closed source-extension and
+    conventional-filename sets. Exact override entries may cover only manager-approved immutable
+    migration ledgers or documentation/history artifacts; a Rust, TypeScript, JavaScript, Python,
+    shell, or maintained test module may not be overridden.
   - The exact excluded prefixes are `.git/`, `.pytest_cache/`, `.venv/`, `OTHER_REPOS/`,
     `coverage/`, `dist/`, `dist_wasm/`, `generated/`, `node_modules/`, `playwright-report/`,
     `target/`, `test-results/`, `docs/archive/`, `tests/fixtures/`, `tests/artifacts/`,
-    `tests/e2e/fixtures/`, and `tests/playwright/fixtures/`. There is no filename exception list.
+    `tests/e2e/fixtures/`, and `tests/playwright/fixtures/`. The only filename exceptions are the
+    reviewed exact paths in `tests/source_file_line_limit_overrides.txt`.
   - Discovery does not follow directory symlinks and rejects a discovered maintained-source file
     that is itself a symlink. It reads bytes, rejects NUL-containing or invalid UTF-8 input, and
     counts physical lines as zero for an empty file or `LF count + 1` when the final line has no LF;
@@ -387,7 +402,10 @@ cargo clippy -p server_core --all-targets -- -D warnings
 # WP-SIZE3: adapters, tooling, domain statistics, PDF export, and version CLI.
 cargo test -p adapter_webwork -p adapter_native -p adapter_imathas -p project-tools -p domain -p export_crate --all-targets
 cargo clippy -p adapter_webwork -p adapter_native -p adapter_imathas -p project-tools -p domain -p export_crate --all-targets -- -D warnings
-python3 -m pytest -q tests/test_bump_version.py
+python3 -m py_compile devel/bump_version.py devel/bump_version/*.py
+python3 devel/bump_version.py --help
+python3 devel/bump_version.py --help-advanced
+python3 devel/bump_version.py --source VERSION --bump patch --dry-run
 
 # WP-SIZE4: browser contracts and learner behavior.
 npx tsc --noEmit -p tsconfig.json
@@ -397,7 +415,7 @@ node --import tsx --test tests/test_*.mjs
 npx playwright test tests/playwright/frontend_contract.spec.ts tests/playwright/student_keyboard_accessibility.spec.ts --workers=1
 
 # WP-SIZE5: permanent policy and integrated close-out.
-source source_me.sh && python3 -m pytest -q tests/test_source_file_size.py
+source source_me.sh && python3 -m pytest -q tests/test_source_file_line_limit.py
 ./check_codebase.sh
 source source_me.sh && python3 -m pytest -q tests
 npx playwright test --workers=1
@@ -405,11 +423,17 @@ git diff --check
 git diff --cached --check
 ```
 
-`tests/test_source_file_size.py` exposes one pure discovery/count helper and tests it with temporary
-files at 999 and 1,000 physical lines, an unterminated final line, CRLF, invalid UTF-8, NUL bytes, a
-file symlink, and a directory symlink. Each WP-ARCH1 package regenerates the exact inventory at its
-start and acceptance, records its pre-extraction focused command output, and reruns the same commands
-after every capability move; a green final gate cannot replace that before/after evidence.
+`tests/test_source_file_line_limit.py` is the permanent architecture boundary. It checks maintained
+tracked sources through the shared hygiene discovery contract and pins the meaningful 999-pass /
+1,000-fail behavior. Each WP-ARCH1 package regenerates the exact inventory at its start and
+acceptance, records its pre-extraction focused command output, and reruns the same commands after
+every capability move; a green final gate cannot replace that before/after evidence.
+
+Exact symbol inventories, module-name lists, pre/post file counts, compiler-error probes, migration
+spot-checks, and other assertions whose only purpose is to prove this one-time extraction are
+implementation evidence, not permanent tests. Keep those checks as copy-paste commands or disposable
+scratch probes and remove them before package acceptance. A new permanent pytest must satisfy every
+item in `docs/PYTEST_STYLE.md`; when its lasting behavioral value is uncertain, omit or delete it.
 
 ## Test and verification strategy
 
@@ -420,6 +444,11 @@ The browser lane runs strict TypeScript, ESLint, unit tests, generated-contract 
 behavior-focused Playwright. WP-SIZE5 runs the permanent line policy, the complete repository gate,
 the full Python suite, Markdown/ASCII/whitespace checks, and both diff checks.
 
+The permanent suite retains existing behavior, security, tenancy, serialization, and Store
+conformance tests plus the source-size boundary itself. It does not gain tests for exact extracted
+file names, source line counts below the boundary, facade method lists, or today's module layout;
+those would freeze implementation details rather than protect behavior.
+
 A move fails when public imports break, fixtures change without an owning generator, route bytes or
 status change, a security review finds an authorization-order difference, SQL/transaction evidence
 changes, or behavior tests regress. The owner restores the prior capability boundary before trying a
@@ -427,28 +456,35 @@ different extraction; it does not add a compatibility shim solely to make the sp
 
 ## Risk register
 
-| Risk                                  | Impact | Trigger                                                    | Owner      | Mitigation                                                                             |
-| ------------------------------------- | ------ | ---------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------- |
-| Hidden behavior change                | High   | Fixture, SQL, route, or UI output changes during a move    | Lane owner | One-capability patches with focused before/after evidence and independent review       |
-| Circular module dependencies          | High   | Facade must import a child that imports the facade         | Lane owner | Move shared types downward into one contract module; prohibit peer back-edges          |
-| Merge conflicts with feature work     | High   | RC4/payload patch edits an active extraction owner         | Integrator | Accept after RC3 and before RC4; exclusive lane ownership until handoff                |
-| Cosmetic split without ownership gain | Medium | New file has no capability name or independent tests       | Architect  | Reject line-range/include fragments; require mapped responsibility and review boundary |
-| Size test skips real source           | Medium | Oversized maintained file outside scanned roots/extensions | WP-SIZE5   | Exact root/extension contract plus independent whole-tree inventory comparison         |
-| Documentation drift                   | Medium | Contributor map points to removed parent implementation    | WP-SIZE5   | Architecture/file-map/link gates are acceptance requirements                           |
+| Risk                                  | Impact | Trigger                                                            | Owner      | Mitigation                                                                                     |
+| ------------------------------------- | ------ | ------------------------------------------------------------------ | ---------- | ---------------------------------------------------------------------------------------------- |
+| Hidden behavior change                | High   | Fixture, SQL, route, or UI output changes during a move            | Lane owner | One-capability patches with focused before/after evidence and independent review               |
+| Circular module dependencies          | High   | Facade must import a child that imports the facade                 | Lane owner | Move shared types downward into one contract module; prohibit peer back-edges                  |
+| Merge conflicts with feature work     | High   | RC4/payload patch edits an active extraction owner                 | Integrator | Accept after RC3 and before RC4; exclusive lane ownership until handoff                        |
+| Cosmetic split without ownership gain | Medium | New file has no capability name or independent tests               | Architect  | Reject line-range/include fragments; require mapped responsibility and review boundary         |
+| Size test skips real source           | Medium | Oversized maintained file outside policy or an overbroad exception | WP-SIZE5   | Closed discovery contract, artifact-only exact overrides, and independent inventory comparison |
+| Documentation drift                   | Medium | Contributor map points to removed parent implementation            | WP-SIZE5   | Architecture/file-map/link gates are acceptance requirements                                   |
 
 ## Rollout and release checklist
 
-- [ ] At each WP-ARCH1 package start and acceptance, regenerate the exact inventory and reconcile it
-      with the dated 2026-08-10 baseline snapshot.
-- [ ] Capture focused baselines and freeze overlapping feature edits.
-- [ ] Accept WP-SIZE1 persistence extraction and independent PostgreSQL review.
-- [ ] Accept WP-SIZE2 server extraction and independent security review.
-- [ ] Accept WP-SIZE3 adapter/tooling extraction and provider-security reviews.
-- [ ] Accept WP-SIZE4 browser extraction and TypeScript/HCI review.
-- [ ] Land the no-exception source-size gate and prove the 999/1,000 boundary.
-- [ ] Run the integrated repository and browser gates.
-- [ ] Refresh architecture, file map, status, and changelog; record final inventory.
-- [ ] Obtain final independent architecture review before WP-RC4 begins.
+- [x] Regenerate the exact inventory at implementation start and close-out; reconcile the zero-code
+      result with the dated 2026-08-10 baseline snapshot.
+- [x] Capture focused baselines and preserve overlapping feature behavior.
+- [x] Complete and validate WP-SIZE1 persistence extraction.
+- [x] Obtain the independent PostgreSQL review for WP-SIZE1.
+- [x] Complete and validate WP-SIZE2 server extraction.
+- [x] Obtain the independent security review for WP-SIZE2.
+- [x] Complete and validate WP-SIZE3 adapter/tooling extraction.
+- [x] Obtain the independent provider-security reviews for WP-SIZE3.
+- [x] Complete and validate WP-SIZE4 browser extraction.
+- [x] Obtain the independent TypeScript/HCI review for WP-SIZE4.
+- [x] Land the source-size gate, prove the 999/1,000 boundary, and verify that every exact override
+      is a frozen migration or documentation/history artifact rather than maintained code.
+- [x] Run the disposable PostgreSQL baseline through the decomposed Store and live integration-test
+      owners, including the atomic flat-import provenance test.
+- [x] Run the integrated repository and browser gates.
+- [x] Refresh architecture, file map, status, and changelog; record final inventory.
+- [x] Obtain final independent architecture review before WP-RC4 begins.
 
 ## Documentation close-out requirements
 

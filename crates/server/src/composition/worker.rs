@@ -5,7 +5,7 @@ use std::{sync::Arc, time::Duration};
 use anyhow::{Context, Result, bail};
 use learning_data_access::{JobKind, postgres::SchemaCompatibilityError};
 
-use super::{LazyStorageDependencies, StorageSettings};
+use super::settings::{LazyStorageDependencies, StorageSettings};
 use crate::{
     export_worker::{ExportJobCommitter, ExportJobHandler},
     item_analysis_worker::{CourseItemAnalysisCommitter, CourseItemAnalysisHandler},

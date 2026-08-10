@@ -1,6 +1,6 @@
 use super::*;
 use grading::GradeOutcome;
-use question_model::response::StudentResponse;
+use question_model::response::{HotspotPoint, MatchPair, StudentResponse, TextEntryAnswer};
 use question_model::{ProblemId, QuestionSource, VersionId};
 use serde_json::Value;
 use uuid::Uuid;
@@ -31,14 +31,301 @@ const FAVORITE_COLOR: &str = r#"{
 }"#;
 
 fn published(draft: DraftQuestionDefinition) -> QuestionDefinition {
+    let DraftQuestionSource::Native { family } = &draft.source else {
+        panic!("flat fixture must use a native family");
+    };
+    let family = family.clone();
     QuestionDefinition::from_draft(
         draft,
         ProblemId::from_uuid(Uuid::from_u128(2)),
         VersionId::from_uuid(Uuid::from_u128(3)),
-        QuestionSource::Native {
-            family: FLAT_SINGLE_CHOICE_FAMILY.to_string(),
-        },
+        QuestionSource::Native { family },
     )
+}
+
+fn v2_source(response: Value) -> Vec<u8> {
+    serde_json::to_vec(&serde_json::json!({
+        "format": "pleFlatQuestion",
+        "version": 2,
+        "title": "Version 2 family fixture",
+        "prompt": "Complete the response.",
+        "response": response,
+        "feedback": {"correct": "Correct.", "incorrect": "Try again."},
+        "points": 2.0,
+        "attemptPolicy": {"maxAttempts": null, "feedback": "immediateFull"},
+        "timingPolicy": {"kind": "untimed"},
+        "tags": ["fixture"],
+        "taxonomy": [],
+        "license": {"kind": "ccBySa"},
+        "language": "en-US"
+    }))
+    .expect("version 2 fixture should encode")
+}
+
+#[test]
+fn version_two_compiles_and_grades_all_eight_flat_families() {
+    let cases = vec![
+        (
+            "single choice",
+            serde_json::json!({
+                "kind": "singleChoice",
+                "choices": [
+                    {"id":"a", "text":"A", "feedback":null},
+                    {"id":"b", "text":"B", "feedback":null}
+                ],
+                "correctChoice": "b"
+            }),
+            StudentResponse::MultipleChoice {
+                selected: vec![ChoiceId::new("b")],
+            },
+            StudentResponse::MultipleChoice {
+                selected: vec![ChoiceId::new("a")],
+            },
+        ),
+        (
+            "multiple answer",
+            serde_json::json!({
+                "kind": "multipleAnswer",
+                "choices": [
+                    {"id":"a", "text":"A", "feedback":null},
+                    {"id":"b", "text":"B", "feedback":null},
+                    {"id":"c", "text":"C", "feedback":null}
+                ],
+                "correctChoices": ["a", "c"]
+            }),
+            StudentResponse::MultipleChoice {
+                selected: vec![ChoiceId::new("c"), ChoiceId::new("a")],
+            },
+            StudentResponse::MultipleChoice {
+                selected: vec![ChoiceId::new("a")],
+            },
+        ),
+        (
+            "fill in",
+            serde_json::json!({
+                "kind": "fillIn",
+                "answers": ["adenine"],
+                "matchMode": "normalized",
+                "maxLength": 40
+            }),
+            StudentResponse::ShortText {
+                text: " Adenine ".to_string(),
+            },
+            StudentResponse::ShortText {
+                text: "guanine".to_string(),
+            },
+        ),
+        (
+            "multi fill in",
+            serde_json::json!({
+                "kind": "multiFillIn",
+                "blanks": [
+                    {"id":"purine", "label":"Purine", "answers":["adenine"], "matchMode":"normalized", "maxLength":40},
+                    {"id":"pyrimidine", "label":"Pyrimidine", "answers":["cytosine"], "matchMode":"normalized", "maxLength":40}
+                ]
+            }),
+            StudentResponse::MultiBlank {
+                answers: vec![
+                    TextEntryAnswer {
+                        slot: ChoiceId::new("purine"),
+                        text: "adenine".to_string(),
+                    },
+                    TextEntryAnswer {
+                        slot: ChoiceId::new("pyrimidine"),
+                        text: "cytosine".to_string(),
+                    },
+                ],
+            },
+            StudentResponse::MultiBlank {
+                answers: vec![
+                    TextEntryAnswer {
+                        slot: ChoiceId::new("purine"),
+                        text: "guanine".to_string(),
+                    },
+                    TextEntryAnswer {
+                        slot: ChoiceId::new("pyrimidine"),
+                        text: "cytosine".to_string(),
+                    },
+                ],
+            },
+        ),
+        (
+            "numeric",
+            serde_json::json!({
+                "kind": "numeric",
+                "answer": 7.4,
+                "tolerance": {"kind":"absolute", "epsilon":0.1},
+                "unit": "pH"
+            }),
+            StudentResponse::Numeric { value: 7.5 },
+            StudentResponse::Numeric { value: 7.6 },
+        ),
+        (
+            "matching",
+            serde_json::json!({
+                "kind": "matching",
+                "prompts": [{"id":"dna", "text":"DNA"}, {"id":"rna", "text":"RNA"}],
+                "choices": [{"id":"deoxy", "text":"Deoxyribose"}, {"id":"ribose", "text":"Ribose"}],
+                "matches": [{"prompt":"dna", "choice":"deoxy"}, {"prompt":"rna", "choice":"ribose"}]
+            }),
+            StudentResponse::Matching {
+                matches: vec![
+                    MatchPair {
+                        prompt: ChoiceId::new("dna"),
+                        choice: ChoiceId::new("deoxy"),
+                    },
+                    MatchPair {
+                        prompt: ChoiceId::new("rna"),
+                        choice: ChoiceId::new("ribose"),
+                    },
+                ],
+            },
+            StudentResponse::Matching {
+                matches: vec![
+                    MatchPair {
+                        prompt: ChoiceId::new("dna"),
+                        choice: ChoiceId::new("ribose"),
+                    },
+                    MatchPair {
+                        prompt: ChoiceId::new("rna"),
+                        choice: ChoiceId::new("deoxy"),
+                    },
+                ],
+            },
+        ),
+        (
+            "ordering",
+            serde_json::json!({
+                "kind": "ordering",
+                "items": [{"id":"one", "text":"One"}, {"id":"two", "text":"Two"}, {"id":"three", "text":"Three"}],
+                "correctOrder": ["one", "two", "three"]
+            }),
+            StudentResponse::Ordering {
+                order: ["one", "two", "three"]
+                    .into_iter()
+                    .map(ChoiceId::new)
+                    .collect(),
+            },
+            StudentResponse::Ordering {
+                order: ["two", "one", "three"]
+                    .into_iter()
+                    .map(ChoiceId::new)
+                    .collect(),
+            },
+        ),
+        (
+            "hotspot",
+            serde_json::json!({
+                "kind": "hotspot",
+                "surface": {
+                    "asset":"00000000-0000-0000-0000-000000000123",
+                    "checksum":"1111111111111111111111111111111111111111111111111111111111111111",
+                    "description":"A labeled cell diagram"
+                },
+                "regions": [
+                    {"id":"nucleus", "label":"Nucleus", "x":1000, "y":1000, "width":2000, "height":2000},
+                    {"id":"membrane", "label":"Cell membrane", "x":6000, "y":6000, "width":2000, "height":2000}
+                ],
+                "correctRegions": ["nucleus"]
+            }),
+            StudentResponse::Hotspot {
+                points: vec![HotspotPoint { x: 2000, y: 2000 }],
+            },
+            StudentResponse::Hotspot {
+                points: vec![HotspotPoint { x: 7000, y: 7000 }],
+            },
+        ),
+    ];
+
+    for (name, source, correct_response, wrong_response) in cases {
+        let document = FlatQuestionDocument::parse(&v2_source(source))
+            .unwrap_or_else(|error| panic!("{name} source should parse: {error}"));
+        let (draft, private) = document
+            .compile(WorkspaceId::from_uuid(Uuid::from_u128(41)))
+            .unwrap_or_else(|error| panic!("{name} source should compile: {error}"))
+            .into_parts();
+        let public_json = serde_json::to_string(&draft).expect("public draft serializes");
+        assert!(!public_json.contains("correctChoice"), "{name}");
+        assert!(!public_json.contains("correctChoices"), "{name}");
+        assert!(!public_json.contains("correctOrder"), "{name}");
+        assert!(!public_json.contains("correctRegions"), "{name}");
+        let question = published(draft);
+        let correct = private
+            .evaluate(&question, &correct_response)
+            .unwrap_or_else(|error| panic!("{name} correct response should grade: {error}"));
+        assert!(
+            matches!(correct.outcome, GradeOutcome::Graded(result) if result.correct && result.points_earned == 2.0),
+            "{name}"
+        );
+        let wrong = private
+            .evaluate(&question, &wrong_response)
+            .unwrap_or_else(|error| panic!("{name} wrong response should grade: {error}"));
+        assert!(
+            matches!(wrong.outcome, GradeOutcome::Graded(result) if !result.correct && result.points_earned == 0.0),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn version_two_refuses_ambiguous_or_incomplete_private_bindings() {
+    let invalid = [
+        serde_json::json!({
+            "kind":"singleChoice",
+            "choices":[{"id":"a","text":"A"},{"id":"b","text":"B"}],
+            "correctChoice":"missing"
+        }),
+        serde_json::json!({
+            "kind":"multipleAnswer",
+            "choices":[{"id":"a","text":"A"},{"id":"b","text":"B"}],
+            "correctChoices":["a","a"]
+        }),
+        serde_json::json!({
+            "kind":"fillIn","answers":[],"matchMode":"normalized","maxLength":40
+        }),
+        serde_json::json!({
+            "kind":"multiFillIn",
+            "blanks":[
+                {"id":"same","label":"First","answers":["a"],"matchMode":"exact","maxLength":10},
+                {"id":"same","label":"Second","answers":["b"],"matchMode":"exact","maxLength":10}
+            ]
+        }),
+        serde_json::json!({
+            "kind":"numeric","answer":1.0,
+            "tolerance":{"kind":"absolute","epsilon":-0.1}
+        }),
+        serde_json::json!({
+            "kind":"matching",
+            "prompts":[{"id":"p1","text":"P1"},{"id":"p2","text":"P2"}],
+            "choices":[{"id":"c1","text":"C1"},{"id":"c2","text":"C2"}],
+            "matches":[{"prompt":"p1","choice":"c1"},{"prompt":"p2","choice":"c1"}]
+        }),
+        serde_json::json!({
+            "kind":"ordering",
+            "items":[{"id":"a","text":"A"},{"id":"b","text":"B"},{"id":"c","text":"C"}],
+            "correctOrder":["a","b","b"]
+        }),
+        serde_json::json!({
+            "kind":"hotspot",
+            "surface":{
+                "asset":"00000000-0000-0000-0000-000000000123",
+                "checksum":"1111111111111111111111111111111111111111111111111111111111111111",
+                "description":"A diagram"
+            },
+            "regions":[
+                {"id":"left","label":"Left","x":1000,"y":1000,"width":3000,"height":3000},
+                {"id":"right","label":"Right","x":2000,"y":2000,"width":3000,"height":3000}
+            ],
+            "correctRegions":["left"]
+        }),
+    ];
+
+    for source in invalid {
+        let Err(error) = FlatQuestionDocument::parse(&v2_source(source)) else {
+            panic!("invalid version 2 private binding must refuse");
+        };
+        assert!(matches!(error, FlatQuestionError::InvalidDocument(_)));
+    }
 }
 
 fn text(blocks: Option<&Vec<ContentBlock>>) -> Vec<&str> {
@@ -257,7 +544,7 @@ fn private_material_validates_canonical_shape_and_rejects_substitutions() {
     ));
     let mut mutated: Value =
         serde_json::from_slice(&canonical).expect("canonical payload should parse to JSON");
-    mutated["schemaVersion"] = 2.into();
+    mutated["schemaVersion"] = 3.into();
     assert!(
         FlatQuestionPrivate::from_canonical_bytes(&serde_json::to_vec(&mutated).expect("mutated"))
             .is_err()

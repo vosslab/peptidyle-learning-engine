@@ -4,7 +4,7 @@
 //! stay in `grading`, outside the generated browser types and the WASM
 //! dependency closure.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use question_model::response::ChoiceId;
 use serde::{Deserialize, Serialize};
@@ -36,10 +36,25 @@ pub enum AnswerKey {
         /// Accepted answers in authoring order.
         accepted: Vec<String>,
     },
+    /// Accepted values for every named multi-blank slot.
+    MultiBlank {
+        /// Slot identifier to accepted answer forms.
+        accepted: BTreeMap<ChoiceId, Vec<String>>,
+    },
+    /// Correct prompt-to-choice matching.
+    Matching {
+        /// Prompt identifier to correct choice identifier.
+        correct: BTreeMap<ChoiceId, ChoiceId>,
+    },
     /// Correct ordering of item identifiers.
     Ordering {
         /// Expected identifiers from first to last.
         correct: Vec<ChoiceId>,
+    },
+    /// Correct candidate regions on a hotspot surface.
+    Hotspot {
+        /// Exact correct region set; geometry remains in the public definition.
+        correct: BTreeSet<ChoiceId>,
     },
     /// Private rubric for a server-routed manual review.
     FileUpload {

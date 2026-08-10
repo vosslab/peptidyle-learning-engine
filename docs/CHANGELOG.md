@@ -4,15 +4,41 @@
 
 ### Additions and New Features
 
+- Added PLE flat-question JSON v2 as the closed internal source contract for multiple choice,
+  multiple answer, fill-in-the-blank, multi-blank, numerical entry, matching, ordering, and image
+  hotspot questions while preserving exact v1 single-choice compatibility. The native compiler now
+  separates answer-free render definitions from server-only grading keys for all eight families;
+  strict browser decoders and Solid response controls cover their exact wire shapes, and the
+  no-mouse suite exercises the new compound and hotspot region-list interactions. The design adopts
+  the reviewed QTI Package Maker item semantics where available and treats hotspot as a bounded PLE
+  extension. Visual family authoring, external QTI-JSONL interchange, all-family PostgreSQL/object
+  acceptance, hotspot pointer/media workflows, pilot content, and independent WP-RC4 review remain
+  explicitly open.
+
+- Added the durable PLE no-mouse accessibility contract. It makes the platform path primary: Tab and
+  Shift+Tab move focus, Space selects choices and activates visible buttons, and the complete
+  course-to-mastery journey reaches explicit submission without a widget shortcut. Arrow keys,
+  digits 1-9, response-input Enter-to-submit, and Escape now have separately named extension
+  scenarios, so failures identify either a platform accessibility regression or a PLE shortcut
+  regression. Visible response hints state the platform action first, digit shortcuts are scoped to
+  focused choice inputs, and the contract covers focus, recovery, keyboard-safe future families,
+  permanent-versus-human evidence, the passed live WebWork extension path, and a permanent axe gate
+  for serious or critical student-surface regressions.
+
 - Accepted the implementation-ready secure grading payload decision before WP-RC5. Learner
   submission authority is the authenticated attempt plus idempotency key; each selectable rendered
   object receives a collision-checked, presentation-scoped CRC-16/CCITT-FALSE ID, while a separate
   SHA-256 descriptor detects whole-presentation mismatches. The plan defines minimal wire shapes for
   all eight flat families, server-only partial credit, an atomic persistence/cutover migration,
   one-call normal WeBWorK grading state, timed-prefetch policy, browser recovery, measured latency
-  gates, and an evidence-based LibreTexts ADAPT comparison. Added `docs/MULTI_SERVER_SETUP.md` as the
-  current guide to local Caddy/API/worker scaling, shared state, health, private WeBWorK isolation,
-  failure behavior, and the explicitly planned-not-implemented WP-RC10 production topology.
+  gates, and an evidence-based LibreTexts ADAPT comparison. A fresh source audit distinguishes the
+  required render-schema `kind` from the redundant submission `kind`, retires broad learner attempt
+  projections, and replaces the current seven-request run-screen assembly with one minimal learner
+  screen. Added `docs/ASSESSMENT_PAYLOAD_DESIGN.md` as the durable current-versus-target payload,
+  ADAPT comparison, native/WeBWorK grading, consistency, caching, and prefetch guide. Added
+  `docs/MULTI_SERVER_SETUP.md` as the current guide to local Caddy/API/worker scaling,
+  shared state, health, private WeBWorK isolation, failure behavior, and the explicitly
+  planned-not-implemented WP-RC10 production topology.
 
 - Replaced mutable local PostgreSQL, MinIO, and MinIO Client image tags with required immutable
   digest settings. A networkless, read-only pre-start guard now refuses a retained PostgreSQL data
@@ -24,16 +50,41 @@
   refactoring note. The package inventories 26 maintained files at 1,000 lines or more, assigns
   persistence, server, adapter/tooling, browser, integration, and independent-review ownership,
   names exact capability destinations and gates, preserves stable facades and behavior, and requires
-  a permanent test with no filename exception list. It runs after accepted WP-RC3 and before WP-RC4
+  a permanent test with no maintained-code exception. It runs after the passed WP-RC3 live gate and
+  before final RC3 close-out and WP-RC4
   so later payload and flat-family work extends focused owners.
 
+- Completed WP-ARCH1's implementation and integrated validation without claiming independent
+  acceptance. Twenty-six oversized maintained sources now use capability-sized persistence, server,
+  adapter/tooling, and browser owners behind stable facades; the untracked-aware inventory reports
+  zero maintained-code violations. The permanent size boundary passes 573 cases, the full Python
+  suite passes 2,442 tests, the eleven-stage codebase gate passes, and Playwright passes 64 tests
+  with two deliberate opt-in skips. One-time symbol, compiler, CLI, and layout probes were removed or
+  retained only as evidence rather than becoming permanent tests.
+
 - Refreshed the newcomer and contributor documentation set. README, architecture, installation,
-  usage, and file-structure guidance now describe the current local stack and the pending live
-  WeBWorK acceptance boundary. Added focused references for development, adapters, database
+  usage, and file-structure guidance now describe the current local stack and the bounded WeBWorK
+  acceptance boundary. Added focused references for development, adapters, database
   tenancy, object storage, input formats, troubleshooting, frequently asked questions, and related
   projects. The release documents remain unchanged because this mixed worktree is not a release.
 
 ### Fixes and Maintenance
+
+- Accepted WP-ARCH1 and WP-RC3 after independent review. The permanent source-size gate reports no
+  maintained source at 1,000 lines or more and passes 582 tests; `./check_codebase.sh` passes all 11
+  stages; the repository Python suite passes 2,451 tests; the browser suite passes 72 tests with two
+  deliberate opt-in skips; and the focused server suite passes 189 tests with three live fixtures
+  explicitly ignored. The accepted RC3 boundary is the private, source-pinned RadioButtons path;
+  broad OPL compatibility and WeBWorK MATCH remain separately owned by WP-RC5. WP-RC4's PLE flat
+  JSON v2 close-out and independent review are now the next dependency; external QTI-JSONL is a
+  future adapter concern rather than a native-family prerequisite.
+
+- Ran the source-pinned upstream WeBWorK profile through the complete PLE live acceptance on Podman 6. The real gateway path proved authenticated RadioButtons rendering, one renderer call followed
+  by same-attempt cache hits, full and zero server-owned grading, idempotent replay, renderer-outage
+  isolation, recovery, keyboard-only browser operation, and absence of source, credentials, hidden
+  upstream fields, or answer mappings in browser-visible data. The eleven-stage codebase gate passes;
+  WP-ARCH1's implementation and all integrated gates now pass, so RC3 final close-out waits only on
+  WP-ARCH1's independent acceptance and the final RC3 review.
 
 - Corrected the local-stack operator contract and stale planning navigation found during the
   documentation audit. The launcher now prints the complete WebWork overlay/profile teardown command,
@@ -41,6 +92,12 @@
   PostgreSQL volumes are documented as PostgreSQL 17 and non-destructively checked, and concluded
   database/QTI review records point to the current RC3, WP-ARCH1, RC4, RC5, and RC6 package order
   instead of inviting baseline rewrites or superseded work.
+
+- Corrected the disposable PostgreSQL baseline after the source decomposition revealed a stale
+  root-level exact test filter. The runner now executes the complete flat-import provenance
+  integration-test binary, so a module move cannot silently produce a zero-test pass. A fresh full
+  run executed that test and passed migration replay/checksum refusal, partition and summary plans,
+  QTI/flat private grading paths, manual grading, role/RLS denial, and exact disposable cleanup.
 
 - Rotated the 2026-08-06 through 2026-08-08 history into `docs/CHANGELOG-2026-08a.md` with the
   maintained changelog tool. The active changelog retains the two newest date blocks as required by

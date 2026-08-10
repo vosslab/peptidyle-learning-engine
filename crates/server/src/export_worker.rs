@@ -144,6 +144,24 @@ fn referenced_assets(question: &QuestionDefinition) -> Vec<AssetRef> {
                 assets.extend(assets_in_blocks(&item.body));
             }
         }
+        ResponseDefinition::MultiBlank { blanks } => {
+            for blank in blanks {
+                assets.extend(assets_in_blocks(&blank.label));
+            }
+        }
+        ResponseDefinition::Matching { prompts, choices } => {
+            for item in prompts.iter().chain(choices) {
+                assets.extend(assets_in_blocks(&item.body));
+            }
+        }
+        ResponseDefinition::Hotspot {
+            surface, regions, ..
+        } => {
+            assets.push(surface.clone());
+            for region in regions {
+                assets.extend(assets_in_blocks(&region.label));
+            }
+        }
         ResponseDefinition::Numeric { .. }
         | ResponseDefinition::ShortText { .. }
         | ResponseDefinition::FileUpload { .. }

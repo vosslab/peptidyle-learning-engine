@@ -144,22 +144,34 @@ for choice in choices:
     normalized = visible.casefold()
     if any(name in normalized for name in names[classification]) and isinstance(choice.get("id"), str):
         matches.append(choice["id"])
-if len(matches) != 1:
-    raise SystemExit(f"expected one visible {classification} choice, found {len(matches)}")
+if classification == "hydrophobic" and len(matches) != 1:
+    raise SystemExit(f"expected one visible hydrophobic choice, found {len(matches)}")
+if classification == "hydrophilic" and not matches:
+    raise SystemExit("expected at least one visible hydrophilic distractor")
 print(matches[0])
 PY
 }
 
-assert_deferred_receipt() {
+assert_completed_deferred_receipt() {
 	python3 - "$1" "$2" <<'PY'
 import json
 import sys
 
 document = json.load(open(sys.argv[1], encoding="utf-8"))
+expected_score = float(sys.argv[2])
+expected_correct = expected_score == 1.0
 if document.get("accepted") is not True:
     raise SystemExit("submission receipt was not accepted")
-if document.get("attempt", {}).get("result") is not None or document.get("feedback") is not None:
-    raise SystemExit("deferred WebWork receipt exposed a result or feedback")
+result = document.get("attempt", {}).get("result")
+feedback = document.get("feedback")
+if not isinstance(result, dict) or not isinstance(feedback, dict):
+    raise SystemExit("completed deferred WebWork receipt omitted its authorized result")
+if result.get("correct") is not expected_correct or float(result.get("pointsEarned", -1)) != expected_score or float(result.get("pointsPossible", -1)) != 1.0:
+    raise SystemExit("completed deferred WebWork receipt carried the wrong result")
+if set(feedback) != {"correctness", "pointsEarned", "pointsPossible"}:
+    raise SystemExit("completed deferred WebWork feedback exceeded its exact allowlist")
+if feedback.get("correctness") is not expected_correct or float(feedback.get("pointsEarned", -1)) != expected_score or float(feedback.get("pointsPossible", -1)) != 1.0:
+    raise SystemExit("completed deferred WebWork feedback carried the wrong result")
 for key in ("answerKey", "correctResponse", "gradingPayload", "privateGrading", "problemSource", "passwd", "AnSwEr"):
     if key in json.dumps(document, separators=(",", ":")):
         raise SystemExit(f"submission receipt leaked {key}")
@@ -244,7 +256,8 @@ structured_event_count() {
 	# `ple.webwork.cache` is a deliberately non-sensitive server event target.
 	# The Rust contract emits only the event name, never tenant/source/seed,
 	# renderer credentials, cache keys, answer fields, or response data.
-	grep -Ec "ple\\.webwork\\.cache.*event=\\\"?$2\\\"?" "$1" || true
+	local pattern="ple[.]webwork[.]cache.*event=\"${2}\""
+	grep -Ec "$pattern" "$1" || true
 }
 calls_before="$(structured_event_count "$api_before_run" renderer_call)"
 hits_before="$(structured_event_count "$api_before_run" cache_hit)"
@@ -254,19 +267,21 @@ calls_after_first="$(structured_event_count "$api_after_first" renderer_call)"
 hits_after_first="$(structured_event_count "$api_after_first" cache_hit)"
 calls_after_second="$(structured_event_count "$api_after_second" renderer_call)"
 hits_after_second="$(structured_event_count "$api_after_second" cache_hit)"
-[ "$calls_after_run" -eq $((calls_before + 1)) ] || fail "run creation did not produce exactly one WebWork renderer_call cache-miss event"
+# A prior failed local acceptance can leave this deterministic pilot's active
+# run resumable. Fresh creation emits one miss; safe resumption emits none.
+[ "$calls_after_run" -eq "$calls_before" ] || [ "$calls_after_run" -eq $((calls_before + 1)) ] || fail "run creation emitted an invalid WebWork renderer_call count"
 [ "$calls_after_first" -eq "$calls_after_run" ] || fail "first PLE question GET made an unexpected renderer call"
 [ "$hits_after_first" -eq $((hits_after_run + 1)) ] || fail "first PLE question GET did not produce exactly one WebWork cache_hit event"
 [ "$calls_after_second" -eq "$calls_after_first" ] || fail "same-attempt replay made an unexpected renderer call"
 [ "$hits_after_second" -eq $((hits_after_first + 1)) ] || fail "same-attempt replay did not produce exactly one WebWork cache_hit event"
-[ "$calls_after_run" -gt "$calls_before" ] && [ "$hits_after_second" -gt "$hits_before" ] || fail "WebWork cache evidence was unexpectedly all-zero"
+[ "$hits_after_second" -gt "$hits_before" ] || fail "WebWork cache-hit evidence was unexpectedly all-zero"
 
 correct_choice="$(choose_visible_answer "$question_one" hydrophobic)"
 receipt_one="$WORK_DIRECTORY/receipt-one.json"
 correct_submission="{\"response\":{\"kind\":\"multipleChoice\",\"selected\":[\"${correct_choice}\"]}}"
 submit_one_status="$(gateway_request POST "/api/submissions/${attempt_one}" "$receipt_one" --header 'content-type: application/json' --header 'idempotency-key: ple-webwork-correct-1' --data "$correct_submission")"
 [ "$submit_one_status" = "200" ] || fail "correct PLE WebWork submission returned HTTP $submit_one_status"
-assert_deferred_receipt "$receipt_one"
+assert_completed_deferred_receipt "$receipt_one" 1.0
 receipt_one_replay="$WORK_DIRECTORY/receipt-one-replay.json"
 replay_status="$(gateway_request POST "/api/submissions/${attempt_one}" "$receipt_one_replay" --header 'content-type: application/json' --header 'idempotency-key: ple-webwork-correct-1' --data "$correct_submission")"
 [ "$replay_status" = "200" ] || fail "idempotent WebWork submission replay returned HTTP $replay_status"
@@ -279,7 +294,14 @@ assert_summary_score "$summary_one" 1.0
 
 run_two="$WORK_DIRECTORY/run-two.json"
 attempts_two="$WORK_DIRECTORY/attempts-two.json"
+api_before_second_run="$WORK_DIRECTORY/api-before-second-run.log"
+api_after_second_run="$WORK_DIRECTORY/api-after-second-run.log"
+compose logs --no-color api >"$api_before_second_run" 2>&1 || fail "cannot read PLE API evidence before the fresh second run"
 attempt_two="$(create_attempt "$run_two" "$attempts_two")"
+compose logs --no-color api >"$api_after_second_run" 2>&1 || fail "cannot read PLE API evidence after the fresh second run"
+calls_before_second_run="$(structured_event_count "$api_before_second_run" renderer_call)"
+calls_after_second_run="$(structured_event_count "$api_after_second_run" renderer_call)"
+[ "$calls_after_second_run" -eq $((calls_before_second_run + 1)) ] || fail "fresh continued-practice run did not produce exactly one WebWork renderer_call cache-miss event"
 question_three="$WORK_DIRECTORY/question-three.json"
 third_status="$(gateway_request GET "/api/attempts/${attempt_two}/question" "$question_three")"
 [ "$third_status" = "200" ] || fail "second PLE WebWork question request returned HTTP $third_status"
@@ -287,7 +309,7 @@ incorrect_choice="$(choose_visible_answer "$question_three" hydrophilic)"
 receipt_two="$WORK_DIRECTORY/receipt-two.json"
 submit_two_status="$(gateway_request POST "/api/submissions/${attempt_two}" "$receipt_two" --header 'content-type: application/json' --header 'idempotency-key: ple-webwork-incorrect-1' --data "{\"response\":{\"kind\":\"multipleChoice\",\"selected\":[\"${incorrect_choice}\"]}}")"
 [ "$submit_two_status" = "200" ] || fail "incorrect PLE WebWork submission returned HTTP $submit_two_status"
-assert_deferred_receipt "$receipt_two"
+assert_completed_deferred_receipt "$receipt_two" 0.0
 summary_two="$WORK_DIRECTORY/summary-two.json"
 run_two_id="$(json_value "$run_two" id)"
 summary_status="$(gateway_request GET "/api/runs/${run_two_id}/summary?pageSize=1" "$summary_two")"
@@ -314,14 +336,11 @@ health_file="$WORK_DIRECTORY/health.json"
 health_status="$(gateway_request GET /health "$health_file")"
 [ "$health_status" = "200" ] || fail "native gateway health was not isolated from renderer outage"
 outage_run="$WORK_DIRECTORY/outage-run.json"
-outage_attempts="$WORK_DIRECTORY/outage-attempts.json"
-outage_attempt="$(create_attempt "$outage_run" "$outage_attempts")"
-outage_question="$WORK_DIRECTORY/outage-question.json"
-outage_status="$(gateway_request GET "/api/attempts/${outage_attempt}/question" "$outage_question")"
-[ "$outage_status" = "503" ] || fail "renderer outage did not fail the WebWork question closed with HTTP 503 (got $outage_status)"
+outage_status="$(gateway_request POST /api/runs "$outage_run" --header 'content-type: application/json' --data "{\"assignmentId\":\"${ASSIGNMENT_ID}\"}")"
+[ "$outage_status" = "503" ] || fail "renderer outage did not fail WebWork run issuance closed with HTTP 503 (got $outage_status)"
 restore_renderer
 
-assert_no_private_material "$login_file" "$run_one" "$attempts_one" "$question_one" "$question_two" "$receipt_one" "$receipt_one_replay" "$summary_one" "$run_two" "$attempts_two" "$question_three" "$receipt_two" "$summary_two" "$health_file" "$outage_run" "$outage_attempts" "$outage_question" "$api_before_run" "$api_after_run" "$api_after_first" "$api_after_second"
+assert_no_private_material "$login_file" "$run_one" "$attempts_one" "$question_one" "$question_two" "$receipt_one" "$receipt_one_replay" "$summary_one" "$run_two" "$attempts_two" "$question_three" "$receipt_two" "$summary_two" "$health_file" "$outage_run" "$api_before_run" "$api_after_run" "$api_after_first" "$api_after_second"
 export PLE_WEBWORK_LIVE_REQUIRED=1
 export PLE_WEBWORK_LIVE_BASE_URL="$BASE_URL"
 export PLE_WEBWORK_LIVE_STUDENT_CREDENTIAL_FILE="$CREDENTIAL_FILE"

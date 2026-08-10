@@ -40,7 +40,7 @@ impl<T> ConfiguredQti for T where T: RunBackend + ?Sized {}
 
 pub struct CompositeBackend<S, O, R> {
     native: NativeBackend<S>,
-    webwork: WebworkBackend<S, O, R>,
+    webwork: Option<WebworkBackend<S, O, R>>,
     imathas: Option<std::sync::Arc<dyn ConfiguredImathas>>,
     qti: Option<std::sync::Arc<dyn ConfiguredQti>>,
 }
@@ -51,7 +51,17 @@ impl<S, O, R> CompositeBackend<S, O, R> {
     pub fn new(native: NativeBackend<S>, webwork: WebworkBackend<S, O, R>) -> Self {
         Self {
             native,
-            webwork,
+            webwork: Some(webwork),
+            imathas: None,
+            qti: None,
+        }
+    }
+    /// Builds the normal native-only registry without manufacturing renderer
+    /// credentials or advertising an unavailable WebWork capability.
+    pub fn native_only(native: NativeBackend<S>) -> Self {
+        Self {
+            native,
+            webwork: None,
             imathas: None,
             qti: None,
         }
@@ -104,6 +114,12 @@ impl<S, O, R> CompositeBackend<S, O, R> {
             .as_ref()
             .ok_or_else(|| RunBackendError::Unsupported("QTI is not configured".into()))
     }
+
+    fn webwork(&self) -> Result<&WebworkBackend<S, O, R>, RunBackendError> {
+        self.webwork
+            .as_ref()
+            .ok_or_else(|| RunBackendError::Unsupported("WebWork is not configured".into()))
+    }
 }
 
 impl<S, O, R> BackendRegistry for CompositeBackend<S, O, R>
@@ -118,10 +134,12 @@ where
     ) -> Result<BackendCapabilities, BackendRegistryError> {
         match source {
             DraftQuestionSource::Native { .. } => self.native.capabilities(source),
-            DraftQuestionSource::Webwork { .. } => Ok(BackendCapabilities::from_iter([
-                question_model::Capability::AlgorithmicGeneration,
-                question_model::Capability::ServerGrading,
-            ])),
+            DraftQuestionSource::Webwork { .. } if self.webwork.is_some() => {
+                Ok(BackendCapabilities::from_iter([
+                    question_model::Capability::AlgorithmicGeneration,
+                    question_model::Capability::ServerGrading,
+                ]))
+            }
             DraftQuestionSource::Imathas { provider, .. }
                 if self
                     .imathas
@@ -164,7 +182,7 @@ where
             }
             question_model::QuestionSource::Webwork { .. } => {
                 let issued = self
-                    .webwork
+                    .webwork()?
                     .issue(context, reference, question, seed)
                     .await?;
                 Ok(IssuedAttemptMetadata {
@@ -204,7 +222,7 @@ where
             }
             question_model::QuestionSource::Webwork { .. } => {
                 let issued = self
-                    .webwork
+                    .webwork()?
                     .issue(context, reference, question, attempt.seed)
                     .await?;
                 validate_issued_attempt(attempt, &issued)?;
@@ -260,7 +278,7 @@ where
                     .await
             }
             question_model::QuestionSource::Webwork { .. } => {
-                self.webwork
+                self.webwork()?
                     .grade(context, reference, question, attempt, response)
                     .await
             }
@@ -287,7 +305,7 @@ where
         match submission.question.source {
             question_model::QuestionSource::Native { .. } => self.native.submit(submission).await,
             question_model::QuestionSource::Webwork { .. } => self
-                .webwork
+                .webwork()?
                 .grade(
                     submission.context,
                     submission.reference,
@@ -705,6 +723,28 @@ mod tests {
         );
         CompositeBackend::new(native, webwork)
     }
+
+    #[test]
+    fn native_only_registry_does_not_advertise_webwork() {
+        let store = Arc::new(learning_data_access::in_memory::MemoryStore::default());
+        let native = NativeBackend::new(
+            Arc::new(adapter_native::NativeAdapter::new()),
+            Arc::clone(&store),
+        );
+        let composite = CompositeBackend::<
+            learning_data_access::in_memory::MemoryStore,
+            objects::memory::MemoryObjectStore,
+            adapter_webwork::HttpWebworkRenderer,
+        >::native_only(native);
+
+        assert!(matches!(
+            composite.capabilities(&DraftQuestionSource::Webwork {
+                pg_path: "Library/PLE/example.pg".into(),
+            }),
+            Err(BackendRegistryError::Unsupported)
+        ));
+    }
+
     fn attempt() -> QuestionAttempt {
         QuestionAttempt {
             id: QuestionAttemptId::from_uuid(id(5)),

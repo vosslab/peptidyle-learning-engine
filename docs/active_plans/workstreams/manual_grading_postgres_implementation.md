@@ -1,5 +1,9 @@
 # Manual grading PostgreSQL implementation handoff
 
+> **Historical workstream record.** This package is retained as implementation evidence, not
+> current task direction. Current authority is the [release completion plan](../active/release_completion_plan.md)
+> and [implementation status](../implementation_status.md).
+
 ## Scope delivered
 
 This slice implements `ManualGradingStore` for `PostgresStore` in the new

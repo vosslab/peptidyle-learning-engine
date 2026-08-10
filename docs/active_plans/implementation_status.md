@@ -1,6 +1,6 @@
 # Implementation status and handoff
 
-Last updated: 2026-08-09
+Last updated: 2026-08-10
 
 This file is a durable execution handoff. The architecture, scope, milestone order, security
 boundaries, and acceptance criteria remain authoritative in `implementation_plan.md`. Durable owner
@@ -252,22 +252,23 @@ The WP-QTI-12 independent review and documentation close-out is complete:
   original reviewer confirmed both findings resolved.
 - The contract and architecture maps now name the profile parser, author upload/report route, worker,
   conversion bridge, Solid author workflow, protected grader boundary, and disposable PostgreSQL/RLS
-  oracle. The flat-question contract also records the complete eight-family minimum, optional
-  feedback sidecars, and QTI Package Maker WP-FQ-0 as the assigned QTI-JSONL source-contract owner.
+  oracle. That historical closeout assigned future QTI-JSONL ownership externally; the current owner
+  decision instead uses PLE flat JSON v2 as the internal all-family source contract.
 - Focused Markdown link, ASCII, README first-paragraph, whitespace, and Prettier gates passed. No
   P0/P1 finding remains.
 
 ## Recent owner-requested support work
 
 - The current PLE-owned student browser flow and all implemented response families passed a focused
-  no-mouse audit. Tab, arrow keys, Space, Enter, and Escape cover the applicable task patterns;
-  representative VoiceOver and NVDA sessions remain a fall-pilot human gate.
+  no-mouse audit. The primary route uses Tab, Shift+Tab, Space, explicit submission, and native link
+  activation; Arrow, digit, Enter-to-submit, and Escape extensions have separately classified
+  component scenarios. Representative VoiceOver and NVDA sessions remain a fall-pilot human gate.
 - `launch_local_stack.sh` is the maintained all-in-one local test front door. It preflights the
   private configuration, generates ignored local identities and secrets, builds the code, migrates
   and seeds PostgreSQL before API/worker startup, provisions the distinct grader login, waits for
   the semantic gateway health response, and opens the browser without deleting persistent volumes.
-  The WeBWorK renderer remains an explicit profile until WP-RC3 replaces the invented `/v1` dialect
-  with the pinned upstream `/render_rpc` integration.
+  The accepted WeBWorK renderer remains an explicit optional profile using the pinned upstream
+  `/render_rpc` integration.
 - [docs/DATABASE_STRUCTURE.md](../DATABASE_STRUCTURE.md) maps implemented revision, assignment, and
   isolated-score relations. WP-RC8 now owns institutional OIDC; passkeys, local passwords, and
   email-code login are explicitly out of version 1 scope. The document records pilot and
@@ -297,22 +298,26 @@ The complete sequence is authoritative in
 `docs/active_plans/active/release_completion_plan.md`:
 
 1. WP-RC1 course appearance is accepted.
-2. WP-RC2 production-seam closure is accepted; WP-RC3 next integrates pinned upstream WeBWorK
-   `/render_rpc`.
-3. WP-ARCH1 follows accepted WP-RC3 and precedes WP-RC4. It extracts every maintained source at
-   1,000 lines or more into capability modules behind stable facades and lands a permanent
-   no-exception size gate. The exact inventory, module map, owners, and validation commands are in
-   `docs/active_plans/active/source_module_decomposition_plan.md`.
-4. WP-RC4 completes the cross-repository QTI-JSONL contract; WP-RC5 implements all eight families and
-   the two exact Chapter 1 assignments; WP-RC6 closes QTI export and H5P claims.
-5. WP-P2 first adds the secure learner-payload binding migration
-   `2026080908_secure_question_grading_payloads.sql`; WP-RC7 then adds bounded inventory, object
-   reconciliation, `2026080909_object_reconciliation.sql`, and
-   the combined M2-M5 acceptance gate.
-6. WP-RC8 implements institutional OIDC with `2026080910_oidc_identity.sql`; WP-RC9 implements LTI
+2. WP-RC2 production-seam closure is accepted. WP-RC3's pinned upstream WeBWorK `/render_rpc`
+   integration is accepted after its live PLE/browser gate and final independent review.
+3. WP-ARCH1 is accepted. Its dated 26-file maintained-source baseline now has zero maintained-code
+   violations behind stable facades; the permanent size gate (582 tests), 2,451-test Python suite,
+   eleven-stage codebase gate, and 72-pass browser suite are green. Its disposable PostgreSQL
+   migration/RLS/conformance baseline also passes through the decomposed owners, and independent
+   PostgreSQL, security, provider, TypeScript/HCI, test, size-policy, and architecture reviews found
+   no unresolved P0/P1 issue.
+4. WP-RC4's PLE flat JSON v2 implementation now covers the eight source/runtime families and awaits
+   independent closeout; external QTI-JSONL is no longer a prerequisite.
+5. WP-P1 through WP-P6 implement and accept the secure learner-payload boundary before WP-RC5
+   acceptance. WP-P2 adds `2026080908_secure_question_grading_payloads.sql`; WP-RC5 then completes
+   visual authoring, all-family Memory/PostgreSQL acceptance, and the two exact Chapter 1
+   assignments, while WP-RC6 closes QTI export and H5P claims.
+6. After WP-P2, WP-RC7 adds bounded inventory, object reconciliation,
+   `2026080909_object_reconciliation.sql`, and the combined M2-M5 acceptance gate.
+7. WP-RC8 implements institutional OIDC with `2026080910_oidc_identity.sql`; WP-RC9 implements LTI
    Advantage with `2026080911_lti_advantage.sql`.
-7. WP-RC10 adds OpenTofu under `deploy/opentofu/`; WP-RC11 adds the measured bot-cost controls.
-8. WP-RC12 runs working-codebase release acceptance and documentation closure after WP-ARCH1.
+8. WP-RC10 adds OpenTofu under `deploy/opentofu/`; WP-RC11 adds the measured bot-cost controls.
+9. WP-RC12 runs working-codebase release acceptance and documentation closure after WP-ARCH1.
 
 The accepted pre-data schema evolution is complete. SQLx owns the directory-backed migration ledger,
 and `2026080907_course_appearance.sql` is the first forward migration. The release plan reserves
@@ -320,18 +325,17 @@ and `2026080907_course_appearance.sql` is the first forward migration. The relea
 `2026080910_oidc_identity.sql`, and `2026080911_lti_advantage.sql`; accepted filenames are not
 renamed or reordered.
 
-### Immediate package: WP-RC3 shipped upstream WeBWorK
+### Immediate packages: WP-RC4 closeout and secure learner payload
 
-- Owner: `rust-code-expert` for the adapter, `integrator` for containers, then independent security
-  review.
-- Files: the exact renderer, server backend, private upstream container, launcher, live gate,
-  browser test, contract/map/status, and changelog owners named in `active/release_completion_plan.md`.
-- Behavior: call private pinned upstream `/render_rpc` using server-owned immutable source,
-  credentials, version, seed, and bounded submission fields; return only sanitized answer-free
-  output and server-side grade outcomes.
-- Success and validation: local `--with-webwork` renders and grades a real source deterministically,
-  proves cache and protected-material boundaries, and passes private-container, outage, browser, full
-  repository, and independent security gates.
+- WP-RC4 owner: native adapter/runtime owner plus an independent contract/security reviewer.
+- Implemented behavior: PLE flat JSON v2 strictly compiles MC, MA, FIB, MULTI-FIB, NUM, MATCH,
+  ORDER, and HOTSPOT into answer-free public definitions and bound grader-only keys. Exact browser
+  decoders, key-free validation, learner controls, and all-or-nothing server grading cover the new
+  response shapes; version 1 single choice remains compatible.
+- Remaining RC4 acceptance: complete invalid-fixture review, secret-free projection scan, and
+  independent contract/security verdict.
+- Next dependency: accept WP-P1 through WP-P6 before WP-RC5's visual authoring, integrated storage,
+  and pilot-content closeout.
 
 ## Known operational notes
 

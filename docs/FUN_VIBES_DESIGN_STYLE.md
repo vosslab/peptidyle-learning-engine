@@ -1,9 +1,8 @@
 # Fun vibes design style
 
-Optional inspiration guide for standalone, ungraded kid-arcade learning games.
-It captures the principles that make `stem-lesson-quiz-game` feel like an
-arcade, not school software. It is not a PLE product requirement or a
-checklist for institutional assessment.
+Design guide for kid-arcade learning games. Captures the principles that
+make `stem-lesson-quiz-game` feel like an arcade, not school software. Use
+this doc as a checklist when porting the vibe to a new game.
 
 ## Scope
 
@@ -22,36 +21,15 @@ It is NOT intended for:
 - General-purpose UI component libraries.
 
 Applying this doc outside its genre will make the result feel infantile
-where it should feel professional. Its general interaction ideas are optional
-inspiration for other standalone games, never a mandate for PLE.
-
-## PLE institutional boundary
-
-This guide is non-normative for Peptidyle Learning Engine (PLE). PLE is an
-institutional learning and assessment system; its active plan, durable human
-guidance, and server contracts override every suggestion in this document.
-
-- PLE mastery means continued repetition with varied, server-issued practice.
-  It does not use coins, a shop, purchasable themes, or browser-owned progress
-  as an authority.
-- PLE has 15 instructor-selected course themes, with `grass` as the default.
-  The theme is a server-owned course appearance projection, not a learner
-  reward, unlockable, rarity tier, or client preference.
-- PLE feedback, disclosure timing, student records, correctness, and scores
-  remain server-owned and policy-controlled. A playful cue cannot disclose
-  correctness or feedback before the server permits it.
-- Any nonessential browser storage, including game preferences or progress,
-  requires the applicable consent path. It cannot become a source of truth.
-
-For PLE implementation, use [docs/HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
-[docs/FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md), and the active plan.
+where it should feel professional. Use the portable rules below in
+non-arcade projects; skip the kid-arcade rules entirely.
 
 ## Rule layers
 
 The doc has two layers. Layer 1 ports to most TypeScript interactive
 projects. Layer 2 applies only inside the kid-arcade genre.
 
-### Layer 1 (portable interaction rules)
+### Layer 1 (portable interaction + engineering rules)
 
 These travel to almost any interactive project:
 
@@ -59,16 +37,14 @@ These travel to almost any interactive project:
 - Momentum is the product (fast feedback, clear state transitions).
 - Big touch targets, keyboard parity, mobile bottom padding.
 - Wrong answers should teach, not punish.
+- Versioned save schema with forward migration.
 - Centralized event dispatch for rewardable events.
+- Cachebust at build time + random dev-server port.
 - No hidden destructive actions (confirm irreversibles).
 - Visual QA (screenshot the visual states, do not just unit-test logic).
 - Avoid long help text (UI should be self-explanatory).
 - Do not flag bold style as a defect unless it causes a SPECIFIC
   usability failure (see the load-bearing rule).
-
-The standalone-game engineering examples later in this guide, including local
-saves and reward-event dispatch, are optional patterns for an ungraded game.
-They do not transfer to PLE's record, consent, or authority boundaries.
 
 ### Layer 2 (kid-arcade-only rules)
 
@@ -146,7 +122,7 @@ These five principles override the others when they conflict.
 - Long help text. If a kid has to read a paragraph to learn the UI, the UI
   is wrong.
 
-## Standalone-game reward systems
+## Reward systems
 
 The reward loop is the engagement engine. Keep it generous and visible.
 
@@ -237,15 +213,14 @@ The reward loop is the engagement engine. Keep it generous and visible.
 - **Stat pills are tappable when they lead somewhere.** Daily Goals pill
   with a "TAP" hint badge routes to Goals scene. Visible affordance.
 
-## Standalone-game architecture patterns
+## Architecture rules that protect the vibe
 
 - **Centralized event dispatch.** ONE `record_event(GameEvent)` funnel for
   every gameplay event. Each goal/quest declares its own handler inline. TS
   compiler enforces every goal has a handler. Adding a goal without wiring
   = build error. Eliminates the orphan-goal class of bug.
-- **Versioned save schema.** A standalone game may use one localStorage key
-  with a version field and forward migration. Obtain consent when required;
-  do not use this pattern for PLE records or authoritative progress.
+- **Versioned save schema.** Single localStorage key with a version field.
+  Schema bumps migrate forward where possible, discard cleanly otherwise.
 - **Coins are the reward currency.** Accuracy, streak, and completion rate
   are performance stats, not spendable currencies. Audit early so they do
   not drift into competing currencies.
@@ -294,13 +269,14 @@ SHOULD-HAVES are aspirational and best added incrementally after early
 playtest signal. Resist shipping every system before the core loop feels
 right.
 
-### Must-have for a standalone game
+### Must-have on day one
 
 - [ ] One reward currency, distinct from any performance stats.
 - [ ] Big touch targets (min 56px), keyboard parity, mobile bottom padding.
 - [ ] Wrong-answer teaching moment with no shaming language.
 - [ ] Centralized event dispatch for any rewardable event (goals, quests,
       achievements, etc).
+- [ ] Versioned save schema with forward migration.
 - [ ] Cachebust at build time + random dev-server port.
 - [ ] The load-bearing rule pinned in every reviewer + QA prompt.
 

@@ -1,5 +1,9 @@
 # Flat-question persistence/publication/runtime package review
 
+> **Historical review.** This concluded review is retained as evidence, not current task direction.
+> Current authority is the [release completion plan](../active/release_completion_plan.md) and
+> [implementation status](../implementation_status.md).
+
 Date: 2026-08-09
 
 ## Status
@@ -134,7 +138,7 @@ the disposable PostgreSQL baseline pass after this remediation.
 - Both persistence backends validate the closed static single-choice draft
   before any mutable database transaction or in-memory write lock is taken:
   PostgreSQL (`crates/learning-data-access/src/postgres/flat_question.rs:35-64,
-  268-273`) and Memory (`crates/learning-data-access/src/in_memory/flat_question.rs:14-29`).
+268-273`) and Memory (`crates/learning-data-access/src/in_memory/flat_question.rs:14-29`).
   The Memory regression test proves a forged `ExternalTool` response leaves
   both draft and source absent (`.../in_memory/flat_question.rs:386-412`).
 - Publication performs the same public-shape check, decodes the typed private
@@ -146,12 +150,12 @@ the disposable PostgreSQL baseline pass after this remediation.
   envelope into `FlatQuestionGradingPayload` after verifying envelope digest,
   database digest, canonical private bytes, and public binding
   (`crates/learning-data-access/src/postgres/flat_question.rs:240-265,
-  306-352`). No raw persisted JSON reaches the runtime.
+306-352`). No raw persisted JSON reaches the runtime.
 - The revised disposable PostgreSQL fixture parses and compiles the real
   authoring document, stores its canonical private bytes, retrieves through
   the isolated grader capability, and evaluates both `blue` as correct and
   `red` as incorrect (`crates/learning-data-access/tests/postgres_flat_question_live.rs:234-270,
-  386-437`). It retains direct app/student answer-key denial and foreign-tenant
+386-437`). It retains direct app/student answer-key denial and foreign-tenant
   non-enumeration checks.
 - The browser closure remains exactly `wasm_bridge`, `domain`, and
   `question_model`, with no `grading` dependency

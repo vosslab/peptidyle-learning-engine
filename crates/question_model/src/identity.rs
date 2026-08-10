@@ -10,11 +10,13 @@
 //! transition that constructs one; a published version is immutable
 //! thereafter.
 //!
-//! External identifiers are UUIDv7: random enough that a catalog number leaks
-//! no volume information, time-ordered enough to index well, never sequential.
+//! Fresh server-minted identifiers are UUIDv7: random enough that a catalog
+//! number leaks no volume information, time-ordered enough to index well, and
+//! never sequential. Storage and wire decoding still accept every canonical
+//! UUID value so deterministic local fixtures and previously persisted IDs can
+//! round-trip without the browser imposing a stricter policy than the server.
 //! Generation sits behind the `generate` feature, which the server enables and
-//! the WebAssembly bridge leaves off, because identifiers are minted
-//! server-side.
+//! the WebAssembly bridge leaves off, because identifiers are minted server-side.
 //!
 //! Each struct is written out rather than produced by a macro, because the
 //! TypeScript generator in `crates/project-tools` reads this source: a type declared

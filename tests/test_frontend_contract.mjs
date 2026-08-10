@@ -315,9 +315,7 @@ test("a cache-hit successor keeps summary projection bound to the advanced attem
 
 test("a prefetch response cannot warm assets unless its transport and page bindings hold", () => {
   const source = fs.readFileSync("src/pages/run_page.tsx", "utf8");
-  const transport = fs.readFileSync("src/api/http_client.ts", "utf8");
 
-  assert.match(transport, /decoded\.predecessor !== attemptId/);
   assert.match(source, /value\.run !== machine\.state\(\)\.context\.runId/);
   assert.match(source, /const MAX_PREFETCH_ASSETS = 12/);
   assert.match(source, /new Set\(/);

@@ -8,10 +8,12 @@ import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeDraftQuestionDefinition,
   decodeExternalToolLaunch,
+  decodeCatalogPage,
   decodeGradebookPage,
   decodeQuestionAttempt,
   decodeQuestionDefinition,
   decodeQuestionEnvelope,
+  decodeStudentResponse,
 } from "../src/api/decoders.ts";
 import { ApiProtocolError, ApiRequestError, createHttpApiClient } from "../src/api/http_client.ts";
 import { createMockFetch, issuedEnvelopeForAttempt } from "../src/api/mock/handlers.ts";
@@ -135,6 +137,78 @@ test("external-tool response markers are exact and cannot carry browser provider
     () => decodeQuestionAttempt(attempt),
     DecodeError,
     "all response variants are exact",
+  );
+});
+
+test("new flat-family wire shapes are exact, answer-free, and coordinate-bounded", () => {
+  const block = (markdown) => ({ kind: "text", markdown });
+  const option = (id, markdown) => ({ id, body: [block(markdown)] });
+  const base = {
+    version: "0198e000-0000-7000-8000-000000000044",
+    seed: 4,
+    title: "Flat family contract",
+    prompt: [block("Answer the question.")],
+  };
+  const definitions = [
+    {
+      kind: "multiBlank",
+      blanks: [
+        { id: "first", label: [block("First blank")], matchMode: "normalized", maxLength: 40 },
+        { id: "second", label: [block("Second blank")], matchMode: "exact", maxLength: 20 },
+      ],
+    },
+    {
+      kind: "matching",
+      prompts: [option("dna", "DNA"), option("rna", "RNA")],
+      choices: [option("deoxy", "Deoxyribose"), option("ribose", "Ribose")],
+    },
+    {
+      kind: "hotspot",
+      surface: {
+        asset: "0198e000-0000-7000-8000-000000000045",
+        checksum: "a".repeat(64),
+      },
+      description: "A labeled cell diagram",
+      regions: [
+        { id: "nucleus", label: [block("Nucleus")], x: 1000, y: 1000, width: 2000, height: 2000 },
+        { id: "cytosol", label: [block("Cytosol")], x: 6000, y: 6000, width: 2000, height: 2000 },
+      ],
+      selection: { kind: "exactlyOne" },
+    },
+  ];
+
+  for (const response of definitions) {
+    assert.deepEqual(decodeQuestionEnvelope({ ...base, response }).response, response);
+    assert.throws(
+      () => decodeQuestionEnvelope({ ...base, response: { ...response, answer: "server-only" } }),
+      DecodeError,
+    );
+  }
+
+  const responses = [
+    { kind: "multiBlank", answers: [{ slot: "first", text: "adenine" }] },
+    { kind: "matching", matches: [{ prompt: "dna", choice: "deoxy" }] },
+    { kind: "hotspot", points: [{ x: 2000, y: 2000 }] },
+  ];
+  for (const response of responses) {
+    assert.deepEqual(decodeStudentResponse(response), response);
+    assert.throws(() => decodeStudentResponse({ ...response, correct: true }), DecodeError);
+  }
+
+  assert.throws(
+    () => decodeStudentResponse({ kind: "hotspot", points: [{ x: 10_001, y: 0 }] }),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeQuestionEnvelope({
+        ...base,
+        response: {
+          ...definitions[2],
+          regions: [{ id: "bad", label: [block("Bad")], x: 9000, y: 0, width: 2000, height: 1 }],
+        },
+      }),
+    DecodeError,
   );
 });
 
@@ -322,6 +396,28 @@ test("gradebook decoder accepts only compact, internally consistent summary rows
   assert.throws(() => decodeGradebookPage(extraHistory), DecodeError);
 
   assert.throws(() => decodeGradebookPage({ ...page, offset: 0 }), DecodeError);
+});
+
+test("ordinary cursor pages enforce the shared exact, bounded browser contract", async () => {
+  const response = await createMockFetch()("/api/problems");
+  assert.equal(response.status, 200);
+  const page = await response.json();
+  assert.deepEqual(decodeCatalogPage(page), page);
+
+  assert.throws(() => decodeCatalogPage({ ...page, answerKey: "must-not-reach-UI" }), DecodeError);
+  assert.throws(
+    () => decodeCatalogPage({ ...page, items: Array.from({ length: 101 }, () => page.items[0]) }),
+    DecodeError,
+  );
+  assert.throws(() => decodeCatalogPage({ ...page, nextCursor: "x".repeat(513) }), DecodeError);
+  assert.throws(
+    () =>
+      decodeCatalogPage({
+        ...page,
+        items: [{ ...page.items[0], answerKey: "must-not-reach-UI" }],
+      }),
+    DecodeError,
+  );
 });
 
 test("mock format validation accepts only the external-tool marker pair", async () => {

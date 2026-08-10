@@ -41,7 +41,7 @@ RUN apt-get update \
 	libclass-tiny-antlers-perl libclass-tiny-perl libcpanel-json-xs-perl libcrypt-dev \
 	libcrypt-jwt-perl libcrypt-openssl-x509-perl libcryptx-perl libdata-dump-perl \
 	libdata-structure-util-perl libdatetime-perl libdatetime-format-xsd-perl \
-	libdatetime-hires-perl libdbd-mysql-perl libdbd-mariadb-perl libdevel-checklib-perl \
+	libdatetime-hires-perl libdbd-mysql-perl libdevel-checklib-perl \
 	libemail-address-xs-perl libemail-date-format-perl libemail-sender-perl \
 	libemail-stuffer-perl libexception-class-perl libextutils-config-perl libextutils-helpers-perl \
 	libextutils-installpaths-perl libextutils-xsbuilder-perl libfile-copy-recursive-perl \
@@ -75,13 +75,6 @@ COPY --from=node_runtime /usr/local /usr/local
 
 COPY --from=source /source/webwork2 /opt/webwork/webwork2
 COPY --from=source /source/pg /opt/webwork/pg
-COPY containers/webwork/site.conf /opt/ple-webwork/site.conf
-COPY containers/webwork/course.conf /opt/ple-webwork/course.conf
-COPY containers/webwork/webwork2.mojolicious.yml /opt/ple-webwork/webwork2.mojolicious.yml
-COPY containers/webwork/init_render_course.sh /usr/local/bin/init_render_course.sh
-COPY containers/webwork/reconcile_render_account.pl /usr/local/bin/reconcile_render_account.pl
-COPY containers/webwork/entrypoint.sh /usr/local/bin/ple_webwork_entrypoint.sh
-COPY containers/webwork/probe_render_rpc.sh /usr/local/bin/probe_render_rpc.sh
 RUN cpanm -n Perl::Tidy@20260204 Archive::Zip::SimpleZip Net::SAML2 \
 	&& rm -rf ./cpanm /root/.cpanm /tmp/* \
 	&& mkdir -p /opt/webwork/courses /run/webwork2 /etc/ssl/local /opt/webwork/webwork2/htdocs/tmp \
@@ -91,8 +84,19 @@ RUN cpanm -n Perl::Tidy@20260204 Archive::Zip::SimpleZip Net::SAML2 \
 	&& echo "en_US ISO-8859-1\nen_US.UTF-8 UTF-8" > /etc/locale.gen \
 	&& locale-gen \
 	&& cd /opt/webwork/webwork2/htdocs && npm install \
-	&& cd /opt/webwork/pg/htdocs && npm install \
-	&& chmod 0755 /usr/local/bin/init_render_course.sh /usr/local/bin/reconcile_render_account.pl /usr/local/bin/ple_webwork_entrypoint.sh /usr/local/bin/probe_render_rpc.sh
+	&& cd /opt/webwork/pg/htdocs && npm install
+
+# Deployment policy changes must not invalidate the expensive, source-pinned
+# CPAN/npm dependency layer above.
+COPY containers/webwork/site.conf /opt/ple-webwork/site.conf
+COPY containers/webwork/course.conf /opt/ple-webwork/course.conf
+COPY containers/webwork/webwork2.mojolicious.yml /opt/ple-webwork/webwork2.mojolicious.yml
+COPY containers/webwork/init_render_course.sh /usr/local/bin/init_render_course.sh
+COPY containers/webwork/reconcile_render_account.pl /usr/local/bin/reconcile_render_account.pl
+COPY containers/webwork/entrypoint.sh /usr/local/bin/ple_webwork_entrypoint.sh
+COPY containers/webwork/probe_render_rpc.sh /usr/local/bin/probe_render_rpc.sh
+RUN chmod 0755 /usr/local/bin/init_render_course.sh /usr/local/bin/reconcile_render_account.pl \
+	/usr/local/bin/ple_webwork_entrypoint.sh /usr/local/bin/probe_render_rpc.sh
 EXPOSE 8080
 WORKDIR /opt/webwork/webwork2
 ENTRYPOINT ["/usr/local/bin/ple_webwork_entrypoint.sh"]

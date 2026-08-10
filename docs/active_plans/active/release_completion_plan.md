@@ -2,11 +2,13 @@
 
 ## Status
 
-Planning state: implementation in progress on 2026-08-10. WP-RC1 course appearance and WP-RC2
-production-seam closure are accepted; this plan owns all remaining work through the version 1 release. It supplements the architecture in
-[implementation_plan.md](../implementation_plan.md) and replaces every unresolved scope question in
-that document and its active companion plans. The dependency-ordered next package is WP-RC3,
-shipped upstream WeBWorK integration.
+Planning state: implementation in progress on 2026-08-10. WP-RC1 course appearance, WP-RC2
+production-seam closure, WP-RC3's bounded WeBWorK integration, and WP-ARCH1 source ownership are
+accepted; this plan owns all remaining work through the version 1 release. It supplements the
+architecture in [implementation_plan.md](../implementation_plan.md) and replaces every unresolved
+scope question in that document and its active companion plans. WP-RC4 flat JSON v2 implementation
+is present and awaits its independent closeout; the secure payload cutover and WP-RC5 authoring and
+pilot work remain dependency-ordered next work.
 
 Completed packages remain accepted evidence; they are not reopened by this plan. A package below is
 complete only when its named production artifacts work, its behavior and security gates pass, its
@@ -29,8 +31,8 @@ Two release boundaries are explicit:
 
 | Topic                 | Decision for version 1                                                                                                                                                                                                                                 | Owning package |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
-| Next flat family      | MC is already accepted; MATCH is next, followed by MA, FIB, NUM, ORDER, MULTI-FIB, media, and HOTSPOT                                                                                                                                                  | WP-RC5         |
-| Flat source           | Adopt the owner-authored QTI-JSONL v1 contract from QTI Package Maker; do not invent a competing PLE schema                                                                                                                                            | WP-RC4         |
+| Flat family runtime   | PLE flat JSON v2 implements MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT; RC5 still owns visual authoring, all-family integrated acceptance, and pilot content                                                                                | WP-RC4/RC5     |
+| Flat source           | Preserve PLE flat JSON v1 single-choice bytes and use closed PLE flat JSON v2 for all eight families, based on reviewed QTI Package Maker item semantics; external QTI-JSONL remains a separate adapter concern                                        | WP-RC4         |
 | Grade default         | `highest`                                                                                                                                                                                                                                              | WP-RC0         |
 | New-run variation     | `newSeeds`; resuming an issued attempt preserves its seed                                                                                                                                                                                              | WP-RC0         |
 | Retention defaults    | Notify at 30 days, archive at 100 days, delete learner records at 365 days, and publish aggregates only at k >= 5                                                                                                                                      | WP-RC0         |
@@ -48,7 +50,7 @@ Two release boundaries are explicit:
 | Infrastructure        | Use OpenTofu in `deploy/opentofu/`; production is AWS Fargate, RDS PostgreSQL, S3, CloudFront, ALB, WAF, KMS, Secrets Manager, and private networking                                                                                                  | WP-RC10        |
 | Anonymous traffic     | Ship a static `www` landing origin, same-origin authenticated app/API, aggregate edge metrics, bounded WAF/rate rules, and no client analytics                                                                                                         | WP-RC11        |
 | Migration names       | Continue compact ordered names such as `2026080908_secure_question_grading_payloads.sql`; the date and two-digit sequence are the readable ordering contract                                                                                           | WP-P2          |
-| Source ownership      | After WP-RC3 and before WP-RC4, extract every maintained source at 1,000 lines or more into capability modules behind stable facades; add a permanent no-exception size gate                                                                           | WP-ARCH1       |
+| Source ownership      | After the WP-RC3 live gate and before WP-RC4, extract every maintained source at 1,000 lines or more into capability modules behind stable facades; add a permanent no-exception size gate                                                             | WP-ARCH1       |
 | Course visual default | `grass`, with the accepted 15-theme catalog and one 1200 by 328 WebP center crop                                                                                                                                                                       | WP-RC1         |
 | Release content       | Genetics and biochemistry Chapter 1 each ship four questions: WeBWorK MC, WeBWorK MATCH, flat MC, and flat MATCH                                                                                                                                       | WP-RC5         |
 
@@ -66,7 +68,7 @@ later integrated acceptance.
 | Passkeys, local passwords, and email-code login                                                 | Institutional OIDC supplies production authentication without storing passwords. A passkey provider can later implement the same `IdentityProvider`; email codes are authentication, not a second factor by themselves.                               |
 | Third-party or client-side analytics                                                            | Edge and server aggregate metrics answer cost and reliability questions without adding student tracking or anonymous API work.                                                                                                                        |
 | Kubernetes, Redis, Kafka, sharding, a dedicated search service, and multi-region operation      | The target pilot and 10,000-student scale fit stateless replicas, PostgreSQL, object storage, and a worker queue. Every replacement retains a measured trigger in the architecture plan.                                                              |
-| Rich media in the accepted vendor-profile v1 import                                             | The strict importer succeeds by refusing unsupported semantics without data loss. QTI-JSONL media and HOTSPOT provide the version 1 rich-media path.                                                                                                  |
+| Rich media in the accepted vendor-profile v1 import                                             | The strict importer succeeds by refusing unsupported semantics without data loss. PLE flat JSON v2 HOTSPOT provides the bounded native rich-media path.                                                                                              |
 | Vendor feedback, `sub`, or `sup` in profile v1                                                  | No accepted fixture establishes a lossless mapping. Refusal preserves correctness; a new profile version can add one exact fixture-backed mapping later.                                                                                              |
 | Broad local-corpus compatibility statistics                                                     | Minimized positive and near-miss fixtures plus live profile acceptance prove the claimed contract. Corpus sampling may guide later profile versions but does not widen v1.                                                                            |
 | A Rust port of QTI Package Maker                                                                | QTI Package Maker remains the Python interoperability oracle. PLE ports only the versioned parser/compiler behavior needed at runtime.                                                                                                                |
@@ -87,7 +89,7 @@ later integrated acceptance.
 ## Scope
 
 The version 1 scope is WP-RC1 through WP-RC12 in dependency order. It includes course appearance,
-production-seam cleanup, shipped WeBWorK integration, the owner QTI-JSONL contract, all eight flat
+production-seam cleanup, shipped WeBWorK integration, PLE flat JSON v2, all eight flat
 families, pilot content, honest QTI/H5P boundaries, object reconciliation and M5 integration,
 institutional OIDC, LTI Advantage, OpenTofu deployment, bot-cost controls, and final release
 acceptance.
@@ -123,22 +125,30 @@ after WP-RC12 closes.
 WP-RC1 course appearance
     |
     v
-WP-RC2 production-seam cleanup ---> WP-RC7 M5 reconciliation/integration
+WP-RC2 production-seam cleanup
     |
-    +--> WP-RC3 shipped WeBWorK ---> WP-RC5 pilot content
-    |
-    +--> WP-RC4 QTI-JSONL contract ---> WP-RC5 eight families ---> WP-RC6 profiles/H5P
+    v
+WP-RC3 accepted WeBWorK ---> WP-ARCH1 accepted source decomposition ---> WP-RC4 flat JSON v2
+                                                                        |
+                                                                        v
+             WP-P1..WP-P6 secure learner payload ---> WP-RC5 eight families/pilot
                                                         |
                                                         v
+                                                WP-RC6 profiles/H5P
+
+WP-P2 persistent bindings ---> WP-RC7 M5 reconciliation/integration
+
 WP-RC8 OIDC ---> WP-RC9 LTI ---> WP-RC10 OpenTofu ---> WP-RC11 bot controls
                                                         |
                                                         v
                                                 WP-RC12 release acceptance
 ```
 
-WP-RC4 begins after the owner supplies the normative external artifacts, but that work is an
-assigned in-scope package rather than an unowned wait. WP-RC7 may run after WP-RC2 while content
-packages proceed, provided the migration owner preserves the reserved ordering below.
+WP-RC4 begins after accepted WP-RC3 and WP-ARCH1. Its internal version 2 implementation no longer
+waits on external QTI-JSONL artifacts. WP-P1 may proceed alongside RC4 closeout, but the complete
+WP-P1 through WP-P6 boundary must be accepted before WP-RC5. WP-RC7's
+non-schema inventory work may proceed earlier; its schema work begins only after WP-P2 preserves the
+reserved migration ordering below.
 
 ## Milestone plan
 
@@ -200,7 +210,8 @@ packages proceed, provided the migration owner preserves the reserved ordering b
 
 - **Owner:** `rust-code-expert` for the adapter, `integrator` for containers, independent security
   reviewer.
-- **Status:** implementation complete; live acceptance is pending on 2026-08-10. The
+- **Status:** accepted on 2026-08-10. The live PLE/browser acceptance and final independent review
+  passed after WP-ARCH1 accepted the capability extraction and permanent size boundary. The
   decision-complete execution contract is in
   [webwork_shipped_integration.md](../workstreams/webwork_shipped_integration.md).
 - **Files:** `crates/adapters/webwork/src/http_renderer.rs`, `renderer_contract.rs`,
@@ -235,30 +246,27 @@ packages proceed, provided the migration owner preserves the reserved ordering b
   live gate; outage/timeout/size/redirect/identity tests; browser render/grade test; full repository
   and container gates.
 
-### WP-RC4: Freeze and adopt QTI-JSONL v1
+### WP-RC4: Freeze PLE flat JSON v2
 
-- **Owner:** product owner in QTI Package Maker for the source contract; `rust-code-expert` in PLE for
-  strict adoption; independent contract reviewer.
-- **External files:** `OTHER_REPOS/qti-package-maker/docs/QTI_JSONL_SPEC.md`,
-  `qti_package_maker/engines/qti_jsonl/__init__.py`, `engine_class.py`, `write_item.py`, and
-  `read_item.py`; `examples/qti_jsonl/all_question_types.jsonl`;
-  `tests/unit/test_qti_jsonl_contract.py`; `tests/integration/test_qti_jsonl_roundtrip.py`; QTI
-  Package Maker architecture, engine, file-map, usage, and changelog docs.
-- **PLE files:** `crates/adapters/native/src/qti_jsonl/mod.rs`, `schema.rs`, `parser.rs`,
-  `compiler.rs`, `media.rs`, and `families/{single_choice,multiple_answer,fill_in,multi_fill_in,numeric,matching,ordered,hotspot}.rs`;
-  normative valid/invalid `.jsonl` inputs under `crates/adapters/native/tests/qti_jsonl/`; contract,
-  object-format, architecture, file-map, and changelog docs.
-- **Behavior:** the external spec gives every record a named spec/version and family, lossless answer
-  semantics, optional overall feedback, media references, HOTSPOT geometry and accessible fallback,
-  strict validation, and deterministic JSONL framing. PLE accepts only the named version, rejects
-  duplicate members/unknown versions/invalid family data, preserves exact source, derives stable PLE
-  identities when absent, and compiles answer-free public plus grader-only private values.
-- **Success:** all eight valid reference records round-trip through QTI Package Maker; every invalid
-  boundary refuses; PLE compiles the same records deterministically without redefining fields; v1
-  `singleChoice` bytes remain unchanged. This request explicitly authorizes the bounded normative
-  QTI-JSONL fixture directories needed for cross-project contract evidence.
-- **Validation:** QTI Package Maker unit/integration gates; PLE adapter/compiler tests; historical v1
-  regression; secret-free Wasm/generated/browser scans; independent cross-repository contract review.
+- **Owner:** `rust-code-expert` for the source/compiler boundary, `typescript-engineer` and
+  `solid-js-expert` for exact learner contracts, and an independent family/security reviewer.
+- **Files:** `crates/adapters/native/src/flat_question.rs` and `flat_question/v2.rs`;
+  `crates/question_model/src/response.rs`; `crates/domain/src/validation.rs`;
+  `crates/grading/src/{flat_question,key,checker}.rs`; generated contracts and strict decoders;
+  `src/components/responses/`; contract, architecture, file-map, and changelog docs.
+- **Behavior:** version 1 remains byte-compatible single choice. Version 2 strictly parses all eight
+  families using the reviewed QTI Package Maker item semantics, plus a bounded PLE HOTSPOT extension;
+  rejects duplicate/unknown/invalid source; compiles answer-free public and grader-only private
+  values; and supplies exact key-free learner response shapes.
+- **Implemented evidence:** one source/compiler/grading behavior suite covers correct and incorrect
+  responses for all eight families; strict browser decoders refuse answer fields and invalid hotspot
+  geometry; keyboard Playwright covers multi-blank, matching, and hotspot alongside existing MC, MA,
+  and ORDER controls; affected Rust tests, strict Clippy, TypeScript, ESLint, and source-size gates
+  pass.
+- **Success still required for package acceptance:** independent contract/security review, complete
+  author-source fixtures and invalid boundaries, and confirmation that version 1 canonical bytes and
+  every browser/Wasm projection remain answer-free. External QTI-JSONL is not an RC4 prerequisite;
+  a future adapter may translate a separately accepted external contract into these compiler outputs.
 
 ### WP-RC5: Implement all flat families and Chapter 1 content
 
@@ -271,7 +279,7 @@ packages proceed, provided the migration owner preserves the reserved ordering b
   current WP-RC3 live acceptance.
 - **Files:** `crates/question_model/src/response.rs` and `envelope.rs`;
   `crates/domain/src/flat_response_validation.rs`; `crates/grading/src/flat_question.rs`;
-  the WP-RC4 `crates/adapters/native/src/qti_jsonl/` family modules;
+  `crates/adapters/native/src/flat_question/v2.rs`;
   `crates/learning-data-access/src/flat_question.rs`; `crates/server/src/flat_question_publication.rs`;
   generated contracts; `src/features/flat_question_authoring/`;
   `src/components/responses/{multiple_answer,fill_in,multi_fill_in,numeric,matching,ordered,hotspot}.tsx`;
@@ -283,12 +291,12 @@ packages proceed, provided the migration owner preserves the reserved ordering b
   `crates/adapters/webwork/src/shipped_render_rpc.rs`, `renderer_contract.rs`, their contract tests,
   server translation tests, and `tests/playwright/webwork_run.spec.ts` with a real matching render and
   grade path.
-- **Behavior:** implement MATCH first, then MA, FIB, NUM, ORDER, MULTI-FIB, media, and HOTSPOT. Each
-  family supports strict parse, author edit/preview, CAS save, immutable publication, issue, accessible
-  keyboard response, server grading, optional feedback, summary, retention, and cleanup. WP-RC5's
-  first task extracts and grades a typed WeBWorK MATCH projection through the named adapter, contract,
-  server, and browser-live owners before the Chapter 1 matching source is accepted. HOTSPOT has a
-  keyboard/list alternative and scale-independent normalized coordinates.
+- **Behavior:** complete visual author edit/preview, CAS save, full Memory/PostgreSQL publication,
+  issue, feedback, summary, retention, and cleanup acceptance around the implemented eight-family
+  source/runtime core. WP-RC5 also extracts and grades a typed WeBWorK MATCH projection through the
+  named adapter, contract, server, and browser-live owners before the Chapter 1 matching source is
+  accepted. HOTSPOT retains its keyboard/list alternative and scale-independent normalized
+  coordinates while adding the secure pointer/media workflow.
 - **Pilot inputs:** Genetics uses `genetic_disorders-which_one.pgml`,
   `genetic_disorders-matching.pgml`, `bbq-WOMC-genetic_disorders-questions.txt`, and
   `bbq-MATCH-genetic_disorders-questions.txt`. Biochemistry uses
@@ -430,20 +438,26 @@ packages proceed, provided the migration owner preserves the reserved ordering b
 
 - **Owner:** four independent expert owners for persistence, server, adapters/tooling, and browser;
   one integration owner; separate PostgreSQL, security, TypeScript/HCI, and architecture reviewers.
+- **Status:** accepted on 2026-08-10. The dated 26-file baseline has zero maintained-code violations,
+  all focused and integrated gates pass, no maintained code is present in the exact override list,
+  and independent PostgreSQL, security, provider, TypeScript/HCI, test, size-policy, and final
+  architecture reviews found no unresolved P0/P1 issue.
 - **Depends on:** accepted WP-RC3; it completes before WP-RC4 so later payload and family behavior
   lands in focused owners rather than the existing oversized facades.
 - **Files:** exact current inventory, module destinations, ownership, dependencies, behavior gates,
   and closure artifacts are in `docs/active_plans/active/source_module_decomposition_plan.md`; the permanent policy is
-  `tests/test_source_file_size.py`.
+  `tests/test_source_file_line_limit.py` with exact non-maintained overrides in
+  `tests/source_file_line_limit_overrides.txt`.
 - **Behavior:** move complete capabilities behind stable public facades; preserve routes, wire,
   schema/SQL behavior, generated contracts, grading/security boundaries, CLI output, and browser
-  behavior. Split tests by behavior. Scan maintained source roots with no filename exception list.
+  behavior. Split tests by behavior. Scan maintained source roots with no maintained-code exception;
+  immutable migrations and archival/history documents may retain exact manager-approved overrides.
 - **Success:** every maintained source file is at most 999 physical lines; the permanent test proves
   999 passes and 1,000 fails; all focused and integrated behavior gates pass; documentation maps the
   new owners; independent reviewers report no P0/P1.
 - **Validation:** per-lane Rust/Store/protocol/TypeScript/browser gates; `./check_codebase.sh`; full
   repository pytest; generated-contract checks; final line inventory; Markdown/ASCII/diff checks;
-  independent multi-discipline review.
+  disposable PostgreSQL baseline; independent multi-discipline review.
 
 ### WP-RC12: Release acceptance and documentation closure
 
@@ -519,9 +533,9 @@ development. They must pass, not skip, in WP-RC12 release evidence.
   `2026080911_lti_advantage.sql` in that order. WP-RC7 schema work begins after WP-P2, while its
   non-schema object inventory work may run in parallel. A package needing another migration takes
   the next two-digit daily sequence; it does not insert or rename an accepted version.
-- QTI-JSONL adapter/spec identity lives inside the existing versioned source payload and immutable
+- PLE flat JSON source identity lives inside the existing versioned source payload and immutable
   object/checksum binding; no family-shaped table is added.
-- Existing flat v1, generic QTI, Canvas/Blackboard profile v1, published problem versions, and
+- Existing flat v1 and v2, generic QTI, Canvas/Blackboard profile v1, published problem versions, and
   historical attempts remain readable. Incompatible source/profile changes add a named reader or a
   new version and never reinterpret immutable history.
 
@@ -530,7 +544,7 @@ development. They must pass, not skip, in WP-RC12 release evidence.
 | Risk                                                     | Owner                | Control and trigger                                                                                  |
 | -------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------- |
 | Plan completeness becomes documentation-only             | Release integrator   | Package acceptance requires working artifacts and behavior evidence; mocks/docs alone fail           |
-| External QTI-JSONL work stalls PLE                       | Product owner        | WP-RC4 has exact external artifacts and tests; course, seam, WeBWorK, and M5 work remain independent |
+| External QTI-JSONL work stalls                           | Interop owner        | PLE flat JSON v2 is authoritative internally; a future external adapter cannot block native families |
 | Shipped WeBWorK output leaks keys or unsafe markup       | WeBWorK owner        | Strict result translator, sanitizer, response scan, private network, and real browser trace          |
 | New family leaks an answer through generated types       | Family owner         | Public/private compiler split, Wasm dependency gate, DTO scan, server-only grader                    |
 | Reconciliation deletes a concurrent valid object         | Object owner         | Two observations, quarantine, reference recheck, idempotency, concurrent-creation oracle             |
@@ -544,8 +558,8 @@ development. They must pass, not skip, in WP-RC12 release evidence.
 
 - [x] WP-RC1 course appearance accepted.
 - [x] WP-RC2 production seams accepted.
-- [ ] WP-RC3 shipped WeBWorK accepted.
-- [ ] WP-RC4 QTI-JSONL contract accepted in both repositories.
+- [x] WP-RC3 shipped WeBWorK accepted.
+- [ ] WP-RC4 PLE flat JSON v2 independently accepted.
 - [ ] WP-RC5 eight families and Chapter 1 content accepted.
 - [ ] WP-RC6 QTI export and H5P claims accepted.
 - [ ] WP-RC7 M2-M5 reconciliation/integration accepted.

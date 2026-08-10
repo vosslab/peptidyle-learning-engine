@@ -1,5 +1,9 @@
 # QTI Strict Markup Implementation
 
+> **Historical accepted package.** WP-QTI-1 through WP-QTI-12 are accepted history. Current
+> dependency order and remaining QTI scope are in the [release completion plan](../active/release_completion_plan.md)
+> and [implementation status](../implementation_status.md).
+
 ## Status
 
 Complete. The shared Q2 markup projector passed focused/full gates and independent P0/P1 re-review

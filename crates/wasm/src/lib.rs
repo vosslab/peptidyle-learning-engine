@@ -7,6 +7,10 @@
 
 use domain::{draft_preview, policy, timing, validation};
 use question_model::generation::Seed;
+use question_model::presentation::{
+    AssetBindingV1, PresentationDigestTokenV1, PresentationEnvelopeV1,
+    rebuild_public_presentation_v1,
+};
 use question_model::response::{ResponseDefinition, StudentResponse};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -109,6 +113,32 @@ pub fn preview_native_draft(draft_json: &str, seed_json: &str) -> Result<String,
         .map_err(|error| JsValue::from_str(&format!("could not serialize draft preview: {error}")))
 }
 
+/// Recomputes the Rust-owned presentation descriptor and verifies its public digest.
+///
+/// The browser passes only answer-free values it already received. TypeScript
+/// never implements the binary codec, CRC, or SHA-256 rules independently.
+///
+/// # Errors
+///
+/// Returns a JavaScript error for malformed or internally inconsistent public
+/// presentation data. A well-formed but mismatched digest returns `false`.
+#[wasm_bindgen]
+pub fn verify_presentation_descriptor(
+    envelope_json: &str,
+    asset_bindings_json: &str,
+    digest: &str,
+) -> Result<bool, JsValue> {
+    let envelope: PresentationEnvelopeV1 = serde_json::from_str(envelope_json)
+        .map_err(|error| JsValue::from_str(&format!("invalid presentation envelope: {error}")))?;
+    let assets: Vec<AssetBindingV1> = serde_json::from_str(asset_bindings_json)
+        .map_err(|error| JsValue::from_str(&format!("invalid presentation assets: {error}")))?;
+    let expected = PresentationDigestTokenV1::parse(digest)
+        .map_err(|error| JsValue::from_str(&format!("invalid presentation digest: {error}")))?;
+    let presentation = rebuild_public_presentation_v1(&envelope, &assets)
+        .map_err(|error| JsValue::from_str(&format!("invalid presentation: {error}")))?;
+    Ok(presentation.digest.public_token() == expected)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -149,6 +179,38 @@ mod tests {
         assert_eq!(
             preview,
             r#"{"kind":"ready","preview":{"workspace":"00000000-0000-0000-0000-000000000001","seed":4,"title":"Fixture","prompt":[{"kind":"text","markdown":"Value safe"}],"response":{"kind":"shortText","matchMode":"normalized","maxLength":20}}}"#
+        );
+    }
+
+    #[test]
+    fn presentation_verification_uses_the_rust_descriptor_codec() {
+        let envelope = r#"{
+            "version":"01923f4b-5c6d-7e8f-9012-3456789abcde",
+            "seed":42,
+            "presentationNonce":"11111111111111111111111111111111",
+            "title":"Peptide bond",
+            "prompt":[{"kind":"text","markdown":"Which group forms the peptide bond?"}],
+            "response":{"kind":"singleChoice","choices":[
+                {"id":"cfdf","body":[{"kind":"text","markdown":"Amino group"}]},
+                {"id":"6603","body":[{"kind":"text","markdown":"Carboxyl group"}]}
+            ]}
+        }"#;
+        let rebuilt = rebuild_public_presentation_v1(
+            &serde_json::from_str(envelope).expect("fixture envelope"),
+            &[],
+        )
+        .expect("descriptor");
+        let digest = rebuilt.digest.public_token();
+        assert_eq!(digest.as_str(), "pd1_hL2BEeGIfzUHyaDMW5so6A");
+
+        assert!(verify_presentation_descriptor(envelope, "[]", digest.as_str()).unwrap());
+        assert!(
+            !verify_presentation_descriptor(
+                &envelope.replace("Peptide bond", "Changed title"),
+                "[]",
+                digest.as_str(),
+            )
+            .unwrap()
         );
     }
 }

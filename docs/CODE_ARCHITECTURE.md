@@ -15,9 +15,9 @@ WebAssembly bridge, question-engine adapters, export workers, manual grading,
 course item analysis, retention, a six-file PostgreSQL baseline, and the first
 forward course-appearance migration. WP-RC3 source artifacts also implement a
 private, upstream WeBWorK `render_rpc` adapter, optional private local compose
-overlay, immutable PGML pilot seed, and opt-in E2E/browser gates. Their live
-container and browser acceptance remain verification work, not an accepted
-release claim. The remaining dependency order is recorded in
+overlay, immutable PGML pilot seed, and opt-in E2E/browser gates. The bounded
+local integration is accepted; it is not a production deployment claim. The
+remaining dependency order is recorded in
 [active_plans/active/release_completion_plan.md](active_plans/active/release_completion_plan.md),
 and the dated current snapshot is
 [active_plans/project_status_report_2026-08-09.md](active_plans/project_status_report_2026-08-09.md).
@@ -43,8 +43,8 @@ The maintained local path is the browser bundle in `dist/`, the same-origin
 gateway, the `axum` API and worker, PostgreSQL, and MinIO, composed by
 [launch_local_stack.sh](../launch_local_stack.sh) and
 [containers/compose.yaml](../containers/compose.yaml). The optional private
-WeBWorK overlay is implementation evidence for WP-RC3, but it has not passed
-its live container or browser acceptance gates.
+WeBWorK overlay is the accepted bounded WP-RC3 local integration. It is not a
+production topology or a claim of broad upstream-problem compatibility.
 
 The following is the planned production topology. It is owned by WP-RC10 and
 WP-RC11; it is not a deployed configuration or release claim.
@@ -131,6 +131,32 @@ clients stay replaceable behind their traits.
 Crates enforce security and deployment boundaries. Focused modules inside each
 crate give a contributor a smaller unit to understand and change.
 
+WP-ARCH1 applies that rule across the repository while preserving stable public
+facades:
+
+- `crates/learning-data-access/src/contracts/`, `in_memory/`, and `postgres/`
+  separate public Store contracts from backend capability implementations;
+  their conformance and live tests use the same behavior-based division.
+- `crates/server/src/run/` owns prefetch, queries, and submission, while the
+  catalog, course, workspace, retention, composition, iMathAS, and publication
+  parents remain small route or composition facades over focused behavior and
+  test modules.
+- adapter child modules own iMathAS caching, WeBWorK HTML projection, and
+  adapter tests; `crates/project-tools/src/e2e_seed/` owns native, WebWork,
+  timing, scoring, and record seeding separately.
+- `src/api/decoders/`, `src/api/http_client/`, and `src/api/mock/handlers/`
+  own browser decoding, transport, and mock behavior. `src/components/responses/`
+  owns response-family controllers; `src/components/response_widget/` owns
+  keyboard and external-tool extensions behind the previous import paths.
+- `devel/bump_version.py` remains the command facade over the
+  `devel/bump_version/` package.
+
+The permanent tracked-source boundary is `tests/test_source_file_line_limit.py`.
+Maintained code reaches at most 999 physical lines, and the exact override list
+contains only frozen migrations and documentation or history artifacts. Module
+names, symbol lists, and today's exact file layout are implementation evidence,
+not permanent test contracts.
+
 One learning data-access capability normally has four cooperating owners:
 
 1. A backend-neutral contract under `crates/learning-data-access/src/`.
@@ -186,7 +212,7 @@ without importing router mechanics. `course_appearance_model.ts` owns the pure e
 atomic update, `course_appearance_repository.ts` owns the narrow client seam, and
 `course_appearance_page.tsx` owns the native-control form and preserved-error recovery.
 `course_entry_identity.tsx` renders the text title and optional current banner only from the existing
-course-route projection. `crates/server/src/run.rs` supplies the summary's authorized
+course-route projection. `crates/server/src/run/queries.rs` supplies the summary's authorized
 course/appearance projection from the stored assignment and session, never from a browser-supplied
 course ID. Global navigation, non-entry routes, and semantic status colors remain outside the banner
 projection. The integrated PostgreSQL/MinIO owner is `tests/e2e/e2e_course_appearance.sh`; the
@@ -203,13 +229,24 @@ it does not own HTTP cookies or educational records.
 
 Static flat-question authoring is owned by
 [crates/adapters/native/src/flat_question.rs](../crates/adapters/native/src/flat_question.rs).
-The module parses the closed PLE JSON source, compiles the browser-safe draft,
-binds separate grader-only answers and feedback to that exact public content,
-and evaluates responses through the shared grading crate. The native adapter
-facade exposes the capability; the question-model crate remains answer-free
-and unaware of the authoring syntax. Publication persistence and the instructor
-editor are separate vertical packages, so the codec does not absorb data-access
-or HTTP concerns.
+The facade preserves the exact version 1 single-choice contract and delegates
+the closed all-family version 2 shapes to `flat_question/v2.rs`. Together they
+parse MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT source, compile the
+browser-safe draft, bind separate grader-only answers and feedback to that
+exact public content, and evaluate responses through the shared grading crate.
+The version 2 semantics follow QTI Package Maker's reviewed item model, with a
+bounded PLE hotspot extension. The native adapter facade exposes the
+capability; the question-model crate remains answer-free and unaware of the
+authoring syntax. Publication persistence and the instructor editor are
+separate vertical packages, so the codec does not absorb data-access or HTTP
+concerns.
+
+Learner controls for the response families live in
+`src/components/responses/`. Multi-blank uses labeled text fields, matching
+uses native radio groups, ordering uses a keyboard-operable list, and hotspot
+uses candidate-region controls as its primary no-mouse path. A future pointer
+overlay may enhance hotspot interaction without replacing the accessible list
+or moving correctness into the browser.
 
 QTI import and its answer-bearing grader boundary are owned by
 [crates/learning-data-access/src/qti.rs](../crates/learning-data-access/src/qti.rs),
@@ -233,9 +270,10 @@ The H5P adapter exposes its key-free practice importer through
 The WeBWorK adapter exposes its server-only renderer request, response,
 identity, failure, render, and grade boundary through
 `crates/adapters/webwork/src/renderer_contract.rs`. Its
-`http_renderer.rs` client joins only the configured application base and
-`render_rpc`, posts the authenticated upstream form, rejects redirects and
-unbounded/wrong-type responses, and projects the approved single-radio PG
+`http_renderer/client.rs` joins only the configured application base and
+`render_rpc`; `protocol.rs`, `response_shape.rs`, `html_projection.rs`, and
+`grade.rs` own its focused protocol, validation, projection, and grade work.
+The client rejects redirects and unbounded/wrong-type responses, and projects the approved single-radio PG
 shape. It uses `html5ever` tokenization to extract the exact radio group,
 then discards upstream field names, hidden fields, session material, and source
 bytes before forming a PLE question envelope. `shipped_render_rpc.rs` fixes the
@@ -397,7 +435,7 @@ are not returned to the browser.
 
 ## Catalog boundary
 
-`crates/server/src/catalog.rs` authenticates every catalog request and accepts
+`crates/server/src/catalog/routes.rs` authenticates every catalog request and accepts
 no tenant identifier from a URL, query, or body. Browse and taxonomy routes use
 bounded stable-key cursors and return hot `CatalogProblemSummary` values rather
 than prompt, response, or source-locator payloads. Exact lookup loads one
@@ -421,7 +459,7 @@ new assignment references.
 
 ## Course boundary
 
-`crates/server/src/course.rs` authenticates every course request and uses the
+`crates/server/src/course/routing.rs` authenticates every course request and uses the
 session tenant rather than accepting one from the URL or body. Coarse login
 roles only control course creation and tenant-administrator access. Ordinary
 course visibility and assignment management come from explicit
@@ -439,7 +477,7 @@ membership.
 
 ## Run and grading boundary
 
-`crates/server/src/run.rs` resolves the authenticated enrollment owner before
+`crates/server/src/run/routes.rs` resolves the authenticated enrollment owner before
 starting, issuing, or submitting work. Students can read only their own run;
 the course instructor and tenant administrator may inspect enrollment history
 and summaries. A nonowner receives the same not-found response as an absent
@@ -472,6 +510,9 @@ CRC16-derived presentation-scoped rendered-item IDs, a SHA-256 presentation
 consistency digest, server-selected response decoding, and server-only partial
 credit. The CRC and digest are consistency checks; authenticated session,
 forced RLS, attempt state, and idempotency remain the security authority.
+The durable `docs/ASSESSMENT_PAYLOAD_DESIGN.md` explains the current and target
+render, response, result, caching, prefetch, ADAPT comparison, and private
+WeBWorK boundaries.
 
 ## Browser-safe validation fallback
 
@@ -612,8 +653,9 @@ set. Every generated project and volume is removed afterward.
 - Add question-engine behavior behind the adapter contracts in
   [crates/adapters/](../crates/adapters/); answer-bearing grading remains
   outside the WebAssembly dependency closure.
-- Extend the shipped WeBWorK projection in `http_renderer.rs` and its contract
-  tests only after defining a safe PLE response shape; RC3 accepts one
+- Extend the shipped WeBWorK projection in `http_renderer/html_projection.rs`
+  and `http_renderer/tests.rs` only after defining a safe PLE response shape;
+  RC3 accepts one
   single-choice radio group, while matching has a separately owned release
   package.
 - Add a learning data-access capability as a focused contract plus in-memory,
@@ -630,11 +672,12 @@ set. Every generated project and volume is removed afterward.
 
 ## Known gaps
 
-- Several parent modules remain above the 1000-line owner limit. The current
-  dependency order assigns compatibility-preserving capability extraction and
-  the permanent no-exception gate to
-  `docs/active_plans/active/source_module_decomposition_plan.md`
-  after WP-RC3 and before WP-RC4.
+- WP-ARCH1 is accepted: its dated 26-file baseline has zero maintained-code
+  size violations, and independent PostgreSQL, security, provider,
+  TypeScript/HCI, test, size-policy, and final architecture reviews found no
+  unresolved P0/P1 issue. WP-RC4's eight-family PLE flat JSON v2 implementation
+  is present and awaits independent closeout; the secure payload cutover and
+  WP-RC5 authoring/integrated-content work remain next dependencies.
 - Deployed managed point-in-time recovery and object-store recovery drills are
   not complete. Local clean-cluster logical restore, the production-worker
   tenant-purge rehearsal, and the local whole-system replica gate have passed.
@@ -642,6 +685,7 @@ set. Every generated project and volume is removed afterward.
   also remain intentionally unclaimed until each has a complete handler and
   atomic committer. See
   [active_plans/active/release_completion_plan.md](active_plans/active/release_completion_plan.md).
-- WP-RC3 must still build the exact pinned upstream image and pass the private
-  semantic E2E and browser gates. The source artifacts document the intended
-  contract, but no local or deployed live acceptance is asserted in this map.
+- WP-RC3's exact pinned upstream image, private semantic E2E, and PLE-owned
+  keyboard browser path passed locally on Podman 6 and are accepted for the
+  single immutable RadioButtons fixture. Broad OPL compatibility and MATCH
+  remain separately owned by WP-RC5.

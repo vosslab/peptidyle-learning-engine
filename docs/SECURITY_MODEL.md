@@ -393,11 +393,17 @@ and summary. The idempotency table is insert-only for the application role;
 an exact retry returns its first committed receipt, while a changed key or
 response conflicts.
 
-Attempt responses are redacted according to the question's feedback policy.
-They may contain policy-permitted correctness and points, but never an answer
-key, expected value, private rubric, or checker state. Full teaching feedback
-must later use an explicit sanitized disclosure DTO; it must not serialize the
-server-only key as a shortcut.
+The current attempt DTO is answer-free but broader than the learner needs: it
+still carries version, seed, parameter hash, provenance, implementation IDs,
+and source/asset identifiers. Feedback policy redacts answer-bearing material,
+not that complete DTO. WP-P1 through WP-P6 in the secure grading payload plan
+replace it before WP-RC5 with the minimal learner descriptor, presentation
+digest, type-free response body, and compact receipt. Until that atomic
+cutover, clients must not treat current provenance fields as submission
+authority. Policy-permitted results may contain correctness and points, but
+never an answer key, expected value, private rubric, or checker state. Full
+teaching feedback uses an explicit sanitized disclosure DTO; it never
+serializes the server-only key as a shortcut.
 
 ## Asset delivery boundary
 

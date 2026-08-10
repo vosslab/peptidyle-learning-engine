@@ -1,5 +1,9 @@
 # QTI provenance contract
 
+> **Historical accepted package.** WP-QTI-1 through WP-QTI-12 are accepted history. Current
+> dependency order and remaining QTI scope are in the [release completion plan](../active/release_completion_plan.md)
+> and [implementation status](../implementation_status.md).
+
 ## Status
 
 Complete. Q4/WP-QTI-6 passed focused validation and independent review on 2026-08-09. This

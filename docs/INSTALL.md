@@ -111,5 +111,5 @@ remove volumes or images unless their contents are intentionally disposable.
 
 ## Known gaps
 
-- Record a successful live upstream build, PLE API path, and browser acceptance before calling
-  WP-RC3 accepted. Static and configuration checks do not establish that live boundary.
+- WP-RC3's bounded live upstream build, PLE API path, and browser acceptance are accepted. Broad
+  OPL compatibility and WeBWorK MATCH remain out of scope for RC3 and are owned by WP-RC5.

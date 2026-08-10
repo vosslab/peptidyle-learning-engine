@@ -7,12 +7,12 @@ not a replacement for the authoritative schema and profile contracts.
 
 | Input                  | Accepted surface                                                                         | Boundary                                                                                                   | Exact contract                                                                    |
 | ---------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| PLE flat-question JSON | `application/vnd.peptidyle.flat-question+json` on the private flat-question source route | One v1 `singleChoice` document, including answers and private feedback; at most 256 KiB                    | [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md)                            |
+| PLE flat-question JSON | `application/vnd.peptidyle.flat-question+json` on the private flat-question source route | One v1 single-choice or v2 eight-family document, including answers and private feedback; at most 256 KiB | [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md)                            |
 | Canvas QTI 1.2 ZIP     | `application/zip` on the private QTI import route                                        | At most 32 MiB; the original ZIP is retained privately while a worker creates an answer-free review report | [qti_profile_mapping_plan.md](active_plans/decisions/qti_profile_mapping_plan.md) |
 | Blackboard QTI 2.1 ZIP | `application/zip` on the private QTI import route                                        | At most 32 MiB; the original ZIP is retained privately while a worker creates an answer-free review report | [qti_profile_mapping_plan.md](active_plans/decisions/qti_profile_mapping_plan.md) |
 
 The PLE JSON source is a Peptidyle contract, not a QTI variant. Its exact fields, validation rules,
-canonicalization, source-to-public/private compilation boundary, and v1 scope are in
+canonicalization, source-to-public/private compilation boundary, and v1/v2 scope are in
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md). The public runtime model produced from any
 accepted source is described separately in [QUESTION_MODEL.md](QUESTION_MODEL.md).
 
@@ -33,5 +33,5 @@ accepted source is described separately in [QUESTION_MODEL.md](QUESTION_MODEL.md
 
 - YAML is not an input or output interface. It may later become a human-editing format that compiles
   once to canonical PLE JSON; until then, no YAML schema is defined.
-- QTI-JSONL is not a current PLE upload format. QTI Package Maker owns its specification and reference
-  artifacts; PLE will adopt an accepted version through its versioned adapter/compiler plan.
+- QTI-JSONL is not a current PLE upload format. A future accepted external contract may receive a
+  versioned adapter, but PLE flat JSON v2 already owns native all-family source semantics.
