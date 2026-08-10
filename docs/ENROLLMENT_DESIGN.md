@@ -1,9 +1,9 @@
 # Enrollment design
 
-PLE has strong course, assignment, enrollment, run, gradebook, and tenancy
-contracts, but it does not yet have a supported HTTP workflow for putting a
-second person into a course. This document defines the intended roster and
-enrollment boundary before that gap is implemented.
+PLE has a supported passwordless account, course-roster, invitation,
+assignment-enrollment, and manual grade-export slice. This document defines
+that boundary and distinguishes the implemented slice from the remaining
+production acceptance work.
 
 The primary audience is a contributor implementing course membership,
 assignment enrollment, roster management, identity resolution, or the
@@ -13,24 +13,25 @@ order remains in the
 
 ## Status and authority
 
-**Current:** PLE creates a course with only its creator as an instructor.
-There is no course-member mutation route and no assignment-enrollment creation
-route. Multi-learner fixtures use `cargo tools e2e-seed` or direct test setup.
+**Implemented, acceptance open:** PLE owns opaque global accounts, short-lived
+browser-bound email authentication, discoverable WebAuthn registration and
+authentication, multiple passkeys, verified account-email replacement, and
+course-context selection. An instructor can list a cursor-paged roster, set an
+exact-domain policy, create a copyable one-time invitation link, optionally send
+that link through configured SMTP, revoke invitations, preview and atomically
+commit a bounded CSV roster, revoke access, and download a no-store
+course-assignment grade CSV. A learner can authenticate and claim an
+invitation; the Store then creates the course membership, tenant learner
+identity, every assignment enrollment, and every empty summary atomically.
+Memory and PostgreSQL implement the same contract, and later assignment
+creation enrolls all current learners.
 
-**Implemented below the HTTP layer:** `Store::create_enrollment` exists in
-both Memory and PostgreSQL implementations and creates the enrollment and its
-empty `student_assignment_summary` together. Course records already persist
-explicit student and instructor membership.
+**Acceptance still open:** the canonical email-authentication journey still needs
+an off-the-shelf disposable SMTP sink or configured provider, optional-passkey and
+multi-replica evidence, and independent security/HCI closeout. PLE does not own a
+mail server or delivery stack.
 
-**Target:** an instructor-facing course roster workflow creates or revokes
-course membership while PLE reconciles assignment enrollments internally. A
-learner joins through a verified email invitation, then enrolls one or more
-passkeys on a PLE-owned account. Bulk roster import uses the same command and
-invariants as a single invitation, and manual grade export uses the
-course-scoped institutional roster identifier.
-
-This document is a proposed durable contract, not a claim that the target
-routes ship. Current route truth remains in
+This document is the durable enrollment contract. Current route truth remains in
 [API_CONTRACTS.md](API_CONTRACTS.md) and
 [crates/server/src/course/routing.rs](../crates/server/src/course/routing.rs).
 
@@ -96,30 +97,33 @@ The activity hierarchy remains the one in
 run owns issued question attempts. Course membership never becomes an answer,
 score, completion flag, or attempt authority.
 
-## Current gap
+## Gap closed by the current slice
 
-The missing seam is visible at three boundaries:
+The original missing seam was visible at three boundaries:
 
 - [crates/server/src/course/routing.rs](../crates/server/src/course/routing.rs)
-  mounts course reads, course creation, gradebook reads, and assignment
-  creation/update, but no roster mutation.
+  previously mounted course reads, course creation, gradebook reads, and
+  assignment creation/update without roster mutation.
 - [crates/server/src/run/routes.rs](../crates/server/src/run/routes.rs) mounts
-  enrollment reads and run history, but no enrollment creation.
+  still exposes enrollment reads and run history; enrollment creation now
+  occurs through course-level invitation claim rather than a public
+  assignment-enrollment mutation.
 - [crates/server/src/course/queries.rs](../crates/server/src/course/queries.rs)
-  creates a course with exactly one membership: the authenticated creator as
-  instructor.
+  creates a course with the authenticated creator as instructor; the focused
+  roster routes now add learners afterward.
 
-The Store is farther ahead than HTTP. `CourseAssignmentStore` already owns
+The Store remains the authority beneath HTTP. `CourseAssignmentStore` owns
 `create_enrollment_impl`, and both backends enforce the important compound
 write. The PostgreSQL implementation first verifies that the target user is a
 student member of the assignment's course, then inserts both `enrollment` and
 `student_assignment_summary` before committing.
 
-The existing whole-course `upsert_course` operation is not the target roster
+The existing whole-course `upsert_course` operation is not the roster
 mutation. It replaces the complete member list and has no browser-facing
 revision. A route-level read-modify-write through that method could lose a
-concurrent roster edit. The implementation needs focused atomic member and
-roster commands in the Store.
+concurrent roster edit. The current implementation therefore uses focused
+atomic member, invitation, policy, import, and roster commands with a strong
+roster revision.
 
 ## Identity prerequisite
 
@@ -133,9 +137,8 @@ boundary. WP-RC8 replaces the current deployment assumption that an
 institutional OIDC provider is required with a production passwordless
 provider behind that trait:
 
-- passkeys are the primary authenticator;
-- email authentication bootstraps an account and provides a fallback recovery
-  path;
+- email authentication is the canonical registration and sign-in path;
+- passkeys are optional convenience credentials for the same account;
 - the existing opaque, hashed server-side session and host-only HttpOnly
   cookie remain the browser credential; and
 - optional institutional SSO may link a verified external identity to an
@@ -155,8 +158,8 @@ The minimum identity contract is:
 | Value | Owner | Rule |
 | --- | --- | --- |
 | `UserId` | PLE identity system | Stable opaque PLE account identity across courses and institutions |
-| Email | PLE identity system | Verified, mutable authentication and recovery attribute; never the primary key |
-| Passkey credentials | PLE identity system | Primary passwordless credentials; multiple credentials are allowed per account |
+| Email | PLE identity system | Verified, mutable authentication attribute and canonical sign-in address; never the primary key |
+| Passkey credentials | PLE identity system | Optional convenience credentials; multiple credentials are allowed per account |
 | Display name or handle | User account profile | User-controlled safe label; no legal-name requirement |
 | `StudentId` | PLE learner-identity store | Stable pedagogical identity associated with the PLE user inside an educational-record tenant |
 | Optional SSO binding | PLE identity system | Verified external issuer/subject linked to an existing `UserId`; server-only and never roster authority |
@@ -174,7 +177,7 @@ user_id                         -> one PLE account
 Both tenant mapping directions are unique. The same account can therefore
 participate in courses owned by different institutions while each institution
 retains an independently scoped pedagogical record. The current
-`SessionSubject` carries one tenant context; WP-RC8 must preserve that safe RLS
+`SessionSubject` carries one tenant context; WP-RC8 preserves that safe RLS
 context while deriving it only from an authorized course or tenant
 relationship, never from a browser-supplied tenant identifier.
 
@@ -200,12 +203,12 @@ scope, and RLS remain the disclosure controls.
 
 PLE does not create a different account for each course enrollment. Per-course
 account fragmentation would complicate record inspection, correction,
-retention, recovery, and deletion without improving course authorization.
+retention, and deletion without improving course authorization.
 `EnrollmentId` already gives each student-assignment relationship a durable
 identity without pretending one human is several people.
 
 Email is mutable personally identifiable information. PLE stores a normalized
-verified address as an authentication and recovery attribute and stores the
+verified address as the canonical authentication attribute and stores the
 delivery form only where email delivery requires it. Email is not a database
 primary key, tenant selector, course authority, or durable person identity. An
 email change requires appropriate account verification; an address later
@@ -215,8 +218,8 @@ memberships or grades.
 ### Data minimization and roster metadata
 
 PLE retains enough identifying information to make enrollment and grade export
-practical, but only while it has a concrete teaching, authentication,
-recovery, audit, or export purpose. In short: **collect reluctantly, use
+practical, but only while it has a concrete teaching, authentication, audit,
+or export purpose. In short: **collect reluctantly, use
 deliberately, purge predictably**.
 
 An active course roster may therefore contain:
@@ -233,7 +236,7 @@ the PLE account identity. `UserId` remains the opaque account identifier, while
 the roster email and student number must not become credentials, primary keys,
 or cross-course search fields. The course roster email is a retained snapshot
 of the instructor's mapping and may differ later from the learner's mutable
-account-recovery email.
+account sign-in email.
 
 Course roster metadata follows [RETENTION_POLICY.md](RETENTION_POLICY.md): the
 default 30-day notice leaves it available for corrections and final export,
@@ -259,11 +262,15 @@ procedure.
 
 ### Invite-by-email account binding
 
-Invite-by-email is the normal enrollment path:
+Invitation at a verified email address is the normal enrollment path. The
+instructor may copy the returned one-time link into an existing trusted LMS or
+let a configured SMTP provider deliver the same link:
 
 ```text
-instructor enters email
+instructor enters email and roster ID
     -> PLE creates a pending invitation
+    -> PLE returns one copyable invitation link in the no-store create response
+    -> instructor shares it through an LMS, or configured SMTP sends it
     -> learner completes short-lived, single-use email authentication
     -> PLE resolves or creates the learner's opaque UserId
     -> learner claims the invitation
@@ -276,6 +283,14 @@ successful email authentication may the server match the verified email to an
 existing account or create a new `UserId`. The instructor cannot query whether
 an address already has an account, and existing and nonexistent addresses
 receive the same outward invitation result.
+
+The invitation link is a bearer secret. PLE returns it only in the manager's
+no-store creation response, keeps it in browser memory for that page session,
+and never places it in roster reads, storage, logs, or analytics. The server
+stores only its hash. The instructor must share it only with the intended
+learner and revoke the pending invitation if it reaches the wrong person. The
+link proves possession of the invitation, not control of the roster email, so it
+never replaces the learner's email-authentication ceremony.
 
 Email authentication tokens are short-lived and single-use. They are stored
 only as hashes, excluded from logs and analytics, rate-limited by normalized
@@ -304,7 +319,7 @@ The rules are:
   roster.
 - A nonmember or foreign-tenant caller receives the same not-found response as
   an absent course.
-- The first implementation creates only `Student` memberships. Adding or
+- The current implementation creates only `Student` memberships. Adding or
   promoting instructors is a separate, higher-risk administrator workflow.
 - A membership request cannot create tenant-administrator authority because
   `Administrator` is not a persistable course membership role.
@@ -349,17 +364,19 @@ only the enrollment row.
 
 ## HTTP contract
 
-The first usable slice should expose a small course-roster API. Exact DTO names
-may change during implementation, but the authority and payload rules are
-normative.
+The current usable slice exposes a small course-roster API. The authority and
+payload rules are normative.
 
 | Method and path | Purpose | Request authority |
 | --- | --- | --- |
 | `GET /api/courses/{course}/roster` | Cursor-paged current members and pending invitations | Course from path plus manager authorization |
-| `POST /api/courses/{course}/invitations` | Send one student invitation | Email, course-scoped roster identifier, and idempotency key |
+| `POST /api/courses/{course}/invitations` | Create one pending invitation and return its one-time copy link; configured SMTP may also deliver it | Email, course-scoped roster identifier, and idempotency key |
 | `POST /api/course-invitations/redeem` | Claim a pending invitation | Opaque invitation secret plus the authenticated account session |
 | `PUT /api/courses/{course}/enrollment-policy` | Replace allowed email domains and signup posture | Exact roster revision plus manager authorization |
 | `DELETE /api/courses/{course}/members/{member}` | Revoke current course access without deleting records | Existing member path plus exact roster revision |
+| `POST /api/courses/{course}/roster-imports/preview` | Parse and stage bounded `email,roster_id` CSV | Exact roster revision plus manager authorization |
+| `POST /api/courses/{course}/roster-imports/{import}/commit` | Commit the reviewed ready rows atomically | Import revision plus idempotency key |
+| `GET /api/courses/{course}/assignments/{assignment}/grade-export.csv` | Download the current manual grade export | Course and assignment from path plus manager authorization |
 
 The roster response is deliberately small:
 
@@ -397,9 +414,32 @@ by that course's manager so a typo or mismatch can be corrected. After claim,
 that address becomes protected course roster metadata; a later account-email
 change does not silently rewrite it. Invitation and email-authentication
 secrets are stored only as hashes. Diagnostics and later reads show coarse
-status and expiry, never a secret.
+status and expiry, never a secret. The invitation-creation response is the sole
+exception: it returns the one-time secret in a same-origin relative fragment so
+an authorized manager can copy it without exposing it in an HTTP request,
+server log, or later roster response:
 
-Mutations return `Cache-Control: no-store`. Sending or claiming an invitation
+```json
+{
+  "invitation": {
+    "invitationId": "opaque-invitation-id",
+    "email": "netid@mail.roosevelt.edu",
+    "rosterId": "900654321",
+    "status": "pending",
+    "expiresAt": "2026-08-17T12:00:00Z"
+  },
+  "redemptionPath": "/course-invitations/redeem#token=one-time-base64url-secret",
+  "emailDelivery": "notSent"
+}
+```
+
+`emailDelivery` is `sent` only when the established SMTP adapter accepted the
+message; `notSent` leaves the copy link as the delivery path. The browser
+decoder rejects absolute or cross-origin redemption URLs. An exact idempotent
+retry reproduces the same path from server-held key material so the server does
+not persist plaintext solely to support retry.
+
+Mutations return `Cache-Control: no-store`. Creating or claiming an invitation
 uses an `Idempotency-Key`; policy replacement, revocation, and bulk commit use
 a strong roster revision. The server mints member, learner, enrollment, and
 invitation identities. A browser never supplies them as new record identities.
@@ -413,6 +453,7 @@ invitation identities. A browser never supplies them as new record identities.
 | Student tries a manager action | `403` after valid course membership is known |
 | Malformed email or roster identifier | Safe `422` without account-existence detail |
 | Existing or nonexistent PLE account at that email | Identical accepted invitation response |
+| SMTP absent or rejects delivery | Accepted single invitation with `emailDelivery: notSent` and the copy-link path |
 | Reused invitation by the same resulting member | Idempotent existing-membership result |
 | Reused invitation by another user | Safe conflict; no course or claimant detail |
 | Stale roster revision or changed import | `409` with reload guidance |
@@ -438,8 +479,8 @@ not a series of unrelated browser requests.
    it cannot omit an assignment summary or bypass authorization.
 
 The initial bounds are one MiB, 500 data rows, and a closed UTF-8 CSV grammar.
-The implementation package must make those limits constants covered at their
-boundary. The parser reports row numbers and safe categories rather than
+The implementation keeps those limits as constants covered at their boundary.
+The parser reports row numbers and safe categories rather than
 echoing raw names, email addresses, student labels, or malformed cells into
 logs and error bodies.
 
@@ -555,8 +596,13 @@ The checkout is comparative evidence, not a PLE runtime dependency.
 The ordinary instructor journey is:
 
 ```text
-Course -> Students -> Add student or Upload roster -> Review -> Commit
+Course -> Students -> Create invitation -> Copy link -> Share through trusted LMS
 ```
+
+Configured SMTP may deliver the same link, but no ordinary enrollment action
+depends on PLE operating a mail server. Bulk roster commit remains
+SMTP-dependent until a separately reviewed bounded multi-link handoff exists;
+it must not return a large page of bearer secrets by accident.
 
 The screen emphasizes outcomes rather than internal record types:
 
@@ -571,44 +617,47 @@ The UI does not expose `CourseMembershipRole`, `StudentId`, enrollment IDs, or
 the distinction between membership and enrollment as routine settings. It
 provides keyboard-operable upload, preview, correction, commit, invite-copy,
 domain-policy, and revoke controls consistent with
-[NO_MOUSE_A11Y_CONTRACT.md](NO_MOUSE_A11Y_CONTRACT.md).
+[NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md).
 
 ## Learner experience
 
 A learner opens the invitation in the browser that requested email
 authentication or enters the short code in that browser. PLE verifies the
 short-lived email challenge before revealing the course. Confirming once
-creates or restores membership and the required assignment enrollments, then
-offers passkey enrollment before opening the course. An existing account with
-a passkey may authenticate directly after the invitation email establishes
-the intended address.
+creates or restores membership and the required assignment enrollments. PLE
+then offers an optional passkey shortcut without blocking course entry. An
+existing account may always authenticate through email; a registered passkey
+provides an additional direct sign-in option.
 
 A learner who is already a member receives a normal success result. A learner
 whose session needs reauthentication keeps the invitation only in the URL or
-controlled recovery state; PLE does not copy it into local storage, analytics,
-or logs. An expired or wrong-user invitation gives safe recovery guidance
+controlled sign-in state; PLE does not copy it into local storage, analytics,
+or logs. An expired or wrong-user invitation gives safe retry guidance
 without disclosing another learner or course.
 
-## Account recovery
+## Account access
 
-Recovery is part of the account and enrollment lifecycle:
+Email authentication is the ordinary account-access path rather than a
+separate recovery mode:
 
-- registration encourages at least two passkeys on different devices;
-- a signed-in learner may change the authentication email only after passkey
-  or current-email verification followed by verification of the new address;
-- email fallback uses the same short-lived, single-use, rate-limited challenge
-  boundary as bootstrap;
+- a learner may register no passkey, one passkey, or several passkeys;
+- losing or revoking a passkey returns the learner to the same email sign-in
+  path used during registration;
+- a signed-in learner may replace the authentication email only after
+  verification of the new address in the bound browser;
 - an instructor may re-invite a learner at a corrected or replacement address;
-  this never merges accounts or transfers records based on email alone; and
-- if an account is genuinely unrecoverable, a manager-authorized course
-  recovery command may bind a new authenticated `UserId` to that course's
-  existing `StudentId` after an explicit warning, step-up authorization, and
-  audit event.
+  this creates or reaches the account proven by that email and never merges
+  accounts or transfers records based on email alone; and
+- if the learner no longer controls the current account email, version 1 has
+  no identity-recovery or record-transfer workflow. The instructor may revoke
+  the old course membership and invite a new address, while the institutional
+  LMS remains the grade system of record for any manual correction.
 
-Course recovery affects only the selected course/tenant educational record. It
-does not reveal or transfer the old account's memberships in other courses.
-Pending recovery invitations show the target roster member and destination to
-authorized course managers so a mistake can be revoked before claim.
+This refusal is deliberate. A course manager can manage course access but
+cannot prove that two PLE accounts belong to the same person strongly enough
+to move educational records. Any future account merge or record-transfer
+feature requires a separate identity-proofing, authorization, audit, and
+retention design.
 
 ## Removal and retention
 
@@ -655,33 +704,35 @@ instructor to hand-match 50 scores.
 
 | Data | Instructor convenience | Minimization control |
 | --- | --- | --- |
-| Authentication email | Bootstrap and recover the PLE account | Global account attribute; never the account key; not exposed as cross-course instructor data |
+| Authentication email | Register and sign in to the PLE account | Global account attribute; never the account key; not exposed as cross-course instructor data |
 | Course roster email | Invite, correct, apply allowed-domain policy, and match a manual institutional export | Course-scoped protected snapshot; course managers only; follows course learner-record retention |
 | Institutional roster ID | Match PLE results to an LMS/gradebook row | Course-scoped protected record; no global lookup or authentication use |
 | Display name or handle | Let the instructor distinguish roster members | Learner-controlled account projection copied only where the course workflow needs it; no legal-name requirement |
 | Raw roster CSV | Import 50 learners at once | Parse in memory or controlled temporary storage, then delete raw bytes after normalized preview creation |
-| Normalized import preview | Review errors before sending invitations | Expires after 24 hours; course-manager access; no account-existence signal |
+| Normalized import preview | Review errors before sending invitations | Expires after one hour; course-manager access; no account-existence signal |
 | Grade export | Upload results to the institutional system | Contains only the destination profile's required roster ID, course roster email, display label, and selected result fields; never global `UserId`, passkey state, or unrelated activity; protected, audited, and short-lived |
 
-The first implementation should expire a course invitation after seven days
-and an email-authentication challenge after ten minutes. Resending creates new
+The current implementation expires a course invitation after seven days and an
+email-authentication challenge after ten minutes. Resending creates new
 secrets and invalidates the old delivery. Those bounds are server constants,
 not browser choices.
 
-A grade export is generated for one course and assignment under the existing
-export authorization boundary. It uses the course roster ID as the join key
-and the server-calculated assignment summary as the value. Download grants are
-short-lived, export objects follow the documented protected-object retention
-path, and export logs contain counts and opaque job identity rather than rows.
+A grade export is generated synchronously for one course and assignment under
+the existing course-manager authorization boundary. It uses the course roster
+ID as the join key and the server-calculated assignment summary as the value.
+The response is `Cache-Control: no-store`, is not persisted as an export
+object, and carries a server-issued opaque export ID. The database retains only
+a PII-free audit row with the export identity, actor, course, assignment, row
+count, and time.
 
 ## Implementation packages
 
 The safe dependency order is:
 
-### ENR1: Passwordless identity and account mapping
+### ENR1: Passwordless identity and account mapping - implemented
 
 - Add a production PLE-owned account store keyed by opaque global `UserId`.
-- Add short-lived, single-use email authentication for bootstrap and recovery,
+- Add short-lived, single-use email authentication for registration and sign-in,
   including browser binding where practical, uniform outward responses,
   rate limits, secret hashing, and redacted diagnostics.
 - Add discoverable WebAuthn credentials behind `IdentityProvider` using an
@@ -695,7 +746,7 @@ The safe dependency order is:
   optional SSO links to an existing account through the same identity
   boundary.
 
-### ENR2: Atomic roster Store
+### ENR2: Atomic roster Store - implemented
 
 - Add focused add, revoke, list, invitation, and bulk-reconcile capabilities.
 - Persist course-scoped roster email, roster identifier, allowed domains, and
@@ -704,33 +755,37 @@ The safe dependency order is:
 - Reconcile the full student-member by assignment cross product.
 - Extend assignment creation to enroll all current student members atomically.
 
-### ENR3: Single-member HTTP
+### ENR3: Single-member HTTP - implemented
 
-- Mount roster list, invite-by-email creation/redemption, allowed-domain
+- Mount roster list, invitation creation/copy/redemption, optional established
+  SMTP delivery, allowed-domain
   settings, and access-revocation routes.
 - Use existing course concealment and manager authorization.
 - Add strict request/response DTOs, no-store behavior, idempotency, revisions,
   and safe errors.
 
-### ENR4: Instructor and learner UI
+### ENR4: Instructor and learner UI - implemented, acceptance open
 
 - Add the Students screen, invitation flow, learner claim page, initial passkey
-  enrollment, multiple-passkey management, email change, and recovery.
+  enrollment, multiple-passkey management, and email change.
 - Keep the common path course-level and hide internal enrollment mechanics.
 - Prove the platform keyboard path before optional shortcuts.
 
-### ENR5: Bulk roster
+### ENR5: Bulk roster - implemented
 
 - Add bounded `email` plus `roster_id` CSV template, manual LMS export profiles,
   parse/preview, staged revision, and atomic invitation commit.
-- Add row status and recovery without raw-PII diagnostics.
+- Add row status and correction guidance without raw-PII diagnostics.
 - Add exact normalized allowed-domain validation and reviewed institutional
   roster-ID profiles without arbitrary instructor regexes.
 
-### ENR6: Integration evidence
+### ENR6: Integration evidence - acceptance open
 
 - Replace SQL-arranged membership in the primary multi-actor walkthrough with
   instructor roster action and learner claim/login.
+- Exercise copy-link invitation handoff without a PLE-owned mail system. Use an
+  off-the-shelf disposable SMTP sink only for the canonical email-authentication
+  ceremony; do not add a test-only authentication bypass.
 - Prove gradebook, item analysis, learner isolation, assignment creation after
   roster creation, and roster addition after assignment creation.
 - Keep LTI Names and Roles roster synchronization in its separately authorized
@@ -779,10 +834,11 @@ Disposable integration evidence must prove:
 - a real non-superuser PostgreSQL role and RLS context enforce the boundary;
 - one API replica can create or redeem membership and another can serve the
   resulting course and assignment;
-- an instructor can add or invite a learner through the browser without SQL or
-  `cargo tools e2e-seed`;
-- the learner authenticates by email, enrolls a passkey, enters the course,
-  starts the assignment, submits, and appears in the instructor gradebook;
+- an instructor can create and copy a learner invitation through the browser
+  without SQL, `cargo tools e2e-seed`, or configured SMTP;
+- the learner authenticates by email through an off-the-shelf sink or configured
+  provider, optionally enrolls a passkey, enters the course, starts the
+  assignment, submits, and appears in the instructor gradebook;
 - the instructor downloads a protected manual grade export whose roster IDs
   match the imported rows and whose contents exclude account email and global
   `UserId`; and

@@ -12,6 +12,11 @@ import { ROUTE_CONTRACT } from "../src/route_contract.ts";
 
 const EXPECTED_ROUTE_PATHS = [
   "/",
+  "/sign-in",
+  "/auth/email/complete",
+  "/auth/account/email/complete",
+  "/course-invitations/redeem",
+  "/account/security",
   "/courses/:courseId",
   "/courses/:courseId/assignments/:assignmentId",
   "/runs/:runId",
@@ -23,6 +28,7 @@ const EXPECTED_ROUTE_PATHS = [
   "/instructor/courses/:courseId/assignments/:assignmentId/edit",
   "/instructor/courses/:courseId/gradebook",
   "/instructor/courses/:courseId/appearance",
+  "/instructor/courses/:courseId/students",
 ];
 
 test("the product route data matches the frozen route contract", () => {

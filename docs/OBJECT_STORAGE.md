@@ -127,7 +127,7 @@ before treating a full object-storage outage check as complete. See
 Object reconciliation is planned, not complete. WP-RC7 reserves bounded bucket inventory,
 twice-observed orphan quarantine and deletion, missing/mismatched-byte alerts and delivery
 quarantine, and an idempotent tenant-safe worker. Its reserved migration is
-`2026080909_object_reconciliation.sql`; the named implementation files and acceptance gate remain
+`2026080910_object_reconciliation.sql`; the named implementation files and acceptance gate remain
 unlanded. The current release plan marks WP-RC7 unchecked, so this document does not treat
 reconciliation or the combined M2-M5 gate as accepted. See
 [release_completion_plan.md](active_plans/active/release_completion_plan.md#wp-rc7-reconcile-objects-and-close-m2-through-m5)

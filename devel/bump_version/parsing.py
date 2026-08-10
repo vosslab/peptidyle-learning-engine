@@ -1,6 +1,3 @@
-# Standard Library
-import re
-
 # local repo modules
 import bump_version.contracts as contracts
 import bump_version.formatting as formatting

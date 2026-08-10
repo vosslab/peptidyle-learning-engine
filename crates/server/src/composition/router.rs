@@ -32,6 +32,11 @@ pub(super) fn compose_router<S, O, C, B, P, R>(
     identity_provider: Arc<P>,
     review_gate: Arc<R>,
     session_config: SessionConfig,
+    invitation_issuer: crate::course::CourseInvitationIssuer,
+    invitation_delivery: Arc<dyn crate::course::CourseInvitationDelivery>,
+    passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
+    passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
+    webauthn: Option<crate::auth::PasswordlessWebauthn>,
     health: Arc<HealthState>,
 ) -> Router
 where
@@ -47,6 +52,10 @@ where
         + RetentionStore
         + RetentionApiStore
         + CourseRecordsAccessStore
+        + learning_data_access::CourseRosterStore
+        + learning_data_access::ManualGradeExportStore
+        + learning_data_access::AccountIdentityStore
+        + learning_data_access::AccountSessionStore
         + SessionStore
         + AssetStore
         + CourseAppearanceStore
@@ -59,11 +68,17 @@ where
     P::Presentation: serde::de::DeserializeOwned + Send + Sync + 'static,
     R: PublicReviewGate + 'static,
 {
-    let router = Router::new()
+    let mut router = Router::new()
         .route("/health", get(health_handler))
         .merge(crate::auth::router(
             identity_provider,
             Arc::clone(&store),
+            session_config,
+        ))
+        .merge(crate::auth::passwordless_router(
+            Arc::clone(&store),
+            passwordless_email_delivery,
+            passwordless_rate_limit_issuer,
             session_config,
         ))
         .merge(crate::catalog::router(
@@ -99,7 +114,11 @@ where
             Arc::clone(&store),
             native_adapter,
         ))
-        .merge(crate::course::router(Arc::clone(&store)))
+        .merge(crate::course::router_with_invitations(
+            Arc::clone(&store),
+            invitation_issuer,
+            invitation_delivery,
+        ))
         .merge(crate::course_appearance::router(
             Arc::clone(&store),
             Arc::clone(&objects),
@@ -109,8 +128,16 @@ where
         .merge(crate::retention::router(Arc::clone(&store)))
         .merge(crate::run::router(Arc::clone(&store), backends))
         .merge(crate::asset::router(store.clone(), objects, public_assets))
-        .merge(crate::validation::router(store))
+        .merge(crate::validation::router(Arc::clone(&store)))
         .layer(Extension(health));
+
+    if let Some(webauthn) = webauthn {
+        router = router.merge(crate::auth::passkey_router(
+            Arc::clone(&store),
+            webauthn,
+            session_config,
+        ));
+    }
 
     apply_e2e_replica_attribution(router, e2e_replica_attribution_from_env())
 }
@@ -120,7 +147,7 @@ where
 /// store, or any other process configuration.
 #[cfg(feature = "e2e-observability")]
 #[derive(Clone)]
-struct ReplicaAttribution(HeaderValue);
+pub(super) struct ReplicaAttribution(HeaderValue);
 
 #[cfg(not(feature = "e2e-observability"))]
 type ReplicaAttribution = ();

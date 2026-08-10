@@ -3,15 +3,16 @@
 ## Status
 
 Planning state: decision-complete companion to WP-RC10 and WP-RC11. OpenTofu in
-`deploy/opentofu/` owns production infrastructure, and standards-based institutional OIDC owns
-production login. WP-BOT-1 through WP-BOT-10 retain their dependency order; no setup patch waits for
-an infrastructure-language or identity-provider choice.
+`deploy/opentofu/` owns production infrastructure, and WP-RC8's PLE-managed email/passkey provider
+owns production login. WP-BOT-1 through WP-BOT-10 retain their dependency order; no setup patch
+waits for an infrastructure-language or identity-provider choice.
 
 ## Decisions
 
 - Use OpenTofu with one declarative root at `deploy/opentofu/`; console changes are emergency-only
   and must be imported before incident closure.
-- Use institutional OIDC Authorization Code with PKCE behind the existing `IdentityProvider`.
+- Use the passwordless email/passkey provider behind `IdentityProvider`; optional OIDC/SAML account
+  linking uses the same bounded refusal and rate-control surface.
 - Ship no client analytics. Aggregate CloudFront, WAF, ALB, application, queue, database, and cost
   metrics provide the version 1 evidence boundary.
 - Keep `www` as a static private-S3/CloudFront origin and `app` as same-origin SPA plus API.
@@ -293,13 +294,13 @@ Route authority is checked before request body parsing beyond the route's small 
 object fetch, signed-URL issuance, queue insertion, renderer/provider calls, or other work whose cost
 scales with attacker input. `GET /api/auth/session` follows the same absent/malformed/unknown rules.
 
-Production uses institutional OIDC Authorization Code with PKCE through `IdentityProvider`. The
-local-development provider is never a production fallback. Provider discovery, issuer allowlisting,
-state, nonce, PKCE, callback binding, credential recovery, abuse controls, anti-replay, and login
-CSRF are owned by WP-RC8. PLE accepts only its bounded presentation,
-performs at most one provider verification, and inserts a session only after successful verification;
-failure creates no session row and returns one provider-independent generic refusal. This plan does
-not add a database counter keyed by attacker-supplied account text.
+Production uses WP-RC8's passwordless email/passkey provider through `IdentityProvider`. The
+local-development provider is never a production fallback. Email challenge, WebAuthn origin/RP ID,
+credential recovery, abuse controls, anti-replay, browser binding, and login CSRF are owned by
+WP-RC8. Optional OIDC/SAML linking retains exact provider validation. PLE accepts only a bounded
+presentation, performs bounded credential verification, and inserts a session only after success;
+failure creates no session row and returns one account-independent generic response. Rate limits
+may use privacy-bounded keyed state with expiry, but logs and metrics do not retain raw email.
 
 The edge login/callback allowance is calibrated from WP-BOT-1's versioned class-start/shared-egress
 scenario. Its initial retry and refresh assumptions are explicit rather than described as observed;
@@ -475,7 +476,7 @@ later provider change is a DNS/deployment change, not a UI rewrite.
   cheap anonymous refusal.
 - Workstreams: WS-LANDING, WS-AUTH, and WS-HOSTS.
 - Entry criteria: M1 exit criteria met; WP-RC10 owns OpenTofu at `deploy/opentofu/`; WP-RC8 owns
-  production institutional OIDC before provider-specific auth deployment begins.
+  production passwordless identity and optional SSO before provider-specific auth deployment begins.
 - Exit criteria:
   - Loading and crawling `www` causes zero PLE API, database, object, queue, renderer, and provider
     operations.
@@ -964,8 +965,9 @@ a useful implementation probe does not become a permanent test merely because it
 - [ ] Implement and accept the OpenTofu root in `deploy/opentofu/`; prove restricted encrypted state,
       no-secret plan/log output, drift detection, policy-test access, rotation/rollback, and safe
       disposable destroy.
-- [ ] Implement and accept institutional OIDC through WP-RC8; record its issuer/client, callback,
-      PKCE, anti-replay, login CSRF, recovery, and abuse-control evidence.
+- [ ] Implement and accept passwordless email/passkey login through WP-RC8; record challenge,
+      origin/RP ID, anti-replay, login CSRF, recovery, and abuse-control evidence, plus optional SSO
+      connector evidence when enabled.
 - [ ] Freeze route classes and baseline metrics before selecting production rules.
 - [ ] Reconfirm and record the current S3/CloudFront terms, quotas, price model, region, and budget.
 - [ ] Build immutable landing/app manifests and prove rollback locally before DNS work.
@@ -1001,8 +1003,9 @@ a useful implementation probe does not become a permanent test merely because it
 - Patch 0A: WP-RC10 creates the OpenTofu root and passes disposable
   secret-materialization/state/plan/drift/rotation/destroy proof. This blocks Patch 3, not
   measurement, inventory, or landing work.
-- Patch 0B: WP-RC8 implements institutional OIDC and passes its credential/callback/PKCE security
-  contract. This blocks provider-specific parts of Patch 2B, not its provider-neutral refusal work.
+- Patch 0B: WP-RC8 implements passwordless email/passkey identity and passes its
+  challenge/origin/RP-ID/recovery security contract. This blocks provider-specific parts of Patch
+  2B, not its provider-neutral refusal work.
 - Patch 1A: WP-BOT-1 privacy-bounded cost metrics and generated workload definitions.
 - Patch 1B: WP-BOT-2 closed route-cost inventory and source assertion; runs parallel with 1A.
 - Patch 2A: WP-BOT-3 independent landing artifact and browser/artifact tests.
@@ -1019,7 +1022,7 @@ origin/cost effect, legitimate-user impact, rollback, and remaining dependency I
 
 ## Decision completeness
 
-No bot-cost scope or implementation decision remains open. OpenTofu, institutional OIDC,
+No bot-cost scope or implementation decision remains open. OpenTofu, passwordless identity,
 S3/CloudFront, the host split, aggregate edge/server metrics, and the no-client-analytics boundary
 are fixed for version 1. A post-v1 analytics proposal requires a separate product question and plan;
 it cannot enter this package as implementation telemetry.

@@ -7,6 +7,7 @@ use question_model::{
     CourseRole, UserId, UserRole,
 };
 
+use super::sessions::active_subject;
 use super::{MemoryStore, State, course_records_accessible};
 use crate::{
     AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope,
@@ -429,18 +430,6 @@ impl CourseAppearanceStore for MemoryStore {
         }
         Ok(true)
     }
-}
-
-fn active_subject(
-    state: &State,
-    context: TenantContext,
-    session: SessionTokenHash,
-) -> Option<&SessionSubject> {
-    let stored = state.sessions.get(&session)?;
-    (!stored.revoked
-        && stored.record.expires_at > state.authoritative_time
-        && stored.record.subject.tenant() == context.tenant_id())
-    .then_some(&stored.record.subject)
 }
 
 fn appearance_role(

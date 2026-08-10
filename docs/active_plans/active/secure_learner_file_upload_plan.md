@@ -8,8 +8,9 @@ PLE can enable `ResponseDefinition::FileUpload` for learners.
 
 This plan does not interrupt the current release order. It runs after the secure assessment payload
 packages WP-P1 through WP-P6, object reconciliation WP-RC7, and LTI WP-RC9 are accepted. Its forward
-SQL migration is `2026080912_secure_learner_uploads.sql`, following the already-reserved OIDC and LTI
-migrations and completing before WP-RC10 production deployment. File upload is a required
+SQL migration is `2026080912_secure_learner_uploads.sql`, following the already-reserved
+object-reconciliation and LTI migrations and completing before WP-RC10 production deployment. File
+upload is a required
 working-codebase release capability; it is not a reason to weaken or bypass the current fail-closed
 behavior.
 

@@ -71,6 +71,22 @@ pub(super) struct ProductionSettings {
     pub(super) imathas_provider_key: Option<String>,
     pub(super) qti_runtime_enabled: Option<String>,
     pub(super) grader_database_url: Option<String>,
+    pub(super) enrollment_secret: Option<EnrollmentSecretSettings>,
+    pub(super) enrollment_email: Option<EnrollmentEmailSettings>,
+    pub(super) webauthn: crate::auth::PasswordlessWebauthn,
+}
+
+pub(super) struct EnrollmentEmailSettings {
+    pub(super) smtp_relay: String,
+    pub(super) smtp_port: u16,
+    pub(super) smtp_username: String,
+    pub(super) smtp_password_file: String,
+    pub(super) smtp_from: String,
+    pub(super) public_app_base_url: String,
+}
+
+pub(super) struct EnrollmentSecretSettings {
+    pub(super) invitation_token_secret_file: String,
 }
 
 pub(super) struct WebworkRendererSettings {
@@ -93,6 +109,14 @@ impl ProductionSettings {
             imathas_provider_key: std::env::var("PLE_IMATHAS_PROVIDER_KEY").ok(),
             qti_runtime_enabled: std::env::var("PLE_QTI_RUNTIME_ENABLED").ok(),
             grader_database_url: std::env::var("PLE_GRADER_DATABASE_URL").ok(),
+            enrollment_secret: EnrollmentSecretSettings::from_env()?,
+            enrollment_email: EnrollmentEmailSettings::from_env()?,
+            webauthn: crate::auth::PasswordlessWebauthn::new(
+                &required_env("PLE_WEBAUTHN_RP_ID")?,
+                &required_env("PLE_WEBAUTHN_ORIGIN")?,
+                &required_env("PLE_WEBAUTHN_RP_NAME")?,
+            )
+            .map_err(anyhow::Error::msg)?,
         })
     }
 
@@ -214,6 +238,87 @@ impl ProductionSettings {
     }
 }
 
+impl EnrollmentEmailSettings {
+    const ENV_NAMES: [&'static str; 6] = [
+        "PLE_SMTP_RELAY",
+        "PLE_SMTP_PORT",
+        "PLE_SMTP_USERNAME",
+        "PLE_SMTP_PASSWORD_FILE",
+        "PLE_SMTP_FROM",
+        "PLE_PUBLIC_APP_BASE_URL",
+    ];
+
+    fn from_env() -> Result<Option<Self>> {
+        if !Self::ENV_NAMES
+            .iter()
+            .any(|name| std::env::var_os(name).is_some())
+        {
+            return Ok(None);
+        }
+        let smtp_port = required_env("PLE_SMTP_PORT")?
+            .parse::<u16>()
+            .ok()
+            .filter(|port| *port > 0)
+            .ok_or_else(|| {
+                anyhow::anyhow!("PLE_SMTP_PORT must be an integer from 1 through 65535")
+            })?;
+        Ok(Some(Self {
+            smtp_relay: required_env("PLE_SMTP_RELAY")?,
+            smtp_port,
+            smtp_username: required_env("PLE_SMTP_USERNAME")?,
+            smtp_password_file: required_env("PLE_SMTP_PASSWORD_FILE")?,
+            smtp_from: required_env("PLE_SMTP_FROM")?,
+            public_app_base_url: required_env("PLE_PUBLIC_APP_BASE_URL")?,
+        }))
+    }
+
+    pub(super) fn delivery(&self) -> Result<Arc<crate::course::SmtpCourseInvitationDelivery>> {
+        let password = read_secret_file(&self.smtp_password_file, "PLE_SMTP_PASSWORD_FILE")?;
+        let delivery = crate::course::SmtpCourseInvitationDelivery::new(
+            crate::course::SmtpCourseInvitationDeliveryConfig {
+                relay: self.smtp_relay.clone(),
+                port: self.smtp_port,
+                username: self.smtp_username.clone(),
+                password,
+                from: self.smtp_from.clone(),
+                public_app_base_url: self.public_app_base_url.clone(),
+            },
+        )
+        .map_err(|_| anyhow::anyhow!("PLE SMTP invitation configuration is invalid"))?;
+        Ok(Arc::new(delivery))
+    }
+}
+
+impl EnrollmentSecretSettings {
+    fn from_env() -> Result<Option<Self>> {
+        if std::env::var_os("PLE_INVITATION_TOKEN_SECRET_FILE").is_none() {
+            return Ok(None);
+        }
+        Ok(Some(Self {
+            invitation_token_secret_file: required_env("PLE_INVITATION_TOKEN_SECRET_FILE")?,
+        }))
+    }
+
+    pub(super) fn issuers(
+        &self,
+    ) -> Result<(
+        crate::course::CourseInvitationIssuer,
+        crate::auth::PasswordlessRateLimitIssuer,
+    )> {
+        let issuer_secret = parse_secret32(
+            "PLE_INVITATION_TOKEN_SECRET_FILE",
+            &read_secret_file(
+                &self.invitation_token_secret_file,
+                "PLE_INVITATION_TOKEN_SECRET_FILE",
+            )?,
+        )?;
+        Ok((
+            crate::course::CourseInvitationIssuer::from_server_secret(issuer_secret),
+            crate::auth::PasswordlessRateLimitIssuer::from_server_secret(issuer_secret),
+        ))
+    }
+}
+
 impl WebworkRendererSettings {
     pub(super) const ENV_NAMES: [&'static str; 8] = [
         "PLE_WEBWORK_RENDERER_BASE_URL",
@@ -295,16 +400,20 @@ pub(super) fn required_env(name: &str) -> Result<String> {
 }
 
 pub(super) fn read_webwork_password_file(path: &str) -> Result<String> {
+    read_secret_file(path, "PLE_WEBWORK_RENDER_PASSWORD_FILE")
+}
+
+fn read_secret_file(path: &str, name: &str) -> Result<String> {
     #[cfg(unix)]
     {
-        read_webwork_password_file_unix(path)
+        read_secret_file_unix(path, name)
     }
     #[cfg(not(unix))]
-    read_webwork_password_file_portable(path)
+    read_secret_file_portable(path, name)
 }
 
 #[cfg(unix)]
-fn read_webwork_password_file_unix(path: &str) -> Result<String> {
+fn read_secret_file_unix(path: &str, name: &str) -> Result<String> {
     use std::io::Read as _;
     use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
 
@@ -315,44 +424,44 @@ fn read_webwork_password_file_unix(path: &str) -> Result<String> {
         .read(true)
         .custom_flags(libc::O_NOFOLLOW)
         .open(path)
-        .with_context(|| "PLE_WEBWORK_RENDER_PASSWORD_FILE could not be inspected")?;
+        .with_context(|| format!("{name} could not be inspected"))?;
     let metadata = file
         .metadata()
-        .with_context(|| "PLE_WEBWORK_RENDER_PASSWORD_FILE could not be inspected")?;
+        .with_context(|| format!("{name} could not be inspected"))?;
     if !metadata.is_file() || metadata.len() > MAX_SECRET_BYTES {
-        bail!("PLE_WEBWORK_RENDER_PASSWORD_FILE must name a non-empty bounded regular file");
+        bail!("{name} must name a non-empty bounded regular file");
     }
     if metadata.permissions().mode() & 0o777 != 0o600 {
-        bail!("PLE_WEBWORK_RENDER_PASSWORD_FILE must have Unix mode 0600");
+        bail!("{name} must have Unix mode 0600");
     }
     let mut password = String::new();
     file.read_to_string(&mut password)
-        .with_context(|| "PLE_WEBWORK_RENDER_PASSWORD_FILE could not be read")?;
-    normalize_webwork_password(password)
+        .with_context(|| format!("{name} could not be read"))?;
+    normalize_secret_file(password, name)
 }
 
 #[cfg(not(unix))]
-fn read_webwork_password_file_portable(path: &str) -> Result<String> {
+fn read_secret_file_portable(path: &str, name: &str) -> Result<String> {
     const MAX_SECRET_BYTES: u64 = 4096;
     // Non-Unix platforms lack a portable O_NOFOLLOW equivalent in std.  They
     // still reject a visible link and every non-regular or oversized target.
     let metadata = std::fs::symlink_metadata(path)
-        .with_context(|| "PLE_WEBWORK_RENDER_PASSWORD_FILE could not be inspected")?;
+        .with_context(|| format!("{name} could not be inspected"))?;
     if metadata.file_type().is_symlink() || !metadata.is_file() || metadata.len() > MAX_SECRET_BYTES
     {
-        bail!("PLE_WEBWORK_RENDER_PASSWORD_FILE must name a non-empty bounded regular file");
+        bail!("{name} must name a non-empty bounded regular file");
     }
-    let password = std::fs::read_to_string(path)
-        .with_context(|| "PLE_WEBWORK_RENDER_PASSWORD_FILE could not be read")?;
-    normalize_webwork_password(password)
+    let password =
+        std::fs::read_to_string(path).with_context(|| format!("{name} could not be read"))?;
+    normalize_secret_file(password, name)
 }
 
-fn normalize_webwork_password(password: String) -> Result<String> {
-    let password = password.trim_end_matches(['\r', '\n']).to_string();
-    if password.trim().is_empty() {
-        bail!("PLE_WEBWORK_RENDER_PASSWORD_FILE must not be empty");
+fn normalize_secret_file(value: String, name: &str) -> Result<String> {
+    let value = value.trim_end_matches(['\r', '\n']).to_string();
+    if value.trim().is_empty() {
+        bail!("{name} must not be empty");
     }
-    Ok(password)
+    Ok(value)
 }
 
 fn positive_u64_env(name: &str) -> Result<u64> {

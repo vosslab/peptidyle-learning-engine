@@ -440,12 +440,13 @@ concurrent publication.
 ## Authentication boundary
 
 `crates/server/src/auth.rs` separates credential verification from session
-mechanics. An `IdentityProvider` establishes a validated `SessionSubject`; the
-same route and store contracts can therefore accept institutional OIDC, LTI,
-or the explicit local-development provider without changing cookie handling or
-tenant derivation. Institutional OIDC is the selected production identity
-decision and WP-RC8 owns its implementation; the provider abstraction remains
-the stable code boundary rather than an unresolved product choice.
+mechanics. An `IdentityProvider` establishes a validated account presentation;
+the same route and store contracts can therefore accept the production
+passwordless provider, optional institutional SSO, LTI, or the explicit
+local-development provider without changing cookie handling. WP-RC8 now implements
+PLE-managed email/passkey accounts and invite-by-email enrollment with acceptance open. The provider
+abstraction and opaque session remain stable; tenant context is derived from an
+authorized course/tenant relationship rather than email or browser authority.
 
 Successful login generates 256 bits from the operating-system random source.
 Only its SHA-256 hash enters `SessionStore`; the raw value appears solely in an

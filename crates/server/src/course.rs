@@ -4,12 +4,19 @@
 //! keep routing, queries, mutations, access policy, and wire projections small.
 
 mod assignments;
+mod invitation_email;
 mod policy;
 mod projection;
 mod queries;
+mod roster;
 mod routing;
 
-pub use routing::router;
+pub use invitation_email::{SmtpCourseInvitationDelivery, SmtpCourseInvitationDeliveryConfig};
+pub use roster::{
+    CourseInvitationDelivery, CourseInvitationDeliveryError, CourseInvitationIssuer,
+    CourseInvitationSecret, UnavailableCourseInvitationDelivery,
+};
+pub use routing::{router, router_with_invitations};
 
 #[cfg(test)]
 use assignments::{AssignmentRevisionHeaderError, required_assignment_revision};

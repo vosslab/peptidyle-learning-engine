@@ -28,11 +28,13 @@ capabilities.
 
 ## Migration ledger
 
-The accepted epoch has seven migrations and 80 static application relations. The first
-six are the accepted pre-data baseline. `2026080907_course_appearance.sql` is the first
-accepted forward migration. The 80-relation count deliberately excludes SQLx's own
-ledger and runtime-created partition children; it is a useful inventory check, not a
-capacity metric.
+The checked-in chain has nine migrations and 95 static application relations. The
+accepted epoch remains seven migrations and 80 relations: the first six are the
+accepted pre-data baseline, and `2026080907_course_appearance.sql` is the first accepted
+forward migration. Migrations 0908 and 0909 are present and pass the current disposable
+PostgreSQL migration ledger, but their owning product packages remain acceptance-open.
+These counts exclude SQLx's ledger and runtime-created partition children; they are
+inventory checks, not capacity metrics.
 
 | Version | File | State | Owns |
 | --- | --- | --- | --- |
@@ -49,7 +51,13 @@ prerequisite, but is not an accepted migration or a claim about a deployed datab
 adds presentation-binding columns, request-contract versioning, and the
 `webwork_grade_replay_state` relation. Do not count it in the accepted 80 relations.
 
-### Reserved sequence
+`2026080909_passwordless_identity.sql` is also checked in and passed fresh migration,
+no-op replay, ledger verification, role/grant/forced-RLS checks, and the disposable
+enrollment oracle. It adds PLE-owned accounts, email/WebAuthn ceremonies, passkeys,
+account sessions, tenant learner mappings, roster state/policy/members/invitations,
+bounded import staging, and PII-free grade-export audit. WP-RC8 remains acceptance-open.
+
+### Open and reserved sequence
 
 Later work takes the next ordered forward migration; it never inserts, renames, or edits
 an accepted version.
@@ -57,12 +65,12 @@ an accepted version.
 | Version | Planned owner | Intended scope | Current source state |
 | --- | --- | --- | --- |
 | 2026080908 | WP-P2 | Secure learner grading payload binding and WeBWorK replay state | File present; acceptance open |
-| 2026080909 | WP-RC7 | Object inventory and reconciliation | Reserved; no migration file yet |
-| 2026080910 | WP-RC8 | Institutional OIDC identity binding | Reserved; no migration file yet |
+| 2026080909 | WP-RC8 | Passwordless account, passkey/email identity, invitation, course roster, import, and grade-export audit | File present; migration gate passed; package acceptance open |
+| 2026080910 | WP-RC7 | Object inventory and reconciliation | Reserved; no migration file yet |
 | 2026080911 | WP-RC9 | LTI 1.3 / Advantage launches and passback | Reserved; no migration file yet |
 | 2026080912 | WP-FU | Secure learner upload capability | Reserved; no migration file yet |
 
-The upload migration follows the reserved OIDC/LTI sequence and remains planned while
+The upload migration follows the reserved identity/reconciliation/LTI sequence and remains planned while
 learner file responses fail closed. See the
 [secure learner upload plan](active_plans/active/secure_learner_file_upload_plan.md).
 
@@ -75,9 +83,10 @@ are not stored in these relations.
 
 | Data class | Primary relations | Ownership and mutability |
 | --- | --- | --- |
+| PLE account authentication | `ple_account`, `email_authentication_challenge`, `authentication_rate_limit`, `account_authentication_session`, `webauthn_ceremony`, `account_passkey` | Global opaque account and private credential state under the authentication role; email is mutable and never a primary key. |
 | Catalog and publication | `problem`, `problem_version`, `problem_version_payload`, `answer_key`, `published_source_artifact` | Shared immutable published content; a correction creates another version. |
 | Private authoring | `workspace_draft` and `workspace_*` import/source relations | Tenant-private mutable work before publication. |
-| Course activity | `course`, `course_member`, `assignment`, `assignment_item`, `enrollment` | Tenant/course configuration and membership. |
+| Course activity | `course`, `course_member`, `tenant_learner_identity`, `course_roster_*`, `course_invitation`, `assignment`, `assignment_item`, `enrollment` | Tenant/course configuration, protected roster PII, membership, and enrollment. |
 | Learner evidence | `assignment_run`, `assignment_run_item`, `question_attempt`, `submission`, `submission_evaluation` | Tenant-owned educational records. |
 | Current projections | `attempt_score_current`, `student_assignment_summary`, `course_item_analysis_current` | Recomputed/published current state; not a substitute for source evidence. |
 | Protected delivery/audit | `asset_delivery`, `student_export_*`, `record_access_log`, `audit_event` | Explicitly authorized and retention-bound record access/evidence. |

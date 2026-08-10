@@ -23,6 +23,7 @@ impl crate::CourseAssignmentStore for MemoryStore {
             scoring_generation: ScoringGeneration::INITIAL,
             scoring_status: ScoringStatus::Current,
         };
+        let snapshot = state.clone();
         state.assignments.insert(key, stored.record.clone());
         state.assignment_revisions.insert(key, stored.revision);
         state
@@ -31,6 +32,12 @@ impl crate::CourseAssignmentStore for MemoryStore {
         state
             .assignment_scoring
             .insert(key, (stored.scoring_generation, stored.scoring_status));
+        if let Err(error) =
+            super::course_roster::reconcile_new_assignment(&mut state, &stored.record)
+        {
+            *state = snapshot;
+            return Err(error);
+        }
         Ok(stored)
     }
     async fn replace_assignment_impl(

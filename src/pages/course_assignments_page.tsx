@@ -5,9 +5,11 @@ import { For, Show, Suspense, type JSX } from "solid-js";
 
 import { useApiRuntime } from "../api/runtime";
 import { CourseEntryIdentity } from "../features/course_appearance/course_entry_identity";
+import { useSessionBootstrap } from "../auth/session_context";
 
 export function CourseAssignmentsPage(): JSX.Element {
   const runtime = useApiRuntime();
+  const session = useSessionBootstrap();
   const params = useParams();
   const assignments = createAsync(() => {
     const courseId = params["courseId"];
@@ -16,11 +18,25 @@ export function CourseAssignmentsPage(): JSX.Element {
     }
     return runtime.queries.assignments(courseId);
   });
+  const canManageCourse = (): boolean => {
+    const current = session.state();
+    return (
+      current.kind === "authenticated" &&
+      current.session.user.roles.some((role) => role === "instructor" || role === "administrator")
+    );
+  };
 
   return (
     <section class="page" data-route-surface="courseAssignments">
       <CourseEntryIdentity />
       <h2>Assignments</h2>
+      <Show when={canManageCourse() && params["courseId"] !== undefined}>
+        <nav class="course-management-nav" aria-label="Course management">
+          <A href={`/instructor/courses/${params["courseId"] ?? ""}/students`}>Students</A>
+          <A href={`/instructor/courses/${params["courseId"] ?? ""}/gradebook`}>Gradebook</A>
+          <A href={`/instructor/courses/${params["courseId"] ?? ""}/appearance`}>Appearance</A>
+        </nav>
+      </Show>
       <Suspense fallback={<p class="loading-state">Loading assignments...</p>}>
         <Show
           when={assignments()}

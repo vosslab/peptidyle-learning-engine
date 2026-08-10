@@ -48,7 +48,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -664,6 +666,147 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+.auth-page,
+.roster-page {
+  width: min(100%, 72rem);
+}
+
+.auth-grid,
+.roster-workflow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 1rem;
+}
+
+.auth-panel,
+.roster-section {
+  padding: clamp(1.1rem, 3vw, 1.6rem);
+  border: 1px solid var(--ple-border);
+  border-radius: 1rem;
+  background: var(--ple-card-surface);
+  box-shadow: var(--ple-shadow);
+}
+
+.auth-panel h2,
+.roster-section h2,
+.passkey-card h2 {
+  margin-top: 0;
+}
+
+.auth-form {
+  display: grid;
+  align-content: start;
+  gap: 0.7rem;
+}
+
+.auth-form label,
+.roster-section label {
+  font-weight: 780;
+}
+
+.auth-form input,
+.auth-form select,
+.auth-form textarea,
+.roster-section input,
+.roster-section select,
+.roster-section textarea {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.65rem 0.8rem;
+  border: 2px solid var(--ple-border);
+  border-radius: 0.6rem;
+  background: var(--ple-surface);
+  color: var(--ple-ink);
+}
+
+.auth-form textarea,
+.roster-section textarea {
+  resize: vertical;
+}
+
+.field-help {
+  color: var(--ple-muted);
+  font-size: 0.94rem;
+}
+
+.account-course-list,
+.passkey-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.account-course-action,
+.passkey-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.account-course-action small {
+  color: var(--ple-muted);
+  text-transform: capitalize;
+}
+
+.passkey-card p {
+  margin-bottom: 0;
+  color: var(--ple-muted);
+}
+
+.course-management-nav {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 2rem;
+  padding: 0.25rem;
+  border: 1px solid var(--ple-border);
+  border-radius: 0.8rem;
+  background: var(--ple-card-surface);
+}
+
+.roster-section {
+  margin-top: 1.25rem;
+}
+
+.roster-table-wrap {
+  overflow-x: auto;
+}
+
+.roster-table {
+  width: 100%;
+  min-width: 44rem;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.roster-table th,
+.roster-table td {
+  padding: 0.8rem;
+  border-bottom: 1px solid var(--ple-border);
+  vertical-align: top;
+}
+
+.roster-table thead th {
+  background: var(--ple-surface-soft);
+  color: var(--ple-accent-strong);
+}
+
+.roster-table input[type="checkbox"] {
+  width: 1.25rem;
+  min-height: 1.25rem;
+}
+
+.roster-import-preview {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.roster-import-preview .primary-action,
+.roster-section > .primary-action {
+  justify-self: start;
+  margin-top: 1rem;
 }
 
 .site-footer {

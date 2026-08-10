@@ -174,6 +174,12 @@ def discover_source_files(repo_root: str, tracked_paths: list[str] | None = None
 	for rel in tracked_paths:
 		if has_symlink_directory(repo_root, rel):
 			continue
+		abs_path = os.path.join(repo_root, rel)
+		# The index may still name a path deleted in the working tree. A line
+		# limit applies only to source bytes that exist; Git review owns deletion
+		# detection. Preserve file symlinks here so count_file_lines rejects them.
+		if not os.path.lexists(abs_path):
+			continue
 		if is_source_file(rel):
 			paths.append(rel)
 	paths.sort()
@@ -289,6 +295,12 @@ def test_source_file_line_limit_accepts_only_allowed_override_classes(tmp_path: 
 def test_source_file_line_limit_uses_only_its_reviewed_prefixes(tmp_path: pathlib.Path) -> None:
 	"""Keep source under a shared-hygiene exclusion not reviewed by this gate."""
 	paths = ["legacy/kept.py", "target/generated.rs", "src/kept.rs"]
+	(tmp_path / "legacy").mkdir()
+	(tmp_path / "legacy" / "kept.py").write_text("source\n", encoding="utf-8")
+	(tmp_path / "target").mkdir()
+	(tmp_path / "target" / "generated.rs").write_text("source\n", encoding="utf-8")
+	(tmp_path / "src").mkdir()
+	(tmp_path / "src" / "kept.rs").write_text("source\n", encoding="utf-8")
 	discovered = discover_source_files(str(tmp_path), paths)
 	assert discovered == ["legacy/kept.py", "src/kept.rs"]
 
@@ -300,7 +312,18 @@ def test_source_file_line_limit_does_not_follow_directory_symlinks(tmp_path: pat
 	real_dir.mkdir()
 	(real_dir / "hidden.py").write_text("source\n", encoding="utf-8")
 	(tmp_path / "linked").symlink_to(real_dir, target_is_directory=True)
+	(tmp_path / "kept.py").write_text("source\n", encoding="utf-8")
 	discovered = discover_source_files(str(tmp_path), ["linked/hidden.py", "kept.py"])
+	assert discovered == ["kept.py"]
+
+
+#============================================
+def test_source_file_line_limit_ignores_a_tracked_path_deleted_from_worktree(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""Leave deleted-path detection to Git rather than opening absent bytes."""
+	(tmp_path / "kept.py").write_text("source\n", encoding="utf-8")
+	discovered = discover_source_files(str(tmp_path), ["deleted.py", "kept.py"])
 	assert discovered == ["kept.py"]
 
 

@@ -3,11 +3,18 @@ use std::sync::Arc;
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::routing::{get, put};
-use learning_data_access::{CatalogStore, CourseRecordsAccessStore, SessionStore, Store};
+use learning_data_access::{
+    CatalogStore, CourseRecordsAccessStore, CourseRosterStore, ManualGradeExportStore,
+    SessionStore, Store,
+};
 use serde::{Deserialize, Serialize};
 
 use super::assignments::{create_assignment, get_assignment, update_assignment};
 use super::queries::{create_course, get_course, list_assignments, list_courses, list_gradebook};
+use super::roster::{
+    CourseInvitationDelivery, CourseInvitationIssuer, UnavailableCourseInvitationDelivery,
+    roster_router,
+};
 
 pub(super) const DEFAULT_PAGE_SIZE: u16 = 50;
 const MAX_COURSE_BODY_BYTES: usize = 64 * 1_024;
@@ -15,9 +22,39 @@ const MAX_COURSE_BODY_BYTES: usize = 64 * 1_024;
 /// Builds the authenticated course and assignment route group.
 pub fn router<S>(store: Arc<S>) -> Router
 where
-    S: Store + CatalogStore + CourseRecordsAccessStore + SessionStore + 'static,
+    S: Store
+        + CatalogStore
+        + CourseRecordsAccessStore
+        + CourseRosterStore
+        + ManualGradeExportStore
+        + SessionStore
+        + 'static,
 {
-    Router::new()
+    router_with_invitations(
+        store,
+        CourseInvitationIssuer::unavailable(),
+        Arc::new(UnavailableCourseInvitationDelivery),
+    )
+}
+
+/// Builds course routes with a configured server-only invitation issuer and
+/// delivery service. The ordinary [`router`] keeps invitation creation
+/// fail-closed for tests or deployments that have not configured mail.
+pub fn router_with_invitations<S>(
+    store: Arc<S>,
+    issuer: CourseInvitationIssuer,
+    delivery: Arc<dyn CourseInvitationDelivery>,
+) -> Router
+where
+    S: Store
+        + CatalogStore
+        + CourseRecordsAccessStore
+        + CourseRosterStore
+        + ManualGradeExportStore
+        + SessionStore
+        + 'static,
+{
+    let course_routes = Router::new()
         .route(
             "/api/courses",
             get(list_courses::<S>).post(create_course::<S>),
@@ -34,7 +71,10 @@ where
             put(update_assignment::<S>),
         )
         .layer(DefaultBodyLimit::max(MAX_COURSE_BODY_BYTES))
-        .with_state(CourseRouteState { store })
+        .with_state(CourseRouteState {
+            store: Arc::clone(&store),
+        });
+    course_routes.merge(roster_router(store, issuer, delivery))
 }
 
 pub(super) struct CourseRouteState<S> {

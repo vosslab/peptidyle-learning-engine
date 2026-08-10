@@ -197,18 +197,20 @@ wait_for_postgres
 
 psql_in_container -d postgres -c "CREATE DATABASE $DATABASE_NAME"
 DATABASE_URL="$(database_url)"
+EXPECTED_MIGRATION_COUNT="$(find "$REPO_ROOT/schemas/migrations" -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
+[ "$EXPECTED_MIGRATION_COUNT" -gt 0 ] || fail "migration inventory is empty"
 
 initial_status="$(run_project_tools status)"
 printf '%s\n' "$initial_status"
-[ "$(printf '%s\n' "$initial_status" | grep -c ': pending')" -eq 8 ] || \
-	fail "empty database did not report the six-file baseline plus two forward migrations"
+[ "$(printf '%s\n' "$initial_status" | grep -c ': pending')" -eq "$EXPECTED_MIGRATION_COUNT" ] || \
+	fail "empty database did not report every tracked migration as pending"
 
 run_project_tools migrate
 run_project_tools migrate
 final_status="$(run_project_tools status)"
 printf '%s\n' "$final_status"
-[ "$(printf '%s\n' "$final_status" | grep -c ': applied')" -eq 8 ] || \
-	fail "migrated database did not report all eight applied migrations"
+[ "$(printf '%s\n' "$final_status" | grep -c ': applied')" -eq "$EXPECTED_MIGRATION_COUNT" ] || \
+	fail "migrated database did not report every tracked migration as applied"
 run_project_tools verify
 psql_in_container -d "$DATABASE_NAME" -c \
 	"ALTER ROLE ple_grading_reader PASSWORD '$GRADER_PASSWORD'"
@@ -217,6 +219,12 @@ echo "database baseline E2E: bounded SQLx serialization retry"
 PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	postgres::connection::tests::concurrent_serialization_failure_is_retried_and_commits \
 	--lib -- --ignored --exact --test-threads=1
+
+echo "database baseline E2E: passwordless account, roster, and role separation"
+PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_enrollment_live \
+	postgres_enrollment_capability_is_locked_unique_and_role_separated \
+	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: family-filtered concurrent worker claims"
 PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
@@ -463,4 +471,4 @@ done
 if [ "$GATE_FAILURES" -gt 0 ]; then
 	fail "$GATE_FAILURES actionable schema inventory check(s) failed"
 fi
-echo "database baseline E2E: PASS (six-file baseline plus two forward migrations and representative role denial)"
+echo "database baseline E2E: PASS ($EXPECTED_MIGRATION_COUNT tracked migrations and representative role denial)"

@@ -10,6 +10,9 @@
 	@api path /api /api/* /health
 	handle @api {
 		reverse_proxy {
+			# Overwrite any browser-supplied value. The API stores only a keyed
+			# digest of this canonical address for replica-shared login throttling.
+			header_up X-PLE-Client-IP {http.request.remote.host}
 			# Dynamic A discovery asks Compose DNS for every api replica instead of
 			# resolving one container name once at gateway startup. Caddy refreshes
 			# this bounded list while requests are being served.

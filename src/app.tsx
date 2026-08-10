@@ -26,6 +26,15 @@ function canUseAuthoringTools(state: SessionBootstrapState): boolean {
 
 type ScopedRouteSectionProps = RouteSectionProps & { readonly pathname: string };
 
+function isPublicAccountRoute(pathname: string): boolean {
+  return [
+    "/sign-in",
+    "/auth/email/complete",
+    "/auth/account/email/complete",
+    "/course-invitations/redeem",
+  ].includes(pathname);
+}
+
 function SessionContent(props: ScopedRouteSectionProps): JSX.Element {
   const session = useSessionBootstrap();
   const state = session.state;
@@ -51,7 +60,7 @@ function RouteContent(props: ScopedRouteSectionProps): JSX.Element {
   if (testFailure?.() === true) {
     throw new Error("route-boundary-test-sentinel");
   }
-  return <SessionContent {...props} />;
+  return isPublicAccountRoute(props.pathname) ? props.children : <SessionContent {...props} />;
 }
 
 interface SessionRecoveryProps {
@@ -100,6 +109,9 @@ function SessionRecovery(props: SessionRecoveryProps): JSX.Element {
       <h1>{title}</h1>
       <p>{description}</p>
       <Show when={expired}>
+        <p>
+          <A href="/sign-in">Sign in with a passkey or email</A>
+        </p>
         <form class="local-sign-in" onSubmit={(event) => void signIn(event)}>
           <label for="local-development-credential">Local development credential</label>
           <input
@@ -174,6 +186,11 @@ export function App(props: RouteSectionProps): JSX.Element {
           <Show when={canUseAuthoringTools(session.state())}>
             <A href="/workspace" activeClass="active">
               Workspace
+            </A>
+          </Show>
+          <Show when={session.state().kind === "authenticated"}>
+            <A href="/account/security" activeClass="active">
+              Account
             </A>
           </Show>
         </nav>

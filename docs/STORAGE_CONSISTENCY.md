@@ -223,7 +223,7 @@ deployment work, not a completed local-code claim.
 
 The write order and retention manifests are implemented. General bucket-to-database reconciliation
 is intentionally **planned, not implemented**. WP-RC7 reserves
-`2026080909_object_reconciliation.sql` and the following behavior:
+`2026080910_object_reconciliation.sql` and the following behavior:
 
 - page through bounded bucket inventory without making raw listing data browser-visible;
 - register deterministic render/cache references before they can be treated as orphans;

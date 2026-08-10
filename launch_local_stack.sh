@@ -21,6 +21,7 @@ LOCAL_IDENTITY_FILE="containers/local-identities.json"
 LOCAL_CREDENTIAL_FILE="containers/local-login.txt"
 LOCAL_DEMO_MANIFEST_FILE="containers/local-demo.json"
 LOCAL_WEBWORK_DEMO_MANIFEST_FILE="containers/local-webwork-demo.json"
+LOCAL_INVITATION_SECRET_FILE="containers/.secrets/invitation_token_secret"
 LOCAL_WEBWORK_SECRET_FILE="containers/.secrets/webwork_render_password"
 LOCAL_WEBWORK_MOJO_SECRET_FILE="containers/.secrets/webwork_mojolicious_secret"
 LOCAL_WEBWORK_PROVENANCE_FILE="containers/.secrets/webwork_renderer_provenance"
@@ -35,6 +36,7 @@ LOCAL_CADDY_IMAGE_SHA256="844f60b64e4724a5aa8245e019dace0d3f199f7433ce6c57676cb3
 LOCAL_POSTGRES_IMAGE_SHA256="7958605b474b3d264a969cb3a123d6aa00ad1e1fe9da8a69984dabb704d93317"
 LOCAL_MINIO_IMAGE_SHA256="14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e"
 LOCAL_MINIO_MC_IMAGE_SHA256="a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727"
+LOCAL_SECRET_INIT_IMAGE_SHA256="48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d"
 
 usage() {
 	cat <<'EOF'
@@ -211,6 +213,35 @@ bootstrap_local_identities() {
 	chmod 644 "$LOCAL_IDENTITY_FILE"
 }
 
+validate_invitation_secret_file() {
+	secret_path="$1"
+	[ -r "$secret_path" ] || die "Invitation issuer secret $secret_path is missing or unreadable"
+	if stat -f '%Lp' "$secret_path" >/dev/null 2>&1; then
+		secret_mode="$(stat -f '%Lp' "$secret_path")"
+	else
+		secret_mode="$(stat -c '%a' "$secret_path")"
+	fi
+	[ "$secret_mode" = "600" ] || die "Invitation issuer secret $secret_path must have mode 0600; fix it before launch"
+	secret_value="$(cat "$secret_path")"
+	printf '%s' "$secret_value" | grep -Eq '^[A-Za-z0-9_-]{43}$' || die "Invitation issuer secret $secret_path must be exactly 32 random bytes encoded as canonical base64url"
+}
+
+bootstrap_invitation_secret_file() {
+	secret_path="$1"
+	if [ -r "$secret_path" ]; then
+		validate_invitation_secret_file "$secret_path"
+		return 0
+	fi
+	secret_directory="$(dirname "$secret_path")"
+	umask 077
+	mkdir -p "$secret_directory"
+	temporary_secret_file="$(mktemp "${secret_path}.XXXXXX")"
+	openssl rand 32 | openssl base64 -A | tr '+/' '-_' | tr -d '=' >"$temporary_secret_file"
+	chmod 600 "$temporary_secret_file"
+	mv "$temporary_secret_file" "$secret_path"
+	validate_invitation_secret_file "$secret_path"
+}
+
 validate_webwork_secret_file() {
 	secret_path="$1"
 	[ -r "$secret_path" ] || die "WebWork secret $secret_path is missing or unreadable"
@@ -247,6 +278,7 @@ bootstrap_default_local_configuration() {
 	fi
 	[ -w "$ENV_FILE" ] || die "$ENV_FILE is not writable for first-run local bootstrap"
 	bootstrap_local_identities
+	bootstrap_invitation_secret_file "$LOCAL_INVITATION_SECRET_FILE"
 	bootstrap_webwork_secret_file "$LOCAL_WEBWORK_SECRET_FILE"
 	bootstrap_webwork_secret_file "$LOCAL_WEBWORK_MOJO_SECRET_FILE"
 
@@ -257,12 +289,15 @@ bootstrap_default_local_configuration() {
 	set_default_env_value PLE_WEBWORK_DATABASE_ROOT_PASSWORD "$(random_hex 24)"
 	set_default_env_value PLE_WEBWORK_RENDER_PASSWORD_HOST_FILE "$REPO_ROOT/$LOCAL_WEBWORK_SECRET_FILE"
 	set_default_env_value PLE_WEBWORK_MOJO_SECRET_HOST_FILE "$REPO_ROOT/$LOCAL_WEBWORK_MOJO_SECRET_FILE"
+	set_default_env_value PLE_INVITATION_TOKEN_SECRET_HOST_FILE "$REPO_ROOT/$LOCAL_INVITATION_SECRET_FILE"
 	set_default_env_value PLE_GATEWAY_IMAGE_SHA256 "$LOCAL_CADDY_IMAGE_SHA256"
 	set_default_env_value PLE_POSTGRES_IMAGE_SHA256 "$LOCAL_POSTGRES_IMAGE_SHA256"
 	set_default_env_value PLE_MINIO_IMAGE_SHA256 "$LOCAL_MINIO_IMAGE_SHA256"
 	set_default_env_value PLE_MINIO_MC_IMAGE_SHA256 "$LOCAL_MINIO_MC_IMAGE_SHA256"
 	set_default_env_value PLE_LOCAL_AUTH_HOST_FILE "$REPO_ROOT/$LOCAL_IDENTITY_FILE"
 	set_default_env_value PLE_PUBLIC_ASSET_BASE_URL "http://127.0.0.1:9000/content"
+	set_default_env_value PLE_WEBAUTHN_RP_ID "localhost"
+	set_default_env_value PLE_WEBAUTHN_RP_NAME "Peptidyle Learning Engine"
 	configured_renderer_url="$(env_value PLE_WEBWORK_RENDERER_BASE_URL)"
 	if [ -z "$configured_renderer_url" ] || [ "$configured_renderer_url" = "http://webwork-renderer:8080" ]; then
 		write_env_value PLE_WEBWORK_RENDERER_BASE_URL "http://webwork-renderer:8080/webwork2/"
@@ -272,7 +307,7 @@ bootstrap_default_local_configuration() {
 	set_default_env_value PLE_WEBWORK_RENDERER_ID "openwebwork-webwork2"
 	set_default_env_value PLE_WEBWORK_RENDERER_VERSION "webwork2-c7060fe858cb-pg-726ff42840f9"
 	set_default_env_value PLE_WEBWORK_BASE_IMAGE_SHA256 "561618e2c15bf2397621dd04f96926663a3b5616c189cf7e38db7e82f5c538ea"
-	set_default_env_value PLE_SECRET_INIT_IMAGE_SHA256 "48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d"
+	set_default_env_value PLE_SECRET_INIT_IMAGE_SHA256 "$LOCAL_SECRET_INIT_IMAGE_SHA256"
 	set_default_env_value PLE_WEBWORK2_GIT_URL "https://github.com/openwebwork/webwork2.git"
 	set_default_env_value PLE_WEBWORK2_GIT_SHA "c7060fe858cb27b17aad5cf77574ff7d1ae3e1fa"
 	set_default_env_value PLE_WEBWORK_PG_GIT_URL "https://github.com/openwebwork/pg.git"
@@ -283,6 +318,12 @@ bootstrap_default_local_configuration() {
 	set_default_env_value PLE_WEBWORK_RENDER_COURSE_ID "ple-render"
 	set_default_env_value PLE_WEBWORK_RENDER_USER "ple-renderer"
 	ensure_default_gateway_port
+	configured_webauthn_origin="$(env_value PLE_WEBAUTHN_ORIGIN)"
+	case "$configured_webauthn_origin" in
+	"" | http://localhost:*)
+		write_env_value PLE_WEBAUTHN_ORIGIN "http://localhost:$(env_value PLE_GATEWAY_HOST_PORT)"
+		;;
+	esac
 }
 
 if [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ] && [ "$CHECK_ONLY" -eq 0 ]; then
@@ -291,7 +332,7 @@ fi
 [ -r "$ENV_FILE" ] || die "$ENV_FILE is missing or unreadable; run without --check once to bootstrap containers/env.local"
 
 if [ "$CHECK_ONLY" -eq 1 ] && [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ]; then
-	for required_setting in PLE_POSTGRES_IMAGE_SHA256 PLE_MINIO_IMAGE_SHA256 PLE_MINIO_MC_IMAGE_SHA256 PLE_GATEWAY_IMAGE_SHA256; do
+	for required_setting in PLE_POSTGRES_IMAGE_SHA256 PLE_MINIO_IMAGE_SHA256 PLE_MINIO_MC_IMAGE_SHA256 PLE_GATEWAY_IMAGE_SHA256 PLE_SECRET_INIT_IMAGE_SHA256; do
 		[ -n "$(env_value "$required_setting")" ] || die "--check cannot validate this pre-image-pin env.local; run './launch_local_stack.sh --no-open' once to safely add immutable local image settings"
 	done
 fi
@@ -325,12 +366,14 @@ require_sha256_env_value() {
 	printf '%s' "$setting_value" | awk '/^[0-9a-f]{64}$/ { valid = 1 } END { exit !valid }' || die "$setting_name must be a 64-character lowercase hexadecimal SHA-256 manifest digest"
 }
 
-for required_setting in POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB MINIO_ROOT_USER MINIO_ROOT_PASSWORD PLE_LOCAL_GRADER_PASSWORD PLE_LOCAL_AUTH_HOST_FILE; do
+for required_setting in POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB MINIO_ROOT_USER MINIO_ROOT_PASSWORD PLE_LOCAL_GRADER_PASSWORD PLE_LOCAL_AUTH_HOST_FILE PLE_INVITATION_TOKEN_SECRET_HOST_FILE; do
 	require_env_value "$required_setting"
 done
-for required_setting in PLE_POSTGRES_IMAGE_SHA256 PLE_MINIO_IMAGE_SHA256 PLE_MINIO_MC_IMAGE_SHA256 PLE_GATEWAY_IMAGE_SHA256; do
+for required_setting in PLE_POSTGRES_IMAGE_SHA256 PLE_MINIO_IMAGE_SHA256 PLE_MINIO_MC_IMAGE_SHA256 PLE_GATEWAY_IMAGE_SHA256 PLE_SECRET_INIT_IMAGE_SHA256; do
 	require_sha256_env_value "$required_setting"
 done
+[ -r "$(env_value PLE_INVITATION_TOKEN_SECRET_HOST_FILE)" ] || die "invitation issuer secret file is missing or unreadable"
+validate_invitation_secret_file "$(env_value PLE_INVITATION_TOKEN_SECRET_HOST_FILE)"
 
 if [ "$WITH_WEBWORK" -eq 1 ] && [ "$CHECK_ONLY" -eq 1 ] && [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ]; then
 	for required_setting in PLE_WEBWORK_BASE_IMAGE_SHA256 PLE_SECRET_INIT_IMAGE_SHA256 PLE_WEBWORK2_GIT_URL PLE_WEBWORK2_GIT_SHA PLE_WEBWORK_PG_GIT_URL PLE_WEBWORK_PG_GIT_SHA PLE_WEBWORK_MARIADB_IMAGE_SHA256 PLE_WEBWORK_DATABASE_PASSWORD PLE_WEBWORK_DATABASE_ROOT_PASSWORD PLE_WEBWORK_RENDER_PASSWORD_HOST_FILE PLE_WEBWORK_MOJO_SECRET_HOST_FILE; do
@@ -511,6 +554,10 @@ fi
 
 echo "==> Building images and starting API, worker, and browser gateway"
 services=(api worker gateway)
+# Refresh the API-owned runtime copy on every launch so a rotated invitation
+# issuer secret cannot leave a stale value in the named runtime volume.
+compose rm -f identity-secret-init >/dev/null 2>&1 || true
+compose up -d identity-secret-init
 # podman-compose can leave a stopped container attached to the previous image
 # ID even after rebuilding the same local tag. Recreate only the stateless
 # application services so their running binaries always match this build;

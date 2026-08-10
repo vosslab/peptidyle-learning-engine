@@ -27,6 +27,7 @@ import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionD
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { PublicationScope } from "../../generated/api/PublicationScope";
 import type { CapabilityValidator, FormatValidator, TimerEvaluator } from "../wasm/index";
+import type { CourseRosterClient } from "./enrollment";
 import type {
   AssignmentEditorDetail,
   AssignmentEditorInput,
@@ -49,7 +50,7 @@ import type {
 } from "./contracts";
 
 /** Browser-safe client contract. A future HTTP transport implements this interface. */
-export interface ApiClient {
+export interface ApiClient extends CourseRosterClient {
   readonly getSession: () => Promise<AuthSession>;
   /** Establishes the explicit local-development session; the credential is never retained. */
   readonly loginWithLocalCredential: (credential: string) => Promise<AuthSession>;

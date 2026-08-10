@@ -31,7 +31,9 @@ passed.
 
 PLE now has accepted course appearance, production-seam cleanup, a bounded live WeBWorK path, and
 the first source-ownership decomposition. Native flat JSON v2 implements the eight required question
-families and is the immediate independent-closeout package. The secure learner-payload design is
+families. WP-RC8 now implements the first usable institution-independent passwordless account and
+course-roster slice, including manual grade export, while its production acceptance remains open.
+The secure learner-payload design is
 decision-complete, and its descriptor codec and first forward migration are present, but the full
 browser/API/WeBWorK cutover remains unaccepted. Learner file upload remains deliberately disabled
 behind a separate implementation-ready security plan.
@@ -51,8 +53,8 @@ The central architecture remains sound:
 The post-acceptance persistence size regression is repaired. Complete attempt-issuance capabilities
 now live in paired in-memory and PostgreSQL owners, while the public Store facade and the original
 SQL text, bind order, transaction scope, retry, and RLS behavior remain unchanged. The permanent
-source-size gate passes 770 cases with no maintained-source violation. The all-feature persistence
-check, 133 focused behavior tests, live-test compilation, and strict Clippy gate also pass. This
+source-size gate passes 824 cases with no maintained-source violation. The feature-enabled
+persistence check, Store conformance suite, live database oracle, and strict Clippy gate also pass. This
 does not turn the mixed worktree into a release candidate or replace the remaining package gates.
 
 ## August 10 changes
@@ -123,6 +125,27 @@ learner-screen response, kind-free submission decoder, persisted missing-row sel
 PostgreSQL/private-renderer trace, mismatch recovery, measurements, and independent closure remain
 dependency-ordered work before WP-RC5 acceptance.
 
+### Passwordless identity and enrollment implemented
+
+WP-RC8 is **implemented, acceptance open**. The current slice provides PLE-owned opaque global
+accounts, uniform short-lived browser-bound email authentication, discoverable WebAuthn,
+multiple-passkey management, verified email replacement, and authorized account-to-course context
+selection. Course managers can page the roster, set exact allowed-email domains, send or revoke a
+single invitation, preview and atomically commit a bounded `email,roster_id` CSV, revoke learner
+access, and download a synchronous no-store grade CSV. Invitation claim atomically creates or
+reuses the tenant learner identity, course membership, every current assignment enrollment, and
+every empty summary; assignment creation applies the same cross-product invariant to current
+learners.
+
+Forward migration `2026080909_passwordless_identity.sql` passed fresh migration, no-op replay,
+ledger verification, role/grant/forced-RLS checks, and the disposable PostgreSQL enrollment oracle.
+The all-feature Rust workspace and 76-test browser suite are green, including a keyboard-only
+instructor invitation path. Acceptance remains open for a disposable real-email/optional-passkey
+and multi-replica journey plus independent security/HCI closeout. Email authentication is the
+canonical account path and passkeys are optional shortcuts. Version 1 has no manager-assisted
+account merge or educational-record transfer; email possession authenticates only the account
+already bound to that email.
+
 ### File upload planned safely
 
 The learner file-upload contract is decision-complete while the product remains fail-closed. The
@@ -132,7 +155,8 @@ private malware inspection, typed promotion, atomic manual-grading consumption, 
 reconciliation, protected delivery, multi-replica recovery, and keyboard accessibility.
 
 No learner upload route is accepted or enabled. WP-FU1 through WP-FU6 and reserved migration
-`2026080912_secure_learner_uploads.sql` run after passwordless identity/enrollment and LTI and before
+`2026080912_secure_learner_uploads.sql` runs after passwordless identity/enrollment, object
+reconciliation, and LTI and before
 production deployment.
 
 ## Status dashboard
@@ -147,7 +171,8 @@ production deployment.
 | WP-P1 through WP-P6 payload | Decision accepted; offline persistence slice implemented | Codec, migration, exact replay binding, and one-call normal WeBWorK grading exist; complete API/browser/live cutover and independent evidence remain |
 | WP-RC5 and WP-RC6 content/interchange | Planned and owned | Visual family authoring, integrated storage, Chapter 1 content, QTI export, and honest H5P closeout |
 | WP-RC7 data hardening | Planned and owned | Object inventory, twice-observed orphan quarantine, missing-reference alerts, and combined M2-M5 gate |
-| WP-RC8 and WP-RC9 identity/LTI | Planned and owned | PLE-managed email/passkey accounts, roster invitation/manual grade export, optional SSO, then LTI 1.3 launch and AGS passback |
+| WP-RC8 identity/enrollment | Implemented, acceptance open | PLE-managed email accounts with optional passkeys, invitation claim, roster/bulk import, atomic enrollments, and manual no-store grade export; real email/optional-passkey/replica and independent closeout remain |
+| WP-RC9 LTI | Planned and owned | LTI 1.3 launch and AGS passback; optional institutional SSO remains a non-blocking future account-linking integration |
 | WP-FU1 through WP-FU6 uploads | Planned and fail-closed | Server-issued, inspected, attempt-bound learner upload capability |
 | WP-RC10 and WP-RC11 operations | Planned and owned | OpenTofu deployment/recovery/scale, then measured bot-cost controls |
 | WP-RC12 release | Not started | Complete local and disposable production evidence plus independent multi-discipline audit |
@@ -170,11 +195,15 @@ production deployment.
   small without weakening authoritative identity.
 - Course and learner records are tenant-owned. Shared published versions are immutable and reusable
   without copying content into every course.
+- A PLE account is keyed by one opaque global `UserId`; verified email is the mutable canonical
+  sign-in attribute, while course authorization and tenant-scoped `StudentId` mappings isolate
+  educational records. Course-scoped roster email and roster ID exist only for instruction and
+  manual grade export.
 - PostgreSQL startup verifies the migration ledger through a least-privilege projection and never
   applies DDL through the application role.
-- The accepted six-file baseline and `2026080907_course_appearance.sql` are frozen. Migration 0908
-  exists; migrations 0909 through 0912 remain dependency-ordered reservations unless and until their
-  owning packages land them.
+- The accepted six-file baseline and `2026080907_course_appearance.sql` are frozen. Migrations 0908
+  and 0909 exist with package acceptance open; migrations 0910 through 0912 remain
+  dependency-ordered reservations.
 
 ### Browser and accessibility
 
@@ -213,33 +242,47 @@ production deployment.
 
 - Working tree: mixed indexed, unindexed, and untracked implementation/documentation work; this is
   not a release or commit boundary.
-- Permanent source-size gate: 770 passed with no maintained-source violation.
-- Feature-enabled learning-data-access passes 133 offline behavior tests and strict Clippy; the
-  opt-in live PostgreSQL binaries compile and remain deliberately ignored outside the disposable
-  database run. Server core passes 190 tests with three intentional live ignores and strict Clippy;
-  project-tools passes 30 tests.
+- Permanent source-size gate: 824 passed with no maintained-source violation. It ignores an indexed
+  path deleted from the working tree while retaining its symlink, invalid-UTF-8, NUL, and 1,000-line
+  refusal behavior.
+- Feature-enabled learning-data-access passes its check, strict Clippy, and 49 Store conformance
+  tests. Server core passes 205 library tests with three intentional live ignores plus its binary
+  test under the complete gate.
 - Focused presentation reproduction, replay ownership/concealment/deletion, and one-private-RPC
   WeBWorK grading tests pass. This is offline implementation evidence, not the WP-P2/P4 live gate.
-- No full current-tree codebase, browser, PostgreSQL, or release gate is claimed by this report.
-  Those commands must be rerun after the current in-flight package work settles.
+- The current all-feature Rust workspace test passes; strict all-feature workspace check and Clippy
+  pass; the browser suite passes 76 tests with two deliberate opt-in skips.
+- The maintained eleven-stage codebase gate passes, including 189 Node tests, generated-contract
+  checks, strict TypeScript, Rust format/Clippy/workspace tests, and doctests. The independent
+  Python/documentation policy suite passes 3,270 tests.
+- The disposable PostgreSQL baseline passes all nine migrations, fresh/no-op/verify behavior,
+  passwordless/enrollment RLS and role boundaries, and the existing partition/QTI/flat/manual/item
+  analysis oracles. The disposable project and volume were removed after the run.
+- These current-tree checks do not replace WP-RC8's still-missing real-email/optional-passkey,
+  multi-replica, and independent acceptance evidence or constitute WP-RC12 release acceptance.
 
 ## Current gaps
 
-1. Complete WP-RC4's independent flat JSON v2 contract/security closeout.
-2. Implement and accept WP-P1 through WP-P6 before WP-RC5 acceptance.
-3. Complete WP-RC5 visual family authoring, integrated all-family persistence/object evidence,
+1. Close WP-RC8 acceptance with a disposable real-email/optional-passkey and multi-replica journey
+   plus independent security/HCI review. Keep manager-assisted account merge and educational-record
+   transfer outside version 1; do not infer record ownership from email possession.
+2. Complete WP-RC4's independent flat JSON v2 contract/security closeout.
+3. Implement and accept WP-P1 through WP-P6 before WP-RC5 acceptance.
+4. Complete WP-RC5 visual family authoring, integrated all-family persistence/object evidence,
    WeBWorK MATCH, and the exact Chapter 1 genetics and biochemistry content.
-4. Complete WP-RC6 QTI export and bounded H5P import claims.
-5. Complete WP-RC7 object reconciliation and the combined M2-M5 security/data gate.
-6. Implement passwordless identity, invite-by-email enrollment/manual grade export, optional SSO,
-   LTI, secure learner uploads, declarative deployment/recovery, and bot-cost controls through
-   WP-RC8 to WP-RC11.
-7. Run WP-RC12 working-codebase release acceptance and independent review before any production
+5. Complete WP-RC6 QTI export and bounded H5P import claims.
+6. Complete WP-RC7 object reconciliation and the combined M2-M5 security/data gate.
+7. Implement optional SSO, LTI, secure learner uploads, declarative deployment/recovery, and bot-cost
+   controls through WP-RC9 to WP-RC11.
+8. Run WP-RC12 working-codebase release acceptance and independent review before any production
    readiness claim.
 
 ## Dependency order
 
 ```text
+WP-RC8 passwordless identity/enrollment acceptance closeout
+    |
+    v
 WP-RC4 independent closeout
     |
     v
@@ -247,7 +290,7 @@ WP-P1..WP-P6 secure payload ---> WP-RC5 families/content ---> WP-RC6 QTI/H5P
                  |
                  +-------------> WP-RC7 reconciliation/integration
 
-WP-RC8 passwordless identity/enrollment ---> WP-RC9 LTI ---> WP-FU1..WP-FU6 uploads ---> WP-RC10 OpenTofu
+WP-RC8 accepted identity/enrollment ---> WP-RC9 LTI ---> WP-FU1..WP-FU6 uploads ---> WP-RC10 OpenTofu
                                                                     |
                                                                     v
                                                          WP-RC11 bot controls
@@ -262,10 +305,10 @@ WP-P2. Package acceptance and migration order may not be skipped.
 ## Production boundary
 
 The repository still needs production runtime PostgreSQL identities, startup role attestation,
-embedded-mode CSRF and final gateway headers, passwordless email/WebAuthn configuration, roster and
-manual grade-export behavior, optional SSO credentials, LTI registration, secure learner uploads,
-managed deployment, encrypted backup/restore and point-in-time recovery, aggregate observability,
-replica/worker/load evidence, cost controls, and independent release review. Institutional
+embedded-mode CSRF and final gateway headers, production passwordless email/WebAuthn configuration
+and real-email/optional-passkey acceptance, optional SSO credentials, LTI registration, secure
+learner uploads, managed deployment, encrypted backup/restore and point-in-time recovery, aggregate
+observability, replica/worker/load evidence, cost controls, and independent release review. Institutional
 FERPA/legal/security sign-off and the human fall-pilot accessibility and teaching walkthrough are
 external activation evidence, not unfinished source code substitutes.
 

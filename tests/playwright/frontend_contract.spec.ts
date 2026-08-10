@@ -56,6 +56,11 @@ async function expectNoBlockingAxeViolations(page: Page): Promise<void> {
 test("all product routes resolve inside the persistent shell", async ({ page }) => {
   const routes = [
     { path: "/", surface: "courses" },
+    { path: "/sign-in", surface: "signIn" },
+    { path: "/auth/email/complete", surface: "emailAuthenticationComplete" },
+    { path: "/auth/account/email/complete", surface: "emailChangeComplete" },
+    { path: "/course-invitations/redeem", surface: "courseInvitation" },
+    { path: "/account/security", surface: "accountSecurity" },
     { path: `/courses/${IDS.course}`, surface: "courseAssignments" },
     {
       path: `/courses/${IDS.course}/assignments/${IDS.assignment}`,
@@ -79,6 +84,7 @@ test("all product routes resolve inside the persistent shell", async ({ page }) 
       path: `/instructor/courses/${IDS.course}/appearance`,
       surface: "courseAppearance",
     },
+    { path: `/instructor/courses/${IDS.course}/students`, surface: "courseRoster" },
   ];
 
   await page.goto("/");
@@ -97,6 +103,30 @@ test("all product routes resolve inside the persistent shell", async ({ page }) 
     }
     await expect(page.locator("header.site-header")).toBeVisible();
   }
+});
+
+test("an instructor can invite a student through the platform keyboard path", async ({ page }) => {
+  await page.goto("/");
+  await navigateWithinSpa(page, `/instructor/courses/${IDS.course}/students`);
+  const email = page.getByLabel("Institutional email");
+  await expect(email).toBeVisible();
+  await tabTo(page, email, 30);
+  await page.keyboard.type("new.student@mail.roosevelt.edu");
+  await page.keyboard.press("Tab");
+  await expect(page.getByLabel("Institutional student ID")).toBeFocused();
+  await page.keyboard.type("900123457");
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Create invitation" })).toBeFocused();
+  await page.keyboard.press("Enter");
+
+  await expect(page.getByText("new.student@mail.roosevelt.edu")).toBeVisible();
+  await expect(page.getByText("900123457")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Share this invitation" })).toBeVisible();
+  await expect(page.getByLabel("Invitation link")).toHaveValue(
+    /^http:\/\/[^/]+\/course-invitations\/redeem#token=[A-Za-z0-9_-]{43}$/u,
+  );
+  await expect(page.getByRole("button", { name: "Copy invitation link" })).toBeVisible();
+  await expectNoBlockingAxeViolations(page);
 });
 
 test("student navigation stays learner-focused and link navigation focuses main content", async ({

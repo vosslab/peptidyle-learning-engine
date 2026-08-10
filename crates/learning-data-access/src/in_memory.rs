@@ -1,5 +1,6 @@
 //! In-memory Store backend (WP-C4, MOD-STO).
 
+mod account_identity;
 mod activity;
 mod assets;
 mod authoring;
@@ -9,6 +10,7 @@ mod catalog_search_tests;
 mod course_appearance;
 mod course_assignments;
 mod course_policy;
+mod course_roster;
 mod courses;
 mod exports;
 mod external_tool;
@@ -16,6 +18,7 @@ mod feedback;
 mod flat_import_provenance;
 mod flat_question;
 mod item_analysis;
+mod manual_grade_export;
 mod qti;
 mod qti_ingress;
 mod queue;
@@ -74,34 +77,39 @@ use crate::retention::{RetentionCleanupManifestState, StoredRetentionCleanupMani
 use crate::run_summary_cursor::RunSummaryCursor;
 use crate::statistics::{StatisticsContribution, derive_statistics_contributions};
 use crate::{
-    ActivityTransition, AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord,
-    AssignmentDefinitionDisposition, AssignmentPolicyException, AssignmentPolicyExceptionTarget,
-    AssignmentRecord, AssignmentRevision, AssignmentUpdate, AttemptSupportAction,
-    AttemptSupportActionId, AttemptSupportRecord, CatalogSourceStore, CatalogStore,
-    CatalogTransition, ClearAttemptCommand, CourseGroupRecord, CourseGroupRevision,
-    CourseListScope, CourseRecord, CourseRecordsAccessStore, CourseRetentionRecord,
-    CourseRetentionSnapshot, CourseRetentionState, CourseRetentionView, Cursor,
+    AccountRecord, AccountSessionRecord, AccountSessionTokenHash, ActivityTransition,
+    AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssignmentDefinitionDisposition,
+    AssignmentPolicyException, AssignmentPolicyExceptionTarget, AssignmentRecord,
+    AssignmentRevision, AssignmentUpdate, AttemptSupportAction, AttemptSupportActionId,
+    AttemptSupportRecord, AuthenticationRateLimitKey, AuthenticationRateLimitScope,
+    CatalogSourceStore, CatalogStore, CatalogTransition, ClearAttemptCommand,
+    CourseEnrollmentPolicy, CourseGroupRecord, CourseGroupRevision, CourseInvitationId,
+    CourseInvitationSecretHash, CourseListScope, CourseMemberId, CourseRecord,
+    CourseRecordsAccessStore, CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState,
+    CourseRetentionView, CourseRosterId, CourseRosterMember, CredentialIdHash, Cursor,
     DeleteAndRegradeAssignmentItemCommand, DeleteAssignmentPolicyExceptionCommand, DraftRecord,
-    FeedbackReleaseRecord, FlatQuestionGradingPayload, ForceSubmitAttemptCommand,
-    InstitutionRetentionPolicy, IssueQuestionAttemptCommand, Page, PageRequest, PageSize,
-    PrefetchedQuestion, PublishDraftCommand, PublishedProblemRecord, PublishedSourceArtifact,
-    PutCourseGroupCommand, RETENTION_JOB_MAX_ATTEMPTS, ReleaseAttemptFeedbackCommand,
-    ReservePrefetchedQuestionCommand, ResolvedAssignmentTiming, ResolvedAttemptTiming,
-    RetentionApiStore, RetentionCleanupManifest, RetentionDays, RetentionDispatchBatch,
-    RetentionRevision, RetentionScheduleStore, RetentionStore, RetentionWork,
-    RetentionWorkerCommand, RetentionWorkerStore, RunSummaryOutcomeInput, RunSummaryPageInput,
-    SessionTokenHash, SetAssignmentPolicyExceptionCommand, StoreError, StoredAssignment,
+    EmailChallengeSecretHash, FeedbackReleaseRecord, FlatQuestionGradingPayload,
+    ForceSubmitAttemptCommand, InstitutionRetentionPolicy, IssueQuestionAttemptCommand, Page,
+    PageRequest, PageSize, PasskeyId, PasskeyRecord, PrefetchedQuestion, PublishDraftCommand,
+    PublishedProblemRecord, PublishedSourceArtifact, PutCourseGroupCommand,
+    RETENTION_JOB_MAX_ATTEMPTS, ReleaseAttemptFeedbackCommand, ReservePrefetchedQuestionCommand,
+    ResolvedAssignmentTiming, ResolvedAttemptTiming, RetentionApiStore, RetentionCleanupManifest,
+    RetentionDays, RetentionDispatchBatch, RetentionRevision, RetentionScheduleStore,
+    RetentionStore, RetentionWork, RetentionWorkerCommand, RetentionWorkerStore,
+    RosterIdempotencyKey, RunSummaryOutcomeInput, RunSummaryPageInput, SessionTokenHash,
+    SetAssignmentPolicyExceptionCommand, StoreError, StoredAssignment,
     StoredAssignmentPolicyException, StoredAssignmentTiming, StoredCourseGroup,
     SubmissionIdempotencyKey, SubmissionNextAttempt, SubmissionRecord,
-    SubmitQuestionAttemptCommand, TenantContext, UpdateAssignmentTimingCommand,
-    WebworkGradeReplayStateV1, WorkspaceDraft, WorkspaceDraftRevision, WorkspaceDraftRole,
-    WorkspaceFlatQuestionSource, assignment_item_is_retired, assignment_scoring_changed,
-    completed_run_score, current_run_questions, decode_catalog_search_cursor,
-    delete_and_regrade_update, encode_catalog_search_cursor, ensure_tenant, grade_policy,
-    private_feedback_record, project_enrollment_completion, resolve_assignment_policy,
-    select_assignment_run_items, summary_transition, validate_assignment,
-    validate_assignment_policy_exception, validate_assignment_timing, validate_course,
-    validate_course_group, validate_draft, validate_published, validate_qti_publication_promotion,
+    SubmitQuestionAttemptCommand, TenantContext, UpdateAssignmentTimingCommand, WebauthnCeremony,
+    WebauthnCeremonyId, WebworkGradeReplayStateV1, WorkspaceDraft, WorkspaceDraftRevision,
+    WorkspaceDraftRole, WorkspaceFlatQuestionSource, assignment_item_is_retired,
+    assignment_scoring_changed, completed_run_score, current_run_questions,
+    decode_catalog_search_cursor, delete_and_regrade_update, encode_catalog_search_cursor,
+    ensure_tenant, grade_policy, private_feedback_record, project_enrollment_completion,
+    resolve_assignment_policy, select_assignment_run_items, summary_transition,
+    validate_assignment, validate_assignment_policy_exception, validate_assignment_timing,
+    validate_course, validate_course_group, validate_draft, validate_published,
+    validate_qti_publication_promotion,
 };
 
 mod manual_grading;
@@ -241,6 +249,17 @@ impl MemoryStore {
 struct State {
     authoritative_time: ActivityTimestamp,
     next_problem_public_id: u64,
+    accounts: BTreeMap<UserId, AccountRecord>,
+    account_by_email: BTreeMap<String, UserId>,
+    authentication_rate_limits: BTreeMap<
+        (AuthenticationRateLimitScope, AuthenticationRateLimitKey),
+        account_identity::StoredAuthenticationRateLimit,
+    >,
+    email_challenges: BTreeMap<EmailChallengeSecretHash, account_identity::StoredEmailChallenge>,
+    account_sessions: BTreeMap<AccountSessionTokenHash, AccountSessionRecord>,
+    webauthn_ceremonies: BTreeMap<WebauthnCeremonyId, WebauthnCeremony>,
+    passkeys: BTreeMap<PasskeyId, PasskeyRecord>,
+    passkey_by_credential: BTreeMap<CredentialIdHash, PasskeyId>,
     sessions: BTreeMap<SessionTokenHash, sessions::StoredSession>,
     catalog_grants: BTreeSet<(TenantId, ProblemId, VersionId)>,
     drafts: BTreeMap<(TenantId, WorkspaceId), DraftRecord>,
@@ -263,6 +282,28 @@ struct State {
     prepared_qti_grading:
         BTreeMap<(TenantId, WorkspaceId, WorkspaceImportId, String), QtiImportGradingPayload>,
     courses: BTreeMap<(TenantId, CourseId), CourseRecord>,
+    learner_by_user: BTreeMap<(TenantId, UserId), StudentId>,
+    learner_by_student: BTreeSet<(TenantId, StudentId, UserId)>,
+    roster_policies: BTreeMap<(TenantId, CourseId), CourseEnrollmentPolicy>,
+    roster_members: BTreeMap<(TenantId, CourseId, CourseMemberId), CourseRosterMember>,
+    roster_member_by_user: BTreeMap<(TenantId, CourseId, UserId), CourseMemberId>,
+    roster_member_by_roster_id: BTreeMap<(TenantId, CourseId, CourseRosterId), CourseMemberId>,
+    course_invitations:
+        BTreeMap<(TenantId, CourseId, CourseInvitationId), course_roster::StoredCourseInvitation>,
+    invitation_by_hash:
+        BTreeMap<CourseInvitationSecretHash, (TenantId, CourseId, CourseInvitationId)>,
+    invitation_idempotency: BTreeMap<
+        (TenantId, CourseId, RosterIdempotencyKey),
+        (CourseInvitationId, CourseInvitationSecretHash),
+    >,
+    roster_imports: BTreeMap<
+        (TenantId, CourseId, crate::CourseRosterImportId),
+        course_roster::import::StoredCourseRosterImport,
+    >,
+    roster_import_idempotency:
+        BTreeMap<(TenantId, CourseId, RosterIdempotencyKey), crate::CourseRosterImportId>,
+    manual_grade_export_audits:
+        BTreeMap<crate::ManualGradeExportId, (TenantId, CourseId, AssignmentId, UserId, usize)>,
     course_appearances: BTreeMap<(TenantId, CourseId), question_model::CourseAppearance>,
     course_banner_candidates: BTreeMap<
         (TenantId, CourseId, question_model::CourseBannerCandidateId),

@@ -271,11 +271,23 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 
 ## Authentication storage and compliance
 
-- PLE accounts are institution-independent. Use an opaque `UserId`, passwordless
-  email authentication, and passkeys. SSO integration will also exist, but it
-  is not required for independent use.
-- Invite students by email. A learner keeps one PLE account across courses and
-  institutions; course membership limits each instructor's access.
+- PLE accounts are institution-independent. Use an opaque `UserId` and passwordless
+  email authentication as the canonical registration and sign-in path. Passkeys are
+  optional convenience credentials for the same account. SSO integration may also
+  exist, but it is not required for independent use.
+- Invite students at a verified email address. The primary instructor handoff may
+  be a one-time copyable invitation link shared through an existing trusted LMS;
+  configured SMTP is an optional delivery channel, not an enrollment dependency.
+  Use an established Rust email library and an operator-selected SMTP provider for
+  email authentication and optional delivery. Do not build or maintain a PLE mail
+  server, queue, templating engine, or deliverability system. A learner keeps one
+  PLE account across courses and institutions; course membership limits each
+  instructor's access.
+- Do not create a separate account-recovery mode while verified email authentication
+  remains the canonical path. Losing a passkey returns the learner to email sign-in.
+  A verified email change is an ordinary signed-in account operation. Instructors may
+  revoke and re-invite a learner at a new address, but version 1 does not merge accounts
+  or transfer educational records between account identities.
 - Keep the institutional email, institutional student ID, and useful display
   name as protected course roster data when they make enrollment and manual
   LMS grade export practical. Permit course email-domain rules for signups.

@@ -134,6 +134,8 @@ mod run_lifecycle;
 #[cfg(feature = "postgres")]
 use run_lifecycle::*;
 #[cfg(feature = "postgres")]
+mod account_identity;
+#[cfg(feature = "postgres")]
 mod assets;
 #[cfg(feature = "postgres")]
 mod assignment_timing;
@@ -150,6 +152,10 @@ mod course_assignments;
 #[cfg(feature = "postgres")]
 mod course_policy;
 #[cfg(feature = "postgres")]
+mod course_roster;
+#[cfg(feature = "postgres")]
+mod course_roster_decode;
+#[cfg(feature = "postgres")]
 mod courses;
 #[cfg(feature = "postgres")]
 mod exports;
@@ -165,6 +171,8 @@ mod flat_question;
 mod item_analysis;
 #[cfg(feature = "postgres")]
 mod jobs;
+#[cfg(feature = "postgres")]
+mod manual_grade_export;
 #[cfg(feature = "postgres")]
 mod migrations;
 #[cfg(feature = "postgres")]

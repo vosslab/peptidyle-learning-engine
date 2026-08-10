@@ -41,6 +41,8 @@ use core_store::*;
 mod catalog;
 #[path = "conformance/course_appearance.rs"]
 mod course_appearance;
+#[path = "conformance/enrollment.rs"]
+mod enrollment;
 #[path = "conformance/external_tool.rs"]
 mod external_tool;
 #[path = "conformance/flat_import_provenance.rs"]
@@ -63,6 +65,21 @@ mod sessions;
 use assets::source_artifact;
 
 use learning_data_access::in_memory::MemoryStore;
+use learning_data_access::{
+    AccountIdentityStore, AccountSessionLifetime, AccountSessionStore, AccountSessionTokenHash,
+    AuthenticationEmail, AuthenticationRateLimitDecision, AuthenticationRateLimitKey,
+    AuthenticationRateLimitPolicy, AuthenticationRateLimitScope, BeginEmailAuthentication,
+    BrowserBindingHash, ClaimCourseInvitation, CommitCourseRosterImport,
+    CompleteEmailAuthentication, CompleteEmailAuthenticationAndCreateSession,
+    CompletePasskeyAuthenticationAndCreateSession, ConsumeAuthenticationRateLimit,
+    CourseInvitationLifetime, CourseInvitationSecretHash, CourseRosterId,
+    CourseRosterImportLifetime, CourseRosterImportRowInput, CourseRosterStore,
+    CreateCourseInvitation, CreateManualGradeExport, CredentialIdHash, EmailAuthenticationPurpose,
+    EmailChallengeId, EmailChallengeLifetime, EmailChallengeSecretHash, ManualGradeExportStore,
+    PasskeyId, PasskeyRecord, RegisterPasskey, RosterIdempotencyKey, RosterImportInvitation,
+    RosterImportRowStatus, RosterRevision, StageCourseRosterImport, WebauthnState,
+    validated_passkey_label,
+};
 use learning_data_access::{
     ActivityTransition, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssetStore,
     AssignmentExceptionLimit, AssignmentExceptionTimestamp, AssignmentPolicyException,

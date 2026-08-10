@@ -29,9 +29,11 @@ use question_model::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+mod account_identity;
 mod activity_policy;
 mod asset_delivery;
 mod course_appearance;
+mod course_roster;
 mod external_tool;
 mod feedback;
 mod flat_import_provenance;
@@ -41,6 +43,7 @@ pub mod in_memory;
 mod item_analysis;
 /// In-memory backend used by tests and lanes waiting for PostgreSQL.
 pub mod jobs;
+mod manual_grade_export;
 mod manual_grading;
 /// Cursor and bounded-page types shared by every list method.
 pub mod pagination;
@@ -60,6 +63,20 @@ mod score_precision;
 pub mod session;
 mod statistics;
 
+pub use crate::account_identity::{
+    AccountCourseContext, AccountIdentityError, AccountIdentityStore, AccountRecord,
+    AccountSessionLifetime, AccountSessionRecord, AccountSessionStore, AccountSessionTokenHash,
+    AuthenticationEmail, AuthenticationRateLimitDecision, AuthenticationRateLimitKey,
+    AuthenticationRateLimitPolicy, AuthenticationRateLimitScope, BeginEmailAuthentication,
+    BeginWebauthnCeremony, BrowserBindingHash, CompleteEmailAuthentication,
+    CompleteEmailAuthenticationAndCreateSession, CompletePasskeyAuthenticationAndCreateSession,
+    CompletedAccountSession, CompletedEmailAuthentication, CompletedPasskeySession,
+    ConsumeAuthenticationRateLimit, CredentialIdHash, EmailAuthenticationChallenge,
+    EmailAuthenticationPurpose, EmailChallengeId, EmailChallengeLifetime, EmailChallengeSecretHash,
+    EmailDomain, PasskeyId, PasskeyRecord, RegisterPasskey, WebauthnCeremony, WebauthnCeremonyId,
+    WebauthnCeremonyKind, WebauthnCeremonyLifetime, WebauthnState, validated_account_display_name,
+    validated_passkey_label,
+};
 pub use crate::asset_delivery::{
     AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssetStore,
     AuthorizedAssetDelivery, CatalogAssetBinding,
@@ -68,6 +85,18 @@ pub use crate::course_appearance::{
     COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseAppearanceStore, CourseBannerCleanupBatch,
     CourseBannerCleanupClaim, CourseBannerCleanupToken, CourseBannerPromotion,
     RegisterCourseBannerCandidate, SaveCourseAppearance,
+};
+pub use crate::course_roster::{
+    AllowedEmailDomain, ClaimCourseInvitation, ClaimedCourseMembership, CommitCourseRosterImport,
+    CommittedCourseRosterImport, CourseEnrollmentPolicy, CourseInvitation, CourseInvitationId,
+    CourseInvitationLifetime, CourseInvitationSecretHash, CourseInvitationStatus, CourseMemberId,
+    CourseMemberStatus, CourseRosterEntry, CourseRosterError, CourseRosterId, CourseRosterImportId,
+    CourseRosterImportLifetime, CourseRosterImportPreview, CourseRosterImportRow,
+    CourseRosterImportRowInput, CourseRosterImportState, CourseRosterMember, CourseRosterPage,
+    CourseRosterStore, CourseSignupPosture, CreateCourseInvitation, MAX_ROSTER_IMPORT_ROWS,
+    ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation, RevokeCourseMember,
+    RosterIdempotencyKey, RosterImportInvitation, RosterImportRevision, RosterImportRowStatus,
+    RosterRevision, StageCourseRosterImport,
 };
 pub(crate) use crate::external_tool::fresh_external_tool_launch_id;
 pub use crate::external_tool::{
@@ -103,6 +132,10 @@ pub use crate::jobs::{
     JobFailureDisposition, JobFailureKind, JobId, JobKind, JobLeaseDuration, JobLeaseToken,
     JobPayload, JobState, JobStore, QueueDepth, StudentExportArtifactView, StudentExportJob,
     StudentExportState, StudentExportView, TenantJobView,
+};
+pub use crate::manual_grade_export::{
+    CreateManualGradeExport, MAX_MANUAL_GRADE_EXPORT_ROWS, ManualGradeExport, ManualGradeExportId,
+    ManualGradeExportRow, ManualGradeExportStore,
 };
 pub use crate::manual_grading::{
     EvaluationRevision, ManualCredit, ManualEvaluationRecord, ManualEvaluationStatus,

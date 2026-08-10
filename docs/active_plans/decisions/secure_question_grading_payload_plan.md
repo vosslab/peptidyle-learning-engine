@@ -511,12 +511,13 @@ retention cascade deletes it with its attempt.
 The ledger reserves the remaining uncreated migrations in this order:
 
 1. `2026080908_secure_question_grading_payloads.sql` (WP-P2 prerequisite).
-2. `2026080909_object_reconciliation.sql` (WP-RC7).
-3. `2026080910_oidc_identity.sql` (WP-RC8).
+2. `2026080909_passwordless_identity.sql` (WP-RC8).
+3. `2026080910_object_reconciliation.sql` (WP-RC7).
 4. `2026080911_lti_advantage.sql` (WP-RC9).
 
-WP-RC7 schema work starts only after WP-P2; its non-schema object inventory work may proceed in
-parallel. Accepted prior migrations are never renamed.
+WP-RC8 identity/enrollment is the owner-prioritized next schema package after WP-P2's migration
+file. WP-RC7 schema work follows it; non-schema object inventory may proceed in parallel. Accepted
+prior migrations are never renamed.
 
 ## Milestone plan
 

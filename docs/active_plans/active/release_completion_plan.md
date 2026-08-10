@@ -7,8 +7,10 @@ production-seam closure, WP-RC3's bounded WeBWorK integration, and WP-ARCH1 sour
 accepted; this plan owns all remaining work through the version 1 release. It supplements the
 architecture in [implementation_plan.md](../implementation_plan.md) and replaces every unresolved
 scope question in that document and its active companion plans. WP-RC4 flat JSON v2 implementation
-is present and awaits its independent closeout; the secure payload cutover and WP-RC5 authoring and
-pilot work remain dependency-ordered next work.
+is present and awaits its independent closeout. WP-RC8 passwordless identity/enrollment is
+implemented with real-email/optional-passkey, multi-replica, and independent acceptance still
+open. The secure payload cutover and WP-RC5 authoring and pilot work remain
+dependency-ordered next work.
 
 Completed packages remain accepted evidence; they are not reopened by this plan. A package below is
 complete only when its named production artifacts work, its behavior and security gates pass, its
@@ -47,7 +49,7 @@ Two release boundaries are explicit:
 | QTI profile export    | Canvas and Blackboard export run as background jobs and appear in the author UI only as queued status plus a protected download                                                                                                                        | WP-RC6         |
 | H5P                   | Serve native H5P only as ungraded practice and import supported static families into the protected native model for grading                                                                                                                            | WP-RC6         |
 | Object lifecycle      | Database records define intended existence; bucket inventory proves bytes; reconciliation quarantines twice-observed orphans and alerts on missing referenced bytes                                                                                    | WP-RC7         |
-| Production identity   | PLE-owned global `UserId`; discoverable passkeys are primary, short-lived single-use email authentication bootstraps and recovers accounts, and optional institutional OIDC/SAML links to an existing account behind `IdentityProvider`                  | WP-RC8         |
+| Production identity   | PLE-owned global `UserId`; short-lived single-use email authentication is the canonical sign-in path, discoverable passkeys are optional convenience credentials, and optional institutional OIDC/SAML links to an existing account behind `IdentityProvider`       | WP-RC8         |
 | Enrollment            | Invite by email; retain course-scoped roster email, institutional roster ID, and display label for enrollment/manual grade export; enforce optional exact-domain policy; atomically create course membership plus all assignment enrollments/summaries | WP-RC8         |
 | LTI                   | Implement LTI 1.3 launch plus Assignment and Grade Services passback as a separate verified credential path                                                                                                                                            | WP-RC9         |
 | Learner file upload   | Use a server-issued attempt-bound upload record, non-deliverable temporary storage, closed inspection worker, SHA-256, atomic manual-submission consumption, and protected student-record delivery                                                     | WP-FU1..WP-FU6 |
@@ -133,7 +135,10 @@ WP-RC1 course appearance
 WP-RC2 production-seam cleanup
     |
     v
-WP-RC3 accepted WeBWorK ---> WP-ARCH1 accepted source decomposition ---> WP-RC4 flat JSON v2
+WP-RC3 accepted WeBWorK ---> WP-ARCH1 accepted source decomposition ---> WP-RC8 passwordless identity/enrollment
+                                                                        |
+                                                                        v
+                                                               WP-RC4 flat JSON v2
                                                                         |
                                                                         v
              WP-P1..WP-P6 secure learner payload ---> WP-RC5 eight families/pilot
@@ -143,7 +148,7 @@ WP-RC3 accepted WeBWorK ---> WP-ARCH1 accepted source decomposition ---> WP-RC4 
 
 WP-P2 persistent bindings ---> WP-RC7 M5 reconciliation/integration
 
-WP-RC8 passwordless identity/enrollment ---> WP-RC9 LTI ---> WP-FU1..WP-FU6 secure uploads ---> WP-RC10 OpenTofu
+WP-RC8 accepted identity/enrollment ---> WP-RC9 LTI ---> WP-FU1..WP-FU6 secure uploads ---> WP-RC10 OpenTofu
                                                                         |
                                                                         v
                                                              WP-RC11 bot controls
@@ -152,8 +157,10 @@ WP-RC8 passwordless identity/enrollment ---> WP-RC9 LTI ---> WP-FU1..WP-FU6 secu
                                                              WP-RC12 release acceptance
 ```
 
-WP-RC4 begins after accepted WP-RC3 and WP-ARCH1. Its internal version 2 implementation no longer
-waits on external QTI-JSONL artifacts. WP-P1 may proceed alongside RC4 closeout, but the complete
+The human owner reprioritized WP-RC8 passwordless identity and enrollment as the immediate package
+after accepted WP-ARCH1; it does not wait on content breadth. WP-RC4 resumes after WP-RC8. Its
+internal version 2 implementation no longer waits on external QTI-JSONL artifacts. WP-P1 may
+proceed alongside RC4 closeout, but the complete
 WP-P1 through WP-P6 boundary must be accepted before WP-RC5. WP-RC7's
 non-schema inventory work may proceed earlier; its schema work begins only after WP-P2 preserves the
 reserved migration ordering below.
@@ -344,7 +351,7 @@ reserved migration ordering below.
 - **Owner:** `postgresql-expert` and object-store `rust-code-expert`, followed by integration and
   security reviewers.
 - **Files:** `crates/objects/src/inventory.rs`; `crates/learning-data-access/src/object_reconciliation.rs`
-  plus Memory/PostgreSQL owners; `schemas/migrations/2026080909_object_reconciliation.sql`;
+  plus Memory/PostgreSQL owners; `schemas/migrations/2026080910_object_reconciliation.sql`;
   `crates/server/src/object_reconciliation_worker.rs`; `tests/e2e/e2e_object_reconciliation.sh`;
   `tests/e2e/e2e_release_integration.sh`; object, retention, security, architecture, status, and
   changelog docs.
@@ -363,47 +370,62 @@ reserved migration ordering below.
 
 ### WP-RC8: Implement passwordless identity and enrollment
 
+- **Status:** implemented, acceptance open on 2026-08-10. The account/email/passkey, invitation,
+  roster/policy/bulk import, atomic enrollment, Solid UI, migration, and manual no-store grade-export
+  slices exist. Real email/optional-passkey and multi-replica E2E plus independent security/HCI
+  closeout remain; the rollout checklist stays unchecked.
 - **Owner:** authentication `rust-code-expert`, PostgreSQL owner, enrollment/API owner, UI owner,
   email-delivery owner, and independent security/HCI reviewers.
 - **Files:** `crates/server/src/auth/{passwordless,email,webauthn,oidc}.rs`;
   `crates/learning-data-access/src/{account_identity,course_roster}.rs` plus Memory/PostgreSQL
-  owners; `schemas/migrations/2026080910_passwordless_identity.sql`;
+  owners; `schemas/migrations/2026080909_passwordless_identity.sql`;
   `src/pages/{sign_in,account_security,course_roster,course_invitation}_page.tsx`;
   `src/auth/session_context.tsx`; passwordless/enrollment E2E and Playwright suites;
   [ENROLLMENT_DESIGN.md](../../ENROLLMENT_DESIGN.md); auth/security/deployment/usage docs and
   changelog.
 - **Behavior:** create institution-independent PLE accounts keyed by opaque global `UserId`.
-  Verify discoverable passkeys with an established WebAuthn implementation behind
+  Use uniform, short-lived, single-use, rate-limited email challenges as the canonical registration
+  and sign-in path, with hashed secrets, redacted logs, and browser binding where practical. Verify
+  optional discoverable passkeys with an established WebAuthn implementation behind
   `IdentityProvider`; permit multiple credentials, normal authenticator user verification, and
-  explicit credential revocation without requiring attestation. Use uniform, short-lived,
-  single-use, rate-limited email challenges for bootstrap and recovery, with hashed secrets,
-  redacted logs, and browser binding where practical. Preserve the existing opaque server-side
-  session and host-only HttpOnly cookie. A global account may join multiple tenants, but every
-  request derives its active `TenantContext` from a verified course/tenant relationship rather than
-  browser authority.
+  explicit credential revocation without requiring attestation. Email and passkey authentication
+  produce the same bounded account session and neither has record-transfer authority. Preserve the
+  existing host-only HttpOnly cookie. A global account may join multiple tenants, but every request
+  derives its active `TenantContext` from a verified course/tenant relationship rather than browser
+  authority.
 - **Enrollment behavior:** an instructor sends or bulk-stages an invitation containing verified
   email syntax plus a protected course-scoped institutional roster ID. Optional exact normalized
   email-domain policy catches mistakes and constrains open signup. Only the learner's authenticated
   claim creates the `course_member`, tenant-scoped `StudentId`, all assignment enrollments, and all
   empty summaries in one Store transaction. Manual grade export uses the roster ID and only the
   destination profile's required course metadata. Pending invites, correction/re-invitation,
-  recovery, revocation, raw CSV disposal, roster retention, and accessibility follow the enrollment
-  design.
+  revocation, raw CSV disposal, roster retention, and accessibility follow the enrollment design.
 - **Optional SSO behavior:** OIDC Authorization Code with PKCE and SAML may link a verified external
   subject to an existing PLE `UserId`. Validate discovery/metadata, issuer allowlist, state, nonce,
   redirect URI, signature, audience, expiry, and replay. SSO never selects a tenant by email,
   silently creates a parallel account, or becomes required for standalone deployment.
-- **Success:** email bootstrap, passkey login, account recovery, roster invitation/claim, and course
-  access work across replicas. Account enumeration, token replay, credential cloning/mismatch,
+- **Success:** email registration/sign-in, optional passkey login, verified email replacement,
+  roster invitation/claim, and course access work across replicas. Account enumeration, token
+  replay, credential cloning/mismatch,
   wrong origin/RP ID, cross-course invitation use, domain suffix confusion, roster-ID collision,
   stale bulk commit, and cross-tenant disclosure fail safely. An instructor can invite a real
   browser user and export the resulting score without SQL, seeding tools, global `UserId`, passkey
   metadata, or unrelated activity in the export. Logs and browser state contain no authentication
   or invitation secret.
 - **Validation:** WebAuthn/email/account/roster Store conformance and RLS; deterministic hostile
-  token/domain/CSV tests; disposable email sink plus two-authenticator browser E2E; multi-replica
-  invitation, login, recovery, and manual grade-export Playwright; optional standards-compliant OIDC
-  connector E2E; security/HCI review; full repository gate.
+  token/domain/CSV tests; disposable email sink plus optional-passkey browser E2E; multi-replica
+  invitation, login, email replacement, and manual grade-export Playwright; standards-compliant OIDC
+  connector E2E only when that optional connector is enabled; security/HCI review; full repository
+  gate.
+
+There is no separate account-recovery or manager record-transfer workflow in version 1. Possession
+of the verified account email is the canonical sign-in path, so losing a passkey does not create a
+special state. A signed-in learner may replace the account email only after verifying the new
+address. If the learner no longer controls the current email, an instructor may revoke the old
+course membership and invite a new address, but PLE does not infer that a new account owns the old
+account's educational records. The institutional LMS remains the grade system of record for manual
+correction. Any future account merge or educational-record transfer requires a separately approved
+identity-proofing and audit design; it is not a version 1 release dependency.
 
 ### WP-RC9: Implement LTI Advantage launch and grade passback
 
@@ -572,11 +594,14 @@ development. They must pass, not skip, in WP-RC12 release evidence.
 
 - Preserve the accepted six-file baseline and `2026080907_course_appearance.sql`.
 - Reserve `2026080908_secure_question_grading_payloads.sql`,
-  `2026080909_object_reconciliation.sql`, `2026080910_passwordless_identity.sql`, and
+  `2026080909_passwordless_identity.sql`, `2026080910_object_reconciliation.sql`, and
   `2026080911_lti_advantage.sql` in that order. Secure learner uploads then own
-  `2026080912_secure_learner_uploads.sql`. WP-RC7 schema work begins after WP-P2, while its
-  non-schema object inventory work may run in parallel. A package needing another migration takes
-  the next two-digit daily sequence; it does not insert or rename an accepted version.
+  `2026080912_secure_learner_uploads.sql`. The 0908 file remains the schema predecessor even while
+  its product cutover acceptance is open. WP-RC7 schema work begins after identity/enrollment 0909,
+  while its non-schema object inventory work may run in
+  parallel. A package needing another
+  migration takes the next two-digit daily sequence; it does not insert or rename an accepted
+  version.
 - PLE flat JSON source identity lives inside the existing versioned source payload and immutable
   object/checksum binding; no family-shaped table is added.
 - Existing flat v1 and v2, generic QTI, Canvas/Blackboard profile v1, published problem versions, and

@@ -25,6 +25,18 @@ use question_model::{TenantId, UserId, UserRole};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
+#[path = "auth/passwordless.rs"]
+mod passwordless;
+#[path = "auth/webauthn.rs"]
+mod webauthn;
+
+pub use passwordless::{
+    PasswordlessEmailAction, PasswordlessEmailDelivery, PasswordlessEmailDeliveryError,
+    PasswordlessEmailSecret, PasswordlessRateLimitIssuer, UnavailablePasswordlessEmailDelivery,
+    passwordless_router,
+};
+pub use webauthn::{PasswordlessWebauthn, passkey_router};
+
 const SESSION_COOKIE_NAME: &str = "ple_session";
 const SESSION_TOKEN_BYTES: usize = 32;
 const TOKEN_GENERATION_ATTEMPTS: usize = 3;

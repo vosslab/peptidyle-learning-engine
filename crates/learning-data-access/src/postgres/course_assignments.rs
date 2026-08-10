@@ -16,6 +16,12 @@ impl crate::CourseAssignmentStore for PostgresStore {
         let (practice_policy, practice_limit) =
             continued_practice_columns(assignment.policies.continued_practice)?;
         let mut transaction = self.begin_tenant(context).await?;
+        super::course_roster::lock_course_roster_cross_product(
+            &mut transaction,
+            assignment.tenant,
+            assignment.course_id,
+        )
+        .await?;
         validate_postgres_assignment_references(&mut transaction, context, &assignment).await?;
         let inserted = sqlx::query(
             "INSERT INTO assignment \
@@ -45,6 +51,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
             return Err(StoreError::AlreadyExists);
         };
         insert_postgres_assignment_items(&mut transaction, &assignment).await?;
+        super::course_roster::reconcile_new_assignment(&mut transaction, &assignment).await?;
         let revision =
             AssignmentRevision::from_stored(row.try_get("revision").map_err(map_sqlx_error)?)?;
         transaction.commit().await.map_err(map_sqlx_error)?;

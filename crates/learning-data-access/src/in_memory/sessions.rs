@@ -69,3 +69,15 @@ impl SessionStore for MemoryStore {
         Ok(())
     }
 }
+
+pub(super) fn active_subject(
+    state: &super::State,
+    context: crate::TenantContext,
+    session: SessionTokenHash,
+) -> Option<&SessionSubject> {
+    let stored = state.sessions.get(&session)?;
+    (!stored.revoked
+        && stored.record.expires_at > state.authoritative_time
+        && stored.record.subject.tenant() == context.tenant_id())
+    .then_some(&stored.record.subject)
+}

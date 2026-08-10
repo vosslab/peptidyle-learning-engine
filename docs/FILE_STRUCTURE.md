@@ -296,9 +296,9 @@ place.
 The implemented table relationships, proposed production identity tables, fall-pilot row estimates,
 FERPA isolation layers, and measured growth thresholds are documented in
 [docs/DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
-The proposed course-level roster, provider-neutral identity, invitation, and atomic
-membership-to-assignment reconciliation contract is in
-[docs/ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md). Its target routes are not current API claims.
+The implemented, acceptance-open course-level roster, PLE-owned passwordless identity,
+invitation, bulk import, manual grade export, and atomic membership-to-assignment
+reconciliation contract is in [docs/ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
 
 ## Tests
 

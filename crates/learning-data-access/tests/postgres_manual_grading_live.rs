@@ -19,13 +19,13 @@ use question_model::run_policy::{
 };
 use question_model::taxonomy::License;
 use question_model::{
-    AssignmentDeliveryState, AssignmentEnrollment, AssignmentId, AssignmentItem, AssignmentItemId,
-    AssignmentScoringMode, AttemptProvenance, AttemptResult, AttemptStatus, BackendCapabilities,
-    Capability, CourseId, CourseMembership, CourseMembershipRole, DraftQuestionDefinition,
-    DraftQuestionSource, EnrollmentId, FeedbackContent, GradingDefinition, ImplementationVersion,
-    PointValue, PresentationBindingV1, PresentationDigestV1, PresentationNonceV1, ProblemId,
-    ProblemVersionRef, PublicationScope, QuestionAttemptId, QuestionMetadata, QuestionSource,
-    RunId, ScoringStatus, StudentId, StudentResponse, TenantId, UserId, VersionId, WorkspaceId,
+    AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentItemId, AssignmentScoringMode,
+    AttemptProvenance, AttemptResult, AttemptStatus, BackendCapabilities, Capability, CourseId,
+    CourseMembership, CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource,
+    FeedbackContent, GradingDefinition, ImplementationVersion, PointValue, PresentationBindingV1,
+    PresentationDigestV1, PresentationNonceV1, ProblemId, ProblemVersionRef, PublicationScope,
+    QuestionAttemptId, QuestionMetadata, QuestionSource, RunId, ScoringStatus, StudentResponse,
+    TenantId, UserId, VersionId, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -204,7 +204,6 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
     let other_student = UserId::from_uuid(fresh_uuid());
     let course = CourseId::from_uuid(fresh_uuid());
     let assignment = AssignmentId::from_uuid(fresh_uuid());
-    let enrollment = EnrollmentId::from_uuid(fresh_uuid());
 
     let automatic_reference = publish_question(
         &store,
@@ -280,27 +279,11 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
         )
         .await
         .expect("create live mixed-grading assignment");
-    store
-        .create_enrollment(
-            context,
-            AssignmentEnrollment {
-                id: enrollment,
-                tenant,
-                assignment,
-                user: student,
-                student: StudentId::from_uuid(fresh_uuid()),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
-        )
-        .await
-        .expect("create live mixed-grading enrollment");
     let run = store
         .start_or_resume_run(context, student, assignment, RunId::from_uuid(fresh_uuid()))
         .await
         .expect("start live mixed-grading run");
-    assert_eq!(run.enrollment, enrollment);
+    let enrollment = run.enrollment;
     assert_eq!(
         store
             .get_enrollment(context, enrollment)

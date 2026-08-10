@@ -87,10 +87,38 @@
 - Added the proposed enrollment design after confirming the current HTTP gap and comparing the
   LibreTexts ADAPT roster workflow. The target gives instructors one course-level roster action while
   retaining separate learner identity, course membership, assignment enrollment, and summary
-  records. It uses one opaque person identity per institution tenant, treats email as mutable lookup
-  data, requires trusted identity resolution or a hashed invitation, reconciles every current
-  assignment atomically, preserves records on access revocation, and distinguishes the unimplemented
-  route/UI work from the already conformance-tested Store enrollment primitive.
+  records. It uses one global opaque PLE account identity, treats email as the mutable canonical
+  sign-in attribute, offers passkeys only as convenience credentials, uses hashed invitations,
+  reconciles every current assignment atomically,
+  preserves records on access revocation, and keeps course-scoped roster metadata separate from the
+  cross-course account.
+
+- Implemented the WP-RC8 passwordless identity and enrollment slice with acceptance still open.
+  PLE-owned opaque accounts now support uniform browser-bound email authentication, discoverable
+  WebAuthn, multiple passkeys, verified email replacement, and authorized course-context selection.
+  Course managers can page rosters, enforce exact email domains, send or revoke invitations,
+  preview and atomically commit bounded `email,roster_id` CSV files, revoke access, and download a
+  synchronous no-store manual grade CSV. Invitation claim and later assignment creation preserve the
+  membership-by-assignment enrollment/summary invariant in both stores. Migration 0909 passed the
+  fresh/no-op/verify and disposable PostgreSQL/RLS baseline; the all-feature Rust workspace and
+  browser suite pass. Real-email/optional-passkey and multi-replica evidence plus independent
+  security/HCI closeout remain before WP-RC8 acceptance.
+
+- Explored and then rejected a separate course-scoped account-recovery design. Because verified
+  email is PLE's canonical registration and sign-in path, passkeys are optional conveniences rather
+  than a stronger credential required for ordinary access. A course manager may revoke and re-invite
+  but cannot prove that two accounts belong to the same person strongly enough to transfer
+  educational records. Version 1 therefore has no manager account merge or record-transfer path;
+  object reconciliation, LTI, and secure upload retain the next migration slots 0910 through 0912.
+
+- Removed the unaccepted REC1/REC2 account-transfer foundation before it became a durable schema or
+  HTTP contract. Account sessions no longer persist an authentication-method distinction with no
+  remaining authorization purpose; email and passkey completion mint the same bounded session.
+  Removed the recovery invitation relation, the cross-account learner mapping relaxation, both
+  Store transfer implementations, and their temporary tests. The closed email challenge purpose is
+  now registration/sign-in or verified email change only. The disposable PostgreSQL baseline passes
+  all nine migrations and its passwordless, roster, role-separation, RLS, and existing data-path
+  oracles with no recovery relation present.
 
 - Added the dated 2026-08-10 project status report and retained the Aug. 9 report as historical
   context. The new snapshot separates accepted RC3/WP-ARCH1 evidence from WP-RC4's implemented but
@@ -100,6 +128,27 @@
   accepted historical WP-ARCH1 evidence.
 
 ### Fixes and Maintenance
+
+- Corrected the permanent source-size gate for a preserved dirty index: an indexed path deleted from
+  the working tree is no longer opened as though source bytes still exist. The gate continues to
+  reject file symlinks, directory-symlink traversal, invalid UTF-8, NUL bytes, and files at the
+  exclusive 1,000-line boundary. The focused gate passes 824 cases, the full Python/documentation
+  suite passes 3,270 tests, and the eleven-stage codebase gate passes.
+
+- Hardened the in-progress WP-RC8 PostgreSQL identity and roster slice without claiming passwordless
+  enrollment complete. Roster writers now acquire one course, roster-state, then invitation/member
+  lock order; concurrent learner mapping uses an atomic upsert; only one pending invitation per
+  course/email or roster ID is allowed; expired invitation retries fail closed; account-owned
+  credential foreign keys have supporting indexes; and retention deletion includes roster PII. A
+  new opt-in disposable PostgreSQL oracle proves the invitation capability, tenant-context binding,
+  duplicate-invitation refusal, and separation of the auth and educational-record roles. Database
+  authentication throttling now uses replica-shared fixed windows keyed by server-HMAC digests of
+  normalized email and the gateway-overwritten client address, with a class-safe shared-network
+  allowance and a uniform outward response after denial. Discoverable passkey lookup resolves only
+  an active credential hash and never accepts browser-supplied user identity. Focused Memory,
+  route, strict Clippy, clean PostgreSQL 17 migration, and disposable live-role gates pass. Expiry
+  cleanup, tenant-administrator command authority, WebAuthn ceremonies, UI, and complete WP-RC8
+  acceptance remain open.
 
 - Completed the offline WeBWorK replay-persistence slice without claiming the secure-payload
   cutover accepted. Issuance now converts private durable choice mappings to presentation-scoped

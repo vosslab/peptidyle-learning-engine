@@ -23,6 +23,8 @@ use question_model::{
 use tower::ServiceExt;
 use uuid::Uuid;
 
+mod roster;
+
 fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
 }

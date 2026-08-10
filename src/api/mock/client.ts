@@ -74,6 +74,7 @@ import {
   type MockFetch,
 } from "./handlers";
 import { timerVerdictInMock } from "./timer";
+import { createMockEnrollmentClient } from "./enrollment";
 
 async function expectSerialized<T>(responsePromise: Promise<Response>, expected: T): Promise<T> {
   const response = await responsePromise;
@@ -310,6 +311,7 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
   }
 
   const client: ApiClient = {
+    ...createMockEnrollmentClient(),
     getSession: () => {
       const expected: AuthSession = {
         authenticated: true,

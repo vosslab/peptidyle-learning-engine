@@ -20,6 +20,11 @@ pub(super) struct PersistentDependencies {
     webwork_renderer: Option<HttpWebworkRenderer>,
     imathas: Option<ConfiguredImathas>,
     qti: Option<Arc<ProductionQtiBackend>>,
+    invitation_issuer: crate::course::CourseInvitationIssuer,
+    invitation_delivery: Arc<dyn crate::course::CourseInvitationDelivery>,
+    passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
+    passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
+    webauthn: crate::auth::PasswordlessWebauthn,
     health: Arc<HealthState>,
 }
 
@@ -74,6 +79,39 @@ impl PersistentDependencies {
         let webwork_renderer = settings.webwork_renderer()?;
         let imathas = settings.imathas(&store, &objects)?;
         let qti_runtime_enabled = settings.qti_runtime_enabled()?;
+        let (invitation_issuer, passwordless_rate_limit_issuer): (
+            crate::course::CourseInvitationIssuer,
+            crate::auth::PasswordlessRateLimitIssuer,
+        ) = match &settings.enrollment_secret {
+            Some(settings) => settings.issuers()?,
+            None => (
+                crate::course::CourseInvitationIssuer::unavailable(),
+                crate::auth::PasswordlessRateLimitIssuer::unavailable(),
+            ),
+        };
+        let (invitation_delivery, passwordless_email_delivery): (
+            Arc<dyn crate::course::CourseInvitationDelivery>,
+            Arc<dyn crate::auth::PasswordlessEmailDelivery>,
+        ) = match &settings.enrollment_email {
+            Some(email_settings) => {
+                if settings.enrollment_secret.is_none() {
+                    bail!(
+                        "PLE_INVITATION_TOKEN_SECRET_FILE must be set when PLE SMTP is configured"
+                    );
+                }
+                let delivery = email_settings.delivery()?;
+                (
+                    delivery.clone() as Arc<dyn crate::course::CourseInvitationDelivery>,
+                    delivery as Arc<dyn crate::auth::PasswordlessEmailDelivery>,
+                )
+            }
+            None => (
+                Arc::new(crate::course::UnavailableCourseInvitationDelivery)
+                    as Arc<dyn crate::course::CourseInvitationDelivery>,
+                Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery)
+                    as Arc<dyn crate::auth::PasswordlessEmailDelivery>,
+            ),
+        };
         let grader_database_url = settings.grader_database_url()?;
         let grader = Arc::new(
             PostgresGraderStore::connect(grader_database_url)
@@ -97,6 +135,11 @@ impl PersistentDependencies {
             webwork_renderer,
             imathas,
             qti,
+            invitation_issuer,
+            invitation_delivery,
+            passwordless_email_delivery,
+            passwordless_rate_limit_issuer,
+            webauthn: settings.webauthn.clone(),
             health: Arc::new(HealthState {
                 postgres: pool,
                 object_client,
@@ -158,6 +201,11 @@ impl PersistentDependencies {
             identity_provider,
             review_gate,
             session_config,
+            self.invitation_issuer.clone(),
+            Arc::clone(&self.invitation_delivery),
+            Arc::clone(&self.passwordless_email_delivery),
+            self.passwordless_rate_limit_issuer.clone(),
+            Some(self.webauthn.clone()),
             Arc::clone(&self.health),
         );
         if let Some(imathas) = &self.imathas {

@@ -310,11 +310,18 @@ The complete sequence is authoritative in
    PostgreSQL, security, provider, TypeScript/HCI, test, size-policy, and architecture reviews found
    no unresolved P0/P1 issue. The later persistence regressions were repaired by moving complete
    attempt-issuance capabilities into paired in-memory and PostgreSQL owners. The current permanent
-   size gate passes 770 cases, and the feature-enabled persistence check, test, and strict Clippy
+   size gate passes 801 cases, and the feature-enabled persistence check, test, and strict Clippy
    gates pass.
-4. WP-RC4's PLE flat JSON v2 implementation now covers the eight source/runtime families and awaits
+4. WP-RC8 passwordless identity, invite-by-email enrollment, course roster metadata, bulk import,
+   and manual grade export are implemented with acceptance open. Migration
+   `2026080909_passwordless_identity.sql` has passed the disposable PostgreSQL baseline. Real
+   email/optional-passkey and multi-replica evidence plus independent security/HCI closeout remain
+   before acceptance; WP-RC4 resumes after that closeout. Email authentication is the canonical
+   account path; no manager-assisted account merge or educational-record transfer is a version 1
+   dependency.
+5. WP-RC4's PLE flat JSON v2 implementation now covers the eight source/runtime families and awaits
    independent closeout; external QTI-JSONL is no longer a prerequisite.
-5. WP-P1 through WP-P6 implement and accept the secure learner-payload boundary before WP-RC5
+6. WP-P1 through WP-P6 implement and accept the secure learner-payload boundary before WP-RC5
    acceptance. WP-P2 adds `2026080908_secure_question_grading_payloads.sql`; WP-RC5 then completes
    visual authoring, all-family Memory/PostgreSQL acceptance, and the two exact Chapter 1
    assignments, while WP-RC6 closes QTI export and H5P claims.
@@ -323,26 +330,39 @@ The complete sequence is authoritative in
    RPC, and deletes replay state on successful or terminal submission. WP-P1 through WP-P6 remain
    unaccepted until the compact public cutover, missing-row self-heal, live PostgreSQL/renderer
    traces, browser recovery, measurements, and independent reviews pass.
-6. After WP-P2, WP-RC7 adds bounded inventory, object reconciliation,
-   `2026080909_object_reconciliation.sql`, and the combined M2-M5 acceptance gate.
-7. WP-RC8 implements passwordless identity and enrollment with
-   `2026080910_passwordless_identity.sql`, including optional SSO account linking; WP-RC9 implements
-   LTI Advantage with `2026080911_lti_advantage.sql`.
-8. WP-FU1 through WP-FU6 implement the server-issued learner file-upload capability in
+7. After WP-RC8 migration 0909, WP-RC7 adds bounded inventory, object reconciliation,
+   `2026080910_object_reconciliation.sql`, and the combined M2-M5 acceptance gate.
+8. WP-RC9 implements LTI Advantage with `2026080911_lti_advantage.sql`.
+9. WP-FU1 through WP-FU6 implement the server-issued learner file-upload capability in
    `docs/active_plans/active/secure_learner_file_upload_plan.md`, including
    `2026080912_secure_learner_uploads.sql`, after object reconciliation and before production
    deployment.
-9. WP-RC10 adds OpenTofu under `deploy/opentofu/`; WP-RC11 adds the measured bot-cost controls.
-10. WP-RC12 runs working-codebase release acceptance and documentation closure after WP-ARCH1 and
+10. WP-RC10 adds OpenTofu under `deploy/opentofu/`; WP-RC11 adds the measured bot-cost controls.
+11. WP-RC12 runs working-codebase release acceptance and documentation closure after WP-ARCH1 and
     the secure upload packages.
 
 The accepted pre-data schema evolution is complete. SQLx owns the directory-backed migration ledger,
-and `2026080907_course_appearance.sql` is the first forward migration. The release plan reserves
-`2026080908_secure_question_grading_payloads.sql`, `2026080909_object_reconciliation.sql`,
-`2026080910_passwordless_identity.sql`, `2026080911_lti_advantage.sql`, and
-`2026080912_secure_learner_uploads.sql`; accepted filenames are not renamed or reordered.
+and `2026080907_course_appearance.sql` is the first forward migration. Migrations
+`2026080908_secure_question_grading_payloads.sql` and `2026080909_passwordless_identity.sql` are
+present with package acceptance open. The release plan reserves
+`2026080910_object_reconciliation.sql`, `2026080911_lti_advantage.sql`, and
+`2026080912_secure_learner_uploads.sql`; accepted filenames are
+not renamed or reordered.
 
-### Immediate packages: WP-RC4 closeout and secure learner payload
+### Immediate package: WP-RC8 acceptance closeout
+
+- Implemented: opaque global accounts; canonical email registration/sign-in and verified email
+  replacement;
+  discoverable WebAuthn and multiple passkeys; invitation, roster, exact-domain, atomic
+  membership/enrollment, bounded CSV, and manual no-store grade-export contracts in
+  [ENROLLMENT_DESIGN.md](../ENROLLMENT_DESIGN.md).
+- Remaining acceptance: real email delivery with an optional passkey, multi-replica login/claim and
+  export, and independent security/HCI review. Email possession authenticates only the account
+  already bound to that email; it never transfers another account's `StudentId` or records.
+- Return to WP-RC4 closeout and the secure learner payload sequence after the primary multi-actor
+  instructor-to-learner path passes those acceptance gates.
+
+### Following packages: WP-RC4 closeout and secure learner payload
 
 - WP-RC4 owner: native adapter/runtime owner plus an independent contract/security reviewer.
 - Implemented behavior: PLE flat JSON v2 strictly compiles MC, MA, FIB, MULTI-FIB, NUM, MATCH,
@@ -359,7 +379,7 @@ and `2026080907_course_appearance.sql` is the first forward migration. The relea
 - The current dated snapshot is
   `docs/active_plans/reports/project_status_report_2026-08-10.md`. The Aug. 9 report and
   `partial_commit_status.md` are historical comparison/handoff records.
-- The 2026-08-10 source-size follow-up passes 770 cases with no maintained-source violation. The
+- The 2026-08-10 source-size follow-up passes 801 cases with no maintained-source violation. The
   paired attempt-issuance extraction preserves Store behavior and the original PostgreSQL SQL,
   bind order, transaction, and RLS boundaries; all-feature persistence checks are green.
 

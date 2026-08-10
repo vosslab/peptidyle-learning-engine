@@ -38,6 +38,11 @@ recoverable failure. Continued practice remains available after completion.
 | Route                                                          | Surface                                    | Data contract                                 |
 | -------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------- |
 | `/`                                                            | Course list for signed-in role             | Course summaries                              |
+| `/sign-in`                                                     | Passwordless account entry                 | Uniform email start or usernameless passkey   |
+| `/auth/email/complete`                                         | Canonical email sign-in completion          | One-time browser-bound fragment secret        |
+| `/auth/account/email/complete`                                 | Verified account-email replacement         | Current account session plus one-time secret  |
+| `/course-invitations/redeem`                                   | Learner invitation claim                   | Account session plus one-time invitation      |
+| `/account/security`                                            | Passkey and account-email management       | Account-owned credential projections only     |
 | `/courses/:courseId`                                           | Assignments with progress and run counts   | Cursor-paged assignments and summary rows     |
 | `/courses/:courseId/assignments/:assignmentId`                 | Assignment overview and run history        | Immutable problem/version references and runs |
 | `/runs/:runId`                                                 | One-question-at-a-time attempt loop        | Run screen query and response widget          |
@@ -49,6 +54,7 @@ recoverable failure. Continued practice remains available after completion.
 | `/instructor/courses/:courseId/assignments/:assignmentId/edit` | Assignment policy editor                   | Assignment and capability validation          |
 | `/instructor/courses/:courseId/gradebook`                      | Summary-row gradebook                      | Student assignment summaries only             |
 | `/instructor/courses/:courseId/appearance`                     | Course theme and entry banner settings     | Revisioned safe appearance projection         |
+| `/instructor/courses/:courseId/students`                       | Roster, invitations, import, grade export  | Revisioned manager-only roster projection      |
 
 `src/routes.ts` is the executable copy of this table. It also provides a
 catch-all not-found route, which is infrastructure rather than a product

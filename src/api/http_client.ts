@@ -2,6 +2,7 @@
 
 import type { ApiClient } from "./client";
 import { createAuthClient } from "./http_client/auth";
+import { createEnrollmentClient } from "./http_client/enrollment";
 import {
   browserFetch,
   createRequestClient,
@@ -29,6 +30,12 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): ApiClient
   const client = {} as ApiClient;
   const responses = createResponseClient(fetchImplementation, basePath, () => client);
   const requests = createRequestClient(fetchImplementation, basePath);
-  Object.assign(client, createAuthClient(fetchImplementation, basePath), responses, requests);
+  Object.assign(
+    client,
+    createAuthClient(fetchImplementation, basePath),
+    createEnrollmentClient(fetchImplementation, basePath),
+    responses,
+    requests,
+  );
   return client;
 }

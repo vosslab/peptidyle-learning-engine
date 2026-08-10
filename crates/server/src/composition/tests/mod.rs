@@ -135,6 +135,18 @@ fn composed_memory_router() -> Router {
         Arc::new(TestIdentity),
         Arc::new(TestReview),
         session_config(),
+        crate::course::CourseInvitationIssuer::unavailable(),
+        Arc::new(crate::course::UnavailableCourseInvitationDelivery),
+        Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery),
+        crate::auth::PasswordlessRateLimitIssuer::unavailable(),
+        Some(
+            crate::auth::PasswordlessWebauthn::new(
+                "localhost",
+                "http://localhost:3000",
+                "PLE local test",
+            )
+            .expect("valid test WebAuthn configuration"),
+        ),
         health,
     )
 }
@@ -280,6 +292,14 @@ fn production_settings() -> ProductionSettings {
         imathas_provider_key: None,
         qti_runtime_enabled: None,
         grader_database_url: None,
+        enrollment_secret: None,
+        enrollment_email: None,
+        webauthn: crate::auth::PasswordlessWebauthn::new(
+            "localhost",
+            "http://localhost:3000",
+            "PLE local test",
+        )
+        .expect("valid test WebAuthn configuration"),
     }
 }
 

@@ -85,6 +85,34 @@ services:
         mc mb --ignore-existing local/student-records
         mc mb --ignore-existing local/temp-processing
 
+  # Copies the host-owned invitation issuer secret into a private volume as
+  # the API's fixed runtime UID. This enables copy-link invitations without
+  # requiring SMTP, and keeps the raw secret out of the API environment.
+  identity-secret-init:
+    image: docker.io/library/alpine@sha256:${PLE_SECRET_INIT_IMAGE_SHA256:?set PLE_SECRET_INIT_IMAGE_SHA256 to the selected official Alpine Linux image manifest digest}
+    volumes:
+      - type: bind
+        source: ${PLE_INVITATION_TOKEN_SECRET_HOST_FILE:?set PLE_INVITATION_TOKEN_SECRET_HOST_FILE to an operator-created mode-0600 canonical 32-byte base64url file}
+        target: /run/source/invitation_token_secret
+        read_only: true
+        bind:
+          create_host_path: false
+      - ple_identity_runtime:/run/ple-secrets
+    command: ["/bin/sh", "-ec", "cp /run/source/invitation_token_secret /run/ple-secrets/invitation_token_secret; chmod 600 /run/ple-secrets/invitation_token_secret; chown 10001:10001 /run/ple-secrets/invitation_token_secret"]
+    network_mode: none
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    cpus: "0.10"
+    mem_limit: 32m
+    pids_limit: 16
+    restart: "no"
+
   api:
     build:
       context: ..
@@ -93,6 +121,8 @@ services:
       postgres:
         condition: service_healthy
       createbuckets:
+        condition: service_completed_successfully
+      identity-secret-init:
         condition: service_completed_successfully
     environment:
       PLE_BIND_ADDR: 0.0.0.0:3000
@@ -107,6 +137,10 @@ services:
       PLE_STUDENT_RECORDS_BUCKET: student-records
       PLE_TEMP_PROCESSING_BUCKET: temp-processing
       PLE_PUBLIC_ASSET_BASE_URL: ${PLE_PUBLIC_ASSET_BASE_URL:?set PLE_PUBLIC_ASSET_BASE_URL in the env file}
+      PLE_WEBAUTHN_RP_ID: ${PLE_WEBAUTHN_RP_ID:?set PLE_WEBAUTHN_RP_ID in the env file}
+      PLE_WEBAUTHN_ORIGIN: ${PLE_WEBAUTHN_ORIGIN:?set PLE_WEBAUTHN_ORIGIN in the env file}
+      PLE_WEBAUTHN_RP_NAME: ${PLE_WEBAUTHN_RP_NAME:?set PLE_WEBAUTHN_RP_NAME in the env file}
+      PLE_INVITATION_TOKEN_SECRET_FILE: /run/ple-secrets/invitation_token_secret
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
     volumes:
@@ -116,6 +150,10 @@ services:
         read_only: true
         bind:
           create_host_path: false
+      - type: volume
+        source: ple_identity_runtime
+        target: /run/ple-secrets
+        read_only: true
     healthcheck:
       test: ["CMD", "/usr/local/bin/peptidyle-api", "--health-probe"]
       interval: 10s
@@ -338,6 +376,7 @@ services:
 volumes:
   ple_pgdata:
   ple_miniodata:
+  ple_identity_runtime:
   ple_webwork_dbdata:
   ple_webwork_courses:
   ple_webwork_api_runtime:
