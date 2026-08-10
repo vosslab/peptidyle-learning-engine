@@ -4,20 +4,40 @@ Peptidyle keeps grading authority on the server. The browser may determine
 whether a response is structurally ready to submit, but it never receives an
 answer key or makes a correctness decision.
 
+This is the cross-cutting enforcement model. It names the boundaries that
+must hold across routes, storage, workers, adapters, and browser code. The
+specialized durable contracts own their detailed data shapes and operations:
+
+- [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md) classifies protected data
+  and its permitted projections.
+- [DATABASE_TENANCY.md](DATABASE_TENANCY.md) owns PostgreSQL roles, RLS, and
+  transaction-local tenant context.
+- [OBJECT_STORAGE.md](OBJECT_STORAGE.md) owns typed keys, delivery grants, and
+  object/database reconciliation.
+- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) owns the learner
+  render, response, digest, and rendered-item wire contract.
+- [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md) owns caller-visible recovery and
+  evidence-preserving failure handling.
+
+The active release plan distinguishes implemented behavior from an accepted
+target that has not yet crossed every HTTP, storage, and browser boundary.
+
 ## Grading boundary
 
 | Browser-safe surface                           | Server-only surface                |
 | ---------------------------------------------- | ---------------------------------- |
-| `ResponseDefinition` and `StudentResponse`     | `grading::AnswerKey`               |
+| Input schema and browser-side response state    | `grading::AnswerKey`               |
 | Parameter generation from a supplied seed      | Expected numeric values            |
 | Response-format validation                     | Correct choice IDs and ordering    |
 | Timer display and pure state transitions       | Accepted text and private rubrics  |
 | Correctness and point results after disclosure | Checkers and correctness decisions |
 
-The browser-safe model explains the input shape and public grading policy. For
-example, it may reveal a numeric tolerance or that exactly two choices are
-required. The expected number and the two correct choice IDs remain in
-`crates/grading`.
+The browser-safe model explains the input shape and public grading policy. The
+current compatibility envelope may expose a numeric tolerance or that exactly
+two choices are required. The reserved compact learner presentation must not
+expose tolerance; [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md)
+owns that cutover. The expected number and the two correct choice IDs remain
+in `crates/grading`.
 
 `crates/grading` is the browser-excluded authority for checkers, answer keys,
 and correctness decisions. It is not the only server-only component that
@@ -55,17 +75,19 @@ structure:
 - selection count, uniqueness, and IDs are valid;
 - short text fits its character limit;
 - ordering is an exact permutation of the displayed items; and
-- an uploaded response carries a server-issued object reference.
+- the legacy upload placeholder is nonempty.
 
 This function has no answer-key parameter and cannot determine correctness.
 The browser calls it through `wasm_bridge::validate_response_format`; the
 server repeats it before grading because client validation is a convenience,
-not an authority. The current server refuses every file-upload submission
-before backend or Store mutation because the server-issued upload capability
-and metadata-binding workflow do not exist yet. When that workflow is added,
-file size, extension, checksum, ownership, learner, and attempt binding must be
-checked against server-owned object metadata rather than trusted from the
-browser.
+not an authority. The browser-safe validator can only reject an empty legacy
+upload placeholder; it cannot establish that a string names an authorized
+object. The server therefore refuses every file-upload submission before
+backend or Store mutation. The server-issued upload capability and metadata
+binding workflow are not implemented. [secure_learner_file_upload_plan.md](active_plans/active/secure_learner_file_upload_plan.md)
+owns that future path. It requires file size, profile, checksum, ownership,
+learner, and attempt binding to be checked from server-owned object metadata,
+never from browser claims.
 
 ## Compile-time closure
 
@@ -102,8 +124,9 @@ The reviewed application exports are currently:
 - `bridge_version`;
 - `timer_verdict`;
 - `validate_assignment_config`; and
-- `validate_response_format`.
-- `preview_native_draft`.
+- `validate_response_format`;
+- `preview_native_draft`; and
+- `verify_presentation_descriptor`.
 
 The allowlist also names the exact memory, table, allocator, and lifecycle
 exports required by `wasm-bindgen`. A new Rust export fails the gate until a
@@ -126,6 +149,12 @@ drafts; other adapters return an explicit `offlinePreview` unavailability
 result. The shared materializer lives in `domain`, while native adapter key
 derivation remains in its server-only crate. The bridge therefore cannot
 construct an answer key, provenance, published identity, grade, or score.
+
+`verify_presentation_descriptor` recomputes only the deterministic descriptor
+for already disclosed public envelope and asset-binding data. It returns a
+consistency result and cannot issue an attempt, accept a submission, resolve a
+durable mapping, or disclose a key. The server retains the full SHA-256 digest
+and decides whether a request belongs to that presentation.
 
 Run the export gate directly:
 
@@ -349,13 +378,25 @@ URLs. Downloads continue through the protected asset route and its audit log.
 
 ## Run authorization and grading boundary
 
-This section describes the implemented route. Before WP-RC5, the accepted
+The presentation model and its server-persisted binding are implemented, but
+the current learner HTTP route still accepts the broader tagged
+`StudentResponse` body, including the browser-supplied response `kind`. The
+current route rederives and validates the expected family from the attempt;
+`kind` is therefore not submission authority. The accepted
 [secure grading payload plan](active_plans/decisions/secure_question_grading_payload_plan.md)
-atomically narrows the learner wire to authenticated attempt ID, idempotency
-key, presentation digest, and a family-minimal answer. Its CRC16 rendered-item
-IDs and SHA-256 presentation digest detect inconsistent presentation state;
-they do not authenticate the learner or grade. All component scoring and
-partial credit remain server-owned.
+owns a future atomic wire cutover to authenticated attempt ID, idempotency
+key, presentation digest, and a family-minimal, type-free answer. That target
+also introduces CRC16 rendered-item IDs and a SHA-256-backed presentation
+digest to detect inconsistent presentation state. Neither target value
+authenticates the learner or grades an answer. All component scoring and
+partial credit remain server-owned in both contracts.
+
+The current tagged render `ResponseDefinition` also exposes some
+grading-adjacent metadata, including numeric tolerance and short-text match
+mode. That metadata does not disclose an expected answer, but it is broader
+than rendering requires. The target render projection retains only public
+input constraints and displayed units while keeping tolerances, normalization
+rules, answer keys, weights, and rubrics server-only.
 
 Run mutations require the authenticated `UserId` stored on the enrollment;
 they never infer authorization by equating that identity with `StudentId`.
@@ -396,14 +437,14 @@ response conflicts.
 The current attempt DTO is answer-free but broader than the learner needs: it
 still carries version, seed, parameter hash, provenance, implementation IDs,
 and source/asset identifiers. Feedback policy redacts answer-bearing material,
-not that complete DTO. WP-P1 through WP-P6 in the secure grading payload plan
-replace it before WP-RC5 with the minimal learner descriptor, presentation
-digest, type-free response body, and compact receipt. Until that atomic
-cutover, clients must not treat current provenance fields as submission
-authority. Policy-permitted results may contain correctness and points, but
-never an answer key, expected value, private rubric, or checker state. Full
-teaching feedback uses an explicit sanitized disclosure DTO; it never
-serializes the server-only key as a shortcut.
+not that complete DTO. The payload plan's minimal learner descriptor,
+digest-bound type-free response body, and compact receipt are accepted target
+work, not the current HTTP contract. Until that atomic cutover, clients must
+not treat current provenance fields or the tagged response `kind` as
+submission authority. Policy-permitted results may contain correctness and
+points, but never an answer key, expected value, private rubric, or checker
+state. Full teaching feedback uses an explicit sanitized disclosure DTO; it
+never serializes the server-only key as a shortcut.
 
 ## Asset delivery boundary
 
@@ -438,6 +479,29 @@ immutable cache policy and checksum ETag. Signed URLs are response headers
 only and must not enter JSON, application logs, browser storage, or persisted
 markup.
 
+## Diagnostics and observability
+
+Diagnostics preserve enough evidence to investigate a boundary failure without
+becoming another delivery path. Browser responses carry only short,
+route-approved messages. They do not contain raw SQL, object keys, bucket
+names, signed URLs, tenant identities, leases, source archives, provider state,
+answer keys, or raw backend errors.
+
+Server and worker diagnostics use bounded error categories and safe record
+identities only where an operator needs correlation. Credentials, raw session
+cookies, provider launch values, renderer fields, source bytes, private grading
+payloads, raw learner uploads, and raw student answers are never general log
+fields. A new diagnostic must use the [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md)
+class of each field and record the appropriate authorization and retention
+owner before it is emitted.
+
+Security-relevant delivery authorization appends an audit event before a
+protected object URL is requested. Worker and retry diagnostics preserve only
+the evidence necessary to recover through their durable receipt or lease
+boundary. [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md) defines the required
+public outcome and retry behavior; it is not acceptable to reveal a hidden
+cause merely to make a support response more convenient.
+
 ## Placement rule
 
 Place new code according to the information it needs and the decision it
@@ -455,12 +519,20 @@ makes:
 When uncertain, ask whether the value would help a student infer the correct
 response before submission. If yes, it belongs on the server-only side.
 
-## Other controls
+## Verification and change control
 
-WP-C6 proves the source and WebAssembly boundary. MOD-API-AUTH, MOD-API-CAT,
-MOD-API-COURSE, MOD-API-RUN, MOD-SCHEMA, MOD-STO, and MOD-OBJ now add
-authentication, catalog, course, and run authorization, PostgreSQL answer-table
-grants, forced tenant row-level security, and signed object URLs. Later work
-packages still add authorization for asset routes, sanitized supplied markup,
-content security policy, and browser network-trace inspection. None of those
-controls weakens the crate boundary established here.
+Security controls require evidence at the boundary they claim to protect.
+Wasm closure and export-allowlist tests prove browser exclusion; Memory tests
+prove pure and Store behavior; live PostgreSQL tests prove migrations, roles,
+grants, and forced RLS; private renderer checks prove a provider protocol; and
+browser traces prove what a learner-facing page actually receives. No one
+class substitutes for another. [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)
+defines those limits, while the active release plan names the required gate for
+each work package.
+
+When adding or changing a path that handles protected data, update its owning
+contract and verify all of the following: the data classification, authenticated
+authorization, RLS and transaction boundary where applicable, server-only
+grading boundary, retention/deletion owner, browser projection, diagnostic
+redaction, and recovery behavior. The narrowest relevant security test runs
+first; the package's full acceptance gate then verifies the integrated claim.

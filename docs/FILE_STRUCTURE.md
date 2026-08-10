@@ -4,7 +4,7 @@ This map names each area by its responsibility first and gives the current code
 path second. The system architecture and security boundaries are documented in
 [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md). Package and release status comes
 from the active [release_completion_plan.md](active_plans/active/release_completion_plan.md)
-and the dated [project_status_report_2026-08-09.md](active_plans/project_status_report_2026-08-09.md):
+and the dated [project_status_report_2026-08-10.md](active_plans/reports/project_status_report_2026-08-10.md):
 WP-RC1, WP-RC2, WP-RC3, and WP-ARCH1 are accepted. WP-RC3 is a bounded local
 WeBWorK integration, not broad OPL compatibility. WP-RC4's PLE flat JSON v2
 implementation is present for all eight families and awaits independent
@@ -127,8 +127,10 @@ crates/learning-data-access/
 |  +- session.rs             Authentication-session persistence contract
 |  +- in_memory.rs           In-memory data-access composition facade
 |  +- in_memory/             In-memory capability implementations
+|  |  `- runs/attempt_issuance.rs Attempt, presentation, timing, prefetch, and replay issuance
 |  +- postgres.rs            PostgreSQL data-access composition
 |  `- postgres/              PostgreSQL capability implementations
+|     `- runs/attempt_issuance.rs Transactional attempt issuance and replay persistence
 `- tests/
    +- conformance.rs         Shared conformance facade and broad activity cases
    +- conformance/           Capability-focused conformance cases
@@ -294,6 +296,9 @@ place.
 The implemented table relationships, proposed production identity tables, fall-pilot row estimates,
 FERPA isolation layers, and measured growth thresholds are documented in
 [docs/DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
+The proposed course-level roster, provider-neutral identity, invitation, and atomic
+membership-to-assignment reconciliation contract is in
+[docs/ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md). Its target routes are not current API claims.
 
 ## Tests
 
@@ -329,41 +334,39 @@ intentional source material, not disposable generated output.
 
 ## Documentation map
 
-- [docs/CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md) explains system and
-  security boundaries.
-- [docs/CONTRACTS.md](CONTRACTS.md) records module owners, consumers, and
-  implementation states.
-- [docs/DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) maps the PostgreSQL
-  tables and pilot-to-scale growth path.
-- [docs/SECURITY_MODEL.md](SECURITY_MODEL.md) records trust, authentication,
-  grading, tenant, and object-delivery boundaries.
-- [docs/CONTAINER.md](CONTAINER.md) documents the local container lifecycle;
-  [docs/MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md) owns replica scaling,
-  shared-state configuration, failure behavior, and planned production shape.
-- `docs/ASSESSMENT_PAYLOAD_DESIGN.md` explains the current and target learner
-  render, compact response, native grading, private WeBWorK, consistency,
-  caching, and prefetch boundaries.
-- [docs/active_plans/decisions/secure_question_grading_payload_plan.md](active_plans/decisions/secure_question_grading_payload_plan.md)
-  owns the accepted pre-WP-RC5 render/response payload cutover.
-- [source_module_decomposition_plan.md](active_plans/active/source_module_decomposition_plan.md)
-  records the accepted capability extraction and permanent source-size gate.
-  Its evidence is in
-  `docs/active_plans/reports/source_module_decomposition_evidence.md`.
-- [docs/ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md](ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md)
-  records the student no-mouse task model, response-family key contracts,
-  corrections, limitations, and executable acceptance evidence.
-- `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md` defines the durable keyboard-only
-  student journey, response-family behavior, failure recovery, and
-  permanent-versus-human evidence boundary.
-- [docs/HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) records durable owner
-  decisions.
-- [docs/active_plans/implementation_plan.md](active_plans/implementation_plan.md)
-  is the architecture and milestone source of truth.
-- [project_status_report_2026-08-09.md](active_plans/project_status_report_2026-08-09.md) is the
-  current dated status snapshot; [partial_commit_status.md](active_plans/partial_commit_status.md) is
-  a historical handoff record, not a competing status authority.
-- [webwork_shipped_integration.md](active_plans/workstreams/webwork_shipped_integration.md) owns the
-  explicit WP-RC3 source, private-stack, and acceptance contract.
+Start with [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) for the reasoning behind a boundary, then
+use this three-tier guide to find its authority and implementation detail.
+
+1. **Source authorities.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) records durable owner decisions;
+   [implementation_plan.md](active_plans/implementation_plan.md) and the active release plan own
+   scope and acceptance; [CONTRACTS.md](CONTRACTS.md), schemas, and the named code owner define
+   what a change must preserve.
+2. **Decision and contract maps.**
+   - Learning activity: [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md),
+     [MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md),
+     [QUESTION_MODEL.md](QUESTION_MODEL.md), and [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md).
+   - Browser and backend traffic: [API_CONTRACTS.md](API_CONTRACTS.md),
+     [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md),
+     [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md), and
+     [CACHING_AND_PREFETCH.md](CACHING_AND_PREFETCH.md).
+   - Trust and data: [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
+     [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md), [DATA_CONTRACTS.md](DATA_CONTRACTS.md), and
+     [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
+   - Durable operations: [CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md),
+     [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md), [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md),
+     and [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
+3. **Operating and reference documents.** [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md),
+   [SECURITY_MODEL.md](SECURITY_MODEL.md), [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md),
+   [DATABASE_TENANCY.md](DATABASE_TENANCY.md), [OBJECT_STORAGE.md](OBJECT_STORAGE.md),
+   [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md), [CONTAINER.md](CONTAINER.md),
+   [FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md),
+   [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md), and
+   [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md) document implementation,
+   local operation, accessibility, and external integrations.
+
+Use the dated [project_status_report_2026-08-10.md](active_plans/reports/project_status_report_2026-08-10.md)
+for accepted current state. The Aug. 9 report and partial-commit status are historical records, not
+competing authorities.
 
 ## Where to add new work
 

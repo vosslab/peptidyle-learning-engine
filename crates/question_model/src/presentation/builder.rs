@@ -8,6 +8,7 @@ use crate::answer::SelectionCardinality;
 use crate::envelope::{AssetRef, ContentBlock, QuestionEnvelope};
 use crate::response::{ChoiceOption, ResponseDefinition};
 
+use super::binding::PresentationBindingV1;
 use super::codec::{
     PresentationDigestV1, crc16_ccitt_false, descriptor_bytes_v1, item_basis_bytes,
 };
@@ -147,6 +148,37 @@ pub fn build_presentation_v1(
     asset_bindings: &[AssetBindingV1],
 ) -> Result<PresentationV1, PresentationBuildError> {
     build_presentation_v1_with_nonce_source(envelope, asset_bindings, &mut OsNonceSourceV1)
+}
+
+struct PersistedNonceSource(Option<[u8; 16]>);
+
+impl NonceSourceV1 for PersistedNonceSource {
+    fn next_nonce(&mut self) -> Result<[u8; 16], PresentationBuildError> {
+        self.0
+            .take()
+            .ok_or(PresentationBuildError::RenderedIdCollision)
+    }
+}
+
+/// Rebuilds one server-issued presentation from its durable nonce and digest.
+///
+/// This is the canonical server-side reproduction path. It recomputes every
+/// rendered-item ID and the full descriptor rather than trusting stored or
+/// browser-supplied public fields.
+pub fn reproduce_presentation_v1(
+    envelope: &QuestionEnvelope,
+    asset_bindings: &[AssetBindingV1],
+    binding: PresentationBindingV1,
+) -> Result<PresentationV1, PresentationBuildError> {
+    let mut nonce = PersistedNonceSource(Some(binding.nonce().as_bytes()));
+    let presentation =
+        build_presentation_v1_with_nonce_source(envelope, asset_bindings, &mut nonce)?;
+    if presentation.digest != binding.digest() {
+        return Err(PresentationBuildError::InvalidPublicContent(
+            "presentation digest does not reproduce",
+        ));
+    }
+    Ok(presentation)
 }
 
 /// Builds one presentation using an injected nonce source.

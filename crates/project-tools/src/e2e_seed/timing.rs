@@ -174,7 +174,8 @@ pub(super) async fn exercise_assignment_timing(
         problem: ids.problem,
         question_version: ids.version,
         seed,
-        presentation: presentation_binding(position as u8),
+        presentation: Some(presentation_binding(position as u8)),
+        webwork_replay: None,
         parameter_hash: format!("database-timing-parameters-{position}"),
         provenance: AttemptProvenance {
             adapter: implementation("native"),
@@ -463,7 +464,8 @@ pub(super) async fn exercise_assignment_timing(
                 problem: ids.problem,
                 question_version: ids.version,
                 seed: 34,
-                presentation: presentation_binding(34),
+                presentation: Some(presentation_binding(34)),
+                webwork_replay: None,
                 parameter_hash: "database-timing-exception-parameters".to_string(),
                 provenance: AttemptProvenance {
                     adapter: implementation("native"),

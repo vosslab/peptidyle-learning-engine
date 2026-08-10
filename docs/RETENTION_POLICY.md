@@ -1,56 +1,120 @@
 # Student-record retention policy
 
 Peptidyle separates reusable learning content from tenant-owned educational records. A published
-problem can remain in the shared catalog after every student record for a course is gone. This is
+problem can remain in the shared catalog after every learner record for a course is gone. This is
 both the sharing model and the deletion boundary.
 
-This document describes the implemented code-first contract. Production infrastructure is not yet
-deployed; deployment-specific backup and object-lifecycle settings belong to M6.
+This is the implemented application and database contract. It distinguishes completed code and
+one-time acceptance evidence from recovery, backup, and object-reconciliation work that remains
+deployment work.
 
 ## Default course lifecycle
 
-An institution may configure longer or shorter ordered windows. When it does not, Peptidyle uses
-the privacy-first defaults recorded in [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md):
+Ending a course snapshots the current institution policy and server-authoritative end time. Later
+policy edits do not silently rewrite that course's original schedule. The snapshot has a positive
+generation; an extension creates a later generation and makes prior scheduled work stale.
 
-| Time after course end | Action |
-| --- | --- |
-| 30 days | Notify the instructor; offer archive, delete, or administrator extension. |
-| 100 days | Archive automatically; conceal learner access before cleanup. |
-| 365 days | Delete student records and their typed object-storage artifacts. |
+An institution may configure any strictly increasing, whole-day notify, archive, and delete
+windows from 1 through 36,500 days. When it has no policy, PLE uses these privacy-first defaults:
 
-The instructor-facing notification says:
+| Time after course end | Persisted action | Learner-visible result |
+| --- | --- | --- |
+| 30 days | Create the in-app instructor notification. | Records remain available. |
+| 100 days | Archive student records. | Learner record aliases and StudentRecord deliveries are concealed. |
+| 365 days | Permanently delete student records. | The terminal `studentRecordsDeleted` lifecycle is recorded. |
+
+The fixed current notification says:
 
 > This course ended 30 days ago. Student records are still available. If they are no longer needed,
 > archive or delete the course now. Student records will be automatically removed after 100 days
 > unless the course is archived or the retention period is extended by an administrator.
 
-Only an authorized course instructor or tenant administrator may request archive or deletion. Only
-a tenant administrator may extend the schedule. Mutations use a strong revision precondition and
-durable replay receipt; request bodies cannot supply tenant, learner, object, job, lease, or
-generation identity.
+In that copy, "removed after 100 days" means archived from ordinary learner access. It is not a
+claim that the relational learner graph is permanently deleted at day 100; the delete stage remains
+scheduled for day 365 by default.
 
-## Archive and deletion semantics
+## Authority and API contract
 
-Archive is an access and cleanup transition, not a claim that relational records have already been
-deleted. The Store first fences every learner-facing alias, terminalizes resurrection paths,
-freezes an exact tenant/course object manifest, revokes StudentRecord delivery, and deletes the
-typed objects idempotently. The lifecycle reports archived only after that exact work completes.
+Only a stored authenticated course instructor, course administrator, or tenant administrator may
+read retention status or request archive/delete. A course administrator or tenant administrator may
+extend a schedule. Authorization derives the tenant, actor, and course role from the session and
+stored course membership; a request never supplies any of them.
 
-Permanent deletion freezes and replays its own delete-stage manifest under the current
-scheduler-owned job, lease, stage, and generation. Course-owned writers share a retention-row lock,
-so the purge fences only that course while unrelated courses remain writable. Private indexed work
-sets replace whole-course in-memory ID arrays and are erased before completion. After all required
-objects are absent, one PostgreSQL transaction removes the complete course-owned learner graph in
-verified foreign-key order and records the durable `studentRecordsDeleted` tombstone. A partial
-object failure leaves the course archived and retries the same delete-stage manifest; it cannot
-report deletion early.
+The manager API exposes only a coarse lifecycle state, assignment-definition disposition, a strong
+revision ETag, and the fixed notification projection. It never exposes learner identities, policy
+deadlines, object IDs, object keys, queue jobs, leases, or generations.
 
-Deleted student records include:
+- Archive and delete require `If-Match` with the current strong revision and create a durable
+  replay receipt bound to the actor, action, requested disposition, expected generation, and
+  resulting stage. A retry reports `scheduled`, `inProgress`, or `completed`; it cannot enqueue a
+  second current-stage job.
+- Extension also requires the current strong revision, but is a conditional schedule change rather
+  than an archive/delete replay receipt. It is administrator-only and supersedes still-scheduled
+  prior-generation work.
+- An end-course request has an empty body. Archive and extension accept only their closed JSON
+  bodies. Delete has an empty body. Request bodies cannot name a tenant, learner, object, job,
+  lease, stage, or generation.
 
-- enrollments, summaries, runs, attempts, submissions, grades, timers, and feedback;
-- prefetch, replay, idempotency, and per-student statistics receipts;
-- student-record audit events, exports, deliveries, and external-tool sessions/transcripts; and
-- assignment definitions only when the instructor's frozen archive-time choice is `delete`.
+These routes return `Cache-Control: no-store`. Foreign, missing, archived, and deleted learner
+records are concealed at the normal record boundary rather than revealing a retention distinction.
+
+## Durable state machine
+
+The storage lifecycle is `active -> archived -> deleted`. A deadline makes a stage eligible; it
+does not fabricate a lifecycle result. The private dispatcher alone creates a closed retention job
+payload containing only `course`, `stage`, and `generation`. The worker derives tenant identity from
+the claimed job and supplies the job ID and active lease only to the Store boundary.
+
+```text
+course end snapshots policy and generation
+        |
+        +-- due scheduler dispatches one closed stage job
+        |
+        +-- worker proves tenant/course/stage/generation/job/lease binding
+                |
+                +-- notify: persist one in-app notification
+                |
+                +-- archive: fence access, freeze manifest, remove typed objects, mark archived
+                |
+                +-- delete: freeze delete manifest, remove objects and learner graph, mark deleted
+```
+
+Preparation and commit verify the current generation, exact stage, leased worker job, unexpired
+lease token, and course-retention row. A stale generation, reclaimed lease, mismatched job, or
+malformed payload cannot commit an old worker's result. The worker accepts only same-tenant typed
+`StudentRecord` keys; an already absent object is an idempotent success.
+
+The archive access predicate is reused by learner course records, runs, summaries, feedback,
+exports, external-tool paths, and protected StudentRecord assets. It also denies access as soon as
+the current archive/delete stage has started, preventing a cleanup race from leaking a record.
+
+## Archive and permanent deletion
+
+Archive is an access-and-cleanup transition, not an assertion that relational records have already
+been removed. Under the fenced course state, the Store terminalizes resurrection paths, freezes an
+exact course/stage object manifest in PostgreSQL, revokes protected student-record delivery, and
+the worker deletes those typed objects. Only after the prepared manifest is complete does the
+lifecycle become `archived`.
+
+Permanent deletion creates and replays its own manifest. It has an independent object set because
+newly discovered objects must not be silently added to a retry of the archive-stage manifest. The
+delete preparation also records private, indexed run, attempt, and export work sets. They avoid
+whole-course ID arrays in process memory, fence only the course being purged, and are erased before
+the terminal tombstone is written.
+
+After all delete-stage objects are absent, one PostgreSQL transaction removes the complete
+course-owned learner graph in verified foreign-key order and then records
+`studentRecordsDeleted`. A partial object-store failure leaves the course archive-fenced and retries
+the same prepared delete manifest. It cannot report permanent deletion early.
+
+The deleted learner graph includes:
+
+- enrollments, learner course/group membership, assignment summaries, runs, attempts, submissions,
+  evaluations, grades, timers, feedback, and item-analysis rows;
+- prefetch, provider replay, idempotency, scoring, and per-student statistics receipts;
+- student-record audit events, exports, protected deliveries, and external-tool sessions and
+  transcripts; and
+- assignment definitions only when the archive-time disposition is `delete`.
 
 The purge retains:
 
@@ -59,50 +123,79 @@ The purge retains:
 - instructor drafts and private workspaces;
 - backend capability metadata;
 - anonymous question-statistics aggregates; and
-- assignment definitions when the frozen choice is `retain`, which is the default.
+- assignment definitions when the frozen disposition is `retain`, the default.
 
 Deletion never follows an assignment's immutable problem references into shared content.
 
-## Recorded acceptance evidence
+## Aggregate survival and disclosure
 
-On 2026-08-09, a one-time isolated PostgreSQL and MinIO reconstruction drove the production worker
-through a populated permanent-deletion request. The completed manifest contained the exact typed
-student-record object; the worker removed that object and the learner's enrollment, run, attempt,
+Question statistics are aggregated while the corresponding learner records exist, then survive as
+identity-free shared-content aggregates. They contain neither tenant nor learner identifiers, and
+the browser suppresses a statistic below the k-anonymity disclosure threshold of five observations.
+This means deletion removes the educational evidence that created an aggregate without removing the
+non-identifying signal used to improve a published question library.
+
+An aggregate is not a backup of attempt history. It cannot recreate an individual response,
+submission, score, or course membership after the learner graph is deleted.
+
+## Object and audit boundary
+
+Object storage is not deleted by a broad bucket prefix. A typed cleanup manifest is the authority
+for each archive or delete stage, with one durable row per expected object and a manifest count.
+The database remains authoritative for the intended object set; a bucket listing never authorizes a
+delete. The worker treats a missing exact object as success so a crash after object deletion but
+before database commit remains safely replayable.
+
+The lifecycle retains only its coarse retention row and permitted replay/operational evidence long
+enough to prove a completed action. It deletes learner-facing audit and access evidence with the
+learner graph. Operational logs, backup copies, and object-store inventory are separate deployment
+data classes; they must not become undeclared student-record archives.
+
+General bucket-to-database reconciliation remains planned in WP-RC7. Until it is accepted,
+operators must not claim automatic orphan cleanup or automatic repair of a missing referenced
+object. The safe response to a missing or checksum-mismatched referenced object is to stop delivery,
+preserve database evidence, alert, and use a normal recovery procedure.
+
+## Recovery and backup boundary
+
+Application deletion is immediate and irreversible through the live product. It does not rewrite
+historical encrypted backups or point-in-time recovery snapshots taken before deletion. Those copies
+expire under their own infrastructure lifecycle; selective deletion from an older snapshot is not a
+supported claim.
+
+There is no deployed backup retention window or production recovery objective yet. WP-RC10 must
+choose encrypted PostgreSQL point-in-time recovery, object-store recovery, backup expiry, restoration
+authorization, and a tested recovery objective, then disclose the deployed values here. An
+institution requiring less total exposure must choose a shorter backup window.
+
+The honest guarantee until then is:
+
+> Deleted student records are immediately unrecoverable through the application. Historical backup
+> copies remain subject to the institution's deployed encrypted-backup expiry window.
+
+On 2026-08-09, a one-time local PostgreSQL 17 recovery rehearsal restored a role-only backup and a
+custom-format database backup into a separate empty cluster. It preserved the migration ledger,
+roles, grants, forced RLS, tenant isolation, application writes, and broker-function execution. That
+proves a small logical database restore procedure; it does not deploy managed point-in-time recovery,
+set an RPO/RTO, or prove object-store recovery.
+
+## Evidence and verification
+
+On 2026-08-09, a one-time isolated PostgreSQL and MinIO reconstruction drove a populated permanent
+deletion request through the retention worker. The completed manifest matched the exact typed
+student-record object. The worker removed that object and the learner enrollment, run, attempt,
 submission, evaluation, score, feedback, receipt, delivery, access-log, audit, and course-analysis
 rows. It retained the assignment and instructor membership, published problem/version/source,
 workspace draft, and anonymous global statistics aggregate. Independent typed-object reads and
 physical bucket inspection agreed with the relational result. The temporary SQL, Rust helper, and
-shell reconstruction harness were removed after this evidence was recorded.
+shell harness were removed after recording the evidence.
 
-## Backup boundary
+Permanent tests remain deterministic and offline. They cover authorization, conditional revisions,
+archive/delete replay, lifecycle truthfulness, lease/generation fencing, typed-object validation,
+and retained-versus-deleted content. Fresh PostgreSQL role/RLS exercises, populated purge graphs,
+live object-store deletion, multi-replica soaks, query plans, reconciliation, and backup restoration
+are environment-dependent acceptance or deployment gates. Temporary reconstruction tests are useful
+evidence but do not become permanent fixture infrastructure.
 
-Application deletion is immediate and irreversible through the live product. It does not rewrite
-historical encrypted backups or point-in-time recovery snapshots. Those copies expire under their
-own infrastructure lifecycle.
-
-There is no deployed backup window yet. M6 must select an encrypted point-in-time recovery window,
-configure it in infrastructure, and disclose the deployed value here. An institution requiring
-less total exposure must shorten that backup window; selective deletion from an older database
-snapshot is not a supported claim.
-
-On 2026-08-09, a one-time local recovery rehearsal encrypted a role-only backup without password
-hashes and a custom-format database backup, then restored both into a separate empty PostgreSQL 17
-cluster. The restored database matched the source logical fingerprint and preserved the migration
-ledger, role attributes, owners, grants, forced RLS, tenant isolation, application writes, and
-broker-function execution. Backup and restore each completed in one second for this small fixture.
-This establishes the logical recovery procedure; it does not set a production recovery objective,
-deploy managed point-in-time recovery, prove object-store recovery, or choose the backup window.
-
-The resulting guarantee is:
-
-> Deleted student records are immediately unrecoverable through the application and expire from
-> encrypted backups within the disclosed deployed backup window.
-
-## Verification policy
-
-Permanent tests are deterministic, offline behavior tests for authorization, revision fencing,
-exact replay, lifecycle truthfulness, typed-object validation, and retained-versus-deleted content.
-Fresh PostgreSQL role/RLS exercises, populated purge graphs, object-storage deletion, multi-replica
-soaks, query plans, and backup restoration are environment-dependent one-time acceptance or
-deployment gates. Temporary SQL and reconstruction tests are removed after their evidence is
-recorded; they are not committed as fixture infrastructure.
+Related contracts: [CONTRACTS.md](CONTRACTS.md), [SECURITY_MODEL.md](SECURITY_MODEL.md), and
+[release_completion_plan.md](active_plans/active/release_completion_plan.md).

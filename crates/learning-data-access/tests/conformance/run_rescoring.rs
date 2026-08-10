@@ -168,7 +168,7 @@ where
                 problem,
                 question_version: version,
                 seed: 996,
-                presentation: presentation_binding(6),
+                presentation: Some(presentation_binding(6)),
                 parameter_hash: "concurrent-scoring-parameter-hash".to_string(),
                 provenance: reservation.provenance.clone(),
                 webwork_replay: None,

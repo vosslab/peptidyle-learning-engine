@@ -20,7 +20,32 @@ local integration is accepted; it is not a production deployment claim. The
 remaining dependency order is recorded in
 [active_plans/active/release_completion_plan.md](active_plans/active/release_completion_plan.md),
 and the dated current snapshot is
-[active_plans/project_status_report_2026-08-09.md](active_plans/project_status_report_2026-08-09.md).
+[active_plans/reports/project_status_report_2026-08-10.md](active_plans/reports/project_status_report_2026-08-10.md).
+
+## Durable documentation map
+
+The active plans say what remains to be built. [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) is the
+conceptual entrypoint for the settled choices below. The plan, [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
+[CONTRACTS.md](CONTRACTS.md), schemas, and named code owner remain the source authorities.
+
+| Teaching question | Decision and contract maps | Primary code owner |
+| ----------------- | -------------------------- | ------------------ |
+| What is PLE optimizing for? | [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md), [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md), and [MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md) | `crates/question_model/`, `crates/domain/`, and course/run routes |
+| What travels between browser, PLE, and a grading backend? | [API_CONTRACTS.md](API_CONTRACTS.md), [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md), [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md), and [CACHING_AND_PREFETCH.md](CACHING_AND_PREFETCH.md) | `crates/server/src/run/`, `crates/adapters/`, and `src/features/attempt/` |
+| Which identity and data may cross each boundary? | [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md), [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md), [DATA_CONTRACTS.md](DATA_CONTRACTS.md), [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md), and [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) | auth, course, `crates/learning-data-access/`, and server DTOs |
+| How do replicas survive overlap and failure? | [CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md), [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md), and [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md) | PostgreSQL transactions, objects, jobs, and composition |
+| What evidence supports a claim? | [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md), [DEVELOPMENT.md](DEVELOPMENT.md), and [E2E_TESTS.md](E2E_TESTS.md) | owning behavior test, live oracle, or human review |
+
+The established reference documents remain the detailed implementation maps:
+[QUESTION_MODEL.md](QUESTION_MODEL.md), [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md),
+[SECURITY_MODEL.md](SECURITY_MODEL.md), [DATABASE_TENANCY.md](DATABASE_TENANCY.md),
+[OBJECT_STORAGE.md](OBJECT_STORAGE.md), [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md), and
+[FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md).
+
+Use the dated
+[active_plans/reports/project_status_report_2026-08-10.md](active_plans/reports/project_status_report_2026-08-10.md)
+for current acceptance state. A design document explains a boundary; it does
+not by itself prove that a future work package has shipped.
 
 ## Contributor vocabulary
 
@@ -136,7 +161,11 @@ facades:
 
 - `crates/learning-data-access/src/contracts/`, `in_memory/`, and `postgres/`
   separate public Store contracts from backend capability implementations;
-  their conformance and live tests use the same behavior-based division.
+  their conformance and live tests use the same behavior-based division. The
+  paired `in_memory/runs/attempt_issuance.rs` and `postgres/runs/attempt_issuance.rs`
+  owners keep presentation binding, prefetch promotion, timing creation, and
+  private WeBWorK replay persistence together without turning the broader run
+  lifecycle modules into warehouses.
 - `crates/server/src/run/` owns prefetch, queries, and submission, while the
   catalog, course, workspace, retention, composition, iMathAS, and publication
   parents remain small route or composition facades over focused behavior and

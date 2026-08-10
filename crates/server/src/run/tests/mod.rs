@@ -202,6 +202,7 @@ impl RunBackend for NumericBackend {
                 grading: implementation("numeric"),
                 rendered_question_sha256: format!("rendered-{seed:016x}"),
             },
+            webwork_replay: None,
         })
     }
 

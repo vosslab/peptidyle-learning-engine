@@ -13,10 +13,7 @@ pub(super) use learning_data_access::{
     SubmissionIdempotencyKey, SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext,
 };
 pub(super) use question_model::generation::Seed;
-pub(super) use question_model::presentation::{
-    NonceSourceV1, PresentationBuildError, PresentationV1, build_presentation_v1,
-    build_presentation_v1_with_nonce_source,
-};
+pub(super) use question_model::presentation::{PresentationV1, build_presentation_v1};
 pub(super) use question_model::run_policy::FeedbackDisclosure;
 pub(super) use question_model::{
     AssignmentEnrollment, AssignmentRun, AttemptResult, CourseAppearance, CourseRole,

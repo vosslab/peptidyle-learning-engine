@@ -50,7 +50,37 @@ would be an external adapter, not the internal source model. See
 No. PLE is the sole WeBWorK client. The optional renderer profile is private;
 the browser continues to call PLE through its same-origin gateway. The current
 integration is limited to one server-rendered PGML `RadioButtons` path, with
-the Rust client and local profile implemented but live acceptance still
-pending. Native questions and the normal local stack do not require it. See
+the Rust client, local profile, and bounded live acceptance completed. Native
+questions and the normal local stack do not require it. Broader OPL
+compatibility and WeBWorK matching remain future work rather than implied by
+that narrow acceptance. See
 [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md) and
 [CONTAINER.md](CONTAINER.md).
+
+## Why does a submission identify an attempt?
+
+A durable question attempt already binds the authenticated learner, course,
+assignment, immutable question version, seed, timing state, and grading
+backend. The browser therefore needs to send only that attempt's route identity,
+an idempotency key, and the learner's answer. The planned presentation digest
+and compact rendered-item IDs detect a stale or mismatched question display;
+they are consistency checks, not authentication or grading proof. See
+[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
+
+## Can a learner upload a file answer?
+
+Not yet. The current browser widget and submission route fail closed because a
+browser-supplied object key cannot prove tenant, learner, attempt, storage, or
+inspection ownership. The planned capability creates one server-issued,
+attempt-bound upload record and later accepts only that opaque upload ID. See
+[secure_learner_file_upload_plan.md](active_plans/active/secure_learner_file_upload_plan.md).
+
+## Where should a contributor record a durable decision?
+
+Use [CONTRACTS.md](CONTRACTS.md) for frozen module and service boundaries, and
+the focused durable document for the subject, such as
+[OBJECT_STORAGE.md](OBJECT_STORAGE.md), [RETENTION_POLICY.md](RETENTION_POLICY.md),
+or [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md).
+Use the active plans for dependency order and unfinished work. The current
+implementation handoff distinguishes accepted behavior from planned behavior in
+[implementation_status.md](active_plans/implementation_status.md).

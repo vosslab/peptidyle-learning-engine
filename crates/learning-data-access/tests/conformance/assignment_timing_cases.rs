@@ -121,7 +121,7 @@ async fn memory_assignment_timing_edits_and_auto_submit_are_generation_fenced() 
         problem: reference.problem,
         question_version: reference.version,
         seed,
-        presentation: presentation_binding(position as u8),
+        presentation: Some(presentation_binding(position as u8)),
         parameter_hash: format!("timing-parameters-{position}"),
         provenance: AttemptProvenance {
             adapter: implementation("timing-native"),
@@ -470,7 +470,7 @@ async fn memory_assignment_timing_edits_and_auto_submit_are_generation_fenced() 
                 problem: reference.problem,
                 question_version: reference.version,
                 seed: 4,
-                presentation: presentation_binding(12),
+                presentation: Some(presentation_binding(12)),
                 parameter_hash: "attempt-limit-parameters".to_string(),
                 provenance: AttemptProvenance {
                     adapter: implementation("timing-native"),

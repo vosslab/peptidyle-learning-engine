@@ -163,7 +163,7 @@ ACCEPT with no P0/P1 findings. Current commit readiness and safe partial-commit 
 [partial_commit_status.md](partial_commit_status.md); do not commit the mixed index before that
 index is rebuilt from the accepted working tree.
 
-## Most recently accepted task: WP-QTI-12
+## Accepted task: WP-QTI-12
 
 The provenance-aware Memory and PostgreSQL conversion boundary is complete and independently
 accepted:
@@ -270,11 +270,13 @@ The WP-QTI-12 independent review and documentation close-out is complete:
   The accepted WeBWorK renderer remains an explicit optional profile using the pinned upstream
   `/render_rpc` integration.
 - [docs/DATABASE_STRUCTURE.md](../DATABASE_STRUCTURE.md) maps implemented revision, assignment, and
-  isolated-score relations. WP-RC8 now owns institutional OIDC; passkeys, local passwords, and
-  email-code login are explicitly out of version 1 scope. The document records pilot and
-  ten-million-question growth formulas without claiming institutional credentials or legal sign-off.
+  isolated-score relations. The human owner has superseded the earlier institutional-OIDC-only
+  decision: WP-RC8 now owns PLE-managed passwordless accounts, invite-by-email enrollment, passkeys,
+  manual roster/grade export, and optional SSO account linking. The document records pilot and
+  ten-million-question growth formulas without claiming production email/WebAuthn configuration or
+  legal sign-off.
 
-## Most recently accepted task: WP-RC1 course appearance
+## Accepted task: WP-RC1 course appearance
 
 WP-CA1 through WP-CA7 and WP-RC1 are accepted on 2026-08-09. The production contract, Store/RLS,
 object, server, Solid, and learner-entry owners now implement one of 15 measured themes and one
@@ -300,30 +302,45 @@ The complete sequence is authoritative in
 1. WP-RC1 course appearance is accepted.
 2. WP-RC2 production-seam closure is accepted. WP-RC3's pinned upstream WeBWorK `/render_rpc`
    integration is accepted after its live PLE/browser gate and final independent review.
-3. WP-ARCH1 is accepted. Its dated 26-file maintained-source baseline now has zero maintained-code
-   violations behind stable facades; the permanent size gate (582 tests), 2,451-test Python suite,
-   eleven-stage codebase gate, and 72-pass browser suite are green. Its disposable PostgreSQL
+3. WP-ARCH1 is accepted. Its dated 26-file maintained-source acceptance baseline had zero
+   maintained-code violations behind stable facades; the permanent size gate (582 tests),
+   2,451-test Python suite, eleven-stage codebase gate, and 72-pass browser suite were green. Its
+   disposable PostgreSQL
    migration/RLS/conformance baseline also passes through the decomposed owners, and independent
    PostgreSQL, security, provider, TypeScript/HCI, test, size-policy, and architecture reviews found
-   no unresolved P0/P1 issue.
+   no unresolved P0/P1 issue. The later persistence regressions were repaired by moving complete
+   attempt-issuance capabilities into paired in-memory and PostgreSQL owners. The current permanent
+   size gate passes 770 cases, and the feature-enabled persistence check, test, and strict Clippy
+   gates pass.
 4. WP-RC4's PLE flat JSON v2 implementation now covers the eight source/runtime families and awaits
    independent closeout; external QTI-JSONL is no longer a prerequisite.
 5. WP-P1 through WP-P6 implement and accept the secure learner-payload boundary before WP-RC5
    acceptance. WP-P2 adds `2026080908_secure_question_grading_payloads.sql`; WP-RC5 then completes
    visual authoring, all-family Memory/PostgreSQL acceptance, and the two exact Chapter 1
    assignments, while WP-RC6 closes QTI export and H5P claims.
+   The current offline slice reproduces persisted presentations, stores WeBWorK replay controls by
+   rendered item ID, validates them against the owning attempt, grades normally with one private
+   RPC, and deletes replay state on successful or terminal submission. WP-P1 through WP-P6 remain
+   unaccepted until the compact public cutover, missing-row self-heal, live PostgreSQL/renderer
+   traces, browser recovery, measurements, and independent reviews pass.
 6. After WP-P2, WP-RC7 adds bounded inventory, object reconciliation,
    `2026080909_object_reconciliation.sql`, and the combined M2-M5 acceptance gate.
-7. WP-RC8 implements institutional OIDC with `2026080910_oidc_identity.sql`; WP-RC9 implements LTI
-   Advantage with `2026080911_lti_advantage.sql`.
-8. WP-RC10 adds OpenTofu under `deploy/opentofu/`; WP-RC11 adds the measured bot-cost controls.
-9. WP-RC12 runs working-codebase release acceptance and documentation closure after WP-ARCH1.
+7. WP-RC8 implements passwordless identity and enrollment with
+   `2026080910_passwordless_identity.sql`, including optional SSO account linking; WP-RC9 implements
+   LTI Advantage with `2026080911_lti_advantage.sql`.
+8. WP-FU1 through WP-FU6 implement the server-issued learner file-upload capability in
+   `docs/active_plans/active/secure_learner_file_upload_plan.md`, including
+   `2026080912_secure_learner_uploads.sql`, after object reconciliation and before production
+   deployment.
+9. WP-RC10 adds OpenTofu under `deploy/opentofu/`; WP-RC11 adds the measured bot-cost controls.
+10. WP-RC12 runs working-codebase release acceptance and documentation closure after WP-ARCH1 and
+    the secure upload packages.
 
 The accepted pre-data schema evolution is complete. SQLx owns the directory-backed migration ledger,
 and `2026080907_course_appearance.sql` is the first forward migration. The release plan reserves
 `2026080908_secure_question_grading_payloads.sql`, `2026080909_object_reconciliation.sql`,
-`2026080910_oidc_identity.sql`, and `2026080911_lti_advantage.sql`; accepted filenames are not
-renamed or reordered.
+`2026080910_passwordless_identity.sql`, `2026080911_lti_advantage.sql`, and
+`2026080912_secure_learner_uploads.sql`; accepted filenames are not renamed or reordered.
 
 ### Immediate packages: WP-RC4 closeout and secure learner payload
 
@@ -338,6 +355,13 @@ renamed or reordered.
   and pilot-content closeout.
 
 ## Known operational notes
+
+- The current dated snapshot is
+  `docs/active_plans/reports/project_status_report_2026-08-10.md`. The Aug. 9 report and
+  `partial_commit_status.md` are historical comparison/handoff records.
+- The 2026-08-10 source-size follow-up passes 770 cases with no maintained-source violation. The
+  paired attempt-issuance extraction preserves Store behavior and the original PostgreSQL SQL,
+  bind order, transaction, and RLS boundaries; all-feature persistence checks are green.
 
 - WP-QTI-11 started from clean `main` at `b297808`; its bounded implementation and later accepted
   work now share a mixed staged/unstaged worktree for owner review. Preserve unrelated user changes

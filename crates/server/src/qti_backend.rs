@@ -236,6 +236,7 @@ where
             envelope: resolved.envelope,
             parameter_hash: resolved.parameter_hash,
             provenance: resolved.provenance,
+            webwork_replay: None,
         })
     }
 

@@ -6,9 +6,13 @@ Release completion: [release_completion_plan.md](active/release_completion_plan.
 Owner decisions: [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md)
 Execution handoff: [implementation_status.md](implementation_status.md)
 
+> Historical snapshot. The current report is
+> `reports/project_status_report_2026-08-10.md`. This file remains unchanged as the Aug. 9
+> comparison point except for this navigation note and its status-language correction.
+
 ## Purpose and status language
 
-This report is a formal current-state summary. It does not replace the active implementation plan
+This report is a formal historical snapshot. It does not replace the active implementation plan
 and is not a claim that the full project objective is complete. A capability is called **verified**
 only when current behavior evidence covers its stated boundary. **Implemented, acceptance assigned**
 means substantial working code exists and a named WP-RC package owns the integrated exit gate.

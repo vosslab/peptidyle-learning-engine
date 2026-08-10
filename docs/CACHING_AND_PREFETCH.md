@@ -1,0 +1,221 @@
+# Caching and prefetch
+
+## Status and scope
+
+Caching in PLE reduces repeated work; it does not create an alternate source of
+assessment truth. Published content, the authoritative attempt, timing,
+grading, feedback, tenant access, and promotion remain server-owned. This
+document records the durable cache and prefetch boundary implemented across
+the object store, adapters, run routes, and browser. It distinguishes current
+behavior from planned optimization so a cache hit is never mistaken for a
+permission or grading decision.
+
+The related contracts are [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md),
+[DETERMINISM_CONTRACT.md](DETERMINISM_CONTRACT.md), and
+[SECURITY_MODEL.md](SECURITY_MODEL.md). The delivery order and open work remain
+in [implementation_plan.md](active_plans/implementation_plan.md) and
+[release_completion_plan.md](active_plans/active/release_completion_plan.md).
+
+## Cache ownership
+
+PLE uses distinct caches with deliberately different contents and lifetimes.
+
+| Layer | May contain | Key or binding | Never contains |
+| --- | --- | --- | --- |
+| Browser run state | Current authoritative screen and one speculative envelope | Current route and active attempt | Answers, grade keys, durable prefetch reservation |
+| Browser asset cache | Delivered image and other asset bytes | Delivery URL and content checksum | Private source or a signed protected URL retained by PLE |
+| CDN public assets | Public immutable published assets | Typed immutable `ProblemAsset` object key | Tenant records, source archives, renders, or answer material |
+| Adapter render cache | Answer-free envelope, safe markup, source binding, renderer identity | Published problem, immutable version, and seed | Answer keys, private rubrics, credentials, raw provider output |
+| Attempt and prefetch rows | Issuance provenance, binding, and private replay state where needed | Tenant, learner, run, predecessor, position | A browser-writable substitute for the attempt record |
+
+The browser treats every API JSON response as `Cache-Control: no-store`.
+This includes run screens, submissions, prefetch responses, feedback, and
+protected asset redirects. It keeps a successfully decoded prefetched envelope
+in memory only, never in `localStorage` or `sessionStorage`.
+
+Public immutable asset delivery is the exception. `/api/assets/{id}` resolves
+one typed database record and redirects a catalog `ProblemAsset` to its CDN
+URL with `Cache-Control: public, max-age=31536000, immutable` and a checksum
+ETag. The route does not accept an object key or list a bucket. Protected
+assets are authorized and audited first, then use a bounded signed URL and
+`no-store`, `Pragma: no-cache`, and `Referrer-Policy: no-referrer`.
+
+## Immutable render keys
+
+An adapter render is reusable only when it is a pure, safe projection of an
+immutable published version and its stored seed. Its object key is
+`ProblemRender { problem, version, seed, object }`; the object identity is
+deterministically derived with an adapter-specific SHA-256 domain separator.
+The typed key therefore includes the problem even where the compact object ID
+is derived from version and seed. Cache identity never includes a learner,
+tenant, session, response, deadline, or browser input.
+
+The deterministic cache rule relies on the exact seeded-generation contract:
+the same `(version_id, seed)` must reproduce the same canonical output. A new
+generation behavior, source revision, renderer compatibility version, or
+authored edit requires a new immutable published version rather than cache
+deletion or overwriting an existing entry. A changed object is refused by its
+checksum, typed key, schema, source-artifact binding, version, seed, title,
+and backend-specific validation.
+
+This gives cache invalidation a simple rule:
+
+- Never mutate an existing published render or asset cache entry.
+- Publish a new version for a content or behavior change.
+- Treat an invalid, missing, checksum-mismatched, or provenance-mismatched
+  entry as a refusal or a safe cache miss, not as content that may be served.
+- Do not use a cache result to bypass authorization, attempt lifecycle checks,
+  server timing, response validation, or grading.
+
+Object storage is a cache backing store, not a browser authorization path.
+`ProblemRender` objects are render-category objects and cannot be converted to
+a public asset URL by the asset route.
+
+## Adapter behavior
+
+### Native questions
+
+Native questions generate and reproduce their answer-free envelope directly
+from the immutable definition, server-held bindings, and seed. They do not
+currently maintain a separate object-store render cache. Their safe reuse is
+deterministic recomputation, verified against stored parameter and provenance
+evidence. This is usually cheaper than introducing a second persistence layer
+for a native flat question.
+
+### WeBWorK
+
+The WeBWorK adapter stores a safe cache object containing the answer-free
+envelope, sanitized HTML, published source-artifact binding, and renderer
+identity. It validates all of those fields before serving it and records a
+non-sensitive `ple.webwork.cache` `renderer_call` or `cache_hit` witness.
+The raw PG source, renderer password, upstream URL, hidden fields, field/value
+mapping, raw RPC response, and grading result are excluded.
+
+There are two different WeBWorK reuse cases:
+
+1. `reproduce` reads the safe cache and does not need a renderer call because
+   the existing attempt already owns its private replay mapping.
+2. A current `issue` cache hit rereads the safe cache but also re-renders once
+   to capture and verify a fresh private replay mapping for the newly issued
+   attempt. It compares the reproduced safe output to the immutable cached
+   output before accepting the mapping.
+
+The second call remains necessary for each newly issued attempt because the
+shared cache deliberately excludes private replay material. PLE now persists
+the bounded, validated mapping under the tenant attempt, so normal grading
+reproduces the safe cache without a renderer call and then makes one private
+grade RPC. WP-P4 still owns disposable PostgreSQL/private-renderer proof and a
+validated self-heal write for legacy attempts whose replay row is missing. Do
+not place replay mappings in the public render cache; they are server-only
+grading material.
+
+### iMathAS
+
+The iMathAS adapter uses the same immutable `ProblemRender` shape for an
+answer-free external-tool envelope. It validates the pinned source artifact,
+provider, integration profile, version, seed, and response shape on every
+read. A cache miss asks the configured verified provider for a safe render;
+an `AlreadyExists` write race rereads and validates the winning immutable
+object. Grade verification remains a server-to-provider operation bound to
+tenant, attempt, problem, version, seed, and server correlation. It has no
+process-local grade cache.
+
+## Reservation and promotion
+
+Next-question prefetch is an issuance preparation protocol, not an early
+attempt. The browser sends an empty same-origin `POST` to
+`/api/attempts/{predecessor}/prefetch-next`; it cannot choose a seed, question
+position, version, backend, provenance, or timer.
+
+The server authenticates the learner, verifies ownership of the unresolved
+predecessor and run, rejects a second active question, selects the first
+unattempted assignment position, chooses a fresh seed, issues the backend
+projection, creates a presentation binding, and persists a key-free
+reservation. The reservation binds tenant, learner, run, predecessor,
+position, published reference, seed, parameter hash, complete backend
+provenance, and presentation binding. An identical request is idempotent; a
+conflicting request cannot rewrite its immutable variation.
+
+No `QuestionAttemptId`, response, grade, or timer exists for a reservation.
+Only successful submission of the predecessor atomically promotes the exact
+reservation into the next attempt and records an immutable `nextIssued` link
+in the predecessor receipt. An idempotent submission replay returns that
+stored link; it must not scan later run state and invent a different successor.
+A bounded owner-scoped pending lookup may heal the one committed-but-unlinked
+predecessor caused by an interrupted process.
+
+The client accepts a speculative envelope only when the committed receipt and
+prefetch descriptor exactly agree on predecessor, run, assignment position,
+version, seed, and backend-owned rendered hash. On mismatch, late completion,
+network failure, route teardown, or any decode failure, it discards the
+speculative data and reloads the authoritative run screen. Route teardown
+aborts the outstanding prefetch request.
+
+## Privacy and assessment policy
+
+Prefetch may prepare server-side work whenever needed, but early learner
+disclosure is a policy decision. Untimed mastery and practice may deliver one
+answer-free next envelope and warm its assets. Timed or exam work may render
+privately but must not reveal the next envelope until the current attempt has
+committed. Prefetch never starts the next timer, grades an answer, or changes
+completion.
+
+The current route creates and returns a safe envelope after its ownership and
+lifecycle checks; it does not itself branch on timing or exam policy. Therefore
+the plan's timed/exam withholding rule is an implementation requirement, not
+evidence that all current route configurations enforce it. Until the policy
+gate is present, callers must expose this route only for modes explicitly
+allowed to reveal the next question early.
+
+Asset warming is likewise bounded and conservative. The browser extracts only
+same-origin image asset IDs from the prefetched envelope, deduplicates them,
+and warms at most 12 with `credentials: "same-origin"` and `cache:
+"force-cache"`. It does not warm arbitrary URLs, embed binary bytes in the
+envelope, or persist a speculative asset list.
+
+## Refusal and recovery
+
+The following outcomes are intentional safety behavior:
+
+| Condition | Required behavior |
+| --- | --- |
+| Wrong tenant, learner, run, or predecessor | Return not found or conflict; do not disclose state |
+| Active predecessor already answered or run completed | Reject prefetch; do not start a successor |
+| Conflicting duplicate reservation | Preserve the first reservation and reject rewrite |
+| Cache schema, checksum, source, version, seed, title, or renderer mismatch | Refuse the entry; re-render only where the adapter contract permits |
+| WeBWorK replay state missing | Use only the bounded validated self-heal described by WP-P4; otherwise fail question-locally |
+| Prefetch descriptor differs from receipt | Drop browser memory and use the ordinary run-screen route |
+| Renderer or provider outage | Do not substitute a new question or guess a grade; surface the backend-local failure |
+| Protected asset delivery | Authorize and audit every request; do not place the signed URL in a reusable cache |
+
+## Observability and future work
+
+Measure meaningful work before reducing JSON fields by a few bytes. The
+relevant stages are browser-to-PLE time, route authorization and Store access,
+native issue or adapter cache lookup, PLE-to-provider/renderer time, grading,
+promotion and persistence, asset transfer, and return to the browser. Record
+bounded aggregate latency and hit/miss/error counts without attempt IDs,
+responses, asset URLs, provider payloads, or answer-bearing content.
+
+Current WeBWorK cache witnesses intentionally expose only `renderer_call` and
+`cache_hit`. Future operational metrics should preserve that low-cardinality,
+non-sensitive approach while adding p50/p95 stage timing, cache validation
+refusals, prefetch reservations/promotions/mismatches, and bounded asset-warm
+outcomes. Representative payload sizes and latency measurements belong to
+WP-P6 rather than fragile exact-byte permanent tests.
+
+The next cache work should follow the payload plan in this order:
+
+1. Complete attempt-bound presentation and replay persistence before relying
+   on cache hits for WeBWorK issuance latency.
+2. Enforce the timed/exam prefetch disclosure policy at the route boundary.
+3. Replace broad learner DTOs with the minimal screen, answer, and receipt
+   projections while retaining rich server-side provenance.
+4. Add aggregate observability and evaluate cache warming from measured
+   latency, not assumed payload savings.
+
+Permanent tests should prove deterministic cache identity, validation refusal,
+no-answer disclosure, cache-hit renderer behavior, reservation idempotency,
+atomic promotion, strict receipt matching, timed-content withholding, and
+tenant isolation. One-time load tests and representative timing measurements
+are implementation evidence, not permanent exact-performance assertions.

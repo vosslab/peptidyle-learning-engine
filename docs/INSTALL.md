@@ -34,14 +34,21 @@ Rust uses the repository toolchain file and Cargo lockfile.
 
 ## Verify install
 
-Run the complete repository gate before changing code:
+Verify the cross-language build gate and the separate fast documentation and repository-hygiene
+suite:
 
 ```bash
 ./check_codebase.sh
+source source_me.sh && python3 -m pytest -q tests/
 ```
 
-Success is an all-PASS summary. For a built browser artifact without starting containers, run
-`./build.sh`; it creates `dist/` and `dist_wasm/`.
+Success is exit status zero from both commands. `./check_codebase.sh` reports its own stage
+summary; `pytest tests/` intentionally remains a separate fast lane. For a built browser artifact
+without starting containers, run `./build.sh`; it creates `dist/` and `dist_wasm/`.
+
+For choosing a focused development gate, use [DEVELOPMENT.md](DEVELOPMENT.md). The durable API,
+storage, tenancy, and server-only-grading boundaries are recorded in [CONTRACTS.md](CONTRACTS.md)
+and [SECURITY_MODEL.md](SECURITY_MODEL.md), rather than inferred from local launcher behavior.
 
 ## Local stack setup
 

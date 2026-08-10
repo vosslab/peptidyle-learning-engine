@@ -1,8 +1,10 @@
 # Object storage
 
-PLE stores every binary or archival payload in typed object storage. The object contract keeps
-physical paths, bucket selection, checksums, and delivery policy on the server so that browser
-data names only logical assets and never a storage location.
+PLE's implemented object layer stores immutable binary and archival payloads through typed object
+storage. The contract keeps physical paths, bucket selection, checksums, and delivery policy on
+the server, so browser data names only logical assets and never a storage location. Learner file
+uploads are deliberately not an exception: they remain fail-closed until their separately planned,
+attempt-bound capability is implemented.
 
 ## Typed objects
 
@@ -11,24 +13,53 @@ data names only logical assets and never a storage location.
 bucket, immutable path, object ID, category, and, where applicable, published version. Immutable
 writes reject an existing key; reads verify SHA-256 before returning bytes.
 
-| Bucket            | Current roles                                                                                                                         | Delivery rule                                                                                                                        |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `content`         | Private workspace sources and assets, published source archives, published assets, deterministic renders, and retained course banners | Only published assets, renders, and an exact current course banner can be signable. Source and workspace objects remain server-only. |
-| `student-records` | Tenant-owned exports, uploads, and annotations represented by `StudentRecord`                                                         | Requires authenticated, RLS-scoped, explicit authorization.                                                                          |
-| `temp-processing` | Temporary conversion data and course-banner candidates                                                                                | Never signable or publicly served.                                                                                                   |
+| Bucket            | Implemented roles | Delivery rule |
+| ----------------- | ----------------- | ------------- |
+| `content` | Private workspace sources/assets, published source archives/assets, deterministic renders, and retained course banners | The object layer can sign published assets, renders, and course banners. The delivery registry currently exposes only catalog assets and an exact current course banner. |
+| `student-records` | Tenant-owned export artifacts represented by `StudentRecord` | Requires authenticated, RLS-scoped, explicit authorization. |
+| `temp-processing` | Generic temporary processing data and short-lived course-banner candidates | Never signable or publicly served. |
+
+The `student-records` bucket is intentionally ready for more educational-record classes, but it
+does **not** yet accept learner uploads or general annotations. The active
+[secure learner-upload plan](active_plans/active/secure_learner_file_upload_plan.md) reserves
+attempt-bound candidate and durable upload key types, a distinct `LearnerSubmission` category,
+streaming writes, inspection, protected delivery, retention, and reconciliation. Until that work
+is accepted, a file-upload response fails closed before any object write.
 
 The `content` bucket is not synonymous with public data. For example, a private workspace import
 and a published source archive use durable `content` keys but cannot receive a generic delivery
 URL. A banner candidate uses `temp-processing`; promotion produces a distinct immutable
 `CourseBanner` key in `content`.
 
+## Key and delivery matrix
+
+`ObjectKey` has no raw-string variant. The following is the current complete key vocabulary;
+adding a new object class requires a new typed variant and its exact ownership rules.
+
+| Key family | Bucket | Category | Version-pinned | Object-store signable | Current route delivery |
+| --- | --- | --- | --- | --- | --- |
+| `WorkspaceSource`, `WorkspaceQuestionSource`, `WorkspaceAsset` | `content` | source or asset | no | no | never |
+| `ProblemSource`, `PublishedImportArchive` | `content` | source | yes | no | never |
+| `ProblemAsset` | `content` | asset | yes | yes | public catalog CDN after registry validation |
+| `ProblemRender` | `content` | render | yes | yes | not registered by the current asset route |
+| `CourseBannerCandidate`, `Temporary` | `temp-processing` | temporary | no | no | never |
+| `CourseBanner` | `content` | course content | no | yes | protected only when it is the course's exact current banner |
+| `StudentRecord` | `student-records` | export | no | yes | protected only through an explicit student-record grant |
+
+Object-store signability is only a necessary capability. It never grants browser access by itself:
+the `asset_delivery` registry decides whether a typed object currently has a browser route and the
+route reauthorizes protected reads. In particular, a `ProblemRender` is signable at the storage
+layer but is not a general learner-facing asset under the present delivery contract.
+
 ## Immutable record
 
 Each successful `put` returns an [ObjectRecord](../crates/objects/src/lib.rs) with the durable
 object ID, typed bucket and key, computed SHA-256, byte size, verified media type, category,
 optional published version, license, provenance, and server creation time. The checksum is
-computed on write and rechecked on read. Metadata records provenance and handling context; it
-does not make object bytes browser-visible.
+computed on write and rechecked on read. `ObjectRecord` is backend-neutral immutable metadata,
+not a universal database table: its owning workflow persists the required record, such as an
+asset-delivery registration, published-import provenance, or retention manifest. Metadata records
+provenance and handling context; it does not make object bytes browser-visible.
 
 Bytes are written before the database record. The database is authoritative for intended object
 existence: a record without its bytes is a broken reference that must be alerted on, not hidden by
@@ -50,13 +81,13 @@ exact typed-object manifest before deleting tenant-owned record artifacts, while
 content and drafts remain outside the student-record deletion path. See
 [2026080805_operations_analytics.sql](../schemas/migrations/2026080805_operations_analytics.sql),
 [2026080806_retention.sql](../schemas/migrations/2026080806_retention.sql), and
-[SECURITY_MODEL.md](SECURITY_MODEL.md#object-delivery).
+[SECURITY_MODEL.md](SECURITY_MODEL.md#asset-delivery-boundary).
 
 Course-banner candidates are a separate short-lived authorization boundary. They are scoped to one
 tenant and course, non-signable, and tracked in `course_banner_candidate`; only a verified save
 can promote bytes to the immutable course-banner record. See
 [2026080907_course_appearance.sql](../schemas/migrations/2026080907_course_appearance.sql) and
-[CONTRACTS.md](CONTRACTS.md#course-appearance).
+[CONTRACTS.md](CONTRACTS.md#course-appearance-contract).
 
 ## Delivery grants
 
@@ -77,17 +108,21 @@ checksum, or filename from the client.
 
 These contracts live in [asset_delivery.rs](../crates/learning-data-access/src/asset_delivery.rs)
 and are enforced by [asset.rs](../crates/server/src/asset.rs). The security rationale and headers
-are specified in [SECURITY_MODEL.md](SECURITY_MODEL.md#object-delivery).
+are specified in [SECURITY_MODEL.md](SECURITY_MODEL.md#asset-delivery-boundary).
 
 ## Backends and lifecycle status
 
 Tests use `MemoryObjectStore`. The local container stack configures an S3-compatible MinIO endpoint
 through `PLE_S3_ENDPOINT`, region, credentials, and the three bucket names; the same
-[S3ObjectStore](../crates/objects/src/s3.rs) implementation is designed for a future AWS S3
-deployment without exposing AWS SDK types through the `ObjectStore` trait. The MinIO client uses
-path-style requests and its health probe verifies each configured bucket with an authorized
-`HeadBucket` request. See [minio.rs](../crates/objects/src/minio.rs) and
-[composition.rs](../crates/server/src/composition.rs).
+[S3ObjectStore](../crates/objects/src/s3.rs) implementation serves an AWS S3 endpoint without
+exposing AWS SDK types through the `ObjectStore` trait. The MinIO client uses path-style requests.
+Production composition requires names for all three buckets, but its current readiness route makes
+one authorized `HeadBucket` request for the `content` bucket only. That proves the configured
+endpoint and primary content bucket are available; it is not evidence that `student-records` and
+`temp-processing` are reachable. Operations work should extend readiness to all three buckets
+before treating a full object-storage outage check as complete. See
+[minio.rs](../crates/objects/src/minio.rs) and
+[composition/router.rs](../crates/server/src/composition/router.rs).
 
 Object reconciliation is planned, not complete. WP-RC7 reserves bounded bucket inventory,
 twice-observed orphan quarantine and deletion, missing/mismatched-byte alerts and delivery

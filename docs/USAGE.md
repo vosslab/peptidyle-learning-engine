@@ -4,6 +4,11 @@ Use the root launcher for a complete local teaching-system test, including build
 health check, and browser entry. Native questions are the default path; the WeBWorK renderer is an
 explicit private profile.
 
+This is a local development workflow, not a production deployment guide. The durable route,
+storage, tenancy, and grading boundaries live in [CONTRACTS.md](CONTRACTS.md) and
+[SECURITY_MODEL.md](SECURITY_MODEL.md); [CONTAINER.md](CONTAINER.md) owns the local service
+topology and recovery commands.
+
 ## Quick start
 
 Build and open the native local stack:

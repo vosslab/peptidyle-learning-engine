@@ -159,7 +159,7 @@ where
                 problem,
                 question_version: version,
                 seed: binding.seed,
-                presentation: presentation_binding(14),
+                presentation: Some(presentation_binding(14)),
                 parameter_hash: "external-tool-parameters".to_string(),
                 provenance: AttemptProvenance {
                     adapter: implementation("imathas"),

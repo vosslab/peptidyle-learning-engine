@@ -21,9 +21,11 @@ Two release boundaries are explicit:
 - **Working-codebase release:** all repository-owned code, migrations, tests, documentation,
   containers, and declarative deployment artifacts are complete and reproducible without
   institutional secrets.
-- **Production activation:** an operator supplies institutional credentials, applies the checked
-  deployment, runs disposable/live gates, completes legal review, and enrolls the human pilot.
-  These are external actions with named evidence; they do not hide unfinished repository work.
+- **Production activation:** an operator supplies the email-delivery and WebAuthn relying-party
+  configuration, plus institutional SSO credentials only when that optional connector is enabled;
+  applies the checked deployment; runs disposable/live gates; completes legal review; and enrolls
+  the human pilot. These are external actions with named evidence; they do not hide unfinished
+  repository work.
 
 ## Decisions
 
@@ -45,8 +47,10 @@ Two release boundaries are explicit:
 | QTI profile export    | Canvas and Blackboard export run as background jobs and appear in the author UI only as queued status plus a protected download                                                                                                                        | WP-RC6         |
 | H5P                   | Serve native H5P only as ungraded practice and import supported static families into the protected native model for grading                                                                                                                            | WP-RC6         |
 | Object lifecycle      | Database records define intended existence; bucket inventory proves bytes; reconciliation quarantines twice-observed orphans and alerts on missing referenced bytes                                                                                    | WP-RC7         |
-| Production identity   | Implement standards-based institutional OIDC Authorization Code with PKCE behind `IdentityProvider`; map stable issuer/subject pairs to a PLE tenant and user                                                                                          | WP-RC8         |
+| Production identity   | PLE-owned global `UserId`; discoverable passkeys are primary, short-lived single-use email authentication bootstraps and recovers accounts, and optional institutional OIDC/SAML links to an existing account behind `IdentityProvider`                  | WP-RC8         |
+| Enrollment            | Invite by email; retain course-scoped roster email, institutional roster ID, and display label for enrollment/manual grade export; enforce optional exact-domain policy; atomically create course membership plus all assignment enrollments/summaries | WP-RC8         |
 | LTI                   | Implement LTI 1.3 launch plus Assignment and Grade Services passback as a separate verified credential path                                                                                                                                            | WP-RC9         |
+| Learner file upload   | Use a server-issued attempt-bound upload record, non-deliverable temporary storage, closed inspection worker, SHA-256, atomic manual-submission consumption, and protected student-record delivery                                                     | WP-FU1..WP-FU6 |
 | Infrastructure        | Use OpenTofu in `deploy/opentofu/`; production is AWS Fargate, RDS PostgreSQL, S3, CloudFront, ALB, WAF, KMS, Secrets Manager, and private networking                                                                                                  | WP-RC10        |
 | Anonymous traffic     | Ship a static `www` landing origin, same-origin authenticated app/API, aggregate edge metrics, bounded WAF/rate rules, and no client analytics                                                                                                         | WP-RC11        |
 | Migration names       | Continue compact ordered names such as `2026080908_secure_question_grading_payloads.sql`; the date and two-digit sequence are the readable ordering contract                                                                                           | WP-P2          |
@@ -65,7 +69,7 @@ later integrated acceptance.
 | Content-addressed byte deduplication                                                            | Stable typed keys, checksums, immutable writes, and reconciliation already provide correctness. Deduplication is a storage-cost optimization that can be added behind `ObjectStore` after measured duplication warrants it.                           |
 | A TypeScript API server                                                                         | Native `axum` is implemented, tested, and owns the request path. Reopening the runtime would delay release without adding product behavior.                                                                                                           |
 | Scored native H5P                                                                               | H5P exposes evaluation to the browser. Server-graded native and imported flat questions supply the secure graded path.                                                                                                                                |
-| Passkeys, local passwords, and email-code login                                                 | Institutional OIDC supplies production authentication without storing passwords. A passkey provider can later implement the same `IdentityProvider`; email codes are authentication, not a second factor by themselves.                               |
+| Local passwords and mandatory institution-controlled SSO                                       | Passwordless PLE accounts avoid password storage and institution coordination. Optional OIDC/SAML account linking must not replace or fork the PLE account.                                                                                         |
 | Third-party or client-side analytics                                                            | Edge and server aggregate metrics answer cost and reliability questions without adding student tracking or anonymous API work.                                                                                                                        |
 | Kubernetes, Redis, Kafka, sharding, a dedicated search service, and multi-region operation      | The target pilot and 10,000-student scale fit stateless replicas, PostgreSQL, object storage, and a worker queue. Every replacement retains a measured trigger in the architecture plan.                                                              |
 | Rich media in the accepted vendor-profile v1 import                                             | The strict importer succeeds by refusing unsupported semantics without data loss. PLE flat JSON v2 HOTSPOT provides the bounded native rich-media path.                                                                                              |
@@ -91,8 +95,9 @@ later integrated acceptance.
 The version 1 scope is WP-RC1 through WP-RC12 in dependency order. It includes course appearance,
 production-seam cleanup, shipped WeBWorK integration, PLE flat JSON v2, all eight flat
 families, pilot content, honest QTI/H5P boundaries, object reconciliation and M5 integration,
-institutional OIDC, LTI Advantage, OpenTofu deployment, bot-cost controls, and final release
-acceptance.
+passwordless identity, invite-by-email enrollment, optional institutional SSO, LTI Advantage,
+secure learner file uploads, OpenTofu deployment, bot-cost
+controls, and final release acceptance.
 
 No package may defer a required file or behavior to a later implementer. If implementation evidence
 invalidates a decision, the owner updates this decision ledger, every consumer package, and the
@@ -138,10 +143,13 @@ WP-RC3 accepted WeBWorK ---> WP-ARCH1 accepted source decomposition ---> WP-RC4 
 
 WP-P2 persistent bindings ---> WP-RC7 M5 reconciliation/integration
 
-WP-RC8 OIDC ---> WP-RC9 LTI ---> WP-RC10 OpenTofu ---> WP-RC11 bot controls
-                                                        |
-                                                        v
-                                                WP-RC12 release acceptance
+WP-RC8 passwordless identity/enrollment ---> WP-RC9 LTI ---> WP-FU1..WP-FU6 secure uploads ---> WP-RC10 OpenTofu
+                                                                        |
+                                                                        v
+                                                             WP-RC11 bot controls
+                                                                        |
+                                                                        v
+                                                             WP-RC12 release acceptance
 ```
 
 WP-RC4 begins after accepted WP-RC3 and WP-ARCH1. Its internal version 2 implementation no longer
@@ -158,7 +166,7 @@ reserved migration ordering below.
 | RC-B: close runtime truth gaps     | WP-RC2, WP-RC3         | Production names describe real code and the shipped WeBWorK service renders and grades |
 | RC-C: finish content breadth       | WP-RC4, WP-RC5, WP-RC6 | Eight families, Chapter 1 content, QTI export, and honest H5P behavior pass            |
 | RC-D: harden data and integration  | WP-RC7                 | Reconciliation and the combined M2-M5 gate pass                                        |
-| RC-E: finish production interfaces | WP-RC8, WP-RC9         | OIDC and LTI use verified identities with no browser-trusted grades                    |
+| RC-E: finish production interfaces | WP-RC8, WP-RC9, WP-FU1..WP-FU6 | Passwordless identity, enrollment, optional SSO, LTI, and inspected uploads use no browser-trusted authority |
 | RC-F: deploy and defend            | WP-RC10, WP-RC11       | Disposable AWS deployment, restore, bot-cost, and legitimate-use gates pass            |
 | RC-G: release                      | WP-RC12                | Full working-codebase gate and independent release audit pass                          |
 
@@ -353,25 +361,49 @@ reserved migration ordering below.
   MinIO lifecycle oracle; multi-replica/worker soak; combined E2E; full repository gate; independent
   data-security and milestone reviews.
 
-### WP-RC8: Implement institutional OIDC
+### WP-RC8: Implement passwordless identity and enrollment
 
-- **Owner:** authentication `rust-code-expert`, PostgreSQL owner, UI owner, and independent security
-  reviewer.
-- **Files:** `crates/server/src/auth/oidc.rs`; `crates/learning-data-access/src/external_identity.rs`
-  plus Memory/PostgreSQL owners; `schemas/migrations/2026080910_oidc_identity.sql`;
-  `src/pages/sign_in_page.tsx`; `src/auth/session_context.tsx`; `tests/e2e/e2e_oidc_login.sh`;
-  `tests/playwright/oidc_login.spec.ts`; auth/security/deployment/usage docs and changelog.
-- **Behavior:** use Authorization Code with PKCE, discovery, exact issuer allowlist, state, nonce,
-  redirect URI, signature, issuer, audience, expiry, issued-at, and authorized-party validation.
-  Bind `(issuer, subject)` to one tenant/user through an administrator-managed mapping; never trust
-  email alone for tenancy. Mint only the existing hashed opaque database session; rotate/revoke on
-  logout or mapping disable; keep the cookie host-only, secure, HTTP-only, and same-site appropriate.
-- **Success:** login on one replica works on another; replay, mix-up, stale code, wrong issuer,
-  unmapped subject, disabled mapping, CSRF, open redirect, and provider outage fail safely with no
-  session; logs and browser state contain no token or secret.
-- **Validation:** provider-neutral unit tests with local signed keys; Store conformance and RLS;
-  disposable standards-compliant OIDC provider E2E; multi-replica Playwright; security scan; full
-  repository gate and independent auth review.
+- **Owner:** authentication `rust-code-expert`, PostgreSQL owner, enrollment/API owner, UI owner,
+  email-delivery owner, and independent security/HCI reviewers.
+- **Files:** `crates/server/src/auth/{passwordless,email,webauthn,oidc}.rs`;
+  `crates/learning-data-access/src/{account_identity,course_roster}.rs` plus Memory/PostgreSQL
+  owners; `schemas/migrations/2026080910_passwordless_identity.sql`;
+  `src/pages/{sign_in,account_security,course_roster,course_invitation}_page.tsx`;
+  `src/auth/session_context.tsx`; passwordless/enrollment E2E and Playwright suites;
+  [ENROLLMENT_DESIGN.md](../../ENROLLMENT_DESIGN.md); auth/security/deployment/usage docs and
+  changelog.
+- **Behavior:** create institution-independent PLE accounts keyed by opaque global `UserId`.
+  Verify discoverable passkeys with an established WebAuthn implementation behind
+  `IdentityProvider`; permit multiple credentials, normal authenticator user verification, and
+  explicit credential revocation without requiring attestation. Use uniform, short-lived,
+  single-use, rate-limited email challenges for bootstrap and recovery, with hashed secrets,
+  redacted logs, and browser binding where practical. Preserve the existing opaque server-side
+  session and host-only HttpOnly cookie. A global account may join multiple tenants, but every
+  request derives its active `TenantContext` from a verified course/tenant relationship rather than
+  browser authority.
+- **Enrollment behavior:** an instructor sends or bulk-stages an invitation containing verified
+  email syntax plus a protected course-scoped institutional roster ID. Optional exact normalized
+  email-domain policy catches mistakes and constrains open signup. Only the learner's authenticated
+  claim creates the `course_member`, tenant-scoped `StudentId`, all assignment enrollments, and all
+  empty summaries in one Store transaction. Manual grade export uses the roster ID and only the
+  destination profile's required course metadata. Pending invites, correction/re-invitation,
+  recovery, revocation, raw CSV disposal, roster retention, and accessibility follow the enrollment
+  design.
+- **Optional SSO behavior:** OIDC Authorization Code with PKCE and SAML may link a verified external
+  subject to an existing PLE `UserId`. Validate discovery/metadata, issuer allowlist, state, nonce,
+  redirect URI, signature, audience, expiry, and replay. SSO never selects a tenant by email,
+  silently creates a parallel account, or becomes required for standalone deployment.
+- **Success:** email bootstrap, passkey login, account recovery, roster invitation/claim, and course
+  access work across replicas. Account enumeration, token replay, credential cloning/mismatch,
+  wrong origin/RP ID, cross-course invitation use, domain suffix confusion, roster-ID collision,
+  stale bulk commit, and cross-tenant disclosure fail safely. An instructor can invite a real
+  browser user and export the resulting score without SQL, seeding tools, global `UserId`, passkey
+  metadata, or unrelated activity in the export. Logs and browser state contain no authentication
+  or invitation secret.
+- **Validation:** WebAuthn/email/account/roster Store conformance and RLS; deterministic hostile
+  token/domain/CSV tests; disposable email sink plus two-authenticator browser E2E; multi-replica
+  invitation, login, recovery, and manual grade-export Playwright; optional standards-compliant OIDC
+  connector E2E; security/HCI review; full repository gate.
 
 ### WP-RC9: Implement LTI Advantage launch and grade passback
 
@@ -390,6 +422,17 @@ reserved migration ordering below.
 - **Validation:** signed protocol fixtures generated in tests, not captured secrets; Store/RLS tests;
   disposable LMS sandbox or standards harness; replay/cross-tenant/outage tests; full gate and
   independent protocol/security review.
+
+### WP-FU1 through WP-FU6: Secure learner file uploads
+
+WP-FU1 through WP-FU6 run after WP-RC9 and before WP-RC10. Their complete contract, files,
+one-owner packages, state machine, security controls, and gates are in
+`docs/active_plans/active/secure_learner_file_upload_plan.md`. The packages replace the
+raw file-upload object-key placeholder with a server-issued tenant/learner/attempt-bound upload,
+stream into non-deliverable temporary storage, inspect and promote exact SHA-256-bound bytes, and
+atomically consume one ready upload into the existing manual-grading path. They own
+`2026080912_secure_learner_uploads.sql`; the current learner route remains fail-closed until all six
+packages are accepted.
 
 ### WP-RC10: Add declarative AWS deployment
 
@@ -461,7 +504,7 @@ reserved migration ordering below.
 
 ### WP-RC12: Release acceptance and documentation closure
 
-- **Depends on:** WP-ARCH1 and WP-RC1 through WP-RC11.
+- **Depends on:** WP-ARCH1, WP-RC1 through WP-RC11, and WP-FU1 through WP-FU6.
 - **Owner:** release integrator; separate code, security, database, accessibility, operations, and
   documentation reviewers.
 - **Files:** `tests/e2e/e2e_release_candidate.sh`; `docs/RELEASE_EVIDENCE.md`; `README.md`;
@@ -529,8 +572,9 @@ development. They must pass, not skip, in WP-RC12 release evidence.
 
 - Preserve the accepted six-file baseline and `2026080907_course_appearance.sql`.
 - Reserve `2026080908_secure_question_grading_payloads.sql`,
-  `2026080909_object_reconciliation.sql`, `2026080910_oidc_identity.sql`, and
-  `2026080911_lti_advantage.sql` in that order. WP-RC7 schema work begins after WP-P2, while its
+  `2026080909_object_reconciliation.sql`, `2026080910_passwordless_identity.sql`, and
+  `2026080911_lti_advantage.sql` in that order. Secure learner uploads then own
+  `2026080912_secure_learner_uploads.sql`. WP-RC7 schema work begins after WP-P2, while its
   non-schema object inventory work may run in parallel. A package needing another migration takes
   the next two-digit daily sequence; it does not insert or rename an accepted version.
 - PLE flat JSON source identity lives inside the existing versioned source payload and immutable
@@ -548,7 +592,8 @@ development. They must pass, not skip, in WP-RC12 release evidence.
 | Shipped WeBWorK output leaks keys or unsafe markup       | WeBWorK owner        | Strict result translator, sanitizer, response scan, private network, and real browser trace          |
 | New family leaks an answer through generated types       | Family owner         | Public/private compiler split, Wasm dependency gate, DTO scan, server-only grader                    |
 | Reconciliation deletes a concurrent valid object         | Object owner         | Two observations, quarantine, reference recheck, idempotency, concurrent-creation oracle             |
-| OIDC email or callback selects a tenant                  | Auth owner           | Exact issuer/subject mapping, state/nonce/PKCE, fixed redirect, no email tenancy                     |
+| Email, passkey, or SSO input selects a tenant            | Auth owner           | Global account identity; course/tenant relationship validation; exact origin/RP ID; no email tenancy |
+| Roster convenience becomes permanent cross-course PII    | Enrollment owner     | Course-scoped email/roster ID, bounded imports/exports, manager authorization, retention lifecycle   |
 | LTI browser input becomes a grade                        | LTI owner            | AGS derives from summary rows; signed launch and server credentials; no browser grade authority      |
 | Cloud plan contains a secret or destructive broad target | Deployment architect | Secret references only, unique deployment tags, reviewed plan, bounded destroy rehearsal             |
 | Bot rules block a shared campus or assistive user        | Edge owner           | Count mode, versioned legitimate corpus, accessible recovery, immediate rollback                     |
@@ -563,12 +608,13 @@ development. They must pass, not skip, in WP-RC12 release evidence.
 - [ ] WP-RC5 eight families and Chapter 1 content accepted.
 - [ ] WP-RC6 QTI export and H5P claims accepted.
 - [ ] WP-RC7 M2-M5 reconciliation/integration accepted.
-- [ ] WP-RC8 OIDC accepted.
+- [ ] WP-RC8 passwordless identity, enrollment, and optional SSO accepted.
 - [ ] WP-RC9 LTI Advantage accepted.
+- [ ] WP-FU1 through WP-FU6 secure learner file uploads accepted.
 - [ ] WP-RC10 OpenTofu disposable deployment/restore accepted.
 - [ ] WP-RC11 bot-cost controls accepted.
 - [ ] WP-RC12 release evidence and independent audits accepted.
-- [ ] Production operator supplies credentials and records issuer/client/deployment identities.
+- [ ] Production operator supplies email delivery and WebAuthn RP configuration; record optional SSO identities when enabled.
 - [ ] Institutional owner completes FERPA/legal/security sign-off.
 - [ ] Human fall-pilot accessibility and teaching walkthrough passes before student enrollment.
 

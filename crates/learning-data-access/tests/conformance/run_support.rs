@@ -10,10 +10,54 @@ where
     let publisher = fixture.publisher;
     let student_user = fixture.student_user;
     let course = fixture.course;
-    let problem = fixture.problem;
-    let version = fixture.version;
     let reservation = &fixture.reservation;
     let response = &fixture.response;
+    let problem = ProblemId::from_uuid(uuid(89_968 + fixture_offset));
+    let version = VersionId::from_uuid(uuid(89_969 + fixture_offset));
+    let reference = ProblemVersionRef { problem, version };
+    let mut question = draft_question(WorkspaceId::from_uuid(uuid(89_970 + fixture_offset)));
+    question.source = DraftQuestionSource::Webwork {
+        pg_path: "Library/PLE/replay-contract.pg".to_string(),
+    };
+    let draft = DraftRecord {
+        tenant,
+        question,
+        revises: None,
+        derived_from: None,
+    };
+    let saved = store
+        .upsert_draft(context, publisher, None, draft.clone())
+        .await
+        .expect("WeBWorK replay contract draft");
+    let artifact = source_artifact(
+        reference,
+        QuestionBackend::Webwork,
+        ObjectId::from_uuid(uuid(89_971 + fixture_offset)),
+    );
+    store
+        .publish_draft(
+            context,
+            publisher,
+            PublishDraftCommand {
+                expected_draft: draft,
+                expected_revision: saved.revision,
+                publication: reference,
+                published_source: QuestionSource::Webwork {
+                    pg_path: "Library/PLE/replay-contract.pg".to_string(),
+                },
+                source_artifact: Some(artifact.clone()),
+                qti_promotion: None,
+                flat_question_promotion: None,
+                publisher,
+                scope: PublicationScope::Institution,
+                capabilities: BackendCapabilities::from_iter([
+                    Capability::AlgorithmicGeneration,
+                    Capability::ServerGrading,
+                ]),
+            },
+        )
+        .await
+        .expect("WeBWorK replay contract publication");
     let support_assignment = AssignmentId::from_uuid(uuid(89_972 + fixture_offset));
     let support_enrollment = EnrollmentId::from_uuid(uuid(89_973 + fixture_offset));
     let support_run_id = RunId::from_uuid(uuid(89_974 + fixture_offset));
@@ -55,6 +99,27 @@ where
         .start_or_resume_run(context, student_user, support_assignment, support_run_id)
         .await
         .expect("attempt support run");
+    let support_presentation = presentation_binding(1);
+    let support_replay = WebworkReplayMappingV1::SingleChoice {
+        items: vec![
+            WebworkReplayControlV1 {
+                item: RenderedItemIdV1::parse("a1b2").expect("rendered choice ID"),
+                field: "AnSwEr0001".to_string(),
+                value: "0".to_string(),
+            },
+            WebworkReplayControlV1 {
+                item: RenderedItemIdV1::parse("c3d4").expect("rendered choice ID"),
+                field: "AnSwEr0001".to_string(),
+                value: "1".to_string(),
+            },
+        ],
+    };
+    let mut support_provenance = reservation.provenance.clone();
+    support_provenance.source_artifact = Some(SourceArtifact {
+        object: artifact.object.id,
+        sha256: artifact.object.sha256.to_string(),
+    });
+    support_provenance.renderer = Some(implementation("webwork-renderer"));
     let support_attempt = store
         .issue_or_resume_question_attempt(
             context,
@@ -66,16 +131,46 @@ where
                 problem,
                 question_version: version,
                 seed: 999,
-                presentation: presentation_binding(1),
+                presentation: Some(support_presentation),
                 parameter_hash: "force-submit-active".to_string(),
-                provenance: reservation.provenance.clone(),
-                webwork_replay: None,
+                provenance: support_provenance.clone(),
+                webwork_replay: Some(support_replay.clone()),
                 prefetched: None,
                 predecessor_submission: None,
             },
         )
         .await
         .expect("attempt support question");
+    let stored_replay = store
+        .get_webwork_grade_replay_state(context, student_user, support_attempt.id)
+        .await
+        .expect("attempt owner reads replay state")
+        .expect("issued replay state exists");
+    assert_eq!(stored_replay.mapping, support_replay);
+    assert_eq!(
+        stored_replay.presentation_digest,
+        support_presentation.digest()
+    );
+    assert_eq!(
+        store
+            .get_webwork_grade_replay_state(context, publisher, support_attempt.id)
+            .await,
+        Err(StoreError::Forbidden),
+        "an instructor cannot read learner-bound private replay state"
+    );
+    assert_eq!(
+        store
+            .get_webwork_grade_replay_state(
+                TenantContext::from_authenticated_session(TenantId::from_uuid(uuid(
+                    89_978 + fixture_offset,
+                ))),
+                student_user,
+                support_attempt.id,
+            )
+            .await,
+        Err(StoreError::NotFound),
+        "a foreign tenant cannot enumerate private replay state"
+    );
     let force_action = AttemptSupportActionId::from_uuid(uuid(89_977 + fixture_offset));
     assert_eq!(
         store
@@ -187,6 +282,13 @@ where
     assert!(forced_current.response.is_none());
     assert!(forced_current.result.is_none());
     assert_eq!(forced_current.timer.submitted_at, Some(forced.occurred_at));
+    assert_eq!(
+        store
+            .get_webwork_grade_replay_state(context, student_user, support_attempt.id)
+            .await,
+        Ok(None),
+        "terminal support action deletes private replay state atomically"
+    );
 
     let clear_forced_action = AttemptSupportActionId::from_uuid(uuid(89_979 + fixture_offset));
     let cleared_forced = store
@@ -264,16 +366,23 @@ where
                 problem,
                 question_version: version,
                 seed: 1_000,
-                presentation: presentation_binding(2),
+                presentation: Some(presentation_binding(2)),
                 parameter_hash: "replacement-after-clear".to_string(),
-                provenance: reservation.provenance.clone(),
-                webwork_replay: None,
+                provenance: support_provenance.clone(),
+                webwork_replay: Some(support_replay.clone()),
                 prefetched: None,
                 predecessor_submission: None,
             },
         )
         .await
         .expect("a cleared position may issue a replacement");
+    assert!(
+        store
+            .get_webwork_grade_replay_state(context, student_user, replacement_attempt.id)
+            .await
+            .expect("replacement replay lookup")
+            .is_some()
+    );
     store
         .submit_question_attempt(
             context,
@@ -293,6 +402,13 @@ where
         )
         .await
         .expect("replacement attempt submits");
+    assert_eq!(
+        store
+            .get_webwork_grade_replay_state(context, student_user, replacement_attempt.id)
+            .await,
+        Ok(None),
+        "successful submission deletes private replay state in the same commit"
+    );
     assert_eq!(
         store
             .clear_attempt(
@@ -346,10 +462,10 @@ where
                 problem,
                 question_version: version,
                 seed: 1_001,
-                presentation: presentation_binding(3),
+                presentation: Some(presentation_binding(3)),
                 parameter_hash: "replacement-after-scored-clear".to_string(),
-                provenance: reservation.provenance.clone(),
-                webwork_replay: None,
+                provenance: support_provenance,
+                webwork_replay: Some(support_replay),
                 prefetched: None,
                 predecessor_submission: None,
             },

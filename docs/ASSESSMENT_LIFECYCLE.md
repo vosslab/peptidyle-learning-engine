@@ -1,0 +1,314 @@
+# Assessment lifecycle
+
+This document is the durable map of how one assessment item moves through PLE.
+It connects authoring, immutable publication, course activity, grading, and
+privacy cleanup without redefining their detailed contracts. The active release
+plan remains the source of truth for package status and acceptance evidence.
+
+## Status and scope
+
+The ownership, publication, activity, grading, and retention semantics below
+are the durable platform design. The precise minimal learner payload described
+in "Submit, grade, and project" is the accepted WP-P1 through WP-P6 target
+contract, not a claim that the current broader learner DTO has already been
+replaced. [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) labels
+the current boundary separately from the target cutover. Consult the active
+release plan before treating a backend or payload package as accepted.
+
+## Lifecycle at a glance
+
+```text
+private draft
+  -> validate and preview
+  -> publish immutable version
+  -> select exact version for assignment
+  -> create or resume tenant-owned run
+  -> issue one server-owned attempt
+  -> render active attempt and optionally reserve next
+  -> submit compact learner response exactly once
+  -> grade only on the server
+  -> project permitted feedback and summary
+  -> continue a new varied practice run when policy permits
+  -> retain, archive, then delete student records
+                         \
+                          -> preserve identity-free statistics
+```
+
+The arrow is an ownership change, not merely a screen change. A browser can
+read an answer-free projection and propose a response; it cannot choose a
+tenant, published version, seed, deadline, grading backend, score, or deletion
+scope. The server derives those facts from authenticated, tenant-owned records.
+
+## Ownership and identities
+
+PLE keeps four related but different things separate:
+
+| Thing | Owner and lifetime | Important identity |
+| --- | --- | --- |
+| Draft | Instructor workspace; private and mutable | `WorkspaceId` |
+| Published question | Shared immutable catalog content | `ProblemId` and `VersionId` |
+| Assignment activity | One tenant/course's teaching configuration | Course and assignment IDs |
+| Learner activity | Tenant-owned educational record | Enrollment, run, and attempt IDs |
+
+Publication is the boundary between the first two rows. An assignment references
+an exact immutable `(ProblemId, VersionId)` pair; it does not copy prompt,
+assets, source, or answer material into the course. A run is one pass through
+that assignment, and an attempt is one issued instance of one assignment
+position. Repeated use of the same question version therefore does not merge
+distinct assignment positions or learner attempts.
+
+The type-level identity and browser-safety rules are defined in
+[QUESTION_MODEL.md](QUESTION_MODEL.md). The enrollment, run, attempt, and
+summary records are defined in [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md).
+
+## Author, validate, publish
+
+### 1. Author a private draft
+
+An instructor or authorized collaborator edits an unversioned workspace draft.
+The draft can contain answer-bearing source, author feedback, and provider
+details, so it remains private. Browser preview is useful but is never
+publication authority: the server reruns the same validation against the stored
+draft and trusted adapter capability declaration.
+
+The draft editor uses a strong revision precondition. A stale save, review,
+conversion, deletion, or publication request conflicts instead of overwriting
+newer author work. A failure leaves the prior draft intact and creates neither
+a public catalog identity nor a partial publication.
+
+### 2. Validate delivery capabilities
+
+Before publication, PLE checks the selected question's declared capabilities
+against the assignment delivery requirements. This checks the full requested
+set, rather than stopping at the first gap, so the instructor can correct the
+whole configuration. Browser/Wasm validation is early feedback; the server
+repeats it before writing a durable transition.
+
+### 3. Commit an immutable publication
+
+The server resolves the tenant-owned draft, validates it, mints published
+identities only after success, and commits immutable metadata, public payload,
+private grader material or source binding, visibility grant, and draft removal
+as one transaction. A publication never mutates an existing version. A revision
+retains a published problem identity and mints a new version; a fork mints both.
+
+Object storage follows the same boundary. The database records intended object
+existence and typed object identities; it does not give a browser a bucket key
+or source URL. Immutable writes reject overwrite and reads verify their
+checksum. The publication authorization and object rules are in
+[SECURITY_MODEL.md](SECURITY_MODEL.md) and [OBJECT_STORAGE.md](OBJECT_STORAGE.md).
+
+## Select and start activity
+
+### 4. Build an assignment from versions
+
+An assignment stores ordered references to published versions, alongside its
+completion, grade, continued-practice, variation, feedback, timing, and access
+policies. These policies are intentionally independent in the domain model.
+The instructor UI can present teaching-oriented assignment types while storing
+their explicit policy values.
+
+The assignment belongs to one tenant course. Enrolling a student creates a
+tenant-owned educational relationship, not a copy of shared question content.
+The authenticated session supplies the user identity; the server verifies that
+the enrollment owns that user rather than assuming `UserId` and `StudentId` are
+interchangeable.
+
+### 5. Create or resume a run
+
+The server starts the initial run or resumes the one active run that belongs to
+the enrollment. It assigns server timestamps, one-based run number, and the
+variation policy actually used. Completion is derived from attempt states; it
+is not a mutable Boolean that can disagree with the attempt history.
+
+Completion is a milestone, not a lockout. When the policy permits continued
+practice, the learner can start another run with fresh variation. For a typical
+mastery assignment this means all-correct completion, highest-score selection,
+unlimited later runs, new seeds, and immediate correctness feedback. The exact
+composition remains an assignment decision, described in
+[ACTIVITY_MODEL.md](ACTIVITY_MODEL.md).
+
+## Issue and present
+
+### 6. Issue exactly one active attempt
+
+The run service issues at most one unresolved attempt at a time. The attempt
+binds the authenticated learner and tenant through its enrollment and run, the
+assignment position, immutable version, seed, policy, timing state, grader
+backend, and provenance. Resume returns the stored attempt and stored seed; it
+does not generate a different problem mid-attempt.
+
+Attempt issuance is a transactional storage operation. PostgreSQL locks the run
+and its equivalent Store contract enforces the same invariant, so concurrent
+requests cannot create two active timers. Server timestamps decide issue time,
+deadline, arrival time, completion, and timer verdict. The browser timer is a
+display and submission aid, never the timing authority.
+
+### 7. Render an answer-free screen
+
+The learner receives a public render envelope and the smallest state needed to
+use it. Rich render data includes prompt blocks, sanitized markup, accessible
+asset references, response schema, item order, and public constraints. It may
+also include seed and version to identify the public render. It excludes correct
+answers, expected values, private rubrics, raw sources, provider credentials,
+upstream fields, storage locations, and grader state.
+
+An attempt-specific presentation binding protects against a valid but wrong
+render being submitted for the wrong attempt. Each selectable object has a
+small rendered-item ID; the full public descriptor has a presentation digest.
+The digest is a consistency check, not an authentication mechanism or transport
+checksum. The exact wire contract, CRC16 collision rule, readiness requirement,
+and mismatch recovery are in [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
+
+### 8. Reserve one next question safely
+
+When policy allows it, PLE may prepare one next question while the learner is
+working. A prefetch reservation is tenant-, learner-, run-, predecessor-, and
+position-bound. It has no attempt ID, response, grade, or started timer.
+
+At the secure-payload target boundary, an untimed-practice browser may hold the
+answer-free envelope in memory and warm a bounded set of same-origin assets.
+For timed or exam work, PLE may prepare privately but withholds the next
+envelope until the predecessor commits. The current bodyless prefetch route has
+not yet enforced this timing-policy distinction. Only an exact committed receipt
+promotes a reservation to an issued attempt. A reload, mismatch, cancellation,
+or route exit discards the browser cache; it does not invent another seed or
+advance a run.
+
+## Submit, grade, and project
+
+### 9. Submit the minimal response
+
+At the secure-payload target boundary, the route identifies the attempt once.
+The request supplies only the presentation digest and a family-minimal answer;
+a bounded idempotency key is in the request header. The server loads the
+authoritative attempt and therefore derives response shape, question version,
+seed, assignment, backend, deadline, and learner ownership rather than
+accepting browser copies.
+
+The server rejects a digest mismatch before grading and keeps the attempt
+unchanged. The browser reloads the same attempt, retains compatible unsent work
+in memory, and asks the learner to review it. Repeating the same idempotency
+key and same response returns the first committed receipt. Reusing a key or
+attempt with a changed response conflicts before a second grade or state
+transition occurs.
+
+### 10. Grade under server authority
+
+The server first validates response structure against the issued public schema,
+then invokes the selected trusted backend. All answer normalization,
+correctness, component credit, partial-credit computation, and score selection
+stay server-side. The browser never submits a `kind`, score, component weight,
+answer key, or correctness assertion for ordinary grading.
+
+The response, grading result, score event, attempt transition, run completion,
+enrollment pointers, summary projection, successor receipt, and idempotency
+receipt commit atomically. A process retry can therefore replay a receipt, not
+re-grade an answer or calculate a later summary from changed run state.
+
+### 11. Return a policy-projected receipt
+
+The learner receives only accepted status, committed attempt identity,
+policy-permitted correctness and points, sanitized feedback, and an optional
+minimal descriptor of the now-issued successor. Withheld feedback remains
+withheld even though the result is persisted. An instructor or gradebook view
+reads the summary projection and lazily paged history rather than recomputing a
+grade by scanning all attempts.
+
+The attempt state machine, feedback policy, timer rule, and summary projection
+are detailed in [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md). The narrow current and
+target request/receipt shapes are detailed in
+[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
+
+## Backend authority by family
+
+The common lifecycle deliberately ends at a backend boundary. Adapters can
+share public attempt behavior without sharing private grading data or assuming
+the same source format.
+
+| Family | Publication authority | Render authority | Grade authority | Important recovery rule |
+| --- | --- | --- | --- | --- |
+| Native flat | PLE compiles author source into public definition and server-only key | PLE public renderer | PLE native grader | Reproduce from immutable version and stored seed |
+| QTI | PLE stages, reports, reviews, and promotes a supported profile atomically | PLE's opted-in published runtime or converted native definition | Server-only `PostgresGraderStore` when enabled | Reparse the checksum-pinned archive; refuse unsupported profile features |
+| WeBWorK | PLE copies licensed PG/PGML source and provenance into immutable storage | Private upstream `render_rpc`, then PLE sanitizes and projects | Private upstream service through PLE | Re-render exact source and seed; never trust a browser upstream field |
+| External tool | PLE publishes an answer-free marker plus trusted broker configuration | Provider launch/session is server-mediated | Provider or broker under a separate trusted exchange | Generic attempt records carry no provider token, raw answer, or provider score |
+
+Native flat questions use PLE's public `QuestionDefinition` plus separate
+grader-only material. The exact flat authoring format is
+[QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md), not a second generic
+runtime model.
+
+QTI import refuses unsupported input rather than silently dropping semantics.
+Published QTI runtime is feature-gated and separates its PostgreSQL grader
+access from ordinary public projections. Its profile and promotion contract is
+registered in [CONTRACTS.md](CONTRACTS.md).
+
+WeBWorK is a private service integration. PLE sends the trusted source, fixed
+seed, and renderer credentials only from the server, turns the approved radio
+control into PLE opaque choices, and keeps upstream names, values, source,
+cookies, and raw response bodies out of attempts and browsers. The exact
+bounded RC3 contract and its release scope are in
+[WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
+
+External-tool questions remain deliberately sparse in the generic model. The
+provider is not allowed to widen an ordinary learner response into a token or
+raw payload. Broker sessions and transcripts are tenant-owned student records
+with their own authorization and retention handling.
+
+## Failure and recovery semantics
+
+| Boundary | Safe outcome |
+| --- | --- |
+| Draft validation or publication fails | Keep the private draft; do not mint public identity or create a partial immutable version. |
+| Capability check fails | Return the complete missing-capability report before publication or assignment persistence. |
+| Concurrent issue/resume | Lock and return the sole unresolved attempt. |
+| Public render or asset fails | Keep the run resumable; offer retry without changing seed or attempt. |
+| Presentation mismatch | Return stable conflict, persist bounded diagnostic evidence, reload the same attempt, and never grade stale state. |
+| Network loss after submit | Retry with the same idempotency key and response to receive the committed receipt. |
+| Changed submission replay | Conflict before grading or state mutation. |
+| Renderer/backend outage | Preserve the active attempt; expose a bounded degraded state only for the affected question. |
+| Commit interruption after prefetch promotion | Heal only the sole owned, committed-but-unlinked successor; never derive a different successor from later run state. |
+| Retention object failure | Keep the course archived and retry the frozen typed-object manifest; never report deletion early. |
+
+These rules make failures visible and recoverable without turning a browser
+cache, a renderer response, or a retry into new authority. The more detailed
+route, storage, and RLS guarantees are in [SECURITY_MODEL.md](SECURITY_MODEL.md)
+and [CONTRACTS.md](CONTRACTS.md).
+
+## Retain records, keep learning
+
+Learner records are tenant-owned and privacy-sensitive. Course policy first
+notifies, then archives and fences learner access, then permanently deletes the
+complete learner graph and typed student-record objects. The deletion path uses
+a frozen manifest, idempotent object deletion, lease and generation fencing,
+and one verified relational purge transaction. It never follows an assignment
+reference into shared published content.
+
+Published problems, immutable versions, instructor drafts, and anonymous
+question statistics have different retention rules. A first completed
+assignment can contribute an identity-free aggregate exactly once. That
+aggregate supports future library improvement but is not a course-local
+gradebook or a route back to a learner record. The retention defaults, backup
+boundary, and permanent-versus-one-time verification policy are in
+[RETENTION_POLICY.md](RETENTION_POLICY.md).
+
+## Contract map
+
+Use this lifecycle document to find the right detailed contract:
+
+- [QUESTION_MODEL.md](QUESTION_MODEL.md): public model, durable identities,
+  response shapes, generation, and browser-safe type boundary.
+- [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md): policy composition, attempt states,
+  timing, idempotency, completion, and summary projection.
+- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md): learner render,
+  rendered IDs, presentation digest, minimal response, receipt, and prefetch.
+- [SECURITY_MODEL.md](SECURITY_MODEL.md): authorization, grading secrecy,
+  publication, run, asset, and retention security boundaries.
+- [OBJECT_STORAGE.md](OBJECT_STORAGE.md): typed object keys, bucket roles,
+  checksums, delivery, and reconciliation.
+- [CONTRACTS.md](CONTRACTS.md): module ownership, frozen contracts, and change
+  rules.
+- [RETENTION_POLICY.md](RETENTION_POLICY.md): privacy lifecycle and anonymous
+  aggregate preservation.
+- [active_plans/implementation_plan.md](active_plans/implementation_plan.md):
+  milestone dependency order and acceptance criteria.

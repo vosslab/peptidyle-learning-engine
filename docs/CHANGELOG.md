@@ -40,6 +40,16 @@
   shared state, health, private WeBWorK isolation, failure behavior, and the explicitly
   planned-not-implemented WP-RC10 production topology.
 
+- Added the decision-complete secure learner file-upload plan while preserving the current
+  fail-closed route and widget. The plan replaces browser-supplied object keys with one opaque
+  attempt-bound upload ID, streams bytes through an authenticated same-origin API into
+  non-deliverable temporary storage, verifies SHA-256 and a closed PDF/text/PNG/JPEG profile,
+  requires private malware inspection before promotion, and atomically consumes one ready object
+  into the existing manual-grading path. It also owns forced RLS, typed object keys, retention,
+  reconciliation, protected attachment delivery, multi-replica recovery, keyboard accessibility,
+  `2026080912_secure_learner_uploads.sql`, and six dependency-ordered implementation packages before
+  production deployment. No learner upload has been enabled by this planning change.
+
 - Replaced mutable local PostgreSQL, MinIO, and MinIO Client image tags with required immutable
   digest settings. A networkless, read-only pre-start guard now refuses a retained PostgreSQL data
   volume unless its declared major is exactly the supported PostgreSQL 17 baseline. Focused launcher,
@@ -68,7 +78,47 @@
   tenancy, object storage, input formats, troubleshooting, frequently asked questions, and related
   projects. The release documents remain unchanged because this mixed worktree is not a release.
 
+- Consolidated durable platform decisions and contracts into a navigable documentation set: design
+  decisions; assessment lifecycle; API, authorization, identity, data, storage, concurrency, backend,
+  cache/prefetch, recovery, mastery, and evidence boundaries. The references distinguish current
+  behavior from reserved work, including payload cutover, security mechanisms, and the limited RC3
+  WeBWorK acceptance boundary; they do not claim planned features as shipped.
+
+- Added the proposed enrollment design after confirming the current HTTP gap and comparing the
+  LibreTexts ADAPT roster workflow. The target gives instructors one course-level roster action while
+  retaining separate learner identity, course membership, assignment enrollment, and summary
+  records. It uses one opaque person identity per institution tenant, treats email as mutable lookup
+  data, requires trusted identity resolution or a hashed invitation, reconciles every current
+  assignment atomically, preserves records on access revocation, and distinguishes the unimplemented
+  route/UI work from the already conformance-tested Store enrollment primitive.
+
+- Added the dated 2026-08-10 project status report and retained the Aug. 9 report as historical
+  context. The new snapshot separates accepted RC3/WP-ARCH1 evidence from WP-RC4's implemented but
+  unaccepted flat-family closeout, the partially present secure-payload implementation, planned
+  fail-closed learner uploads, and later production packages. Its follow-up records the repaired
+  persistence size regression and keeps the remaining current-tree package gates distinct from the
+  accepted historical WP-ARCH1 evidence.
+
 ### Fixes and Maintenance
+
+- Completed the offline WeBWorK replay-persistence slice without claiming the secure-payload
+  cutover accepted. Issuance now converts private durable choice mappings to presentation-scoped
+  rendered IDs before prefetch/attempt persistence; Memory and PostgreSQL reads validate the
+  source, version, seed, renderer, digest, and owning attempt before returning grading authority.
+  Normal grading reproduces the safe cache without a renderer call and makes one private grade RPC;
+  successful submission and terminal instructor action delete replay state atomically. File-upload
+  and external-tool attempts remain explicitly outside presentation v1. Focused presentation,
+  Store-conformance, server, project-tools, source-size, feature-enabled check, and strict Clippy
+  gates pass; compact kind-free HTTP, persisted legacy self-heal, live PostgreSQL/private-renderer
+  traces, browser recovery, measurements, and independent WP-P1 through WP-P6 acceptance remain.
+
+- Repaired the two post-WP-ARCH1 persistence size regressions by extracting complete attempt-issuance
+  capabilities into paired in-memory and PostgreSQL owners. Presentation binding, prefetch promotion,
+  timing creation, predecessor linking, and private WeBWorK replay persistence moved together; Store
+  signatures and PostgreSQL SQL, bind order, transaction scope, retry, and RLS behavior are unchanged.
+  The permanent source-size gate passes 770 cases, and learning-data-access passes all-feature check,
+  133 focused behavior tests with the disposable live fixtures compiled and intentionally ignored,
+  and strict Clippy.
 
 - Accepted WP-ARCH1 and WP-RC3 after independent review. The permanent source-size gate reports no
   maintained source at 1,000 lines or more and passes 582 tests; `./check_codebase.sh` passes all 11

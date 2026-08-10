@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 use learning_data_access::{
-    AssetStore, CatalogSourceStore, ExternalToolBrokerStore, TenantContext,
+    AssetStore, CatalogSourceStore, ExternalToolBrokerStore, Store, TenantContext,
 };
 use question_model::{
     BackendCapabilities, DraftQuestionSource, ProblemVersionRef, QuestionAttempt,
@@ -20,7 +20,7 @@ use crate::run::{
     GradeReceipt, IssuedAttemptMetadata, RunBackend, RunBackendError, RunSubmission,
     SubmissionDisposition,
 };
-use crate::webwork_backend::{WebworkBackend, validate_issued_attempt};
+use crate::webwork_backend::WebworkBackend;
 
 /// One trusted server backend that delegates by persisted source kind.
 pub trait ConfiguredImathas:
@@ -165,7 +165,7 @@ where
 #[async_trait]
 impl<S, O, R> RunBackend for CompositeBackend<S, O, R>
 where
-    S: AssetStore + CatalogSourceStore + ExternalToolBrokerStore + Send + Sync + 'static,
+    S: AssetStore + CatalogSourceStore + ExternalToolBrokerStore + Store + Send + Sync + 'static,
     O: objects::ObjectStore + Send + Sync + 'static,
     R: adapter_webwork::renderer_contract::WebworkRenderer + Send + Sync + 'static,
 {
@@ -189,6 +189,7 @@ where
                     envelope: issued.envelope,
                     parameter_hash: issued.parameter_hash,
                     provenance: issued.provenance,
+                    webwork_replay: issued.replay,
                 })
             }
             question_model::QuestionSource::Imathas { .. } => {
@@ -223,9 +224,8 @@ where
             question_model::QuestionSource::Webwork { .. } => {
                 let issued = self
                     .webwork()?
-                    .issue(context, reference, question, attempt.seed)
+                    .reproduce(context, reference, question, attempt)
                     .await?;
-                validate_issued_attempt(attempt, &issued)?;
                 Ok(issued.envelope)
             }
             question_model::QuestionSource::Imathas { .. } => {
@@ -277,11 +277,9 @@ where
                     .grade(context, reference, question, attempt, response)
                     .await
             }
-            question_model::QuestionSource::Webwork { .. } => {
-                self.webwork()?
-                    .grade(context, reference, question, attempt, response)
-                    .await
-            }
+            question_model::QuestionSource::Webwork { .. } => Err(RunBackendError::Unsupported(
+                "WeBWorK grading requires an actor-bound submission".into(),
+            )),
             question_model::QuestionSource::Imathas { .. } => {
                 self.imathas_for(question)?
                     .grade(context, reference, question, attempt, response)
@@ -308,6 +306,7 @@ where
                 .webwork()?
                 .grade(
                     submission.context,
+                    submission.actor,
                     submission.reference,
                     submission.question,
                     submission.attempt,

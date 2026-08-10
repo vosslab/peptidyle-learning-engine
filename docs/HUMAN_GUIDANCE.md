@@ -271,6 +271,18 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 
 ## Authentication storage and compliance
 
+- PLE accounts are institution-independent. Use an opaque `UserId`, passwordless
+  email authentication, and passkeys. SSO integration will also exist, but it
+  is not required for independent use.
+- Invite students by email. A learner keeps one PLE account across courses and
+  institutions; course membership limits each instructor's access.
+- Keep the institutional email, institutional student ID, and useful display
+  name as protected course roster data when they make enrollment and manual
+  LMS grade export practical. Permit course email-domain rules for signups.
+- Balance FERPA and data minimization with instructor convenience: collect
+  reluctantly, use deliberately, and purge predictably under the course
+  retention policy.
+
 - Store the opaque authentication credential in one host-only HttpOnly cookie,
   not in `localStorage`. JavaScript must never be able to read the bearer
   credential.

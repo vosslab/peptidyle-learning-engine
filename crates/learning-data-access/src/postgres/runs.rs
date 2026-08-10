@@ -1,6 +1,12 @@
 use async_trait::async_trait;
+use objects::Sha256Digest;
+use question_model::{ImplementationVersion, ObjectId, SourceArtifact};
 
 use super::*;
+use crate::{WebworkGradeReplayStateV1, WebworkReplayMappingV1};
+
+mod attempt_issuance;
+pub(super) use attempt_issuance::add_seconds;
 
 #[async_trait]
 impl crate::RunStore for PostgresStore {
@@ -51,8 +57,12 @@ impl crate::RunStore for PostgresStore {
             let command = command.clone();
             async move {
                 let mut transaction = self.begin_tenant(context).await?;
-                let attempt =
-                    issue_or_resume_question_attempt(&mut transaction, context, command).await?;
+                let attempt = attempt_issuance::issue_or_resume_question_attempt(
+                    &mut transaction,
+                    context,
+                    command,
+                )
+                .await?;
                 transaction.commit().await.map_err(map_sqlx_error)?;
                 Ok(attempt)
             }
@@ -92,10 +102,21 @@ impl crate::RunStore for PostgresStore {
         let mut transaction = self.begin_tenant(context).await?;
         require_attempt_owner(&mut transaction, context.tenant_id(), attempt, actor).await?;
         let row = sqlx::query(
-            "SELECT problem_id, version_id, source_object_id, source_sha256, seed::text AS seed, \
-                    renderer_id, renderer_version, presentation_digest, mapping, mapping_sha256 \
-               FROM webwork_grade_replay_state \
-              WHERE tenant_id = $1 AND attempt_id = $2",
+            "SELECT replay.problem_id, replay.version_id, replay.source_object_id, \
+                    replay.source_sha256, replay.seed::text AS seed, replay.renderer_id, \
+                    replay.renderer_version, \
+                    replay.presentation_digest AS replay_presentation_digest, \
+                    replay.mapping, replay.mapping_sha256, \
+                    attempt.payload AS attempt_payload, \
+                    attempt.payload_sha256 AS attempt_payload_sha256, \
+                    attempt.presentation_descriptor_version, attempt.presentation_nonce, \
+                    attempt.presentation_digest \
+               FROM webwork_grade_replay_state AS replay \
+               JOIN question_attempt AS attempt \
+                 ON attempt.tenant_id = replay.tenant_id \
+                AND attempt.attempt_id = replay.attempt_id \
+                AND attempt.occurred_at = replay.attempt_occurred_at \
+              WHERE replay.tenant_id = $1 AND replay.attempt_id = $2",
         )
         .bind(context.tenant_id().as_uuid())
         .bind(attempt.as_uuid())
@@ -103,7 +124,15 @@ impl crate::RunStore for PostgresStore {
         .await
         .map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
-        row.as_ref().map(decode_webwork_replay_state).transpose()
+        let Some(row) = row.as_ref() else {
+            return Ok(None);
+        };
+        let replay = decode_webwork_replay_state(row)?;
+        let attempt: QuestionAttempt =
+            decode_payload_row_named(row, "attempt_payload", "attempt_payload_sha256")?;
+        let presentation = decode_presentation_binding_row(row)?;
+        crate::validate_persisted_webwork_replay_state(&attempt, presentation, &replay)?;
+        Ok(Some(replay))
     }
     async fn reserve_or_resume_prefetched_question_impl(
         &self,
@@ -471,7 +500,9 @@ fn decode_webwork_replay_state(
     let mapping: WebworkReplayMappingV1 = serde_json::from_value(mapping_value)
         .map_err(|error| StoreError::Unavailable(error.to_string()))?;
     mapping.validate()?;
-    let digest: Vec<u8> = row.try_get("presentation_digest").map_err(map_sqlx_error)?;
+    let digest: Vec<u8> = row
+        .try_get("replay_presentation_digest")
+        .map_err(map_sqlx_error)?;
     let digest: [u8; 32] = digest.try_into().map_err(|_| {
         StoreError::Unavailable("stored WeBWorK presentation digest is malformed".into())
     })?;

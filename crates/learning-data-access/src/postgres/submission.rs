@@ -107,6 +107,15 @@ pub(super) async fn apply_postgres_attempt_support(
     if updated.rows_affected() != 1 {
         return Err(StoreError::Conflict);
     }
+    sqlx::query(
+        "DELETE FROM webwork_grade_replay_state \
+         WHERE tenant_id = $1 AND attempt_id = $2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(attempt_id.as_uuid())
+    .execute(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
     assignment_timing::cancel_postgres_attempt_timing_job(transaction, tenant, attempt_id).await?;
 
     let has_evaluation: bool = sqlx::query_scalar(
@@ -404,6 +413,15 @@ pub(super) async fn submit_question_attempt(
     sqlx::query(
         "UPDATE question_attempt SET attempt_status = 'submitted', \
              submitted_at = transaction_timestamp() \
+         WHERE tenant_id = $1 AND attempt_id = $2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(submitted.id.as_uuid())
+    .execute(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    sqlx::query(
+        "DELETE FROM webwork_grade_replay_state \
          WHERE tenant_id = $1 AND attempt_id = $2",
     )
     .bind(tenant.as_uuid())

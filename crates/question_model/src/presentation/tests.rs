@@ -15,7 +15,7 @@ use super::builder::{
 use super::codec::{crc16_ccitt_false, descriptor_bytes_v1};
 use super::{
     PresentationBindingV1, PresentationNonceV1, ResponseSchemaV1, rebuild_public_presentation_v1,
-    verify_presentation_v1,
+    reproduce_presentation_v1, verify_presentation_v1,
 };
 
 fn choice(id: &str, text: &str) -> ChoiceOption {
@@ -190,4 +190,12 @@ fn persisted_binding_is_strict_and_round_trips_full_digest() {
     let mut unknown = json;
     unknown["grading"] = serde_json::json!(true);
     assert!(serde_json::from_value::<PresentationBindingV1>(unknown).is_err());
+
+    let reproduced = reproduce_presentation_v1(&fixture(), &[], binding)
+        .expect("persisted binding reproduces the exact presentation");
+    assert_eq!(reproduced, presentation);
+
+    let mut changed = fixture();
+    changed.title.push('!');
+    assert!(reproduce_presentation_v1(&changed, &[], binding).is_err());
 }

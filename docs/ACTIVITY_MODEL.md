@@ -4,6 +4,15 @@ Peptidyle treats completion as a milestone, not the end of activity. A student
 may complete an assignment and keep starting new runs to learn from algorithmic
 variation. The model therefore separates enrollment, run, and question attempt.
 
+This is the durable record and policy contract. It complements the end-to-end
+ownership map in [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md), the
+teaching rationale and future instructor experience in
+[MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md), and the
+server-only learner boundary in
+[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md). The active
+release plan remains the source of truth for package status and acceptance
+evidence.
+
 ## The three levels
 
 | Record                 | Meaning                                        | Cardinality                    |
@@ -85,6 +94,15 @@ duplicating the seed, parameter hash, problem ID, or version ID already carried
 directly by `QuestionAttempt`. Parameters themselves are regenerated from seed
 and generator version; the hash detects a mismatch without storing the same
 data on hundreds of millions of rows.
+
+The logical attempt lifecycle and the durable record status are related but not
+interchangeable. `domain::attempt::AttemptState` is a pure state machine for a
+logical assignment position: it decides whether the next outcome is correct,
+retryable, exhausted, timed out, or abandoned. `QuestionAttempt.status` records
+the operational state of one issued evidence record. The latter also represents
+server workflows that are not a learner retry decision, including
+`NeedsManualGrading`, `Cleared`, and `Exempt`. Neither representation gives the
+browser authority to change a score, bypass a timer, or erase earlier evidence.
 
 Seed replay is secondary to fresh practice. The server gives every newly issued
 parameterized question instance a fresh seed. Resuming or re-rendering that
@@ -182,13 +200,52 @@ For example, an instructor can require mastery, keep the highest score, allow
 unlimited practice, and issue new seeds on every run. Continued practice does
 not decide which score counts; grade policy remains independent.
 
-Feedback disclosure is a fifth independent policy with four choices from the
-active plan:
+Question-level policies remain separate from `RunPolicies`. Every immutable
+published question version owns an `AttemptPolicy` (retry bound and feedback
+disclosure) and a `TimingPolicy`; an assignment cannot silently rewrite either
+one. That lets the same run model work for native, QTI, WeBWorK, and future
+question families while keeping response and grading authority server-side.
+
+`FeedbackDisclosure` has four choices:
 
 - `ImmediateFull` shows the response, correct answer, and explanation.
 - `ImmediateCorrectness` shows correctness and a hint without the answer.
 - `Deferred` waits until the run is submitted.
 - `OnRelease` waits for an instructor release.
+
+The server stores trusted feedback but projects it only when this question
+policy permits it. A deferred response does not become visible merely because
+the browser asks again; an on-release response remains hidden until an
+authorized instructor transition. See
+[MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md) for the
+learner-facing meaning of each disclosure choice.
+
+## Instructor activity types
+
+The implemented stored model is the independent policy vocabulary above. It
+does not contain a persisted combined `Mastery`, `Exam`, `Practice`, or
+`Standard` enum, and it does not yet contain a separate gradebook-visibility
+policy. That is intentional: a label must not conceal a different durable
+record contract.
+
+The current assignment editor works with the explicit run policies and the
+immutable question versions selected for the assignment. A teaching-oriented
+activity-type chooser is planned as a UI layer that writes those same explicit
+values. It is not evidence that the four labels below are current API values:
+
+| Teaching activity | Current durable representation | Instructor experience status |
+| ----------------- | ------------------------------ | ---------------------------- |
+| Mastery | `AllCorrect`, `Highest`, `Unlimited`, `NewSeeds`, plus question-level retry, feedback, and timing choices | Fully representable; named chooser planned |
+| Standard graded assignment | `AnswerAll`, a chosen grade policy, `Closed`, plus question-level policies | Fully representable; named chooser planned |
+| Exam | `AnswerAll`, a chosen grade policy, `Closed`, restricted question policies, and server timing where needed | Fully representable; named chooser planned |
+| Practice | Continued runs and learning feedback are representable | A promise that it is absent from the gradebook is planned, because no separate gradebook-visibility policy exists yet |
+
+The recommended mastery bundle is a teaching default, not a special storage
+branch: all-correct completion, highest-score selection, unlimited continued
+practice, fresh seeds, unlimited question retries where appropriate, immediate
+educational feedback, and normally untimed work. A course may deliberately use
+another combination. [MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md)
+owns the detailed bundle, learner wording, and planned UI simplification.
 
 ## Completion derivation
 
@@ -232,9 +289,30 @@ until an instructor names a completed run. The incremental summary and batch
 selection are checked against the same hand-computed fixture. The compatibility
 re-export from `domain::run` remains available to WP-C3 consumers.
 
-## WP-C3 gate
+The gradebook reads this compact projection together with tenant-owned course
+and assignment records. It does not scan every historical run or attempt when
+a student has returned for continued practice many times. Historical records
+remain available to authorized history and analysis paths until retention
+removes the tenant-owned learner graph.
 
-Focused validation:
+## Retention boundary
+
+Enrollment, run, attempt, summary, feedback, and associated learner-owned
+artifacts are student records. Course retention archives their ordinary
+learner-facing access before permanent deletion, then removes the course-owned
+record graph and its typed artifacts while preserving immutable shared
+published content and identity-free question statistics. The default lifecycle
+is notification after 30 days, archive after 100 days, and deletion after 365
+days; an institution can configure another ordered policy.
+
+The lifecycle is server- and scheduler-owned. A browser cannot choose the
+tenant, deletion scope, work-set identity, lease, or generation, and a passed
+deadline alone does not claim that cleanup succeeded. The detailed contract is
+[RETENTION_POLICY.md](RETENTION_POLICY.md).
+
+## Behavior evidence
+
+The focused historical acceptance evidence for this model includes:
 
 ```bash
 cargo test -p question_model
@@ -245,7 +323,9 @@ npx eslint src generated/api --max-warnings 0
 npx prettier --check generated/api
 ```
 
-The complete patch gate remains:
+The repository-wide gates for a current change are defined by the active work
+package. The following commands remain useful when a change touches the model
+and its generated browser contract:
 
 ```bash
 ./check_codebase.sh

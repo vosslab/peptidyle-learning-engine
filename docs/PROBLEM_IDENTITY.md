@@ -1,45 +1,98 @@
 # Problem identity and lifecycle
 
-How a question is identified, and what happens to it over time (MOD-ID,
-WP-C2). The types live in `crates/question_model/src/identity.rs` and
-`crates/question_model/src/lifecycle.rs`.
+This document is the durable map of identities that name questions and their
+related records. It answers two easy-to-confuse questions:
 
-## The rule in one sentence
+1. What durable record is this?
+2. Which small, temporary value may the browser use to refer to something it
+   was shown?
 
-A draft lives in an instructor workspace and has no `ProblemId`; publishing is
-the transition that assigns one; a published version is immutable thereafter.
+The first answer uses typed UUID identities. The second can use a compact
+presentation-scoped rendered ID. They are deliberately different contracts.
 
-Everything below follows from that sentence.
+The model lives primarily in `crates/question_model/src/identity.rs`,
+`activity.rs`, `catalog.rs`, `definition.rs`, and `presentation/`. The exact
+learner wire contract is owned by
+[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md); this document
+does not turn an identifier into authorization or grading authority.
 
-## Four identifiers
+## The maintainer rule
 
-| Type | Names | Scope |
+An editable draft is tenant-owned and has neither a `ProblemId` nor a
+`VersionId`; successful publication mints a new immutable
+`(ProblemId, VersionId)` pair. An attempt pins that published pair, its seed,
+and its server-owned provenance.
+
+This is a type boundary, not a `draft: bool` convention. A
+`DraftQuestionDefinition` contains a `WorkspaceId` and no published identity.
+A `QuestionDefinition` requires both `ProblemId` and `VersionId`. A caller
+cannot accidentally pass the draft type to a published-only API without an
+explicit publication step.
+
+## Identity domains
+
+All identifiers in the first two tables are distinct Rust newtypes over a
+PostgreSQL `uuid`, serialized as canonical 36-character UUID strings at JSON
+boundaries. They are not aliases: a function asking for `VersionId` cannot be
+given a `ProblemId`, and a `CourseId` cannot be given an `AssignmentId`.
+
+Fresh server-created identities are UUIDv7. Their random portion avoids
+sequential enumeration and their time ordering is friendlier to indexes. The
+reader and wire contract accept any canonical UUID, including deterministic
+fixtures and pre-existing values; the version restriction applies to minting,
+not deserialization. Generation is behind the server-enabled `generate`
+feature and is absent from the browser/Wasm build.
+
+### Authoring and shared content
+
+| Identifier | Names | Ownership and lifetime |
 | --- | --- | --- |
-| `WorkspaceId` | An instructor workspace | Tenant-owned |
-| `ProblemId` | A published problem, across all its versions | Shared content |
-| `VersionId` | One immutable version of a problem | Shared content |
-| `AssetId` | A stored image, figure, or source package | Shared content |
+| `WorkspaceId` | One private instructor authoring workspace | Tenant-owned, mutable draft boundary |
+| `WorkspaceImportId` | One staged import in a workspace | Tenant-owned until publication resolves it |
+| `ProblemId` | One logical published problem across revisions | Shared immutable-content lineage |
+| `VersionId` | One exact immutable published revision | Shared content; referenced by assignments and attempts |
+| `AssetId` | One logical published asset | Shared content identity, independent of physical placement |
+| `ObjectId` | One immutable object-store record | Physical/source/rendition object identity; never a substitute for `AssetId` |
 
-They are distinct newtypes over `Uuid`, so a function expecting one refuses the
-others at compile time. The bug this prevents is passing a draft's identifier
-where published content is expected, which would let unpublished material reach
-a course.
+`ProblemVersionRef { problem, version }` is the only complete durable reference
+to a question version. Assignment items, attempts, exported manifests, and
+lineage use that pair rather than silently resolving a latest version.
 
-All four are UUIDv7. Two properties matter: the value is random enough that a
-catalog number reveals nothing about how many problems exist, and it is
-time-ordered enough to index well. Sequential identifiers would leak volume and
-invite enumeration.
+`AssetId` answers "which logical asset does content cite?" `ObjectId` answers
+"which immutable stored bytes or source artifact reproduce this record?" An
+asset can point at an object, but keeping the names separate permits storage
+deduplication or rendition replacement without rewriting question content.
 
-Minting sits behind the `generate` feature. The server enables it; the
-WebAssembly bridge leaves it off, so the browser bundle has no way to create an
-identifier. `from_uuid` stays available for rehydrating values read back from
-storage.
+### Tenant-owned teaching records
 
-## Lifecycle states
+| Identifier | Names | Why it must remain distinct |
+| --- | --- | --- |
+| `TenantId` | One RLS and institutional boundary | Every educational record carries it directly |
+| `CourseId`, `CourseGroupId` | A course/section and its current group | Course membership is not assignment ownership |
+| `AssignmentId` | One tenant assignment | Defines learning activity and policy, not content |
+| `AssignmentItemId`, `AssignmentSelectionGroupId` | A stable assignment item or random-selection group | Preserves position and selection semantics when content repeats |
+| `EnrollmentId` | One student's relationship to one assignment | Keeps repeated runs on one durable educational record |
+| `RunId` | One pass through an assignment | Preserves earlier completed runs while allowing continued practice |
+| `QuestionAttemptId` | One issued question in one run | Binds an answer to the learner, run, exact version, seed, timing, and backend |
+| `StudentId`, `UserId` | Pedagogical student and authenticated person | They may map to the same provider UUID, but are not interchangeable concepts |
 
-`Lifecycle` has five one-way states:
+An ID names a record; it does not grant access to it. Authentication, tenant
+context, authorization, RLS, lifecycle checks, and server-side ownership checks
+decide whether a caller may read or change the record.
 
-| State | Holds a `ProblemId` | Catalog browse | New assignments | Exact resolution |
+### Human-facing catalog references
+
+`ProblemPublicId` is a positive decimal catalog locator displayed as `P-123`.
+`ProblemVersionNumber` is the one-based human-facing version number displayed
+as `P-123-v4`. They support copyable search and instructor communication.
+Neither is authorization evidence, and neither replaces `ProblemVersionRef` in
+storage or attempt provenance.
+
+## Publication and version lineage
+
+The lifecycle state machine is a small pure model:
+
+| State | Published pair present | Discovery | New assignments | Exact historical resolution |
 | --- | --- | --- | --- | --- |
 | `Draft` | No | No | No | No |
 | `Validated` | No | No | No | No |
@@ -47,75 +100,132 @@ storage.
 | `Deprecated` | Yes | No | Yes, by exact reference | Yes |
 | `Archived` | Yes | No | No | Yes |
 
-"Is this a draft" is answered by the absence of a `ProblemId`, not by a stored
-flag. A flag can disagree with the identifier beside it; an absent value
-cannot.
-
-Deprecation and archival preserve historical references because deletion would
-break the record. A deprecated version disappears from discovery but remains
-assignable by an exact reference; archival additionally blocks new references.
-Deprecation carries an author explanation, and archival retains it.
-
-## Transitions
-
-Every change passes through one fallible function:
-
-```rust
-pub fn apply(
-    state: Lifecycle,
-    event: LifecycleEvent,
-) -> Result<Lifecycle, LifecycleError>
-```
-
-Legal moves:
+Only these forward transitions are legal:
 
 | From | Event | To |
 | --- | --- | --- |
 | `Draft` | `Validate` | `Validated` |
-| `Validated` | `Publish { problem }` | `Published`, carrying the server-minted `ProblemId` |
+| `Validated` | `Publish { publication }` | `Published` |
 | `Published` | `Deprecate { reason }` | `Deprecated` |
 | `Deprecated` | `Archive` | `Archived` |
 
-Anything else returns `LifecycleError::IllegalTransition`; an empty
-deprecation explanation returns `LifecycleError::EmptyDeprecationReason`.
-There is no restore transition. Correcting published content means publishing
-a new immutable version and deprecating the superseded one when appropriate.
+`question_model::lifecycle::apply` rejects skips, reversals, and empty
+deprecation explanations. The pure transition receives the publication pair;
+the server publication flow is responsible for minting that pair and recording
+the immutable payload, scope, authorship, and provenance atomically. There is
+no restore transition. A correction publishes a new immutable version rather
+than modifying a learner's historical question.
 
-The caller places the minted identifier in the publish event rather than the
-function creating one internally. That keeps minting server-side, where the
-`generate` feature is on, while leaving the pure transition callable in
-key-free clients.
+Within one problem, `previousVersion` makes a linear revision chain. A
+third-party derivative starts a different `ProblemId` and records its source
+`ProblemVersionRef` in `derivedFrom`; this preserves attribution and license
+lineage without granting the derivative author write access to the source
+chain.
 
-## Version ownership and forks
+Publication scope is `Institution` or `Public`. It applies only after
+publication. There is intentionally no "private published problem" scope:
+private editable work remains a tenant-owned draft.
 
-A problem has a nonempty author set and a linear version chain. An author may
-publish one successor whose `previousVersion` points to the version it revises.
-The store locks that base version and refuses a second successor, so conflicting
-branches cannot silently form under one `ProblemId`.
+## Attempts: durable authority, not a large request body
 
-A third party creates a new `ProblemId` instead. Its first version records the
-exact source in `derivedFrom`, preserving attribution and license lineage
-without granting write access to another author's chain.
+`QuestionAttemptId` is the primary identity for an ordinary learner submission.
+An issued attempt already binds, server-side:
 
-## Why immutability pays for itself
+- authenticated learner and tenant;
+- run, assignment position, and policy snapshot;
+- exact `ProblemVersionRef` and generated seed;
+- deadline and lifecycle/submission state; and
+- adapter, renderer, generator, source-object, asset-object, and grading
+  provenance necessary for reproducibility.
 
-An assignment references `(ProblemId, VersionId)`, not just a problem. So:
+The compact route `POST /api/submissions/{attemptId}` therefore needs the
+attempt UUID once, an idempotency key in the request header, a presentation
+consistency token, and the learner's answer. The browser must not resend the
+problem, version, assignment, course, seed, backend, grading mode, or a
+response `kind` as authority. The server resolves the strict answer decoder
+from the issued attempt's response schema.
 
-- Improving a problem creates a new version and leaves every course that
-  already assigned the old one delivering exactly what it delivered before.
-- A grade stays auditable, because the exact version a student saw still
-  exists.
-- One published version serves thousands of courses with no copying, which is
-  what makes the shared catalog work at all.
+A UUID's 36-character JSON spelling is not a useful latency target when it is
+sent once amid HTTP headers and a render payload. Repeating durable UUIDs for
+each selectable item would be wasteful, which is why presentation identity has
+a separate compact representation.
 
-The cost is that "edit a published problem" is not an operation. Publishing a
-new version is, and instructors are told which of their assignments reference
-an older one.
+## Presentation-scoped rendered identity
+
+The approved payload design introduces `RenderedItemIdV1` for an addressable
+object in one issued presentation. It is exactly four lowercase hexadecimal
+characters such as `4ef3`, derived by the server with CRC-16/CCITT-FALSE from
+the presentation nonce, immutable version, seed, role, ordinal, durable
+semantic item identity, and canonical public item content.
+
+Rendered IDs are appropriate for selected choices, multi-blank slots, both
+sides of matching, ordering items, and hotspot surfaces or named regions. A
+single ordinary text or numeric field has no reason to carry one. The browser
+shows ordinary labels and content, not the code, then submits the compact code
+inside the family-specific answer shape.
+
+| Durable semantic ID | Rendered item ID |
+| --- | --- |
+| `ChoiceId` (or another internal slot/item identity) | `RenderedItemIdV1` |
+| Stable across the authored question's semantics | Valid only inside one attempt presentation |
+| Used by server grading and content models | Used for compact browser correspondence |
+| May be longer opaque text | Exactly four lowercase hex characters |
+| Never inferred from a label or position | Derived from the full rendered context |
+
+At issuance, PLE derives IDs for the entire presentation, requires uniqueness
+across roles as well as within a response family, retries with a fresh
+16-byte nonce when a collision occurs, and fails closed after the documented
+retry limit. The server either reproduces the native mapping deterministically
+from immutable version, seed, and nonce or persists the validated external
+renderer mapping for the attempt.
+
+CRC16 is intentionally a compact correspondence and error-detection value.
+It is not secret, collision-resistant, authentication, authorization,
+transport integrity, proof that a learner saw pixels, or proof that an answer
+is correct. TLS protects transfer integrity; session ownership, RLS, timing,
+attempt lifecycle, and idempotency remain the security boundaries.
+
+## Whole-presentation consistency
+
+Fine-grained IDs tell the server which issued objects the browser selected. A
+separate whole-presentation SHA-256 digest binds the canonical public
+descriptor: version, seed, nonce, prompt, response schema, rendered item
+roles/order/content, asset identities/checksums, and hotspot geometry. The
+database retains all 32 digest bytes; the public `pd1_...` token transports a
+128-bit base64url prefix.
+
+The digest is also a consistency value rather than authentication. It catches
+application-state mistakes such as a stale tab, mixed cached envelope, wrong
+choice ordering, or a valid render accidentally paired with the wrong attempt.
+On mismatch, PLE does not grade or mutate the attempt: it returns the stable
+`409 presentation_mismatch`, retains bounded diagnostics, reloads the same
+attempt presentation, and lets the learner review compatible recovered input.
+It must not silently issue a new seed or grade a stale answer.
+
+## Design invariants
+
+- Draft, shared published content, tenant educational records, and physical
+  objects have different owners and identifiers.
+- Publication is a new immutable identity boundary, not an edit in place.
+- Assignments and attempts pin exact versions; catalog "latest" is for
+  instructor discovery, never historical replay.
+- `QuestionAttemptId` identifies the server-owned grading context; it is not a
+  bearer capability.
+- A compact rendered ID is local to one presentation and never becomes a
+  durable database or catalog identity.
+- CRC16 and a presentation digest add consistency evidence only; they never
+  replace authenticated server-side grading or tenant isolation.
 
 ## Related documents
 
-- [QUESTION_MODEL.md](QUESTION_MODEL.md): the types these identifiers live in.
-- [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md): the shared-content versus
-  tenant-owned split that decides which identifiers carry a tenant.
-- [active_plans/implementation_plan.md](active_plans/implementation_plan.md):
-  publication governance and retention.
+- [QUESTION_MODEL.md](QUESTION_MODEL.md): public model and answer-bearing
+  boundary.
+- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md): normative
+  render, response, digest, and rendered-ID wire strategy.
+- [OBJECT_STORAGE.md](OBJECT_STORAGE.md): logical asset versus immutable object
+  storage and delivery grants.
+- [DATABASE_TENANCY.md](DATABASE_TENANCY.md): tenant ownership, RLS, and
+  retention.
+- [SECURITY_MODEL.md](SECURITY_MODEL.md): authorization and server-only
+  grading boundaries.
+- [CONTRACTS.md](CONTRACTS.md): change-control register for public contracts.

@@ -105,6 +105,7 @@ where
             envelope: issued.envelope,
             parameter_hash: issued.parameter_hash,
             provenance: issued.provenance,
+            webwork_replay: None,
         })
     }
 

@@ -53,7 +53,7 @@ fn radio_replay() -> WebworkReplayMappingV1 {
 const MATCHING_BODY: &str = r#"<div class="PGML">
 Match each description with its functional group.
 Note: Each choice will be used exactly once.<div style="margin-top:1em"></div><div class="two-column"><div>
-<div class="d-inline text-nowrap" data-feedback-insert-element="AnSwEr0001" data-feedback-insert-method="append_content"><select aria-label="answer 1 " class="pg-select" id="AnSwEr0001" name="AnSwEr0001" size="1"><option class="tex2jax_ignore" disabled selected value="">?</option><option class="tex2jax_ignore" selected value=""></option><option class="tex2jax_ignore" value="A">A</option><option class="tex2jax_ignore" value="B">B</option></select></div> <strong>1.</strong> Can carry a positive charge<div style="margin-top:1em"></div><div class="d-inline text-nowrap" data-feedback-insert-element="AnSwEr0002" data-feedback-insert-method="append_content"><select aria-label="answer 2 " class="pg-select" id="AnSwEr0002" name="AnSwEr0002" size="1"><option class="tex2jax_ignore" disabled selected value="">?</option><option class="tex2jax_ignore" selected value=""></option><option class="tex2jax_ignore" value="A">A</option><option class="tex2jax_ignore" value="B">B</option></select></div> <strong>2.</strong> —H<sub>2</sub>PO<sub>4</sub><sup>–</sup>
+<div class="d-inline text-nowrap" data-feedback-insert-element="AnSwEr0001" data-feedback-insert-method="append_content"><select aria-label="answer 1 " class="pg-select" id="AnSwEr0001" name="AnSwEr0001" size="1"><option class="tex2jax_ignore" disabled selected value="">?</option><option class="tex2jax_ignore" selected value=""></option><option class="tex2jax_ignore" value="A">A</option><option class="tex2jax_ignore" value="B">B</option></select></div> <strong>1.</strong> Can carry a positive charge<div style="margin-top:1em"></div><div class="d-inline text-nowrap" data-feedback-insert-element="AnSwEr0002" data-feedback-insert-method="append_content"><select aria-label="answer 2 " class="pg-select" id="AnSwEr0002" name="AnSwEr0002" size="1"><option class="tex2jax_ignore" disabled selected value="">?</option><option class="tex2jax_ignore" selected value=""></option><option class="tex2jax_ignore" value="A">A</option><option class="tex2jax_ignore" value="B">B</option></select></div> <strong>2.</strong> -H<sub>2</sub>PO<sub>4</sub><sup>-</sup>
 </div><div class="right-col">
 A. <span style="color: #003fff; font-weight:700;">Amino</span><div style="margin-top:1em"></div>B. <span style="color: #935d00; font-weight:700;">Phosphate</span>
 </div></div>
@@ -274,7 +274,7 @@ fn recorded_upstream_matching_result_becomes_answer_free_typed_matching() {
     assert_eq!(
         prompts[1].body,
         vec![ContentBlock::Text {
-            markdown: "—H2PO4–".into()
+            markdown: "-H2PO4-".into()
         }]
     );
     assert_eq!(

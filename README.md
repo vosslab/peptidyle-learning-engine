@@ -8,10 +8,9 @@ capability-sized source ownership are accepted. RC3's source-pinned upstream `/r
 passed its live build, authenticated PLE API, outage-isolation, cache, grading, and keyboard-browser
 gates; ARCH1 closed the dated 26-file source-size baseline with no maintained source at 1,000 lines
 or more. Native questions and the regular local stack continue to work without the optional renderer
-profile. PLE flat-question JSON v2 now implements the eight required flat families using the
-reviewed QTI Package Maker item semantics while preserving version 1 single-choice bytes. See the
-[current project status](docs/active_plans/project_status_report_2026-08-09.md) for verified
-evidence, milestone posture, blockers, and dependency order.
+profile. PLE flat-question JSON v2 now implements the eight required flat families using the reviewed
+QTI Package Maker item semantics while preserving version 1 single-choice bytes. The current snapshot is
+[docs/active_plans/reports/project_status_report_2026-08-10.md](docs/active_plans/reports/project_status_report_2026-08-10.md).
 
 The accepted six-file database baseline is frozen. Every later schema change is a forward migration;
 the maintained course-appearance schema is the first one. The maintained Compose stack is for local
@@ -24,6 +23,10 @@ The central teaching promise is a mastery loop that does not disappear when an a
 complete. An instructor can keep completion, scoring, variation, continued practice, and feedback
 disclosure as separate course policies, while students see one focused question at a time and can
 continue practicing with fresh values.
+
+[docs/MASTERY_ASSIGNMENT_DESIGN.md](docs/MASTERY_ASSIGNMENT_DESIGN.md) explains the teaching
+activity PLE presents to instructors and students, alongside the more expressive internal policies
+that implement it.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
@@ -222,7 +225,7 @@ generation is discarded without delaying or rolling back the current grade.
 | Worker runtime                       | Production drains six complete families through a family-filtered registry; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                                              |
 
 The current checkpoint, evidence, and remaining dependency order live in
-[docs/active_plans/project_status_report_2026-08-09.md](docs/active_plans/project_status_report_2026-08-09.md),
+[docs/active_plans/reports/project_status_report_2026-08-10.md](docs/active_plans/reports/project_status_report_2026-08-10.md),
 [docs/active_plans/implementation_status.md](docs/active_plans/implementation_status.md), and
 [docs/active_plans/active/release_completion_plan.md](docs/active_plans/active/release_completion_plan.md).
 The full architecture and milestone plan remain in
@@ -245,8 +248,10 @@ The full architecture and milestone plan remain in
   course. Per-page themes, multiple banners, freeform CSS, SVG/animated uploads, and learner edits are
   out of scope because the accepted version already supplies safe, accessible course identity without
   active-content or styling injection.
-- File-upload responses deliberately fail closed until a server-issued, tenant/learner/attempt-bound
-  upload capability exists.
+- File-upload responses deliberately fail closed until the server-issued,
+  tenant/learner/attempt-bound capability in
+  [docs/active_plans/active/secure_learner_file_upload_plan.md](docs/active_plans/active/secure_learner_file_upload_plan.md)
+  is implemented and accepted.
 - The local container topology is not a production security or deployment configuration.
 
 ## Repository layout
@@ -273,29 +278,26 @@ Start with a local run and the system map:
 - [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) - repository map and the owner of each major
   directory.
 
-Then use these focused boundaries and references:
+The durable documentation has three layers:
 
-- [docs/CONTAINER.md](docs/CONTAINER.md) - local storage, bucket separation, health checks, and
-  compose operations; required deployment selections live in `containers/env.example`.
-- [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) - server-only grading, tenant derivation,
-  protected content, and authenticated route boundaries.
-- [docs/QUESTION_MODEL.md](docs/QUESTION_MODEL.md) and
-  [docs/ACTIVITY_MODEL.md](docs/ACTIVITY_MODEL.md) - published question and learner-activity
-  contracts.
-- [docs/CONTRACTS.md](docs/CONTRACTS.md) - frozen module ownership and atomic change rules.
-- [docs/DATABASE_STRUCTURE.md](docs/DATABASE_STRUCTURE.md) - implemented table relationships,
-  proposed production identity/passkey tables, FERPA isolation, and pilot-to-scale estimates.
-- [docs/ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md](docs/ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md)
-  - current student no-mouse task model, fixes, executable evidence, and remaining human evaluation.
-- `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`
-  - durable Tab, arrow, Enter, Space, Escape, focus, recovery, and response-family requirements.
+- Source authorities are [docs/HUMAN_GUIDANCE.md](docs/HUMAN_GUIDANCE.md), the active
+  [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md),
+  [docs/CONTRACTS.md](docs/CONTRACTS.md), and the named code owner.
+- [docs/DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md) is the conceptual entrypoint: it explains
+  why the platform has its key boundaries and directs readers to the detailed contract maps.
+- Operating and reference documents cover the local stack, question formats, browser behavior,
+  security, storage, and external backends. [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md)
+  and [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) provide the curated map rather than
+  repeating every link here.
 
 For status and contribution work:
 
 - [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md) - milestone
   plan, module catalog, contracts, and acceptance gates; the source of truth for this build.
+- [docs/active_plans/reports/project_status_report_2026-08-10.md](docs/active_plans/reports/project_status_report_2026-08-10.md) - current executive status,
+  verification evidence, milestone posture, blockers, and next work.
 - [docs/active_plans/project_status_report_2026-08-09.md](docs/active_plans/project_status_report_2026-08-09.md)
-  - formal executive status, verification evidence, milestone posture, blockers, and next work.
+  - historical Aug. 9 snapshot retained for comparison.
 - [docs/active_plans/partial_commit_status.md](docs/active_plans/partial_commit_status.md) - historical
   handoff record; it is not the current status authority.
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) - dated record of changes, decisions, and failures.

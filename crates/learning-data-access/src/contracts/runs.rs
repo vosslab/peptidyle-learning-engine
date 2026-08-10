@@ -4,7 +4,7 @@ use super::*;
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct WebworkReplayControlV1 {
-    pub item: question_model::response::ChoiceId,
+    pub item: question_model::presentation::RenderedItemIdV1,
     pub field: String,
     pub value: String,
 }
@@ -13,7 +13,7 @@ pub struct WebworkReplayControlV1 {
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct WebworkReplayMatchPromptV1 {
-    pub prompt: question_model::response::ChoiceId,
+    pub prompt: question_model::presentation::RenderedItemIdV1,
     pub field: String,
     pub choices: Vec<WebworkReplayControlV1>,
 }
@@ -185,6 +185,40 @@ pub(crate) fn webwork_replay_state_from_issue(
     })
 }
 
+/// Validates that persisted private replay state still belongs to the exact
+/// attempt presentation that owns it.
+///
+/// Storage calls this after authorization and before returning replay state to
+/// a grader. A row that is individually well formed but cross-wired to another
+/// attempt is unavailable authority, never a usable mapping.
+pub(crate) fn validate_persisted_webwork_replay_state(
+    attempt: &QuestionAttempt,
+    presentation: Option<PresentationBindingV1>,
+    state: &WebworkGradeReplayStateV1,
+) -> Result<(), StoreError> {
+    state
+        .mapping
+        .validate()
+        .map_err(|_| StoreError::Unavailable("stored WeBWorK replay mapping is invalid".into()))?;
+    let Some(presentation) = presentation else {
+        return Err(StoreError::Unavailable(
+            "stored WeBWorK replay lacks its presentation binding".into(),
+        ));
+    };
+    if state.problem != attempt.problem
+        || state.version != attempt.question_version
+        || state.seed != attempt.seed
+        || attempt.provenance.source_artifact.as_ref() != Some(&state.source_artifact)
+        || attempt.provenance.renderer.as_ref() != Some(&state.renderer)
+        || state.presentation_digest != presentation.digest()
+    {
+        return Err(StoreError::Unavailable(
+            "stored WeBWorK replay disagrees with its owning attempt".into(),
+        ));
+    }
+    Ok(())
+}
+
 /// Bounded client-generated key for replaying one submission safely.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SubmissionIdempotencyKey(String);
@@ -235,8 +269,11 @@ pub struct IssueQuestionAttemptCommand {
     pub parameter_hash: String,
     /// Adapter, generator, renderer, source, asset, and grading provenance.
     pub provenance: AttemptProvenance,
-    /// Exact answer-free presentation state issued to this attempt.
-    pub presentation: PresentationBindingV1,
+    /// Exact answer-free presentation state for compact-payload families.
+    ///
+    /// File upload and external-tool responses remain outside presentation v1
+    /// until their dedicated transfer or broker contracts ship.
+    pub presentation: Option<PresentationBindingV1>,
     /// Private answer-free upstream mapping, present only for WeBWorK.
     pub webwork_replay: Option<WebworkReplayMappingV1>,
     /// Server-owned candidate prepared while the preceding attempt was active.

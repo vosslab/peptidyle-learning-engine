@@ -12,7 +12,9 @@ that AWS deployment has been accepted. The source contracts are
 The supported local topology runs one Caddy gateway, one or more stateless API
 replicas, one or more durable-worker replicas, one PostgreSQL 17 instance, and
 one MinIO instance. The native stack is the supported default. The optional
-WeBWorK renderer and its MariaDB database are private WP-RC3-pending adjuncts.
+WeBWorK renderer and its MariaDB database are private adjuncts that support the
+accepted, deliberately bounded WP-RC3 path: one licensed user-authored PGML
+RadioButtons fixture. They do not imply broad WeBWorK compatibility.
 A local two-API-replica restart test exists and has been used as the behavioral
 proof that a learner can continue after the issuing API replica stops.
 
@@ -215,10 +217,11 @@ PLE_GATEWAY_HOST_PORT="$(awk -F= '$1 == "PLE_GATEWAY_HOST_PORT" { print $2 }' co
 curl --fail --silent --show-error "http://127.0.0.1:${PLE_GATEWAY_HOST_PORT}/health"
 ```
 
-For the WP-RC3-pending renderer path, the base Compose file supplies the
-profile services and `compose.webwork.yaml` injects API renderer configuration
-and its secret-runtime volume. Preserve both the overlay and the profile on all
-subsequent operator commands:
+For the accepted, bounded WP-RC3 renderer path, the base Compose file supplies
+the profile services and `compose.webwork.yaml` injects API renderer
+configuration and its secret-runtime volume. Preserve both the overlay and the
+profile on all subsequent operator commands. Matching and broader problem
+compatibility remain assigned to WP-RC5:
 
 ```bash
 podman compose -f containers/compose.yaml -f containers/compose.webwork.yaml \

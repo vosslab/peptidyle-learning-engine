@@ -171,7 +171,9 @@ new version; it cannot silently reinterpret v1.
 ## Non-goals
 
 - File-upload and external-tool response payloads are out of v1 because neither is an accepted
-  WP-RC5 family; each needs its own object-transfer or broker contract.
+  WP-RC5 family; each needs its own object-transfer or broker contract. The dedicated file boundary
+  is now decision-complete in
+  `docs/active_plans/active/secure_learner_file_upload_plan.md`.
 - The digest and CRC do not authenticate a browser, replace TLS, prove a pixel painted, prove an
   image decoded, or prevent a malicious authenticated learner from submitting an allowed answer.
 - Current v1 flat questions and RC3 WeBWorK MC do not gain partial-credit rules here. Future
@@ -250,8 +252,9 @@ immediately follows `1`. Strings are a `u32` big-endian byte length followed by 
 Vectors are a `u32` big-endian element count followed by ordered encodings. SHA-256 values are 32
 raw bytes. UUIDs are 16 raw bytes. Unsigned integers are big endian. Maps and floating-point values
 are prohibited. Text is neither Unicode-normalized nor reinterpreted. The public schema represents
-hotspot coordinates as integers in a 0..1,000,000 plane. Adding, removing, or reordering any field
-requires `PresentationDescriptorV2` and a new domain tag.
+hotspot coordinates as integers in the inclusive `0..10,000` plane. This gives 0.01% normalized
+precision while remaining independent of browser pixels, zoom, responsive layout, and image density.
+Adding, removing, or reordering any field requires `PresentationDescriptorV2` and a new domain tag.
 
 `ResponseSchemaV1` has fixed family tags: `singleChoice=0`, `multipleAnswer=1`, `fillIn=2`,
 `multiFillIn=3`, `numerical=4`, `matching=5`, `ordering=6`, and `hotspot=7`. It encodes only public
@@ -275,7 +278,7 @@ orders, rather than Rust enum source order, are the wire contract.
 Item construction is deliberately two-stage. `RenderableItemBasisV1` is encoded with the same
 primitives and contains, in order: item-role `u8`, ordinal `u32`, optional public label, ordered public
 `ContentBlockV1` values, ordered `AssetBindingV1` values, and optional hotspot intrinsic width/height
-plus the fixed 0..1,000,000 coordinate-plane tag. It contains neither the durable internal ID nor
+plus the fixed inclusive `0..10,000` coordinate-plane tag. It contains neither the durable internal ID nor
 `RenderedItemIdV1`. Item-role tags are `choice=0`, `blank=1`, `matchPrompt=2`, `matchChoice=3`,
 `orderItem=4`, and `hotspotSurface=5`.
 
@@ -441,9 +444,9 @@ one object-store read is acceptable for correctness, and no evidence currently s
 material stage. If WP-P6 later proves otherwise, that evidence owns a separate bounded cache package
 keyed and revalidated by immutable object ID/SHA.
 
-### Prefetch and caching
+### Prefetch and caching (target state)
 
-The server always reserves and pre-renders a next question privately. The strict
+At the target cutover, the server always reserves and pre-renders a next question privately. The strict
 `PrefetchedQuestionPayloadV1` record contains `descriptorVersion`, the 16-byte nonce, the 32-byte
 digest, answer-free envelope, immutable version/seed/parameter binding, and answer-free provenance.
 Its Rust decoder denies unknown fields and validates those fields against both the envelope and the

@@ -211,7 +211,7 @@ async fn memory_student_and_group_exceptions_are_most_permissive_and_immediate()
                 problem: reference.problem,
                 question_version: reference.version,
                 seed: 5,
-                presentation: presentation_binding(13),
+                presentation: Some(presentation_binding(13)),
                 parameter_hash: "exception-parameters".to_string(),
                 provenance: AttemptProvenance {
                     adapter: implementation("timing-native"),

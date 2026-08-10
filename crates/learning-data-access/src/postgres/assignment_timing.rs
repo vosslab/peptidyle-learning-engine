@@ -1,7 +1,8 @@
 //! PostgreSQL assignment timing, policy exceptions, and timed-attempt job helpers.
 
 use super::connection::map_sqlx_error;
-use super::{add_seconds, decode_payload_row, decode_payload_row_named};
+use super::runs::add_seconds;
+use super::{decode_payload_row, decode_payload_row_named};
 
 use question_model::run_policy::TimingPolicy;
 use question_model::{

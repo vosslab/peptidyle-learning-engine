@@ -391,23 +391,28 @@ scores or grading metadata.
 ### Current private flow
 
 The browser-facing WeBWorK envelope is already sanitized and answer-free. PLE resolves immutable PG
-source from server-only object storage and caches the safe render by problem, version, and seed. A
-cache hit performs no renderer call.
+source from server-only object storage and caches the safe render by problem, version, and seed. An
+**issue** cache hit reuses that public render but still makes one private same-seed renderer call to
+recover and verify the replay mapping that the safe cache deliberately excludes. In contrast,
+reproducing an already-issued attempt reads only the safe cache and makes no renderer call; its
+attempt-bound replay mapping is loaded separately from tenant storage.
 
 PLE privately calls the shipped `/webwork2/render_rpc` form endpoint with source, file path, seed,
 course, user, password, and display controls. Those fields never cross the browser boundary. The
-current grading path performs two private calls:
+accepted RC3 grading path originally performed two private calls:
 
 1. rerender the same source and seed to recover and validate the opaque PLE-choice to upstream
    `AnSwEr...` field/value mapping; and
 2. call the same endpoint with the selected upstream field/value and `WWsubmit=1`.
 
-The official upstream endpoint is stateless, so PLE must still send source and server credentials on
-the private grade call. That repetition is an internal service cost, not learner payload.
+The post-RC3 persistence slice now stores the validated mapping under the issued attempt. Normal grade
+reproduces the safe cache locally and performs only the second private call. The official upstream
+endpoint is stateless, so PLE must still send source and server credentials on that private grade
+call. That repetition is an internal service cost, not learner payload.
 
-### Target private flow
+### Implemented private replay slice and remaining target
 
-At issue time, PLE should persist a bounded, server-only replay record mapping each rendered-item ID
+At issue time, PLE now persists a bounded, server-only replay record mapping each rendered-item ID
 to its validated upstream field/value. The record contains no source, credential, session key,
 correct-answer flag, raw provider result, or browser-visible field name.
 
@@ -419,10 +424,16 @@ Normal grade then:
 4. makes one private `render_rpc` grade call; and
 5. accepts only the supported result shape and score policy.
 
-If replay state is missing after a recoverable pre-commit failure, PLE may perform one fully validated
-same-seed self-heal rerender. Binding disagreement refuses before grading. The browser never receives
-or resubmits PG source, upstream field names, radio values, passwords, session keys, renderer URLs,
-or provider score objects.
+Step 2 is currently reached from the tagged durable-choice compatibility response after exact
+presentation reproduction. WP-P3 changes only the public decoder so the learner sends the rendered
+item ID directly.
+
+Binding disagreement refuses before grading. Successful submission and terminal instructor action
+delete replay state atomically. A legacy attempt with no row currently takes a bounded validated
+same-seed rerender fallback, but persisting a self-healed row plus disposable PostgreSQL and private
+renderer request-count evidence remain WP-P4 acceptance work. The browser never receives or
+resubmits PG source, upstream field names, radio values, passwords, session keys, renderer URLs, or
+provider score objects.
 
 Current RC3 WeBWorK supports one `RadioButtons` group as a single-choice interaction with
 all-or-nothing grading. Matching and partial-credit WeBWorK interactions require their own accepted
@@ -556,10 +567,12 @@ it. The server, not the browser:
 - renders and stores the public presentation binding; and
 - promotes the reservation atomically only after the predecessor commits.
 
-For untimed mastery and practice work, the browser may receive the next answer-free envelope early
-and warm a bounded set of same-origin assets. For timed or exam policy, PLE may pre-render privately
-but must not reveal the next envelope until the current attempt commits. Prefetch never grades,
-starts the next timer, or lets the browser choose a seed, backend, or source.
+The following is target behavior, not a claim about the current prefetch route. For untimed mastery
+and practice work, the browser may receive the next answer-free envelope early and warm a bounded
+set of same-origin assets. For timed or exam policy, PLE may pre-render privately but must not reveal
+the next envelope until the current attempt commits. The current bodyless reservation route does not
+yet enforce that timing-policy distinction. Prefetch never grades, starts the next timer, or lets the
+browser choose a seed, backend, or source.
 
 ## Security properties
 
@@ -666,7 +679,7 @@ Permanent tests protect stable behavior:
 - presentation mismatch causes no grade or mutation;
 - exact idempotent replay and changed-replay conflict;
 - learner-screen and receipt allowlists;
-- prefetch promotion and timed-content withholding;
+- target prefetch promotion and timed-content withholding;
 - normal one-call WeBWorK grading; and
 - browser traces exclude private material.
 
@@ -700,7 +713,9 @@ The pre-production cutover:
 
 Historical records remain available through bounded history and summary projections. Production data
 is never deleted or recreated as a shortcut. File upload and external-tool submission contracts stay
-out of this v1 cutover because they require separate object-transfer and broker designs.
+out of this v1 cutover because they require separate object-transfer and broker designs. The file
+boundary is specified separately in
+`docs/active_plans/active/secure_learner_file_upload_plan.md`.
 
 ## Final decisions
 
@@ -712,7 +727,7 @@ out of this v1 cutover because they require separate object-transfer and broker 
 - Keep all correctness, component scoring, and partial credit server-owned.
 - Return one minimal learner screen and one compact, policy-projected receipt.
 - Cache only answer-free public renders and immutable assets.
-- Prefetch only through server-owned reservations and withhold timed content.
+- Use server-owned reservations for prefetch; add timed-content withholding at the target cutover.
 - Keep the official WeBWorK exchange private and reduce normal grading from two RPCs to one through
   bounded server-only replay state.
 - Optimize request fan-out, assets, database work, and renderer execution before shaving already tiny

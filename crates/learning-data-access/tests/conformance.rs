@@ -80,6 +80,7 @@ use learning_data_access::{
     SetAssignmentPolicyExceptionCommand, SetManualGradeCommand, Store, StoreError,
     SubmissionIdempotencyKey, SubmitPendingManualQuestionAttemptCommand,
     SubmitQuestionAttemptCommand, TenantContext, UpdateAssignmentTimingCommand,
+    WebworkReplayControlV1, WebworkReplayMappingV1,
 };
 use learning_data_access::{
     BeginExternalToolGradeCommand, CommitVerifiedExternalToolSubmissionCommand,
@@ -120,9 +121,9 @@ use question_model::{
     GeneratorReference, GradePolicy, GradingDefinition, ImplementationVersion,
     LateSubmissionPolicy, ObjectId, PointValue, PresentationBindingV1, PresentationDigestV1,
     PresentationNonceV1, ProblemId, ProblemVersionRef, PublicationScope, QuestionAttempt,
-    QuestionAttemptId, QuestionBackend, QuestionMetadata, QuestionSource, ResponseDefinition,
-    RunId, RunMode, RunPolicies, SourceArtifact, StudentId, TenantId, UserId, UserRole,
-    VariationPolicy, VersionId, WorkspaceId, WorkspaceImportId,
+    QuestionAttemptId, QuestionBackend, QuestionMetadata, QuestionSource, RenderedItemIdV1,
+    ResponseDefinition, RunId, RunMode, RunPolicies, SourceArtifact, StudentId, TenantId, UserId,
+    UserRole, VariationPolicy, VersionId, WorkspaceId, WorkspaceImportId,
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 use uuid::Uuid;

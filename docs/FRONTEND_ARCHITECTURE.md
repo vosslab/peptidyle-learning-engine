@@ -7,8 +7,15 @@ it never decides whether an answer is correct.
 
 The browser-interface requirements originate in the
 [active implementation plan](active_plans/implementation_plan.md),
-[docs/PLAYFUL_TRAINING_GAME_STYLE.md](PLAYFUL_TRAINING_GAME_STYLE.md), and
-[docs/COLOR_CONTRAST_ACCESSIBILITY.md](COLOR_CONTRAST_ACCESSIBILITY.md).
+[SOLID_MODEL.md](SOLID_MODEL.md),
+[NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md), and
+[COLOR_CONTRAST_ACCESSIBILITY.md](COLOR_CONTRAST_ACCESSIBILITY.md). The durable
+browser/server, payload, cache, failure, and object-delivery decisions live in
+[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md),
+[OBJECT_STORAGE.md](OBJECT_STORAGE.md), and
+[SECURITY_MODEL.md](SECURITY_MODEL.md). This document explains how those
+contracts meet inside the Solid application; it does not create a competing
+wire or security contract.
 
 ## Primary flow
 
@@ -114,6 +121,46 @@ course, and exact immutable question lookup. It verifies their ID and tenant
 relationships instead of assuming that independently valid responses belong
 together. List traversal remains cursor-only and rejects a repeated cursor.
 
+## Learner attempt boundary
+
+The run page owns one controlled learner-response state machine. It keeps the
+editable response and one idempotency key in session storage only for the
+current tenant/run/attempt. It removes the buffer after a known success or a
+schema-invalid restore, and revalidates a restored response against the exact
+issued definition before showing it. It never stores envelopes, feedback
+awaiting release, provider state, or answer-bearing material. The machine
+calls the response widget only for format-ready responses; it does not infer
+correctness, partial credit, or the next question.
+
+`ResponseWidget` is an exhaustive dispatcher over the browser-safe
+`ResponseDefinition` vocabulary. Each response-family controller owns native
+semantics, local input state, format-status reporting, and its documented
+keyboard extension. It does not own a grading rule. The file-upload controller
+is intentionally a visible fail-closed unavailable state until the
+tenant/learner/attempt-bound upload-capability contract is implemented. The
+external-tool controller can request only a same-origin PLE broker path and
+treats frame readiness as presentation state, not as a grade.
+
+The current submit request remains attempt-addressed and idempotent. Its typed
+`StudentResponse` still carries `kind`; the server revalidates that shape from
+the issued attempt, so `kind` is not browser grading authority. The accepted
+target contract removes that redundant discriminant from the response wire,
+uses an attempt-specific presentation digest plus rendered-item IDs, and lets
+the server choose the strict family decoder from the attempt record. The exact
+current-versus-target distinction and family payloads are defined in
+[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md); do not duplicate
+or quietly widen them in a component.
+
+After a response commits, the browser may retain one answer-free prefetched
+successor in memory. It accepts that envelope only when its predecessor, run,
+position, immutable version, seed, and rendered hash exactly match the
+server's committed successor receipt. A mismatch, decoder failure, network
+failure, or route teardown drops the speculation and reloads the ordinary run
+screen. Prefetch starts no timer, has no durable browser storage, and warms at
+most 12 same-origin image assets. Timed/exam early-disclosure policy remains a
+server-route decision. The active implementation plan owns the authoritative
+refusal and recovery rules.
+
 The frozen course-appearance boundary is Rust-owned under
 `crates/question_model/src/course_appearance.rs`. `CourseAppearance` contains
 only one closed `CourseThemeId`, an exact decimal-string
@@ -167,13 +214,14 @@ than substituting another course's appearance.
 shape, initializes it, and converts JSON strings into a typed key-free format
 report. No component calls a raw snake-case export.
 
-The facade presents four browser-style lower-camel-case operations:
+The facade presents five browser-style lower-camel-case operations:
 
 ```text
 validateResponseFormat(definition, response) -> ResponseFormatReport
 timerVerdict(evaluation) -> TimerVerdict
 validateAssignmentConfig(config) -> CapabilityViolation[]
 previewNativeDraft(request, seed) -> NativeDraftPreviewResult
+verifyPresentationDescriptor(envelope, assets, digest) -> match | mismatch | unavailable
 ```
 
 If the generated module cannot import, has the wrong export shape, or fails to
@@ -194,6 +242,17 @@ functions and bound request bodies. These are browser fallback calculations,
 not authoritative decisions: publication re-resolves stored question and
 backend records, run timing uses server-owned timestamps, and correctness
 remains in the server-only grading path.
+
+Presentation verification is deliberately different from local format help.
+It hashes only the public envelope, selected public asset bindings, and the
+server-issued digest; it neither reads an answer nor authenticates a request.
+The browser facade can expose `match`, `mismatch`, or `unavailable` when Wasm
+is degraded. Current run acceptance relies on the strict HTTP decoder and
+receipt/prefetch descriptor match, while server persistence and reproduction
+remain authoritative. The verification operation is therefore a safe browser
+diagnostic seam, not permission for a component to accept, reject, or grade a
+submission. The planned presentation-digest submission boundary is specified
+in [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 
 Course appearance is data projection and route-scoped styling, not local
 computation. It adds no Wasm export and does not change the generated-module
@@ -285,7 +344,7 @@ acceptance claim.
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | Built mock route tests                 | `tests/playwright/frontend_contract.spec.ts` and the student keyboard audit                                     | The compiled mock-backed application resolves product routes and completes the reference course-to-answer journey with Tab, Shift+Tab, Space, explicit submission, and native link activation. | It does not exercise the live API, private renderer, or upstream WebWork.                                  | Complete for the primary platform path. |
 | Dynamically mounted component fixtures | `tests/playwright/student_keyboard_accessibility.spec.ts` and `tests/playwright/external_tool_response.spec.ts` | Production Solid response components isolate Arrow, digit, Enter-to-submit, Escape, and broker interactions so shortcut failures are classified separately.                                    | The fixture bundle is injected into a mock page, not mounted through a complete built route or live stack. | Complete for named widget extensions.   |
-| Source and contract evidence           | `src/wasm/index.ts`, `src/wasm/context.tsx`, `src/main.tsx`, and `tests/test_frontend_contract.mjs`             | The four-operation facade has one shared loader, typed fallbacks for three operations, an unavailable-only preview fallback, and no correctness field in mock format reports.                  | Source and mock-contract checks cannot prove a generated module or a deployed server behaved this way.     | Complete as implementation evidence.    |
+| Source and contract evidence           | `src/wasm/index.ts`, `src/wasm/context.tsx`, `src/main.tsx`, and `tests/test_frontend_contract.mjs`             | The five-operation facade has one shared loader, typed fallbacks for three operations, unavailable-only preview and presentation-verification fallbacks, and no correctness field in mock format reports. | Source and mock-contract checks cannot prove a generated module or a deployed server behaved this way.     | Complete as implementation evidence.    |
 | Required live WebWork gate             | `tests/playwright/webwork_run.spec.ts` through `tests/e2e/e2e_webwork_render_rpc.sh`                            | The private live stack proves the browser calls PLE only, remains answer-free, supports keyboard completion, and receives correct/incorrect outcomes through PLE.                              | It requires explicit private stack and credential inputs; the ordinary mock suite still skips it.          | Passed on 2026-08-10.                   |
 
 - Node tests freeze the route map, mock/client behavior, and absence of
@@ -296,7 +355,7 @@ acceptance claim.
   [`ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md`](ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md).
 - The durable student interaction requirements, including future MATCH, FIB,
   MULTI-FIB, and HOTSPOT behavior, are in
-  `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`.
+  [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md).
 - The live renderer and browser acceptance commands, prerequisites, and
   stop conditions are in
   [`active_plans/workstreams/webwork_shipped_integration.md`](active_plans/workstreams/webwork_shipped_integration.md).

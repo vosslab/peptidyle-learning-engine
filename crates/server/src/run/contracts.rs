@@ -13,7 +13,7 @@ use question_model::{
 };
 
 /// Key-free metadata produced while a trusted adapter issues one instance.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct IssuedAttemptMetadata {
     /// The key-free rendered envelope prepared by the trusted backend.
     pub envelope: QuestionEnvelope,
@@ -25,6 +25,26 @@ pub struct IssuedAttemptMetadata {
     /// `rendered_question_sha256`. For example, WeBWorK includes its
     /// sanitized renderer markup in addition to the shared envelope.
     pub provenance: AttemptProvenance,
+    /// Private answer-free WeBWorK controls keyed by durable item identity.
+    ///
+    /// The run issuance path converts these to presentation-scoped rendered
+    /// IDs before persistence. This value has no serialization surface.
+    pub webwork_replay: Option<adapter_webwork::renderer_contract::WebworkReplayMappingV1>,
+}
+
+impl std::fmt::Debug for IssuedAttemptMetadata {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("IssuedAttemptMetadata")
+            .field("envelope", &self.envelope)
+            .field("parameter_hash", &self.parameter_hash)
+            .field("provenance", &self.provenance)
+            .field(
+                "webwork_replay",
+                &self.webwork_replay.as_ref().map(|_| "[REDACTED]"),
+            )
+            .finish()
+    }
 }
 
 /// The durable disposition of a response chosen by its trusted backend.

@@ -1,47 +1,60 @@
 //! Run issuance and prefetch capability; this module owns its route behavior.
 
-use super::contracts::RunBackend;
+use super::contracts::{IssuedAttemptMetadata, RunBackend, RunBackendError};
 use super::queries::{all_attempts, owned_assignment_for_run, owned_enrollment, owned_run};
 use super::support::*;
+use question_model::ResponseDefinition;
 
-struct PersistedNonceSource(Option<[u8; 16]>);
-
-impl NonceSourceV1 for PersistedNonceSource {
-    fn next_nonce(&mut self) -> Result<[u8; 16], PresentationBuildError> {
-        self.0
-            .take()
-            .ok_or(PresentationBuildError::RenderedIdCollision)
+fn fresh_presentation(
+    envelope: &QuestionEnvelope,
+) -> Result<Option<PresentationV1>, RunBackendError> {
+    if matches!(
+        envelope.response,
+        ResponseDefinition::FileUpload { .. } | ResponseDefinition::ExternalTool {}
+    ) {
+        return Ok(None);
     }
-}
-
-fn fresh_presentation(envelope: &QuestionEnvelope) -> Result<PresentationV1, Response> {
-    build_presentation_v1(envelope, &[]).map_err(|error| {
-        error_response(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            &format!("question presentation is invalid: {error}"),
-        )
-    })
+    build_presentation_v1(envelope, &[])
+        .map(Some)
+        .map_err(|error| {
+            RunBackendError::Invalid(format!("question presentation is invalid: {error}"))
+        })
 }
 
 fn reproduce_presentation(
     envelope: &QuestionEnvelope,
     binding: PresentationBindingV1,
-) -> Result<PresentationV1, Response> {
-    let mut nonce = PersistedNonceSource(Some(binding.nonce().as_bytes()));
-    let presentation =
-        build_presentation_v1_with_nonce_source(envelope, &[], &mut nonce).map_err(|error| {
-            error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                &format!("question presentation cannot be reproduced: {error}"),
-            )
-        })?;
-    if presentation.digest != binding.digest() {
-        return Err(error_response(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "question presentation did not reproduce exactly",
-        ));
+) -> Result<PresentationV1, RunBackendError> {
+    question_model::presentation::reproduce_presentation_v1(envelope, &[], binding).map_err(
+        |error| {
+            RunBackendError::Invalid(format!(
+                "question presentation cannot be reproduced: {error}"
+            ))
+        },
+    )
+}
+
+fn bind_webwork_replay(
+    question: &QuestionDefinition,
+    issued: &IssuedAttemptMetadata,
+    presentation: Option<&PresentationV1>,
+) -> Result<Option<learning_data_access::WebworkReplayMappingV1>, RunBackendError> {
+    match (&question.source, issued.webwork_replay.clone()) {
+        (question_model::QuestionSource::Webwork { .. }, Some(replay)) => presentation
+            .ok_or_else(|| {
+                RunBackendError::Invalid("WeBWorK issuance lacks a presentation binding".into())
+            })
+            .and_then(|presentation| {
+                crate::webwork_backend::persist_replay_mapping(replay, presentation).map(Some)
+            }),
+        (question_model::QuestionSource::Webwork { .. }, None) => Err(RunBackendError::Invalid(
+            "WeBWorK issuance omitted private replay state".into(),
+        )),
+        (_, Some(_)) => Err(RunBackendError::Invalid(
+            "non-WeBWorK issuance returned private replay state".into(),
+        )),
+        (_, None) => Ok(None),
     }
-    Ok(presentation)
 }
 
 /// Prepares the next still-unattempted assignment position while the current
@@ -161,8 +174,19 @@ where
                 Err(error) => return backend_error_response(error),
             };
             let presentation = match fresh_presentation(&issued.envelope) {
+                Ok(Some(value)) => value,
+                Ok(None) => {
+                    return error_response(
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        "this response family cannot be prefetched",
+                    );
+                }
+                Err(error) => return backend_error_response(error),
+            };
+            let webwork_replay = match bind_webwork_replay(&question, &issued, Some(&presentation))
+            {
                 Ok(value) => value,
-                Err(response) => return response,
+                Err(error) => return backend_error_response(error),
             };
             let value = learning_data_access::PrefetchedQuestion {
                 tenant: authenticated.tenant_context.tenant_id(),
@@ -178,6 +202,7 @@ where
                     presentation.envelope.presentation_nonce,
                     presentation.digest,
                 ),
+                webwork_replay,
             };
             let reservation = match state
                 .store
@@ -240,8 +265,19 @@ where
             "prefetched question did not reproduce exactly",
         );
     }
-    if let Err(response) = reproduce_presentation(&issued.envelope, reservation.presentation) {
-        return response;
+    let presentation = match reproduce_presentation(&issued.envelope, reservation.presentation) {
+        Ok(value) => value,
+        Err(error) => return backend_error_response(error),
+    };
+    let replay = match bind_webwork_replay(&question, &issued, Some(&presentation)) {
+        Ok(value) => value,
+        Err(error) => return backend_error_response(error),
+    };
+    if replay != reservation.webwork_replay {
+        return error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "prefetched WeBWorK replay state did not reproduce exactly",
+        );
     }
     no_store(
         Json(PrefetchedNextQuestion {
@@ -429,36 +465,45 @@ where
     S: Store,
     B: RunBackend,
 {
-    let (seed, parameter_hash, provenance, presentation) = match request.prefetched.as_ref() {
-        Some(value) => (
-            value.seed,
-            value.parameter_hash.clone(),
-            value.provenance.clone(),
-            value.presentation,
-        ),
-        None => {
-            let seed = fresh_seed().map_err(backend_error_response)?;
-            let issued = backend
-                .issue(
-                    authenticated.tenant_context,
-                    request.reference,
-                    request.question,
+    let (seed, parameter_hash, provenance, presentation, webwork_replay) =
+        match request.prefetched.as_ref() {
+            Some(value) => (
+                value.seed,
+                value.parameter_hash.clone(),
+                value.provenance.clone(),
+                Some(value.presentation),
+                value.webwork_replay.clone(),
+            ),
+            None => {
+                let seed = fresh_seed().map_err(backend_error_response)?;
+                let issued = backend
+                    .issue(
+                        authenticated.tenant_context,
+                        request.reference,
+                        request.question,
+                        seed,
+                    )
+                    .await
+                    .map_err(backend_error_response)?;
+                let presentation =
+                    fresh_presentation(&issued.envelope).map_err(backend_error_response)?;
+                let webwork_replay =
+                    bind_webwork_replay(request.question, &issued, presentation.as_ref())
+                        .map_err(backend_error_response)?;
+                (
                     seed,
+                    issued.parameter_hash,
+                    issued.provenance,
+                    presentation.map(|presentation| {
+                        PresentationBindingV1::new(
+                            presentation.envelope.presentation_nonce,
+                            presentation.digest,
+                        )
+                    }),
+                    webwork_replay,
                 )
-                .await
-                .map_err(backend_error_response)?;
-            let presentation = fresh_presentation(&issued.envelope)?;
-            (
-                seed,
-                issued.parameter_hash,
-                issued.provenance,
-                PresentationBindingV1::new(
-                    presentation.envelope.presentation_nonce,
-                    presentation.digest,
-                ),
-            )
-        }
-    };
+            }
+        };
     store
         .issue_or_resume_question_attempt(
             authenticated.tenant_context,
@@ -473,6 +518,7 @@ where
                 parameter_hash,
                 provenance,
                 presentation,
+                webwork_replay,
                 prefetched: request.prefetched,
                 predecessor_submission: request.predecessor_submission,
             },

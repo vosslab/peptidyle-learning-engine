@@ -446,6 +446,7 @@ pub(super) fn apply_memory_attempt_support(
             .insert(key, (generation, ScoringStatus::Recalculating));
     }
     state.attempt_current.insert((tenant, attempt_id), current);
+    state.webwork_grade_replay.remove(&(tenant, attempt_id));
     complete_memory_attempt_timing_job(state, tenant, attempt_id);
     state
         .attempt_support_actions

@@ -230,7 +230,7 @@ async fn issue(
                 problem: reference.problem,
                 question_version: reference.version,
                 seed: u64::try_from(id).expect("fixture seed"),
-                presentation: presentation_binding(id as u8),
+                presentation: Some(presentation_binding(id as u8)),
                 parameter_hash: format!("item-analysis-parameters-{id}"),
                 provenance: provenance(&id.to_string()),
                 webwork_replay: None,

@@ -1,103 +1,229 @@
 # Determinism contract
 
-Seeded generation must produce byte-identical canonical output in native Rust
-and browser WebAssembly. This is an exact contract, not a statistical test: the
-render cache uses `(version_id, seed)`, and each historical attempt stores a
-generated-parameter hash for reproducibility.
+This document defines what PLE reproduces exactly, what it merely checks for
+consistency, and what must remain server-owned. It applies to native generated
+questions, WeBWorK renders, issued learner presentations, cache entries, and
+prefetch reservations.
 
-This replay contract does not authorize seed reuse for new work. Every newly
-issued parameterized question instance receives a fresh server-owned seed so
-students see new practice; only resume and re-render of the same attempt reuse
-its recorded seed.
+The central rule is deliberately narrow: **the same immutable inputs must
+reproduce the same authoritative artifact.** It does not mean that every new
+attempt receives the same presentation. A newly issued learner attempt gets a
+fresh seed and a fresh presentation nonce; resuming or reproducing that same
+attempt uses the stored values.
 
-## Published identity
+## Contract layers
 
-A seeded `RandomizationDefinition` pins all authoritative generation inputs:
+| Layer | Authoritative inputs | Exact result | Owner |
+| --- | --- | --- | --- |
+| Generated parameters | generator reference, definition, seed | `GeneratedVariant` and SHA-256 | `domain` and Wasm |
+| Native issued question | immutable question version, seed | envelope and attempt provenance | trusted server backend |
+| WeBWorK safe render | problem, immutable version, source artifact, seed, renderer | safe cached envelope and sanitized markup | private adapter/renderer |
+| Learner presentation | answer-free envelope, asset bindings, stored nonce | response schema, rendered IDs, descriptor digest | trusted server; browser may verify |
+| Submission | authenticated attempt, idempotency key, learner response | one stored receipt or conflict | trusted server/store |
 
-- a stable generator ID;
-- an additive generator version; and
-- a `BTreeMap` of named parameter specifications.
+The first four rows are reproducibility and consistency contracts. The final
+row is an authorization and lifecycle contract. No checksum authenticates a
+learner, replaces TLS, or makes a client-side grade authoritative.
 
-Changing generator behavior creates a new generator version and a new published
-problem version. An existing generator version and its committed seed hashes
-remain unchanged so old assignments and attempts can still be reproduced.
+## Immutable identity
 
-`GeneratorReference` is shared by the published definition, generated variant,
-and attempt provenance. The ID and version therefore travel together across
-those boundaries.
+Published question identity is the pair of durable problem and immutable
+version IDs. A seeded `RandomizationDefinition` additionally carries a
+`GeneratorReference` with a stable generator ID and additive generator
+version. A changed generator implementation therefore requires a new generator
+version and a new published question version; historical definitions remain
+resolvable.
 
-## Random source
+An issued `QuestionAttempt` records its immutable problem version, server-owned
+seed, generated-parameter hash, and `AttemptProvenance`. Provenance records the
+adapter, generator where applicable, source artifact, renderer where
+applicable, grading implementation, asset objects, and rendered-question hash.
+This is the audit record used to reject a rerender that no longer reproduces
+the issued question.
 
-Generation uses `rand_chacha::ChaCha20Rng` directly. The `rand_chacha` generator
-is deterministic and portable, with reference-vector testing. `StdRng` is not
-suitable for this contract because its selected algorithm may change in any
-release and may be platform-dependent.
+The authoritative types are in
+[`crates/question_model/src/generation.rs`](../crates/question_model/src/generation.rs),
+[`crates/domain/src/generator.rs`](../crates/domain/src/generator.rs), and
+[`crates/question_model/src/activity.rs`](../crates/question_model/src/activity.rs).
 
-A stored 64-bit seed is expanded to the 256-bit ChaCha20 seed by hashing the
-domain separator `peptidyle-learning-engine/generator/v1\0` followed by the seed
-in little-endian byte order. Sampling reads only `RngCore` bytes and uses a
-local rejection sampler instead of version-sensitive distribution helpers.
+## Seeded generation
 
-## Stable output
+`domain::generator::generate` is a pure function of a `Seed` and a
+`RandomizationDefinition`. The implementation makes these compatibility
+choices explicit:
 
-- `BTreeMap` is required wherever iteration order can reach generated output.
-- Integer ranges are inclusive and sampled without modulo bias.
-- Decimal ranges are sampled as scaled integers and serialized as exact
-  fixed-precision strings.
-- Choice options retain authored order.
-- Fixed and single-value parameters consume no random draw.
-- `GeneratedVariant` is serialized with `serde_json` and hashed with SHA-256.
-- Hashes are lowercase hexadecimal over the exact serialized bytes.
+- `ChaCha20Rng` receives a 256-bit key derived from the domain separator
+  `peptidyle-learning-engine/generator/v1` and the stored 64-bit seed in
+  little-endian order.
+- Sampling consumes only `RngCore` bytes through PLE's own rejection sampler;
+  it does not depend on `rand` distribution helpers.
+- `BTreeMap` fixes parameter iteration and generated-output order.
+- Integer ranges are inclusive and unbiased; decimal ranges are scaled integer
+  values rendered as fixed-precision strings.
+- Fixed and single-value parameters consume no random draw, so adding one does
+  not perturb unrelated random values.
+- Canonical generated output is `serde_json` bytes of `GeneratedVariant` and
+  its hash is lowercase SHA-256 hexadecimal.
 
-Floating-point tolerance is not accepted. Exact equality is required because a
-near match would still select the wrong cache entry and fail the stored
-reproducibility hash.
+The browser Wasm module uses the same Rust `domain` code. It does not have an
+independent TypeScript randomizer. This makes cross-target agreement a tested
+property rather than an implementation convention.
 
-## Golden corpus
-
-The reviewed golden table is `crates/domain/tests/seed_vectors.json`.
-It currently covers `parameter-map@1` with 65 seeds: 0 through 63 and the
-maximum `u64` value. Its definition exercises every current parameter branch:
-
-- single, ranged, and full-width `i64` integer sampling;
-- single, ranged, and zero-place decimal sampling;
-- single and multiple choice selection; and
-- fixed values.
-
-Every registered generator must have at least 50 ordered seed entries and
-cover every branch it implements. A mismatch stops at an error naming the
-generator and first divergent seed.
-
-This JSON file is intentionally tracked. It is a reviewed compatibility
-baseline and work evidence, not disposable build output. Regenerate it only for
-a deliberate new generator version or a reviewed correction, using the tracked
-`crates/domain/examples/generate_seed_vectors.rs`:
+The reviewed compatibility baseline is
+[`crates/domain/tests/seed_vectors.json`](../crates/domain/tests/seed_vectors.json).
+It currently covers `parameter-map@1` with seeds 0 through 63 and `u64::MAX`.
+The same assertion implementation is used by the native test and the
+headless-browser Wasm test. Regenerate the fixture only for a deliberate new
+generator version or reviewed correction:
 
 ```bash
 cargo run -p domain --example generate_seed_vectors -- --write
 ```
 
-Review the resulting diff before accepting the new hashes.
+Review the complete fixture diff before accepting new hashes. The fixture is a
+permanent compatibility baseline, not generated scratch output.
 
-## Verification
+## Issued presentation
 
-The native test and browser test include the same assertion implementation from
-`crates/domain/tests/determinism_support.rs`.
+An issued presentation is answer-free and presentation-specific. Its v1
+descriptor includes:
 
-Run the native gate:
+- descriptor version, immutable question version, and stored seed;
+- a server-minted 16-byte presentation nonce;
+- title, prompt blocks, public response schema, item order, and response
+  constraints;
+- durable asset identity plus authored and selected-rendition checksums; and
+- the rendered IDs and canonical public basis of every addressable item.
+
+The server computes SHA-256 over the versioned binary descriptor and persists
+the full 32-byte digest with the nonce. The learner receives the nonce in the
+answer-free envelope and a `pd1_` base64url token containing the first 128 bits
+of the digest. Rebuilding the same envelope with the persisted nonce must
+reproduce the stored full digest exactly.
+
+A fresh nonce is intentional. It lets the server give one presentation-scoped
+identity to each rendered item, even when the same logical question and seed
+are issued at another time. Therefore `(version, seed)` alone identifies a
+generated variant, while `(version, seed, presentation nonce)` identifies the
+specific v1 presentation.
+
+The codec and builder are owned by
+[`crates/question_model/src/presentation/`](../crates/question_model/src/presentation/).
+TypeScript calls the Rust-owned Wasm verifier; it must not reimplement the
+descriptor codec, CRC, or SHA-256 rules.
+
+### Rendered item IDs
+
+Each addressable choice, blank, matching side, ordering item, or hotspot
+surface receives a four-lowercase-hex `RenderedItemIdV1`. It is CRC-16/CCITT-
+FALSE over a domain-separated basis that includes the nonce, version, seed,
+role, ordinal, durable ID, and SHA-256 of canonical public item content.
+
+CRC16 is a compact correspondence value, not an identity or security token.
+The builder permits at most 32 addressable items, checks all IDs for uniqueness
+within the presentation, retries with a new nonce up to eight times, and fails
+closed if it cannot issue an unambiguous presentation. Durable `ChoiceId` and
+other internal identities remain server-side.
+
+### Checksum roles
+
+| Value | Detects or proves | Does not provide |
+| --- | --- | --- |
+| Source-artifact SHA-256 | immutable source bytes match their published record | authorization or a rendered output |
+| Generated-variant SHA-256 | same generator definition and seed produced the reviewed values | a learner presentation or grade |
+| Safe-render SHA-256 | cached WeBWorK safe render has stable provenance | private replay state or learner authorization |
+| Full presentation SHA-256 | persisted descriptor agrees with a reconstructed public presentation | authentication, transport integrity, or pixel rendering |
+| `pd1_` 128-bit public token | compact browser/server presentation-consistency comparison | a durable secret or a substitute for the full stored digest |
+| Rendered-item CRC16 | selected item corresponds to one unique object in this presentation | collision resistance across presentations or a security boundary |
+| Idempotency record | exact retry is replayed and changed retry conflicts | question correctness |
+
+## WeBWorK cache and replay
+
+The WeBWorK adapter caches only safe rendered output in content object storage.
+Its key is deterministic from `(problem, version, seed)` and validates cache
+schema, immutable source artifact, version, seed, learner title, and nonempty
+renderer identity. Cached bytes contain an answer-free shared envelope,
+sanitized markup, source-artifact binding, and renderer identity. They never
+contain PG source, credentials, answer keys, or upstream field/value mapping.
+
+The cache is a reproducibility optimization, not a promise that no renderer
+work occurs. On a cache hit during **issue**, current code invokes the private
+renderer once with the same source and seed to reconstruct its private replay
+mapping and compares the resulting safe render with the immutable cached
+render. Reproduction of an already-issued safe envelope reads the cache only.
+This distinction is important for latency estimates and for interpreting the
+`ple.webwork.cache` `renderer_call` and `cache_hit` witnesses.
+
+The Store persists a bounded `WebworkGradeReplayStateV1`: immutable
+problem/version/source/seed/renderer provenance, presentation digest, and a
+redacted mapping from presentation-scoped rendered item IDs to upstream fields and values. The
+mapping is tenant-owned, validated, RLS-protected, and never serialized to the
+browser or cache.
+
+The normal run route now threads that private mapping from
+`WebworkIssuedAttempt` through `IssuedAttemptMetadata`, prefetch promotion, and
+attempt persistence. It translates durable adapter choice identities to
+rendered item IDs before storage, reloads and cross-checks the replay row
+against its owning attempt, reproduces the safe cached envelope without a
+renderer call, and performs one private grade RPC. Successful submission and
+terminal instructor action delete the replay row in the same Store transaction.
+
+This is an implemented offline slice, not acceptance of WP-P1 through WP-P6.
+The following remain planned integration and acceptance work:
+
+- submit the public presentation digest and fail closed before grading when it
+  disagrees with the stored attempt binding;
+- replace the current durable-choice compatibility response with rendered item
+  IDs at the public decoder;
+- persist a validated self-heal after the bounded legacy missing-row rerender;
+- prove the one-call path against disposable PostgreSQL and the private live renderer; and
+- expose `LearnerRunScreenV1` and its compact, type-free answer wire as the
+  browser's authoritative active-attempt route.
+
+The approved integration sequence and acceptance criteria live in
+[`docs/active_plans/decisions/secure_question_grading_payload_plan.md`](active_plans/decisions/secure_question_grading_payload_plan.md).
+Until that cutover completes, current submission is still the legacy tagged
+`StudentResponse` body and does not carry a presentation digest. Server-side
+response-shape validation nevertheless uses the reproduced issued envelope,
+not an untrusted browser-selected question type.
+
+## Prefetch and replay
+
+Prefetch is an authenticated, bodyless `POST` tied to the active predecessor
+attempt. The server selects the next position and fresh seed, renders the
+question, creates a tenant/learner/run/predecessor-bound reservation, and
+persists its parameter hash, provenance, and presentation binding. It does not
+start the next timer or let the browser choose seed, version, backend, source,
+or grading state.
+
+When a reservation is reused, the server verifies its immutable version, seed,
+parameter hash, provenance, and stored presentation binding. It rebuilds the
+presentation with the persisted nonce and refuses if the full digest differs.
+Promotion consumes the reservation atomically with successor issuance; a
+committed receipt is the only authority that activates the next attempt.
+
+This is why prefetch may prepare non-secret work early without weakening timing
+or grading ownership. A fresh future attempt is not created by browser state;
+only a matching, server-owned reservation can become one.
+
+## Current verification
+
+Run the narrow gates that prove the implemented layers:
 
 ```bash
+# Native generated-parameter compatibility baseline.
 cargo test -p domain --test test_determinism -- --nocapture
-```
 
-Install the version-matched browser test runner once, then run the real
-headless-Chromium gate:
+# Presentation descriptor, nonce, collision, and public-rebuild rules.
+cargo test -p question_model presentation
 
-```bash
+# Browser execution of the same generated-parameter corpus.
 ./devel/setup_wasm_tests.sh
 node tests/playwright/e2e_wasm_determinism.mjs
 ```
 
-The setup command installs under ignored `target/tooling/`; it does not install
-globally. The browser command is a local codebase test and does not deploy a
-server.
+The browser gate proves generated-parameter parity, not end-to-end submission
+digest enforcement. Do not claim the planned compact payload or one-RPC
+WeBWorK grade behavior from these checks. Those require the payload-plan
+integration gates, Store conformance, private-renderer request-count tests, and
+browser route tests specified in the active plan.

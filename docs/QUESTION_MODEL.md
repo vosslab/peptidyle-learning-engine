@@ -5,14 +5,18 @@ WP-C1). It lives in `crates/question_model` and is the root contract: adapters
 translate into it, and everything downstream reads only it.
 
 One shared shape is what lets a WeBWorK problem, a QTI item, an H5P activity,
-and a first-party algorithmic question flow through the same attempt loop,
-gradebook, and export path.
+an iMathAS item, and a first-party algorithmic question flow through the same
+attempt loop, gradebook, and export path.
 
 ## The rule for what belongs here
 
-A type belongs in this crate when a browser may safely see it. A type that
-would let a caller learn a correct response belongs in `crates/grading`, which
-runs server-side and sits outside the WebAssembly dependency closure.
+A public type belongs in this crate when it is answer-free and may cross a
+browser-facing boundary. A type that would let a caller learn a correct
+response belongs in `crates/grading`, which runs server-side and sits outside
+the WebAssembly dependency closure. This is a security classification, not a
+claim that every answer-free model field belongs in every learner payload:
+the presentation projection further removes provenance and grading-adjacent
+details the renderer does not need.
 
 Applied to answers, the split is:
 
@@ -23,8 +27,10 @@ Applied to answers, the split is:
 | How many choices may be selected                           | Which choices are correct       |
 | Whether partial credit applies, and the points available   | The per-part weighting of a key |
 
-Everything in the left column is shown to students anyway. Everything in the
-right column decides correctness.
+The left column is answer-free shared-model information. An individual
+learner projection may still omit it when it is not needed to render an input;
+for example, `ResponseSchemaV1` omits numeric tolerance and text match mode.
+Everything in the right column decides correctness and remains server-only.
 
 ## Types
 
@@ -135,7 +141,8 @@ multiple choice or multiple answer, short text, multi-blank, matching,
 ordering, hotspot, file upload, and external tool. Within a variant, invalid
 field combinations are unrepresentable, so a matching response carries only
 prompt-to-choice associations and a hotspot response carries only normalized
-points.
+points. `ChoiceId` is the durable semantic identifier used by this shared
+model; it is not a visible letter or display position.
 
 `ExternalTool` is a fieldless marker variant in both enums. It carries no
 provider, launch, answer, score, token, or completion material. The server
@@ -157,6 +164,63 @@ Server-side grading loads the attempt's exact published `QuestionDefinition`
 and calls `grading::grade(question, response, key)`. The definition supplies
 the response comparison and point policy that are intentionally absent from
 the compact attempt row; the key remains in the server-only grading boundary.
+
+### Attempt presentation
+
+`presentation` is a second, narrower contract for an issued learner screen.
+It does not replace `QuestionDefinition`, `QuestionEnvelope`, or
+`StudentResponse`; it projects their public rendering portion for a specific
+attempt and provides a consistency binding for that presentation.
+
+`PresentationEnvelopeV1` contains the immutable version, issued seed,
+server-minted nonce, title, prompt, and an answer-free `ResponseSchemaV1`.
+The schema currently covers the eight native flat families:
+
+| `ResponseSchemaV1` | Shared response definition |
+| ------------------ | -------------------------- |
+| `singleChoice` | exactly-one multiple choice |
+| `multipleAnswer` | one-or-more multiple choice |
+| `fillIn` | short text |
+| `multiFillIn` | multi-blank |
+| `numerical` | numeric |
+| `matching` | matching |
+| `ordering` | ordering |
+| `hotspot` | hotspot |
+
+`FileUpload` and `ExternalTool` intentionally have no `ResponseSchemaV1`
+variant. The presentation builder rejects them as unsupported rather than
+inventing a browser contract before the server-issued upload capability and
+external-tool route have their own complete delivery contracts.
+
+For selectable and addressable objects, the builder projects durable IDs to
+`RenderedItemIdV1`: four lowercase hexadecimal characters produced by
+CRC-16/CCITT-FALSE. Its input is domain-separated and includes the
+presentation nonce, version, seed, role, ordinal, durable ID, and canonical
+public item basis. The builder permits at most 32 addressable items, requires
+IDs to be unique across the complete presentation, and retries with a fresh
+nonce up to eight times if a CRC16 collision occurs. The server retains the
+ability to rebuild the rendered-to-durable mapping from the exact definition
+and persisted presentation binding; the four-character value is neither a
+durable identity nor a security credential.
+
+The canonical binary descriptor covers the envelope, rendered-item bases, and
+asset bindings. PLE stores its full SHA-256 digest with the attempt and gives
+the learner only a 128-bit `pd1_` base64url prefix in
+`LearnerAttemptDescriptorV1`. The browser can rebuild and check the public
+descriptor through Wasm; the server checks the full digest when reproducing
+the attempt. The digest and rendered IDs detect a stale or incoherent render,
+but do not authenticate a learner, authorize a request, or determine whether
+an answer is correct.
+
+This is an accepted v1 presentation contract, not a statement that the live
+generic run route has already completed its payload cutover. The current route
+still issues `QuestionEnvelope` and accepts a tagged `StudentResponse` in
+`{ "response": ... }`; its `kind` is therefore part of today's wire shape.
+The planned compact response uses the attempt route identity, presentation
+digest, and rendered IDs, then resolves the response family and durable IDs
+server-side. [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) and
+[secure_question_grading_payload_plan.md](active_plans/decisions/secure_question_grading_payload_plan.md)
+own that transition and its acceptance gates.
 
 ### Content blocks
 
@@ -240,6 +304,15 @@ question model. The native adapter compiles it into this crate's answer-free
 and catalog projections therefore continue to use the shared question model
 regardless of whether the author wrote PLE JSON or imported a supported QTI
 profile.
+
+Version 1 is the immutable compatibility source for exactly-one
+`singleChoice`. Version 2 is a separate closed source shape with eight native
+families: `singleChoice`, `multipleAnswer`, `fillIn`, `multiFillIn`, `numeric`,
+`matching`, `ordering`, and `hotspot`. Both versions are answer-bearing input
+to the private native compiler, not learner payloads. Neither version claims
+file-upload or external-tool authoring support. The compiler emits an
+answer-free draft/public model and separately checksummed grader-only key and
+feedback material.
 
 The distinction matters when evolving either contract: the source format owns
 author ergonomics, stable choice IDs, answers, and private feedback; this crate

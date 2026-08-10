@@ -102,7 +102,6 @@ use crate::{
     select_assignment_run_items, summary_transition, validate_assignment,
     validate_assignment_policy_exception, validate_assignment_timing, validate_course,
     validate_course_group, validate_draft, validate_published, validate_qti_publication_promotion,
-    webwork_replay_state_from_issue,
 };
 
 mod manual_grading;

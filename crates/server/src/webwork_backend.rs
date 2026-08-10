@@ -5,14 +5,17 @@
 //! verifies its immutable identity, and only then gives bytes to the isolated
 //! adapter/renderer boundary.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use adapter_webwork::{WebworkAdapter, WebworkAdapterError, WebworkSource};
 use learning_data_access::{
-    CatalogSourceStore, PublishedSourceArtifact, StoreError, TenantContext,
+    CatalogSourceStore, PublishedSourceArtifact, Store, StoreError, TenantContext,
 };
 use objects::{Bucket, ObjectCategory, ObjectKey, ObjectStore, ObjectStoreError};
 use question_model::generation::Seed;
+use question_model::presentation::{PresentationV1, RenderedItemIdV1, RenderedItemRoleV1};
+use question_model::response::ChoiceId;
 use question_model::{
     ActivityTimestamp, ProblemVersionRef, QuestionBackend, QuestionDefinition, SourceArtifact,
     StudentResponse,
@@ -42,7 +45,7 @@ impl<S, O, R> WebworkBackend<S, O, R> {
 
 impl<S, O, R> WebworkBackend<S, O, R>
 where
-    S: CatalogSourceStore + Send + Sync + 'static,
+    S: CatalogSourceStore + Store + Send + Sync + 'static,
     O: ObjectStore + Send + Sync + 'static,
     R: adapter_webwork::renderer_contract::WebworkRenderer + Send + Sync + 'static,
 {
@@ -62,24 +65,92 @@ where
             .map_err(map_adapter_error)
     }
 
-    /// Grades only after independently repeating source and issued-output
-    /// provenance validation.  The renderer remains entirely server-side.
+    /// Reproduces the exact key-free cached output without asking the private
+    /// renderer to rebuild issuance-only controls.
+    pub async fn reproduce(
+        &self,
+        context: TenantContext,
+        reference: ProblemVersionRef,
+        question: &QuestionDefinition,
+        attempt: &question_model::QuestionAttempt,
+    ) -> Result<adapter_webwork::WebworkIssuedAttempt, RunBackendError> {
+        validate_attempt_reference(reference, question, attempt)?;
+        let (source, _) = self.resolve_source(context, reference, question).await?;
+        let issued = self
+            .adapter
+            .reproduce(question, Seed::new(attempt.seed), &source)
+            .await
+            .map_err(map_adapter_error)?;
+        validate_issued_attempt(attempt, &issued)?;
+        Ok(issued)
+    }
+
+    /// Grades from attempt-bound replay state after independently repeating
+    /// source, presentation, and issued-output validation.
+    ///
+    /// New attempts use one private grade RPC. A legacy attempt with no replay
+    /// row performs one bounded same-seed issuance rerender before grading; the
+    /// public cutover later removes that compatibility branch.
     pub async fn grade(
         &self,
         context: TenantContext,
+        actor: question_model::UserId,
         reference: ProblemVersionRef,
         question: &QuestionDefinition,
         attempt: &question_model::QuestionAttempt,
         response: &StudentResponse,
     ) -> Result<grading::GradeOutcome, RunBackendError> {
         validate_attempt_reference(reference, question, attempt)?;
-        let issued = self
-            .issue(context, reference, question, attempt.seed)
-            .await?;
-        validate_issued_attempt(attempt, &issued)?;
+        let binding = self
+            .sources
+            .get_attempt_presentation_binding(context, actor, attempt.id)
+            .await
+            .map_err(map_store_error)?;
+        let state = self
+            .sources
+            .get_webwork_grade_replay_state(context, actor, attempt.id)
+            .await
+            .map_err(map_store_error)?;
+        let replay = match (state, binding) {
+            (Some(state), Some(binding)) => {
+                validate_replay_state(attempt, binding, &state)?;
+                let issued = self
+                    .reproduce(context, reference, question, attempt)
+                    .await?;
+                let presentation = question_model::presentation::reproduce_presentation_v1(
+                    &issued.envelope,
+                    &[],
+                    binding,
+                )
+                .map_err(|error| RunBackendError::Invalid(error.to_string()))?;
+                restore_replay_mapping(state.mapping, &presentation)?
+            }
+            (None, _) => {
+                let issued = self
+                    .issue(context, reference, question, attempt.seed)
+                    .await?;
+                validate_issued_attempt(attempt, &issued)?;
+                issued.replay.ok_or_else(|| {
+                    RunBackendError::Invalid(
+                        "WeBWorK replay recovery omitted private mapping".into(),
+                    )
+                })?
+            }
+            (Some(_), None) => {
+                return Err(RunBackendError::Invalid(
+                    "WeBWorK replay exists without its presentation binding".into(),
+                ));
+            }
+        };
         let (source, _) = self.resolve_source(context, reference, question).await?;
         self.adapter
-            .grade(question, Seed::new(attempt.seed), &source, response)
+            .grade(
+                question,
+                Seed::new(attempt.seed),
+                &source,
+                response,
+                &replay,
+            )
             .await
             .map_err(map_adapter_error)
     }
@@ -110,6 +181,25 @@ where
         .map_err(map_adapter_error)?;
         Ok((source, created_at))
     }
+}
+
+fn validate_replay_state(
+    attempt: &question_model::QuestionAttempt,
+    binding: question_model::PresentationBindingV1,
+    state: &learning_data_access::WebworkGradeReplayStateV1,
+) -> Result<(), RunBackendError> {
+    if state.problem != attempt.problem
+        || state.version != attempt.question_version
+        || state.seed != attempt.seed
+        || attempt.provenance.source_artifact.as_ref() != Some(&state.source_artifact)
+        || attempt.provenance.renderer.as_ref() != Some(&state.renderer)
+        || state.presentation_digest != binding.digest()
+    {
+        return Err(RunBackendError::Invalid(
+            "WeBWorK replay does not match the issued attempt".into(),
+        ));
+    }
+    Ok(())
 }
 
 fn validate_reference(
@@ -190,6 +280,169 @@ pub(crate) fn validate_issued_attempt(
     Ok(())
 }
 
+/// Converts issuance-only durable item identities into the exact rendered IDs
+/// minted for one presentation before the private mapping is persisted.
+pub(crate) fn persist_replay_mapping(
+    replay: adapter_webwork::renderer_contract::WebworkReplayMappingV1,
+    presentation: &PresentationV1,
+) -> Result<learning_data_access::WebworkReplayMappingV1, RunBackendError> {
+    use adapter_webwork::renderer_contract::WebworkReplayMappingV1 as AdapterReplay;
+    use learning_data_access::{WebworkReplayControlV1, WebworkReplayMatchPromptV1};
+
+    match replay {
+        AdapterReplay::SingleChoice { controls } => {
+            let mut items = Vec::with_capacity(controls.len());
+            for (choice, control) in controls {
+                items.push(WebworkReplayControlV1 {
+                    item: rendered_id_for(presentation, &choice, RenderedItemRoleV1::Choice)?,
+                    field: control.field,
+                    value: control.value,
+                });
+            }
+            Ok(learning_data_access::WebworkReplayMappingV1::SingleChoice { items })
+        }
+        AdapterReplay::Matching { prompts } => {
+            let mut items = Vec::with_capacity(prompts.len());
+            for (prompt, mapping) in prompts {
+                let mut choices = Vec::with_capacity(mapping.choices.len());
+                for (choice, value) in mapping.choices {
+                    choices.push(WebworkReplayControlV1 {
+                        item: rendered_id_for(
+                            presentation,
+                            &choice,
+                            RenderedItemRoleV1::MatchChoice,
+                        )?,
+                        field: mapping.field.clone(),
+                        value,
+                    });
+                }
+                items.push(WebworkReplayMatchPromptV1 {
+                    prompt: rendered_id_for(
+                        presentation,
+                        &prompt,
+                        RenderedItemRoleV1::MatchPrompt,
+                    )?,
+                    field: mapping.field,
+                    choices,
+                });
+            }
+            Ok(learning_data_access::WebworkReplayMappingV1::Matching { items })
+        }
+    }
+}
+
+fn rendered_id_for(
+    presentation: &PresentationV1,
+    durable: &ChoiceId,
+    role: RenderedItemRoleV1,
+) -> Result<RenderedItemIdV1, RunBackendError> {
+    let mut matches = presentation
+        .item_bindings
+        .iter()
+        .filter(|binding| binding.role == role && binding.durable_id == durable.as_str());
+    let Some(binding) = matches.next() else {
+        return Err(RunBackendError::Invalid(
+            "WeBWorK replay item is absent from the issued presentation".into(),
+        ));
+    };
+    if matches.next().is_some() {
+        return Err(RunBackendError::Invalid(
+            "WeBWorK replay item is ambiguous in the issued presentation".into(),
+        ));
+    }
+    Ok(binding.rendered.clone())
+}
+
+fn restore_replay_mapping(
+    replay: learning_data_access::WebworkReplayMappingV1,
+    presentation: &PresentationV1,
+) -> Result<adapter_webwork::renderer_contract::WebworkReplayMappingV1, RunBackendError> {
+    use adapter_webwork::renderer_contract::{
+        UpstreamControlV1, UpstreamMatchPromptV1, WebworkReplayMappingV1,
+    };
+
+    match replay {
+        learning_data_access::WebworkReplayMappingV1::SingleChoice { items } => {
+            let mut controls = BTreeMap::new();
+            for item in items {
+                let choice = durable_id_for(presentation, &item.item, RenderedItemRoleV1::Choice)?;
+                if controls
+                    .insert(
+                        choice,
+                        UpstreamControlV1 {
+                            field: item.field,
+                            value: item.value,
+                        },
+                    )
+                    .is_some()
+                {
+                    return Err(RunBackendError::Invalid(
+                        "WeBWorK replay repeats a durable choice".into(),
+                    ));
+                }
+            }
+            Ok(WebworkReplayMappingV1::SingleChoice { controls })
+        }
+        learning_data_access::WebworkReplayMappingV1::Matching { items } => {
+            let mut prompts = BTreeMap::new();
+            for item in items {
+                let prompt =
+                    durable_id_for(presentation, &item.prompt, RenderedItemRoleV1::MatchPrompt)?;
+                let mut choices = BTreeMap::new();
+                for choice in item.choices {
+                    let durable = durable_id_for(
+                        presentation,
+                        &choice.item,
+                        RenderedItemRoleV1::MatchChoice,
+                    )?;
+                    if choices.insert(durable, choice.value).is_some() {
+                        return Err(RunBackendError::Invalid(
+                            "WeBWorK replay repeats a durable matching choice".into(),
+                        ));
+                    }
+                }
+                if prompts
+                    .insert(
+                        prompt,
+                        UpstreamMatchPromptV1 {
+                            field: item.field,
+                            choices,
+                        },
+                    )
+                    .is_some()
+                {
+                    return Err(RunBackendError::Invalid(
+                        "WeBWorK replay repeats a durable matching prompt".into(),
+                    ));
+                }
+            }
+            Ok(WebworkReplayMappingV1::Matching { prompts })
+        }
+    }
+}
+
+fn durable_id_for(
+    presentation: &PresentationV1,
+    rendered: &RenderedItemIdV1,
+    role: RenderedItemRoleV1,
+) -> Result<ChoiceId, RunBackendError> {
+    let mut matches = presentation
+        .item_bindings
+        .iter()
+        .filter(|binding| binding.role == role && binding.rendered == *rendered);
+    let Some(binding) = matches.next() else {
+        return Err(RunBackendError::Invalid(
+            "stored WeBWorK rendered item is absent from its presentation".into(),
+        ));
+    };
+    if matches.next().is_some() {
+        return Err(RunBackendError::Invalid(
+            "stored WeBWorK rendered item is ambiguous in its presentation".into(),
+        ));
+    }
+    Ok(ChoiceId::new(binding.durable_id.clone()))
+}
+
 fn map_store_error(error: StoreError) -> RunBackendError {
     match error {
         StoreError::Unavailable(_) => {
@@ -239,6 +492,9 @@ mod tests {
     use crate::native_backend::NativeBackend;
     use crate::run::RunBackend;
 
+    #[path = "persisted_replay.rs"]
+    mod persisted_replay;
+
     const OPL: &str = concat!(
         "## Recorded OPL-style example: a small multiple-choice PG question.\n",
         "DOCUMENT();\n",
@@ -287,6 +543,26 @@ mod tests {
                         id: "recorded-opl".to_string(),
                         version: "1".to_string(),
                     },
+                    replay: Some(
+                        adapter_webwork::renderer_contract::WebworkReplayMappingV1::SingleChoice {
+                            controls: BTreeMap::from([
+                                (
+                                    ChoiceId::new("salt"),
+                                    adapter_webwork::renderer_contract::UpstreamControlV1 {
+                                        field: "AnSwEr0001".into(),
+                                        value: "0".into(),
+                                    },
+                                ),
+                                (
+                                    ChoiceId::new("water"),
+                                    adapter_webwork::renderer_contract::UpstreamControlV1 {
+                                        field: "AnSwEr0001".into(),
+                                        value: "1".into(),
+                                    },
+                                ),
+                            ]),
+                        },
+                    ),
                 },
             )
         }
@@ -333,12 +609,20 @@ mod tests {
             },
             prompt: Vec::new(),
             response: ResponseDefinition::MultipleChoice {
-                choices: vec![ChoiceOption {
-                    id: ChoiceId::new("water"),
-                    body: vec![ContentBlock::Text {
-                        markdown: "H2O".to_string(),
-                    }],
-                }],
+                choices: vec![
+                    ChoiceOption {
+                        id: ChoiceId::new("water"),
+                        body: vec![ContentBlock::Text {
+                            markdown: "H2O".to_string(),
+                        }],
+                    },
+                    ChoiceOption {
+                        id: ChoiceId::new("salt"),
+                        body: vec![ContentBlock::Text {
+                            markdown: "NaCl".to_string(),
+                        }],
+                    },
+                ],
                 selection: SelectionCardinality::ExactlyOne,
             },
             attempt_policy: AttemptPolicy {
@@ -367,12 +651,20 @@ mod tests {
                 markdown: "Which molecule is water?".to_string(),
             }],
             response: ResponseDefinition::MultipleChoice {
-                choices: vec![ChoiceOption {
-                    id: ChoiceId::new("water"),
-                    body: vec![ContentBlock::Text {
-                        markdown: "H2O".to_string(),
-                    }],
-                }],
+                choices: vec![
+                    ChoiceOption {
+                        id: ChoiceId::new("water"),
+                        body: vec![ContentBlock::Text {
+                            markdown: "H2O".to_string(),
+                        }],
+                    },
+                    ChoiceOption {
+                        id: ChoiceId::new("salt"),
+                        body: vec![ContentBlock::Text {
+                            markdown: "NaCl".to_string(),
+                        }],
+                    },
+                ],
                 selection: SelectionCardinality::ExactlyOne,
             },
         }
@@ -485,7 +777,7 @@ mod tests {
             problem: reference.problem,
             question_version: reference.version,
             assignment_position: 0,
-            seed: 99,
+            seed: issued.envelope.seed.value(),
             parameter_hash: issued.parameter_hash.clone(),
             response: None,
             status: question_model::AttemptStatus::InProgress,
@@ -500,7 +792,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn issue_replays_from_the_tenant_bound_cache_and_grades_server_side() {
+    async fn issue_and_attempt_reproduction_use_distinct_cache_boundaries() {
         let (backend, context, question, renders, grades, _unavailable) = fixture().await;
         let issued = backend
             .issue(context, reference(), &question, 99)
@@ -526,20 +818,7 @@ mod tests {
             .expect("cache replays");
         assert_eq!(issued.envelope, replay);
         assert_eq!(renders.load(Ordering::SeqCst), 1, "replay is a cache hit");
-        let outcome = composite
-            .grade(
-                context,
-                reference(),
-                &question,
-                &stored,
-                &StudentResponse::MultipleChoice {
-                    selected: vec![ChoiceId::new("water")],
-                },
-            )
-            .await
-            .expect("server-only grade succeeds");
-        assert!(matches!(outcome, grading::GradeOutcome::Graded(_)));
-        assert_eq!(grades.load(Ordering::SeqCst), 1);
+        assert_eq!(grades.load(Ordering::SeqCst), 0);
     }
 
     #[tokio::test]
@@ -584,8 +863,8 @@ mod tests {
         assert_eq!(first.provenance, replay.provenance);
         assert_eq!(
             renders.load(Ordering::SeqCst),
-            1,
-            "same seed is cache-backed"
+            2,
+            "a new issuance rebuilds private replay even on a safe-cache hit"
         );
 
         unavailable.store(true, Ordering::SeqCst);
@@ -596,19 +875,25 @@ mod tests {
         assert_eq!(grades.load(Ordering::SeqCst), 0, "prefetch never grades");
         assert_eq!(
             renders.load(Ordering::SeqCst),
-            2,
+            3,
             "one failed renderer call"
         );
 
-        // An already reserved seed still reproduces from its safe cache while
-        // the renderer is unavailable; recovery can then render the failed
-        // seed without changing its immutable source or exposing it.
+        // An already issued attempt still reproduces from its safe cache while
+        // the renderer is unavailable. A new reservation cannot, because it
+        // must capture private replay state for later one-call grading.
+        let stored = attempt(&first);
         let cached_during_outage = backend
-            .issue(context, reference(), &question, 101)
+            .reproduce(context, reference(), &question, &stored)
             .await
-            .expect("cached reservation survives renderer outage");
+            .expect("issued attempt reproduction survives renderer outage");
         assert_eq!(cached_during_outage.envelope, first.envelope);
-        assert_eq!(renders.load(Ordering::SeqCst), 2);
+        assert_eq!(renders.load(Ordering::SeqCst), 3);
+        assert!(matches!(
+            backend.issue(context, reference(), &question, 101).await,
+            Err(RunBackendError::Unavailable(_))
+        ));
+        assert_eq!(renders.load(Ordering::SeqCst), 4);
         unavailable.store(false, Ordering::SeqCst);
         let recovered = backend
             .issue(context, reference(), &question, 102)
@@ -616,6 +901,7 @@ mod tests {
             .expect("later retry recovers without grading");
         assert_eq!(recovered.envelope.seed, Seed::new(102));
         assert_eq!(grades.load(Ordering::SeqCst), 0);
+        assert_eq!(renders.load(Ordering::SeqCst), 5);
     }
 
     #[tokio::test]
@@ -662,6 +948,7 @@ mod tests {
                 backend
                     .grade(
                         context,
+                        UserId::from_uuid(id(15)),
                         reference(),
                         &question,
                         &tampered,

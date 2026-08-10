@@ -14,7 +14,7 @@ pub use binding::PresentationBindingV1;
 pub use builder::{
     NonceSourceV1, OsNonceSourceV1, PresentationBuildError, PresentationV1, RenderedItemBindingV1,
     RenderedItemRoleV1, build_presentation_v1, build_presentation_v1_with_nonce_source,
-    rebuild_public_presentation_v1,
+    rebuild_public_presentation_v1, reproduce_presentation_v1,
 };
 pub use codec::{
     DESCRIPTOR_VERSION_V1, PresentationDigestV1, descriptor_bytes_v1, verify_presentation_v1,
