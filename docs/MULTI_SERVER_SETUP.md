@@ -139,9 +139,13 @@ in process memory:
   boundary; the browser never receives keys or grading logic.
 
 Every API replica needs the same database, object-store, bucket, public-asset,
-authentication, grader, and optional renderer configuration. A different
-database, different bucket names, different local identity contents, or a
-different renderer identity is a split-brain deployment, not a scale-out.
+PLE email-authentication and WebAuthn configuration, grader, and optional
+renderer configuration. A different database, different bucket names,
+authentication secrets or relying-party settings, or a different renderer
+identity is a split-brain deployment, not a scale-out. Optional SMTP delivery
+and optional SSO account linking are integrations around the same PLE-owned
+account and session model; neither makes institutional identity a required
+authority for PLE accounts.
 
 ## Worker coordination
 
@@ -177,16 +181,21 @@ and credentials with mode 0600; never commit or reuse them outside local work.
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`                                     | Ignored local env; deployment secret store | Yes for API and worker                    | Object-store credentials                             |
 | `PLE_PUBLIC_ASSET_BASE_URL`                                                      | Operator                                   | Yes for API                               | Safe public immutable asset base                     |
 | `PLE_BIND_ADDR`                                                                  | Compose/API                                | Yes except binding address                | API listen address; `0.0.0.0:3000` remains internal  |
-| `PLE_AUTH_PROVIDER`, `PLE_LOCAL_AUTH_FILE`                                       | Local development only                     | Yes for API                               | Local identity provider and hash-only identity file  |
+| `PLE_AUTH_PROVIDER`, `PLE_LOCAL_AUTH_FILE`                                       | Local development only                     | Yes for API                               | Development-only tenant-session provider and hash-only identity file |
+| `PLE_WEBAUTHN_RP_ID`, `PLE_WEBAUTHN_ORIGIN`, `PLE_WEBAUTHN_RP_NAME`              | Operator                                   | Yes for API                               | PLE passkey relying-party identity                    |
+| `PLE_SMTP_*`, `PLE_PUBLIC_APP_BASE_URL`                                          | Operator, optional SMTP overlay            | Yes for API when delivery is enabled      | External-provider email authentication and invitation delivery |
 | `PLE_WORKER_*`                                                                   | Operator                                   | Yes for workers                           | Bounded worker lease, deadline, and polling controls |
 | `PLE_GATEWAY_HOST_PORT`                                                          | Local operator                             | Gateway only                              | Loopback browser entry port                          |
 | `PLE_*_IMAGE_SHA256`                                                             | Operator/launcher                          | Applicable services                       | Immutable local image manifests                      |
 | `PLE_WEBWORK_*`                                                                  | Opt-in profile operator                    | Yes for API and renderer where applicable | Private renderer identity, limits, and secrets       |
 
 The API's `PLE_LOCAL_AUTH_FILE` is a read-only mount of hashes, not the adjacent
-local bearer credentials. In an institutional deployment, the local-file
-provider is replaced by the approved identity integration; it is not a
-production multi-server authentication design.
+local bearer credentials. It is a development-only tenant-session provider and
+not PLE's production account path. PLE owns the canonical email-authentication
+and account-session flow; WebAuthn passkeys are optional account shortcuts.
+The SMTP overlay is optional and connects to an operator-selected external
+provider using its credentials. A future SSO integration may link an account,
+but PLE does not require an institution as its identity authority.
 
 ## Start, scale, inspect, stop
 

@@ -58,6 +58,13 @@ Do not treat `--check` as a machine-start command: it is intentionally read-only
   If first-run bootstrap selected another gateway port, use the recorded `PLE_GATEWAY_HOST_PORT`
   in `containers/env.local` for the health request.
 
+- **The gateway is `unhealthy` while `webwork-renderer` is `starting`:** this is an expected
+  transient state during normal startup. The API waits for the renderer's real render-and-grade
+  probe before it starts, and the gateway becomes healthy only after the API's semantic health
+  check succeeds. Let the launcher reach its configured timeout before treating this state as a
+  failure. If it times out, collect the renderer logs below first; the renderer is the upstream
+  dependency in this startup sequence.
+
 - **`--skip-build requires dist/index.html and dist/main.js`:** build first with `./build.sh`, or
   rerun the launcher without `--skip-build`.
 
@@ -68,6 +75,22 @@ for inspection and collect its logs before retrying:
 podman compose -f containers/compose.yaml --env-file containers/env.local \
   logs --tail=80 webwork-renderer
 ```
+
+## Email sign-in and invitations
+
+- **A new invitation reports `emailDelivery: notSent`:** this is the normal copy-link path when
+  no external SMTP provider is configured. Give the manager-only one-time link to the learner
+  through the course's established channel. The invitation remains single-use and the learner
+  still completes email authentication before it can become course membership.
+- **Email sign-in is unavailable through the production process:** the `--with-smtp` overlay
+  prepares external provider delivery but cannot by itself activate the canonical PLE email-account
+  entry path. The remaining production account-provider composition is tracked in
+  [the current WP-RC8 status](active_plans/implementation_status.md).
+  After that code task is accepted, configure the selected operator-owned provider through
+  [the external SMTP provider contract](LOCAL_STACK_OPERATIONS.md#external-smtp-provider). PLE
+  connects to that provider; it does not run a mail server or need local mail-deliverability
+  infrastructure. Copy links avoid SMTP only for invitation delivery; they do not replace email
+  authentication.
 
 ## Existing database volumes
 

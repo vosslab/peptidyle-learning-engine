@@ -1,21 +1,12 @@
 # Peptidyle Learning Engine
 
-A backend-agnostic assignment platform for instructors who teach through repeated practice: students retry algorithmic questions until each one is correct, timers and grading stay on the server, and practice continues past completion.
+An open platform for mastery teaching across question formats. Students retry varied problems until they can solve them consistently, then keep practicing fresh versions after completion, while grading and answer keys stay securely on the server.
 
-**Status: advanced code-first implementation, not production-ready.** WP-RC1 course appearance and
-WP-RC2 production-seam closure, the bounded private WeBWorK integration, and WP-ARCH1
-capability-sized source ownership are accepted. PLE now relies on the external stateless
-`webwork-pg-renderer` `/render-api`; its live PLE API, outage-isolation, cache, grading, and
-keyboard-browser gates pass without WebWork2 or MariaDB. ARCH1 closed the dated 26-file source-size
-baseline with no maintained source at 1,000 lines or more. PLE flat-question JSON v2 implements the
-eight required flat families using the reviewed
-QTI Package Maker item semantics while preserving version 1 single-choice bytes. The current snapshot is
-[docs/active_plans/reports/project_status_report_2026-08-10.md](docs/active_plans/reports/project_status_report_2026-08-10.md).
-
-The accepted six-file database baseline is frozen. Every later schema change is a forward migration;
-the maintained course-appearance schema is the first one. The maintained Compose stack is for local
-development and currently uses the PostgreSQL bootstrap credential; it is not a production
-deployment configuration.
+**Project status: advanced implementation, not ready for production deployment.** Core learning,
+privacy, browser, and local-development paths work together, including a bounded external WeBWorK PG
+renderer. Read the [current project status](docs/active_plans/reports/project_status_report_2026-08-10.md)
+for verified scope and the [implementation plan](docs/active_plans/implementation_plan.md) for planned
+work.
 
 ## Practice past completion
 
@@ -33,8 +24,8 @@ that implement it.
 ![Peptide bond mastery assignment overview with fresh variation and a Start or resume practice control](docs/screenshots/peptide_bond_mastery_overview.png)
 <!-- screenshots:end -->
 
-This deterministic mock-backed assignment overview demonstrates the current interface; it is not
-live production or WP-RC3 acceptance evidence.
+This deterministic mock-backed assignment overview demonstrates the current interface; it does not
+represent a live production deployment.
 
 ## Why this project
 
@@ -213,8 +204,8 @@ generation is discarded without delaying or rolling back the current grade.
 | API server                           | Auth, catalog, course, assignment, run, submission, manual grade, item analysis, asset, export, workspace, and retention route groups                                                                                                                                    |
 | WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                           |
 | Browser client                       | Solid routes for courses, assignments, attempt loop, summary, library, authoring, flat-question editing, assignment editing, and gradebook                                                                                                                               |
-| PostgreSQL                           | Six domain-owned SQLx baseline migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL acceptance                                                                                                                                     |
-| Question engines                     | PLE flat-question JSON v2 implements all eight required native families while preserving v1 single choice; the external WeBWorK PG `/render-api` passed live PLE render/grade/cache/outage/browser acceptance for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
+| PostgreSQL                           | Forward-only SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification                                                                                                                                                 |
+| Question engines                     | PLE flat-question JSON v2 implements all eight required native families while preserving v1 single choice; the external WeBWorK PG `/render-api` supports live PLE render, grading, cache, outage, and browser checks for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
 | DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                                               |
 | Containers                           | Local PostgreSQL and MinIO named-volume state, stateless API/worker/gateway, and the private external stateless PG renderer; production runtime identities and deployment remain open                                                                                   |
 | Worker runtime                       | Production drains six complete families through a family-filtered registry; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                                              |
@@ -236,17 +227,18 @@ The full architecture and milestone plan remain in
   content remain planned work.
 - QTI profile import is intentionally bounded to the reviewed Canvas and Blackboard subsets;
   broader vendor compatibility, imported media, and optional exporters remain deferred.
-- The accepted live WeBWorK RC3 path supports only the licensed, user-authored single-radio
-  PGML fixture in `content/pilot/webwork/`; matching and broader problem compatibility are assigned
-  to WP-RC5 rather than inferred from the private renderer implementation.
+- The live WeBWorK path intentionally supports only the licensed, user-authored single-radio PGML
+  fixture in `content/pilot/webwork/`. Matching and broader problem compatibility need their own
+  implementation and verification; this bounded renderer integration is not a general WeBWorK
+  compatibility claim.
 - Course appearance intentionally supports one theme and at most one 1200 by 328 entry banner per
   course. Per-page themes, multiple banners, freeform CSS, SVG/animated uploads, and learner edits are
   out of scope because the accepted version already supplies safe, accessible course identity without
   active-content or styling injection.
 - File-upload responses deliberately fail closed until the server-issued,
-  tenant/learner/attempt-bound capability in
-  [docs/active_plans/active/secure_learner_file_upload_plan.md](docs/active_plans/active/secure_learner_file_upload_plan.md)
-  is implemented and accepted.
+  tenant/learner/attempt-bound capability described in the
+  [secure learner file-upload plan](docs/active_plans/active/secure_learner_file_upload_plan.md)
+  is implemented and verified.
 - The local container topology is not a production security or deployment configuration.
 
 ## Repository layout
@@ -287,8 +279,8 @@ The durable documentation has three layers:
 
 For status and contribution work:
 
-- [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md) - milestone
-  plan, module catalog, contracts, and acceptance gates; the source of truth for this build.
+- [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md) - implementation
+  roadmap, module catalog, contracts, and validation for this build.
 - [docs/active_plans/reports/project_status_report_2026-08-10.md](docs/active_plans/reports/project_status_report_2026-08-10.md) - current executive status,
   verification evidence, milestone posture, blockers, and next work.
 - [docs/active_plans/project_status_report_2026-08-09.md](docs/active_plans/project_status_report_2026-08-09.md)

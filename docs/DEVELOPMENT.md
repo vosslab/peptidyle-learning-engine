@@ -11,11 +11,14 @@ active implementation order, architecture, and acceptance gates remain in
 - Make the smallest change in the module that owns the behavior. The component map in
   [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md) and path map in
   [FILE_STRUCTURE.md](FILE_STRUCTURE.md) identify those owners.
-- Keep each source file below 1000 lines. Move a complete capability to a focused module before a
-  parent file becomes an implementation warehouse.
+- Keep PLE-owned source files at 999 physical lines or fewer. Move a complete capability to a
+  focused module before a parent file becomes an implementation warehouse. The line-limit gate
+  permits only exact manager-approved immutable migration or documentation/history exceptions;
+  see [REPO_STYLE.md](REPO_STYLE.md#source-file-size).
 - Follow the language and test rules in [TYPESCRIPT_STYLE.md](TYPESCRIPT_STYLE.md),
-  [RUST_STYLE.md](RUST_STYLE.md), and [PYTEST_STYLE.md](PYTEST_STYLE.md). This guide does not
-  duplicate their detailed conventions.
+  [RUST_STYLE.md](RUST_STYLE.md), [PYTEST_STYLE.md](PYTEST_STYLE.md),
+  [REPO_STYLE.md](REPO_STYLE.md), and [MARKDOWN_STYLE.md](MARKDOWN_STYLE.md). This guide does
+  not duplicate their detailed conventions.
 
 ## Set up and build
 
@@ -35,9 +38,15 @@ optimized host artifacts. `npm run build` and `npm run check` are aliases for th
 scripts.
 
 The check gate is deliberately not a product build. It refreshes the ignored generated TypeScript
-projections, then runs TypeScript typechecks, ESLint, Prettier, Node tests, Rust formatting,
-Clippy, and workspace tests. A missing Rust toolchain is reported as `SKIP`; it is not a successful
-Rust verification.
+projections, then runs TypeScript typechecks, ESLint, Prettier, Node tests, the focused WASM
+dependency-boundary check, Rust formatting, Clippy, and workspace tests. A missing Rust toolchain
+is reported as `SKIP`; it is not a successful Rust verification.
+
+Cargo features are capability boundaries, not a convention to enable globally. The server selects
+the production PostgreSQL, S3, and adapter capabilities in its manifest, while memory-oriented
+crates keep those dependencies optional. `./check_codebase.sh` checks the workspace configuration
+it owns with `--all-targets`; for a change to an optional capability, read the owning `Cargo.toml`
+and run the focused package command required by the active work package.
 
 ## Generated outputs
 
@@ -76,10 +85,16 @@ MinIO, role/RLS, migration, restart, and private-renderer claims require their n
 real disposable services. Do not treat a memory-backend pass as evidence for a live storage or
 authorization boundary.
 
+Keep permanent tests small, deterministic, and behavior-focused. A one-time migration probe,
+manual inspection, or live diagnostic is useful implementation evidence, but it belongs in the
+work-package record rather than the permanent fast suite unless it satisfies the checklist in
+[PYTEST_STYLE.md](PYTEST_STYLE.md#is-this-a-good-pytest). Record both the evidence run and any
+unrun live boundary in the handoff.
+
 ## Run local services
 
-Use the launcher when a work package needs the supported local PostgreSQL, MinIO, API, gateway, and
-private standalone WeBWorK renderer:
+Use the launcher when a work package needs the supported local PostgreSQL, MinIO, API, worker,
+gateway, and external stateless WeBWorK PG renderer:
 
 ```bash
 ./launch_local_stack.sh --check
@@ -88,9 +103,10 @@ private standalone WeBWorK renderer:
 
 `--check` validates configuration without changing state. A normal launcher run can create ignored
 local credentials and starts the supported stack; do not copy those local secret files into source
-control. [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) documents the stack,
-configuration, recovery, and service
-commands.
+control. It uses an already-built `webwork-pg-renderer` image rather than building a second WeBWorK
+platform or database. SMTP is an operator-selected external service enabled only with `--with-smtp`.
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) documents the stack, configuration,
+recovery, and service commands.
 
 ## Prepare a handoff
 

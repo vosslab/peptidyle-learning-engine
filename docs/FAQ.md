@@ -1,8 +1,19 @@
 # Frequently asked questions
 
 This page answers common orientation questions about Peptidyle's learning model,
-browser boundary, and question formats. It links to the authoritative contracts
-for readers who need implementation detail.
+question families, security boundaries, and local services. It links to the
+authoritative contracts for readers who need implementation detail.
+
+## Is PLE tied to one format?
+
+No. PLE gives instructors one learning and assignment model while adapters
+bring different question sources into it. Native flat-question JSON supports
+multiple choice, multiple answer, fill-in-the-blank, multiple blanks, numerical
+entry, matching, ordering, and image hotspots. The current external WeBWorK
+path supports one reviewed radio-choice PGML contract; QTI, H5P, and iMathAS
+each have their own documented runtime boundary. See
+[QUESTION_MODEL.md](QUESTION_MODEL.md) and
+[QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md).
 
 ## Does mastery end practice?
 
@@ -11,6 +22,16 @@ assignment policies. An instructor can require mastery, keep the highest score,
 allow unlimited practice after completion, and issue fresh parameter seeds for
 each new run. A resumed attempt keeps its original seed so its question does not
 change mid-attempt. See [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md).
+
+## How does an exam differ?
+
+An activity type gives instructors a teaching-intent starting point rather than
+asking them to compose implementation policies. A mastery assignment gives
+immediate full feedback, permits retries, and can offer fresh later practice.
+An exam uses a controlled run, restricted feedback, and no continued practice.
+PLE keeps the underlying completion, grading, variation, and feedback policies
+separate so a course can use either activity honestly. See
+[MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md).
 
 ## What runs in Solid and Wasm?
 
@@ -56,6 +77,28 @@ compatibility and WeBWorK matching remain future work rather than implied by
 that narrow acceptance. See
 [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md) and
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
+
+## Why PostgreSQL and a renderer?
+
+They have separate jobs. PostgreSQL stores PLE-owned courses, assignments,
+attempts, scores, and retention state under tenant row-level security. The
+private external PG renderer evaluates a bounded WeBWorK PG question and has
+no PLE database, learner credentials, persistent volume, or host-published
+port. PLE remains the only assignment, roster, and grade system; WeBWorK2 and
+MariaDB are not PLE runtime services. See
+[DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and
+[WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
+
+## How do learners sign in?
+
+PLE accounts use a stable opaque account ID. Email authentication is the
+canonical sign-in and account-bootstrap path; passkeys are optional convenience
+credentials, and multiple passkeys may be registered. An instructor gives a
+learner a one-time course invitation link, which can be copied into an existing
+trusted course channel or sent through configured SMTP. The implemented
+passwordless and roster slice still has production acceptance work, so the
+current status report is the source for what has been verified in a deployment.
+See [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
 
 ## Why does a submission identify an attempt?
 

@@ -194,26 +194,34 @@ network boundaries, backups, and managed recovery controls.
 
 ### Enrollment is course-level
 
-**Decision.** One opaque person identity is stable within an institution tenant, while each course
-membership and assignment enrollment remains a separate authorization or educational record. The
-instructor manages one course roster; PLE creates the required assignment enrollments and empty
-summaries atomically behind that workflow.
+**Decision.** One opaque PLE `UserId` identifies a learner's account across courses and
+institutions. Course membership, tenant-scoped pedagogical `StudentId`, roster metadata, and
+assignment enrollment remain separate authorization or educational records. The instructor manages
+one course roster; PLE creates the required assignment enrollments and empty summaries atomically
+behind that workflow.
 
-**Why.** A learner should use one institutional account across courses. Course-scoped authorization,
-learner ownership, and RLS control disclosure more reliably than pretending the same person is a
-different identity in every class. Email is mutable lookup/contact data, not the identity key.
+**Why.** A learner should retain one PLE account across courses and institutions. Course-scoped
+authorization, learner ownership, and RLS control disclosure more reliably than pretending the same
+person is a different identity in every class. Verified email is the mutable canonical sign-in
+attribute, not the identity key; passkeys are optional convenience credentials for that account.
 
-**Consequence.** Adding a student and creating a later assignment both preserve the complete
-student-member by assignment cross product. Removing access retains education records for the
-explicit retention workflow. Unknown users join through a server-issued invitation or trusted
-identity directory, never a browser-supplied UUID or email assertion.
+**Consequence.** An instructor creates a pending invitation with protected course-scoped roster
+metadata, then shares its one-time copy link through an existing trusted LMS or uses configured
+SMTP. After the learner completes email authentication and claims the invitation, PLE creates the
+course membership, tenant learner mapping, assignment enrollments, and empty summaries atomically.
+Adding a later assignment preserves the complete student-member by assignment cross product.
+Removing access retains education records for the explicit retention workflow. The browser never
+asserts a new `UserId`, membership, roster identity, or invitation claim without server-issued
+evidence.
 
 **Owner.** [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md),
 [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md), and the course capabilities in
 `crates/learning-data-access` and `crates/server/src/course/`.
 
-**Planned closure.** The HTTP roster, provider-neutral identity directory, invitation claim, bulk
-preview/commit, and human-operated multi-actor browser path are not implemented yet.
+**Planned closure.** The HTTP roster, invitation claim, bulk preview/commit, and passwordless
+account boundary are implemented. Acceptance remains open for the canonical operator-configured
+email-provider journey, optional-passkey and multi-replica evidence, and independent security/HCI
+closeout.
 
 ### APIs are stateless; durable state is shared
 

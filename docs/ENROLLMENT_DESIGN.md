@@ -1,9 +1,9 @@
 # Enrollment design
 
-PLE has a supported passwordless account, course-roster, invitation,
-assignment-enrollment, and manual grade-export slice. This document defines
-that boundary and distinguishes the implemented slice from the remaining
-production acceptance work.
+PLE has implemented passwordless-account, course-roster, invitation,
+assignment-enrollment, and manual grade-export components. This document
+defines that boundary and distinguishes source and generic-route support from
+the still-open production composition and acceptance work.
 
 The primary audience is a contributor implementing course membership,
 assignment enrollment, roster management, identity resolution, or the
@@ -13,23 +13,31 @@ order remains in the
 
 ## Status and authority
 
-**Implemented, acceptance open:** PLE owns opaque global accounts, short-lived
-browser-bound email authentication, discoverable WebAuthn registration and
-authentication, multiple passkeys, verified account-email replacement, and
-course-context selection. An instructor can list a cursor-paged roster, set an
-exact-domain policy, create a copyable one-time invitation link, optionally send
-that link through configured SMTP, revoke invitations, preview and atomically
-commit a bounded CSV roster, revoke access, and download a no-store
-course-assignment grade CSV. A learner can authenticate and claim an
-invitation; the Store then creates the course membership, tenant learner
-identity, every assignment enrollment, and every empty summary atomically.
-Memory and PostgreSQL implement the same contract, and later assignment
+**Implemented source and generic-route components:** PLE owns opaque global
+accounts, short-lived browser-bound email-authentication and account-session
+components, discoverable WebAuthn registration and authentication, multiple
+passkeys, verified account-email replacement, and account-to-course-context
+selection. The generic router mounts those account routes with the course
+roster, invitation, bulk import, atomic enrollment, and manual grade-export
+routes. Memory and PostgreSQL implement the same Store contract, including
+the transaction that creates course membership, the tenant learner identity,
+every assignment enrollment, and every empty summary. Later assignment
 creation enrolls all current learners.
 
-**Acceptance still open:** the canonical email-authentication journey still needs
-an operator-selected SMTP provider test account, optional-passkey and
-multi-replica evidence, and independent security/HCI closeout. PLE does not own a
-mail server or delivery stack.
+**Current startable composition:** the API process entrypoint builds the
+persistent dependencies but then requires the explicit `local-file`
+development `IdentityProvider`. That local provider supplies the ordinary
+tenant-scoped `ple_session`; it is not a PLE-account bootstrap. The generic
+router still mounts the passwordless, passkey, and roster routes, but the
+local stack is a development composition, not an accepted production
+passwordless login deployment.
+
+**Production acceptance still open:** a production composition must select
+the PLE-owned email-account path without treating institutional OIDC as the
+primary identity system. Canonical email-authentication evidence also needs an
+operator-selected external SMTP provider test account. Optional-passkey and
+multi-replica journeys plus independent security/HCI closeout remain. PLE
+does not own a mail server, sender reputation, or deliverability stack.
 
 This document is the durable enrollment contract. Current route truth remains in
 [API_CONTRACTS.md](API_CONTRACTS.md) and
@@ -133,9 +141,12 @@ course, university, or email provider. Course membership and tenant-scoped RLS
 control access to educational records.
 
 The existing `IdentityProvider` trait remains the credential-verification
-boundary. WP-RC8 replaces the current deployment assumption that an
-institutional OIDC provider is required with a production passwordless
-provider behind that trait:
+boundary for the ordinary tenant-session login route. The direct passwordless
+email/passkey route family has its own account-session boundary and mints a
+tenant `ple_session` only after an authorized course relationship is chosen or
+claimed. The generic router can compose both boundaries, but the current
+environment entrypoint supplies only the local-file provider. WP-RC8 owns the
+remaining production composition work. Its required production direction is:
 
 - email authentication is the canonical registration and sign-in path;
 - passkeys are optional convenience credentials for the same account;
@@ -181,10 +192,11 @@ retains an independently scoped pedagogical record. The current
 context while deriving it only from an authorized course or tenant
 relationship, never from a browser-supplied tenant identifier.
 
-### Local development session boundary
+### Current generic and local session boundary
 
-The local stack currently exercises two distinct authenticated session
-contracts:
+The generic router exposes two distinct authenticated session contracts. The
+current startable local composition uses the first one for ordinary course
+work and still mounts routes for the second:
 
 | Session | Issuer and purpose | What it establishes |
 | --- | --- | --- |
@@ -195,14 +207,19 @@ Invitation redemption requires the second contract. A local-file login creates
 the tenant session only; it does not provision a PLE account or account session.
 Passkey registration likewise begins from an authenticated PLE account, so a
 passkey can shorten later sign-in but cannot bootstrap the first account by
-itself.
+itself. The local process can expose passwordless endpoints, but email start
+fails closed unless both the invitation-token secret and a complete external
+SMTP configuration are present. Mounting a route is therefore not evidence of
+a live email-authentication ceremony.
 
 ENR6 therefore uses canonical email authentication to create or restore the PLE
 account before invitation redemption. Copy-link delivery removes SMTP from the
 invitation handoff, but it does not replace account authentication. A future
 local-development bootstrap may support the same walkthrough only if it creates
 the real account and account-session records through a reviewed development
-adapter rather than a parallel identity or invitation path.
+adapter rather than a parallel identity or invitation path. That adapter and
+the production passwordless composition remain open work; neither is silently
+substituted by a local-file tenant session.
 
 ### Person, course, and email
 
@@ -399,7 +416,7 @@ payload rules are normative.
 | `DELETE /api/courses/{course}/members/{member}` | Revoke current course access without deleting records | Existing member path plus exact roster revision |
 | `POST /api/courses/{course}/roster-imports/preview` | Parse and stage bounded `email,roster_id` CSV | Exact roster revision plus manager authorization |
 | `POST /api/courses/{course}/roster-imports/{import}/commit` | Commit the reviewed ready rows atomically | Import revision plus idempotency key |
-| `GET /api/courses/{course}/assignments/{assignment}/grade-export.csv` | Download the current manual grade export | Course and assignment from path plus manager authorization |
+| `POST /api/courses/{course}/assignments/{assignment}/grade-export.csv` | Download the current manual grade export | Course and assignment from path plus manager authorization |
 
 The roster response is deliberately small:
 
@@ -752,7 +769,10 @@ count, and time.
 
 The safe dependency order is:
 
-### ENR1: Passwordless identity and account mapping - implemented
+### ENR1 status
+
+The source and generic route components are implemented. Production
+composition acceptance remains open.
 
 - Add a production PLE-owned account store keyed by opaque global `UserId`.
 - Add short-lived, single-use email authentication for registration and sign-in,
@@ -765,9 +785,9 @@ The safe dependency order is:
   control for email changes.
 - Add the stable `(TenantId, UserId) <-> StudentId` pedagogical mapping without
   letting browser input select tenant or identity.
-- Replace the production assumption that institutional OIDC is required;
-  optional SSO links to an existing account through the same identity
-  boundary.
+- Wire the PLE-owned email-account path into the production composition;
+  optional SSO links to an existing account through the same identity boundary
+  when enabled.
 
 ### ENR2: Atomic roster Store - implemented
 
@@ -870,9 +890,10 @@ Disposable integration evidence must prove:
 - the instructor downloads a protected manual grade export whose roster IDs
   match the imported rows and whose contents exclude account email and global
   `UserId`; and
-- the local provider, production passwordless provider, optional OIDC/SAML
-  connector, and future LTI adapter converge on the same `UserId`, session, and
-  Store operation rather than implementing separate roster semantics.
+- the local provider, accepted PLE passwordless production composition,
+  optional OIDC/SAML connector, and future LTI adapter converge on the same
+  `UserId`, session, and Store operation rather than implementing separate
+  roster semantics.
 
 One-time implementation probes may inspect lock order, query plans, migration
 backfill, and representative CSV timing. Keep a probe as a permanent test only

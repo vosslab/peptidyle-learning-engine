@@ -321,15 +321,18 @@ The complete sequence is authoritative in
    and live Podman/browser gates pass, and independent review found no unresolved P0/P1/P2 after the
    configured renderer identity was bound to cache reuse and grading of persisted attempts.
    `OTHER_REPOS/` is read-only comparison evidence.
-5. WP-RC8 passwordless identity, copy-link/optional-SMTP enrollment, course roster metadata, bulk
-   import, and manual grade export are implemented with acceptance open. Migration
-   `2026080909_passwordless_identity.sql` has passed the disposable PostgreSQL baseline. The opt-in
+5. WP-RC8 has implemented the generic passwordless/account, copy-link/optional-SMTP enrollment,
+   course-roster metadata, bulk-import, and manual-grade-export routes with acceptance open.
+   Migration `2026080909_passwordless_identity.sql` has passed the disposable PostgreSQL baseline.
+   The production composition still constructs local-file development authentication, so it cannot
+   yet compose the canonical PLE email-account entry path. Wiring the generic account provider into
+   production is a repository code task, not an external email-provider prerequisite. The opt-in
    external-provider overlay supports authenticated STARTTLS or implicit TLS and mounts only a
-   copied mode-0600 credential file; it adds no mail service. A live provider send,
-   optional-passkey and multi-replica evidence, and independent security/HCI closeout remain before
-   acceptance; WP-RC4 resumes after that closeout. Email authentication is the canonical
-   account path; no manager-assisted account merge or educational-record transfer is a version 1
-   dependency.
+   copied mode-0600 credential file; it adds no mail service. After production account-provider
+   composition, a live provider send, optional-passkey and multi-replica evidence, and independent
+   security/HCI closeout remain before acceptance; WP-RC4 resumes after that closeout. Email
+   authentication is the canonical account path; no manager-assisted account merge or
+   educational-record transfer is a version 1 dependency.
 6. WP-RC4's PLE flat JSON v2 implementation now covers the eight source/runtime families and awaits
    independent closeout; external QTI-JSONL is no longer a prerequisite.
 7. WP-P1 through WP-P6 implement and accept the secure learner-payload boundary before WP-RC5
@@ -360,16 +363,21 @@ present with package acceptance open. The release plan reserves
 `2026080912_secure_learner_uploads.sql`; accepted filenames are
 not renamed or reordered.
 
-### Immediate package: WP-RC8 acceptance closeout
+### Immediate package: WP-RC8 production account-provider composition and acceptance closeout
 
-- Implemented: opaque global accounts; canonical email registration/sign-in and verified email
-  replacement; discoverable WebAuthn and multiple passkeys; invitation, roster, exact-domain, atomic
-  membership/enrollment, bounded CSV, and manual no-store grade-export contracts in
-  [ENROLLMENT_DESIGN.md](../ENROLLMENT_DESIGN.md).
-- Remaining acceptance: canonical email authentication through the later operator-selected provider
-  with an optional passkey, multi-replica login/claim and
-  export, and independent security/HCI review. Email possession authenticates only the account
-  already bound to that email; it never transfers another account's `StudentId` or records.
+- Implemented: generic routes and components for opaque global accounts; canonical email
+  registration/sign-in and verified email replacement; discoverable WebAuthn and multiple passkeys;
+  invitation, roster, exact-domain, atomic membership/enrollment, bounded CSV, and manual no-store
+  grade-export contracts in [ENROLLMENT_DESIGN.md](../ENROLLMENT_DESIGN.md).
+- Required code task: make `production_router_from_env` compose the PLE email account provider
+  instead of `local_development_authentication_from_env`, so a production deployment can enter the
+  canonical account/session flow. This preserves PLE-owned global accounts, canonical email
+  authentication, optional passkeys, optional SSO linking, and the decision not to operate a PLE
+  mail server.
+- Remaining acceptance after that composition: canonical email authentication through the later
+  operator-selected provider with an optional passkey, multi-replica login/claim and export, and
+  independent security/HCI review. Email possession authenticates only the account already bound to
+  that email; it never transfers another account's `StudentId` or records.
 - Return to WP-RC4 closeout and the secure learner payload sequence after the primary multi-actor
   instructor-to-learner path passes those acceptance gates.
 

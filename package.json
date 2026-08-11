@@ -1,43 +1,43 @@
 {
-  "name": "peptidyle-learning-engine",
-  "version": "26.8.0",
-  "type": "module",
-  "private": true,
-  "scripts": {
-    "setup": "./devel/setup_typescript.sh",
-    "setup:playwright": "./devel/setup_playwright.sh",
-    "build": "./build.sh",
-    "launch": "./launch_local_stack.sh",
-    "build:wasm": "./pipeline/build_wasm.sh",
-    "serve": "./run_web_server.sh",
-    "check": "./check_codebase.sh",
-    "clean": "./devel/clean_build.sh",
-    "clean:dist": "./devel/dist_clean.sh",
-    "format:write": "npx prettier --write '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'",
-    "test:playwright": "./run_playwright_tests.sh"
-  },
-  "dependencies": {
-    "@solidjs/router": ">=1.0.0",
-    "solid-js": ">=1.9.14",
-    "temml": "0.13.4"
-  },
-  "devDependencies": {
-    "@axe-core/playwright": "^4.12.1",
-    "@eslint/js": ">=10.0.1",
-    "@playwright/test": ">=1.62.1",
-    "@types/node": ">=26.2.0",
-    "esbuild": ">=0.28.1",
-    "esbuild-plugin-solid": ">=0.6.0",
-    "eslint": ">=10.8.1",
-    "globals": ">=17.9.0",
-    "playwright": ">=1.62.1",
-    "prettier": ">=3.9.6",
-    "tsx": ">=4.23.11",
-    "typescript": ">=6.0.3 <7",
-    "typescript-eslint": ">=8.66.0"
-  },
-  "allowScripts": {
-    "esbuild": true,
-    "fsevents": true
-  }
+	"name": "peptidyle-learning-engine",
+	"version": "26.8.0",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"setup": "./devel/setup_typescript.sh",
+		"setup:playwright": "./devel/setup_playwright.sh",
+		"build": "./build.sh",
+		"launch": "./launch_local_stack.sh",
+		"build:wasm": "./pipeline/build_wasm.sh",
+		"serve": "./run_web_server.sh",
+		"check": "./check_codebase.sh",
+		"clean": "./devel/clean_build.sh",
+		"clean:dist": "./devel/dist_clean.sh",
+		"format:write": "npx prettier --write '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'",
+		"test:playwright": "./run_playwright_tests.sh"
+	},
+	"dependencies": {
+		"@solidjs/router": ">=1.0.0",
+		"solid-js": ">=1.9.14",
+		"temml": ">=0.13.4"
+	},
+	"devDependencies": {
+		"@axe-core/playwright": ">=4.12.1",
+		"@eslint/js": ">=10.0.1",
+		"@playwright/test": ">=1.62.1",
+		"@types/node": ">=26.2.0",
+		"esbuild": ">=0.28.2",
+		"esbuild-plugin-solid": ">=0.6.0",
+		"eslint": ">=10.8.1",
+		"globals": ">=17.9.0",
+		"playwright": ">=1.62.1",
+		"prettier": ">=3.9.6",
+		"tsx": ">=4.23.12",
+		"typescript": ">=6.0.3 <7",
+		"typescript-eslint": ">=8.67.0"
+	},
+	"allowScripts": {
+		"esbuild": true,
+		"fsevents": true
+	}
 }

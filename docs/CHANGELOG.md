@@ -146,6 +146,15 @@
   persistence size regression and keeps the remaining current-tree package gates distinct from the
   accepted historical WP-ARCH1 evidence.
 
+- Refreshed newcomer and durable documentation without treating internal work-package labels as a
+  public product vocabulary. The README now opens with the mastery teaching model: students work
+  through varied problems until they can solve them consistently, then continue with fresh versions
+  after completion; architecture, setup, usage, related-project, FAQ, input-format, troubleshooting,
+  design, and screenshot guidance now align with that current boundary. The Aug. 10 status and active
+  plan make the remaining passwordless distinction explicit: generic account and roster routes exist,
+  while production composition of the canonical PLE account provider remains open. This is a
+  documentation/status refresh, not a release claim.
+
 ### Fixes and Maintenance
 
 - Completed the standalone WeBWorK renderer cutover without making the repository a second

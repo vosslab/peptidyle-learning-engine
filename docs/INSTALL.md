@@ -1,8 +1,8 @@
 # Install
 
 Installation prepares the Rust server and WebAssembly code, Solid browser client, Python test
-tools, and optional local Podman stack. The standard development path is native PLE questions;
-private upstream WeBWorK is an explicit, source-pinned opt-in profile.
+tools, and local Podman stack. The normal local stack serves native questions and the separate,
+stateless `webwork-pg-renderer` engine; it does not install the WebWork2 assignment platform.
 
 ## Requirements
 
@@ -52,68 +52,62 @@ and [SECURITY_MODEL.md](SECURITY_MODEL.md), rather than inferred from local laun
 
 ## Local stack setup
 
-The native default starts PostgreSQL, MinIO, API, worker, and gateway. On its first normal run,
-the launcher creates ignored local configuration, credentials, and secrets beneath `containers/`;
-it does not require copied development secrets.
+The normal stack starts PostgreSQL, MinIO, API, worker, gateway, and the standalone PG renderer.
+Before first launch, build or obtain the renderer image from the separate
+`webwork-pg-renderer` project under the tag named by `PLE_WEBWORK_RENDERER_IMAGE` (the default is
+`localhost/pg-renderer:latest`). PLE does not build the renderer, run WebWork2, or run MariaDB.
+
+On its first normal run, the launcher creates ignored local configuration, credentials, and
+secrets beneath `containers/`; it does not require copied development secrets.
 
 ```bash
-./launch_local_stack.sh --check
 ./launch_local_stack.sh --no-open
+./launch_local_stack.sh --check
 ```
 
-`--check` reads the existing environment and validates Compose without building, starting a Podman
-machine, creating local files, or changing containers. The normal command creates a mode-0600
-environment file, credentials, and secrets (with a non-secret identity-hash file), builds the
-repository, migrates and seeds the local database, starts the stack, and prints the loopback URL
-and local sign-in file.
+The first command creates a mode-0600 environment file, credentials, and secrets (with a
+non-secret identity-hash file), builds the repository, migrates and seeds the local database,
+starts the stack, and prints the loopback URL and local sign-in file. `--check` then reads the
+existing environment and validates Compose without building, starting a Podman machine, creating
+local files, or changing containers.
+
+## Local identity boundary
+
+The generated values in `containers/local-login.txt` are a local development convenience. They
+create a tenant-scoped `ple_session` for the seeded instructor or student and keep its bearer
+value out of browser storage after sign-in. They do not create a PLE account or
+`ple_account_session`, so they cannot claim an invitation, bootstrap a passkey, or prove the
+canonical email-authentication journey. The current startup root still composes only local-file
+development identity, so canonical PLE account sign-in remains unavailable even when SMTP delivery
+is configured. See the [current status report](active_plans/reports/project_status_report_2026-08-10.md).
 
 ## Custom environment files
 
 The bootstrap belongs only to the default `containers/env.local` path. A non-default
 `--env-file` is never created, rewritten, seeded, or supplied with local sign-in credentials;
-`--check` creates neither default nor custom files. Prepare a custom file from
-[containers/env.example](../containers/env.example) and provide its own PostgreSQL and MinIO
-credentials, `PLE_LOCAL_GRADER_PASSWORD`, `PLE_LOCAL_AUTH_HOST_FILE`, the mode-0600
-`PLE_INVITATION_TOKEN_SECRET_HOST_FILE`, and all five required
-immutable native image pins: `PLE_POSTGRES_IMAGE_SHA256`, `PLE_MINIO_IMAGE_SHA256`,
-`PLE_MINIO_MC_IMAGE_SHA256`, `PLE_GATEWAY_IMAGE_SHA256`, and
-`PLE_SECRET_INIT_IMAGE_SHA256`.
+prepare it from [containers/env.example](../containers/env.example). The launcher validates its
+database, object-store, local-auth, invitation-secret, image-pin, and renderer settings. Keep
+operator-managed credentials and secret values out of tracked files; see
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for the complete contract.
 
-The custom identity file and any credential file used to sign in are operator-managed inputs. Do
-not place bearer credentials, grader passwords, or other secret values in this guide or in tracked
-files. The local-stack boundary and identity-file contract are documented in
-[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
+An external SMTP account is optional delivery preparation for the local stack. PLE uses the
+established Rust `lettre` client to connect to an operator-selected provider; it does not install,
+operate, or maintain a mail server. When a provider is available, `--with-smtp` validates its
+hostname, encrypted submission mode, authorized sender, public HTTPS origin, and an absolute
+mode-0600 provider-token file as described in
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md#external-smtp-provider). This prepares and
+validates external delivery only: canonical PLE email sign-in remains unavailable until the
+account-provider composition task replaces local-file development identity. Copy-link invitations
+remain available without the overlay.
 
-An external SMTP account is optional. PLE already uses the established Rust
-`lettre` client and does not install a mail server. When an operator later
-selects a provider, configure the provider hostname, encrypted submission mode,
-authorized sender, public HTTPS origin, and an absolute mode-0600 provider-token
-file through the opt-in `--with-smtp` path documented in
-[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md#external-smtp-provider). The default local install
-continues to support copy-link course invitations without SMTP; canonical email
-sign-in requires the configured provider.
-
-## Standalone WeBWorK PG renderer
-
-The renderer is part of the normal stack, so the same launcher command starts it:
-
-```bash
-./launch_local_stack.sh --no-open
-```
-
-PLE relies on an existing external `webwork-pg-renderer` image rather than building WebWork2. The
-default environment names `localhost/pg-renderer:latest`; build or obtain that image through the
-separate renderer project before first launch. The PLE launcher verifies the image, records its OCI
-identity, and probes real render and grade behavior.
-
-The default bootstrap creates two local renderer JWT secrets in the ignored mode-0600
-`containers/env.local`. A custom environment must provide `PLE_WEBWORK_RENDERER_IMAGE`,
-`PLE_WEBWORK_RENDERER_ID`, `PLE_WEBWORK_PROBLEM_JWT_SECRET`, and
-`PLE_WEBWORK_SESSION_JWT_SECRET`. The renderer has no MariaDB, course credentials, volume, or host
-port. See [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md) and
-[LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md).
+The launcher creates the renderer's local JWT secrets, records the selected OCI image identity,
+and probes real render and grade behavior before PLE starts. The renderer has no MariaDB, course
+credentials, volume, or host port; see [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md)
+and [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md).
 
 ## Known gaps
 
-- WP-RC3's bounded live upstream build, PLE API path, and browser acceptance are accepted. Broad
-  OPL compatibility and WeBWorK MATCH remain out of scope for RC3 and are owned by WP-RC5.
+- Complete account-provider composition, then verify the chosen external SMTP provider's sender
+  approval and delivery behavior before using canonical email sign-in with real learners.
+- Broader PG/PGML compatibility, including MATCH, needs separate source and live evidence beyond
+  the accepted bounded radio-button path.

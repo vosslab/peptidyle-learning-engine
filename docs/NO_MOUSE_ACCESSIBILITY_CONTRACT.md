@@ -245,7 +245,7 @@ The following are valuable implementation or release evidence but do not become 
 - exploratory accessibility-tree inspection;
 - one-time screenshots or focus-ring recordings;
 - manual VoiceOver plus Safari and NVDA plus Firefox or Chromium walkthroughs;
-- institutional identity-provider and third-party tool evaluations; and
+- canonical PLE email sign-in, invitation claim, account-security, and third-party-tool evaluations; and
 - temporary probes used to diagnose a browser or assistive-technology combination.
 
 Record those results in the audit or release evidence, then remove disposable scripts and fixtures.
@@ -279,5 +279,6 @@ must satisfy this contract as part of their family acceptance rather than being 
 generic accessibility pass.
 
 The remaining human boundary is deliberate: run representative VoiceOver/Safari and NVDA/browser
-walkthroughs, including institutional login and any real third-party provider, before claiming fall
-pilot accessibility.
+walkthroughs through canonical PLE email sign-in, invitation claim, account security, and any real
+third-party provider before claiming fall-pilot accessibility. Optional SSO account linking, if
+introduced later, needs its own focused accessibility evaluation and does not replace this path.

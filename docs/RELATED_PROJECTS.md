@@ -1,8 +1,8 @@
 # Related projects
 
-PLE uses a small number of external question ecosystems through explicit adapter boundaries. This
-page names those relationships without implying broad format compatibility, browser trust, or a
-runtime dependency where none exists. Current adapter scope and acceptance state remain in
+PLE connects selected question ecosystems through small, explicit adapter boundaries. This page
+identifies those relationships without implying broad format compatibility, browser trust, or a
+runtime dependency where none exists. Current adapter scope and acceptance evidence remain in
 [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md) and
 [release_completion_plan.md](active_plans/active/release_completion_plan.md).
 
@@ -10,64 +10,66 @@ runtime dependency where none exists. Current adapter scope and acceptance state
 
 ### WeBWorK PG
 
-- Relationship: direct rendering-engine dependency
+- Relationship: indirect runtime rendering-engine dependency
 - Link: https://github.com/openwebwork/pg
-- Evidence: PG is the problem-language, randomization, rendering, and grading engine used by the
-  standalone renderer. Its `WeBWorK::PG` API accepts problem source, seed, and submitted inputs
-  without owning a course, roster, assignment, or SQL database.
-- Notes: PLE does not call PG directly from the browser or Rust API. PG runs inside the private
-  renderer and remains subordinate to PLE's attempt, grading, and disclosure contracts.
+- Evidence: PLE's external renderer uses PG/PGML to render and grade source under PLE-controlled
+  attempt state. The PLE runtime image and protocol are documented in
+  [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
+- Notes: PG provides the problem language, randomization, rendering, and grading engine. It does
+  not own a PLE course, roster, assignment, attempt, or gradebook.
 
-### WebWork PG renderer
+### webwork-pg-renderer
 
-- Relationship: direct integration target and same-author sibling repo
+- Relationship: direct integration target and same-author sibling repository
 - Link: https://github.com/vosslab/webwork-pg-renderer
-- Evidence: The renderer wraps `WeBWorK::PG` in a small HTTP service with `/health`, `/`, and
-  `/render-api` routes. It renders and grades PG/PGML without implementing a second course,
-  assignment, enrollment, or gradebook system.
-- Notes: This is PLE's required runtime destination. The maintained sibling checkout is
-  `../webwork-pg-renderer`; `OTHER_REPOS/webwork-pg-renderer` is an identical read-only reference
-  mirror. PLE must pin an upstream revision or built artifact and must not import, mount, or build
-  from `OTHER_REPOS/`.
+- Evidence: `containers/compose.yaml` starts the declared external renderer image, while
+  `crates/adapters/webwork` consumes its private `/render-api` contract.
+- Notes: The maintained sibling checkout is `../webwork-pg-renderer`.
+  `OTHER_REPOS/webwork-pg-renderer` is an identical read-only reference mirror. PLE consumes a
+  pinned image or declared artifact; it does not import, mount, or build from `OTHER_REPOS/`.
 
 ### WeBWorK2
 
-- Relationship: prior art only
+- Relationship: prior art and application-layer reference
 - Link: https://github.com/openwebwork/webwork2
-- Evidence: WeBWorK2 is the complete course-management and online-homework application. PLE instead
-  uses the smaller external `webwork-pg-renderer` service and has no WebWork2 or MariaDB runtime.
-- Notes: WeBWorK2 is not PLE's product boundary. PLE already owns courses, assignments, enrollment,
-  attempts, feedback, and grades, so retaining the full application would create a parallel
-  assignment system. It remains useful reference material for PG application behavior.
+- Evidence: PLE's local-stack architecture names WeBWorK2 as reference material and explicitly
+  omits both its course-management runtime and MariaDB.
+- Notes: WeBWorK2 is a full homework application. PLE retains ownership of courses, rosters,
+  assignments, attempts, feedback, and grades, so deploying it would create a parallel assignment
+  system. It remains useful for understanding PG application behavior.
 
 ### QTI Package Maker
 
-- Relationship: companion CLI, library, or demo repo
+- Relationship: same-author interoperability oracle
 - Link: https://github.com/vosslab/qti_package_maker
-- Evidence: [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) preserves the reviewed MC, MA,
-  MATCH, NUM, FIB, MULTI_FIB, and ORDER item semantics in PLE flat JSON v2.
-- Notes: This same-author Python project creates QTI and teaching-format exports. PLE uses it as an
-  interoperability oracle, not as a runtime dependency or a Rust porting target.
+- Evidence: [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) records the reviewed MC, MA,
+  MATCH, NUM, FIB, MULTI_FIB, and ORDER semantics used by PLE flat-question JSON v2.
+- Notes: This Python project creates QTI and teaching-format exports. PLE treats it as reviewed
+  interoperability evidence, not as a runtime dependency or a Rust porting target.
 
 ### Biology Problems OER
 
-- Relationship: same-author or same-org sibling repo
+- Relationship: same-author content companion
 - Link: https://biologyproblems.org/
-- Evidence: [README.md](../README.md) identifies Neil R. Voss as maintaining both PLE and the
-  Biology Problems open educational resource project.
-- Notes: Biology Problems supplies adjacent biology content and LMS-export workflows; it is not
-  built, imported, or executed by PLE.
+- Evidence: [README.md](../README.md) identifies the Biology Problems open educational resource
+  project as related work, and `crates/project-tools` records source provenance for the initial
+  WebWork pilot content.
+- Notes: Biology Problems supplies adjacent biology content and LMS-export workflows. PLE does not
+  build, import, or execute the project as part of its runtime.
 
 ### LibreTexts ADAPT
 
-- Relationship: prior art or inspiration
+- Relationship: prior art and independent learning-platform alternative
 - Link: https://adapt.libretexts.org/
-- Evidence: The local ADAPT reference snapshot and
-  [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) compare its multi-engine gradebook
-  and learner payload paths with PLE's contract.
-- Notes: ADAPT demonstrates the value of one gradebook over WeBWorK, iMathAS, H5P, and QTI. PLE
-  intentionally differs by binding submissions to a server-owned attempt, returning answer-free
-  PLE envelopes, and keeping the WeBWorK exchange private rather than browser-mediated.
+- Evidence: ADAPT's public guide documents instructor course and gradebook workflows, while its
+  student guide documents direct account creation followed by enrollment with a course access code.
+  PLE's comparison is recorded in [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) and
+  [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
+- Notes: ADAPT usefully demonstrates course-level enrollment and one gradebook across multiple
+  question engines. Its public documentation also shows direct student accounts and, in
+  institution-specific guidance, campus-login paths. Those sources do not establish one universal
+  institutional-SSO contract. PLE instead owns a global opaque account, uses invitation claim for
+  roster membership, and keeps course authorization as the disclosure boundary.
 
 ### iMathAS
 
@@ -77,24 +79,31 @@ runtime dependency where none exists. Current adapter scope and acceptance state
   [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md) defines its immutable server snapshot and
   server-brokered verified-result boundary.
 - Notes: PLE supports only the contracted backend seam. Generic hosted execution and
-  browser-trusted launch or score flows remain outside its supported contract.
+  browser-trusted launch or score flows are outside the supported contract.
 
 ### H5P
 
 - Relationship: optional integration target
 - Link: https://h5p.org/
 - Evidence: `crates/adapters/h5p` is a workspace adapter, and
-  [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md) records the supported static import posture.
-- Notes: PLE imports the bounded static path for ungraded practice. It does not claim that an H5P
-  browser activity supplies a server-verifiable score.
+  [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md) defines its static-import posture. H5P's
+  official documentation describes browser-based interactive HTML5 content.
+- Notes: PLE accepts the bounded static path for ungraded practice. Browser-side H5P execution is
+  not presented as a server-verifiable grade.
 
 ## Evidence notes
 
-The PLE workspace manifest confirms the adapter ownership boundaries. The current release plan,
-adapter guide, and private renderer contract establish the exact WeBWorK and provider scope.
-`OTHER_REPOS/` is an ignored, read-only reference area rather than a dependency directory. Its
-ADAPT, PG, WebWork PG renderer, WeBWorK2, Biology Problems, and QTI Package Maker snapshots provide
-comparison evidence only. Build scripts, manifests, containers, and tests must resolve maintained
-dependencies from pinned upstream revisions or declared artifacts, never from those snapshots.
-Official project pages and QTI Package Maker's PyPI metadata corroborate the external project links
-and its seven supported item families.
+The workspace manifest confirms the adapter ownership boundaries. The renderer configuration,
+[LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md), and
+[WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md) establish the three distinct
+WeBWorK layers: PG is the engine, `webwork-pg-renderer` is PLE's private HTTP integration, and
+WeBWorK2 is a separate full application retained only as reference material. `OTHER_REPOS/` is a
+read-only comparison area, never a build context, mount, import source, or runtime dependency.
+
+The ADAPT relationship is supported by its public
+[student account and enrollment guide](https://chem.libretexts.org/Courses/Remixer_University/Mastering_ADAPT%3A_A_User%27s_Guide/06%3A_Using_ADAPT_as_a_Student/6.01%3A_New_Page),
+[account guide](https://chem.libretexts.org/Courses/Remixer_University/Mastering_ADAPT%3A_A_User%27s_Guide/04%3A_Using_ADAPT_as_an_Instructor/4.01%3A_Accounts),
+and [course-properties guide](https://chem.libretexts.org/Courses/Remixer_University/Mastering_ADAPT%3A_A_User%27s_Guide/04%3A_Using_ADAPT_as_an_Instructor/4.03%3A_Course_Properties).
+Those documents support the stated enrollment and gradebook lessons; they are not evidence for a
+general ADAPT institutional-identity architecture. Official project pages corroborate the external
+links for PG, WeBWorK2, H5P, iMathAS, and the standalone renderer.

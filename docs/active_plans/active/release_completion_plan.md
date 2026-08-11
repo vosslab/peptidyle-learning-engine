@@ -8,10 +8,12 @@ renderer replacement, and WP-ARCH1 source ownership are accepted; this plan owns
 through the version 1 release. It supplements the
 architecture in [implementation_plan.md](../implementation_plan.md) and replaces every unresolved
 scope question in that document and its active companion plans. WP-RC4 flat JSON v2 implementation
-is present and awaits its independent closeout. WP-RC8 passwordless identity/enrollment is
-implemented; SMTP-backed email authentication through an operator-selected provider,
-optional-passkey and multi-replica evidence, and independent acceptance remain open. The secure
-payload cutover and WP-RC5 authoring and pilot work remain dependency-ordered next work.
+is present and awaits its independent closeout. WP-RC8's generic identity, passwordless, and
+roster routes are implemented, but production composition still starts only local-file development
+authentication. Composing the canonical PLE email-account provider into production is required
+repository work before SMTP-backed email authentication through an operator-selected provider,
+optional-passkey and multi-replica evidence, and independent acceptance. The secure payload cutover
+and WP-RC5 authoring and pilot work remain dependency-ordered next work.
 
 Completed packages remain accepted evidence; they are not reopened by this plan. A package below is
 complete only when its named production artifacts work, its behavior and security gates pass, its
@@ -142,7 +144,7 @@ WP-RC3 accepted compatibility proof ---> WP-ARCH1 accepted source decomposition
                                 WP-RC3R accepted standalone PG renderer
                                                    |
                                                    v
-                                WP-RC8 passwordless identity/enrollment
+                    WP-RC8 production account-provider composition
                                                    |
                                                    v
                                         WP-RC4 flat JSON v2
@@ -165,8 +167,9 @@ WP-RC8 accepted identity/enrollment ---> WP-RC9 LTI ---> WP-FU1..WP-FU6 secure u
 ```
 
 The human owner reprioritized WP-RC8 passwordless identity and enrollment as the immediate package
-after accepted WP-ARCH1; it does not wait on content breadth. WP-RC4 resumes after WP-RC8. Its
-internal version 2 implementation no longer waits on external QTI-JSONL artifacts. WP-P1 may
+after accepted WP-ARCH1; its first remaining dependency is production composition of the canonical
+PLE email-account provider, and it does not wait on content breadth. WP-RC4 resumes after WP-RC8.
+Its internal version 2 implementation no longer waits on external QTI-JSONL artifacts. WP-P1 may
 proceed alongside RC4 closeout, but the complete
 WP-P1 through WP-P6 boundary must be accepted before WP-RC5. WP-RC7's
 non-schema inventory work may proceed earlier; its schema work begins only after WP-P2 preserves the
@@ -415,12 +418,15 @@ reserved migration ordering below.
 
 ### WP-RC8: Implement passwordless identity and enrollment
 
-- **Status:** implemented, acceptance open on 2026-08-10. The account/email/passkey, copy-link
-  invitation, roster/policy/bulk import, atomic enrollment, Solid UI, migration, and manual no-store
-  grade-export slices exist. Provider-neutral authenticated STARTTLS/implicit-TLS configuration and
-  secret-file Compose plumbing are implemented without a PLE mail service. A live send through the
-  operator-selected provider, optional-passkey and multi-replica E2E, and independent security/HCI
-  closeout remain; the rollout checklist stays unchecked.
+- **Status:** generic implementation exists, acceptance open on 2026-08-10. The account/email/passkey,
+  copy-link invitation, roster/policy/bulk import, atomic enrollment, Solid UI, migration, and
+  manual no-store grade-export slices exist. However, `production_router_from_env` currently composes
+  `local_development_authentication_from_env`, not the canonical PLE email account provider. That
+  production wiring is the first remaining repository task. Provider-neutral authenticated
+  STARTTLS/implicit-TLS configuration and secret-file Compose plumbing are implemented without a PLE
+  mail service. A live send through the operator-selected provider, optional-passkey and
+  multi-replica E2E, and independent security/HCI closeout follow the composition task; the rollout
+  checklist stays unchecked.
 - **Owner:** authentication `rust-code-expert`, PostgreSQL owner, enrollment/API owner, UI owner,
   SMTP-provider configuration owner, and independent security/HCI reviewers. PLE does not own mail
   transport or deliverability tooling.
@@ -454,17 +460,20 @@ reserved migration ordering below.
   subject to an existing PLE `UserId`. Validate discovery/metadata, issuer allowlist, state, nonce,
   redirect URI, signature, audience, expiry, and replay. SSO never selects a tenant by email,
   silently creates a parallel account, or becomes required for standalone deployment.
-- **Success:** email registration/sign-in, optional passkey login, verified email replacement,
-  roster invitation/claim, and course access work across replicas. Account enumeration, token
+- **Success:** production composition enters the same PLE email-account/session flow as the generic
+  passwordless routes; email registration/sign-in, optional passkey login, verified email
+  replacement, roster invitation/claim, and course access work across replicas. Account enumeration, token
   replay, credential cloning/mismatch,
   wrong origin/RP ID, cross-course invitation use, domain suffix confusion, roster-ID collision,
   stale bulk commit, and cross-tenant disclosure fail safely. An instructor can invite a real
   browser user and export the resulting score without SQL, seeding tools, global `UserId`, passkey
   metadata, or unrelated activity in the export. Logs and browser state contain no authentication
   or invitation secret.
-- **Validation:** WebAuthn/email/account/roster Store conformance and RLS; deterministic hostile
-  token/domain/CSV tests; copy-link browser handoff plus a test account at the operator-selected SMTP
-  provider for email authentication and optional-passkey browser E2E; multi-replica
+- **Validation:** focused production-composition tests proving the canonical PLE email-account
+  provider, rather than local-file development authentication, owns production entry; WebAuthn/email/
+  account/roster Store conformance and RLS; deterministic hostile token/domain/CSV tests; copy-link
+  browser handoff plus a test account at the operator-selected SMTP provider for email authentication
+  and optional-passkey browser E2E; multi-replica
   invitation, login, email replacement, and manual grade-export Playwright; standards-compliant OIDC
   connector E2E only when that optional connector is enabled; security/HCI review; full repository
   gate.
@@ -687,7 +696,8 @@ development. They must pass, not skip, in WP-RC12 release evidence.
 - [ ] WP-RC5 eight families and Chapter 1 content accepted.
 - [ ] WP-RC6 QTI export and H5P claims accepted.
 - [ ] WP-RC7 M2-M5 reconciliation/integration accepted.
-- [ ] WP-RC8 passwordless identity, enrollment, and optional SSO accepted.
+- [ ] WP-RC8 production PLE email-account composition, passwordless identity, enrollment, and optional
+      SSO accepted.
 - [ ] WP-RC9 LTI Advantage accepted.
 - [ ] WP-FU1 through WP-FU6 secure learner file uploads accepted.
 - [ ] WP-RC10 OpenTofu disposable deployment/restore accepted.

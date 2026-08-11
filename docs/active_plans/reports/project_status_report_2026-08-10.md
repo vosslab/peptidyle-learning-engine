@@ -31,8 +31,10 @@ passed.
 
 PLE now has accepted course appearance, production-seam cleanup, a bounded live WeBWorK path, and
 the first source-ownership decomposition. Native flat JSON v2 implements the eight required question
-families. WP-RC8 now implements the first usable institution-independent passwordless account and
-course-roster slice, including manual grade export, while its production acceptance remains open.
+families. WP-RC8 implements the institution-independent passwordless account and course-roster
+source slice, including generic route wiring and manual grade export. Its production composition
+still selects local-development authentication rather than canonical PLE email-account entry, so
+that wiring is a code gap in addition to the remaining external-provider acceptance evidence.
 The secure learner-payload design is
 decision-complete, and its descriptor codec and first forward migration are present, but the full
 browser/API/WeBWorK cutover remains unaccepted. Learner file upload remains deliberately disabled
@@ -146,16 +148,16 @@ dependency-ordered work before WP-RC5 acceptance.
 
 ### Passwordless identity and enrollment implemented
 
-WP-RC8 is **implemented, acceptance open**. The current slice provides PLE-owned opaque global
-accounts, uniform short-lived browser-bound email authentication, discoverable WebAuthn,
-multiple-passkey management, verified email replacement, and authorized account-to-course context
-selection. Course managers can page the roster, set exact allowed-email domains, create or revoke a
-single invitation, copy its one-time link for trusted-LMS delivery, optionally send it through the
-established SMTP adapter, preview and atomically commit a bounded `email,roster_id` CSV, revoke
-learner access, and download a synchronous no-store grade CSV. Invitation claim atomically creates or
-reuses the tenant learner identity, course membership, every current assignment enrollment, and
-every empty summary; assignment creation applies the same cross-product invariant to current
-learners.
+WP-RC8 is **source implemented, acceptance open**. The generic router and source components provide
+PLE-owned opaque global accounts, uniform short-lived browser-bound email authentication,
+discoverable WebAuthn, multiple-passkey management, verified email replacement, and authorized
+account-to-course context selection. Course managers can page the roster, set exact allowed-email
+domains, create or revoke a single invitation, copy its one-time link for trusted-LMS delivery,
+optionally send it through the established SMTP adapter, preview and atomically commit a bounded
+`email,roster_id` CSV, revoke learner access, and download a synchronous no-store grade CSV.
+Invitation claim atomically creates or reuses the tenant learner identity, course membership, every
+current assignment enrollment, and every empty summary; assignment creation applies the same
+cross-product invariant to current learners.
 
 Forward migration `2026080909_passwordless_identity.sql` passed fresh migration, no-op replay,
 ledger verification, role/grant/forced-RLS checks, and the disposable PostgreSQL enrollment oracle.
@@ -163,29 +165,34 @@ The all-feature Rust workspace and complete browser suite are green, including a
 instructor copy-link invitation path. The refreshed local stack also proved a live HTTP 202 no-store
 copy-link creation with no SMTP configured, followed by API revocation. The 11-stage codebase gate,
 3,190-test Python/documentation suite, and browser suite with 76 passes and two deliberate opt-in
-skips are green. Acceptance remains open for canonical email authentication through an off-the-shelf
-external provider test account, optional-passkey and multi-replica journey plus independent
-security/HCI closeout.
+skips are green. Those tests do not demonstrate a canonical email-account entry through the process
+startup root: `production_router_from_env` currently always constructs local-file development
+authentication. Production composition must select the PLE account identity path before the
+operator-selected provider test, optional-passkey and multi-replica journeys, and independent
+security/HCI closeout can accept the package.
 Email authentication is the
 canonical account path and passkeys are optional shortcuts. Version 1 has no manager-assisted
 account merge or educational-record transfer; email possession authenticates only the account
 already bound to that email.
 
-External mail is now deployment-ready but intentionally not deployed. The opt-in
+External mail integration is deployment-ready but intentionally unconfigured. The opt-in
 Compose overlay connects `lettre` to an operator-selected SMTP provider using
 mandatory STARTTLS or implicit TLS, copies a bounded mode-0600 provider token
 through a networkless initializer, and exposes no SMTP password in the API
 environment. PLE adds no mail-server container and owns no sender-reputation or
-deliverability tooling. Live provider evidence remains open until an operator
-account is selected.
+deliverability tooling. The remaining live provider evidence needs an operator-selected test
+account; it is an external configuration and acceptance dependency, not a missing PLE mail-service
+implementation.
 
 The local walkthrough has one explicit session boundary. Local-file sign-in creates the
 tenant-scoped `ple_session` used by ordinary course APIs; invitation redemption requires a persisted
 PLE account and `ple_account_session`. Passkey registration starts from that account and therefore
-cannot bootstrap it. The supported walkthrough must use canonical email authentication before
-invitation redemption. Copy-link delivery removes SMTP from the invitation handoff, but not from
-account authentication. Course and assignment creation are the only remaining arranged setup steps
-until their instructor UI exists.
+cannot bootstrap it. The intended learner walkthrough uses canonical email authentication before
+invitation redemption, but the current process startup root always selects local-file development
+authentication and does not wire that canonical account entry. A copy link changes only invitation
+delivery: it removes SMTP from that handoff but does not create or authenticate an account. Course
+and assignment creation will be the only remaining arranged setup steps once the composition gap is
+closed, until their instructor UI exists.
 
 ### File upload planned safely
 
@@ -213,7 +220,7 @@ production deployment.
 | WP-P1 through WP-P6 payload | Decision accepted; offline persistence slice implemented | Codec, migration, exact replay binding, and one-call normal WeBWorK grading exist; complete API/browser/live cutover and independent evidence remain |
 | WP-RC5 and WP-RC6 content/interchange | Planned and owned | Visual family authoring, integrated storage, Chapter 1 content, QTI export, and honest H5P closeout |
 | WP-RC7 data hardening | Planned and owned | Object inventory, twice-observed orphan quarantine, missing-reference alerts, and combined M2-M5 gate |
-| WP-RC8 identity/enrollment | Implemented, acceptance open | PLE-managed email accounts with optional passkeys, no-store copy-link/optional-SMTP invitation claim, roster/bulk import, atomic enrollments, and manual no-store grade export; off-the-shelf email-authentication/optional-passkey/replica and independent closeout remain |
+| WP-RC8 identity/enrollment | Source implemented, acceptance open | Generic account/roster routes, optional passkeys, no-store copy-link/optional-SMTP invitation claim, roster/bulk import, atomic enrollments, and manual no-store grade export exist; production composition must wire canonical PLE account entry, then provider, optional-passkey/replica, and independent evidence remain |
 | WP-RC9 LTI | Planned and owned | LTI 1.3 launch and AGS passback; optional institutional SSO remains a non-blocking future account-linking integration |
 | WP-FU1 through WP-FU6 uploads | Planned and fail-closed | Server-issued, inspected, attempt-bound learner upload capability |
 | WP-RC10 and WP-RC11 operations | Planned and owned | OpenTofu deployment/recovery/scale, then measured bot-cost controls |
@@ -304,16 +311,24 @@ production deployment.
 - The disposable PostgreSQL baseline passes all nine migrations, fresh/no-op/verify behavior,
   passwordless/enrollment RLS and role boundaries, and the existing partition/QTI/flat/manual/item
   analysis oracles. The disposable project and volume were removed after the run.
-- These current-tree checks do not replace WP-RC8's still-missing SMTP-backed email authentication
-  through the operator-selected provider, optional-passkey, multi-replica, and independent
-  acceptance evidence or constitute WP-RC12 release acceptance.
+- Generic-router, migration, database, and browser evidence does not prove canonical email-account
+  entry through the production startup root. `production_router_from_env` currently always calls
+  `local_development_authentication_from_env`, so the first remaining WP-RC8 code task is to wire
+  the production PLE account identity path there. The subsequent operator-selected SMTP-provider
+  email-authentication proof is external activation work over the implemented mail adapter and
+  Compose wiring; it does not imply a missing PLE mail server. Optional-passkey and multi-replica
+  journeys plus independent acceptance evidence remain. None of these checks constitute WP-RC12
+  release acceptance.
 
 ## Current gaps
 
-1. Close WP-RC8 acceptance with an operator-selected SMTP test account,
-   optional-passkey, and multi-replica journey plus independent security/HCI review. Keep
-   manager-assisted account merge and educational-record
-   transfer outside version 1; do not infer record ownership from email possession.
+1. Complete WP-RC8 production composition so the startup root selects canonical PLE
+   email-account entry rather than always selecting local-file development authentication. Then run
+   the operator-selected SMTP-provider test, optional-passkey and multi-replica journeys, and
+   independent security/HCI review. The composition correction is a code gap; the provider account
+   is external activation evidence for the implemented mail adapter, not a PLE-operated mail-service
+   requirement. Keep manager-assisted account merge and educational-record transfer outside version
+   1; do not infer record ownership from email possession.
 2. Complete WP-RC4's independent flat JSON v2 contract/security closeout.
 3. Implement and accept WP-P1 through WP-P6 before WP-RC5 acceptance.
 4. Complete WP-RC5 visual family authoring, integrated all-family persistence/object evidence,
