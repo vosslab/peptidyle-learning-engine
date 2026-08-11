@@ -2,8 +2,8 @@
 # Full PLE acceptance for the private, source-pinned WebWork renderer.
 #
 # This deliberately exercises only PLE's public gateway.  It never reads a
-# renderer credential, request field, answer hash, source text, or upstream
-# response.  The direct renderer probe remains a container-readiness check.
+# renderer-internal token, request field, answer hash, source text, or upstream
+# response. The direct renderer probe remains a container-readiness check.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
@@ -39,8 +39,7 @@ configure_compose() {
 }
 
 compose() {
-	"${COMPOSE[@]}" -f containers/compose.yaml -f containers/compose.webwork.yaml \
-		--env-file "$ENV_FILE" --profile webwork "$@"
+	"${COMPOSE[@]}" -f containers/compose.yaml --env-file "$ENV_FILE" "$@"
 }
 
 json_value() {
@@ -64,7 +63,7 @@ import sys
 
 # These are upstream-private names/material.  A response or local diagnostic
 # containing one is a failure; the E2E never needs to decode any of them.
-forbidden = ("problemSource", "passwd", "AnSwEr", "hidden_input_field", "render_rpc")
+forbidden = ("problemSource", "passwd", "AnSwEr", "hidden_input_field", "render_rpc", "render-api")
 for name in sys.argv[1:]:
     data = pathlib.Path(name).read_bytes()
     for term in forbidden:
@@ -124,7 +123,7 @@ names = {
 if classification not in names:
     raise SystemExit(f"unknown visible-choice classification: {classification}")
 wire = json.dumps(document, separators=(",", ":"))
-for forbidden in ("problemSource", "passwd", "AnSwEr", "hidden_input_field", "render_rpc"):
+for forbidden in ("problemSource", "passwd", "AnSwEr", "hidden_input_field", "render_rpc", "render-api"):
     if forbidden in wire:
         raise SystemExit(f"private renderer material leaked into PLE question: {forbidden}")
 choices = document.get("response", {}).get("choices", [])
@@ -196,26 +195,8 @@ PY
 require_file "$ENV_FILE"
 configure_compose
 
-# Podman's mount semantics must preserve the strict host-secret mode used by
-# the private renderer.  This check neither reads nor prints the secret.
-mode_probe_directory="$(mktemp -d "${TMPDIR:-/tmp}/ple-webwork-mode.XXXXXX")"
-trap 'rm -rf "$WORK_DIRECTORY" "$mode_probe_directory"' EXIT
-mode_probe_file="$mode_probe_directory/secret"
-umask 077
-openssl rand -base64 48 | tr '+/' '-_' | tr -d '\n=' >"$mode_probe_file"
-chmod 600 "$mode_probe_file"
-secret_init_digest="$(env_value PLE_SECRET_INIT_IMAGE_SHA256)"
-case "$secret_init_digest" in
-	????????????????????????????????????????????????????????????????) ;;
-	*) fail "PLE_SECRET_INIT_IMAGE_SHA256 must be a 64-character pinned image digest" ;;
-esac
-projected_mode="$(podman run --rm -v "$mode_probe_file:/run/ple-secrets/secret:ro" "docker.io/library/alpine@sha256:${secret_init_digest}" stat -c '%a' /run/ple-secrets/secret)"
-rm -rf "$mode_probe_directory"
-mode_probe_directory=""
-[ "$projected_mode" = "600" ] || fail "Podman read-only bind changed strict secret mode to $projected_mode"
-
 # Required/no-SKIP acceptance: this is the supported all-in-one launch path.
-./launch_local_stack.sh --with-webwork --no-open --env-file "$ENV_FILE"
+./launch_local_stack.sh --no-open --env-file "$ENV_FILE"
 require_file "$CREDENTIAL_FILE"
 require_file "$MANIFEST_FILE"
 
@@ -322,13 +303,21 @@ compose stop webwork-renderer >/dev/null
 renderer_stopped=1
 restore_renderer() {
 	if [ "${renderer_stopped:-0}" = 1 ]; then
-		compose up -d webwork-renderer >/dev/null
+		# Hypnotoad leaves manager state in the container tmpfs across a plain
+		# stop/start. Recreate this stateless service so recovery starts from the
+		# same clean image boundary as a normal launch.
+		compose up -d --force-recreate --no-deps webwork-renderer >/dev/null
+		renderer_stopped=0
+		renderer_container_id="$(podman ps \
+			--filter label=io.podman.compose.project=containers \
+			--filter label=io.podman.compose.service=webwork-renderer \
+			--format '{{.ID}}')"
+		[ -n "$renderer_container_id" ] || fail "restored renderer container was not found"
 		started_at=$SECONDS
-		until compose exec -T webwork-renderer /usr/local/bin/probe_render_rpc.sh >/dev/null 2>&1; do
-			[ $((SECONDS - started_at)) -lt 180 ] || fail "renderer did not regain authenticated readiness after outage restoration"
+		until podman exec -i "$renderer_container_id" bash -s -- <containers/webwork/probe_render_api.sh >/dev/null 2>&1; do
+			[ $((SECONDS - started_at)) -lt 180 ] || fail "renderer did not regain readiness after outage restoration"
 			sleep 2
 		done
-		renderer_stopped=0
 	fi
 }
 trap 'restore_renderer; rm -rf "$WORK_DIRECTORY"' EXIT
@@ -346,5 +335,5 @@ export PLE_WEBWORK_LIVE_BASE_URL="$BASE_URL"
 export PLE_WEBWORK_LIVE_STUDENT_CREDENTIAL_FILE="$CREDENTIAL_FILE"
 export PLE_WEBWORK_LIVE_ASSIGNMENT_ID="$ASSIGNMENT_ID"
 [ -f tests/playwright/webwork_run.spec.ts ] || fail "required browser acceptance spec tests/playwright/webwork_run.spec.ts is missing"
-npx playwright test tests/playwright/webwork_run.spec.ts
+bash run_playwright_tests.sh tests/playwright/webwork_run.spec.ts
 echo "PASS: PLE WebWork live acceptance proved safe gateway projection, same-attempt cache replay, full/zero scoring, renderer-outage isolation, and private-material non-disclosure."

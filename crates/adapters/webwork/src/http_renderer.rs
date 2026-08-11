@@ -1,4 +1,4 @@
-//! Stable bounded-client facade for the upstream WeBWorK `render_rpc` endpoint.
+//! Stable bounded-client facade for the external standalone PG renderer.
 //!
 //! The private client owns the shipped form protocol and response projection;
 //! consumers retain these public renderer types at their original path.

@@ -61,7 +61,7 @@ const PROTECTED_UPSTREAM_JSON_KEYS = [
 ] as const;
 const PROTECTED_UPSTREAM_JSON_KEY_SET = new Set<string>(PROTECTED_UPSTREAM_JSON_KEYS);
 const RAW_PG_SOURCE_FINGERPRINTS = ["BEGIN_PGML", "loadMacros(", "RadioButtons("] as const;
-const FORBIDDEN_URL_PATHS = ["/webwork2/", "render_rpc"] as const;
+const FORBIDDEN_URL_PATHS = ["/webwork2/", "render_rpc", "/render-api"] as const;
 
 interface BrowserTrace {
   readonly locations: ReadonlyArray<BrowserLocation>;

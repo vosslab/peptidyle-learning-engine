@@ -16,7 +16,7 @@ use super::router::{
 };
 use super::settings::{
     ProductionSettings, StorageSettings, WebworkRendererSettings, parse_positive_u64,
-    parse_positive_usize, parse_secret32, read_webwork_password_file, required_env,
+    parse_positive_usize, parse_secret32, required_env,
 };
 use super::*;
 use crate::auth::{CookieTransport, IdentityProviderError};
@@ -91,16 +91,13 @@ fn composed_memory_router() -> Router {
     );
     let renderer = HttpWebworkRenderer::new(
         HttpWebworkRendererConfig::new(
-            "http://renderer.internal/webwork2/",
+            "http://renderer.internal/",
             std::time::Duration::from_secs(1),
             1_024,
             RendererIdentity {
                 id: "test-renderer".to_string(),
                 version: "1".to_string(),
             },
-            "test-course",
-            "test-user",
-            "test-password",
         )
         .expect("valid test renderer configuration"),
     )
@@ -280,14 +277,11 @@ fn production_settings() -> ProductionSettings {
         },
         public_asset_base_url: "https://cdn.example.test/content".to_string(),
         webwork: Some(WebworkRendererSettings {
-            webwork_renderer_base_url: "http://webwork-renderer:8080/webwork2/".to_string(),
+            webwork_renderer_base_url: "http://webwork-renderer:3000/".to_string(),
             webwork_request_timeout_seconds: 15,
             webwork_max_response_bytes: 1_048_576,
-            webwork_renderer_id: "ple-webwork-renderer".to_string(),
+            webwork_renderer_id: "vosslab-webwork-pg-renderer".to_string(),
             webwork_renderer_version: "1".to_string(),
-            webwork_course_id: "ple_render".to_string(),
-            webwork_user: "ple_service".to_string(),
-            webwork_password_file: "/private/tmp/ple-test-webwork-password".to_string(),
         }),
         imathas_provider_key: None,
         qti_runtime_enabled: None,
@@ -348,24 +342,8 @@ fn grader_runtime_is_required_redacted_and_qti_is_explicit() {
 
 #[test]
 fn webwork_renderer_settings_fail_closed_before_router_construction() {
-    let password_file =
-        std::env::temp_dir().join(format!("ple-webwork-password-{}", std::process::id()));
-    std::fs::write(&password_file, "test-render-password\n")
-        .expect("test password file should be writable");
-    #[cfg(unix)]
-    std::fs::set_permissions(
-        &password_file,
-        std::os::unix::fs::PermissionsExt::from_mode(0o600),
-    )
-    .expect("test password file permissions should be writable");
-    let mut valid = production_settings();
-    valid
-        .webwork
-        .as_mut()
-        .expect("configured WebWork")
-        .webwork_password_file = password_file.display().to_string();
+    let valid = production_settings();
     assert!(valid.webwork_renderer().unwrap().is_some());
-    std::fs::remove_file(&password_file).expect("test password file should be removable");
 
     let mut native_only = production_settings();
     native_only.webwork = None;
@@ -422,36 +400,6 @@ fn webwork_renderer_settings_fail_closed_before_router_construction() {
 
     assert!(parse_positive_u64("PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS", "nan").is_err());
     assert!(parse_positive_usize("PLE_WEBWORK_MAX_RESPONSE_BYTES", "0").is_err());
-}
-
-#[cfg(unix)]
-#[test]
-fn webwork_password_file_refuses_symlink_and_permissive_mode() {
-    use std::os::unix::fs::{PermissionsExt as _, symlink};
-
-    let nonce = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("system clock is after the Unix epoch")
-        .as_nanos();
-    let root = std::env::temp_dir().join(format!(
-        "ple-webwork-password-{}-{nonce}",
-        std::process::id()
-    ));
-    std::fs::create_dir(&root).expect("private test directory should be created");
-    let file = root.join("secret");
-    std::fs::write(&file, "test-render-password\n").expect("test secret should be written");
-    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644))
-        .expect("test secret permissions should be writable");
-    assert!(read_webwork_password_file(file.to_str().expect("UTF-8 test path")).is_err());
-    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600))
-        .expect("test secret permissions should be writable");
-    assert!(read_webwork_password_file(file.to_str().expect("UTF-8 test path")).is_ok());
-    let link = root.join("secret-link");
-    symlink(&file, &link).expect("test symlink should be created");
-    assert!(read_webwork_password_file(link.to_str().expect("UTF-8 test path")).is_err());
-    std::fs::remove_file(&link).expect("test symlink should be removable");
-    std::fs::remove_file(&file).expect("test secret should be removable");
-    std::fs::remove_dir(&root).expect("private test directory should be removable");
 }
 
 #[test]
@@ -615,41 +563,21 @@ async fn imathas_production_configuration_fails_closed_without_provider_ping() {
 }
 
 #[test]
-fn renderer_password_is_required_and_never_exposed_by_debug() {
-    let authenticated = production_settings().webwork.expect("configured WebWork");
-    let secret = "renderer-password-file-secret";
+fn renderer_configuration_debug_exposes_no_credentials() {
+    let configured = production_settings().webwork.expect("configured WebWork");
     let config = HttpWebworkRendererConfig::new(
-        &authenticated.webwork_renderer_base_url,
-        std::time::Duration::from_secs(authenticated.webwork_request_timeout_seconds),
-        authenticated.webwork_max_response_bytes,
+        &configured.webwork_renderer_base_url,
+        std::time::Duration::from_secs(configured.webwork_request_timeout_seconds),
+        configured.webwork_max_response_bytes,
         RendererIdentity {
-            id: authenticated.webwork_renderer_id.clone(),
-            version: authenticated.webwork_renderer_version.clone(),
+            id: configured.webwork_renderer_id.clone(),
+            version: configured.webwork_renderer_version.clone(),
         },
-        &authenticated.webwork_course_id,
-        &authenticated.webwork_user,
-        secret,
     )
     .expect("valid renderer settings");
     let debug = format!("{config:?}");
-    assert!(!debug.contains(secret));
-    assert!(debug.contains("[REDACTED]"));
-
-    assert!(
-        HttpWebworkRendererConfig::new(
-            &authenticated.webwork_renderer_base_url,
-            std::time::Duration::from_secs(authenticated.webwork_request_timeout_seconds),
-            authenticated.webwork_max_response_bytes,
-            RendererIdentity {
-                id: authenticated.webwork_renderer_id.clone(),
-                version: authenticated.webwork_renderer_version.clone()
-            },
-            &authenticated.webwork_course_id,
-            &authenticated.webwork_user,
-            "",
-        )
-        .is_err()
-    );
+    assert!(debug.contains("vosslab-webwork-pg-renderer"));
+    assert!(!debug.contains("password") && !debug.contains("course_id"));
 }
 
 #[tokio::test]

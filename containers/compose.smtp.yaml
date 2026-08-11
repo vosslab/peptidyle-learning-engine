@@ -1,0 +1,49 @@
+# Applied only by launch_local_stack.sh --with-smtp. PLE connects to an
+# operator-selected external SMTP submission service; this overlay does not
+# run a mail server or add a mail-deliverability component to the stack.
+services:
+  smtp-secret-init:
+    image: docker.io/library/alpine@sha256:${PLE_SECRET_INIT_IMAGE_SHA256:?set PLE_SECRET_INIT_IMAGE_SHA256 to the selected official Alpine Linux image manifest digest}
+    volumes:
+      - type: bind
+        source: ${PLE_SMTP_PASSWORD_HOST_FILE:?set PLE_SMTP_PASSWORD_HOST_FILE to an operator-created mode-0600 SMTP credential file}
+        target: /run/source/smtp_password
+        read_only: true
+        bind:
+          create_host_path: false
+      - ple_smtp_runtime:/run/ple-smtp-secrets
+    command: ["/bin/sh", "-ec", "cp /run/source/smtp_password /run/ple-smtp-secrets/smtp_password; chmod 600 /run/ple-smtp-secrets/smtp_password; chown 10001:10001 /run/ple-smtp-secrets/smtp_password"]
+    network_mode: none
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    cpus: "0.10"
+    mem_limit: 32m
+    pids_limit: 16
+    restart: "no"
+
+  api:
+    depends_on:
+      smtp-secret-init:
+        condition: service_completed_successfully
+    environment:
+      PLE_SMTP_RELAY: ${PLE_SMTP_RELAY:?set PLE_SMTP_RELAY to the provider SMTP hostname}
+      PLE_SMTP_PORT: ${PLE_SMTP_PORT:?set PLE_SMTP_PORT to the provider submission port}
+      PLE_SMTP_TLS_MODE: ${PLE_SMTP_TLS_MODE:?set PLE_SMTP_TLS_MODE to starttls or implicit-tls}
+      PLE_SMTP_USERNAME: ${PLE_SMTP_USERNAME:?set PLE_SMTP_USERNAME to the provider SMTP username}
+      PLE_SMTP_PASSWORD_FILE: /run/ple-smtp-secrets/smtp_password
+      PLE_SMTP_FROM: ${PLE_SMTP_FROM:?set PLE_SMTP_FROM to the provider-authorized sender mailbox}
+      PLE_PUBLIC_APP_BASE_URL: ${PLE_PUBLIC_APP_BASE_URL:?set PLE_PUBLIC_APP_BASE_URL to the public HTTPS PLE origin}
+    volumes:
+      - type: volume
+        source: ple_smtp_runtime
+        target: /run/ple-smtp-secrets
+        read_only: true
+
+volumes:
+  ple_smtp_runtime:

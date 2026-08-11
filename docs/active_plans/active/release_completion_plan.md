@@ -7,10 +7,12 @@ production-seam closure, WP-RC3's bounded WeBWorK integration, and WP-ARCH1 sour
 accepted; this plan owns all remaining work through the version 1 release. It supplements the
 architecture in [implementation_plan.md](../implementation_plan.md) and replaces every unresolved
 scope question in that document and its active companion plans. WP-RC4 flat JSON v2 implementation
-is present and awaits its independent closeout. WP-RC8 passwordless identity/enrollment is
-implemented with real-email/optional-passkey, multi-replica, and independent acceptance still
-open. The secure payload cutover and WP-RC5 authoring and pilot work remain
-dependency-ordered next work.
+is present and awaits its independent closeout. WP-RC3R must first replace the accepted full
+WeBWorK2 compatibility deployment with the standalone WebWork PG renderer so PLE does not retain a
+second assignment platform or its MariaDB. WP-RC8 passwordless identity/enrollment is
+implemented; SMTP-backed email authentication through an operator-selected provider,
+optional-passkey and multi-replica evidence, and independent acceptance remain open. The secure
+payload cutover and WP-RC5 authoring and pilot work remain dependency-ordered next work.
 
 Completed packages remain accepted evidence; they are not reopened by this plan. A package below is
 complete only when its named production artifacts work, its behavior and security gates pass, its
@@ -43,7 +45,7 @@ Two release boundaries are explicit:
 | Course deletion       | Retain assignment definitions by default; delete learner records and student-record objects                                                                                                                                                            | WP-RC0         |
 | Operational payloads  | Keep normalized source/public/private payloads in PostgreSQL only within their existing hard ceilings; refuse an oversized write rather than silently moving a hot-path model                                                                          | WP-RC0         |
 | WeBWorK source        | Copy the exact licensed user-authored `content/pilot/webwork/which_hydrophobic-simple.pgml` fixture and provenance sidecar into immutable PLE object storage at publication; attempts never depend on a mutable OPL checkout                           | WP-RC3         |
-| WeBWorK protocol      | Use authenticated upstream `/render_rpc` form requests for render and grade, project exactly one radio-choice PG control in RC3, use the fixed render-course secret boundary, and build a verified OCI digest from exact unmodified upstream revisions | WP-RC3         |
+| WeBWorK protocol      | Preserve RC3's bounded server-only projection and grading proof through the current private external `webwork-pg-renderer` `/render-api`; WebWork2, render-course credentials, and MariaDB stay outside the runtime | WP-RC3/RC3R |
 | Course banner timing  | Candidate expires after 60 minutes; a protected course-banner delivery grant lasts at most 60 minutes and rechecks the exact current pointer                                                                                                           | WP-RC1         |
 | QTI profile v1        | Canvas 1.2 and Blackboard 2.1 remain strict static single-choice profiles; unsupported media, feedback, `sub`, and `sup` refuse without loss                                                                                                           | WP-RC6         |
 | QTI profile export    | Canvas and Blackboard export run as background jobs and appear in the author UI only as queued status plus a protected download                                                                                                                        | WP-RC6         |
@@ -135,10 +137,16 @@ WP-RC1 course appearance
 WP-RC2 production-seam cleanup
     |
     v
-WP-RC3 accepted WeBWorK ---> WP-ARCH1 accepted source decomposition ---> WP-RC8 passwordless identity/enrollment
-                                                                        |
-                                                                        v
-                                                               WP-RC4 flat JSON v2
+WP-RC3 accepted compatibility proof ---> WP-ARCH1 accepted source decomposition
+                                                   |
+                                                   v
+                                WP-RC3R standalone PG renderer
+                                                   |
+                                                   v
+                                WP-RC8 passwordless identity/enrollment
+                                                   |
+                                                   v
+                                        WP-RC4 flat JSON v2
                                                                         |
                                                                         v
              WP-P1..WP-P6 secure learner payload ---> WP-RC5 eight families/pilot
@@ -229,6 +237,8 @@ reserved migration ordering below.
   passed after WP-ARCH1 accepted the capability extraction and permanent size boundary. The
   decision-complete execution contract is in
   [webwork_shipped_integration.md](../workstreams/webwork_shipped_integration.md).
+  The files and commands below preserve that historical compatibility snapshot; WP-RC3R deletes or
+  replaces them for the current runtime.
 - **Files:** `crates/adapters/webwork/src/http_renderer.rs`, `renderer_contract.rs`,
   `shipped_render_rpc.rs`, and `sanitizer.rs`; `crates/server/src/webwork_backend.rs`;
   `containers/compose.yaml`, `containers/compose.webwork.yaml`, `containers/env.example`,
@@ -260,6 +270,41 @@ reserved migration ordering below.
 - **Validation:** adapter contract tests with recorded redacted upstream responses; private-container
   live gate; outage/timeout/size/redirect/identity tests; browser render/grade test; full repository
   and container gates.
+
+### WP-RC3R: Replace the full homework application with the standalone renderer
+
+- **Owner:** `rust-code-expert` for the adapter, container integrator for the private runtime, and an
+  independent security/runtime reviewer.
+- **Status:** implementation and live behavior complete on 2026-08-10; final repository gates and
+  independent closeout review remain before package acceptance. RC3 remains historical compatibility
+  evidence; this package is the current runtime topology.
+- **Files:** `crates/adapters/webwork/src/http_renderer/`, its protocol owner and tests;
+  `crates/server/src/composition/` settings/tests; `containers/compose.yaml`,
+  `containers/env.example`, `containers/webwork/probe_render_api.sh`, and
+  `launch_local_stack.sh`; the WebWork E2E/Playwright/container tests; current contract,
+  architecture, operation, status, and changelog docs.
+- **Behavior:** consume a declared private image built and maintained by the external
+  `webwork-pg-renderer` project. PLE records the selected OCI identity and sends only trusted
+  immutable PG/PGML source,
+  source metadata, fixed seed, fixed display policy, and the server-resolved submitted answer to the
+  standalone render/grade API. Remove WebWork2 course, roster, set, user, password, session,
+  assignment, and MariaDB dependencies. Preserve strict bounded response parsing, sanitization,
+  answer-free PLE projection, private replay mapping, outage containment, and browser isolation.
+  Every `OTHER_REPOS/` path remains reference-only and cannot be a build context, import, mount, or
+  runtime source.
+- **Success:** `./launch_local_stack.sh` starts PLE PostgreSQL, MinIO, API, worker,
+  gateway, and one private stateless PG renderer. No MariaDB service, WebWork2 application, render
+  course, render user, or renderer password exists. The licensed pilot renders twice with a stable
+  seed, grades correct and incorrect submissions, proves the cache/replay behavior, survives
+  renderer restart without educational-record loss, and exposes no renderer endpoint or protected
+  material to the browser.
+- **Validation:** fast offline adapter/server behavior and topology tests; a volume-preserving
+  launcher teardown/rebuild; the explicit live render/grade/cache/outage E2E; browser network trace;
+  strict Rust, documentation, and full repository gates; independent review with no P0/P1. The live
+  E2E proves supported behavior rather than byte-identical images, arbitrary startup timing, or
+  unrestricted PG compatibility.
+- **Dependency:** complete after accepted RC3/WP-ARCH1 and before WP-RC4 closeout, payload cutover,
+  WP-RC5 matching, or any broader WeBWorK compatibility claim.
 
 ### WP-RC4: Freeze PLE flat JSON v2
 
@@ -303,7 +348,7 @@ reserved migration ordering below.
   under `content/pilot/sources/`; `crates/project-tools/src/pilot_content.rs`;
   `tests/e2e/e2e_pilot_content.sh`; `docs/PILOT_CONTENT.md`.
 - **WeBWorK MATCH files:** before accepting Chapter 1 content, extend
-  `crates/adapters/webwork/src/shipped_render_rpc.rs`, `renderer_contract.rs`, their contract tests,
+  `crates/adapters/webwork/src/standalone_render_api.rs`, `renderer_contract.rs`, their contract tests,
   server translation tests, and `tests/playwright/webwork_run.spec.ts` with a real matching render and
   grade path.
 - **Behavior:** complete visual author edit/preview, CAS save, full Memory/PostgreSQL publication,
@@ -370,12 +415,15 @@ reserved migration ordering below.
 
 ### WP-RC8: Implement passwordless identity and enrollment
 
-- **Status:** implemented, acceptance open on 2026-08-10. The account/email/passkey, invitation,
-  roster/policy/bulk import, atomic enrollment, Solid UI, migration, and manual no-store grade-export
-  slices exist. Real email/optional-passkey and multi-replica E2E plus independent security/HCI
+- **Status:** implemented, acceptance open on 2026-08-10. The account/email/passkey, copy-link
+  invitation, roster/policy/bulk import, atomic enrollment, Solid UI, migration, and manual no-store
+  grade-export slices exist. Provider-neutral authenticated STARTTLS/implicit-TLS configuration and
+  secret-file Compose plumbing are implemented without a PLE mail service. A live send through the
+  operator-selected provider, optional-passkey and multi-replica E2E, and independent security/HCI
   closeout remain; the rollout checklist stays unchecked.
 - **Owner:** authentication `rust-code-expert`, PostgreSQL owner, enrollment/API owner, UI owner,
-  email-delivery owner, and independent security/HCI reviewers.
+  SMTP-provider configuration owner, and independent security/HCI reviewers. PLE does not own mail
+  transport or deliverability tooling.
 - **Files:** `crates/server/src/auth/{passwordless,email,webauthn,oidc}.rs`;
   `crates/learning-data-access/src/{account_identity,course_roster}.rs` plus Memory/PostgreSQL
   owners; `schemas/migrations/2026080909_passwordless_identity.sql`;
@@ -393,10 +441,12 @@ reserved migration ordering below.
   existing host-only HttpOnly cookie. A global account may join multiple tenants, but every request
   derives its active `TenantContext` from a verified course/tenant relationship rather than browser
   authority.
-- **Enrollment behavior:** an instructor sends or bulk-stages an invitation containing verified
+- **Enrollment behavior:** an instructor creates or bulk-stages an invitation containing verified
   email syntax plus a protected course-scoped institutional roster ID. Optional exact normalized
-  email-domain policy catches mistakes and constrains open signup. Only the learner's authenticated
-  claim creates the `course_member`, tenant-scoped `StudentId`, all assignment enrollments, and all
+  email-domain policy catches mistakes and constrains open signup. Single creation returns a no-store
+  copy link for delivery through a trusted LMS; configured SMTP through the established Rust adapter
+  is optional. Only the learner's authenticated claim creates the `course_member`, tenant-scoped
+  `StudentId`, all assignment enrollments, and all
   empty summaries in one Store transaction. Manual grade export uses the roster ID and only the
   destination profile's required course metadata. Pending invites, correction/re-invitation,
   revocation, raw CSV disposal, roster retention, and accessibility follow the enrollment design.
@@ -413,7 +463,8 @@ reserved migration ordering below.
   metadata, or unrelated activity in the export. Logs and browser state contain no authentication
   or invitation secret.
 - **Validation:** WebAuthn/email/account/roster Store conformance and RLS; deterministic hostile
-  token/domain/CSV tests; disposable email sink plus optional-passkey browser E2E; multi-replica
+  token/domain/CSV tests; copy-link browser handoff plus a test account at the operator-selected SMTP
+  provider for email authentication and optional-passkey browser E2E; multi-replica
   invitation, login, email replacement, and manual grade-export Playwright; standards-compliant OIDC
   connector E2E only when that optional connector is enabled; security/HCI review; full repository
   gate.
@@ -530,7 +581,8 @@ packages are accepted.
 - **Owner:** release integrator; separate code, security, database, accessibility, operations, and
   documentation reviewers.
 - **Files:** `tests/e2e/e2e_release_candidate.sh`; `docs/RELEASE_EVIDENCE.md`; `README.md`;
-  `docs/INSTALL.md`, `USAGE.md`, `CONTAINER.md`, `SECURITY_MODEL.md`, `DATABASE_STRUCTURE.md`,
+  `docs/INSTALL.md`, `USAGE.md`, `LOCAL_STACK_OPERATIONS.md`, `SECURITY_MODEL.md`,
+  `DATABASE_STRUCTURE.md`,
   `CODE_ARCHITECTURE.md`, `FILE_STRUCTURE.md`, `CONTRACTS.md`, `RETENTION_POLICY.md`;
   implementation status/report, changelog, and release notes.
 - **Behavior:** provide one repeatable local path and one disposable production path from clean clone
@@ -629,6 +681,8 @@ development. They must pass, not skip, in WP-RC12 release evidence.
 - [x] WP-RC1 course appearance accepted.
 - [x] WP-RC2 production seams accepted.
 - [x] WP-RC3 shipped WeBWorK accepted.
+- [ ] WP-RC3R standalone WebWork PG renderer accepted; WebWork2 and MariaDB removed from the PLE
+      runtime.
 - [ ] WP-RC4 PLE flat JSON v2 independently accepted.
 - [ ] WP-RC5 eight families and Chapter 1 content accepted.
 - [ ] WP-RC6 QTI export and H5P claims accepted.

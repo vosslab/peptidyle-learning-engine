@@ -8,16 +8,37 @@ runtime dependency where none exists. Current adapter scope and acceptance state
 
 ## Confirmed related projects
 
-### WeBWorK and PG
+### WeBWorK PG
 
-- Relationship: direct dependency
+- Relationship: direct rendering-engine dependency
+- Link: https://github.com/openwebwork/pg
+- Evidence: PG is the problem-language, randomization, rendering, and grading engine used by the
+  standalone renderer. Its `WeBWorK::PG` API accepts problem source, seed, and submitted inputs
+  without owning a course, roster, assignment, or SQL database.
+- Notes: PLE does not call PG directly from the browser or Rust API. PG runs inside the private
+  renderer and remains subordinate to PLE's attempt, grading, and disclosure contracts.
+
+### WebWork PG renderer
+
+- Relationship: direct integration target and same-author sibling repo
+- Link: https://github.com/vosslab/webwork-pg-renderer
+- Evidence: The renderer wraps `WeBWorK::PG` in a small HTTP service with `/health`, `/`, and
+  `/render-api` routes. It renders and grades PG/PGML without implementing a second course,
+  assignment, enrollment, or gradebook system.
+- Notes: This is PLE's required runtime destination. The maintained sibling checkout is
+  `../webwork-pg-renderer`; `OTHER_REPOS/webwork-pg-renderer` is an identical read-only reference
+  mirror. PLE must pin an upstream revision or built artifact and must not import, mount, or build
+  from `OTHER_REPOS/`.
+
+### WeBWorK2
+
+- Relationship: prior art only
 - Link: https://github.com/openwebwork/webwork2
-- Evidence: The optional PLE renderer profile builds exact upstream `webwork2` and `pg` revisions
-  and uses the authenticated `/render_rpc` endpoint described in
-  [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
-- Notes: PLE is the sole renderer client. Its accepted RC3 boundary supports one licensed,
-  user-authored PGML `RadioButtons` fixture; it does not claim Open Problem Library or generic PG
-  compatibility.
+- Evidence: WeBWorK2 is the complete course-management and online-homework application. PLE instead
+  uses the smaller external `webwork-pg-renderer` service and has no WebWork2 or MariaDB runtime.
+- Notes: WeBWorK2 is not PLE's product boundary. PLE already owns courses, assignments, enrollment,
+  attempts, feedback, and grades, so retaining the full application would create a parallel
+  assignment system. It remains useful reference material for PG application behavior.
 
 ### QTI Package Maker
 
@@ -71,7 +92,9 @@ runtime dependency where none exists. Current adapter scope and acceptance state
 
 The PLE workspace manifest confirms the adapter ownership boundaries. The current release plan,
 adapter guide, and private renderer contract establish the exact WeBWorK and provider scope.
-`OTHER_REPOS/` is an ignored, read-only reference area rather than a dependency directory; its
-ADAPT, PG, WeBWorK, Biology Problems, and QTI Package Maker snapshots provide comparison evidence.
-Official project pages and QTI Package Maker's PyPI metadata corroborate the external project
-links and its seven supported item families.
+`OTHER_REPOS/` is an ignored, read-only reference area rather than a dependency directory. Its
+ADAPT, PG, WebWork PG renderer, WeBWorK2, Biology Problems, and QTI Package Maker snapshots provide
+comparison evidence only. Build scripts, manifests, containers, and tests must resolve maintained
+dependencies from pinned upstream revisions or declared artifacts, never from those snapshots.
+Official project pages and QTI Package Maker's PyPI metadata corroborate the external project links
+and its seven supported item families.

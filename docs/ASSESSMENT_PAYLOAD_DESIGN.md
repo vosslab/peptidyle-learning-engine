@@ -397,9 +397,9 @@ recover and verify the replay mapping that the safe cache deliberately excludes.
 reproducing an already-issued attempt reads only the safe cache and makes no renderer call; its
 attempt-bound replay mapping is loaded separately from tenant storage.
 
-PLE privately calls the shipped `/webwork2/render_rpc` form endpoint with source, file path, seed,
-course, user, password, and display controls. Those fields never cross the browser boundary. The
-accepted RC3 grading path originally performed two private calls:
+PLE privately calls the external standalone `/render-api` form endpoint with source, file path,
+seed, fixed display controls, and signed renderer state. Those fields never cross the browser
+boundary. The historical RC3 compatibility grading path originally performed two private calls:
 
 1. rerender the same source and seed to recover and validate the opaque PLE-choice to upstream
    `AnSwEr...` field/value mapping; and
@@ -407,7 +407,7 @@ accepted RC3 grading path originally performed two private calls:
 
 The post-RC3 persistence slice now stores the validated mapping under the issued attempt. Normal grade
 reproduces the safe cache locally and performs only the second private call. The official upstream
-endpoint is stateless, so PLE must still send source and server credentials on that private grade
+endpoint is stateless, so PLE must still send source and signed server state on that private grade
 call. That repetition is an internal service cost, not learner payload.
 
 ### Implemented private replay slice and remaining target
@@ -421,7 +421,7 @@ Normal grade then:
 1. loads and validates the attempt-bound replay record;
 2. resolves the learner's rendered-item ID to one upstream field/value;
 3. loads immutable source and private renderer credentials server-side;
-4. makes one private `render_rpc` grade call; and
+4. makes one private `/render-api` grade call; and
 5. accepts only the supported result shape and score policy.
 
 Step 2 is currently reached from the tagged durable-choice compatibility response after exact

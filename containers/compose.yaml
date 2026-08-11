@@ -1,5 +1,4 @@
-# compose.yaml - local development stack.  The optional WebWork profile is a
-# private, source-pinned upstream service; it never shares PLE storage.
+# compose.yaml - complete local development stack.
 services:
   postgres:
     image: docker.io/library/postgres@sha256:${PLE_POSTGRES_IMAGE_SHA256:?set PLE_POSTGRES_IMAGE_SHA256 to the selected official PostgreSQL 17 Linux image manifest digest}
@@ -124,6 +123,8 @@ services:
         condition: service_completed_successfully
       identity-secret-init:
         condition: service_completed_successfully
+      webwork-renderer:
+        condition: service_healthy
     environment:
       PLE_BIND_ADDR: 0.0.0.0:3000
       PLE_AUTH_PROVIDER: local-file
@@ -141,6 +142,11 @@ services:
       PLE_WEBAUTHN_ORIGIN: ${PLE_WEBAUTHN_ORIGIN:?set PLE_WEBAUTHN_ORIGIN in the env file}
       PLE_WEBAUTHN_RP_NAME: ${PLE_WEBAUTHN_RP_NAME:?set PLE_WEBAUTHN_RP_NAME in the env file}
       PLE_INVITATION_TOKEN_SECRET_FILE: /run/ple-secrets/invitation_token_secret
+      PLE_WEBWORK_RENDERER_BASE_URL: http://webwork-renderer:3000/
+      PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:-15}
+      PLE_WEBWORK_MAX_RESPONSE_BYTES: ${PLE_WEBWORK_MAX_RESPONSE_BYTES:-1048576}
+      PLE_WEBWORK_RENDERER_ID: ${PLE_WEBWORK_RENDERER_ID:-vosslab-webwork-pg-renderer}
+      PLE_WEBWORK_RENDERER_VERSION: ${PLE_WEBWORK_RENDERER_VERSION:-unconfigured}
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
     volumes:
@@ -164,36 +170,6 @@ services:
       - default
       - renderer_private
       - gateway_api
-
-  # Copies the host-owned strict secret once into a private named volume as the
-  # API's fixed runtime UID. API never mounts the host secret directly.
-  webwork-api-secret-init:
-    image: docker.io/library/alpine@sha256:${PLE_SECRET_INIT_IMAGE_SHA256:-0000000000000000000000000000000000000000000000000000000000000000}
-    environment:
-      PLE_WEBWORK_RENDER_PASSWORD_FILE: /run/source/webwork_render_password
-    volumes:
-      - type: bind
-        source: ${PLE_WEBWORK_RENDER_PASSWORD_HOST_FILE:-/dev/null}
-        target: /run/source/webwork_render_password
-        read_only: true
-        bind:
-          create_host_path: false
-      - ple_webwork_api_runtime:/run/ple-secrets
-    command: ["/bin/sh", "-ec", "if [ -s /run/source/webwork_render_password ]; then cp /run/source/webwork_render_password /run/ple-secrets/webwork_render_password; else : > /run/ple-secrets/webwork_render_password; fi; chmod 600 /run/ple-secrets/webwork_render_password; chown 10001:10001 /run/ple-secrets/webwork_render_password"]
-    network_mode: none
-    read_only: true
-    cap_drop:
-      - ALL
-    cap_add:
-      # Copying a host-owned strict file and assigning the API UID need these.
-      - CHOWN
-      - DAC_OVERRIDE
-    security_opt:
-      - no-new-privileges:true
-    cpus: "0.10"
-    mem_limit: 32m
-    pids_limit: 16
-    restart: "no"
 
   worker:
     build:
@@ -272,120 +248,49 @@ services:
     networks:
       - gateway_api
 
-  # A separate database confines upstream state and credentials.  It has no
-  # host port and never joins PLE's PostgreSQL/MinIO network.
-  webwork-db:
-    profiles: ["webwork"]
-    image: docker.io/library/mariadb@sha256:${PLE_WEBWORK_MARIADB_IMAGE_SHA256:-0000000000000000000000000000000000000000000000000000000000000000}
+  # PLE uses only the standalone PG rendering engine. It has no assignment,
+  # course, roster, login, session, SQL, or persistent-volume state.
+  webwork-renderer:
+    image: ${PLE_WEBWORK_RENDERER_IMAGE:-localhost/pg-renderer:latest}
     environment:
-      MARIADB_DATABASE: ${PLE_WEBWORK_DATABASE_NAME:-webwork}
-      MARIADB_USER: ${PLE_WEBWORK_DATABASE_USER:-webwork}
-      MARIADB_PASSWORD: ${PLE_WEBWORK_DATABASE_PASSWORD:-unconfigured}
-      MARIADB_ROOT_PASSWORD: ${PLE_WEBWORK_DATABASE_ROOT_PASSWORD:-unconfigured}
-    volumes:
-      - ple_webwork_dbdata:/var/lib/mysql
-    healthcheck:
-      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -u$$MARIADB_USER -p$$MARIADB_PASSWORD"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
+      PERL5LIB: /usr/app/lib/PG:/usr/app/lib/WeBWorK/lib:/usr/app/lib
+      MOJO_MODE: production
+      problemJWTsecret: ${PLE_WEBWORK_PROBLEM_JWT_SECRET:?renderer problem JWT secret is required}
+      webworkJWTsecret: ${PLE_WEBWORK_SESSION_JWT_SECRET:?renderer session JWT secret is required}
+      SITE_HOST: http://webwork-renderer:3000
+      baseURL: ""
+      formURL: /render-api
+      STRICT_JWT: "0"
     cap_drop:
       - ALL
-    cap_add:
-      # MariaDB's documented root bootstrap fixes ownership before dropping to
-      # its service user; these are the only filesystem/identity capabilities.
-      - CHOWN
-      - SETUID
-      - SETGID
-      - DAC_OVERRIDE
     security_opt:
       - no-new-privileges:true
-    cpus: "1.0"
-    mem_limit: 768m
+    tmpfs:
+      - /usr/app/private:rw,noexec,nosuid,size=16m,mode=0700
+      - /usr/app/logs:rw,noexec,nosuid,size=16m,mode=0700
+      - /usr/app/tmp:rw,noexec,nosuid,size=128m,mode=0700
+    cpus: "2.0"
+    mem_limit: 2g
     pids_limit: 256
     restart: on-failure
-    networks:
-      - webwork_db_private
-
-  # This builds upstream WebWork2 and PG directly from full immutable Git
-  # revisions.  PLE supplies deployment configuration only; no forked source
-  # or PLE mount enters this image.
-  webwork-renderer:
-    profiles: ["webwork"]
-    build:
-      context: ..
-      dockerfile: containers/webwork/Containerfile
-      args:
-        WEBWORK_BASE_IMAGE: docker.io/library/ubuntu@sha256:${PLE_WEBWORK_BASE_IMAGE_SHA256:-0000000000000000000000000000000000000000000000000000000000000000}
-        WEBWORK2_GIT_URL: ${PLE_WEBWORK2_GIT_URL:-https://example.invalid/webwork2.git}
-        WEBWORK2_GIT_SHA: ${PLE_WEBWORK2_GIT_SHA:-0000000000000000000000000000000000}
-        PG_GIT_URL: ${PLE_WEBWORK_PG_GIT_URL:-https://example.invalid/pg.git}
-        PG_GIT_SHA: ${PLE_WEBWORK_PG_GIT_SHA:-0000000000000000000000000000000000}
-    image: localhost/ple-webwork-renderer:${PLE_WEBWORK_RENDERER_VERSION:-unconfigured}
-    depends_on:
-      webwork-db:
-        condition: service_healthy
-    environment:
-      WEBWORK_DB_HOST: webwork-db
-      WEBWORK_DB_PORT: "3306"
-      WEBWORK_DB_NAME: ${PLE_WEBWORK_DATABASE_NAME:-webwork}
-      WEBWORK_DB_USER: ${PLE_WEBWORK_DATABASE_USER:-webwork}
-      WEBWORK_DB_PASSWORD: ${PLE_WEBWORK_DATABASE_PASSWORD:-unconfigured}
-      PLE_WEBWORK_RENDER_COURSE_ID: ${PLE_WEBWORK_RENDER_COURSE_ID:-ple-render}
-      PLE_WEBWORK_RENDER_USER: ${PLE_WEBWORK_RENDER_USER:-ple-renderer}
-      PLE_WEBWORK_RENDER_PASSWORD_FILE: /run/ple-secrets/webwork_render_password
-      PLE_WEBWORK_MOJO_SECRET_FILE: /run/ple-secrets/webwork_mojolicious_secret
-    volumes:
-      # Course files and MariaDB must survive together. This is upstream state,
-      # not a PLE content/object-store mount.
-      - ple_webwork_courses:/opt/webwork/courses
-      - type: bind
-        source: ${PLE_WEBWORK_RENDER_PASSWORD_HOST_FILE:-/dev/null}
-        target: /run/ple-secrets/webwork_render_password
-        read_only: true
-        bind:
-          create_host_path: false
-      - type: bind
-        source: ${PLE_WEBWORK_MOJO_SECRET_HOST_FILE:-/dev/null}
-        target: /run/ple-secrets/webwork_mojolicious_secret
-        read_only: true
-        bind:
-          create_host_path: false
-    cap_drop:
-      - ALL
-    cap_add:
-      # Entry bootstrap owns files then invokes upstream sudo to run www-data.
-      - CHOWN
-      - SETUID
-      - SETGID
-      - DAC_OVERRIDE
-    security_opt:
-      - no-new-privileges:true
-    # Upstream's documented bootstrap writes its course/config/log/temp paths.
-    # The entrypoint performs that short root-only phase then execs www-data.
-    read_only: false
-    cpus: "2.0"
-    mem_limit: 3g
-    pids_limit: 512
-    restart: on-failure
     stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--max-time", "5", "http://127.0.0.1:3000/health/"]
+      interval: 15s
+      timeout: 20s
+      retries: 10
+      start_period: 30s
     networks:
       - renderer_private
-      - webwork_db_private
 
 volumes:
   ple_pgdata:
   ple_miniodata:
   ple_identity_runtime:
-  ple_webwork_dbdata:
-  ple_webwork_courses:
-  ple_webwork_api_runtime:
 
 networks:
   default:
   gateway_api:
     internal: true
   renderer_private:
-    internal: true
-  webwork_db_private:
     internal: true

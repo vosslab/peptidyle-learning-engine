@@ -8,13 +8,113 @@ use sha2::{Digest, Sha256};
 
 use super::*;
 
-pub(super) fn body_html(object: &Map<String, Value>) -> Result<String, RendererFailure> {
-    object
-        .get("body_part550")
+pub(super) fn body_html(
+    object: &Map<String, Value>,
+    service_base: &Url,
+) -> Result<String, RendererFailure> {
+    let rendered = object
+        .get("renderedHTML")
         .and_then(Value::as_str)
         .filter(|value| !value.is_empty())
-        .map(str::to_owned)
-        .ok_or_else(|| bad("renderer omitted question body"))
+        .ok_or_else(|| bad("renderer omitted question body"))?;
+    extract_problem_body(rendered, service_base)
+}
+
+fn extract_problem_body(html: &str, service_base: &Url) -> Result<String, RendererFailure> {
+    if html.len() > DEFAULT_MAX_RESPONSE_BYTES {
+        return Err(bad("renderer HTML exceeds the supported bound"));
+    }
+    let tokens = tokenize_html(html)?;
+    let mut stack = Vec::<String>::new();
+    let mut body_depth = None;
+    let mut body_seen = false;
+    let mut base_seen = false;
+    let mut form_seen = false;
+    let mut output = String::new();
+
+    for token in tokens {
+        match token {
+            Token::CharacterTokens(text) => {
+                if body_depth.is_some() {
+                    append_escaped_html(&mut output, text.as_ref());
+                }
+            }
+            Token::TagToken(tag) => match tag.kind {
+                TagKind::StartTag => {
+                    validate_tag(&tag)?;
+                    let name = tag.name.to_string();
+                    if name == "base" {
+                        if base_seen {
+                            return Err(bad("renderer repeated its base URL"));
+                        }
+                        let href = required_bounded_attribute(&tag, "href", MAX_PG_PATH_BYTES)?;
+                        verify_site_url(&href, service_base)?;
+                        base_seen = true;
+                    }
+                    if name == "form" && attribute(&tag, "id").as_deref() == Some("problemMainForm")
+                    {
+                        if form_seen {
+                            return Err(bad("renderer repeated its problem form"));
+                        }
+                        let action = required_bounded_attribute(&tag, "action", MAX_PG_PATH_BYTES)?;
+                        verify_form_action_url(&action, service_base)?;
+                        form_seen = true;
+                    }
+                    let starts_body = name == "div"
+                        && attribute(&tag, "id").as_deref() == Some("problem_body")
+                        && has_class(&tag, "problem-content");
+                    if starts_body {
+                        if body_seen || body_depth.is_some() {
+                            return Err(bad("renderer repeated its problem body"));
+                        }
+                        body_seen = true;
+                        body_depth = Some(stack.len() + 1);
+                    } else if body_depth.is_some() {
+                        if matches!(name.as_str(), "script" | "style") {
+                            return Err(bad("renderer problem body contains executable markup"));
+                        }
+                        append_start_tag(&mut output, &tag);
+                    }
+                    if !is_void_element(&name) {
+                        if stack.len() >= MAX_HTML_NESTING {
+                            return Err(bad("renderer markup exceeds nesting bound"));
+                        }
+                        stack.push(name);
+                    }
+                }
+                TagKind::EndTag => {
+                    validate_tag(&tag)?;
+                    let name = tag.name.to_string();
+                    let open = stack
+                        .pop()
+                        .ok_or_else(|| bad("renderer returned unbalanced markup"))?;
+                    if open != name {
+                        return Err(bad("renderer returned unbalanced markup"));
+                    }
+                    if body_depth == Some(stack.len() + 1) {
+                        body_depth = None;
+                    } else if body_depth.is_some() {
+                        append_end_tag(&mut output, &name);
+                    }
+                }
+            },
+            Token::DoctypeToken(_) | Token::CommentToken(_) if body_depth.is_none() => {}
+            Token::EOFToken => {}
+            Token::NullCharacterToken
+            | Token::CommentToken(_)
+            | Token::DoctypeToken(_)
+            | Token::ParseError(_) => return Err(bad("renderer returned malformed HTML")),
+        }
+    }
+    if !stack.is_empty() || body_depth.is_some() || !body_seen || !base_seen || !form_seen {
+        return Err(bad(
+            "renderer HTML is missing required standalone structure",
+        ));
+    }
+    if output.trim().is_empty() {
+        return Err(bad("renderer problem body is empty"));
+    }
+    Ok(output)
 }
 #[derive(Debug)]
 pub(super) struct Radio {
@@ -51,6 +151,7 @@ pub(super) fn parse_single_radio_group(
     let mut values = BTreeSet::new();
     let mut radio_container_seen = false;
     let mut radio_container_depth = None;
+    let mut radio_container_allows_prompt = false;
     let mut active_label = None::<ActiveLabel>;
     let mut prompt_text = String::new();
     let mut prompt_html = String::new();
@@ -62,6 +163,9 @@ pub(super) fn parse_single_radio_group(
                 if radio_container_depth.is_some() {
                     if let Some(label) = active_label.as_mut() {
                         label.text.push_str(text.as_ref());
+                    } else if radio_container_allows_prompt && controls.is_empty() {
+                        push_bounded(&mut prompt_text, text.as_ref(), MAX_PROMPT_CHARS)?;
+                        append_escaped_html(&mut prompt_html, text.as_ref());
                     } else if !text.trim().is_empty() {
                         return Err(bad("radio group contains unlabeled content"));
                     }
@@ -80,13 +184,19 @@ pub(super) fn parse_single_radio_group(
                     if name == "script" || name == "style" {
                         return Err(bad("renderer question body contains executable markup"));
                     }
-                    let is_container = name == "div" && has_class(&tag, "radio-buttons-container");
+                    let is_container = name == "div"
+                        && (has_class(&tag, "radio-buttons-container") || has_class(&tag, "PGML"));
+                    let prompt_markup = radio_container_allows_prompt
+                        && controls.is_empty()
+                        && active_label.is_none()
+                        && is_safe_prompt_element(&name);
                     if is_container {
                         if radio_container_seen || radio_container_depth.is_some() {
                             return Err(bad("renderer returned more than one radio group"));
                         }
                         radio_container_seen = true;
                         radio_container_depth = Some(stack.len() + 1);
+                        radio_container_allows_prompt = has_class(&tag, "PGML");
                     } else if name == "input" {
                         let depth = radio_container_depth.ok_or_else(|| {
                             bad("renderer question body contains an unsupported input")
@@ -113,6 +223,11 @@ pub(super) fn parse_single_radio_group(
                     {
                         // PGML emits an empty direct div between RadioButtons
                         // labels. Any content or nested control still refuses.
+                    } else if name == "br"
+                        && radio_container_depth.is_some_and(|depth| stack.len() == depth)
+                        && tag.attrs.is_empty()
+                    {
+                        // PG-2.17 emits direct BR separators between PGML labels.
                     } else if matches!(name.as_str(), "strong" | "sub")
                         && active_label.is_some()
                         && tag.attrs.is_empty()
@@ -121,6 +236,8 @@ pub(super) fn parse_single_radio_group(
                         // subscripts inside choice labels. The browser-facing
                         // choice is plain text, so only their text content is
                         // retained; no renderer markup crosses this boundary.
+                    } else if prompt_markup {
+                        append_start_tag(&mut prompt_html, &tag);
                     } else if radio_container_depth.is_some() {
                         return Err(bad("radio group has unsupported nesting"));
                     } else {
@@ -130,7 +247,11 @@ pub(super) fn parse_single_radio_group(
                         if stack.len() >= MAX_HTML_NESTING {
                             return Err(bad("renderer markup exceeds nesting bound"));
                         }
-                        stack.push(OpenElement { name, is_container });
+                        stack.push(OpenElement {
+                            name,
+                            is_container,
+                            prompt_markup,
+                        });
                     } else if tag.self_closing && name != "input" {
                         // A self-closing non-void tag is not part of the PG fragment contract.
                         return Err(bad("renderer returned malformed self-closing markup"));
@@ -164,7 +285,8 @@ pub(super) fn parse_single_radio_group(
                     }
                     if open.is_container {
                         radio_container_depth = None;
-                    } else if radio_container_depth.is_none() {
+                        radio_container_allows_prompt = false;
+                    } else if open.prompt_markup || radio_container_depth.is_none() {
                         append_end_tag(&mut prompt_html, &name);
                     }
                 }
@@ -213,6 +335,7 @@ pub(super) fn reject_protected_text(
 struct OpenElement {
     name: String,
     is_container: bool,
+    prompt_markup: bool,
 }
 
 #[derive(Debug, Default)]
@@ -279,7 +402,9 @@ fn radio_from_tag(
     ids: &mut BTreeSet<String>,
     values: &mut BTreeSet<String>,
 ) -> Result<Radio, RendererFailure> {
-    if tag.self_closing || attribute(tag, "type").as_deref() != Some("radio") {
+    if tag.self_closing
+        || !attribute(tag, "type").is_some_and(|value| value.eq_ignore_ascii_case("radio"))
+    {
         return Err(bad("renderer question body contains an unsupported input"));
     }
     let name = required_bounded_attribute(tag, "name", MAX_RADIO_FIELD_BYTES)?;
@@ -340,7 +465,17 @@ pub(super) fn has_class(tag: &Tag, wanted: &str) -> bool {
 fn is_pg_radio_separator(tag: &Tag) -> bool {
     tag.attrs.is_empty()
         || (tag.attrs.len() == 1
-            && attribute(tag, "style").as_deref() == Some("margin-bottom: 0.7em;"))
+            && matches!(
+                attribute(tag, "style").as_deref(),
+                Some("margin-bottom: 0.7em;") | Some("margin-top:1em")
+            ))
+}
+
+fn is_safe_prompt_element(name: &str) -> bool {
+    matches!(
+        name,
+        "p" | "span" | "br" | "strong" | "b" | "em" | "i" | "sub" | "sup"
+    )
 }
 
 fn is_void_element(name: &str) -> bool {
@@ -353,6 +488,7 @@ fn is_void_element(name: &str) -> bool {
             | "embed"
             | "hr"
             | "img"
+            | "input"
             | "link"
             | "meta"
             | "param"

@@ -48,7 +48,8 @@ The central architecture remains sound:
 - canonical sources and protected artifacts use typed object identities and checksums;
 - API replicas remain stateless over PostgreSQL, object storage, and private backend capabilities;
 - the browser receives answer-free render projections and a browser-safe Wasm closure; and
-- native-only operation does not depend on the optional private WeBWorK profile.
+- the normal local stack uses one private external stateless PG renderer and no parallel WebWork2
+  assignment application or MariaDB.
 
 The post-acceptance persistence size regression is repaired. Complete attempt-issuance capabilities
 now live in paired in-memory and PostgreSQL owners, while the public Store facade and the original
@@ -59,7 +60,7 @@ does not turn the mixed worktree into a release candidate or replace the remaini
 
 ## August 10 changes
 
-### WeBWorK RC3 accepted
+### WeBWorK RC3 compatibility proof accepted
 
 The source-pinned upstream WebWork2 and PG profile passed the full local PLE path on Podman 6. The
 accepted boundary proves one licensed, immutable, user-authored RadioButtons PGML question through:
@@ -74,6 +75,21 @@ accepted boundary proves one licensed, immutable, user-authored RadioButtons PGM
 
 This is intentionally not broad OPL compatibility. WeBWorK MATCH and other PG controls remain
 assigned to WP-RC5 rather than inferred from the private renderer implementation.
+
+### Standalone WeBWorK renderer implemented, closeout open
+
+WP-RC3R replaced that accepted compatibility topology with the external
+`webwork-pg-renderer` `/render-api`. The normal local stack now contains one private stateless PG
+renderer with no WebWork2 application, MariaDB, render course, renderer user, SQL connection,
+persistent volume, or host-published port. `OTHER_REPOS/` remains reference-only.
+
+The adapter's 29 behavior/security tests and strict Clippy pass. A volume-preserving Podman 6
+teardown/rebuild retained both PostgreSQL and MinIO data, recreated the renderer, and restored a
+healthy gateway. The complete live E2E then passed correct and incorrect grading, cache behavior,
+renderer outage recovery, keyboard operation, and browser non-disclosure. These gates prove the
+supported source-to-browser behavior; they do not require byte-identical images, an arbitrary
+startup duration, or broad PG compatibility. Full repository gates and independent closeout review
+remain before WP-RC3R is accepted.
 
 ### Source ownership accepted
 
@@ -130,21 +146,34 @@ dependency-ordered work before WP-RC5 acceptance.
 WP-RC8 is **implemented, acceptance open**. The current slice provides PLE-owned opaque global
 accounts, uniform short-lived browser-bound email authentication, discoverable WebAuthn,
 multiple-passkey management, verified email replacement, and authorized account-to-course context
-selection. Course managers can page the roster, set exact allowed-email domains, send or revoke a
-single invitation, preview and atomically commit a bounded `email,roster_id` CSV, revoke learner
-access, and download a synchronous no-store grade CSV. Invitation claim atomically creates or
+selection. Course managers can page the roster, set exact allowed-email domains, create or revoke a
+single invitation, copy its one-time link for trusted-LMS delivery, optionally send it through the
+established SMTP adapter, preview and atomically commit a bounded `email,roster_id` CSV, revoke
+learner access, and download a synchronous no-store grade CSV. Invitation claim atomically creates or
 reuses the tenant learner identity, course membership, every current assignment enrollment, and
 every empty summary; assignment creation applies the same cross-product invariant to current
 learners.
 
 Forward migration `2026080909_passwordless_identity.sql` passed fresh migration, no-op replay,
 ledger verification, role/grant/forced-RLS checks, and the disposable PostgreSQL enrollment oracle.
-The all-feature Rust workspace and 76-test browser suite are green, including a keyboard-only
-instructor invitation path. Acceptance remains open for a disposable real-email/optional-passkey
-and multi-replica journey plus independent security/HCI closeout. Email authentication is the
+The all-feature Rust workspace and complete browser suite are green, including a keyboard-only
+instructor copy-link invitation path. The refreshed local stack also proved a live HTTP 202 no-store
+copy-link creation with no SMTP configured, followed by API revocation. The 11-stage codebase gate,
+3,270-test Python/documentation suite, and browser suite with 76 passes and two deliberate opt-in
+skips are green. Acceptance remains open for canonical email authentication through an off-the-shelf
+disposable sink, optional-passkey and multi-replica journey plus independent security/HCI closeout.
+Email authentication is the
 canonical account path and passkeys are optional shortcuts. Version 1 has no manager-assisted
 account merge or educational-record transfer; email possession authenticates only the account
 already bound to that email.
+
+External mail is now deployment-ready but intentionally not deployed. The opt-in
+Compose overlay connects `lettre` to an operator-selected SMTP provider using
+mandatory STARTTLS or implicit TLS, copies a bounded mode-0600 provider token
+through a networkless initializer, and exposes no SMTP password in the API
+environment. PLE adds no mail-server container and owns no sender-reputation or
+deliverability tooling. Live provider evidence remains open until an operator
+account is selected.
 
 ### File upload planned safely
 
@@ -171,7 +200,7 @@ production deployment.
 | WP-P1 through WP-P6 payload | Decision accepted; offline persistence slice implemented | Codec, migration, exact replay binding, and one-call normal WeBWorK grading exist; complete API/browser/live cutover and independent evidence remain |
 | WP-RC5 and WP-RC6 content/interchange | Planned and owned | Visual family authoring, integrated storage, Chapter 1 content, QTI export, and honest H5P closeout |
 | WP-RC7 data hardening | Planned and owned | Object inventory, twice-observed orphan quarantine, missing-reference alerts, and combined M2-M5 gate |
-| WP-RC8 identity/enrollment | Implemented, acceptance open | PLE-managed email accounts with optional passkeys, invitation claim, roster/bulk import, atomic enrollments, and manual no-store grade export; real email/optional-passkey/replica and independent closeout remain |
+| WP-RC8 identity/enrollment | Implemented, acceptance open | PLE-managed email accounts with optional passkeys, no-store copy-link/optional-SMTP invitation claim, roster/bulk import, atomic enrollments, and manual no-store grade export; off-the-shelf email-authentication/optional-passkey/replica and independent closeout remain |
 | WP-RC9 LTI | Planned and owned | LTI 1.3 launch and AGS passback; optional institutional SSO remains a non-blocking future account-linking integration |
 | WP-FU1 through WP-FU6 uploads | Planned and fail-closed | Server-issued, inspected, attempt-bound learner upload capability |
 | WP-RC10 and WP-RC11 operations | Planned and owned | OpenTofu deployment/recovery/scale, then measured bot-cost controls |
@@ -219,8 +248,8 @@ production deployment.
 
 - `launch_local_stack.sh` remains the maintained build, migration, seed, readiness, and browser
   front door.
-- Native PostgreSQL/MinIO/API/worker/gateway operation remains the default.
-- The optional WebWork2/MariaDB profile is private and source-pinned, with separate strict secrets.
+- PostgreSQL, MinIO, API, worker, gateway, and the private external stateless PG renderer form the
+  normal local stack. There is no WebWork2 or MariaDB service.
 - Local PostgreSQL is pinned to major 17 and retained volumes are checked non-destructively before
   startup. The local Compose topology is not a production security or deployment configuration.
 
@@ -230,6 +259,9 @@ production deployment.
 
 - WP-RC3: live Podman 6 upstream build, authenticated PLE API render/grade/cache/outage/recovery,
   required Playwright keyboard and privacy trace, and final independent review.
+- WP-RC3R implementation: external-renderer adapter tests and strict Clippy pass; the retained-volume
+  teardown/rebuild and complete live PLE/browser render/grade/cache/outage gate pass. Independent
+  closeout remains open.
 - WP-ARCH1 acceptance snapshot: permanent source-size gate 582 passed, repository Python suite
   2,451 passed, eleven-stage codebase gate passed, browser suite 72 passed with two deliberate
   opt-in skips, focused server suite 189 passed with three live fixtures intentionally ignored, and
@@ -258,13 +290,15 @@ production deployment.
 - The disposable PostgreSQL baseline passes all nine migrations, fresh/no-op/verify behavior,
   passwordless/enrollment RLS and role boundaries, and the existing partition/QTI/flat/manual/item
   analysis oracles. The disposable project and volume were removed after the run.
-- These current-tree checks do not replace WP-RC8's still-missing real-email/optional-passkey,
-  multi-replica, and independent acceptance evidence or constitute WP-RC12 release acceptance.
+- These current-tree checks do not replace WP-RC8's still-missing SMTP-backed email authentication
+  through the operator-selected provider, optional-passkey, multi-replica, and independent
+  acceptance evidence or constitute WP-RC12 release acceptance.
 
 ## Current gaps
 
-1. Close WP-RC8 acceptance with a disposable real-email/optional-passkey and multi-replica journey
-   plus independent security/HCI review. Keep manager-assisted account merge and educational-record
+1. Close WP-RC8 acceptance with an operator-selected SMTP test account,
+   optional-passkey, and multi-replica journey plus independent security/HCI review. Keep
+   manager-assisted account merge and educational-record
    transfer outside version 1; do not infer record ownership from email possession.
 2. Complete WP-RC4's independent flat JSON v2 contract/security closeout.
 3. Implement and accept WP-P1 through WP-P6 before WP-RC5 acceptance.
@@ -305,9 +339,10 @@ WP-P2. Package acceptance and migration order may not be skipped.
 ## Production boundary
 
 The repository still needs production runtime PostgreSQL identities, startup role attestation,
-embedded-mode CSRF and final gateway headers, production passwordless email/WebAuthn configuration
-and real-email/optional-passkey acceptance, optional SSO credentials, LTI registration, secure
-learner uploads, managed deployment, encrypted backup/restore and point-in-time recovery, aggregate
+embedded-mode CSRF and final gateway headers, production passwordless email/WebAuthn configuration,
+off-the-shelf SMTP email-authentication and optional-passkey acceptance, optional SSO credentials,
+LTI registration, secure learner uploads, managed deployment, encrypted backup/restore and
+point-in-time recovery, aggregate
 observability, replica/worker/load evidence, cost controls, and independent release review. Institutional
 FERPA/legal/security sign-off and the human fall-pilot accessibility and teaching walkthrough are
 external activation evidence, not unfinished source code substitutes.

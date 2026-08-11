@@ -28,8 +28,9 @@ Core principles guide work in this repo. Cite them by name when making judgment 
 
 Every repo carries a `REPO_TYPE` file at the repo root holding one or more
 comma-separated lowercase type names plus a newline, for example `python` or
-`python,rust`. The available names are `python`, `typescript`, `rust`, `swift`,
-`other`, `scripted`, `website`, `compiled`, and `all`. A repo declares several
+`python,rust`. The available names are `python`, `pypi`, `typescript`, `rust`,
+`swift`, `other`, `scripted`, `website`, `compiled`, and `all`. The `pypi` type
+inherits the complete `python` rule set and adds package-publishing tools. A repo declares several
 names when it genuinely ships several families, such as a Python CLI with a Rust
 extension. The marker declares which shared rule sets the repo follows. Write it
 in canonical form: lowercase, comma separated, no spaces, declaration order
@@ -99,14 +100,10 @@ Preferred structure:
 - For pytest test-writing rules, commands, and failure triage, see [PYTEST_STYLE.md](PYTEST_STYLE.md).
 
 ## Source file size
-- Tracked authored source files contain fewer than 1000 physical lines: 999 passes and 1000 fails.
-- The universal `tests/test_source_file_line_limit.py` allowlist defines the exact scope. It includes
-  code, build/query/template sources, and authored documentation such as `.md`; generic `.txt`,
-  data, configuration, generated artifacts, notebooks, and binary files stay outside the gate.
-- Keep uncommitted local reference books out of Git. For a tracked source outside local control,
-  such as a downloaded normative specification, a manager may add its exact repo-relative path to
-  `tests/source_file_line_limit_overrides.txt`. The optional tracked list accepts blank lines and
-  full-line `#` comments; it does not accept globs, absolute paths, or parent traversal.
+- Tracked authored source files stay under 1000 physical lines: 999 passes; 1000 fails.
+  `tests/test_source_file_line_limit.py` defines the scope.
+- Managers may exempt tracked external sources in `tests/source_file_line_limit_overrides.txt`,
+  one exact repo-relative path per line.
 
 ## Changelog rotation
 - Rotate `docs/CHANGELOG.md` when it reaches about 1000 lines (`wc -l docs/CHANGELOG.md`).
@@ -279,7 +276,8 @@ Possible examples:
 - `SECURITY.md`: avoid adding unless security reporting is formally supported.
 
 ### Repo-specific docs are always encouraged
-- `docs/CONTAINER.md`: container image details, build steps, and run commands.
+- `docs/LOCAL_STACK_OPERATIONS.md`: local container lifecycle, build steps, and run commands.
+- `docs/LOCAL_STACK_ARCHITECTURE.md`: service necessity, state ownership, and network boundaries.
 - `docs/ENGINES.md`: supported external engines/services and how to select them.
 - `docs/EMWY_YAML_v2_SPEC.md`: specification for the EMWY YAML v2 format with examples.
 - `docs/MACOS_PODMAN.md`: macOS-specific Podman setup steps and known issues.

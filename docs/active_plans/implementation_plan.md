@@ -8,8 +8,9 @@ question-level timing. M0 and M1 are complete, the main M2 through M4 learning p
 retention R4.4, QTI profile import WP-QTI-12, course appearance WP-CA1 through WP-CA7/WP-RC1, and
 production-seam closure WP-RC2 are accepted. The authoritative remaining package sequence, binary scope ledger, owners,
 files, behavior, success conditions, and validation are in
-[release_completion_plan.md](active/release_completion_plan.md). WP-RC3 shipped upstream WeBWorK is
-next.
+[release_completion_plan.md](active/release_completion_plan.md). That release plan and
+[implementation_status.md](implementation_status.md) own the current next package; this foundation
+plan does not duplicate the changing handoff.
 
 ADAPT (`OTHER_REPOS/adapt/`) is the surface model and the source of the sharpest lessons, because its
 weaknesses are visible in its own schema. Three review passes (`reviewer_commments.md`,
@@ -1281,7 +1282,8 @@ widget exist to build against.
   `content/pilot/webwork/which_hydrophobic-simple.pgml` RadioButtons fixture renders and grades
   through the shared model; a repeat `(version_id, seed)` is served from cache without touching the
   renderer; the renderer has no public endpoint, no PLE database access, enforced CPU, memory, and
-  request-time limits, and a private MariaDB only; its timeout degrades only WeBWorK questions; PLE
+  request-time limits, no SQL database or persistent renderer volume; its timeout degrades only
+  WeBWorK questions; PLE
   API and browser-network gates prove no protected material crosses the boundary. Broad OPL corpus
   compatibility is outside this bounded fixture acceptance. The hostile-ZIP corpus is fully rejected
   with actionable errors; unsupported QTI features are recorded rather than dropped; the original
@@ -1401,7 +1403,7 @@ or implementer-authored specification is required.
 | WP-F1 | Create the Cargo workspace            | `expert_coder` | none         | Every crate in the boundary table exists and compiles empty; current edition; `Cargo.lock` committed; the forbidden-dependency column encoded as real absences, not comments                                                                                                                                                                                                                                                                                                 |
 | WP-F2 | Add the WASM build path               | `expert_coder` | WP-F1        | `wasm-bindgen` output into a gitignored staging dir; a trivial export callable from Node; current stable toolchain and version-matched runner                                                                                                                                                                                                                                                                                                                                |
 | WP-F3 | Stand up Solid and the build pipeline | `expert_coder` | WP-F2        | `build_github_pages.sh` delegates to `node pipeline/build.mjs` with `esbuild-plugin-solid` and copies the `.wasm`; `tsconfig.json` gains `"jsx": "preserve"`, `"jsxImportSource": "solid-js"`, and an `exclude` for `OTHER_REPOS` and `target`; `src/log.ts` exists so no `console` appears in `src/`; placeholders filled matching `VERSION`; `clean` points at `devel/dist_clean.sh`                                                                                       |
-| WP-F4 | Containerize api, postgres, minio     | `expert_coder` | WP-F1        | `containers/Containerfile.api` builds a multi-stage slim image under `podman build`; `containers/compose.yaml` brings up current stable PostgreSQL and MinIO with named volumes and creates three buckets; `/health` returns 200 only after exact migration/checksum compatibility verification and a bucket probe; credentials arrive at run time from the environment; `docs/CONTAINER.md` records the commands and `docs/MACOS_PODMAN.md` records the macOS machine setup |
+| WP-F4 | Containerize api, postgres, minio     | `expert_coder` | WP-F1        | `containers/Containerfile.api` builds a multi-stage slim image under `podman build`; `containers/compose.yaml` brings up current stable PostgreSQL and MinIO with named volumes and creates three buckets; `/health` returns 200 only after exact migration/checksum compatibility verification and a bucket probe; credentials arrive at run time from the environment; `docs/LOCAL_STACK_OPERATIONS.md` records the commands and `docs/MACOS_PODMAN.md` records the macOS machine setup |
 | WP-F5 | Extend the check gate with Rust steps | `coder`        | WP-F1        | `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test --workspace` through the existing `step_run` helper; loud `SKIP` when `cargo` is absent, matching the script's honesty convention                                                                                                                                                                                                                                                                            |
 | WP-F6 | Foundation documentation              | `coder`        | WP-F3, WP-F4 | README first paragraph pure prose under 250 chars passing `tests/test_readme_first_paragraph.py`; `docs/CODE_ARCHITECTURE.md` carries the container, boundary, bucket, and crate tables; `pytest tests/` green                                                                                                                                                                                                                                                               |
 
@@ -1697,7 +1699,8 @@ contract, or scale gate blocks the milestone and triggers design review rather t
   implementation choices and failures so the log stays a learning record.
 - New durable docs, each owned by the work package creating it: `docs/CONTRACTS.md`,
   `docs/CODE_ARCHITECTURE.md`, `docs/FILE_STRUCTURE.md`, `docs/INSTALL.md`, `docs/USAGE.md`,
-  `docs/CONTAINER.md`, `docs/MACOS_PODMAN.md`, `docs/QUESTION_MODEL.md`, `docs/ACTIVITY_MODEL.md`,
+  `docs/LOCAL_STACK_OPERATIONS.md`, `docs/MACOS_PODMAN.md`, `docs/QUESTION_MODEL.md`,
+  `docs/ACTIVITY_MODEL.md`,
   `docs/PROBLEM_IDENTITY.md`, `docs/OBJECT_STORAGE.md`, `docs/DATABASE_TENANCY.md`,
   `docs/DETERMINISM_CONTRACT.md`, `docs/ADAPTER_DEVELOPMENT.md`, `docs/SECURITY_MODEL.md`,
   `docs/RETENTION_POLICY.md`, `docs/SOLID_MODEL.md`, `docs/FRONTEND_ARCHITECTURE.md`,
@@ -1745,6 +1748,6 @@ settled as follows and expanded into dispatchable packages in
   binary source uses typed object storage.
 - Content-addressed deduplication is out of scope because it is an optimization, not an integrity or
   lifecycle requirement.
-- Published WeBWorK PG source is an immutable PLE object with license/provenance, and the adapter calls
-  the pinned upstream `/render_rpc` service directly.
+- Published WeBWorK PG source is an immutable PLE object with license/provenance, and the adapter
+  calls the private external standalone `/render-api` service directly.
 - Native Rust `axum` remains the server runtime; the TypeScript-server alternative is closed.

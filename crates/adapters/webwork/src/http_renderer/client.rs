@@ -1,8 +1,9 @@
-//! Private HTTP client for the upstream WeBWorK `render_rpc` endpoint.
+//! Private HTTP client for the standalone PG renderer.
 //!
 //! The upstream endpoint is deliberately treated as an untrusted private
-//! service: it receives only server-owned credentials and source, and PLE
-//! translates its form/JSON dialect into an answer-free question envelope.
+//! service: it receives only trusted immutable source, seed, display policy,
+//! and a server-resolved submitted answer. PLE translates its form/JSON
+//! dialect into an answer-free question envelope.
 
 #[path = "html_projection.rs"]
 mod html_projection;
@@ -24,7 +25,7 @@ use question_model::answer::SelectionCardinality;
 use question_model::envelope::ContentBlock;
 use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
 use question_model::{QuestionEnvelope, StudentResponse};
-use reqwest::header::{CONTENT_TYPE, LOCATION};
+use reqwest::header::{ACCEPT, CONTENT_TYPE, LOCATION};
 use reqwest::{Client, StatusCode, Url};
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -55,7 +56,6 @@ pub enum RendererConfigError {
     InvalidBaseUri,
     InvalidLimits,
     MissingRendererIdentity,
-    MissingCourseCredentials,
 }
 
 impl std::fmt::Display for RendererConfigError {
@@ -66,51 +66,39 @@ impl std::fmt::Display for RendererConfigError {
             }
             Self::InvalidLimits => "renderer deadlines and response limit must be positive",
             Self::MissingRendererIdentity => "renderer identity must be configured",
-            Self::MissingCourseCredentials => {
-                "WeBWorK course, user, and password must be configured"
-            }
         })
     }
 }
 impl std::error::Error for RendererConfigError {}
 
-/// Server-owned upstream WeBWorK credentials and resource limits.
+/// Server-owned standalone renderer endpoint, identity, and resource limits.
 #[derive(Clone)]
 pub struct HttpWebworkRendererConfig {
     base_uri: Url,
     deadline: Duration,
     max_response_bytes: usize,
     expected_renderer: RendererIdentity,
-    course_id: String,
-    user: String,
-    password: String,
 }
 
 impl std::fmt::Debug for HttpWebworkRendererConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("HttpWebworkRendererConfig")
-            .field("base_uri", &self.base_uri)
+            .field("base_uri", &self.base_uri.as_str())
             .field("deadline", &self.deadline)
             .field("max_response_bytes", &self.max_response_bytes)
             .field("expected_renderer", &self.expected_renderer)
-            .field("course_id", &self.course_id)
-            .field("user", &self.user)
-            .field("password", &"[REDACTED]")
             .finish()
     }
 }
 
 impl HttpWebworkRendererConfig {
-    /// Builds a private `/render_rpc` configuration.  The base can be a host
-    /// root or a WebWork application base, but may never carry a token.
+    /// Builds a private standalone-renderer configuration. The base is the
+    /// service origin root and may never carry a credential or token.
     pub fn new(
         base_uri: &str,
         deadline: Duration,
         max_response_bytes: usize,
         expected_renderer: RendererIdentity,
-        course_id: &str,
-        user: &str,
-        password: &str,
     ) -> Result<Self, RendererConfigError> {
         let base_uri = Url::parse(base_uri).map_err(|_| RendererConfigError::InvalidBaseUri)?;
         if !matches!(base_uri.scheme(), "http" | "https")
@@ -119,8 +107,7 @@ impl HttpWebworkRendererConfig {
             || base_uri.password().is_some()
             || base_uri.query().is_some()
             || base_uri.fragment().is_some()
-            || !base_uri.path().ends_with('/')
-            || base_uri.path() == "/"
+            || base_uri.path() != "/"
         {
             return Err(RendererConfigError::InvalidBaseUri);
         }
@@ -130,20 +117,11 @@ impl HttpWebworkRendererConfig {
         if expected_renderer.id.trim().is_empty() || expected_renderer.version.trim().is_empty() {
             return Err(RendererConfigError::MissingRendererIdentity);
         }
-        if [course_id, user, password]
-            .iter()
-            .any(|value| value.trim().is_empty())
-        {
-            return Err(RendererConfigError::MissingCourseCredentials);
-        }
         Ok(Self {
             base_uri,
             deadline,
             max_response_bytes,
             expected_renderer,
-            course_id: course_id.to_owned(),
-            user: user.to_owned(),
-            password: password.to_owned(),
         })
     }
 
@@ -151,18 +129,12 @@ impl HttpWebworkRendererConfig {
         base_uri: &str,
         deadline: Duration,
         expected_renderer: RendererIdentity,
-        course_id: &str,
-        user: &str,
-        password: &str,
     ) -> Result<Self, RendererConfigError> {
         Self::new(
             base_uri,
             deadline,
             DEFAULT_MAX_RESPONSE_BYTES,
             expected_renderer,
-            course_id,
-            user,
-            password,
         )
     }
 }
@@ -185,19 +157,18 @@ impl HttpWebworkRenderer {
     }
 
     async fn rpc(&self, mut fields: BTreeMap<String, String>) -> Result<Value, RendererFailure> {
-        fields.insert("courseID".into(), self.settings.course_id.clone());
-        fields.insert("user".into(), self.settings.user.clone());
-        fields.insert("passwd".into(), self.settings.password.clone());
-        fields.insert("outputformat".into(), "json".into());
+        fields.insert("_format".into(), "json".into());
+        fields.insert("outputFormat".into(), "default".into());
         let target = self
             .settings
             .base_uri
-            .join(crate::shipped_render_rpc::PATH)
+            .join(crate::standalone_render_api::PATH)
             .map_err(|_| RendererFailure::InvalidOutput("renderer URI is invalid".into()))?;
         let response = self
             .client
             .post(target)
-            .header(CONTENT_TYPE, crate::shipped_render_rpc::FORM_MEDIA_TYPE)
+            .header(ACCEPT, JSON_MEDIA_TYPE)
+            .header(CONTENT_TYPE, crate::standalone_render_api::FORM_MEDIA_TYPE)
             .form(&fields)
             .send()
             .await
@@ -300,7 +271,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
                 ));
             }
         }
-        fields.insert("WWsubmit".into(), "1".into());
+        fields.insert("submitAnswers".into(), "1".into());
         let response = self.rpc(fields).await?;
         let score = validate_grade_rpc(
             &response,
@@ -322,25 +293,28 @@ impl WebworkRenderer for HttpWebworkRenderer {
 fn validate_grade_rpc(
     value: &Value,
     expected: &ExpectedEcho,
-    service_base: &Url,
+    _service_base: &Url,
 ) -> Result<f64, RendererFailure> {
     let object = value
         .as_object()
         .ok_or_else(|| bad("renderer JSON is not an object"))?;
-    validate_response_shape(object, service_base)?;
+    validate_response_shape(object)?;
     reject_protected_values(object, expected)?;
-    let hidden = object
-        .get("hidden_input_field")
+    let jwt = object
+        .get("JWT")
         .and_then(Value::as_object)
-        .ok_or_else(|| bad("renderer omitted hidden fields"))?;
-    let protected_html_values = validate_and_discard_hidden(hidden, expected)?;
-    let html = body_html(object)?;
-    reject_protected_html(&html, &protected_html_values)?;
+        .ok_or_else(|| bad("renderer omitted private JWT state"))?;
+    let _ = validate_and_discard_jwt(jwt)?;
     object
-        .get("score")
+        .get("problem_result")
+        .and_then(Value::as_object)
+        .and_then(|result| result.get("score"))
         .and_then(Value::as_f64)
-        .filter(|score| score.is_finite() && (0.0..=100.0).contains(score))
-        .ok_or_else(|| RendererFailure::InvalidOutput("renderer returned malformed score".into()))
+        .filter(|score| score.is_finite() && (0.0..=1.0).contains(score))
+        .map(|score| score * 100.0)
+        .ok_or_else(|| {
+            RendererFailure::InvalidOutput("renderer returned malformed normalized score".into())
+        })
 }
 
 fn validate_render_request(request: RenderRequest<'_>) -> Result<(), RendererFailure> {
@@ -372,22 +346,14 @@ struct ParsedRender {
 }
 #[derive(Debug)]
 struct ExpectedEcho {
-    course_id: String,
-    user: String,
-    password: String,
     source: String,
     file: String,
-    seed: String,
 }
 impl ExpectedEcho {
-    fn from_request(settings: &HttpWebworkRendererConfig, request: RenderRequest<'_>) -> Self {
+    fn from_request(_settings: &HttpWebworkRendererConfig, request: RenderRequest<'_>) -> Self {
         Self {
-            course_id: settings.course_id.clone(),
-            user: settings.user.clone(),
-            password: settings.password.clone(),
             source: base64::engine::general_purpose::STANDARD.encode(request.pg_source),
             file: request.pg_path.to_owned(),
-            seed: request.seed.to_string(),
         }
     }
 }
@@ -401,20 +367,23 @@ fn parse_render_rpc(
     let object = value
         .as_object()
         .ok_or_else(|| bad("renderer JSON is not an object"))?;
-    validate_response_shape(object, service_base)?;
+    validate_response_shape(object)?;
     reject_protected_values(object, &expected)?;
-    let hidden = object
-        .get("hidden_input_field")
+    let jwt = object
+        .get("JWT")
         .and_then(Value::as_object)
-        .ok_or_else(|| bad("renderer omitted hidden fields"))?;
-    let protected_html_values = validate_and_discard_hidden(hidden, &expected)?;
-    let html = body_html(object)?;
+        .ok_or_else(|| bad("renderer omitted private JWT state"))?;
+    let protected_html_values = validate_and_discard_jwt(jwt)?;
+    let html = body_html(object, service_base)?;
     reject_protected_html(&html, &protected_html_values)?;
-    if let Ok(parsed_html) = parse_single_radio_group(&html, &protected_html_values) {
-        return project_single_radio(parsed_html, request);
+    let radio_error = match parse_single_radio_group(&html, &protected_html_values) {
+        Ok(parsed_html) => return project_single_radio(parsed_html, request),
+        Err(error) => error,
+    };
+    match parse_matching_group(&html, &protected_html_values) {
+        Ok(parsed_html) => project_matching(parsed_html, request),
+        Err(_) => Err(radio_error),
     }
-    let parsed_html = parse_matching_group(&html, &protected_html_values)?;
-    project_matching(parsed_html, request)
 }
 
 fn project_single_radio(
@@ -522,10 +491,7 @@ fn project_matching(
     })
 }
 
-fn validate_response_shape(
-    object: &Map<String, Value>,
-    service_base: &Url,
-) -> Result<(), RendererFailure> {
+fn validate_response_shape(object: &Map<String, Value>) -> Result<(), RendererFailure> {
     if object.len() != RESPONSE_KEYS.len()
         || RESPONSE_KEYS
             .iter()
@@ -536,25 +502,21 @@ fn validate_response_shape(
     {
         return Err(bad("renderer returned an unsupported response member"));
     }
-    for (key, value) in object {
-        if key == "score" {
-            if !value.is_number() || !value.as_f64().is_some_and(f64::is_finite) {
-                return Err(bad("renderer score is not numeric"));
-            }
-        } else if key != "hidden_input_field" && !value.is_string() {
-            return Err(bad("renderer response member is not text"));
+    if object.get("renderedHTML").and_then(Value::as_str).is_none() {
+        return Err(bad("renderer omitted rendered HTML"));
+    }
+    for key in [
+        "JWT",
+        "debug",
+        "flags",
+        "problem_result",
+        "problem_state",
+        "resources",
+    ] {
+        if object.get(key).and_then(Value::as_object).is_none() {
+            return Err(bad("renderer response member has an unsupported type"));
         }
     }
-    let site = object
-        .get("real_webwork_SITE_URL")
-        .and_then(Value::as_str)
-        .ok_or_else(|| bad("renderer omitted site URL"))?;
-    verify_site_url(site, service_base)?;
-    let action = object
-        .get("real_webwork_FORM_ACTION_URL")
-        .and_then(Value::as_str)
-        .ok_or_else(|| bad("renderer omitted form action URL"))?;
-    verify_form_action_url(action, service_base)?;
     Ok(())
 }
 
@@ -579,7 +541,7 @@ fn verify_site_url(value: &str, service_base: &Url) -> Result<(), RendererFailur
 fn verify_form_action_url(value: &str, service_base: &Url) -> Result<(), RendererFailure> {
     let url = Url::parse(value).map_err(|_| bad("renderer returned malformed service URL"))?;
     let expected = service_base
-        .join(crate::shipped_render_rpc::PATH)
+        .join(crate::standalone_render_api::PATH)
         .map_err(|_| bad("renderer service URL is invalid"))?;
     if url.query().is_some() || url.fragment().is_some() || url != expected {
         return Err(bad("renderer returned off-policy service URL"));
@@ -671,9 +633,6 @@ fn reject_protected_values(
         "correctAnswer",
     ];
     for (key, value) in object {
-        if key == "hidden_input_field" {
-            continue;
-        }
         if protected
             .iter()
             .any(|protected| key.eq_ignore_ascii_case(protected))
@@ -682,12 +641,30 @@ fn reject_protected_values(
             return Err(bad("renderer response contained protected material"));
         }
     }
-    let _ = expected;
+    if contains_expected_protected(object, expected) {
+        return Err(bad("renderer response echoed trusted request material"));
+    }
     Ok(())
 }
 
-/// Credentials and source echoed by the upstream hidden map must never appear
-/// in any browser-projected body text or attribute.  Check this before
+fn contains_expected_protected(object: &Map<String, Value>, expected: &ExpectedEcho) -> bool {
+    fn contains(value: &Value, protected: &[&str]) -> bool {
+        match value {
+            Value::String(value) => protected
+                .iter()
+                .any(|protected| !protected.is_empty() && value.contains(protected)),
+            Value::Object(values) => values.values().any(|value| contains(value, protected)),
+            Value::Array(values) => values.iter().any(|value| contains(value, protected)),
+            _ => false,
+        }
+    }
+
+    let protected = [expected.source.as_str(), expected.file.as_str()];
+    object.values().any(|value| contains(value, &protected))
+}
+
+/// Private renderer JWTs must never appear in browser-projected body text or
+/// attributes. Check this before
 /// sanitizing: a sanitizer may remove the element while leaving an audit gap.
 fn reject_protected_html(
     html: &str,
@@ -711,91 +688,32 @@ fn contains_protected(value: &Value, protected: &[&str]) -> bool {
         _ => false,
     }
 }
-fn validate_and_discard_hidden(
-    hidden: &Map<String, Value>,
-    expected: &ExpectedEcho,
-) -> Result<BTreeSet<String>, RendererFailure> {
-    const BOUNDED_DISCARDED: &[(&str, usize)] = &[
-        ("key", 4096),
-        ("sourceFilePath", 4096),
-        ("problemUUID", 128),
-        ("psvn", 128),
-        ("theme", 128),
-        ("language", 128),
-        ("extraHeaderText", 2048),
-    ];
-    let expected_values = BTreeMap::from([
-        ("courseID", expected.course_id.as_str()),
-        ("user", expected.user.as_str()),
-        // Authen::set_params deliberately clears the successfully verified
-        // password before the official JSON template builds this hidden map.
-        ("passwd", ""),
-        ("problemSource", expected.source.as_str()),
-        ("pathToProblemFile", expected.file.as_str()),
-        ("problemSeed", expected.seed.as_str()),
-        ("outputformat", "json"),
-        ("displayMode", "MathJax"),
-        ("showSummary", "0"),
-        ("showHints", "0"),
-        ("showSolutions", "0"),
-        ("showPreviewButton", "0"),
-        ("showCheckAnswersButton", "0"),
-        ("showCorrectAnswersButton", "0"),
-        ("showFooter", "0"),
-    ]);
-    let allowed: BTreeSet<_> = expected_values
-        .keys()
-        .chain(BOUNDED_DISCARDED.iter().map(|(name, _)| name))
-        .copied()
-        .collect();
-    if hidden.len() != allowed.len() || hidden.keys().any(|name| !allowed.contains(name.as_str())) {
-        return Err(bad(
-            "renderer hidden fields do not match the official template",
-        ));
-    }
-    let mut protected_html_values = BTreeSet::from([expected.password.to_owned()]);
-    for (name, value) in hidden {
-        if name == "psvn" {
-            value
-                .as_u64()
-                .filter(|value| *value <= u32::MAX.into())
-                .ok_or_else(|| bad("renderer problem-server version is invalid"))?;
-            continue;
-        }
-        let value = value
-            .as_str()
-            .ok_or_else(|| bad("renderer hidden value is not text"))?;
-        if let Some(expected_value) = expected_values.get(name.as_str()) {
-            if value != *expected_value {
-                return Err(bad("renderer hidden request echo did not match"));
-            }
-        } else if let Some((_, maximum)) = BOUNDED_DISCARDED
+fn validate_and_discard_jwt(jwt: &Map<String, Value>) -> Result<BTreeSet<String>, RendererFailure> {
+    if jwt.len() != 3
+        || ["problem", "session", "answer"]
             .iter()
-            .find(|(allowed, _)| *allowed == name)
-        {
-            if value.len() > *maximum {
-                return Err(bad("renderer hidden value exceeds bound"));
-            }
-        } else {
-            return Err(bad("renderer returned unexpected hidden material"));
-        }
-        if matches!(
-            name.as_str(),
-            "key"
-                | "sourceFilePath"
-                | "problemSource"
-                | "problemUUID"
-                | "psvn"
-                | "pathToProblemFile"
-                | "courseID"
-                | "user"
-                | "passwd"
-        ) && !value.is_empty()
-        {
-            protected_html_values.insert(value.to_owned());
-        }
+            .any(|key| !jwt.contains_key(*key))
+    {
+        return Err(bad("renderer JWT state has an unsupported shape"));
     }
-    Ok(protected_html_values)
+    let mut protected = BTreeSet::new();
+    for key in ["problem", "session", "answer"] {
+        let value = jwt
+            .get(key)
+            .and_then(Value::as_str)
+            .filter(|value| {
+                !value.is_empty()
+                    && value.len() <= 65_536
+                    && value.bytes().all(|byte| {
+                        byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.')
+                    })
+                    && matches!(value.split('.').count(), 3 | 5)
+                    && value.split('.').all(|part| !part.is_empty())
+            })
+            .ok_or_else(|| bad("renderer returned malformed private JWT state"))?;
+        protected.insert(value.to_owned());
+    }
+    Ok(protected)
 }
 fn bad(message: &str) -> RendererFailure {
     RendererFailure::InvalidOutput(message.into())

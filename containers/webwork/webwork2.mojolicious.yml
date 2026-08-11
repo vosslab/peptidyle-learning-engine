@@ -1,6 +1,0 @@
-# PLE-owned changes applied by entrypoint.sh to full upstream
-# `webwork2.mojolicious.dist.yml`. The signing secret itself is read only from
-# a distinct secret file, not stored here or in an environment variable.
-allow_unsecured_rpc: 0
-listen: http://0.0.0.0:8080
-workers: 2

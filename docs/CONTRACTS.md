@@ -140,71 +140,34 @@ decided next boundary, not a browser route that is already available.
 | MOD-STO         | Learning data access (compatibility ID/path): frozen contracts plus in-memory and PostgreSQL backends under `crates/learning-data-access`, including atomic flat-question draft/source persistence and a separately injected `PostgresGraderStore`. MOD-STO may consume MOD-GRD only to validate opaque typed flat private material and its answer-free public binding; it exposes neither bytes nor grading decisions.                                                                                                                                       | `expert_coder` | MOD-SCHEMA, MOD-API-AUTH, MOD-API-CAT, MOD-API-COURSE, MOD-API-RUN, MOD-API-ASSET, MOD-WORKER, MOD-STATS, MOD-RETENTION, MOD-LTI | In-memory data access (`MemoryStore`); opt-in PostgreSQL gate  |
 | MOD-SCHEMA      | Implemented: `schemas/migrations/` and `crates/learning-data-access/src/rls.rs`; reserved atomic draft-identity JSON/schema migration                                                                                                                                                                                                                                                                                                                                                                                                                         | `expert_coder` | MOD-STO, MOD-ID, MOD-API-CAT                                                                                                     | n/a; opt-in fresh-database gate                                |
 | MOD-ADP-NAT     | Implemented algorithmic issue/reproduction/grading plus strict PLE flat-question JSON v1 compatibility and the v2 MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT parser/compiler: `crates/adapters/native/src/lib.rs`, `generator.rs`, `flat_question.rs`, and `flat_question/v2.rs`. Atomic workspace/publication persistence, instructor flat authoring, QTI-derived draft editing/publication, and the isolated native runtime are implemented; the visual author editor remains v1 single choice. CON-FLAT-V2 records the unaccepted RC4/RC5 work still outside this implemented source contract. | `expert_coder` | MOD-API-CAT, MOD-API-RUN, MOD-WORKER                                                                                             | Native parser/compiler and family response tests                |
-| MOD-ADP-WW      | Implemented bounded server-only renderer boundary: `crates/adapters/webwork/src/lib.rs`, `renderer_contract.rs`, `http_renderer.rs`, `shipped_render_rpc.rs`, and `sanitizer.rs`. The contract owns renderer request, response, identity, failure, render, grade, and issue-time private replay-mapping types; WP-RC3 uses the upstream shipped `/webwork2/render_rpc` form/JSON protocol. CON-WEBWORK-REPLAY-V1 records the separately reserved one-call grade optimization.                                                                                                                                                           | `expert_coder` | MOD-API-CAT, MOD-API-RUN, MOD-WORKER                                                                                             | Recorded renderer fixtures and private RC3 acceptance           |
+| MOD-ADP-WW      | Implemented bounded server-only renderer boundary: `crates/adapters/webwork/src/lib.rs`, `renderer_contract.rs`, `http_renderer.rs`, `standalone_render_api.rs`, and `sanitizer.rs`. The contract owns renderer request, response, identity, failure, render, grade, and issue-time private replay-mapping types; PLE uses the external standalone `/render-api` form/JSON protocol. CON-WEBWORK-REPLAY-V1 records the separately reserved one-call grade optimization. | `expert_coder` | MOD-API-CAT, MOD-API-RUN, MOD-WORKER | Recorded renderer fixtures and private live acceptance |
 | MOD-ADP-QTI     | Private staging, immutable promotion, reviewed Canvas/Blackboard profile import, profile-to-native conversion, and opt-in published runtime are implemented. The profile routes authorize before reading bytes, expose only safe reports, reparse the checksum-pinned archive, and commit source, opaque grading material, provenance, and draft revision atomically. Published QTI runtime is registered only with `PLE_QTI_RUNTIME_ENABLED=1` plus separate `PLE_GRADER_DATABASE_URL`; answer bindings remain reachable only through `PostgresGraderStore`. | `expert_coder` | MOD-API-CAT, MOD-API-RUN, MOD-WORKER                                                                                             | `MemoryObjectStore`; opt-in PostgreSQL grader gate             |
 | MOD-ADP-H5P     | Implemented key-free H5P practice import: `crates/adapters/h5p/src/lib.rs` and `import.rs`. The adapter accepts bounded supported package content into unpublished practice payloads and deliberately has no grading-key dependency.                                                                                                                                                                                                                                                                                                                          | `expert_coder` | MOD-API-CAT, MOD-WORKER                                                                                                          | n/a; ungraded capability declaration                           |
 | MOD-ADP-IMATHAS | Implemented only for an explicitly configured contracted/self-hosted scored-embed provider: immutable source, protected same-origin launch, server verification, and optional production composition. Generic hosted MyOpenMath remains refused. Backend value `imathas`; iMathAS is the label and MyOpenMath a provider                                                                                                                                                                                                                                      | `expert_coder` | MOD-API-CAT, MOD-API-RUN, MOD-WORKER, MOD-UI-RENDER, MOD-UI-ATTEMPT                                                              | Recorded redacted fixtures; non-production provider probe only |
 | MOD-EXPORT      | Implemented answer-key-free print model and deterministic four-artifact bundle: `crates/export/src/lib.rs`, `docx.rs`, and `pdf.rs`. Standard and accessible DOCX/PDF writers accept only published prompt/response presentation plus checksum-verified printable assets; unsupported response or asset shapes refuse before rendering.                                                                                                                                                                                                                       | `coder`        | MOD-WORKER, MOD-API-ASSET                                                                                                        | published fixture version                                      |
 | MOD-WASM        | Frozen: `crates/wasm/src/lib.rs` and browser facade `src/wasm/index.ts`, including key-free format, timer, capability evaluation, and unversioned native-draft preview                                                                                                                                                                                                                                                                                                                                                                                        | `expert_coder` | MOD-UI-WIDGETS, MOD-UI-EDITOR                                                                                                    | n/a; exact export allowlist                                    |
 
-## WeBWorK RPC contract
+## WeBWorK renderer contract
 
-WP-RC3's renderer is a private upstream WebWork2 service, not a browser API or
-the retired PLE `/v1/render` and `/v1/grade` dialect. `http_renderer.rs` makes
-the same bounded authenticated `POST` request for render and grade to the
-application-base-relative `render_rpc` path. It sends
-`application/x-www-form-urlencoded` fields from server-owned configuration
-only: a base64 `problemSource`, immutable `fileName`, stored seed, direct
-render-course credentials, `outputformat=json`, display flags, and, on grade,
-one re-rendered radio field/value plus `WWsubmit=1`.
+PLE uses the external standalone `webwork-pg-renderer` service, not a browser
+API, the retired PLE `/v1` dialect, or the WebWork2 homework application. The
+bounded client posts server-owned immutable PG/PGML source, source path, seed,
+display policy, and resolved answer to `/render-api` as form data. Renderer JWT
+state, upstream answer fields, source, and credentials remain server-only.
 
-The response parser accepts the fixed default upstream JSON shape, validates
-the complete `hidden_input_field` object against the outgoing request, verifies
-the root `real_webwork_SITE_URL` and exact `real_webwork_FORM_ACTION_URL`, and
-then discards those values. Redirects, non-JSON responses, duplicate JSON keys,
-unexpected fields, protected-field mismatches, malformed markup, unsafe
-resources, and all unsupported controls refuse. The only supported projection
-is one RadioButtons group with a bounded number of options. Its label-wrapped
-radio inputs are removed from the prompt, then emitted as PLE opaque choice
-IDs. The submitted ID is mapped back to an upstream field/value only inside the
-second server-side request. A valid score is exactly numeric `0` or `100`;
-`100` earns all published positive points and `0` earns none.
+The response parser accepts the standalone service's closed JSON shape,
+validates request and renderer identity, and projects recognized controls into
+opaque PLE response options. Redirects, non-JSON responses, duplicate or
+unexpected members, malformed markup, unsafe resources, and unsupported
+controls refuse. The browser receives only the typed PLE envelope and submits a
+PLE response through the same-origin API.
 
-The browser receives only the typed PLE question envelope and later submits a
-PLE response to the same-origin run API. It never receives PG source, file
-path, direct password, session key, upstream URL, upstream field/value, raw
-RPC body, or an upstream cookie. The adapter cache is immutable by published
-version and stored seed. It records only the sanitized envelope/markup,
-source-artifact binding, renderer identity, and rendered-output checksum.
-`ple.webwork.cache` records `renderer_call` on a miss and `cache_hit` when the
-same safe render is replayed; neither event contains protected material.
-
-The shipped local-service contract is owned by
-`containers/compose.yaml`, `containers/compose.webwork.yaml`,
-`containers/webwork/`, and `launch_local_stack.sh`. Its exact public source
-revisions are WebWork2 `c7060fe858cb27b17aad5cf77574ff7d1ae3e1fa` and PG
-`726ff42840f968a1d6dfcc270c23c297e1d963f4`. The source stage verifies those
-full revisions before the OCI build. The selected Ubuntu, Alpine/git, Node,
-and MariaDB inputs are immutable OCI digests with arm64 manifests; the
-launcher records the resulting local OCI image ID together with both source
-revisions and passes that local identity to the adapter configuration.
-
-`renderer_private` contains only API and WebWork; `webwork_db_private` contains
-only WebWork and MariaDB. The renderer and MariaDB have no host-published ports
-and never join PLE PostgreSQL, MinIO, gateway, browser, or worker networks.
-The launcher atomically creates two different ignored mode-0600 files: the
-render-course password and the Mojolicious signing secret. The renderer mounts
-both directly; the API receives a one-shot, fixed-UID, read-only runtime copy
-of the password through `webwork-api-secret-init`. Every `--with-webwork`
-launch refreshes that API copy, so a host-password rotation cannot silently use
-an old API secret. Native-only startup does not add the renderer endpoint,
-credentials, runtime-secret volume, or initializer dependency.
-
-The direct authenticated `probe_render_rpc.sh` readiness check proves only
-that the private upstream service is available. It is not evidence that PLE
-can issue, cache, grade, and present a learner attempt. Live container, PLE
-integration, and browser-boundary evidence remain pending until their recorded
-gates run successfully.
+`containers/compose.yaml` runs the external renderer on `renderer_private` with
+no host port, SQL database, or persistent volume. The launcher records its OCI
+image identity and runs `containers/webwork/probe_render_api.sh` before API
+startup. The bounded licensed RadioButtons path passed live PLE render, grade,
+cache, outage, and browser non-disclosure acceptance on 2026-08-10. The detailed
+wire contract is [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
 
 ## API and service contracts
 
@@ -252,7 +215,7 @@ remain server-derived.
 | ID         | Contract source and state                                                                                                                                                                                                             | Owner          | Direct consumers      | Reference/test implementation            |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | --------------------- | ---------------------------------------- |
 | MOD-LTI    | Reserved: `crates/server/src/lti.rs`                                                                                                                                                                                                  | `expert_coder` | none; platform edge   | LMS sandbox fixtures                     |
-| MOD-DEPLOY | Implemented local deployment contract: `containers/compose.yaml`, `containers/compose.webwork.yaml`, and `launch_local_stack.sh`; production infrastructure under `deploy/` is a reserved boundary and unsupported in this repository | `expert_coder` | none; deployment edge | local stack and focused container checks |
+| MOD-DEPLOY | Implemented local deployment contract: `containers/compose.yaml`, optional `containers/compose.smtp.yaml`, and `launch_local_stack.sh`; production infrastructure under `deploy/` is a reserved boundary and unsupported in this repository | `expert_coder` | none; deployment edge | local stack and focused container checks |
 
 ## Shared artifact ownership
 

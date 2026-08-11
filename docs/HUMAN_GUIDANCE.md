@@ -183,6 +183,20 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Use the existing PGML versions of the Chapter 1 questions where they are
   available.
 
+## WeBWorK project boundary
+
+- PLE owns the only course, roster, assignment, attempt, feedback, and gradebook
+  system. Do not deploy a parallel WeBWorK2 assignment distribution.
+- Use `webwork-pg-renderer` as the private HTTP integration layer and
+  `openwebwork/pg` as its PG/PGML render-and-grade engine. Neither layer owns
+  PLE educational records.
+- Treat `openwebwork/webwork2` as implementation history and reference material
+  after the standalone-renderer cutover. Its course database and MariaDB are not
+  part of the intended PLE runtime.
+- Treat every path under `OTHER_REPOS/` as read-only comparison evidence. Build,
+  test, and runtime code must use pinned maintained upstream revisions or
+  declared artifacts instead of importing, mounting, or building those copies.
+
 ## Course appearance
 
 - Do something similar to Blackboard Original course themes.

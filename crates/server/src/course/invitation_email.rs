@@ -16,11 +16,21 @@ use super::roster::{
     CourseInvitationDelivery, CourseInvitationDeliveryError, CourseInvitationSecret,
 };
 
+/// Encrypted SMTP submission mode selected by the external provider.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SmtpTlsMode {
+    /// Upgrade port 587-style submission with mandatory STARTTLS.
+    StartTls,
+    /// Establish TLS before SMTP, typically on submission port 465.
+    ImplicitTls,
+}
+
 /// Validated SMTP and public-link settings. Credential text is never retained
 /// in this value after the transport is constructed.
 pub struct SmtpCourseInvitationDeliveryConfig {
     pub relay: String,
     pub port: u16,
+    pub tls_mode: SmtpTlsMode,
     pub username: String,
     pub password: String,
     pub from: String,
@@ -33,6 +43,7 @@ impl std::fmt::Debug for SmtpCourseInvitationDeliveryConfig {
             .debug_struct("SmtpCourseInvitationDeliveryConfig")
             .field("relay", &self.relay)
             .field("port", &self.port)
+            .field("tls_mode", &self.tls_mode)
             .field("username", &"[redacted]")
             .field("password", &"[redacted]")
             .field("from", &"[redacted]")
@@ -90,11 +101,16 @@ impl SmtpCourseInvitationDelivery {
         redeem_url.set_path("/course-invitations/redeem");
         email_auth_url.set_path("/auth/email/complete");
         email_change_url.set_path("/auth/account/email/complete");
-        let transport = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.relay)
-            .map_err(|_| CourseInvitationDeliveryError::Unavailable)?
-            .port(config.port)
-            .credentials(Credentials::new(config.username, config.password))
-            .build();
+        let transport = match config.tls_mode {
+            SmtpTlsMode::StartTls => {
+                AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.relay)
+            }
+            SmtpTlsMode::ImplicitTls => AsyncSmtpTransport::<Tokio1Executor>::relay(&config.relay),
+        }
+        .map_err(|_| CourseInvitationDeliveryError::Unavailable)?
+        .port(config.port)
+        .credentials(Credentials::new(config.username, config.password))
+        .build();
         Ok(Self {
             transport,
             from,
@@ -205,6 +221,7 @@ mod tests {
         SmtpCourseInvitationDeliveryConfig {
             relay: "smtp.example.edu".to_string(),
             port: 587,
+            tls_mode: SmtpTlsMode::StartTls,
             username: "ple@example.edu".to_string(),
             password: "fixture-only-secret".to_string(),
             from: "PLE <ple@example.edu>".to_string(),
@@ -223,6 +240,17 @@ mod tests {
         ] {
             assert!(SmtpCourseInvitationDelivery::new(config(base)).is_err());
         }
+    }
+
+    #[tokio::test]
+    async fn supports_both_encrypted_provider_submission_modes() {
+        let mut value = config("https://ple.example.edu");
+        assert!(SmtpCourseInvitationDelivery::new(value).is_ok());
+
+        value = config("https://ple.example.edu");
+        value.port = 465;
+        value.tls_mode = SmtpTlsMode::ImplicitTls;
+        assert!(SmtpCourseInvitationDelivery::new(value).is_ok());
     }
 
     #[test]

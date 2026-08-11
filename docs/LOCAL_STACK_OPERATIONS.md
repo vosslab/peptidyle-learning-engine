@@ -1,13 +1,15 @@
-# Container stack
+# Local stack operations
 
 Local development stack for the Peptidyle Learning Engine: the browser gateway,
-API server, worker, PostgreSQL, and MinIO. The native stack is the supported
-default; the private WeBWorK renderer path is the accepted bounded WP-RC3 profile.
+API server, worker, PostgreSQL, MinIO, and private standalone WeBWorK PG
+renderer. These are the normal stack; SMTP is the only optional overlay.
 The Compose model is defined in
 [containers/compose.yaml](../containers/compose.yaml) and
 [containers/Containerfile.api](../containers/Containerfile.api).
 Replica scaling, shared-state ownership, failure behavior, and the planned
 production topology are in [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md).
+The necessity, persistence, and network boundary of every service are in
+[LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md).
 
 The root `.containerignore` is an allowlist for this
 image build. Only the Cargo manifests, Rust crates, embedded SQLx migrations,
@@ -34,7 +36,8 @@ macOS setup for the Podman virtual machine lives in
 | `postgres`         | digest-pinned official PostgreSQL 17          | shared content and tenant-owned records    | 127.0.0.1:5432               |
 | `minio`            | digest-pinned official MinIO                  | S3-compatible object storage               | 127.0.0.1:9000, console 9001 |
 | `createbuckets`    | digest-pinned official MinIO Client           | one-shot bucket creation, then exits       | none                         |
-| `webwork-renderer` | local image built from pinned upstream source | optional private WebWork2/PG profile       | none                         |
+| `identity-secret-init` | pinned official Alpine | one-shot invitation-secret permission setup | none |
+| `webwork-renderer` | external `webwork-pg-renderer` image | private stateless PG/PGML render and grade engine | none |
 
 Every port binds to `127.0.0.1`, not `0.0.0.0`. The database holds educational
 records, so a development container must not be reachable from the local
@@ -64,13 +67,14 @@ The normal root command owns the local-only bootstrap:
 ```
 
 On its first default run, the launcher creates an ignored mode-0600
-`containers/env.local`, generates independent database/object-store/grader
-secrets, generates instructor and student bearer credentials, and mounts only
-their hashes into the API. It builds the host artifacts, starts PostgreSQL and
-MinIO, applies and verifies the embedded migrations, provisions the restricted
+`containers/env.local`, generates independent database/object-store/grader and
+invitation-issuer secrets, generates instructor and student bearer credentials,
+and mounts only their hashes into the API. It builds the host artifacts, starts
+PostgreSQL and MinIO, applies and verifies the embedded migrations, provisions the restricted
 `ple_grading_reader` login, seeds one small course/assignment/native-question
-scenario, starts the API/worker/gateway, waits for semantic `/health`, and opens
-the browser. Named data volumes remain available for repeated testing. If port
+scenario, verifies the external PG renderer, starts the API/worker/gateway,
+waits for semantic `/health`, and opens the browser. Named data volumes remain
+available for repeated testing. If port
 3000 is already occupied during first-run bootstrap, the launcher records the
 first available port from 3000 through 3099 in the ignored env file.
 
@@ -86,64 +90,79 @@ bundle is intentionally current. A custom `--env-file` is never rewritten or
 seeded and must provide every required secret itself. `npm run launch` is an
 optional alias.
 
+The API reads the mode-0600 invitation issuer from a read-only named volume
+populated by a networkless one-shot initializer running under the pinned Alpine
+image. This makes manager copy-link invitations available without SMTP and
+keeps the raw issuer out of environment variables. PLE uses its established
+Rust SMTP adapter only when an operator supplies provider settings; the local
+stack does not run or maintain a mail server.
+
+## External SMTP provider
+
+SMTP is an opt-in connection to an operator-selected service, not another PLE
+container. Keep the normal stack unchanged until a provider account exists.
+When it does, copy `containers/env.example` to an operator-owned environment
+file and set:
+
+- `PLE_SMTP_RELAY` to the provider hostname, without `smtp://` or `smtps://`;
+- `PLE_SMTP_PORT` and `PLE_SMTP_TLS_MODE` to either mandatory `starttls`
+  submission or `implicit-tls` submission, as specified by the provider;
+- `PLE_SMTP_USERNAME` and `PLE_SMTP_FROM` to provider-authorized values;
+- `PLE_SMTP_PASSWORD_HOST_FILE` to an absolute, non-symlink, mode-0600 file
+  containing only the provider-issued SMTP password or token; and
+- `PLE_PUBLIC_APP_BASE_URL` to the deployed public HTTPS PLE origin.
+
+Preflight and start that configuration explicitly:
+
+```bash
+./launch_local_stack.sh --env-file path/to/env.local --with-smtp --check
+./launch_local_stack.sh --env-file path/to/env.local --with-smtp --no-open
+podman compose -f containers/compose.yaml -f containers/compose.smtp.yaml \
+  --env-file path/to/env.local down
+```
+
+The SMTP overlay copies the credential through a networkless, capability-minimal
+one-shot container into an API-readable, read-only named volume. The API never
+receives the host path or credential text in its environment. Omitting
+`--with-smtp` passes no SMTP configuration to the API; copy-link invitations
+continue to work, while email sign-in remains unavailable until the external
+provider is configured. PLE does not manage sender reputation, DNS mail policy,
+bounces, or provider accounts.
+
 The root launcher is the maintained startup path because API/worker startup is
 deliberately later than migration and grader-role provisioning. Running a bare
 `compose up` against an empty database is therefore not equivalent.
 
-## Private WebWork profile
+## Private standalone PG renderer
 
-The optional `--with-webwork` profile builds WebWork2 and PG from the exact
-official source revisions declared in [containers/env.example](../containers/env.example):
-`c7060fe858cb27b17aad5cf77574ff7d1ae3e1fa` and
-`726ff42840f968a1d6dfcc270c23c297e1d963f4`. The build's Alpine/git, Node,
-Ubuntu, and MariaDB source images are immutable OCI digests with arm64
-manifests. The source build verifies each full Git revision before it copies
-the source into the final local image. It does not consume a legacy or
-operator-selected WebWork image.
+WeBWorK-backed questions are part of the normal stack. PLE relies on the
+external `webwork-pg-renderer` image named by `PLE_WEBWORK_RENDERER_IMAGE`; this
+repository neither rebuilds that service nor runs the full WebWork2 homework
+application. The renderer wraps upstream WeBWorK PG/PGML execution behind one
+private `/render-api` form endpoint.
 
-The base Compose file contains the private WebWork services behind the
-`webwork` profile. The normal native-only stack has no renderer configuration
-or secret-copy dependency. `--with-webwork` enables that profile and applies
-the narrowly scoped `containers/compose.webwork.yaml` overlay. The overlay
-injects the API renderer settings and its read-only secret-runtime volume; API
-then uses the internal
-`http://webwork-renderer:8080/webwork2/` application base and the renderer
-joins no public browser route. It is not a separate browser origin. The browser
-continues to call PLE through the loopback gateway only.
+The renderer has no volume, SQL database, course, roster, assignment, user, or
+host-published port. It joins only `renderer_private` with the API. The gateway,
+browser, worker, PostgreSQL, and MinIO cannot reach that network. PLE remains the
+sole assignment distributor and educational-record authority.
 
-The root launcher atomically creates and validates separate ignored mode-0600
-files for the direct render-course password and Mojolicious signing secret. It
-mounts both files read-only to WebWork. A networkless, capability-minimal
-one-shot service copies only the render password to a named volume owned by
-the API runtime UID; API mounts that copy read-only. Each `--with-webwork`
-start recreates the one-shot service, which refreshes the copy after a password
-rotation. Neither secret is an environment value, browser value, source mount,
-or object-store value.
+The default local bootstrap creates renderer JWT secrets in the ignored
+mode-0600 `containers/env.local`. They authenticate API-to-renderer requests and
+responses; they never enter browser data. A custom environment supplies its own
+values. The launcher records the selected OCI image ID in an ignored provenance
+file and runs `containers/webwork/probe_render_api.sh` inside the container to
+exercise both rendering and grading before the API starts.
 
-WebWork and its MariaDB use named `ple_webwork_courses` and
-`ple_webwork_dbdata` volumes together. They join only two internal networks:
-`renderer_private` has API and WebWork, and `webwork_db_private` has WebWork
-and MariaDB. Neither service publishes a host port or joins PLE PostgreSQL,
-MinIO, gateway, worker, or browser networks. WebWork owns no PLE content or
-student-record volume.
+The renderer is stateless. Recreating it loses no PLE record. PostgreSQL and
+MinIO retain records in named volumes outside their writable container layers;
+normal `down` and rebuild operations preserve those volumes.
 
-Start the profile with:
-
-```bash
-./launch_local_stack.sh --with-webwork
-```
-
-The launcher writes an ignored provenance record with the final local OCI image
-ID and both source revisions, then configures that image identity for the API.
-This makes an arm64 local build auditable without claiming byte-identical OCI
-output across architectures or package mirrors.
-
-`probe_render_rpc.sh` is an authenticated direct service readiness check. It
-does not substitute for PLE issue/cache/grade behavior or a browser test.
-WP-RC3 live-profile, PLE-integration, and browser-boundary evidence was
-accepted on 2026-08-10. Static checks do not supersede that recorded live
-evidence when the profile changes. This does not change the native-only stack's
-supported-default status.
+The startup probe is not a substitute for PLE integration or browser testing.
+The explicit live E2E accepted on 2026-08-10 proves the bounded licensed PGML
+`RadioButtons` path through PLE, including correct/incorrect grading, cache
+behavior, renderer outage recovery, keyboard use, and protected-material
+non-disclosure. Matching and broader PG compatibility require their own source
+and live evidence.
 
 The worker handles one job per bounded pass and concurrency comes from scaling
 the service. It claims only current scoring, course item analysis, attempt
@@ -163,9 +182,9 @@ or reaches an incompatible schema reports 503.
 
 The gateway actively checks this dedicated route every five seconds. It does
 not treat an arbitrary application 503 as replica unhealthiness. That
-distinction keeps authentication, native questions, and navigation available
-when an optional feature-local dependency such as the private WebWork renderer
-fails closed.
+distinction keeps stored records diagnosable when a feature-local dependency
+fails closed. The normal launcher nevertheless requires the renderer to pass
+its semantic startup probe before it starts the API.
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/health
@@ -205,24 +224,16 @@ curl -s http://localhost:3000/health          # {"status":"ready"} once compatib
 ```bash
 ./launch_local_stack.sh                                      # build, start, wait, and open
 ./launch_local_stack.sh --skip-build --no-open               # fast restart without browser open
-./launch_local_stack.sh --with-webwork                       # accepted bounded RC3 renderer profile
 
-# Native default: direct Compose commands always load the ignored local env file.
+# Direct Compose commands always load the ignored local env file.
 podman compose -f containers/compose.yaml --env-file containers/env.local ps
-podman compose -f containers/compose.yaml --env-file containers/env.local logs -f api worker
+podman compose -f containers/compose.yaml --env-file containers/env.local \
+  logs -f api worker webwork-renderer
 podman compose -f containers/compose.yaml --env-file containers/env.local build api worker
 podman compose -f containers/compose.yaml --env-file containers/env.local \
   up -d --scale api=2 --scale worker=2 api worker gateway
-podman compose -f containers/compose.yaml --env-file containers/env.local down
-
-# Accepted bounded WP-RC3 WebWork path: retain both the overlay and the profile.
-podman compose -f containers/compose.yaml -f containers/compose.webwork.yaml \
-  --env-file containers/env.local --profile webwork \
-  up -d --scale api=2 --scale worker=2
-podman compose -f containers/compose.yaml -f containers/compose.webwork.yaml \
-  --env-file containers/env.local --profile webwork logs -f api worker webwork-renderer
-podman compose -f containers/compose.yaml -f containers/compose.webwork.yaml \
-  --env-file containers/env.local --profile webwork down
+podman compose -f containers/compose.yaml --env-file containers/env.local \
+  down --remove-orphans
 ```
 
 ## Whole-system verification

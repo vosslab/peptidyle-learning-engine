@@ -268,7 +268,7 @@ The WP-QTI-12 independent review and documentation close-out is complete:
   and seeds PostgreSQL before API/worker startup, provisions the distinct grader login, waits for
   the semantic gateway health response, and opens the browser without deleting persistent volumes.
   The accepted WeBWorK renderer remains an explicit optional profile using the pinned upstream
-  `/render_rpc` integration.
+  historical `/render_rpc` compatibility integration.
 - [docs/DATABASE_STRUCTURE.md](../DATABASE_STRUCTURE.md) maps implemented revision, assignment, and
   isolated-score relations. The human owner has superseded the earlier institutional-OIDC-only
   decision: WP-RC8 now owns PLE-managed passwordless accounts, invite-by-email enrollment, passkeys,
@@ -301,7 +301,9 @@ The complete sequence is authoritative in
 
 1. WP-RC1 course appearance is accepted.
 2. WP-RC2 production-seam closure is accepted. WP-RC3's pinned upstream WeBWorK `/render_rpc`
-   integration is accepted after its live PLE/browser gate and final independent review.
+   integration is accepted after its live PLE/browser gate and final independent review. It remains
+   compatibility evidence, not the final runtime: WP-RC3R now owns replacement of the full
+   WeBWorK2/MariaDB/render-course stack with the private standalone WebWork PG renderer.
 3. WP-ARCH1 is accepted. Its dated 26-file maintained-source acceptance baseline had zero
    maintained-code violations behind stable facades; the permanent size gate (582 tests),
    2,451-test Python suite, eleven-stage codebase gate, and 72-pass browser suite were green. Its
@@ -312,16 +314,23 @@ The complete sequence is authoritative in
    attempt-issuance capabilities into paired in-memory and PostgreSQL owners. The current permanent
    size gate passes 801 cases, and the feature-enabled persistence check, test, and strict Clippy
    gates pass.
-4. WP-RC8 passwordless identity, invite-by-email enrollment, course roster metadata, bulk import,
-   and manual grade export are implemented with acceptance open. Migration
-   `2026080909_passwordless_identity.sql` has passed the disposable PostgreSQL baseline. Real
-   email/optional-passkey and multi-replica evidence plus independent security/HCI closeout remain
-   before acceptance; WP-RC4 resumes after that closeout. Email authentication is the canonical
+4. WP-RC3R has removed the parallel WeBWorK2 assignment application, render-course credentials, and
+   MariaDB. The normal stack now relies on the external stateless `webwork-pg-renderer` image and
+   retains immutable-source, strict projection, grading, cache/replay, outage, and browser-secrecy
+   behavior through the private `/render-api`. The focused and live gates pass; final repository
+   gates and independent closeout review remain. `OTHER_REPOS/` is read-only comparison evidence.
+5. WP-RC8 passwordless identity, copy-link/optional-SMTP enrollment, course roster metadata, bulk
+   import, and manual grade export are implemented with acceptance open. Migration
+   `2026080909_passwordless_identity.sql` has passed the disposable PostgreSQL baseline. The opt-in
+   external-provider overlay supports authenticated STARTTLS or implicit TLS and mounts only a
+   copied mode-0600 credential file; it adds no mail service. A live provider send,
+   optional-passkey and multi-replica evidence, and independent security/HCI closeout remain before
+   acceptance; WP-RC4 resumes after that closeout. Email authentication is the canonical
    account path; no manager-assisted account merge or educational-record transfer is a version 1
    dependency.
-5. WP-RC4's PLE flat JSON v2 implementation now covers the eight source/runtime families and awaits
+6. WP-RC4's PLE flat JSON v2 implementation now covers the eight source/runtime families and awaits
    independent closeout; external QTI-JSONL is no longer a prerequisite.
-6. WP-P1 through WP-P6 implement and accept the secure learner-payload boundary before WP-RC5
+7. WP-P1 through WP-P6 implement and accept the secure learner-payload boundary before WP-RC5
    acceptance. WP-P2 adds `2026080908_secure_question_grading_payloads.sql`; WP-RC5 then completes
    visual authoring, all-family Memory/PostgreSQL acceptance, and the two exact Chapter 1
    assignments, while WP-RC6 closes QTI export and H5P claims.
@@ -352,11 +361,11 @@ not renamed or reordered.
 ### Immediate package: WP-RC8 acceptance closeout
 
 - Implemented: opaque global accounts; canonical email registration/sign-in and verified email
-  replacement;
-  discoverable WebAuthn and multiple passkeys; invitation, roster, exact-domain, atomic
+  replacement; discoverable WebAuthn and multiple passkeys; invitation, roster, exact-domain, atomic
   membership/enrollment, bounded CSV, and manual no-store grade-export contracts in
   [ENROLLMENT_DESIGN.md](../ENROLLMENT_DESIGN.md).
-- Remaining acceptance: real email delivery with an optional passkey, multi-replica login/claim and
+- Remaining acceptance: canonical email authentication through the later operator-selected provider
+  with an optional passkey, multi-replica login/claim and
   export, and independent security/HCI review. Email possession authenticates only the account
   already bound to that email; it never transfers another account's `StudentId` or records.
 - Return to WP-RC4 closeout and the secure learner payload sequence after the primary multi-actor

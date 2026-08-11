@@ -48,7 +48,7 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 | --- | --- | --- | --- | --- |
 | Native flat | Immutable PLE flat source and private flat grading payload | Typed PLE response | Native adapter plus isolated flat grader | All eight PLE flat JSON v2 families; visual author editor remains v1 single choice |
 | QTI profile | Immutable staged/published archive plus profile conversion evidence | Typed PLE response | `QtiBackend` plus least-privilege `QtiGradingStore` | Canvas 1.2 and Blackboard 2.1 static single-choice profiles |
-| WeBWorK | Immutable licensed PGML source and private renderer | Opaque PLE choice ID | Private upstream `/render_rpc` | One PGML `RadioButtons` group, all-or-nothing |
+| WeBWorK | Immutable licensed PGML source and private renderer | Opaque PLE choice ID | Private external `/render-api` | One live-accepted PGML `RadioButtons` group, all-or-nothing |
 | iMathAS | Immutable server snapshot and deployment-selected provider profile | `ExternalTool` marker through protected same-origin routes | Server broker and verified provider result | Explicitly configured contracted scored-embed provider only |
 | External-tool broker | Tenant attempt, launch session, and protected exchange row | `ExternalTool {}` marker plus HttpOnly launch proof | Backend-owned atomic verified-result commit | Shared mechanism used by the contracted iMathAS path |
 
@@ -122,9 +122,9 @@ not enable them.
 
 ### Source and render
 
-**Accepted RC3.** PLE is the only WebWork client. A published problem resolves to immutable,
+**Accepted bounded path.** PLE is the only WebWork client. A published problem resolves to immutable,
 licensed, user-authored PGML source and a fixed seed. The API sends server-owned form data to a
-private, source-pinned WebWork `/render_rpc` service. The browser receives only a PLE envelope,
+private external standalone `/render-api` service. The browser receives only a PLE envelope,
 sanitized prompt markup, and opaque PLE choice IDs. It never receives PG source, file path, renderer
 URL, credentials, upstream hidden fields, cookies, session key, radio name, or radio value.
 

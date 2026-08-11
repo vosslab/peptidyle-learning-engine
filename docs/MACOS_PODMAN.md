@@ -2,7 +2,7 @@
 
 macOS cannot run Linux containers directly, so Podman runs them inside a Linux
 virtual machine it manages for you. Everything in
-[CONTAINER.md](CONTAINER.md) assumes that machine is running.
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) assumes that machine is running.
 
 ## Install
 
@@ -40,8 +40,8 @@ podman machine start
 ## Architecture notes
 
 Apple Silicon runs `arm64` Linux images natively. The selected PostgreSQL,
-MinIO, MinIO Client, Alpine secret-initializer, and optional WebWork base-image
-digests are multi-architecture manifests in
+MinIO, MinIO Client, Alpine secret-initializer, and gateway base-image digests
+are multi-architecture manifests in
 [containers/env.example](../containers/env.example). Podman selects their
 `linux/arm64` variant on Apple Silicon, so the normal local stack does not need
 emulation. Keep the manifest digests unchanged unless the selected replacement
@@ -76,18 +76,18 @@ docker.io/library/alpine@sha256:${PLE_SECRET_INIT_IMAGE_SHA256}
 
 `containers/env.example` supplies the selected 64-character digest values.
 Copy it to ignored `containers/env.local` and retain the pins; do not replace
-them with a tag such as `latest`. The gateway and optional WebWork profile also
-take fully qualified digest-pinned Caddy, MariaDB, and Ubuntu build-base values
-from that file.
+them with a tag such as `latest`. The gateway takes a fully qualified
+digest-pinned Caddy value. The external renderer image is owned and built by the
+separate `webwork-pg-renderer` project; PLE records the selected local OCI ID.
 
 These references are not all runtime images. `postgres`, `minio`,
-`createbuckets`, `webwork-api-secret-init`, and optional `webwork-db` run their
-specified external images. `api` and `worker` are built locally from
+`createbuckets`, and `identity-secret-init` run their specified external
+images. `api` and `worker` are built locally from
 `containers/Containerfile.api`; `gateway` is built locally from
 `containers/Containerfile.gateway` using the pinned Caddy build argument. The
-optional `webwork-renderer` is likewise a local image built from its pinned
-Ubuntu base and exact WebWork2/PG Git revisions. Its `localhost/` image name is
-a local build result, not a registry image that should be pulled or retagged.
+`webwork-renderer` is an existing external-project image. Its default
+`localhost/pg-renderer:latest` name is a local build result from that sibling
+project, not a PLE-owned renderer build.
 
 ## PostgreSQL retained volumes
 

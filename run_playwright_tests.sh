@@ -96,6 +96,9 @@ fi
 # ${arr[@]+...} expands to nothing when the array is empty under set -u (bash 3.2 safe).
 # [*] on the echo joins args into one display string; [@] on the run line preserves word splitting.
 echo "==> npx playwright test ${PLAYWRIGHT_ARGS[*]+"${PLAYWRIGHT_ARGS[*]}"}"
+# Playwright forces color in its worker processes. Do not pass Node the
+# contradictory NO_COLOR request that it will ignore with a warning.
+unset NO_COLOR
 PW_EXIT=0
 set +e  # allow playwright to exit non-zero; captured in PW_EXIT below
 npx playwright test ${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}

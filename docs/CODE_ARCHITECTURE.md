@@ -13,10 +13,10 @@ The current code includes the question model, domain rules, server-only
 grading, object storage, learning data access, API routes, Solid browser client,
 WebAssembly bridge, question-engine adapters, export workers, manual grading,
 course item analysis, retention, a six-file PostgreSQL baseline, and the first
-forward course-appearance migration. WP-RC3 source artifacts also implement a
-private, upstream WeBWorK `render_rpc` adapter, optional private local compose
-overlay, immutable PGML pilot seed, and opt-in E2E/browser gates. The bounded
-local integration is accepted; it is not a production deployment claim. The
+forward course-appearance migration. The normal local stack also integrates the
+external stateless `webwork-pg-renderer` through a private `/render-api`, an
+immutable PGML pilot seed, and explicit E2E/browser gates. The bounded local
+integration is accepted without WebWork2 or MariaDB; it is not a production deployment claim. The
 remaining dependency order is recorded in
 [active_plans/active/release_completion_plan.md](active_plans/active/release_completion_plan.md),
 and the dated current snapshot is
@@ -34,6 +34,7 @@ conceptual entrypoint for the settled choices below. The plan, [HUMAN_GUIDANCE.m
 | What travels between browser, PLE, and a grading backend? | [API_CONTRACTS.md](API_CONTRACTS.md), [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md), [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md), and [CACHING_AND_PREFETCH.md](CACHING_AND_PREFETCH.md) | `crates/server/src/run/`, `crates/adapters/`, and `src/features/attempt/` |
 | Which identity and data may cross each boundary? | [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md), [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md), [DATA_CONTRACTS.md](DATA_CONTRACTS.md), [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md), and [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) | auth, course, `crates/learning-data-access/`, and server DTOs |
 | How do replicas survive overlap and failure? | [CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md), [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md), and [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md) | PostgreSQL transactions, objects, jobs, and composition |
+| Why does each local container exist? | [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md), [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md), and [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md) | `containers/compose.yaml`, launcher, and composition |
 | What evidence supports a claim? | [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md), [DEVELOPMENT.md](DEVELOPMENT.md), and [E2E_TESTS.md](E2E_TESTS.md) | owning behavior test, live oracle, or human review |
 
 The established reference documents remain the detailed implementation maps:
@@ -296,22 +297,30 @@ without exposing the grading binding.
 
 The H5P adapter exposes its key-free practice importer through
 `crates/adapters/h5p/src/import.rs`.
+
+The WeBWorK ecosystem has three separate ownership layers. `openwebwork/pg` is
+the PG/PGML execution engine. `vosslab/webwork-pg-renderer` is the small private
+HTTP service PLE should call. `openwebwork/webwork2` is a complete homework and
+course-management application and is not a second PLE assignment authority.
+PLE now uses the external standalone renderer and keeps WebWork2 out of its runtime.
+`OTHER_REPOS/{pg,webwork-pg-renderer,webwork2}` are read-only reference snapshots,
+never build inputs or runtime dependencies.
+
 The WeBWorK adapter exposes its server-only renderer request, response,
 identity, failure, render, and grade boundary through
 `crates/adapters/webwork/src/renderer_contract.rs`. Its
 `http_renderer/client.rs` joins only the configured application base and
-`render_rpc`; `protocol.rs`, `response_shape.rs`, `html_projection.rs`, and
+`render-api`; `protocol.rs`, `response_shape.rs`, `html_projection.rs`, and
 `grade.rs` own its focused protocol, validation, projection, and grade work.
 The client rejects redirects and unbounded/wrong-type responses, and projects the approved single-radio PG
 shape. It uses `html5ever` tokenization to extract the exact radio group,
 then discards upstream field names, hidden fields, session material, and source
-bytes before forming a PLE question envelope. `shipped_render_rpc.rs` fixes the
-upstream path and form media type. The adapter cache stores only the safe
+bytes before forming a PLE question envelope. `standalone_render_api.rs` fixes
+the upstream path and form media type. The adapter cache stores only the safe
 rendered projection and emits `ple.webwork.cache` `renderer_call` and
 `cache_hit` events. `crates/server/src/webwork_backend.rs` resolves immutable
 catalog source bytes under the attempt tenant before calling that adapter.
-The optional private upstream deployment is owned by the WP-RC3 workstream;
-it is not a browser-facing service.
+The renderer is a normal private local-stack service; it is not a browser-facing service.
 
 The profile-to-native author path keeps each ownership transition explicit:
 
@@ -589,14 +598,11 @@ builds the host browser bundle, starts backing services, applies and verifies mi
 provisions the distinct grader login, seeds a bounded demonstration course, and then starts API,
 worker, and gateway. The gateway mounts `dist/` read-only, serves browser navigation, and proxies
 only `/api`, `/api/*`, and `/health` to the API replicas; API-shaped paths can never fall through to
-the single-page application. Normal shutdown preserves the named PostgreSQL and MinIO volumes. Passing
-`--with-webwork` adds `containers/compose.webwork.yaml`,
-which gives only the API a renderer endpoint and a read-only runtime password
-file. The overlay starts source-pinned upstream WeBWorK and a dedicated MariaDB
-on private networks; neither service publishes a host port or joins PLE
-PostgreSQL, MinIO, gateway, or worker networks. The image, course initializer,
-and semantic probe are under `containers/webwork/`.
-This source-level integration still requires its explicit live acceptance gate.
+the single-page application. Normal shutdown preserves the named PostgreSQL and MinIO volumes. The
+same base Compose file starts the external standalone PG renderer on an API-only
+private network. It has no database, volume, or host port. The launcher verifies
+the image identity and runs the semantic probe under `containers/webwork/`
+before starting the API.
 Replica discovery, state ownership, worker scaling, network boundaries, and the
 separate planned production topology are documented in
 [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md).
@@ -609,8 +615,10 @@ separate planned production topology are documented in
 | `createbuckets` | digest-pinned official MinIO Client       | one-shot bucket creation                |
 | `worker`        | built from `containers/Containerfile.api` | durable background work                 |
 | `gateway`       | pinned official Caddy derivative          | browser and same-origin API             |
+| `webwork-renderer` | external `webwork-pg-renderer` image  | private stateless PG render and grade   |
 
-Details and commands are in [CONTAINER.md](CONTAINER.md); the macOS virtual
+Roles are in [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md), details and commands are
+in [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md), and the macOS virtual
 machine setup is in [MACOS_PODMAN.md](MACOS_PODMAN.md).
 
 `/health` returns 200 only after exact PostgreSQL schema compatibility verification and a real `HeadBucket`
@@ -648,13 +656,13 @@ passing silently.
 `tests/playwright/`, and slower whole-system checks in `tests/e2e/`, both
 outside the fast lane.
 
-The opt-in WP-RC3 checks are `tests/test_webwork_renderer_container.py`,
+The standalone-renderer checks are `tests/test_webwork_renderer_container.py`,
 `tests/e2e/e2e_webwork_render_rpc.sh`, and
 `tests/playwright/webwork_run.spec.ts`.
 They are intended to verify the private compose topology, one immutable PGML
 source through PLE, render-cache evidence, correct/incorrect scoring, and the
-browser's same-origin boundary. They do not run as part of the default fast
-gate and are not recorded here as completed acceptance.
+browser's same-origin boundary. The live path passed on 2026-08-10; the E2E and
+browser gates remain separate from the default fast pytest lane.
 
 The in-memory and PostgreSQL data-access implementations share capability
 conformance tests. Disposable PostgreSQL acceptance runs prove migration

@@ -193,7 +193,8 @@ and [DATABASE_TENANCY.md](DATABASE_TENANCY.md).
   disable verification, or route traffic around the readiness boundary.
 - PostgreSQL-major changes preserve the old volume, restore into a new clean cluster, verify the
   migration ledger, logical data, roles/grants/RLS, application writes, and broker calls, then
-  retain the old volume until recovery is accepted. See [CONTAINER.md](CONTAINER.md).
+  retain the old volume until recovery is accepted. See
+  [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
 - A local logical restore rehearsal is evidence for local recovery only. Managed point-in-time
   recovery, backup retention, KMS, numerical recovery objectives, and production failover remain
   WP-RC10 deployment work.

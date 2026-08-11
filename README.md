@@ -3,12 +3,12 @@
 A backend-agnostic assignment platform for instructors who teach through repeated practice: students retry algorithmic questions until each one is correct, timers and grading stay on the server, and practice continues past completion.
 
 **Status: advanced code-first implementation, not production-ready.** WP-RC1 course appearance and
-WP-RC2 production-seam closure, WP-RC3's bounded private WeBWorK integration, and WP-ARCH1
-capability-sized source ownership are accepted. RC3's source-pinned upstream `/render_rpc` path
-passed its live build, authenticated PLE API, outage-isolation, cache, grading, and keyboard-browser
-gates; ARCH1 closed the dated 26-file source-size baseline with no maintained source at 1,000 lines
-or more. Native questions and the regular local stack continue to work without the optional renderer
-profile. PLE flat-question JSON v2 now implements the eight required flat families using the reviewed
+WP-RC2 production-seam closure, the bounded private WeBWorK integration, and WP-ARCH1
+capability-sized source ownership are accepted. PLE now relies on the external stateless
+`webwork-pg-renderer` `/render-api`; its live PLE API, outage-isolation, cache, grading, and
+keyboard-browser gates pass without WebWork2 or MariaDB. ARCH1 closed the dated 26-file source-size
+baseline with no maintained source at 1,000 lines or more. PLE flat-question JSON v2 implements the
+eight required flat families using the reviewed
 QTI Package Maker item semantics while preserving version 1 single-choice bytes. The current snapshot is
 [docs/active_plans/reports/project_status_report_2026-08-10.md](docs/active_plans/reports/project_status_report_2026-08-10.md).
 
@@ -179,17 +179,12 @@ browser:
 ```
 
 Paste an instructor or student value from `containers/local-login.txt` into the local sign-in form.
-Native questions work through this default path. To build and start the optional private WeBWorK
-profile as part of local integration work, use:
-
-```bash
-./launch_local_stack.sh --with-webwork
-```
-
-That profile builds the declared upstream sources and runs only the bounded, authored
-`content/pilot/webwork/which_hydrophobic-simple.pgml` RadioButtons fixture; it is not a claim of
-broad OPL compatibility or completed live acceptance. Read the storage, security, and health model
-in [docs/CONTAINER.md](docs/CONTAINER.md).
+The normal stack includes native questions and the private external PG renderer. Its live accepted
+scope is the bounded, authored `content/pilot/webwork/which_hydrophobic-simple.pgml`
+`RadioButtons` fixture; this is not a broad OPL compatibility claim. Read the storage, security,
+health, and per-service ownership model in
+[docs/LOCAL_STACK_OPERATIONS.md](docs/LOCAL_STACK_OPERATIONS.md) and
+[docs/LOCAL_STACK_ARCHITECTURE.md](docs/LOCAL_STACK_ARCHITECTURE.md).
 
 ## One assignment through the system
 
@@ -219,9 +214,9 @@ generation is discarded without delaying or rolling back the current grade.
 | WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                           |
 | Browser client                       | Solid routes for courses, assignments, attempt loop, summary, library, authoring, flat-question editing, assignment editing, and gradebook                                                                                                                               |
 | PostgreSQL                           | Six domain-owned SQLx baseline migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL acceptance                                                                                                                                     |
-| Question engines                     | PLE flat-question JSON v2 implements all eight required native families while preserving v1 single choice; WeBWorK `/render_rpc` passed live PLE render/grade/cache/outage/browser acceptance for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
+| Question engines                     | PLE flat-question JSON v2 implements all eight required native families while preserving v1 single choice; the external WeBWorK PG `/render-api` passed live PLE render/grade/cache/outage/browser acceptance for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
 | DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                                               |
-| Containers                           | Local PostgreSQL, MinIO, API, worker, and gateway; the private source-pinned WeBWorK optional profile passed its live local acceptance; production runtime identities and deployment remain open                                                                         |
+| Containers                           | Local PostgreSQL and MinIO named-volume state, stateless API/worker/gateway, and the private external stateless PG renderer; production runtime identities and deployment remain open                                                                                   |
 | Worker runtime                       | Production drains six complete families through a family-filtered registry; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                                              |
 
 The current checkpoint, evidence, and remaining dependency order live in

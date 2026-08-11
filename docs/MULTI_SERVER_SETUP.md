@@ -10,11 +10,10 @@ that AWS deployment has been accepted. The source contracts are
 ## Scope and status
 
 The supported local topology runs one Caddy gateway, one or more stateless API
-replicas, one or more durable-worker replicas, one PostgreSQL 17 instance, and
-one MinIO instance. The native stack is the supported default. The optional
-WeBWorK renderer and its MariaDB database are private adjuncts that support the
-accepted, deliberately bounded WP-RC3 path: one licensed user-authored PGML
-RadioButtons fixture. They do not imply broad WeBWorK compatibility.
+replicas, one or more durable-worker replicas, one PostgreSQL 17 instance, one
+MinIO instance, and one private external stateless PG renderer. The renderer
+supports the accepted, deliberately bounded path: one licensed user-authored
+PGML `RadioButtons` fixture. It does not imply broad WeBWorK compatibility.
 A local two-API-replica restart test exists and has been used as the behavioral
 proof that a learner can continue after the issuing API replica stops.
 
@@ -57,16 +56,16 @@ browser ---------------------------------------------------+
 | shared DB  |           | shared S3  |           | leases/jobs|          | one-shot     |
 +------------+           +------------+           +------------+          +------------+
 
-Optional native-to-WebWork private path:
+Private PG-renderer path:
 
-API replicas -- renderer_private --> WebWork renderer -- webwork_db_private --> MariaDB
+API replicas -- renderer_private --> external webwork-pg-renderer
 ```
 
 Only `gateway` publishes the browser/API port. API replicas have no host port,
 so `--scale api=2` never causes a port collision. PostgreSQL and MinIO expose
 loopback-only convenience ports for local migrations and inspection; they are
 not browser routes. The complete local container policy is in
-[CONTAINER.md](CONTAINER.md).
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
 
 ## Service and network matrix
 
@@ -78,9 +77,7 @@ not browser routes. The complete local container policy is in
 | `postgres`                | Shared tenant records, sessions, attempts, idempotency, jobs  | `default`; loopback 5432 by default                            | `ple_pgdata`                           | One local instance; no local HA claim                      |
 | `minio`                   | Shared S3-compatible object store                             | `default`; loopback 9000/9001 by default                       | `ple_miniodata`                        | One local instance; no local HA claim                      |
 | `createbuckets`           | Idempotently ensures the three required buckets exist         | `default`; no host port                                        | MinIO buckets                          | One-shot, not scaled                                       |
-| `webwork-renderer`        | Optional private upstream render/grade process                | `renderer_private`, `webwork_db_private`; no host port         | Upstream course files only             | Optional profile; no browser access                        |
-| `webwork-db`              | Optional upstream MariaDB state                               | `webwork_db_private`; no host port                             | `ple_webwork_dbdata`                   | Paired with renderer; separate from PLE PostgreSQL         |
-| `webwork-api-secret-init` | Copies strict render secret into API-private runtime volume   | No network                                                     | `ple_webwork_api_runtime`              | One-shot on each WebWork launch                            |
+| `webwork-renderer`        | Private standalone PG/PGML render and grade process           | `renderer_private`; no host port                               | None                                   | One normal service; no browser access                     |
 
 The named volumes preserve local data across normal `down`. Removing a volume
 is destructive and is intentionally outside routine stop commands.
@@ -200,10 +197,9 @@ equivalent bootstrap path.
 
 ```bash
 ./launch_local_stack.sh --no-open
-./launch_local_stack.sh --with-webwork --no-open
 ```
 
-After the native stack is ready, scale API and worker replicas with the same
+After the normal stack is ready, scale API and worker replicas with the same
 environment file. API replicas stay behind the gateway; workers remain private.
 
 ```bash
@@ -217,28 +213,22 @@ PLE_GATEWAY_HOST_PORT="$(awk -F= '$1 == "PLE_GATEWAY_HOST_PORT" { print $2 }' co
 curl --fail --silent --show-error "http://127.0.0.1:${PLE_GATEWAY_HOST_PORT}/health"
 ```
 
-For the accepted, bounded WP-RC3 renderer path, the base Compose file supplies
-the profile services and `compose.webwork.yaml` injects API renderer
-configuration and its secret-runtime volume. Preserve both the overlay and the
-profile on all subsequent operator commands. Matching and broader problem
-compatibility remain assigned to WP-RC5:
+The renderer stays in the base topology while API and worker replicas scale.
+Matching and broader problem compatibility require separate acceptance:
 
 ```bash
-podman compose -f containers/compose.yaml -f containers/compose.webwork.yaml \
-  --env-file containers/env.local --profile webwork ps
-podman compose -f containers/compose.yaml -f containers/compose.webwork.yaml \
-  --env-file containers/env.local --profile webwork \
+podman compose -f containers/compose.yaml --env-file containers/env.local ps
+podman compose -f containers/compose.yaml --env-file containers/env.local \
   up -d --scale api=2 --scale worker=2
-podman compose -f containers/compose.yaml -f containers/compose.webwork.yaml \
-  --env-file containers/env.local --profile webwork logs -f api worker webwork-renderer
+podman compose -f containers/compose.yaml --env-file containers/env.local \
+  logs -f api worker webwork-renderer
 ```
 
 Normal teardown retains volumes:
 
 ```bash
-podman compose -f containers/compose.yaml --env-file containers/env.local down
-podman compose -f containers/compose.yaml -f containers/compose.webwork.yaml \
-  --env-file containers/env.local --profile webwork down
+podman compose -f containers/compose.yaml --env-file containers/env.local \
+  down --remove-orphans
 ```
 
 The launcher's final output is the authoritative gateway port if it selected a
@@ -254,27 +244,17 @@ free port other than 3000. Use that printed port for `curl` and browser access.
 | Object store unavailable            | API readiness is `503`; object operations return a bounded unavailable result                                        | Restore endpoint, credentials, bucket, or network; preserve object checksum evidence             |
 | Worker crashes after claim          | Lease expires; another worker can reclaim according to bounded policy                                                | Inspect safe worker logs and queue depth; scale workers only after dependency health is restored |
 | Browser retries submission          | Durable idempotency returns the original authorized outcome rather than grading twice                                | Keep the same request identity and investigate repeated transport failure                        |
-| Renderer/MariaDB unavailable        | Native API/readiness remains independent; WebWork-backed work returns a bounded 503 without evicting the healthy API | Restore only the private WebWork profile; never expose its port to the browser                   |
+| Renderer unavailable                | WeBWorK-backed work fails closed without losing PLE records                                             | Recreate the stateless renderer and rerun its semantic probe; keep its port private               |
 | Gateway fails                       | Browser origin is unavailable even though API replicas may be healthy                                                | Restart/repair gateway; do not publish API ports as an emergency browser bypass                  |
 
-## Optional WebWork isolation
+## PG renderer isolation
 
-`./launch_local_stack.sh --with-webwork` enables a source-pinned WebWork2/PG
-renderer. API connects only through `renderer_private` to the internal
-`http://webwork-renderer:8080/webwork2/` base. The renderer and MariaDB share
-only `webwork_db_private`; neither has a host port or joins PLE PostgreSQL,
-MinIO, gateway, browser, or worker networks.
-
-The render-course password and Mojolicious signing secret are independent
-host-owned mode-0600 files. The renderer mounts them read-only. A networkless,
-capability-minimal init service copies only the render password into a named
-runtime volume owned by the API UID; API mounts that copy read-only. The
-launcher refreshes the copy at every WebWork start. Browser payloads never carry
-renderer endpoints, credentials, source bytes, upstream field names, or keys.
-
-The native stack does not receive renderer configuration or renderer-secret
-dependencies. This preserves native question availability when the optional
-renderer is absent or unhealthy.
+The API connects only through `renderer_private` to
+`http://webwork-renderer:3000/`. The external renderer has no host port, SQL
+database, volume, or connection to PLE PostgreSQL, MinIO, gateway, browser, or
+worker networks. Browser payloads never carry renderer endpoints, credentials,
+source bytes, upstream field names, or keys. Recreating the renderer does not
+change any PLE educational record.
 
 ## Validation evidence
 

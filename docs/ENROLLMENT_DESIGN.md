@@ -27,7 +27,7 @@ Memory and PostgreSQL implement the same contract, and later assignment
 creation enrolls all current learners.
 
 **Acceptance still open:** the canonical email-authentication journey still needs
-an off-the-shelf disposable SMTP sink or configured provider, optional-passkey and
+an operator-selected SMTP provider test account, optional-passkey and
 multi-replica evidence, and independent security/HCI closeout. PLE does not own a
 mail server or delivery stack.
 
@@ -783,9 +783,9 @@ The safe dependency order is:
 
 - Replace SQL-arranged membership in the primary multi-actor walkthrough with
   instructor roster action and learner claim/login.
-- Exercise copy-link invitation handoff without a PLE-owned mail system. Use an
-  off-the-shelf disposable SMTP sink only for the canonical email-authentication
-  ceremony; do not add a test-only authentication bypass.
+- Exercise copy-link invitation handoff without a PLE-owned mail system. Use a
+  test account at the operator-selected SMTP provider for the canonical
+  email-authentication ceremony; do not add a test-only authentication bypass.
 - Prove gradebook, item analysis, learner isolation, assignment creation after
   roster creation, and roster addition after assignment creation.
 - Keep LTI Names and Roles roster synchronization in its separately authorized
@@ -836,8 +836,8 @@ Disposable integration evidence must prove:
   resulting course and assignment;
 - an instructor can create and copy a learner invitation through the browser
   without SQL, `cargo tools e2e-seed`, or configured SMTP;
-- the learner authenticates by email through an off-the-shelf sink or configured
-  provider, optionally enrolls a passkey, enters the course, starts the
+- the learner authenticates by email through the configured provider, optionally
+  enrolls a passkey, enters the course, starts the
   assignment, submits, and appears in the instructor gradebook;
 - the instructor downloads a protected manual grade export whose roster IDs
   match the imported rows and whose contents exclude account email and global

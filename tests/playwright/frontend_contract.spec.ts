@@ -119,7 +119,9 @@ test("an instructor can invite a student through the platform keyboard path", as
   await expect(page.getByRole("button", { name: "Create invitation" })).toBeFocused();
   await page.keyboard.press("Enter");
 
-  await expect(page.getByText("new.student@mail.roosevelt.edu")).toBeVisible();
+  await expect(
+    page.getByRole("cell", { name: "new.student@mail.roosevelt.edu", exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("900123457")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Share this invitation" })).toBeVisible();
   await expect(page.getByLabel("Invitation link")).toHaveValue(

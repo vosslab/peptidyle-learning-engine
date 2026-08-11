@@ -101,8 +101,20 @@
   synchronous no-store manual grade CSV. Invitation claim and later assignment creation preserve the
   membership-by-assignment enrollment/summary invariant in both stores. Migration 0909 passed the
   fresh/no-op/verify and disposable PostgreSQL/RLS baseline; the all-feature Rust workspace and
-  browser suite pass. Real-email/optional-passkey and multi-replica evidence plus independent
-  security/HCI closeout remain before WP-RC8 acceptance.
+  browser suite pass. Off-the-shelf email-authentication/optional-passkey and multi-replica evidence
+  plus independent security/HCI closeout remain before WP-RC8 acceptance.
+
+- Removed SMTP as a prerequisite for single-student invitation handoff without weakening email
+  authentication. An authorized instructor now receives one no-store, same-origin, fragment-based
+  redemption link and can copy it into an existing trusted LMS; configured SMTP through the
+  established `lettre` adapter remains an optional delivery channel. The server stores only the
+  invitation hash, deterministic idempotent retries reproduce the same link, later roster reads stay
+  secret-free, and the Solid roster page keeps the bearer link only in page-session memory with
+  keyboard-accessible copy guidance. The local launcher now installs a separate mode-0600 issuer
+  secret through a networkless UID-owned volume rather than introducing a PLE mail server. The
+  11-stage codebase gate, 3,270-test Python/documentation suite, full browser suite with 76 passes and
+  two deliberate opt-in skips, and live local create/revoke check pass; canonical
+  email-authentication acceptance still requires the operator-selected SMTP provider.
 
 - Explored and then rejected a separate course-scoped account-recovery design. Because verified
   email is PLE's canonical registration and sign-in path, passkeys are optional conveniences rather
@@ -128,6 +140,30 @@
   accepted historical WP-ARCH1 evidence.
 
 ### Fixes and Maintenance
+
+- Completed the standalone WeBWorK renderer cutover without making the repository a second
+  assignment platform. The normal local stack now consumes the external
+  `webwork-pg-renderer` image over its private `/render-api`; it carries no WebWork2 course,
+  renderer account, MariaDB service, renderer source mount, or second assignment distribution.
+  A live Podman teardown and rebuild preserved PostgreSQL and MinIO volumes, the semantic renderer
+  probe proved render plus correct and incorrect grading, and the complete gateway/API/browser
+  acceptance passed including cache replay, outage isolation, and keyboard operation. Replaced
+  brittle launcher and Compose source-text assertions with four fast permanent trust-boundary tests;
+  the retained-volume major guard now runs noninteractively, and the opt-in live browser path uses
+  the repository's canonical Playwright wrapper so successful operations stay warning-free.
+  exact runtime identities, timings, volume persistence, and full live behavior remain one-time or
+  opt-in integration evidence. Renamed the operator runbook to `LOCAL_STACK_OPERATIONS.md` and kept
+  service necessity and state ownership in `LOCAL_STACK_ARCHITECTURE.md`. The eleven-stage codebase
+  gate and all 3,190 repository pytest cases pass.
+
+- Clarified the three WeBWorK project boundaries and corrected the release direction. `openwebwork/pg`
+  is the PG/PGML render-and-grade engine, `vosslab/webwork-pg-renderer` is PLE's required private
+  HTTP integration target, and `openwebwork/webwork2` is the full course/homework application used
+  only by the accepted RC3 compatibility path. Added WP-RC3R to replace that path before broader
+  question support, removing the duplicate render course, renderer account, MariaDB, and second
+  assignment distribution while retaining RC3's source, projection, grading, cache, outage, and
+  browser-secrecy proofs. Durable guidance now states that every `OTHER_REPOS/` copy is read-only
+  reference evidence and cannot be a build, import, mount, or runtime dependency.
 
 - Corrected the permanent source-size gate for a preserved dirty index: an indexed path deleted from
   the working tree is no longer opened as though source bytes still exist. The gate continues to

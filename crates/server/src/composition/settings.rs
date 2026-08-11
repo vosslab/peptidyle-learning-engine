@@ -79,6 +79,7 @@ pub(super) struct ProductionSettings {
 pub(super) struct EnrollmentEmailSettings {
     pub(super) smtp_relay: String,
     pub(super) smtp_port: u16,
+    pub(super) smtp_tls_mode: crate::course::SmtpTlsMode,
     pub(super) smtp_username: String,
     pub(super) smtp_password_file: String,
     pub(super) smtp_from: String,
@@ -95,9 +96,6 @@ pub(super) struct WebworkRendererSettings {
     pub(super) webwork_max_response_bytes: usize,
     pub(super) webwork_renderer_id: String,
     pub(super) webwork_renderer_version: String,
-    pub(super) webwork_course_id: String,
-    pub(super) webwork_user: String,
-    pub(super) webwork_password_file: String,
 }
 
 impl ProductionSettings {
@@ -239,9 +237,10 @@ impl ProductionSettings {
 }
 
 impl EnrollmentEmailSettings {
-    const ENV_NAMES: [&'static str; 6] = [
+    const ENV_NAMES: [&'static str; 7] = [
         "PLE_SMTP_RELAY",
         "PLE_SMTP_PORT",
+        "PLE_SMTP_TLS_MODE",
         "PLE_SMTP_USERNAME",
         "PLE_SMTP_PASSWORD_FILE",
         "PLE_SMTP_FROM",
@@ -265,6 +264,13 @@ impl EnrollmentEmailSettings {
         Ok(Some(Self {
             smtp_relay: required_env("PLE_SMTP_RELAY")?,
             smtp_port,
+            smtp_tls_mode: match required_env("PLE_SMTP_TLS_MODE")?.as_str() {
+                "starttls" => crate::course::SmtpTlsMode::StartTls,
+                "implicit-tls" => crate::course::SmtpTlsMode::ImplicitTls,
+                _ => {
+                    bail!("PLE_SMTP_TLS_MODE must be exactly starttls or implicit-tls")
+                }
+            },
             smtp_username: required_env("PLE_SMTP_USERNAME")?,
             smtp_password_file: required_env("PLE_SMTP_PASSWORD_FILE")?,
             smtp_from: required_env("PLE_SMTP_FROM")?,
@@ -278,6 +284,7 @@ impl EnrollmentEmailSettings {
             crate::course::SmtpCourseInvitationDeliveryConfig {
                 relay: self.smtp_relay.clone(),
                 port: self.smtp_port,
+                tls_mode: self.smtp_tls_mode,
                 username: self.smtp_username.clone(),
                 password,
                 from: self.smtp_from.clone(),
@@ -320,15 +327,12 @@ impl EnrollmentSecretSettings {
 }
 
 impl WebworkRendererSettings {
-    pub(super) const ENV_NAMES: [&'static str; 8] = [
+    pub(super) const ENV_NAMES: [&'static str; 5] = [
         "PLE_WEBWORK_RENDERER_BASE_URL",
         "PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS",
         "PLE_WEBWORK_MAX_RESPONSE_BYTES",
         "PLE_WEBWORK_RENDERER_ID",
         "PLE_WEBWORK_RENDERER_VERSION",
-        "PLE_WEBWORK_RENDER_COURSE_ID",
-        "PLE_WEBWORK_RENDER_USER",
-        "PLE_WEBWORK_RENDER_PASSWORD_FILE",
     ];
 
     pub(super) fn from_env() -> Result<Option<Self>> {
@@ -346,9 +350,6 @@ impl WebworkRendererSettings {
             webwork_max_response_bytes: positive_usize_env("PLE_WEBWORK_MAX_RESPONSE_BYTES")?,
             webwork_renderer_id: required_env("PLE_WEBWORK_RENDERER_ID")?,
             webwork_renderer_version: required_env("PLE_WEBWORK_RENDERER_VERSION")?,
-            webwork_course_id: required_env("PLE_WEBWORK_RENDER_COURSE_ID")?,
-            webwork_user: required_env("PLE_WEBWORK_RENDER_USER")?,
-            webwork_password_file: required_env("PLE_WEBWORK_RENDER_PASSWORD_FILE")?,
         }))
     }
 
@@ -367,9 +368,6 @@ impl WebworkRendererSettings {
                 id: self.webwork_renderer_id.clone(),
                 version: self.webwork_renderer_version.clone(),
             },
-            &self.webwork_course_id,
-            &self.webwork_user,
-            &read_webwork_password_file(&self.webwork_password_file)?,
         )
         .context("PLE_WEBWORK renderer configuration is invalid")?;
         HttpWebworkRenderer::new(settings).context("PLE_WEBWORK renderer configuration is invalid")
@@ -397,10 +395,6 @@ pub(super) fn required_env(name: &str) -> Result<String> {
         bail!("{name} must not be empty");
     }
     Ok(value)
-}
-
-pub(super) fn read_webwork_password_file(path: &str) -> Result<String> {
-    read_secret_file(path, "PLE_WEBWORK_RENDER_PASSWORD_FILE")
 }
 
 fn read_secret_file(path: &str, name: &str) -> Result<String> {

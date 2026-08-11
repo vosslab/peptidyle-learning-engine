@@ -694,16 +694,13 @@ mod tests {
         let objects = Arc::new(objects::memory::MemoryObjectStore::default());
         let renderer = adapter_webwork::HttpWebworkRenderer::new(
             adapter_webwork::HttpWebworkRendererConfig::new(
-                "http://renderer.internal/webwork2/",
+                "http://renderer.internal/",
                 std::time::Duration::from_secs(1),
                 1_024,
                 adapter_webwork::renderer_contract::RendererIdentity {
                     id: "recorded".into(),
                     version: "1".into(),
                 },
-                "test-course",
-                "test-user",
-                "test-password",
             )
             .expect("renderer config"),
         )
@@ -797,16 +794,13 @@ mod tests {
         let objects = Arc::new(objects::memory::MemoryObjectStore::default());
         let renderer = adapter_webwork::HttpWebworkRenderer::new(
             adapter_webwork::HttpWebworkRendererConfig::new(
-                "http://renderer.internal/webwork2/",
+                "http://renderer.internal/",
                 std::time::Duration::from_secs(1),
                 1_024,
                 adapter_webwork::renderer_contract::RendererIdentity {
                     id: "recorded".into(),
                     version: "1".into(),
                 },
-                "test-course",
-                "test-user",
-                "test-password",
             )
             .expect("renderer config"),
         )

@@ -14,7 +14,7 @@ BUILD_PROFILE="--debug"
 BUILD_ENABLED=1
 OPEN_BROWSER=1
 CHECK_ONLY=0
-WITH_WEBWORK=0
+WITH_SMTP=0
 TIMEOUT_SECONDS="${PLE_LAUNCH_TIMEOUT_SECONDS:-180}"
 LOCAL_ENV_FILE="containers/env.local"
 LOCAL_IDENTITY_FILE="containers/local-identities.json"
@@ -22,8 +22,6 @@ LOCAL_CREDENTIAL_FILE="containers/local-login.txt"
 LOCAL_DEMO_MANIFEST_FILE="containers/local-demo.json"
 LOCAL_WEBWORK_DEMO_MANIFEST_FILE="containers/local-webwork-demo.json"
 LOCAL_INVITATION_SECRET_FILE="containers/.secrets/invitation_token_secret"
-LOCAL_WEBWORK_SECRET_FILE="containers/.secrets/webwork_render_password"
-LOCAL_WEBWORK_MOJO_SECRET_FILE="containers/.secrets/webwork_mojolicious_secret"
 LOCAL_WEBWORK_PROVENANCE_FILE="containers/.secrets/webwork_renderer_provenance"
 LOCAL_TENANT_ID="00000000-0000-0000-0000-000000000100"
 LOCAL_INSTRUCTOR_ID="00000000-0000-0000-0000-000000000101"
@@ -50,7 +48,7 @@ Options:
   --release          Build optimized host artifacts instead of debug artifacts.
   --skip-build       Reuse an existing dist/ bundle and skip ./build.sh.
   --no-open          Start the stack without opening a browser.
-  --with-webwork     Build and start the private source-pinned WeBWorK renderer.
+  --with-smtp        Connect the API to an operator-selected external SMTP provider.
   --check            Validate tools and Compose configuration without changing state.
   --env-file PATH    Use a different Compose environment file.
   -h, --help         Show this help.
@@ -75,8 +73,8 @@ while [ "$#" -gt 0 ]; do
 		--no-open)
 			OPEN_BROWSER=0
 			;;
-		--with-webwork)
-			WITH_WEBWORK=1
+		--with-smtp)
+			WITH_SMTP=1
 			;;
 		--check)
 			CHECK_ONLY=1
@@ -242,33 +240,22 @@ bootstrap_invitation_secret_file() {
 	validate_invitation_secret_file "$secret_path"
 }
 
-validate_webwork_secret_file() {
+validate_smtp_password_file() {
 	secret_path="$1"
-	[ -r "$secret_path" ] || die "WebWork secret $secret_path is missing or unreadable"
+	case "$secret_path" in
+		/*) ;;
+		*) die "SMTP password file must use an absolute host path" ;;
+	esac
+	[ ! -L "$secret_path" ] || die "SMTP password file must not be a symbolic link"
+	[ -f "$secret_path" ] && [ -r "$secret_path" ] || die "SMTP password file is missing, unreadable, or not regular"
 	if stat -f '%Lp' "$secret_path" >/dev/null 2>&1; then
 		secret_mode="$(stat -f '%Lp' "$secret_path")"
 	else
 		secret_mode="$(stat -c '%a' "$secret_path")"
 	fi
-	[ "$secret_mode" = "600" ] || die "WebWork secret $secret_path must have mode 0600; fix it before launch"
-	secret_value="$(cat "$secret_path")"
-	printf '%s' "$secret_value" | grep -Eq '^[A-Za-z0-9_-]{43,}$' || die "WebWork secret $secret_path must be at least 32 random bytes encoded as base64url"
-}
-
-bootstrap_webwork_secret_file() {
-	secret_path="$1"
-	if [ -r "$secret_path" ]; then
-		validate_webwork_secret_file "$secret_path"
-		return 0
-	fi
-	secret_directory="$(dirname "$secret_path")"
-	umask 077
-	mkdir -p "$secret_directory"
-	temporary_secret_file="$(mktemp "${secret_path}.XXXXXX")"
-	openssl rand -base64 48 | tr '+/' '-_' | tr -d '\n=' >"$temporary_secret_file"
-	chmod 600 "$temporary_secret_file"
-	mv "$temporary_secret_file" "$secret_path"
-	validate_webwork_secret_file "$secret_path"
+	[ "$secret_mode" = "600" ] || die "SMTP password file must have mode 0600"
+	secret_size="$(wc -c <"$secret_path" | tr -d '[:space:]')"
+	[ "$secret_size" -ge 1 ] && [ "$secret_size" -le 4096 ] || die "SMTP password file must contain 1 through 4096 bytes"
 }
 
 bootstrap_default_local_configuration() {
@@ -279,16 +266,10 @@ bootstrap_default_local_configuration() {
 	[ -w "$ENV_FILE" ] || die "$ENV_FILE is not writable for first-run local bootstrap"
 	bootstrap_local_identities
 	bootstrap_invitation_secret_file "$LOCAL_INVITATION_SECRET_FILE"
-	bootstrap_webwork_secret_file "$LOCAL_WEBWORK_SECRET_FILE"
-	bootstrap_webwork_secret_file "$LOCAL_WEBWORK_MOJO_SECRET_FILE"
 
 	set_default_env_value POSTGRES_PASSWORD "$(random_hex 24)"
 	set_default_env_value MINIO_ROOT_PASSWORD "$(random_hex 24)"
 	set_default_env_value PLE_LOCAL_GRADER_PASSWORD "$(random_hex 24)"
-	set_default_env_value PLE_WEBWORK_DATABASE_PASSWORD "$(random_hex 24)"
-	set_default_env_value PLE_WEBWORK_DATABASE_ROOT_PASSWORD "$(random_hex 24)"
-	set_default_env_value PLE_WEBWORK_RENDER_PASSWORD_HOST_FILE "$REPO_ROOT/$LOCAL_WEBWORK_SECRET_FILE"
-	set_default_env_value PLE_WEBWORK_MOJO_SECRET_HOST_FILE "$REPO_ROOT/$LOCAL_WEBWORK_MOJO_SECRET_FILE"
 	set_default_env_value PLE_INVITATION_TOKEN_SECRET_HOST_FILE "$REPO_ROOT/$LOCAL_INVITATION_SECRET_FILE"
 	set_default_env_value PLE_GATEWAY_IMAGE_SHA256 "$LOCAL_CADDY_IMAGE_SHA256"
 	set_default_env_value PLE_POSTGRES_IMAGE_SHA256 "$LOCAL_POSTGRES_IMAGE_SHA256"
@@ -299,24 +280,20 @@ bootstrap_default_local_configuration() {
 	set_default_env_value PLE_WEBAUTHN_RP_ID "localhost"
 	set_default_env_value PLE_WEBAUTHN_RP_NAME "Peptidyle Learning Engine"
 	configured_renderer_url="$(env_value PLE_WEBWORK_RENDERER_BASE_URL)"
-	if [ -z "$configured_renderer_url" ] || [ "$configured_renderer_url" = "http://webwork-renderer:8080" ]; then
-		write_env_value PLE_WEBWORK_RENDERER_BASE_URL "http://webwork-renderer:8080/webwork2/"
-	fi
+	case "$configured_renderer_url" in
+	""|http://webwork-renderer:8080|http://webwork-renderer:8080/webwork2/)
+		write_env_value PLE_WEBWORK_RENDERER_BASE_URL "http://webwork-renderer:3000/"
+		;;
+	esac
 	set_default_env_value PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS "15"
 	set_default_env_value PLE_WEBWORK_MAX_RESPONSE_BYTES "1048576"
-	set_default_env_value PLE_WEBWORK_RENDERER_ID "openwebwork-webwork2"
-	set_default_env_value PLE_WEBWORK_RENDERER_VERSION "webwork2-c7060fe858cb-pg-726ff42840f9"
-	set_default_env_value PLE_WEBWORK_BASE_IMAGE_SHA256 "561618e2c15bf2397621dd04f96926663a3b5616c189cf7e38db7e82f5c538ea"
+	set_default_env_value PLE_WEBWORK_PROBLEM_JWT_SECRET "$(random_hex 32)"
+	set_default_env_value PLE_WEBWORK_SESSION_JWT_SECRET "$(random_hex 32)"
+	case "$(env_value PLE_WEBWORK_RENDERER_ID)" in
+	""|openwebwork-webwork2) write_env_value PLE_WEBWORK_RENDERER_ID "vosslab-webwork-pg-renderer" ;;
+	esac
+	set_default_env_value PLE_WEBWORK_RENDERER_IMAGE "localhost/pg-renderer:latest"
 	set_default_env_value PLE_SECRET_INIT_IMAGE_SHA256 "$LOCAL_SECRET_INIT_IMAGE_SHA256"
-	set_default_env_value PLE_WEBWORK2_GIT_URL "https://github.com/openwebwork/webwork2.git"
-	set_default_env_value PLE_WEBWORK2_GIT_SHA "c7060fe858cb27b17aad5cf77574ff7d1ae3e1fa"
-	set_default_env_value PLE_WEBWORK_PG_GIT_URL "https://github.com/openwebwork/pg.git"
-	set_default_env_value PLE_WEBWORK_PG_GIT_SHA "726ff42840f968a1d6dfcc270c23c297e1d963f4"
-	set_default_env_value PLE_WEBWORK_MARIADB_IMAGE_SHA256 "d9f7eb2637296652f24b484afd5d246f759f49f5babcadc6a9e344c9acb75fbf"
-	set_default_env_value PLE_WEBWORK_DATABASE_NAME "webwork"
-	set_default_env_value PLE_WEBWORK_DATABASE_USER "webwork"
-	set_default_env_value PLE_WEBWORK_RENDER_COURSE_ID "ple-render"
-	set_default_env_value PLE_WEBWORK_RENDER_USER "ple-renderer"
 	ensure_default_gateway_port
 	configured_webauthn_origin="$(env_value PLE_WEBAUTHN_ORIGIN)"
 	case "$configured_webauthn_origin" in
@@ -347,11 +324,12 @@ else
 fi
 
 compose() {
-	if [ "$WITH_WEBWORK" -eq 1 ]; then
-		"${COMPOSE_COMMAND[@]}" -f containers/compose.yaml -f containers/compose.webwork.yaml --env-file "$ENV_FILE" --profile webwork "$@"
-	else
-		"${COMPOSE_COMMAND[@]}" -f containers/compose.yaml --env-file "$ENV_FILE" "$@"
+	compose_arguments=(-f containers/compose.yaml)
+	if [ "$WITH_SMTP" -eq 1 ]; then
+		compose_arguments+=(-f containers/compose.smtp.yaml)
 	fi
+	compose_arguments+=(--env-file "$ENV_FILE")
+	"${COMPOSE_COMMAND[@]}" "${compose_arguments[@]}" "$@"
 }
 
 require_env_value() {
@@ -375,33 +353,34 @@ done
 [ -r "$(env_value PLE_INVITATION_TOKEN_SECRET_HOST_FILE)" ] || die "invitation issuer secret file is missing or unreadable"
 validate_invitation_secret_file "$(env_value PLE_INVITATION_TOKEN_SECRET_HOST_FILE)"
 
-if [ "$WITH_WEBWORK" -eq 1 ] && [ "$CHECK_ONLY" -eq 1 ] && [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ]; then
-	for required_setting in PLE_WEBWORK_BASE_IMAGE_SHA256 PLE_SECRET_INIT_IMAGE_SHA256 PLE_WEBWORK2_GIT_URL PLE_WEBWORK2_GIT_SHA PLE_WEBWORK_PG_GIT_URL PLE_WEBWORK_PG_GIT_SHA PLE_WEBWORK_MARIADB_IMAGE_SHA256 PLE_WEBWORK_DATABASE_PASSWORD PLE_WEBWORK_DATABASE_ROOT_PASSWORD PLE_WEBWORK_RENDER_PASSWORD_HOST_FILE PLE_WEBWORK_MOJO_SECRET_HOST_FILE; do
-		[ -n "$(env_value "$required_setting")" ] || die "--check --with-webwork cannot validate this pre-RC3 env.local; run './launch_local_stack.sh --with-webwork --no-open' once to safely add generated local settings"
-	done
-fi
-if [ "$WITH_WEBWORK" -eq 1 ]; then
-	for required_setting in PLE_WEBWORK_BASE_IMAGE_SHA256 PLE_SECRET_INIT_IMAGE_SHA256 PLE_WEBWORK_MARIADB_IMAGE_SHA256; do
-		require_sha256_env_value "$required_setting"
-	done
-	for required_setting in PLE_WEBWORK_BASE_IMAGE_SHA256 PLE_SECRET_INIT_IMAGE_SHA256 PLE_WEBWORK2_GIT_URL PLE_WEBWORK2_GIT_SHA PLE_WEBWORK_PG_GIT_URL PLE_WEBWORK_PG_GIT_SHA PLE_WEBWORK_MARIADB_IMAGE_SHA256 PLE_WEBWORK_DATABASE_PASSWORD PLE_WEBWORK_DATABASE_ROOT_PASSWORD PLE_WEBWORK_RENDER_COURSE_ID PLE_WEBWORK_RENDER_USER PLE_WEBWORK_RENDER_PASSWORD_HOST_FILE PLE_WEBWORK_MOJO_SECRET_HOST_FILE PLE_WEBWORK_RENDERER_ID PLE_WEBWORK_RENDERER_VERSION; do
+if [ "$WITH_SMTP" -eq 1 ]; then
+	for required_setting in PLE_SMTP_RELAY PLE_SMTP_PORT PLE_SMTP_TLS_MODE PLE_SMTP_USERNAME PLE_SMTP_PASSWORD_HOST_FILE PLE_SMTP_FROM PLE_PUBLIC_APP_BASE_URL; do
 		require_env_value "$required_setting"
 	done
-	[ -r "$(env_value PLE_WEBWORK_RENDER_PASSWORD_HOST_FILE)" ] || die "--with-webwork render password file is missing or unreadable"
-	[ -r "$(env_value PLE_WEBWORK_MOJO_SECRET_HOST_FILE)" ] || die "--with-webwork Mojolicious secret file is missing or unreadable"
-	validate_webwork_secret_file "$(env_value PLE_WEBWORK_RENDER_PASSWORD_HOST_FILE)"
-	validate_webwork_secret_file "$(env_value PLE_WEBWORK_MOJO_SECRET_HOST_FILE)"
-	[ "$(env_value PLE_WEBWORK_RENDER_PASSWORD_HOST_FILE)" != "$(env_value PLE_WEBWORK_MOJO_SECRET_HOST_FILE)" ] || die "--with-webwork requires distinct render-password and Mojolicious-secret files"
-	[ "$(env_value PLE_WEBWORK2_GIT_URL)" = "https://github.com/openwebwork/webwork2.git" ] || die "--with-webwork requires the official WebWork2 upstream URL"
-	[ "$(env_value PLE_WEBWORK_PG_GIT_URL)" = "https://github.com/openwebwork/pg.git" ] || die "--with-webwork requires the official PG upstream URL"
-	for source_ref in "$(env_value PLE_WEBWORK2_GIT_SHA)" "$(env_value PLE_WEBWORK_PG_GIT_SHA)"; do
-		case "$source_ref" in
-			????????????????????????????????????????) ;;
-			*) die "--with-webwork requires full 40-character immutable upstream source revisions" ;;
-		esac
-		echo "$source_ref" | awk '/^[0-9a-f]{40}$/ { found = 1 } END { exit !found }' || die "--with-webwork source revisions must be lowercase hexadecimal SHA-1s"
-	done
+	smtp_port="$(env_value PLE_SMTP_PORT)"
+	case "$smtp_port" in
+		''|*[!0-9]*) die "PLE_SMTP_PORT must be an unquoted integer" ;;
+	esac
+	[ "$smtp_port" -ge 1 ] && [ "$smtp_port" -le 65535 ] || die "PLE_SMTP_PORT must be between 1 and 65535"
+	case "$(env_value PLE_SMTP_TLS_MODE)" in
+		starttls|implicit-tls) ;;
+		*) die "PLE_SMTP_TLS_MODE must be exactly starttls or implicit-tls" ;;
+	esac
+	case "$(env_value PLE_SMTP_RELAY)" in
+		*://*) die "PLE_SMTP_RELAY must be a hostname without a URL scheme" ;;
+	esac
+	case "$(env_value PLE_PUBLIC_APP_BASE_URL)" in
+		https://?*) ;;
+		*) die "PLE_PUBLIC_APP_BASE_URL must be a public HTTPS origin" ;;
+	esac
+	validate_smtp_password_file "$(env_value PLE_SMTP_PASSWORD_HOST_FILE)"
 fi
+
+for required_setting in PLE_WEBWORK_RENDERER_IMAGE PLE_WEBWORK_RENDERER_ID PLE_WEBWORK_PROBLEM_JWT_SECRET PLE_WEBWORK_SESSION_JWT_SECRET; do
+	require_env_value "$required_setting"
+done
+renderer_image_ref="$(env_value PLE_WEBWORK_RENDERER_IMAGE)"
+podman image inspect "$renderer_image_ref" >/dev/null 2>&1 || die "Build or pull the standalone webwork-pg-renderer image '$renderer_image_ref', then rerun the launcher"
 
 echo "==> Checking Compose configuration"
 compose_error_file="$(mktemp "${TMPDIR:-/tmp}/ple-compose-config.XXXXXX")"
@@ -457,7 +436,7 @@ esac
 
 echo "==> Starting PostgreSQL and object storage"
 echo "==> Verifying PostgreSQL data-volume major"
-if ! compose --profile maintenance run --rm --no-deps postgres-major-guard; then
+if ! compose --profile maintenance run --rm --no-deps -T postgres-major-guard; then
 	die "the existing PostgreSQL data volume is not compatible with the pinned PostgreSQL 17 image; preserve it and migrate it with an explicit major-version procedure"
 fi
 compose up -d postgres minio createbuckets
@@ -495,61 +474,62 @@ echo "==> Provisioning the isolated local grading login"
 compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_database" \
 	-c "ALTER ROLE ple_grading_reader PASSWORD '$grader_password';" >/dev/null
 
-if [ "$WITH_WEBWORK" -eq 1 ]; then
-	echo "==> Building and provisioning private upstream WeBWorK"
-	# Refresh the API-owned runtime copy on every WebWork launch so a rotated
-	# host password never leaves a stale secret in the named runtime volume.
-	compose rm -f webwork-api-secret-init >/dev/null 2>&1 || true
-	compose up -d webwork-api-secret-init
-	compose up -d webwork-db
-	# The renderer is stateless application code. Recreate it after each build
-	# so podman-compose cannot reuse a stopped container tied to an older local
-	# image tag; keep the private MariaDB dependency and volume untouched.
-	compose up -d --build --force-recreate --no-deps webwork-renderer
-	renderer_image_ref="localhost/ple-webwork-renderer:$(env_value PLE_WEBWORK_RENDERER_VERSION)"
-	renderer_image_id="$(podman image inspect --format '{{.Id}}' "$renderer_image_ref")"
-	[ -n "$renderer_image_id" ] || die "the built WebWork renderer image has no OCI image ID"
-	umask 077
-	printf 'image_ref=%s\nimage_id=%s\nwebwork2_sha=%s\npg_sha=%s\n' \
-		"$renderer_image_ref" "$renderer_image_id" "$(env_value PLE_WEBWORK2_GIT_SHA)" "$(env_value PLE_WEBWORK_PG_GIT_SHA)" \
-		>"$LOCAL_WEBWORK_PROVENANCE_FILE"
-	chmod 600 "$LOCAL_WEBWORK_PROVENANCE_FILE"
-	# The configured value is the stable build tag. The runtime identity is bound
-	# to the inspected image and exact source revisions for this process only;
-	# custom and local env files remain operator-owned and unchanged.
-	PLE_WEBWORK_RENDERER_VERSION="${renderer_image_id#sha256:}-ww$(env_value PLE_WEBWORK2_GIT_SHA)-pg$(env_value PLE_WEBWORK_PG_GIT_SHA)"
-	export PLE_WEBWORK_RENDERER_VERSION
-	echo "==> Waiting for authenticated WeBWorK render_rpc readiness"
-	started_at=$SECONDS
-	until compose exec -T webwork-renderer /usr/local/bin/probe_render_rpc.sh >/dev/null 2>&1; do
-		if [ $((SECONDS - started_at)) -ge "$TIMEOUT_SECONDS" ]; then
-			echo "ERROR: WeBWorK did not pass its authenticated render_rpc probe; it has been left running for diagnosis" >&2
-			compose ps webwork-db webwork-renderer >&2 || true
-			compose logs --tail=80 webwork-db webwork-renderer >&2 || true
-			exit 1
-		fi
-		sleep 2
-	done
-	if [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ]; then
-		# This host-only seed uses the production PostgreSQL and object-store
-		# contracts.  It is intentionally after renderer identity finalization so
-		# the API cannot be started with a pilot question for an unpinned renderer.
-		echo "==> Seeding the opt-in WebWork pilot course and immutable PGML source"
-		minio_port="$(env_value PLE_MINIO_API_HOST_PORT)"
-		minio_port="${minio_port:-9000}"
-		AWS_ACCESS_KEY_ID="$(env_value MINIO_ROOT_USER)" \
-		AWS_SECRET_ACCESS_KEY="$(env_value MINIO_ROOT_PASSWORD)" \
-		cargo tools e2e-seed --webwork-pilot \
-			--database-url "$database_url" \
-			--apply-migrations \
-			--tenant "$LOCAL_TENANT_ID" \
-			--instructor "$LOCAL_INSTRUCTOR_ID" \
-			--student "$LOCAL_STUDENT_ID" \
-			--s3-endpoint "http://127.0.0.1:${minio_port}" \
-			--s3-region "us-east-1" \
-			--content-bucket "content" >"$LOCAL_WEBWORK_DEMO_MANIFEST_FILE"
-		chmod 600 "$LOCAL_WEBWORK_DEMO_MANIFEST_FILE"
+echo "==> Starting the external stateless PG renderer image"
+compose up -d --force-recreate --no-deps webwork-renderer
+renderer_image_id="$(podman image inspect --format '{{.Id}}' "$renderer_image_ref")"
+[ -n "$renderer_image_id" ] || die "the WebWork renderer image has no OCI image ID"
+umask 077
+printf 'image_ref=%s\nimage_id=%s\n' \
+	"$renderer_image_ref" "$renderer_image_id" \
+	>"$LOCAL_WEBWORK_PROVENANCE_FILE"
+chmod 600 "$LOCAL_WEBWORK_PROVENANCE_FILE"
+# Bind this process to the inspected external image. The renderer repository
+# owns the image contents and PG compatibility; PLE owns only this integration.
+PLE_WEBWORK_RENDERER_VERSION="${renderer_image_id#sha256:}"
+export PLE_WEBWORK_RENDERER_VERSION
+renderer_container_id="$(podman ps \
+	--filter label=io.podman.compose.project=containers \
+	--filter label=io.podman.compose.service=webwork-renderer \
+	--format '{{.ID}}')"
+case "$renderer_container_id" in
+""|*$'\n'*) die "expected exactly one running PLE webwork-renderer container" ;;
+esac
+echo "==> Verifying standalone PG render and grade behavior"
+started_at=$SECONDS
+until podman exec -i "$renderer_container_id" bash -s -- --exercise <containers/webwork/probe_render_api.sh >/dev/null 2>&1; do
+	if [ $((SECONDS - started_at)) -ge "$TIMEOUT_SECONDS" ]; then
+		echo "ERROR: the standalone PG renderer did not pass its render/grade probe; it has been left running for diagnosis" >&2
+		compose ps >&2 || true
+		compose logs --tail 80 webwork-renderer >&2 || true
+		exit 1
 	fi
+	sleep 2
+done
+if [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ]; then
+	# This host-only seed uses the production PostgreSQL and object-store
+	# contracts.  It is intentionally after renderer identity finalization so
+	# the API cannot be started with a pilot question for an unpinned renderer.
+	echo "==> Seeding the opt-in WebWork pilot course and immutable PGML source"
+	minio_port="$(env_value PLE_MINIO_API_HOST_PORT)"
+	minio_port="${minio_port:-9000}"
+	AWS_ACCESS_KEY_ID="$(env_value MINIO_ROOT_USER)" \
+	AWS_SECRET_ACCESS_KEY="$(env_value MINIO_ROOT_PASSWORD)" \
+	cargo tools e2e-seed --webwork-pilot \
+		--database-url "$database_url" \
+		--apply-migrations \
+		--tenant "$LOCAL_TENANT_ID" \
+		--instructor "$LOCAL_INSTRUCTOR_ID" \
+		--student "$LOCAL_STUDENT_ID" \
+		--s3-endpoint "http://127.0.0.1:${minio_port}" \
+		--s3-region "us-east-1" \
+		--content-bucket "content" >"$LOCAL_WEBWORK_DEMO_MANIFEST_FILE"
+	chmod 600 "$LOCAL_WEBWORK_DEMO_MANIFEST_FILE"
+fi
+
+if [ "$WITH_SMTP" -eq 1 ]; then
+	echo "==> Installing external SMTP credential for the API"
+	compose rm -f smtp-secret-init >/dev/null 2>&1 || true
+	compose up -d smtp-secret-init
 fi
 
 echo "==> Building images and starting API, worker, and browser gateway"
@@ -598,11 +578,15 @@ echo "Local stack is ready: ${base_url}/"
 if [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ]; then
 	echo "Local sign-in credentials: $LOCAL_CREDENTIAL_FILE"
 fi
-if [ "$WITH_WEBWORK" -eq 1 ]; then
-	echo "Stop it without deleting data: ${COMPOSE_COMMAND[*]} -f containers/compose.yaml -f containers/compose.webwork.yaml --env-file ${ENV_FILE} --profile webwork down"
-else
-	echo "Stop it without deleting data: ${COMPOSE_COMMAND[*]} -f containers/compose.yaml --env-file ${ENV_FILE} down"
+stop_command=("${COMPOSE_COMMAND[@]}" -f containers/compose.yaml)
+if [ "$WITH_SMTP" -eq 1 ]; then
+	stop_command+=(-f containers/compose.smtp.yaml)
 fi
+stop_command+=(--env-file "$ENV_FILE")
+stop_command+=(down --remove-orphans)
+printf 'Stop it without deleting data:'
+printf ' %q' "${stop_command[@]}"
+printf '\n'
 
 if [ "$OPEN_BROWSER" -eq 1 ]; then
 	if command -v open >/dev/null 2>&1; then

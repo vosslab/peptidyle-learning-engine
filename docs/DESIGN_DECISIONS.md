@@ -324,8 +324,8 @@ result translation.
 **Why.** Upstream systems use their own fields, sessions, HTML, and credentials. Those are neither
 stable browser contracts nor safe learner authority.
 
-**Consequence.** The accepted WeBWorK RC3 path is one licensed user-authored PGML radio question via
-private upstream `render_rpc`; browser data is a PLE-native response. Raw source, hidden fields,
+**Consequence.** The accepted WeBWorK path is one licensed user-authored PGML radio question via the
+private external standalone `/render-api`; browser data is a PLE-native response. Raw source, hidden fields,
 sessions, provider values, and renderer output do not cross the PLE browser boundary.
 
 **Owner.** [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md),

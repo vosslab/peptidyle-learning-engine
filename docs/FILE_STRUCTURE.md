@@ -18,7 +18,7 @@ present in this tree.
 +- crates/             Rust product crates and repository project tools
 +- src/                SolidJS and TypeScript browser application
 +- schemas/            PostgreSQL baseline migrations
-+- containers/         Local PostgreSQL, MinIO, API, gateway, and optional private WeBWorK stack
++- containers/         Local PostgreSQL, MinIO, API, gateway, and private PG-renderer stack
 +- pipeline/           Maintained browser and WebAssembly build steps
 +- tests/              Fast hygiene, Node behavior, Playwright, and E2E gates
 +- docs/               Architecture, contracts, operations, and active plans
@@ -75,12 +75,24 @@ server-only WeBWorK renderer boundary is
 `crates/adapters/webwork/src/renderer_contract.rs`; its HTTP facade is
 `http_renderer.rs`, while `http_renderer/{client,protocol,response_shape,html_projection,grade}.rs`
 own the focused implementation. Fixed upstream details are in
-`shipped_render_rpc.rs`, and safe cached markup passes through `sanitizer.rs`.
+`standalone_render_api.rs`, and safe cached markup passes through `sanitizer.rs`.
 The HTTP implementation uses
 `html5ever` to project the one supported single-radio group and refuses the
 other upstream control shapes. `crates/server/src/webwork_backend.rs` resolves
 the immutable catalog source and joins the adapter to the run backend without
 exposing source, upstream field names, or credentials to the browser.
+
+The similarly named reference trees have distinct roles:
+
+- `OTHER_REPOS/pg/` documents the PG/PGML execution engine;
+- `OTHER_REPOS/webwork-pg-renderer/` mirrors the maintained standalone HTTP
+  renderer at `../webwork-pg-renderer`; and
+- `OTHER_REPOS/webwork2/` documents the full homework/course application used
+  by the current RC3 compatibility path.
+
+Every `OTHER_REPOS/` path is reference-only. Contributor code must use a pinned
+maintained upstream source or image, never an `OTHER_REPOS/` build context,
+import, mount, or runtime path.
 
 The accepted Canvas/Blackboard profile-to-native path adds these contributor entry points:
 
@@ -309,12 +321,12 @@ reconciliation contract is in [docs/ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
   HTTP.
 - [tests/e2e/](../tests/e2e/) owns slower whole-system, replica, WebAssembly,
   and disposable PostgreSQL gates.
-- `tests/e2e/e2e_webwork_render_rpc.sh` owns the opt-in source-pinned private
-  WeBWorK semantic path through PLE; `tests/playwright/webwork_run.spec.ts`
+- `tests/e2e/e2e_webwork_render_rpc.sh` owns the live private standalone-renderer
+  semantic path through PLE; `tests/playwright/webwork_run.spec.ts`
   owns its browser-only network and keyboard boundary.
-- `tests/test_webwork_renderer_container.py` inspects the optional private
-  compose profile, source pins, secrets, and network isolation without
-  claiming a live image build.
+- `tests/test_webwork_renderer_container.py` inspects the normal Compose
+  renderer boundary, absence of SQL/volumes/host ports, and network isolation
+  without claiming live behavior.
 - Rust unit and integration tests remain beside their owning crates.
 
 ## Generated artifacts
@@ -358,7 +370,9 @@ use this three-tier guide to find its authority and implementation detail.
 3. **Operating and reference documents.** [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md),
    [SECURITY_MODEL.md](SECURITY_MODEL.md), [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md),
    [DATABASE_TENANCY.md](DATABASE_TENANCY.md), [OBJECT_STORAGE.md](OBJECT_STORAGE.md),
-   [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md), [CONTAINER.md](CONTAINER.md),
+   [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md),
+   [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md),
+   [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md),
    [FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md),
    [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md), and
    [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md) document implementation,
@@ -376,9 +390,10 @@ competing authorities.
 - Add HTTP behavior to the owning server route module and keep composition thin.
 - Add browser behavior to the owning feature, component, page, or API module.
 - Add question-format behavior behind an adapter; keep grading server-only.
-- Add an upstream WeBWorK response family only through the shipped renderer
-  contract and exact parser tests; retain the private `render_rpc` service and
-  immutable PGML source boundary.
+- Add an upstream WeBWorK response family only through the private renderer
+  contract and exact parser tests. Preserve immutable PGML source ownership,
+  use the standalone `webwork-pg-renderer` target, and do not add WeBWorK2
+  course or assignment state.
 - Add repository automation under the project-tools subtree and expose a
   `cargo tools` command.
 - Keep every new source file below 1000 lines and split by capability before a

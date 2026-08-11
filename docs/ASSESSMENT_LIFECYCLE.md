@@ -230,7 +230,7 @@ the same source format.
 | --- | --- | --- | --- | --- |
 | Native flat | PLE compiles author source into public definition and server-only key | PLE public renderer | PLE native grader | Reproduce from immutable version and stored seed |
 | QTI | PLE stages, reports, reviews, and promotes a supported profile atomically | PLE's opted-in published runtime or converted native definition | Server-only `PostgresGraderStore` when enabled | Reparse the checksum-pinned archive; refuse unsupported profile features |
-| WeBWorK | PLE copies licensed PG/PGML source and provenance into immutable storage | Private upstream `render_rpc`, then PLE sanitizes and projects | Private upstream service through PLE | Re-render exact source and seed; never trust a browser upstream field |
+| WeBWorK | PLE copies licensed PG/PGML source and provenance into immutable storage | Private external `/render-api`, then PLE sanitizes and projects | Private external renderer through PLE | Re-render exact source and seed; never trust a browser upstream field |
 | External tool | PLE publishes an answer-free marker plus trusted broker configuration | Provider launch/session is server-mediated | Provider or broker under a separate trusted exchange | Generic attempt records carry no provider token, raw answer, or provider score |
 
 Native flat questions use PLE's public `QuestionDefinition` plus separate

@@ -6,7 +6,8 @@ explicit private profile.
 
 This is a local development workflow, not a production deployment guide. The durable route,
 storage, tenancy, and grading boundaries live in [CONTRACTS.md](CONTRACTS.md) and
-[SECURITY_MODEL.md](SECURITY_MODEL.md); [CONTAINER.md](CONTAINER.md) owns the local service
+[SECURITY_MODEL.md](SECURITY_MODEL.md);
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) owns the local service
 topology and recovery commands.
 
 ## Quick start
@@ -46,36 +47,31 @@ it before expecting `--check` to succeed.
 `./launch_local_stack.sh --env-file path/to/env.local --check`: the custom file must already exist
 and satisfy the launcher contract.
 
-## Private WeBWorK run
+## Standalone WeBWorK PG renderer
 
 ```bash
-./launch_local_stack.sh --with-webwork --no-open
+./launch_local_stack.sh --no-open
 ```
 
-This command opts into the private WebWork renderer and MariaDB profile. It builds upstream WebWork2
-and PG from the configured full source revisions, waits for the authenticated private renderer, then
-seeds the opt-in pilot before starting the PLE application. The browser communicates with PLE only;
-it does not receive renderer credentials, source, or upstream session fields.
+This normal command starts PLE with the private external PG renderer, waits for its semantic
+render-and-grade probe, seeds the bounded pilot, and then starts the application. The browser
+communicates with PLE only; it does not receive renderer credentials, source, or upstream state.
 
-For older local configuration, the normal profile command safely creates the new ignored settings
-and secrets. Validate the migrated configuration without changing state afterward:
+For older local configuration, a normal launch safely adds the ignored renderer settings and local
+JWT secrets. Validate the migrated configuration without changing state afterward:
 
 ```bash
-./launch_local_stack.sh --with-webwork --check --no-open
+./launch_local_stack.sh --check --no-open
 ```
 
-The profile uses two independent local mode-0600 files under `containers/.secrets/`. Keep those,
-`containers/env.local`, and `containers/local-login.txt` local. The renderer and its database have
-no published host port; see [CONTAINER.md](CONTAINER.md) for the topology.
+Keep `containers/env.local` and `containers/local-login.txt` local. The renderer has no database,
+persistent volume, or published host port; see
+[LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md).
 
-For a custom environment, `--with-webwork` requires all native and WebWork pins and credentials in
-the selected environment file, including `PLE_LOCAL_GRADER_PASSWORD` and
-`PLE_LOCAL_AUTH_HOST_FILE`. It also requires the official WebWork2 and PG URLs, their exact
-40-character lowercase SHA-1 revisions, and two distinct host-secret paths:
-`PLE_WEBWORK_RENDER_PASSWORD_HOST_FILE` and `PLE_WEBWORK_MOJO_SECRET_HOST_FILE`. Each host-secret
-file must be readable and have exact mode 0600. Use the current field names and non-secret pin
-values in [containers/env.example](../containers/env.example); keep secret values out of the file,
-shell history, and logs.
+For a custom environment, provide the normal native settings plus the external renderer image,
+renderer identity, and two independent JWT secrets named in
+[containers/env.example](../containers/env.example). PLE does not require WebWork2 source pins,
+render-course credentials, or a MariaDB password.
 
 ## Build and validation commands
 
@@ -93,12 +89,29 @@ same mode.
 To validate or run a pre-existing non-default environment file, pass its path explicitly. The
 launcher does not bootstrap, rewrite, seed, or create credentials for a custom file. Before running
 it, provide the required PostgreSQL and MinIO credentials, local grader secret, local-auth identity
-file, and the four native image-digest fields from [containers/env.example](../containers/env.example).
+file, invitation-secret host file, and the five native image-digest fields from
+[containers/env.example](../containers/env.example). The invitation issuer enables
+copy-link enrollment without configuring SMTP; canonical email authentication still
+requires an operator-selected SMTP provider.
 
 ```bash
 ./launch_local_stack.sh --env-file path/to/env.local --check
 ./launch_local_stack.sh --env-file path/to/env.local --no-open
 ```
+
+To activate an external SMTP account later, fill the seven `PLE_SMTP_*` and
+`PLE_PUBLIC_APP_BASE_URL` fields in the custom environment as described in
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md#external-smtp-provider), then select the opt-in
+overlay explicitly:
+
+```bash
+./launch_local_stack.sh --env-file path/to/env.local --with-smtp --check
+./launch_local_stack.sh --env-file path/to/env.local --with-smtp --no-open
+```
+
+This connects to the selected provider with authenticated encrypted submission.
+It does not start a PLE mail service. Omitting `--with-smtp` leaves copy-link
+invitations available and email authentication unconfigured.
 
 The live WebWork acceptance command also needs operator-provided demo inputs because custom runs do
 not create `local-login.txt` or `local-webwork-demo.json`. Give
@@ -123,7 +136,7 @@ podman compose -f containers/compose.yaml --env-file containers/env.local down
 
 The normal `down` command stops containers while retaining named data volumes. Removing volumes or
 pruning images destroys local state or build cache, so make that decision deliberately. See
-[CONTAINER.md](CONTAINER.md) for health behavior and service-specific logs.
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for health behavior and service-specific logs.
 
 ## Known gaps
 

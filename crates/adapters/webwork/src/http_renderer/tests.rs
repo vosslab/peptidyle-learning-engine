@@ -13,16 +13,13 @@ fn request() -> RenderRequest<'static> {
 
 fn config() -> HttpWebworkRendererConfig {
     HttpWebworkRendererConfig::new(
-        "http://webwork.internal/webwork2/",
+        "http://webwork.internal/",
         Duration::from_secs(1),
         1024,
         RendererIdentity {
-            id: "webwork-source-pin".into(),
-            version: "2.21".into(),
+            id: "webwork-pg-renderer".into(),
+            version: "renderer-a06111-pg-726ff4".into(),
         },
-        "ple_render",
-        "ple_service",
-        "not-in-browser",
     )
     .expect("recorded private configuration is valid")
 }
@@ -70,37 +67,32 @@ fn parsed_matching() -> ParsedRender {
     .expect("recorded matching response is supported")
 }
 
-fn hidden(settings: &HttpWebworkRendererConfig) -> Map<String, Value> {
-    let expected = ExpectedEcho::from_request(settings, request());
+fn private_jwt() -> Map<String, Value> {
     serde_json::from_value(json!({
-        "sourceFilePath":"", "problemSource": expected.source, "problemSeed": expected.seed,
-        "problemUUID":"", "psvn":54321, "pathToProblemFile": expected.file,
-        "courseID": expected.course_id, "user": expected.user, "passwd":"",
-        "displayMode":"MathJax", "key":"upstream-session-key", "outputformat":"json",
-        "theme":"", "language":"", "showSummary":"0", "showHints":"0", "showSolutions":"0",
-        "showPreviewButton":"0", "showCheckAnswersButton":"0", "showCorrectAnswersButton":"0",
-        "showFooter":"0", "extraHeaderText":""
+        "problem":"problem.payload.signature",
+        "session":"header.payload.signature",
+        "answer":"answer.payload.signature"
     }))
-    .expect("recorded official hidden map")
+    .expect("recorded standalone JWT map")
 }
 
-fn response(settings: &HttpWebworkRendererConfig, body: &str) -> Map<String, Value> {
-    let mut response = Map::new();
-    for key in RESPONSE_KEYS {
-        response.insert((*key).to_owned(), Value::String(String::new()));
-    }
-    response.insert("hidden_input_field".into(), Value::Object(hidden(settings)));
-    response.insert("body_part550".into(), Value::String(body.to_owned()));
-    response.insert("score".into(), json!(0));
-    response.insert(
-        "real_webwork_SITE_URL".into(),
-        Value::String("http://webwork.internal/".into()),
-    );
-    response.insert(
-        "real_webwork_FORM_ACTION_URL".into(),
-        Value::String("http://webwork.internal/webwork2/render_rpc".into()),
-    );
-    response
+fn rendered_document(body: &str, service_base: &str) -> String {
+    format!(
+        r#"<!DOCTYPE html><html><head><base href="{service_base}"><title>Question</title></head><body><form action="{service_base}render-api" id="problemMainForm"><div id="problem_body" class="problem-content" lang="en" dir="ltr">{body}</div><input name="sessionJWT" type="hidden" value="header.payload.signature"></form></body></html>"#
+    )
+}
+
+fn response(_settings: &HttpWebworkRendererConfig, body: &str) -> Map<String, Value> {
+    serde_json::from_value(json!({
+        "JWT": private_jwt(),
+        "debug": {"debug": [], "internal": [], "perl_warn": null, "pg_warn": []},
+        "flags": {},
+        "problem_result": {"errors": "", "msg": "", "score": 0.0, "type": "avg_problem_grader"},
+        "problem_state": {},
+        "renderedHTML": rendered_document(body, "http://webwork.internal/"),
+        "resources": {"alias": {}, "assets": [], "regex": []}
+    }))
+    .expect("recorded external renderer response")
 }
 
 fn response_for_service(
@@ -109,20 +101,20 @@ fn response_for_service(
     service_base: &str,
     score: f64,
 ) -> Value {
-    let mut value = response(settings, body);
     let origin = Url::parse(service_base)
         .expect("test service URL parses")
         .origin()
         .ascii_serialization();
+    let mut value = response(settings, body);
     value.insert(
-        "real_webwork_SITE_URL".into(),
-        Value::String(format!("{origin}/")),
+        "renderedHTML".into(),
+        Value::String(rendered_document(body, &format!("{origin}/"))),
     );
-    value.insert(
-        "real_webwork_FORM_ACTION_URL".into(),
-        Value::String(format!("{service_base}render_rpc")),
-    );
-    value.insert("score".into(), json!(score));
+    value
+        .get_mut("problem_result")
+        .and_then(Value::as_object_mut)
+        .expect("fixture result object")
+        .insert("score".into(), json!(score / 100.0));
     Value::Object(value)
 }
 
@@ -161,7 +153,7 @@ async fn start_http_fixture(response: String) -> (String, tokio::task::JoinHandl
             .expect("test response writes");
         String::from_utf8(bytes).expect("test request is UTF-8")
     });
-    (format!("http://{address}/webwork2/"), task)
+    (format!("http://{address}/"), task)
 }
 
 async fn start_http_fixture_for(
@@ -207,7 +199,7 @@ async fn start_http_fixture_for(
             .expect("test response writes");
         String::from_utf8(bytes).expect("test request is UTF-8")
     });
-    (format!("http://{address}/webwork2/"), task)
+    (format!("http://{address}/"), task)
 }
 
 fn http_response(status: &str, content_type: &str, body: &str) -> String {
@@ -251,10 +243,39 @@ fn recorded_upstream_radio_result_becomes_answer_free_multiple_choice() {
     assert_eq!(controls.len(), 2);
     let serialized = serde_json::to_string(&parsed.envelope).expect("public envelope serializes");
     assert!(!serialized.contains("AnSwEr0001"));
-    assert!(!serialized.contains("not-in-browser"));
-    assert!(!serialized.contains("upstream-session-key"));
+    assert!(!serialized.contains("header.payload.signature"));
     assert!(!parsed.html.contains("AnSwEr0001"));
-    assert!(!parsed.html.contains("upstream-session-key"));
+    assert!(!parsed.html.contains("header.payload.signature"));
+}
+
+#[test]
+fn standalone_pgml_radio_shape_becomes_answer_free_multiple_choice() {
+    let settings = config();
+    let value = Value::Object(response(
+        &settings,
+        r#"<div class="PGML">
+Based on their molecular formula, which compound is most likely <span style="color:#997300;font-size:1.25em;font-weight:700;">hydrophobic</span>?
+<div style="margin-top:1em"></div>
+<label><input TYPE="RADIO" name="AnSwEr0001" id="AnSwEr0001" aria-label="answer 1 option 1 " value="B0"><strong>A</strong>. glucose, C<sub>6</sub>H<sub>12</sub>O<sub>6</sub></label><div style="margin-bottom: 0.7em;"></div><label><input TYPE="RADIO" name="AnSwEr0001" id="AnSwEr0001_1" aria-label="answer 1 option 2 " value="B1"><strong>B</strong>. benzene, C<sub>6</sub>H<sub>6</sub></label>
+<div style="margin-top:1em"></div>
+</div>"#,
+    ));
+    let parsed = parse_render_rpc(
+        value,
+        ExpectedEcho::from_request(&settings, request()),
+        request(),
+        &settings.base_uri,
+    )
+    .expect("standalone PGML RadioButtons output is supported");
+    let ResponseDefinition::MultipleChoice { choices, selection } = &parsed.envelope.response
+    else {
+        panic!("single-choice envelope")
+    };
+    assert_eq!(*selection, SelectionCardinality::ExactlyOne);
+    assert_eq!(choices.len(), 2);
+    assert!(parsed.html.contains("hydrophobic"));
+    assert!(!parsed.html.contains("style="));
+    assert!(!parsed.html.contains("AnSwEr0001"));
 }
 
 #[test]
@@ -295,7 +316,7 @@ fn recorded_upstream_matching_result_becomes_answer_free_typed_matching() {
     assert_eq!(replay.len(), 2);
     assert!(replay.values().all(|prompt| prompt.choices.len() == 2));
     let public = serde_json::to_string(&parsed.envelope).expect("public envelope serializes");
-    for protected in ["AnSwEr0001", "AnSwEr0002", "upstream-session-key"] {
+    for protected in ["AnSwEr0001", "AnSwEr0002", "header.payload.signature"] {
         assert!(!public.contains(protected));
         assert!(!parsed.html.contains(protected));
     }
@@ -322,11 +343,14 @@ fn matching_refuses_mismatched_options_and_hostile_markup() {
 }
 
 #[test]
-fn hidden_credential_mismatch_and_protected_top_level_data_refuse() {
+fn private_jwt_mismatch_and_protected_top_level_data_refuse() {
     let settings = config();
     let expected = ExpectedEcho::from_request(&settings, request());
     let mut mismatch = response(&settings, "<p>ignored</p>");
-    mismatch.insert("hidden_input_field".into(), json!({"sourceFilePath":"", "problemSource":"", "problemSeed":"", "problemUUID":"", "psvn":54321, "pathToProblemFile":"", "courseID":"", "user":"", "passwd":"attacker", "displayMode":"MathJax", "key":"", "outputformat":"json", "theme":"", "language":"", "showSummary":"0", "showHints":"0", "showSolutions":"0", "showPreviewButton":"0", "showCheckAnswersButton":"0", "showCorrectAnswersButton":"0", "showFooter":"0", "extraHeaderText":""}));
+    mismatch.insert(
+        "JWT".into(),
+        json!({"problem":"problem.payload.signature", "session":"header.payload.signature", "answer":"answer.payload.signature", "unexpected":"value"}),
+    );
     assert!(
         parse_render_rpc(
             Value::Object(mismatch),
@@ -350,11 +374,11 @@ fn hidden_credential_mismatch_and_protected_top_level_data_refuse() {
 }
 
 #[test]
-fn config_debug_redacts_direct_webwork_password() {
+fn config_debug_contains_no_credential_surface() {
     let config = config();
     let debug = format!("{config:?}");
-    assert!(!debug.contains("not-in-browser"));
-    assert!(debug.contains("[REDACTED]"));
+    assert!(debug.contains("webwork-pg-renderer"));
+    assert!(!debug.contains("not-in-browser") && !debug.contains("[REDACTED]"));
 }
 
 #[test]
@@ -373,10 +397,12 @@ fn duplicate_unknown_and_off_origin_upstream_members_refuse() {
         .is_err()
     );
     let mut off_origin = response(&settings, "<p>x</p>");
-    off_origin.insert(
-        "real_webwork_SITE_URL".into(),
-        Value::String("https://attacker.example/webwork2/".into()),
-    );
+    let html = off_origin
+        .get("renderedHTML")
+        .and_then(Value::as_str)
+        .expect("fixture HTML")
+        .replace("http://webwork.internal/", "https://attacker.example/");
+    off_origin.insert("renderedHTML".into(), Value::String(html));
     assert!(
         parse_render_rpc(
             Value::Object(off_origin),
@@ -389,35 +415,24 @@ fn duplicate_unknown_and_off_origin_upstream_members_refuse() {
 }
 
 #[test]
-fn oversized_or_malformed_upstream_session_key_refuses() {
-    let settings = config();
-    let mut oversized = hidden(&settings);
-    oversized.insert("key".to_string(), Value::String("x".repeat(4097)));
-    assert!(
-        validate_and_discard_hidden(
-            &oversized,
-            &ExpectedEcho::from_request(&settings, request())
-        )
-        .is_err()
-    );
-    let mut malformed = hidden(&settings);
-    malformed.insert("key".to_string(), Value::Bool(true));
-    assert!(
-        validate_and_discard_hidden(
-            &malformed,
-            &ExpectedEcho::from_request(&settings, request())
-        )
-        .is_err()
-    );
-    let mut invalid_psvn = hidden(&settings);
-    invalid_psvn.insert("psvn".to_string(), Value::String("54321".into()));
-    assert!(
-        validate_and_discard_hidden(
-            &invalid_psvn,
-            &ExpectedEcho::from_request(&settings, request())
-        )
-        .is_err()
-    );
+fn oversized_or_malformed_renderer_session_token_refuses() {
+    let oversized = serde_json::from_value(json!({
+        "problem":"problem.payload.signature",
+        "session": format!("header.{}.signature", "x".repeat(65_537)),
+        "answer":"answer.payload.signature"
+    }))
+    .expect("oversized JWT map");
+    assert!(validate_and_discard_jwt(&oversized).is_err());
+    let mut malformed = private_jwt();
+    malformed.insert("session".to_string(), Value::Bool(true));
+    assert!(validate_and_discard_jwt(&malformed).is_err());
+    let invalid_shape = serde_json::from_value(json!({
+        "problem":"problem.payload.signature",
+        "session":"only.two",
+        "answer":"answer.payload.signature"
+    }))
+    .expect("invalid JWT map");
+    assert!(validate_and_discard_jwt(&invalid_shape).is_err());
 }
 
 #[test]
@@ -435,7 +450,7 @@ fn official_shape_requires_every_member_and_separates_site_from_form_url() {
     );
 
     let mut missing = response(&settings, supported_body);
-    missing.remove("head_part999");
+    missing.remove("resources");
     assert!(
         parse_render_rpc(
             Value::Object(missing),
@@ -447,10 +462,15 @@ fn official_shape_requires_every_member_and_separates_site_from_form_url() {
     );
 
     let mut wrong_form = response(&settings, supported_body);
-    wrong_form.insert(
-        "real_webwork_FORM_ACTION_URL".into(),
-        Value::String("http://webwork.internal/".into()),
-    );
+    let html = wrong_form
+        .get("renderedHTML")
+        .and_then(Value::as_str)
+        .expect("fixture HTML")
+        .replace(
+            "http://webwork.internal/render-api",
+            "http://webwork.internal/",
+        );
+    wrong_form.insert("renderedHTML".into(), Value::String(html));
     assert!(
         parse_render_rpc(
             Value::Object(wrong_form),
@@ -486,7 +506,7 @@ fn hostile_radio_markup_and_protected_html_refuse_before_browser_projection() {
     }
     let leaked = format!(
         r#"<p>{}</p><div class="radio-buttons-container"><label><input type="radio" name="AnSwEr1" value="0" id="a">A</label><label><input type="radio" name="AnSwEr1" value="1" id="b">B</label></div>"#,
-        settings.password
+        "header.payload.signature"
     );
     assert!(
         parse_render_rpc(
@@ -497,7 +517,7 @@ fn hostile_radio_markup_and_protected_html_refuse_before_browser_projection() {
         )
         .is_err()
     );
-    let session_key_leaked = r#"<p>upstream-session-key</p><div class="radio-buttons-container"><label><input type="radio" name="AnSwEr1" value="0" id="a">A</label><label><input type="radio" name="AnSwEr1" value="1" id="b">B</label></div>"#;
+    let session_key_leaked = r#"<p>header.payload.signature</p><div class="radio-buttons-container"><label><input type="radio" name="AnSwEr1" value="0" id="a">A</label><label><input type="radio" name="AnSwEr1" value="1" id="b">B</label></div>"#;
     assert!(
         parse_render_rpc(
             Value::Object(response(&settings, session_key_leaked)),
@@ -527,7 +547,7 @@ fn request_and_score_limits_fail_before_network_use() {
 }
 
 #[tokio::test]
-async fn private_http_client_posts_only_to_render_rpc_with_form_fields() {
+async fn private_http_client_posts_only_to_render_api_with_form_fields() {
     let body = r#"{"score":0}"#;
     let (base, task) = start_http_fixture(http_response("200 OK", "application/json", body)).await;
     let settings = HttpWebworkRendererConfig::new(
@@ -538,9 +558,6 @@ async fn private_http_client_posts_only_to_render_rpc_with_form_fields() {
             id: "test".into(),
             version: "1".into(),
         },
-        "course",
-        "user",
-        "password",
     )
     .expect("fixture config");
     let renderer = HttpWebworkRenderer::new(settings).expect("fixture client");
@@ -549,13 +566,11 @@ async fn private_http_client_posts_only_to_render_rpc_with_form_fields() {
         .await;
     assert_eq!(result.expect("fixture JSON")["score"], 0);
     let request = task.await.expect("fixture task completes");
-    assert!(request.starts_with("POST /webwork2/render_rpc HTTP/1.1\r\n"));
+    assert!(request.starts_with("POST /render-api HTTP/1.1\r\n"));
     let lower = request.to_ascii_lowercase();
     assert!(lower.contains("content-type: application/x-www-form-urlencoded"));
-    assert!(request.contains("courseID=course"));
-    assert!(request.contains("user=user"));
-    assert!(request.contains("passwd=password"));
-    assert!(request.contains("outputformat=json"));
+    assert!(request.contains("problemSeed=19"));
+    assert!(!request.contains("courseID=") && !request.contains("passwd="));
     assert!(!request.contains("/v1/"));
 }
 
@@ -573,9 +588,6 @@ async fn private_http_client_refuses_redirect_non_json_and_oversized_responses()
                 id: "test".into(),
                 version: "1".into(),
             },
-            "course",
-            "user",
-            "password",
         )
         .expect("fixture config"),
     )
@@ -596,9 +608,6 @@ async fn private_http_client_refuses_redirect_non_json_and_oversized_responses()
                 id: "test".into(),
                 version: "1".into(),
             },
-            "course",
-            "user",
-            "password",
         )
         .expect("fixture config"),
     )
@@ -621,9 +630,6 @@ async fn private_http_client_refuses_redirect_non_json_and_oversized_responses()
                 id: "test".into(),
                 version: "1".into(),
             },
-            "course",
-            "user",
-            "password",
         )
         .expect("fixture config"),
     )
@@ -641,7 +647,7 @@ async fn grade_submits_only_the_persisted_selected_upstream_radio_value() {
     const GRADED_BODY: &str =
         r#"<div class="ResultsWithoutAnswer"><span>Answer recorded.</span></div>"#;
     let (base, task) = start_http_fixture_for(|address| {
-        let base = format!("http://{address}/webwork2/");
+        let base = format!("http://{address}/");
         let settings = HttpWebworkRendererConfig::new(
             &base,
             Duration::from_secs(1),
@@ -650,9 +656,6 @@ async fn grade_submits_only_the_persisted_selected_upstream_radio_value() {
                 id: "test".into(),
                 version: "1".into(),
             },
-            "course",
-            "user",
-            "password",
         )
         .expect("fixture config");
         let graded = response_for_service(&settings, GRADED_BODY, &base, 100.0);
@@ -667,9 +670,6 @@ async fn grade_submits_only_the_persisted_selected_upstream_radio_value() {
             id: "test".into(),
             version: "1".into(),
         },
-        "course",
-        "user",
-        "password",
     )
     .expect("fixture config");
     let selected = opaque_choice_id(request(), 1).expect("fixed choice ID");
@@ -699,26 +699,21 @@ async fn grade_submits_only_the_persisted_selected_upstream_radio_value() {
         })
     ));
     let wire_request = task.await.expect("fixture task completes");
-    assert!(wire_request.starts_with("POST /webwork2/render_rpc HTTP/1.1\r\n"));
-    assert!(wire_request.contains("WWsubmit=1"));
+    assert!(wire_request.starts_with("POST /render-api HTTP/1.1\r\n"));
+    assert!(wire_request.contains("submitAnswers=1"));
     assert!(wire_request.contains("AnSwEr0001=1"));
     assert!(!wire_request.contains("AnSwEr0001=0"));
 
     let settings = config();
     let parsed = parse_render_rpc(
-        response_for_service(&settings, BODY, "http://webwork.internal/webwork2/", 0.0),
+        response_for_service(&settings, BODY, "http://webwork.internal/", 0.0),
         ExpectedEcho::from_request(&settings, request()),
         request(),
         &settings.base_uri,
     )
     .expect("accepted result is safe to cache");
     let public = serde_json::to_string(&parsed.envelope).expect("public envelope serializes");
-    for protected in [
-        "AnSwEr0001",
-        "upstream-session-key",
-        "not-in-browser",
-        "RE9DVU1FTlQoKTs=",
-    ] {
+    for protected in ["AnSwEr0001", "header.payload.signature", "RE9DVU1FTlQoKTs="] {
         assert!(!public.contains(protected));
         assert!(!parsed.html.contains(protected));
     }
@@ -728,7 +723,7 @@ async fn grade_submits_only_the_persisted_selected_upstream_radio_value() {
 async fn grade_refuses_fractional_upstream_score() {
     const BODY: &str = r#"<p>Question</p><div class="radio-buttons-container"><label><input type="radio" name="AnSwEr0001" value="0" id="AnSwEr0001">A</label><label><input type="radio" name="AnSwEr0001" value="1" id="AnSwEr0001_1">B</label></div>"#;
     let (base, task) = start_http_fixture_for(|address| {
-        let base = format!("http://{address}/webwork2/");
+        let base = format!("http://{address}/");
         let settings = HttpWebworkRendererConfig::new(
             &base,
             Duration::from_secs(1),
@@ -737,9 +732,6 @@ async fn grade_refuses_fractional_upstream_score() {
                 id: "test".into(),
                 version: "1".into(),
             },
-            "course",
-            "user",
-            "password",
         )
         .expect("fixture config");
         let fractional = response_for_service(&settings, BODY, &base, 50.0);
@@ -754,9 +746,6 @@ async fn grade_refuses_fractional_upstream_score() {
             id: "test".into(),
             version: "1".into(),
         },
-        "course",
-        "user",
-        "password",
     )
     .expect("fixture config");
     let selected = opaque_choice_id(request(), 0).expect("fixed choice ID");
@@ -786,7 +775,7 @@ async fn grade_refuses_fractional_upstream_score() {
 async fn grade_maps_zero_percent_to_zero_earned_points() {
     const BODY: &str = r#"<p>Question</p><div class="radio-buttons-container"><label><input type="radio" name="AnSwEr0001" value="0" id="AnSwEr0001">A</label><label><input type="radio" name="AnSwEr0001" value="1" id="AnSwEr0001_1">B</label></div>"#;
     let (base, task) = start_http_fixture_for(|address| {
-        let base = format!("http://{address}/webwork2/");
+        let base = format!("http://{address}/");
         let settings = HttpWebworkRendererConfig::new(
             &base,
             Duration::from_secs(1),
@@ -795,9 +784,6 @@ async fn grade_maps_zero_percent_to_zero_earned_points() {
                 id: "test".into(),
                 version: "1".into(),
             },
-            "course",
-            "user",
-            "password",
         )
         .expect("fixture config");
         let incorrect = response_for_service(&settings, BODY, &base, 0.0);
@@ -813,9 +799,6 @@ async fn grade_maps_zero_percent_to_zero_earned_points() {
                 id: "test".into(),
                 version: "1".into(),
             },
-            "course",
-            "user",
-            "password",
         )
         .expect("fixture config"),
     )
@@ -852,7 +835,7 @@ async fn matching_grade_is_one_private_call_and_maps_fractional_credit() {
     const GRADED_BODY: &str =
         r#"<div class="ResultsWithoutAnswer"><span>Answer recorded.</span></div>"#;
     let (base, task) = start_http_fixture_for(|address| {
-        let base = format!("http://{address}/webwork2/");
+        let base = format!("http://{address}/");
         let settings = HttpWebworkRendererConfig::new(
             &base,
             Duration::from_secs(1),
@@ -861,9 +844,6 @@ async fn matching_grade_is_one_private_call_and_maps_fractional_credit() {
                 id: "test".into(),
                 version: "1".into(),
             },
-            "course",
-            "user",
-            "password",
         )
         .expect("fixture config");
         let graded = response_for_service(&settings, GRADED_BODY, &base, 50.0);
@@ -879,9 +859,6 @@ async fn matching_grade_is_one_private_call_and_maps_fractional_credit() {
                 id: "test".into(),
                 version: "1".into(),
             },
-            "course",
-            "user",
-            "password",
         )
         .expect("fixture config"),
     )
@@ -924,7 +901,7 @@ async fn matching_grade_is_one_private_call_and_maps_fractional_credit() {
         })
     ));
     let request = task.await.expect("fixture task completes");
-    assert!(request.contains("WWsubmit=1"));
+    assert!(request.contains("submitAnswers=1"));
     assert!(request.contains("AnSwEr0001=B"));
     assert!(request.contains("AnSwEr0002=A"));
 }
@@ -945,16 +922,13 @@ async fn private_http_client_maps_deadline_to_timeout() {
     });
     let renderer = HttpWebworkRenderer::new(
         HttpWebworkRendererConfig::new(
-            &format!("http://{address}/webwork2/"),
+            &format!("http://{address}/"),
             Duration::from_millis(10),
             1024,
             RendererIdentity {
                 id: "test".into(),
                 version: "1".into(),
             },
-            "course",
-            "user",
-            "password",
         )
         .expect("fixture config"),
     )

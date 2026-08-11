@@ -61,12 +61,12 @@ Do not treat `--check` as a machine-start command: it is intentionally read-only
 - **`--skip-build requires dist/index.html and dist/main.js`:** build first with `./build.sh`, or
   rerun the launcher without `--skip-build`.
 
-For an optional renderer failure, `WeBWorK did not pass its authenticated render_rpc probe`, retain
-the running renderer for inspection and collect its logs before retrying:
+For `the standalone PG renderer did not pass its render/grade probe`, retain the running renderer
+for inspection and collect its logs before retrying:
 
 ```bash
-podman compose -f containers/compose.yaml -f containers/compose.webwork.yaml \
-  --env-file containers/env.local --profile webwork logs --tail=80 webwork-db webwork-renderer
+podman compose -f containers/compose.yaml --env-file containers/env.local \
+  logs --tail=80 webwork-renderer
 ```
 
 ## Existing database volumes
@@ -82,9 +82,9 @@ After collecting diagnostics or when finished, stop the default stack while reta
 volumes:
 
 ```bash
-podman compose -f containers/compose.yaml --env-file containers/env.local down
+podman compose -f containers/compose.yaml --env-file containers/env.local \
+  down --remove-orphans
 ```
 
-Use the same Compose files, profile, and environment file that started an optional WeBWorK stack.
-Avoid volume removal and image pruning unless the affected local data and build cache are
-intentionally disposable.
+Use the same environment file that started the stack. Preserve the named PostgreSQL and MinIO
+volumes unless their data is intentionally disposable.

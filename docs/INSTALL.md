@@ -73,48 +73,45 @@ The bootstrap belongs only to the default `containers/env.local` path. A non-def
 `--env-file` is never created, rewritten, seeded, or supplied with local sign-in credentials;
 `--check` creates neither default nor custom files. Prepare a custom file from
 [containers/env.example](../containers/env.example) and provide its own PostgreSQL and MinIO
-credentials, `PLE_LOCAL_GRADER_PASSWORD`, `PLE_LOCAL_AUTH_HOST_FILE`, and all four required
+credentials, `PLE_LOCAL_GRADER_PASSWORD`, `PLE_LOCAL_AUTH_HOST_FILE`, the mode-0600
+`PLE_INVITATION_TOKEN_SECRET_HOST_FILE`, and all five required
 immutable native image pins: `PLE_POSTGRES_IMAGE_SHA256`, `PLE_MINIO_IMAGE_SHA256`,
-`PLE_MINIO_MC_IMAGE_SHA256`, and `PLE_GATEWAY_IMAGE_SHA256`.
+`PLE_MINIO_MC_IMAGE_SHA256`, `PLE_GATEWAY_IMAGE_SHA256`, and
+`PLE_SECRET_INIT_IMAGE_SHA256`.
 
 The custom identity file and any credential file used to sign in are operator-managed inputs. Do
 not place bearer credentials, grader passwords, or other secret values in this guide or in tracked
 files. The local-stack boundary and identity-file contract are documented in
-[CONTAINER.md](CONTAINER.md).
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
 
-## Private WeBWorK profile
+An external SMTP account is optional. PLE already uses the established Rust
+`lettre` client and does not install a mail server. When an operator later
+selects a provider, configure the provider hostname, encrypted submission mode,
+authorized sender, public HTTPS origin, and an absolute mode-0600 provider-token
+file through the opt-in `--with-smtp` path documented in
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md#external-smtp-provider). The default local install
+continues to support copy-link course invitations without SMTP; canonical email
+sign-in requires the configured provider.
 
-Use the profile only when testing the shipped upstream renderer path:
+## Standalone WeBWorK PG renderer
+
+The renderer is part of the normal stack, so the same launcher command starts it:
 
 ```bash
-./launch_local_stack.sh --with-webwork --no-open
+./launch_local_stack.sh --no-open
 ```
 
-For an existing pre-RC3 `containers/env.local`, run that normal command once. It safely adds the
-required generated local values and two distinct mode-0600 secret files; then the following
-read-only preflight succeeds:
+PLE relies on an existing external `webwork-pg-renderer` image rather than building WebWork2. The
+default environment names `localhost/pg-renderer:latest`; build or obtain that image through the
+separate renderer project before first launch. The PLE launcher verifies the image, records its OCI
+identity, and probes real render and grade behavior.
 
-```bash
-./launch_local_stack.sh --with-webwork --check --no-open
-```
-
-The launcher requires the official WebWork2 and PG URLs, full immutable source revisions, a private
-renderer/database topology, and local secret files rather than plaintext secret environment values.
-Do not copy `containers/env.local`, `containers/local-login.txt`, or `containers/.secrets/` into a
-deployed environment. See [CONTAINER.md](CONTAINER.md) for the service and network boundary.
-
-With a custom environment, the operator must also provide the WebWork-specific image pins,
-database credentials, render-course/user settings, renderer identity, and the exact official URL
-and 40-character lowercase SHA-1 values named in [containers/env.example](../containers/env.example).
-`PLE_WEBWORK_RENDER_PASSWORD_HOST_FILE` and `PLE_WEBWORK_MOJO_SECRET_HOST_FILE` must name two
-different readable regular host files, each with exact mode 0600; do not put either secret in the
-environment file. The authoritative source-pin and private-renderer contract is
-[WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
-
-The first WebWork build fetches and compiles upstream sources and can consume substantial Podman VM
-storage. Before starting it, inspect local capacity with `podman system df`; on macOS, adjust the
-machine resources only using the documented steps in [MACOS_PODMAN.md](MACOS_PODMAN.md). Do not
-remove volumes or images unless their contents are intentionally disposable.
+The default bootstrap creates two local renderer JWT secrets in the ignored mode-0600
+`containers/env.local`. A custom environment must provide `PLE_WEBWORK_RENDERER_IMAGE`,
+`PLE_WEBWORK_RENDERER_ID`, `PLE_WEBWORK_PROBLEM_JWT_SECRET`, and
+`PLE_WEBWORK_SESSION_JWT_SECRET`. The renderer has no MariaDB, course credentials, volume, or host
+port. See [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md) and
+[LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md).
 
 ## Known gaps
 

@@ -55,7 +55,7 @@ questions and the normal local stack do not require it. Broader OPL
 compatibility and WeBWorK matching remain future work rather than implied by
 that narrow acceptance. See
 [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md) and
-[CONTAINER.md](CONTAINER.md).
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
 
 ## Why does a submission identify an attempt?
 

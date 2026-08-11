@@ -10,8 +10,8 @@ pub mod http_renderer;
 pub mod renderer_contract;
 /// The server-side allowlist applied to untrusted renderer markup.
 pub mod sanitizer;
-/// Fixed upstream `/render_rpc` endpoint facts for the shipped client.
-pub(crate) mod shipped_render_rpc;
+/// Fixed endpoint facts for the external standalone renderer.
+pub(crate) mod standalone_render_api;
 
 #[path = "lib/artifact.rs"]
 mod artifact;

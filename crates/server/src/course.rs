@@ -11,7 +11,9 @@ mod queries;
 mod roster;
 mod routing;
 
-pub use invitation_email::{SmtpCourseInvitationDelivery, SmtpCourseInvitationDeliveryConfig};
+pub use invitation_email::{
+    SmtpCourseInvitationDelivery, SmtpCourseInvitationDeliveryConfig, SmtpTlsMode,
+};
 pub use roster::{
     CourseInvitationDelivery, CourseInvitationDeliveryError, CourseInvitationIssuer,
     CourseInvitationSecret, UnavailableCourseInvitationDelivery,

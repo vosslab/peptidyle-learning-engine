@@ -78,18 +78,18 @@ authorization boundary.
 
 ## Run local services
 
-Use the launcher when a work package needs the supported local PostgreSQL, MinIO, API, gateway, or
-optional WeBWorK renderer:
+Use the launcher when a work package needs the supported local PostgreSQL, MinIO, API, gateway, and
+private standalone WeBWorK renderer:
 
 ```bash
 ./launch_local_stack.sh --check
 ./launch_local_stack.sh --no-open
-./launch_local_stack.sh --with-webwork --no-open
 ```
 
 `--check` validates configuration without changing state. A normal launcher run can create ignored
 local credentials and starts the supported stack; do not copy those local secret files into source
-control. [CONTAINER.md](CONTAINER.md) documents the stack, configuration, recovery, and service
+control. [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) documents the stack,
+configuration, recovery, and service
 commands.
 
 ## Prepare a handoff
