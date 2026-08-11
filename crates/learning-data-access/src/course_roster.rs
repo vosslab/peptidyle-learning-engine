@@ -193,6 +193,17 @@ pub enum CourseMemberStatus {
     Revoked,
 }
 
+/// Closed provenance for an active or retained course roster member.
+///
+/// The local-development variant is intentionally distinct from invitation
+/// and legacy records so it cannot inherit canonical-account semantics.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CourseRosterMemberSource {
+    Invitation,
+    LocalDevelopment,
+    Legacy,
+}
+
 /// Protected course-local projection for one claimed learner.
 #[derive(Clone, PartialEq, Eq)]
 pub struct CourseRosterMember {
@@ -206,6 +217,7 @@ pub struct CourseRosterMember {
     pub roster_email: Option<AuthenticationEmail>,
     /// Course-local institutional export key. Legacy members may not have one.
     pub roster_id: Option<CourseRosterId>,
+    pub source: CourseRosterMemberSource,
     pub status: CourseMemberStatus,
     pub joined_at: ActivityTimestamp,
     pub revoked_at: Option<ActivityTimestamp>,
@@ -223,6 +235,7 @@ impl std::fmt::Debug for CourseRosterMember {
             .field("display_name", &self.display_name)
             .field("roster_email", &"[protected]")
             .field("roster_id", &"[protected]")
+            .field("source", &self.source)
             .field("status", &self.status)
             .field("joined_at", &self.joined_at)
             .field("revoked_at", &self.revoked_at)
@@ -371,6 +384,17 @@ pub struct ClaimCourseInvitation {
     pub display_name: String,
 }
 
+/// Server-derived local-development learner activated by a course manager.
+///
+/// This command is constructed only after the local composition resolves an
+/// exact configured alias. Browser input never supplies the identity fields.
+#[derive(Debug, Clone)]
+pub struct ActivateLocalDevelopmentCourseMember {
+    pub course: CourseId,
+    pub learner_user: UserId,
+    pub learner_display_name: String,
+}
+
 /// Atomic claim result; no credential or unrelated course state is included.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClaimedCourseMembership {
@@ -446,6 +470,13 @@ pub trait CourseRosterStore: Send + Sync {
     async fn claim_course_invitation(
         &self,
         command: ClaimCourseInvitation,
+    ) -> Result<ClaimedCourseMembership, StoreError>;
+
+    async fn activate_local_development_course_member(
+        &self,
+        context: TenantContext,
+        session: SessionTokenHash,
+        command: ActivateLocalDevelopmentCourseMember,
     ) -> Result<ClaimedCourseMembership, StoreError>;
 
     async fn revoke_course_member(

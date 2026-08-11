@@ -11,7 +11,9 @@ import type { CursorPage } from "../api/contracts";
 export function loadGradebookPage(
   client: ApiClient,
   courseId: CourseId,
+  cursor?: string,
 ): Promise<CursorPage<GradebookSummaryRow>> {
+  if (cursor !== undefined) return client.listGradebook(courseId, cursor);
   return client.listGradebook(courseId);
 }
 

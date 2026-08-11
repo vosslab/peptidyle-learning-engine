@@ -10,6 +10,8 @@ Replica scaling, shared-state ownership, failure behavior, and the planned
 production topology are in [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md).
 The necessity, persistence, and network boundary of every service are in
 [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md).
+`docs/CONTAINER_PORT_MAPPING.md` records which service ports are host-published
+and which remain private.
 
 The root `.containerignore` is an allowlist for this
 image build. Only the Cargo manifests, Rust crates, embedded SQLx migrations,
@@ -30,7 +32,7 @@ macOS setup for the Podman virtual machine lives in
 
 | Service            | Image                                         | Purpose                                    | Local port                   |
 | ------------------ | --------------------------------------------- | ------------------------------------------ | ---------------------------- |
-| `gateway`          | pinned official Caddy derivative              | browser files plus same-origin API gateway | 127.0.0.1:3000               |
+| `gateway`          | pinned official Caddy derivative              | browser files plus same-origin API gateway | 127.0.0.1:8080               |
 | `api`              | built from `containers/Containerfile.api`     | axum API server                            | none                         |
 | `worker`           | built from `containers/Containerfile.api`     | family-filtered durable job draining       | none                         |
 | `postgres`         | digest-pinned official PostgreSQL 17          | shared content and tenant-owned records    | 127.0.0.1:5432               |
@@ -39,9 +41,11 @@ macOS setup for the Podman virtual machine lives in
 | `identity-secret-init` | pinned official Alpine | one-shot invitation-secret permission setup | none |
 | `webwork-renderer` | external `webwork-pg-renderer` image | private stateless PG/PGML render and grade engine | none |
 
-Every port binds to `127.0.0.1`, not `0.0.0.0`. The database holds educational
-records, so a development container must not be reachable from the local
-network.
+Every published port binds to `127.0.0.1`, not `0.0.0.0`. The database holds
+educational records, so a development container must not be reachable from the
+local network. See `docs/CONTAINER_PORT_MAPPING.md` for the complete mapping,
+port ranges, and the distinction between container-local and host-published
+ports.
 
 ## Buckets
 
@@ -74,9 +78,10 @@ PostgreSQL and MinIO, applies and verifies the embedded migrations, provisions t
 `ple_grading_reader` login, seeds one small course/assignment/native-question
 scenario, verifies the external PG renderer, starts the API/worker/gateway,
 waits for semantic `/health`, and opens the browser. Named data volumes remain
-available for repeated testing. If port
-3000 is already occupied during first-run bootstrap, the launcher records the
-first available port from 3000 through 3099 in the ignored env file.
+available for repeated testing. The default gateway port is `8080`. If its
+selected port is occupied during first-run bootstrap, the launcher records the
+first available port from 8000 through 8099 in the ignored env file. An existing
+explicit `PLE_GATEWAY_HOST_PORT` remains an operator choice until it is changed.
 
 The recovery screen accepts either generated value from the ignored
 `containers/local-login.txt`. The browser sends it once to the same-origin
@@ -187,8 +192,8 @@ fails closed. The normal launcher nevertheless requires the renderer to pass
 its semantic startup probe before it starts the API.
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/health
-curl -s http://localhost:3000/health
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8080/health
+curl -s http://localhost:8080/health
 ```
 
 A ready stack prints:
@@ -214,9 +219,9 @@ returns 200 is indistinguishable from one that is not checking anything:
 
 ```bash
 podman compose -f containers/compose.yaml --env-file containers/env.local stop postgres
-curl -s http://localhost:3000/health          # {"status":"degraded","failing":["postgres"]}
+curl -s http://localhost:8080/health          # {"status":"degraded","failing":["postgres"]}
 podman compose -f containers/compose.yaml --env-file containers/env.local start postgres
-curl -s http://localhost:3000/health          # {"status":"ready"} once compatibility verifies
+curl -s http://localhost:8080/health          # {"status":"ready"} once compatibility verifies
 ```
 
 ## Common commands

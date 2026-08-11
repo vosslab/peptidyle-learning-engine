@@ -37,6 +37,7 @@ pub(super) fn compose_router<S, O, C, B, P, R>(
     passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
     passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
     webauthn: Option<crate::auth::PasswordlessWebauthn>,
+    local_development_roster: Option<Arc<crate::course::LocalDevelopmentRosterDirectory>>,
     health: Arc<HealthState>,
 ) -> Router
 where
@@ -68,13 +69,78 @@ where
     P::Presentation: serde::de::DeserializeOwned + Send + Sync + 'static,
     R: PublicReviewGate + 'static,
 {
+    compose_passwordless_router(
+        Arc::clone(&store),
+        objects,
+        public_assets,
+        backends,
+        native_adapter,
+        review_gate,
+        session_config,
+        invitation_issuer,
+        invitation_delivery,
+        passwordless_email_delivery,
+        passwordless_rate_limit_issuer,
+        webauthn,
+        local_development_roster,
+        health,
+    )
+    .merge(crate::auth::router(
+        identity_provider,
+        store,
+        session_config,
+    ))
+}
+
+/// Merges every route that uses PLE-owned account authentication or no
+/// identity provider at all. Production uses this composition directly so it
+/// cannot accidentally read or expose the local-file development login path.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn compose_passwordless_router<S, O, C, B, R>(
+    store: Arc<S>,
+    objects: Arc<O>,
+    public_assets: Arc<C>,
+    backends: Arc<B>,
+    native_adapter: Arc<adapter_native::NativeAdapter>,
+    review_gate: Arc<R>,
+    session_config: SessionConfig,
+    invitation_issuer: crate::course::CourseInvitationIssuer,
+    invitation_delivery: Arc<dyn crate::course::CourseInvitationDelivery>,
+    passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
+    passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
+    webauthn: Option<crate::auth::PasswordlessWebauthn>,
+    local_development_roster: Option<Arc<crate::course::LocalDevelopmentRosterDirectory>>,
+    health: Arc<HealthState>,
+) -> Router
+where
+    S: Store
+        + CatalogStore
+        + FlatQuestionStore
+        + FlatImportProvenanceStore
+        + CourseItemAnalysisStore
+        + ExportJobStore
+        + ManualGradingStore
+        + QtiImportApiStore
+        + QtiImportStore
+        + RetentionStore
+        + RetentionApiStore
+        + CourseRecordsAccessStore
+        + learning_data_access::CourseRosterStore
+        + learning_data_access::ManualGradeExportStore
+        + learning_data_access::AccountIdentityStore
+        + learning_data_access::AccountSessionStore
+        + SessionStore
+        + AssetStore
+        + CourseAppearanceStore
+        + AuthoritativeTimeStore
+        + 'static,
+    O: objects::ObjectStore + 'static,
+    C: PublicAssetUrlResolver + 'static,
+    B: BackendRegistry + RunBackend + 'static,
+    R: PublicReviewGate + 'static,
+{
     let mut router = Router::new()
         .route("/health", get(health_handler))
-        .merge(crate::auth::router(
-            identity_provider,
-            Arc::clone(&store),
-            session_config,
-        ))
         .merge(crate::auth::passwordless_router(
             Arc::clone(&store),
             passwordless_email_delivery,
@@ -114,11 +180,14 @@ where
             Arc::clone(&store),
             native_adapter,
         ))
-        .merge(crate::course::router_with_invitations(
-            Arc::clone(&store),
-            invitation_issuer,
-            invitation_delivery,
-        ))
+        .merge(
+            crate::course::router_with_invitations_and_local_development(
+                Arc::clone(&store),
+                invitation_issuer,
+                invitation_delivery,
+                local_development_roster,
+            ),
+        )
         .merge(crate::course_appearance::router(
             Arc::clone(&store),
             Arc::clone(&objects),

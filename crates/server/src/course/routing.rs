@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use super::assignments::{create_assignment, get_assignment, update_assignment};
 use super::queries::{create_course, get_course, list_assignments, list_courses, list_gradebook};
 use super::roster::{
-    CourseInvitationDelivery, CourseInvitationIssuer, UnavailableCourseInvitationDelivery,
-    roster_router,
+    CourseInvitationDelivery, CourseInvitationIssuer, LocalDevelopmentRosterDirectory,
+    UnavailableCourseInvitationDelivery, roster_router,
 };
 
 pub(super) const DEFAULT_PAGE_SIZE: u16 = 50;
@@ -30,10 +30,11 @@ where
         + SessionStore
         + 'static,
 {
-    router_with_invitations(
+    router_with_invitations_and_local_development(
         store,
         CourseInvitationIssuer::unavailable(),
         Arc::new(UnavailableCourseInvitationDelivery),
+        None,
     )
 }
 
@@ -44,6 +45,26 @@ pub fn router_with_invitations<S>(
     store: Arc<S>,
     issuer: CourseInvitationIssuer,
     delivery: Arc<dyn CourseInvitationDelivery>,
+) -> Router
+where
+    S: Store
+        + CatalogStore
+        + CourseRecordsAccessStore
+        + CourseRosterStore
+        + ManualGradeExportStore
+        + SessionStore
+        + 'static,
+{
+    router_with_invitations_and_local_development(store, issuer, delivery, None)
+}
+
+/// Builds the local-development-only course router. The caller can only
+/// construct its alias directory from the paired file-backed identity mode.
+pub(crate) fn router_with_invitations_and_local_development<S>(
+    store: Arc<S>,
+    issuer: CourseInvitationIssuer,
+    delivery: Arc<dyn CourseInvitationDelivery>,
+    local_development_roster: Option<Arc<LocalDevelopmentRosterDirectory>>,
 ) -> Router
 where
     S: Store
@@ -74,7 +95,12 @@ where
         .with_state(CourseRouteState {
             store: Arc::clone(&store),
         });
-    course_routes.merge(roster_router(store, issuer, delivery))
+    course_routes.merge(roster_router(
+        store,
+        issuer,
+        delivery,
+        local_development_roster,
+    ))
 }
 
 pub(super) struct CourseRouteState<S> {
@@ -99,6 +125,7 @@ pub(super) struct CourseQuery {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub(super) struct CreateCourseRequest {
     pub(super) title: String,
 }

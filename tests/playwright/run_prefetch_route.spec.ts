@@ -53,10 +53,25 @@ test.beforeAll(async () => {
         let runId = ids.run30;
         let active = { [ids.run30]: 0, [ids.run31]: 0 };
         let mode = window.__prefetchMode ?? "match";
+        let screenMode = "exact";
+        let submitted = false;
         const templateAttempt = publishedProblemFixture.attempts[0];
         const templateRun = publishedProblemFixture.runs[0];
         const makeRun = (id, number) => ({ ...templateRun, id, runNumber: number, completedAt: null, score: null });
-        const attempt = (run, position) => ({ ...templateAttempt, id: run === ids.run30 ? (position === 0 ? ids.a30 : ids.b30) : (position === 0 ? ids.a31 : ids.b31), run, assignmentPosition: position, seed: run === ids.run30 ? 30 + position : 130 + position, response: null, result: null, timer: { ...templateAttempt.timer, submittedAt: null } });
+        const attempt = (run, position) => ({ ...templateAttempt, id: run === ids.run30 ? (position === 0 ? ids.a30 : ids.b30) : (position === 0 ? ids.a31 : ids.b31), run, assignmentPosition: position, seed: run === ids.run30 ? 30 + position : 130 + position, response: null, result: null, timer: { ...templateAttempt.timer, submittedAt: null }, provenance: { ...templateAttempt.provenance, renderedQuestionSha256: hash(position === 0 ? "a" : "b") } });
+        const screenAttempt = () => {
+          const next = attempt(runId, active[runId]);
+          if (!submitted) return next;
+          if (screenMode === "same") return attempt(runId, 0);
+          if (screenMode === "wrongId") return { ...next, id: runId === ids.run30 ? ids.a30 : ids.a31 };
+          if (screenMode === "wrongRun") return { ...next, run: runId === ids.run30 ? ids.run31 : ids.run30 };
+          if (screenMode === "wrongPosition") return { ...next, assignmentPosition: 0 };
+          if (screenMode === "wrongVersion") return { ...next, questionVersion: "0198e000-0000-7000-8000-000000000799" };
+          if (screenMode === "wrongSeed") return { ...next, seed: next.seed + 1 };
+          if (screenMode === "wrongDeadline") return { ...next, timer: { ...next.timer, deadline: 99 } };
+          if (screenMode === "wrongHash") return { ...next, provenance: { ...next.provenance, renderedQuestionSha256: hash("c") } };
+          return next;
+        };
         const envelope = (value) => { const base = issuedEnvelopeForAttempt(value); return { ...base, title: "Position " + (value.assignmentPosition + 1) + " / " + value.run.slice(-3), prompt: value.assignmentPosition === 1 ? [...base.prompt, ...Array.from({length: 14}, (_, i) => ({ kind: "image", asset: { asset: "0198e000-0000-7000-8000-" + String(900 + i).padStart(12, "0"), checksum: hash("a") }, description: "Warm asset " + i }))] : base.prompt }; };
         const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
         const transport = async (input, init) => {
@@ -64,7 +79,7 @@ test.beforeAll(async () => {
           const url = new URL(request.url); const path = url.pathname; const method = request.method;
           requests.push({ method, path, runId, body: method === "GET" ? null : await request.clone().text(), aborted: request.signal.aborted });
           const currentRun = makeRun(runId, runId === ids.run30 ? 30 : 31);
-          const current = attempt(runId, active[runId]);
+          const current = screenAttempt();
           if (method === "GET" && path === "/api/runs/" + runId) return json(currentRun);
           if (method === "GET" && path === "/api/runs/" + runId + "/attempts") return json({ items: [current], nextCursor: null });
           if (method === "GET" && path === "/api/attempts/" + current.id + "/question") return json(envelope(current));
@@ -83,7 +98,7 @@ test.beforeAll(async () => {
             return json(value);
           }
           if (method === "POST" && path === "/api/submissions/" + current.id) {
-            const next = attempt(runId, 1); active[runId] = 1;
+            const next = attempt(runId, 1); active[runId] = 1; submitted = true;
             return json({ accepted: true, attempt: { ...current, response: { kind: "multipleChoice", selected: ["carbonyl"] } }, feedback: { correctness: true }, nextIssued: { id: next.id, run: next.run, questionVersion: next.questionVersion, seed: next.seed, deadline: null, assignmentPosition: 1, renderedQuestionSha256: hash("b") } });
           }
           if (method === "GET" && path.startsWith("/api/assets/")) return new Response("asset", { status: 200 });
@@ -91,10 +106,18 @@ test.beforeAll(async () => {
         };
         globalThis.fetch = transport;
         const client = createHttpApiClient({ fetch: transport });
+        const runtime = createApiRuntime(client);
+        let staleRunScreenQueryCalls = 0;
+        let rejectStaleRunScreenQuery = false;
+        runtime.queries.runScreen = async (requestedRunId) => {
+          if (!rejectStaleRunScreenQuery) return client.getRunScreen(requestedRunId);
+          staleRunScreenQueryCalls += 1;
+          throw new Error("Continue must not use the router run-screen query");
+        };
         const root = document.createElement("div"); root.id = "run-prefetch-fixture"; document.documentElement.append(root);
-        const mount = () => render(() => createComponent(ApiRuntimeProvider, { runtime: createApiRuntime(client), get children() { return createComponent(WasmRuntimeProvider, { formatFallback: async () => ({ violations: [] }), timerFallback: async () => "open", capabilityFallback: async () => [], get children() { return createComponent(RunPage, {}); } }); } }), root);
+        const mount = () => render(() => createComponent(ApiRuntimeProvider, { runtime, get children() { return createComponent(WasmRuntimeProvider, { formatFallback: async () => ({ violations: [] }), timerFallback: async () => "open", capabilityFallback: async () => [], get children() { return createComponent(RunPage, {}); } }); } }), root);
         let dispose = mount();
-        window.__prefetchFixture = { get runId() { return runId; }, requests: () => requests, setMode: (value) => { mode = value; }, switchRun: (next) => { dispose(); runId = next; active[next] = 0; mode = "match"; dispose = mount(); }, settleHeld: (run) => { const entry = held.get(run); if (!entry) return false; const next = entry.next; entry.resolve(json({ predecessor: run === ids.run30 ? ids.a30 : ids.a31, run: next.run, assignmentPosition: 1, questionVersion: next.questionVersion, seed: next.seed, renderedQuestionSha256: hash("b"), envelope: envelope(next) })); return entry.signal.aborted; }, ids };
+        window.__prefetchFixture = { get runId() { return runId; }, requests: () => requests, armStaleRunScreenQuery: () => { rejectStaleRunScreenQuery = true; }, staleRunScreenQueryCalls: () => staleRunScreenQueryCalls, setMode: (value) => { mode = value; }, setScreenMode: (value) => { screenMode = value; }, switchRun: (next) => { dispose(); runId = next; active[next] = 0; mode = "match"; screenMode = "exact"; submitted = false; dispose = mount(); }, settleHeld: (run) => { const entry = held.get(run); if (!entry) return false; const next = entry.next; entry.resolve(json({ predecessor: run === ids.run30 ? ids.a30 : ids.a31, run: next.run, assignmentPosition: 1, questionVersion: next.questionVersion, seed: next.seed, renderedQuestionSha256: hash("b"), envelope: envelope(next) })); return entry.signal.aborted; }, ids };
       `,
     },
     write: false,
@@ -111,7 +134,10 @@ interface PrefetchFixture {
   readonly runId: string;
   readonly ids: { readonly run30: string; readonly run31: string };
   readonly requests: () => ReadonlyArray<PrefetchRequest>;
+  readonly armStaleRunScreenQuery: () => void;
+  readonly staleRunScreenQueryCalls: () => number;
   readonly setMode: (mode: string) => void;
+  readonly setScreenMode: (mode: string) => void;
   readonly switchRun: (run: string) => void;
   readonly settleHeld: (run: string) => boolean;
 }
@@ -241,6 +267,72 @@ for (const mode of ["wrongRun", "wrongHash", "wrongVersion", "wrongSeed", "outag
     expect(
       evidence.filter((r) => r.path === "/api/runs/0198e000-0000-7000-8000-000000000730").length,
     ).toBeGreaterThan(1);
+  });
+}
+
+test("fallback reads the fresh client screen, not a stale router query", async ({ page }) => {
+  await mount(page, "outage");
+  await page.evaluate(() => window.__prefetchFixture.armStaleRunScreenQuery());
+  const initialRunScreenCalls = await page.evaluate(
+    () =>
+      window.__prefetchFixture
+        .requests()
+        .filter((request) => request.path === "/api/runs/0198e000-0000-7000-8000-000000000730")
+        .length,
+  );
+  await submitAndContinue(page);
+  await expect(
+    page.locator("#run-prefetch-fixture").getByRole("heading", { name: /Position 2/ }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => window.__prefetchFixture.staleRunScreenQueryCalls())).toBe(0);
+  expect(
+    await page.evaluate(
+      () =>
+        window.__prefetchFixture
+          .requests()
+          .filter((request) => request.path === "/api/runs/0198e000-0000-7000-8000-000000000730")
+          .length,
+    ),
+  ).toBe(initialRunScreenCalls + 1);
+});
+
+test("a distinct retry attempt resets choice entry while the active attempt keeps its selection", async ({
+  page,
+}) => {
+  await mount(page, "outage");
+  const root = page.locator("#run-prefetch-fixture");
+  const firstAttemptRadio = root.locator('input[type="radio"]').first();
+  await firstAttemptRadio.check();
+  await expect(firstAttemptRadio).toBeChecked();
+  await root.getByRole("button", { name: /submit answer/i }).click();
+  await root.getByRole("button", { name: "Continue" }).click();
+  const retryRadio = root.locator('input[type="radio"]').first();
+  await expect(retryRadio).not.toBeChecked();
+});
+
+for (const descriptor of [
+  "same",
+  "wrongId",
+  "wrongRun",
+  "wrongPosition",
+  "wrongVersion",
+  "wrongSeed",
+  "wrongDeadline",
+  "wrongHash",
+]) {
+  test(`a ${descriptor} fresh screen recovers without replacing the submitted attempt`, async ({
+    page,
+  }) => {
+    await mount(page, "outage");
+    await page.evaluate((nextMode) => window.__prefetchFixture.setScreenMode(nextMode), descriptor);
+    const root = page.locator("#run-prefetch-fixture");
+    const firstAttemptRadio = root.locator('input[type="radio"]').first();
+    await firstAttemptRadio.check();
+    await root.getByRole("button", { name: /submit answer/i }).click();
+    await root.getByRole("button", { name: "Continue" }).click();
+    await expect(root.getByRole("button", { name: "Retry next question" })).toBeVisible();
+    await expect(root.getByRole("heading", { name: /Position 1/ })).toBeVisible();
+    await expect(firstAttemptRadio).toBeChecked();
   });
 }
 

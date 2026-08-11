@@ -13,6 +13,7 @@ COMPOSE_PATH = REPO_ROOT / "containers" / "compose.yaml"
 CADDYFILE_PATH = REPO_ROOT / "containers" / "Caddyfile"
 GATEWAY_CONTAINERFILE_PATH = REPO_ROOT / "containers" / "Containerfile.gateway"
 ENV_EXAMPLE_PATH = REPO_ROOT / "containers" / "env.example"
+LAUNCHER_PATH = REPO_ROOT / "launch_local_stack.sh"
 
 
 #============================================
@@ -36,11 +37,19 @@ def test_api_replicas_have_no_host_port_and_gateway_is_the_only_listener() -> No
 	compose = COMPOSE_PATH.read_text()
 	api = _service_block(compose, "api")
 	gateway = _service_block(compose, "gateway")
+	worker = _service_block(compose, "worker")
+	renderer = _service_block(compose, "webwork-renderer")
 
 	assert not re.search(r"^    ports:", api, re.MULTILINE), (
 		"API replicas must stay internal; publish only the gateway."
 	)
-	assert '"127.0.0.1:${PLE_GATEWAY_HOST_PORT:-3000}:8080"' in gateway
+	assert not re.search(r"^    ports:", worker, re.MULTILINE), (
+		"Workers stay private; a host port is not a monitoring or control interface."
+	)
+	assert not re.search(r"^    ports:", renderer, re.MULTILINE), (
+		"The private renderer is reachable only through its internal service network."
+	)
+	assert '"127.0.0.1:${PLE_GATEWAY_HOST_PORT:-8080}:8080"' in gateway
 	assert ":8080\"" in gateway
 	assert "- gateway_api" in api
 	assert re.search(
@@ -132,9 +141,23 @@ def test_gateway_operator_inputs_are_documented_and_document_two_replica_startup
 		"Compose must clearly reject a missing immutable gateway image digest."
 	)
 	assert "PLE_GATEWAY_IMAGE_SHA256=" in env_example
-	assert "${PLE_GATEWAY_HOST_PORT:-3000}" in compose
-	assert "PLE_GATEWAY_HOST_PORT=3000" in env_example
+	assert "${PLE_GATEWAY_HOST_PORT:-8080}" in compose
+	assert "PLE_GATEWAY_HOST_PORT=8080" in env_example
 	assert "--scale api=2" in env_example
+
+
+#============================================
+def test_gateway_uses_the_public_8000_range_when_the_default_port_is_busy() -> None:
+	"""The local launcher records a loopback-friendly fallback without exposing private services."""
+	launcher = LAUNCHER_PATH.read_text()
+
+	assert 'inherited_gateway_port="${PLE_GATEWAY_HOST_PORT:-}"' in launcher
+	assert 'gateway_port="${inherited_gateway_port:-$configured_gateway_port}"' in launcher
+	assert 'gateway_port="${gateway_port:-8080}"' in launcher
+	assert 'candidate_port=8000' in launcher
+	assert 'while [ "$candidate_port" -le 8099 ]; do' in launcher
+	assert "no available local gateway port was found from 8000 through 8099" in launcher
+	assert 'write_env_value PLE_GATEWAY_HOST_PORT "$available_gateway_port"' in launcher
 
 
 #============================================

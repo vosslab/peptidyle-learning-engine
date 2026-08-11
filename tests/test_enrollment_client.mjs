@@ -9,6 +9,7 @@ import {
   decodeAccountCoursePage,
   decodeCourseInvitationAccepted,
   decodeCourseRosterPage,
+  decodeLocalDevelopmentMemberAccepted,
   decodeRosterImportPreview,
 } from "../src/api/enrollment.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
@@ -69,6 +70,7 @@ test("passwordless and roster decoders reject authority and secret fields", () =
         displayName: "Student",
         rosterEmail: "student@example.edu",
         rosterId: "900123456",
+        source: "invitation",
         role: "student",
         status: "active",
       },
@@ -84,6 +86,7 @@ test("passwordless and roster decoders reject authority and secret fields", () =
     ],
     allowedEmailDomains: [{ domain: "example.edu", includeSubdomains: false }],
     signupPosture: "invitationOnly",
+    localDevelopmentRoster: false,
     nextCursor: null,
     rosterRevision: 4,
   };
@@ -109,6 +112,55 @@ test("passwordless and roster decoders reject authority and secret fields", () =
   );
 });
 
+test("local-development roster enrollment stays capability-gated and alias-only", async () => {
+  const requests = [];
+  const client = createHttpApiClient({
+    fetch: (input, init = {}) => {
+      const url = new URL(String(input), "https://ple.example");
+      requests.push({ url, init });
+      if (!url.pathname.endsWith("/local-development-members")) {
+        throw new Error(`unexpected request ${url.pathname}`);
+      }
+      return Promise.resolve(
+        json(
+          {
+            member: {
+              memberId: "0198e000-0000-7000-8000-000000000602",
+              displayName: "Local student",
+              rosterEmail: null,
+              rosterId: null,
+              source: "localDevelopment",
+              role: "student",
+              status: "active",
+            },
+            rosterRevision: 5,
+          },
+          200,
+          { etag: '"5"' },
+        ),
+      );
+    },
+  });
+
+  const accepted = await client.addLocalDevelopmentMember(COURSE, "student-local");
+  assert.equal(accepted.member.displayName, "Local student");
+  assert.deepEqual(JSON.parse(requests[0]?.init.body), { learnerAlias: "student-local" });
+  assert.equal(requests[0]?.init.headers["content-type"], "application/json");
+  assert.equal(requests[0]?.init.credentials, "same-origin");
+  assert.equal(requests[0]?.init.cache, "no-store");
+  assert.throws(
+    () =>
+      decodeLocalDevelopmentMemberAccepted({
+        member: {
+          ...accepted.member,
+          email: "must-not-cross@example.edu",
+        },
+        rosterRevision: 5,
+      }),
+    /field allowed by this response contract/u,
+  );
+});
+
 test("account email change stays browser-bound and roster pagination uses the opaque cursor", async () => {
   const requests = [];
   const client = createHttpApiClient({
@@ -127,6 +179,7 @@ test("account email change stays browser-bound and roster pagination uses the op
             pendingInvitations: [],
             allowedEmailDomains: [],
             signupPosture: "invitationOnly",
+            localDevelopmentRoster: false,
             nextCursor: null,
             rosterRevision: 4,
           }),

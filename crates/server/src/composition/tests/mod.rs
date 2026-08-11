@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 use tower::ServiceExt;
 
 use super::router::{
-    HealthState, apply_e2e_replica_attribution, compose_router,
+    HealthState, apply_e2e_replica_attribution, compose_passwordless_router, compose_router,
     e2e_replica_attribution_from_values, postgres_schema_probe,
 };
 use super::settings::{
@@ -80,6 +80,10 @@ fn postgres_readiness_requires_exact_schema_compatibility() {
 }
 
 fn composed_memory_router() -> Router {
+    composed_memory_router_with_legacy_login(true)
+}
+
+fn composed_memory_router_with_legacy_login(legacy_login: bool) -> Router {
     let (store, grader) = MemoryStore::with_flat_question_grader();
     let store = Arc::new(store);
     let objects = Arc::new(MemoryObjectStore::default());
@@ -123,29 +127,113 @@ fn composed_memory_router() -> Router {
         }),
         content_bucket: "content".to_string(),
     });
-    compose_router(
-        store,
-        objects,
-        public_assets,
-        backends,
-        native_adapter,
-        Arc::new(TestIdentity),
-        Arc::new(TestReview),
-        session_config(),
-        crate::course::CourseInvitationIssuer::unavailable(),
-        Arc::new(crate::course::UnavailableCourseInvitationDelivery),
-        Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery),
-        crate::auth::PasswordlessRateLimitIssuer::unavailable(),
-        Some(
-            crate::auth::PasswordlessWebauthn::new(
-                "localhost",
-                "http://localhost:3000",
-                "PLE local test",
+    if legacy_login {
+        compose_router(
+            store,
+            objects,
+            public_assets,
+            backends,
+            native_adapter,
+            Arc::new(TestIdentity),
+            Arc::new(TestReview),
+            session_config(),
+            crate::course::CourseInvitationIssuer::unavailable(),
+            Arc::new(crate::course::UnavailableCourseInvitationDelivery),
+            Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery),
+            crate::auth::PasswordlessRateLimitIssuer::unavailable(),
+            Some(
+                crate::auth::PasswordlessWebauthn::new(
+                    "localhost",
+                    "http://localhost:3000",
+                    "PLE local test",
+                )
+                .expect("valid test WebAuthn configuration"),
+            ),
+            None,
+            health,
+        )
+    } else {
+        compose_passwordless_router(
+            store,
+            objects,
+            public_assets,
+            backends,
+            native_adapter,
+            Arc::new(TestReview),
+            session_config(),
+            crate::course::CourseInvitationIssuer::unavailable(),
+            Arc::new(crate::course::UnavailableCourseInvitationDelivery),
+            Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery),
+            crate::auth::PasswordlessRateLimitIssuer::unavailable(),
+            Some(
+                crate::auth::PasswordlessWebauthn::new(
+                    "localhost",
+                    "http://localhost:3000",
+                    "PLE local test",
+                )
+                .expect("valid test WebAuthn configuration"),
+            ),
+            None,
+            health,
+        )
+    }
+}
+
+#[test]
+fn production_session_config_uses_first_party_https() {
+    let config = super::backend::production_session_config();
+    assert_eq!(config.transport(), CookieTransport::FirstPartyHttps);
+    assert_eq!(config.lifetime().as_seconds(), 8 * 60 * 60);
+}
+
+#[tokio::test]
+async fn production_composition_has_passwordless_routes_without_local_login() {
+    let app = composed_memory_router_with_legacy_login(false);
+    for uri in [
+        "/api/auth/passwordless/email/start",
+        "/api/course-invitations/redeem",
+        "/api/auth/account/course-session",
+        "/api/auth/passkeys/authentication/start",
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(uri)
+                    .body(Body::from("{}"))
+                    .expect("production-style route request"),
             )
-            .expect("valid test WebAuthn configuration"),
-        ),
-        health,
-    )
+            .await
+            .expect("production-style route response");
+        assert_ne!(response.status(), StatusCode::NOT_FOUND, "{uri}");
+    }
+    let local_login = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/login")
+                .body(Body::from("{}"))
+                .expect("local login request"),
+        )
+        .await
+        .expect("local login response");
+    assert_eq!(local_login.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn local_composition_retains_legacy_login_route() {
+    let response = composed_memory_router()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/login")
+                .body(Body::from("{}"))
+                .expect("local login request"),
+        )
+        .await
+        .expect("local login response");
+    assert_ne!(response.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]
@@ -178,6 +266,7 @@ fn local_provider() -> LocalFileIdentityProvider {
             br#"{
                 "credentials": [{
                     "credential_sha256": "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd",
+                    "learner_alias": "student-local",
                     "tenant_id": "00000000-0000-0000-0000-000000000001",
                     "user_id": "00000000-0000-0000-0000-000000000002",
                     "display_name": "Local Student",
@@ -711,7 +800,7 @@ async fn local_provider_hashes_raw_bearer_bytes_not_base64url_spelling() {
         .collect::<String>();
     let encoded_provider = LocalFileIdentityProvider::from_json_bytes(
             format!(
-                r#"{{"credentials":[{{"credential_sha256":"{encoded_hash}","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Local Student","roles":["student"]}}]}}"#
+                r#"{{"credentials":[{{"credential_sha256":"{encoded_hash}","learner_alias":"student-local","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Local Student","roles":["student"]}}]}}"#
             )
             .as_bytes(),
         )
@@ -789,8 +878,8 @@ async fn local_provider_only_accepts_canonical_fixed_identity_login() {
 fn local_identity_file_rejects_invalid_records() {
     for invalid in [
             br#"{"credentials":[]}"#.as_slice(),
-            br#"{"credentials":[{"credential_sha256":"ABCDEF","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Student","roles":["student"]}]}"#.as_slice(),
-            br#"{"credentials":[{"credential_sha256":"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd","tenant_id":"00000000-0000-0000-0000-000000000000","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Student","roles":["student"]}]}"#.as_slice(),
+            br#"{"credentials":[{"credential_sha256":"ABCDEF","learner_alias":"student-local","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Student","roles":["student"]}]}"#.as_slice(),
+            br#"{"credentials":[{"credential_sha256":"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd","learner_alias":"student-local","tenant_id":"00000000-0000-0000-0000-000000000000","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Student","roles":["student"]}]}"#.as_slice(),
         ] {
             assert!(matches!(
                 LocalFileIdentityProvider::from_json_bytes(invalid),

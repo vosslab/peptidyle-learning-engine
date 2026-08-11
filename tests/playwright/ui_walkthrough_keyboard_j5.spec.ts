@@ -1,0 +1,145 @@
+// ui_walkthrough_keyboard_j5.spec.ts - J5 instructor gradebook through rendered keyboard controls.
+
+import { expect, test, type Page } from "@playwright/test";
+
+import { configuredUiWalkthroughInputs } from "../../playwright.config";
+
+import {
+  instructorGradebookLinkSelector,
+  passedJ5SummaryEvidence,
+} from "./simulator/instructor_gradebook_j5";
+import { j5V2Input } from "./simulator/j5_v2_handoff";
+import { tabTo, tabToTargetThroughVisiblePagination } from "./simulator/keyboard_walkthrough";
+import { closeThenAppendV2J5State } from "./simulator/v2_j5_j8_state";
+import { instructorCredentialFromValidatedFile } from "./ui_walkthrough_live_config";
+
+test.skip(
+  configuredUiWalkthroughInputs === undefined,
+  "requires the explicit UI walkthrough live-stack invocation",
+);
+
+interface J5VisibleAssignment {
+  readonly title: string;
+}
+
+async function signInAndOpenGradebook(page: Page): Promise<J5VisibleAssignment> {
+  const inputs = configuredUiWalkthroughInputs;
+  if (inputs === undefined)
+    throw new Error("the declaration-time live walkthrough skip did not apply");
+
+  await page.goto("/");
+  const credentialInput = page.getByLabel("Local development credential");
+  await tabTo(page, credentialInput);
+  await expect(credentialInput).toBeFocused();
+  await credentialInput.fill(instructorCredentialFromValidatedFile(inputs.credentialFile));
+  const signIn = page.getByRole("button", { name: "Sign in locally" });
+  await tabTo(page, signIn);
+  await expect(signIn).toBeFocused();
+  await page.keyboard.press("Enter");
+
+  const courseLink = page.locator(`a[href="/courses/${inputs.courseId}"]`);
+  await expect(courseLink).toHaveCount(1);
+  await tabTo(page, courseLink);
+  await expect(courseLink).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
+
+  const assignmentLink = page.locator(
+    `a[href="/courses/${inputs.courseId}/assignments/${inputs.masteryAssignmentId}"]`,
+  );
+  await tabToTargetThroughVisiblePagination(page, {
+    target: assignmentLink,
+    renderedItems: page.locator(".course-card"),
+    firstAppendedControl: (index) =>
+      page
+        .locator(".course-card")
+        .nth(index)
+        .getByRole("link", { name: "Review assignment", exact: true }),
+    itemName: "assignments",
+  });
+  await expect(assignmentLink).toHaveCount(1);
+  await expect(assignmentLink).toBeVisible();
+  const assignmentCard = assignmentLink.locator(
+    "xpath=ancestor::article[contains(@class, 'course-card')]",
+  );
+  const assignmentHeading = assignmentCard.getByRole("heading");
+  await expect(assignmentHeading).toHaveCount(1);
+  const title = (await assignmentHeading.innerText()).trim();
+  if (title === "") throw new Error("visible assignment card has no heading");
+
+  const gradebookLink = page.locator(instructorGradebookLinkSelector(inputs.courseId));
+  await expect(gradebookLink).toHaveCount(1);
+  await tabTo(page, gradebookLink);
+  await expect(gradebookLink).toBeFocused();
+  await page.keyboard.press("Enter");
+  return { title };
+}
+
+test("J5 instructor opens gradebook run history with the keyboard after learner activity", async ({
+  browser,
+}) => {
+  const inputs = configuredUiWalkthroughInputs;
+  if (inputs === undefined)
+    throw new Error("the declaration-time live walkthrough skip did not apply");
+  const startedAt = performance.now();
+  const context = await browser.newContext({ baseURL: inputs.baseUrl });
+  let evidence: ReturnType<typeof passedJ5SummaryEvidence> | undefined;
+  try {
+    const page = await context.newPage();
+    const assignment = await signInAndOpenGradebook(page);
+
+    await expect(page.locator("[data-route-surface=gradebook]")).toBeVisible();
+    const row = page
+      .getByRole("row")
+      .filter({ has: page.getByRole("rowheader", { name: assignment.title, exact: true }) });
+    const historyButton = row.getByRole("button", { name: "View run history", exact: true });
+    await tabToTargetThroughVisiblePagination(page, {
+      target: row,
+      keyboardTarget: historyButton,
+      renderedItems: page.locator(".gradebook-row"),
+      firstAppendedControl: (index) =>
+        page
+          .locator(".gradebook-row")
+          .nth(index)
+          .getByRole("button", { name: "View run history", exact: true }),
+      itemName: "gradebook records",
+    });
+    await expect(row).toHaveCount(1);
+    await expect(row).toBeVisible();
+    await expect(row.locator('td[data-label="Best"]')).toHaveText("100%");
+    await expect(row.locator('td[data-label="Latest"]')).toHaveText("100%");
+    await expect(row.locator('td[data-label="Completed"]')).toHaveText("2");
+    await expect(historyButton).toHaveCount(1);
+    await tabTo(page, historyButton);
+    await expect(historyButton).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(historyButton).toHaveAttribute("aria-expanded", "true");
+    const controls = await historyButton.getAttribute("aria-controls");
+    if (controls === null) throw new Error("visible gradebook history control has no target");
+    const runHistory = page.locator(`#${controls}`);
+    await expect(runHistory).toBeVisible();
+    const completedRuns = runHistory.locator(".run-history-list > li");
+    await expect(completedRuns).toHaveCount(2);
+    await expect(completedRuns.nth(0)).toHaveText(/^Run 1: Completed/u);
+    await expect(completedRuns.nth(1)).toHaveText(/^Run 2: Completed/u);
+
+    const publicIds = j5V2Input(inputs.courseId, inputs.masteryAssignmentId);
+    evidence = passedJ5SummaryEvidence(
+      publicIds.courseId,
+      publicIds.assignmentId,
+      Math.round(performance.now() - startedAt),
+    );
+    expect(evidence.visibleOutcomeCodes).toEqual([
+      "visible_gradebook",
+      "visible_score_summary",
+      "visible_two_run_history",
+    ]);
+  } finally {
+    if (evidence === undefined) {
+      await context.close();
+    } else {
+      await closeThenAppendV2J5State(inputs.journeyStateFile, evidence, () => context.close());
+    }
+  }
+  if (evidence === undefined) throw new Error("visible J5 evidence was not produced");
+});

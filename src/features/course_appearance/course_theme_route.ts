@@ -25,6 +25,9 @@ export function courseThemeRouteRequest(pathname: string): CourseThemeRouteReque
     }
   }
   if (segments[0] === "instructor" && segments[1] === "courses" && segments[2] !== undefined) {
+    if (segments.length === 5 && segments[3] === "assignments" && segments[4] === "new") {
+      return { kind: "course", courseId: segments[2] };
+    }
     if (segments.length === 4 && segments[3] === "gradebook") {
       return { kind: "course", courseId: segments[2] };
     }

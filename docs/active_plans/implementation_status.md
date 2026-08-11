@@ -1,6 +1,6 @@
 # Implementation status and handoff
 
-Last updated: 2026-08-10
+Last updated: 2026-08-11
 
 This file is a durable execution handoff. The architecture, scope, milestone order, security
 boundaries, and acceptance criteria remain authoritative in `implementation_plan.md`. Durable owner
@@ -294,6 +294,37 @@ are clean; and three independent reviewers reported no P0/P1/P2.
 
 ## Dependency-ordered remaining work
 
+### Current walkthrough disposition
+
+- The repository owner corrected the binding walkthrough charter on
+  2026-08-11. Overall acceptance now requires visible instructor course
+  creation, active local-student roster addition, and corpus-backed assignment
+  creation before the student keyboard take/score/repeat loop. Email and
+  canonical onboarding are intentionally outside this walkthrough.
+- The earlier M5 learner slice remains accepted evidence: visible native
+  keyboard pagination traverses retained assignment and gradebook pages, and
+  manager plus independent
+  `bash tests/e2e/e2e_ui_walkthrough.sh --master-seed 42 --build` runs passed
+  J1, J2, J3, J4, J5, and J8 with empty diagnostics. It used an API-arranged
+  assignment in a seeded course, so it is not final evidence for the corrected
+  instructor setup charter.
+- The private report directory/file were mode 0700/0600 and redacted; runner
+  no-volume cleanup left no private temporary state or containers. The cursor
+  session uses opaque cursors, retry, deduplication, and fail-closed protocol
+  handling; native `target="_self"` fragment links enter named
+  `tabindex="-1"` regions, then Tab reaches visible actions. The route
+  lifecycle guard prevents delayed course A responses from changing course B.
+- MemoryStore alone has generic 51-record pagination conformance; live
+  PostgreSQL is not claimed. The corrected charter is now in M8-M11 of the
+  active walkthrough plan. Its known product gaps are the missing visible
+  course-creation form, local-only active roster seam, and visible
+  new-assignment entry path.
+- WP-G1, the schema-v1 WP-G2 baseline, G3 documentation, and the prior final
+  review remain accepted historical evidence for the narrower learner slice.
+  They are superseded as final acceptance artifacts until schema v2 walks the
+  corrected instructor-to-student sequence. WP-RC8 email/account acceptance
+  remains separate release work and does not block this walkthrough.
+
 ### Current package order
 
 The complete sequence is authoritative in
@@ -324,13 +355,14 @@ The complete sequence is authoritative in
 5. WP-RC8 has implemented the generic passwordless/account, copy-link/optional-SMTP enrollment,
    course-roster metadata, bulk-import, and manual-grade-export routes with acceptance open.
    Migration `2026080909_passwordless_identity.sql` has passed the disposable PostgreSQL baseline.
-   The production composition still constructs local-file development authentication, so it cannot
-   yet compose the canonical PLE email-account entry path. Wiring the generic account provider into
-   production is a repository code task, not an external email-provider prerequisite. The opt-in
+   Production now composes the provider-free PLE passwordless/account/session route graph with an
+   eight-hour `FirstPartyHttps` policy and explicit `ReviewNotRequired`; it neither reads local
+   identity settings nor mounts `/api/auth/login`. The separate local launcher preserves the
+   local-file provider only when the exact development flag selects it. The opt-in
    external-provider overlay supports authenticated STARTTLS or implicit TLS and mounts only a
-   copied mode-0600 credential file; it adds no mail service. After production account-provider
-   composition, a live provider send, optional-passkey and multi-replica evidence, and independent
-   security/HCI closeout remain before acceptance; WP-RC4 resumes after that closeout. Email
+   copied mode-0600 credential file; it adds no mail service. A live provider send,
+   optional-passkey and multi-replica evidence, and independent security/HCI closeout remain before
+   acceptance; WP-RC4 resumes after that closeout. Email
    authentication is the canonical account path; no manager-assisted account merge or
    educational-record transfer is a version 1 dependency.
 6. WP-RC4's PLE flat JSON v2 implementation now covers the eight source/runtime families and awaits
@@ -344,15 +376,15 @@ The complete sequence is authoritative in
    RPC, and deletes replay state on successful or terminal submission. WP-P1 through WP-P6 remain
    unaccepted until the compact public cutover, missing-row self-heal, live PostgreSQL/renderer
    traces, browser recovery, measurements, and independent reviews pass.
-7. After WP-RC8 migration 0909, WP-RC7 adds bounded inventory, object reconciliation,
+8. After WP-RC8 migration 0909, WP-RC7 adds bounded inventory, object reconciliation,
    `2026080910_object_reconciliation.sql`, and the combined M2-M5 acceptance gate.
-8. WP-RC9 implements LTI Advantage with `2026080911_lti_advantage.sql`.
-9. WP-FU1 through WP-FU6 implement the server-issued learner file-upload capability in
-   `docs/active_plans/active/secure_learner_file_upload_plan.md`, including
-   `2026080912_secure_learner_uploads.sql`, after object reconciliation and before production
-   deployment.
-10. WP-RC10 adds OpenTofu under `deploy/opentofu/`; WP-RC11 adds the measured bot-cost controls.
-11. WP-RC12 runs working-codebase release acceptance and documentation closure after WP-ARCH1 and
+9. WP-RC9 implements LTI Advantage with `2026080911_lti_advantage.sql`.
+10. WP-FU1 through WP-FU6 implement the server-issued learner file-upload capability in
+    `docs/active_plans/active/secure_learner_file_upload_plan.md`, including
+    `2026080912_secure_learner_uploads.sql`, after object reconciliation and before production
+    deployment.
+11. WP-RC10 adds OpenTofu under `deploy/opentofu/`; WP-RC11 adds the measured bot-cost controls.
+12. WP-RC12 runs working-codebase release acceptance and documentation closure after WP-ARCH1 and
     the secure upload packages.
 
 The accepted pre-data schema evolution is complete. SQLx owns the directory-backed migration ledger,
@@ -360,8 +392,9 @@ and `2026080907_course_appearance.sql` is the first forward migration. Migration
 `2026080908_secure_question_grading_payloads.sql` and `2026080909_passwordless_identity.sql` are
 present with package acceptance open. The release plan reserves
 `2026080910_object_reconciliation.sql`, `2026080911_lti_advantage.sql`, and
-`2026080912_secure_learner_uploads.sql`; accepted filenames are
-not renamed or reordered.
+`2026080912_secure_learner_uploads.sql`. The corrected local walkthrough then reserves
+`2026080913_local_development_roster.sql` for its explicit local-only roster source. Accepted
+filenames are not renamed or reordered.
 
 ### Immediate package: WP-RC8 production account-provider composition and acceptance closeout
 
@@ -369,12 +402,12 @@ not renamed or reordered.
   registration/sign-in and verified email replacement; discoverable WebAuthn and multiple passkeys;
   invitation, roster, exact-domain, atomic membership/enrollment, bounded CSV, and manual no-store
   grade-export contracts in [ENROLLMENT_DESIGN.md](../ENROLLMENT_DESIGN.md).
-- Required code task: make `production_router_from_env` compose the PLE email account provider
-  instead of `local_development_authentication_from_env`, so a production deployment can enter the
-  canonical account/session flow. This preserves PLE-owned global accounts, canonical email
-  authentication, optional passkeys, optional SSO linking, and the decision not to operate a PLE
-  mail server.
-- Remaining acceptance after that composition: canonical email authentication through the later
+- Completed repository code task: `production_router_from_env` composes the provider-free PLE
+  passwordless/account/session graph with an eight-hour `FirstPartyHttps` policy and explicit
+  `ReviewNotRequired`. It does not read local-authentication settings or mount
+  `/api/auth/login`; the explicit local launcher remains available only through the exact
+  development flag.
+- Remaining acceptance: canonical email authentication through the later
   operator-selected provider with an optional passkey, multi-replica login/claim and export, and
   independent security/HCI review. Email possession authenticates only the account already bound to
   that email; it never transfers another account's `StudentId` or records.

@@ -1,6 +1,8 @@
 // Instructor course-level roster, invitation, import, policy, and manual export workflow.
 
+import { A } from "@solidjs/router";
 import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js";
+import { ApiRequestError } from "../api/http_client/error";
 import { useParams } from "@solidjs/router";
 
 import type { AssignmentSummary } from "../api/contracts";
@@ -78,6 +80,8 @@ export function CourseRosterPage(): JSX.Element {
   const [state, setState] = createSignal<RosterState>({ kind: "loading" });
   const [email, setEmail] = createSignal("");
   const [rosterId, setRosterId] = createSignal("");
+  const [learnerAlias, setLearnerAlias] = createSignal("");
+  const [activatedMemberId, setActivatedMemberId] = createSignal<string | null>(null);
   const [policyDomains, setPolicyDomains] = createSignal("");
   const [signupPosture, setSignupPosture] = createSignal<"invitationOnly" | "permittedDomains">(
     "invitationOnly",
@@ -157,6 +161,29 @@ export function CourseRosterPage(): JSX.Element {
       await load();
     } catch {
       setError("The invitation could not be sent. Check the email, roster ID, and course policy.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addLocalDevelopmentMember(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    const current = ready();
+    if (courseId === undefined || current === null || !current.roster.localDevelopmentRoster)
+      return;
+    setBusy(true);
+    setError(null);
+    try {
+      const accepted = await runtime.client.addLocalDevelopmentMember(courseId, learnerAlias());
+      setActivatedMemberId(accepted.member.memberId);
+      await load();
+      setAnnouncement(`${accepted.member.displayName} is now an active student in this course.`);
+    } catch (caught) {
+      setError(
+        caught instanceof ApiRequestError && caught.status === 404
+          ? "That configured learner alias was not recognized. Check the alias and try again."
+          : "The local pilot roster is unavailable. Your learner alias is still entered; try again when it is ready.",
+      );
     } finally {
       setBusy(false);
     }
@@ -358,6 +385,9 @@ export function CourseRosterPage(): JSX.Element {
         Invite learners, review pending addresses, import a roster, and export grades by the
         course-scoped institutional ID.
       </p>
+      <A class="quiet-link" href={`/courses/${courseId ?? ""}`}>
+        Back to course
+      </A>
       <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {announcement()}
       </p>
@@ -388,6 +418,34 @@ export function CourseRosterPage(): JSX.Element {
         {(current) => (
           <>
             <div class="roster-workflow-grid">
+              <Show when={current().roster.localDevelopmentRoster}>
+                <form
+                  class="auth-panel auth-form"
+                  onSubmit={(event) => void addLocalDevelopmentMember(event)}
+                >
+                  <h2>Add local development student</h2>
+                  <label for="local-development-learner-alias">Configured learner alias</label>
+                  <input
+                    id="local-development-learner-alias"
+                    type="text"
+                    autocomplete="off"
+                    inputmode="text"
+                    maxlength={128}
+                    required
+                    value={learnerAlias()}
+                    onInput={(event) => setLearnerAlias(event.currentTarget.value)}
+                    aria-describedby="local-development-learner-alias-help"
+                  />
+                  <p id="local-development-learner-alias-help" class="field-help">
+                    This local-only control adds the configured student without email or account
+                    onboarding.
+                  </p>
+                  <button class="primary-action" type="submit" disabled={busy()}>
+                    Add active student
+                  </button>
+                </form>
+              </Show>
+
               <form class="auth-panel auth-form" onSubmit={(event) => void invite(event)}>
                 <h2>Invite one student</h2>
                 <label for="roster-email">Institutional email</label>
@@ -562,12 +620,27 @@ export function CourseRosterPage(): JSX.Element {
                     <tbody>
                       <For each={current().roster.members}>
                         {(member) => (
-                          <tr>
+                          <tr
+                            tabindex={member.memberId === activatedMemberId() ? -1 : undefined}
+                            ref={(element) => {
+                              if (member.memberId === activatedMemberId())
+                                queueMicrotask(() => element.focus());
+                            }}
+                          >
                             <th scope="row">{member.displayName}</th>
-                            <td>{member.rosterEmail ?? "Legacy record"}</td>
+                            <td>
+                              {member.rosterEmail ??
+                                (member.source === "localDevelopment"
+                                  ? "Local pilot"
+                                  : "Legacy record")}
+                            </td>
                             <td>
                               {member.rosterId === null ? (
-                                "Legacy record"
+                                member.source === "localDevelopment" ? (
+                                  "Local pilot"
+                                ) : (
+                                  "Legacy record"
+                                )
                               ) : (
                                 <code>{member.rosterId}</code>
                               )}

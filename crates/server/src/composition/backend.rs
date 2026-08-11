@@ -1,15 +1,11 @@
 //! Concrete production storage and grading backend assembly.
 
-use super::router::{HealthState, compose_router, verify_application_schema_bounded};
+use super::router::{HealthState, compose_passwordless_router, verify_application_schema_bounded};
 use super::settings::{LazyStorageDependencies, ProductionSettings};
 use super::*;
 
 /// Concrete dependency construction for the future institution adapter.
 /// It contains only replica-safe backends.
-// Until an institution adapter implements `IdentityProvider`, the normal
-// binary intentionally fails before it can call `router`. These fields remain
-// available for that adapter and the route-level integration boundary.
-#[allow(dead_code)]
 pub(super) struct PersistentDependencies {
     store: Arc<PostgresStore>,
     /// This capability is retained only for server-owned grading backends.
@@ -40,7 +36,6 @@ pub(super) struct ConfiguredImathas {
     pub(super) aead: Arc<LaunchStateAead>,
 }
 
-#[allow(dead_code)]
 impl PersistentDependencies {
     pub(super) async fn from_env() -> Result<Self> {
         let settings = ProductionSettings::from_env()?;
@@ -148,18 +143,32 @@ impl PersistentDependencies {
         })
     }
 
-    /// Composes every production route group after trusted institution-owned
-    /// dependencies have been supplied.  Neither generic route state nor this
-    /// root stores educational records in the process.
-    fn router<P, R>(
+    /// Composes the production route graph with PLE-owned account identity.
+    ///
+    /// The direct passwordless routes own account sessions and tenant-session
+    /// selection, so this graph intentionally has no provider-backed legacy
+    /// `/api/auth/login` route and does not inspect local-development setup.
+    pub(super) fn production_router(&self) -> Router {
+        self.passwordless_router(
+            Arc::new(crate::catalog::ReviewNotRequired),
+            production_session_config(),
+        )
+    }
+
+    fn passwordless_router<R>(&self, review_gate: Arc<R>, session_config: SessionConfig) -> Router
+    where
+        R: PublicReviewGate + 'static,
+    {
+        self.passwordless_router_with_local(review_gate, session_config, None)
+    }
+
+    fn passwordless_router_with_local<R>(
         &self,
-        identity_provider: Arc<P>,
         review_gate: Arc<R>,
         session_config: SessionConfig,
+        local_development_roster: Option<Arc<crate::course::LocalDevelopmentRosterDirectory>>,
     ) -> Router
     where
-        P: IdentityProvider + 'static,
-        P::Presentation: serde::de::DeserializeOwned + Send + Sync + 'static,
         R: PublicReviewGate + 'static,
     {
         let native_adapter = Arc::new(adapter_native::NativeAdapter::new());
@@ -192,13 +201,12 @@ impl PersistentDependencies {
             backends = backends.with_qti(qti.clone());
         }
         let backends = Arc::new(backends);
-        let mut router = compose_router(
+        let mut router = compose_passwordless_router(
             Arc::clone(&self.store),
             Arc::clone(&self.objects),
             Arc::clone(&self.public_assets),
             Arc::clone(&backends),
             native_adapter,
-            identity_provider,
             review_gate,
             session_config,
             self.invitation_issuer.clone(),
@@ -206,6 +214,7 @@ impl PersistentDependencies {
             Arc::clone(&self.passwordless_email_delivery),
             self.passwordless_rate_limit_issuer.clone(),
             Some(self.webauthn.clone()),
+            local_development_roster,
             Arc::clone(&self.health),
         );
         if let Some(imathas) = &self.imathas {
@@ -226,10 +235,23 @@ impl PersistentDependencies {
     where
         R: PublicReviewGate + 'static,
     {
-        self.router(
-            local_authentication.provider,
+        self.passwordless_router_with_local(
             review_gate,
             local_authentication.session_config,
+            Some(local_authentication.roster_directory),
         )
+        .merge(crate::auth::router(
+            local_authentication.provider,
+            Arc::clone(&self.store),
+            local_authentication.session_config,
+        ))
     }
+}
+
+pub(super) fn production_session_config() -> SessionConfig {
+    SessionConfig::new(
+        learning_data_access::SessionLifetime::from_seconds(8 * 60 * 60)
+            .expect("eight-hour production session lifetime is positive"),
+        crate::auth::CookieTransport::FirstPartyHttps,
+    )
 }

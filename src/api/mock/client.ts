@@ -3,6 +3,7 @@
 import { publishedProblemFixture } from "../../../generated/fixtures/published_problem";
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { CourseId } from "../../../generated/api/CourseId";
+import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
 import type { CourseAppearanceUpdate } from "../../../generated/api/CourseAppearanceUpdate";
 import type { CourseBannerCandidateReceipt } from "../../../generated/api/CourseBannerCandidateReceipt";
@@ -35,6 +36,7 @@ import {
   decodeCatalogSearchPage,
   decodeCourseAppearance,
   decodeCourseBannerCandidateReceipt,
+  decodeCourseCreateInput,
   decodeAssignmentCapabilityViolations,
   decodeAssignmentEditorDetail,
   decodeAssignmentEditorInput,
@@ -47,6 +49,7 @@ import type {
   AssignmentEditorDetail,
   AssignmentEditorInput,
   AuthSession,
+  CourseCreateInput,
   CursorPage,
   EnrollmentView,
   ExternalToolLaunch,
@@ -506,6 +509,14 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
       } satisfies CursorPage<(typeof publishedProblemFixture)["course"]>;
       const suffix = cursor === undefined ? "" : `?cursor=${encodeURIComponent(cursor)}`;
       return expectSerialized(mockFetch(`/api/courses${suffix}`), expected);
+    },
+    createCourse: (input: CourseCreateInput) => {
+      const course = {
+        ...publishedProblemFixture.course,
+        title: decodeCourseCreateInput(input, "request").title,
+        role: "instructor",
+      } satisfies CourseSummary;
+      return Promise.resolve(course);
     },
     getCourse: (courseId: CourseId) => {
       const expected =

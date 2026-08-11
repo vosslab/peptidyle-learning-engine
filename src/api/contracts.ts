@@ -68,6 +68,11 @@ export interface AssignmentEditorInput {
   readonly policies: RunPolicies;
 }
 
+/** The deliberately small public request accepted when an instructor creates a course. */
+export interface CourseCreateInput {
+  readonly title: string;
+}
+
 /** One server-derived capability conflict for a selected immutable version. */
 export interface AssignmentCapabilityViolation {
   readonly title: string;

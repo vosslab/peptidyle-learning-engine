@@ -226,6 +226,12 @@ PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --featu
 	postgres_enrollment_capability_is_locked_unique_and_role_separated \
 	-- --ignored --exact --test-threads=1
 
+echo "database baseline E2E: local-development roster activation"
+PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_enrollment_live \
+	postgres_local_development_activation_is_atomic_idempotent_and_tenant_scoped \
+	-- --ignored --exact --test-threads=1
+
 echo "database baseline E2E: family-filtered concurrent worker claims"
 PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_worker_filter_live \

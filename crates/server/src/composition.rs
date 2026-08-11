@@ -70,14 +70,25 @@ pub(super) use adapter_imathas::{CorrelationIssuer, ImathasAdapter, SupportedPro
 pub(super) use adapter_webwork::renderer_contract::RendererIdentity;
 pub(super) use adapter_webwork::{HttpWebworkRenderer, HttpWebworkRendererConfig, WebworkAdapter};
 
-/// Builds the actual application router from explicit startup settings.
+/// Builds the actual production application router from explicit startup
+/// settings.
 ///
-/// An institution OIDC implementation remains required for deployments. The
-/// sole startable pre-deployment mode is `PLE_AUTH_PROVIDER=local-file`; it is
-/// intentionally fail-closed unless an operator also enables local development
-/// and supplies the untracked identity file. It never accepts identities from
-/// request headers, query strings, or browser-provided roles.
+/// Production enters PLE-owned passwordless account authentication directly.
+/// It does not read the local-file identity provider or expose its legacy
+/// provider-backed login route. The local launcher remains separately paired
+/// with explicit development-only configuration.
 pub async fn production_router_from_env() -> Result<Router> {
+    let persistent = PersistentDependencies::from_env().await?;
+    Ok(persistent.production_router())
+}
+
+/// Builds the explicitly opted-in local-development router.
+///
+/// This is intentionally separate from [`production_router_from_env`] so the
+/// production entry point cannot load the file-backed bearer identity scheme.
+/// It remains available for local fixture work only and keeps plain-HTTP
+/// cookies and public-publication denial coupled to that mode.
+pub async fn local_development_router_from_env() -> Result<Router> {
     let persistent = PersistentDependencies::from_env().await?;
     let local_authentication = local_development_authentication_from_env()?;
     Ok(persistent

@@ -1,5 +1,6 @@
 // assignment_editor_page.tsx - role-gated instructor controls for one revisioned assignment.
 
+import { A } from "@solidjs/router";
 import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
@@ -8,11 +9,16 @@ import type { ProblemVersionRef } from "../../generated/api/ProblemVersionRef";
 import type { RunPolicies } from "../../generated/api/RunPolicies";
 import type { TenantId } from "../../generated/api/TenantId";
 import type { AssignmentCapabilityViolation, AssignmentEditorDetail } from "../api/contracts";
-import { AssignmentConflictError, AssignmentValidationError } from "../api/http_client";
+import {
+  ApiRequestError,
+  AssignmentConflictError,
+  AssignmentValidationError,
+} from "../api/http_client";
 import {
   addCatalogReference,
   assignmentInput,
   capabilityLabel,
+  createMasteryAssignmentDraft,
   moveCatalogReference,
   removeCatalogReference,
   sameReference,
@@ -72,10 +78,13 @@ function variationPolicy(value: string): RunPolicies["variation"] {
   }
 }
 
+export type AssignmentEditorMode =
+  { readonly kind: "edit"; readonly assignmentId: AssignmentId } | { readonly kind: "create" };
+
 export interface AssignmentEditorPageProps {
   readonly repository: AssignmentEditorRepository;
   readonly courseId: CourseId;
-  readonly assignmentId: AssignmentId;
+  readonly mode: AssignmentEditorMode;
   /** Session-derived tenant used only to reject a hostile cross-tenant response. */
   readonly tenant: TenantId;
 }
@@ -91,6 +100,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
   const [saving, setSaving] = createSignal(false);
   const [saveMessage, setSaveMessage] = createSignal("");
   const [conflict, setConflict] = createSignal(false);
+  const [created, setCreated] = createSignal<AssignmentEditorDetail | null>(null);
   const [violations, setViolations] = createSignal<ReadonlyArray<AssignmentCapabilityViolation>>(
     [],
   );
@@ -124,14 +134,23 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
   }
 
   async function load(): Promise<void> {
+    if (props.mode.kind === "create") {
+      setState({ kind: "ready", draft: createMasteryAssignmentDraft(props.courseId) });
+      setSaveMessage("Choose a title and published problem versions.");
+      setConflict(false);
+      setViolations([]);
+      setCreated(null);
+      queueMicrotask(() => titleInput?.focus());
+      return;
+    }
     setState({ kind: "loading" });
     setSaveMessage("");
     setConflict(false);
     setViolations([]);
     try {
-      const detail = await props.repository.load(props.assignmentId);
+      const detail = await props.repository.load(props.mode.assignmentId);
       if (
-        detail.id !== props.assignmentId ||
+        detail.id !== props.mode.assignmentId ||
         detail.courseId !== props.courseId ||
         detail.tenant !== props.tenant
       ) {
@@ -170,21 +189,29 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
     setConflict(false);
     setViolations([]);
     try {
-      const saved = await props.repository.save(
-        props.courseId,
-        props.assignmentId,
-        assignmentInput(current.draft),
-        current.draft.revision,
-      );
+      const saved =
+        props.mode.kind === "create"
+          ? await props.repository.create(props.courseId, assignmentInput(current.draft))
+          : await props.repository.save(
+              props.courseId,
+              props.mode.assignmentId,
+              assignmentInput(current.draft),
+              current.draft.revision,
+            );
       if (
-        saved.id !== props.assignmentId ||
+        (props.mode.kind === "edit" && saved.id !== props.mode.assignmentId) ||
         saved.courseId !== props.courseId ||
         saved.tenant !== props.tenant
       ) {
         throw new Error("The assignment editor received an unrelated saved record.");
       }
       setState({ kind: "ready", draft: editorDraft(saved) });
-      setSaveMessage("Assignment saved.");
+      if (props.mode.kind === "create") {
+        setCreated(saved);
+        setSaveMessage("Assignment created. Open it to review the student-facing course link.");
+      } else {
+        setSaveMessage("Assignment saved.");
+      }
     } catch (error: unknown) {
       if (error instanceof AssignmentValidationError) {
         setViolations(error.violations);
@@ -192,9 +219,23 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
         queueMicrotask(() => violationHeading?.focus());
       } else if (error instanceof AssignmentConflictError) {
         setConflict(true);
-        setSaveMessage("A newer assignment revision exists. Your edits are still here.");
+        setSaveMessage(
+          props.mode.kind === "create"
+            ? "The course changed before this assignment was created. Your work is still here."
+            : "A newer assignment revision exists. Your edits are still here.",
+        );
+      } else if (error instanceof ApiRequestError && error.status === 403) {
+        setSaveMessage(
+          "You no longer have permission to create this assignment. Your work is still here.",
+        );
+      } else if (error instanceof ApiRequestError && error.status === 409) {
+        setSaveMessage(
+          "The course changed before this assignment was created. Your work is still here.",
+        );
       } else {
-        setSaveMessage(`${errorMessage(error, "Assignment could not save.")} Try again.`);
+        setSaveMessage(
+          `${errorMessage(error, "Assignment could not be saved.")} Your work is still here. Try again.`,
+        );
       }
     } finally {
       setSaving(false);
@@ -212,6 +253,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
     return (
       saving() ||
       current === undefined ||
+      (props.mode.kind === "create" && created() !== null) ||
       current.draft.title.trim().length === 0 ||
       current.draft.problems.length === 0
     );
@@ -232,7 +274,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
     >
       <style>{ASSIGNMENT_EDITOR_STYLES}</style>
       <p class="eyebrow">Instructor course design</p>
-      <h1>Assignment editor</h1>
+      <h1>{props.mode.kind === "create" ? "Create assignment" : "Assignment editor"}</h1>
       <p class="page-lede">
         Choose published, immutable question versions and set the four run policies. Workspace
         drafts must be published first before they can be added here.
@@ -261,6 +303,20 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
       <Show when={ready()}>
         {(current) => (
           <>
+            <Show when={created()} keyed>
+              {(assignment) => (
+                <section class="success-state" role="status">
+                  <h2>Assignment created</h2>
+                  <p>{assignment.title} now appears in this course.</p>
+                  <A
+                    class="primary-link"
+                    href={`/courses/${assignment.courseId}/assignments/${assignment.id}`}
+                  >
+                    Open {assignment.title}
+                  </A>
+                </section>
+              )}
+            </Show>
             <Show when={violations().length > 0}>
               <section
                 class="assignment-editor-violations"
@@ -290,10 +346,16 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
             </Show>
             <Show when={conflict()}>
               <section class="inline-error" role="alert">
-                <p>A newer assignment revision exists. Your unsaved changes are still visible.</p>
-                <button class="quiet-action" type="button" onClick={() => void load()}>
-                  Reload newest assignment
-                </button>
+                <p>
+                  {props.mode.kind === "create"
+                    ? "The course changed before this assignment was created. Your work is still visible."
+                    : "A newer assignment revision exists. Your unsaved changes are still visible."}
+                </p>
+                <Show when={props.mode.kind === "edit"}>
+                  <button class="quiet-action" type="button" onClick={() => void load()}>
+                    Reload newest assignment
+                  </button>
+                </Show>
               </section>
             </Show>
             <div class="assignment-editor-grid">
@@ -326,7 +388,10 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                       {(reference, index) => (
                         <li class="assignment-editor-row">
                           <h3>{titleFor(reference)}</h3>
-                          <p>
+                          <p
+                            data-problem-id={reference.problem}
+                            data-version-id={reference.version}
+                          >
                             {reference.problem} / {reference.version}
                           </p>
                           <Show
@@ -547,7 +612,10 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                     {(row) => (
                       <article class="assignment-editor-row">
                         <h3>{row.title}</h3>
-                        <p>
+                        <p
+                          data-problem-id={row.reference.problem}
+                          data-version-id={row.reference.version}
+                        >
                           {row.reference.problem} / {row.reference.version}
                         </p>
                         <button
@@ -571,7 +639,13 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                 disabled={saveDisabled()}
                 onClick={() => void save()}
               >
-                {saving() ? "Saving assignment..." : "Save assignment"}
+                {saving()
+                  ? props.mode.kind === "create"
+                    ? "Creating assignment..."
+                    : "Saving assignment..."
+                  : props.mode.kind === "create"
+                    ? "Create assignment"
+                    : "Save assignment"}
               </button>
               <Show
                 when={

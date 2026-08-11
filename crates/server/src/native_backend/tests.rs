@@ -1,10 +1,15 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
+use axum::Router;
+use axum::body::{Body, to_bytes};
+use axum::http::{HeaderValue, Request, StatusCode};
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
-    AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, CatalogStore, DraftRecord,
-    FlatQuestionGradingPayload, FlatQuestionPublicationPromotion, FlatQuestionStore,
-    PublishDraftCommand, PublishedSourceArtifact, Store, UpsertFlatQuestionCommand,
+    AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssignmentRecord, CatalogStore,
+    CourseRecord, DraftRecord, FlatQuestionGradingPayload, FlatQuestionPublicationPromotion,
+    FlatQuestionStore, PublishDraftCommand, PublishedSourceArtifact, SessionLifetime,
+    SessionSubject, Store, UpsertFlatQuestionCommand,
 };
 use objects::{ObjectKey, ObjectRecord, Sha256Digest};
 use question_model::answer::SelectionCardinality;
@@ -12,13 +17,19 @@ use question_model::capability::Capability;
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::generation::{GeneratorReference, ParameterSpec, RandomizationDefinition};
 use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
-use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::{
+    AttemptPolicy, CompletionRequirement, ContinuedPractice, FeedbackDisclosure, GradePolicy,
+    RunPolicies, TimingPolicy, VariationPolicy,
+};
 use question_model::taxonomy::License;
 use question_model::{
-    ActivityTimestamp, AssetId, BackendCapabilities, DraftQuestionDefinition, DraftQuestionSource,
-    GradingDefinition, ProblemId, QuestionAttemptId, QuestionBackend, QuestionMetadata,
-    QuestionSource, RunId, TenantId, UserId, VersionId, WorkspaceId,
+    ActivityTimestamp, AssetId, AssignmentEnrollment, AssignmentId, AssignmentItem,
+    AssignmentItemId, BackendCapabilities, CourseId, CourseMembership, CourseMembershipRole,
+    DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, PointValue, ProblemId,
+    QuestionAttemptId, QuestionBackend, QuestionMetadata, QuestionSource, RunId, StudentId,
+    TenantId, UserId, UserRole, VersionId, WorkspaceId,
 };
+use tower::ServiceExt;
 use uuid::Uuid;
 
 use super::*;
@@ -123,8 +134,8 @@ const FLAT_SOURCE: &str = r#"{
         "format":"pleFlatQuestion","version":1,"kind":"singleChoice",
         "title":"Favorite color","prompt":"What is my favorite color?",
         "choices":[
-            {"id":"blue","text":"Blue","feedback":"Blue feedback."},
-            {"id":"red","text":"Red","feedback":"Red feedback."}
+            {"id":"red","text":"Red","feedback":"Red feedback."},
+            {"id":"blue","text":"Blue","feedback":"Blue feedback."}
         ],"correctChoice":"blue",
         "feedback":{"correct":"Correct feedback.","incorrect":"Incorrect feedback."},
         "points":10.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},
@@ -305,6 +316,167 @@ async fn published_flat_fixture() -> (
         ChoiceId::new("blue"),
         ChoiceId::new("red"),
     )
+}
+
+async fn flat_run_fixture() -> (Router, String, AssignmentId) {
+    let (backend, store, context, reference, _question, _attempt, _correct, _incorrect) =
+        published_flat_fixture().await;
+    let tenant = context.tenant_id();
+    let instructor = UserId::from_uuid(uuid(102));
+    let student = UserId::from_uuid(uuid(120));
+    let course = CourseId::from_uuid(uuid(121));
+    let assignment = AssignmentId::from_uuid(uuid(122));
+    store
+        .upsert_course(
+            context,
+            CourseRecord {
+                id: course,
+                tenant,
+                title: "Retry semantics".to_string(),
+                members: vec![
+                    CourseMembership {
+                        user: instructor,
+                        role: CourseMembershipRole::Instructor,
+                    },
+                    CourseMembership {
+                        user: student,
+                        role: CourseMembershipRole::Student,
+                    },
+                ],
+            },
+        )
+        .await
+        .expect("retry fixture course saves");
+    store
+        .create_assignment(
+            context,
+            AssignmentRecord {
+                id: assignment,
+                tenant,
+                course_id: course,
+                title: "Retry semantics".to_string(),
+                items: vec![AssignmentItem {
+                    id: AssignmentItemId::from_uuid(uuid(123)),
+                    reference,
+                    position: 0,
+                    points_possible: PointValue::from_whole(1),
+                    delivery_state: question_model::AssignmentDeliveryState::Active,
+                    scoring_mode: question_model::AssignmentScoringMode::Normal,
+                }],
+                selection_groups: Vec::new(),
+                policies: RunPolicies {
+                    completion: CompletionRequirement::AllCorrect,
+                    grade: GradePolicy::Highest,
+                    continued_practice: ContinuedPractice::Unlimited,
+                    variation: VariationPolicy::NewSeeds,
+                },
+            },
+        )
+        .await
+        .expect("retry fixture assignment saves");
+    store
+        .create_enrollment(
+            context,
+            AssignmentEnrollment {
+                id: question_model::EnrollmentId::from_uuid(uuid(124)),
+                tenant,
+                assignment,
+                user: student,
+                student: StudentId::from_uuid(uuid(125)),
+                first_completed_at: None,
+                current_grade_run: None,
+                best_grade_run: None,
+            },
+        )
+        .await
+        .expect("retry fixture enrollment saves");
+    let subject = SessionSubject::new(tenant, student, "Retry student", vec![UserRole::Student])
+        .expect("retry fixture session subject");
+    let issued = crate::auth::issue_session(
+        store.as_ref(),
+        subject,
+        crate::auth::SessionConfig::new(
+            SessionLifetime::from_seconds(3_600).expect("retry fixture session lifetime"),
+            crate::auth::CookieTransport::LocalHttp,
+        ),
+    )
+    .await
+    .expect("retry fixture session issues");
+    let cookie = issued
+        .set_cookie
+        .split(';')
+        .next()
+        .expect("retry fixture cookie pair")
+        .to_string();
+    (
+        crate::run::router(store, Arc::new(backend)),
+        cookie,
+        assignment,
+    )
+}
+
+fn post_json(path: &str, cookie: &str, body: serde_json::Value) -> Request<Body> {
+    Request::builder()
+        .method("POST")
+        .uri(path)
+        .header("cookie", cookie)
+        .header("content-type", "application/json")
+        .body(Body::from(body.to_string()))
+        .expect("retry fixture request")
+}
+
+fn submission_json(
+    path: &str,
+    cookie: &str,
+    idempotency_key: &'static str,
+    body: serde_json::Value,
+) -> Request<Body> {
+    let mut request = post_json(path, cookie, body);
+    request
+        .headers_mut()
+        .insert("idempotency-key", HeaderValue::from_static(idempotency_key));
+    request
+}
+
+async fn response_json(response: axum::response::Response) -> serde_json::Value {
+    let bytes = to_bytes(response.into_body(), 256 * 1_024)
+        .await
+        .expect("retry fixture response body");
+    serde_json::from_slice(&bytes).expect("retry fixture response JSON")
+}
+
+async fn active_attempt_id(app: &Router, run: &str, cookie: &str) -> String {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/runs/{run}/attempts"))
+                .header("cookie", cookie)
+                .body(Body::empty())
+                .expect("retry fixture attempts request"),
+        )
+        .await
+        .expect("retry fixture attempts response");
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "attempt list remains available"
+    );
+    response_json(response)
+        .await
+        .get("items")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|attempts| {
+            attempts.iter().find_map(|attempt| {
+                attempt
+                    .get("response")
+                    .filter(|response| response.is_null())
+                    .and_then(|_| attempt.get("id"))
+                    .and_then(serde_json::Value::as_str)
+            })
+        })
+        .map(str::to_string)
+        .expect("an active retry attempt is issued")
 }
 
 #[tokio::test]
@@ -499,6 +671,104 @@ async fn flat_question_grades_from_isolated_memory_grader_and_keeps_issue_answer
         "trusted receipt keeps teaching feedback for the run policy projection"
     );
     assert!(receipt.feedback.correct_response.is_some());
+}
+
+#[tokio::test]
+async fn flat_run_route_retries_wrong_first_source_choice_then_completes_correct_second_choice() {
+    let (app, cookie, assignment) = flat_run_fixture().await;
+    let start = app
+        .clone()
+        .oneshot(post_json(
+            "/api/runs",
+            &cookie,
+            serde_json::json!({ "assignmentId": assignment }),
+        ))
+        .await
+        .expect("run starts");
+    assert_eq!(
+        start.status(),
+        StatusCode::CREATED,
+        "run route starts assigned work"
+    );
+    let run = response_json(start).await;
+    let run_id = run
+        .get("id")
+        .and_then(serde_json::Value::as_str)
+        .expect("run has a public id")
+        .to_string();
+    let first_attempt = active_attempt_id(&app, &run_id, &cookie).await;
+
+    let wrong = app
+        .clone()
+        .oneshot(submission_json(
+            &format!("/api/submissions/{first_attempt}"),
+            &cookie,
+            "flat-route-wrong-first",
+            serde_json::json!({
+                "response": StudentResponse::MultipleChoice {
+                    selected: vec![ChoiceId::new("red")],
+                }
+            }),
+        ))
+        .await
+        .expect("wrong first source choice submits");
+    assert_eq!(
+        wrong.status(),
+        StatusCode::OK,
+        "wrong source choice is accepted"
+    );
+    let wrong_receipt = response_json(wrong).await;
+    assert_eq!(
+        wrong_receipt
+            .pointer("/attempt/result/correct")
+            .and_then(serde_json::Value::as_bool),
+        Some(false),
+        "first source position remains incorrect"
+    );
+    let second_attempt = active_attempt_id(&app, &run_id, &cookie).await;
+    assert_ne!(
+        second_attempt, first_attempt,
+        "retry receives a distinct attempt"
+    );
+    assert_eq!(
+        wrong_receipt.pointer("/nextIssued/id"),
+        Some(&serde_json::json!(second_attempt)),
+        "wrong attempt receives a successor under unlimited AllCorrect policy"
+    );
+
+    let correct = app
+        .clone()
+        .oneshot(submission_json(
+            &format!("/api/submissions/{second_attempt}"),
+            &cookie,
+            "flat-route-correct-second",
+            serde_json::json!({
+                "response": StudentResponse::MultipleChoice {
+                    selected: vec![ChoiceId::new("blue")],
+                }
+            }),
+        ))
+        .await
+        .expect("correct second source choice submits");
+    assert_eq!(
+        correct.status(),
+        StatusCode::OK,
+        "correct source choice is accepted"
+    );
+    let correct_receipt = response_json(correct).await;
+    assert_eq!(
+        correct_receipt
+            .pointer("/attempt/result/correct")
+            .and_then(serde_json::Value::as_bool),
+        Some(true),
+        "second source position remains correct"
+    );
+    assert!(
+        correct_receipt
+            .get("nextIssued")
+            .is_some_and(serde_json::Value::is_null),
+        "completion does not issue a third assigned attempt"
+    );
 }
 
 #[tokio::test]

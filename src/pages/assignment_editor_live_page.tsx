@@ -74,7 +74,7 @@ export function AssignmentEditorLivePage(): JSX.Element {
 
   async function checkCourseAccess(): Promise<void> {
     if (!allowedGlobalRole) return;
-    if (courseId === undefined || assignmentId === undefined) {
+    if (courseId === undefined) {
       setGate({ kind: "unavailable" });
       return;
     }
@@ -102,7 +102,7 @@ export function AssignmentEditorLivePage(): JSX.Element {
   if (!allowedGlobalRole) return <AssignmentEditingDenied />;
   return (
     <Show
-      when={gate().kind === "allowed" && courseId !== undefined && assignmentId !== undefined}
+      when={gate().kind === "allowed" && courseId !== undefined}
       fallback={
         <Show
           when={gate().kind === "loading"}
@@ -125,7 +125,7 @@ export function AssignmentEditorLivePage(): JSX.Element {
       <AssignmentEditorPage
         repository={createAssignmentEditorRepository(runtime.client)}
         courseId={courseId as CourseId}
-        assignmentId={assignmentId as AssignmentId}
+        mode={assignmentId === undefined ? { kind: "create" } : { kind: "edit", assignmentId }}
         tenant={sessionTenant}
       />
     </Show>

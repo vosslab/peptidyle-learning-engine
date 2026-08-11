@@ -25,6 +25,7 @@ const EXPECTED_ROUTE_PATHS = [
   "/library/:problemId/versions/:versionId",
   "/workspace",
   "/workspace/:workspaceId",
+  "/instructor/courses/:courseId/assignments/new",
   "/instructor/courses/:courseId/assignments/:assignmentId/edit",
   "/instructor/courses/:courseId/gradebook",
   "/instructor/courses/:courseId/appearance",
@@ -75,6 +76,19 @@ test("the shell keeps client navigation role-aware and never echoes route except
   assert.match(source, /Local development credential/);
   assert.match(source, /type="password"/);
   assert.doesNotMatch(source, /localStorage/);
+});
+
+test("pagination skip links bypass router interception while retaining same-context fragments", () => {
+  for (const sourcePath of [
+    "src/pages/course_assignments_page.tsx",
+    "src/pages/gradebook_page.tsx",
+  ]) {
+    const source = fs.readFileSync(sourcePath, "utf8");
+    assert.match(
+      source,
+      /class="skip-link" href="#(?:assignment|gradebook)-pagination" target="_self"/u,
+    );
+  }
 });
 
 test("the typed mock client loads a complete run screen with no backend", async () => {
@@ -305,7 +319,33 @@ test("the learner consumes a prefetched envelope only when the committed receipt
   assert.match(source, /cached\.questionVersion === receiptNext\.questionVersion/);
   assert.match(source, /cached\.seed === receiptNext\.seed/);
   assert.match(source, /cached\.renderedQuestionSha256 === receiptNext\.renderedQuestionSha256/);
-  assert.match(source, /runtime\.queries\.runScreen\(screen\(\)\.run\.id\)/);
+  assert.match(source, /runtime\.client\.getRunScreen\(screen\(\)\.run\.id\)/);
+  assert.match(source, /return runtime\.queries\.runScreen\(runId\)/);
+});
+
+test("a receipt with no successor completes locally without loading an active run screen", () => {
+  const source = fs.readFileSync("src/pages/run_page.tsx", "utf8");
+
+  assert.match(
+    source,
+    /if \(receiptNext === null\) \{\s+machine\.complete\(\);\s+setSummaryVisible\(true\);\s+void loadSummary\(\);\s+return;/,
+  );
+  assert.match(source, /function matchesIssuedSuccessor\(attempt: QuestionAttempt/);
+  assert.match(source, /attempt\.id === receipt\.id/);
+  assert.match(source, /attempt\.run === receipt\.run/);
+  assert.match(source, /attempt\.assignmentPosition === receipt\.assignmentPosition/);
+  assert.match(source, /attempt\.questionVersion === receipt\.questionVersion/);
+  assert.match(source, /attempt\.seed === receipt\.seed/);
+  assert.match(source, /attempt\.timer\.deadline === receipt\.deadline/);
+  assert.match(
+    source,
+    /attempt\.provenance\.renderedQuestionSha256 === receipt\.renderedQuestionSha256/,
+  );
+  assert.match(source, /if \(!matchesIssuedSuccessor\(next\.attempt, receiptNext\)\)/);
+  assert.match(
+    source,
+    /if \(advancedScreen === null \|\| advancedAttemptId === null\) return;\s+setScreen\(advancedScreen\);/,
+  );
 });
 
 test("a cache-hit successor keeps summary projection bound to the advanced attempt context", () => {
@@ -317,6 +357,14 @@ test("a cache-hit successor keeps summary projection bound to the advanced attem
   );
   assert.match(source, /outcome\.attempt === currentAttemptId\(\)/);
   assert.doesNotMatch(source, /outcome\.attempt === screen\(\)\.attempt\.id/);
+});
+
+test("the learner remounts response entry only for a distinct server-issued attempt", () => {
+  const source = fs.readFileSync("src/pages/run_page.tsx", "utf8");
+
+  assert.match(source, /when={currentState\(\)\?\.context\.attemptId}\s+keyed/);
+  assert.match(source, /attemptId={attemptId}/);
+  assert.match(source, /initialResponse={currentState\(\)\?\.response \?\? undefined}/);
 });
 
 test("a prefetch response cannot warm assets unless its transport and page bindings hold", () => {

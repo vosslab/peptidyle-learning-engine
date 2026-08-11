@@ -241,7 +241,9 @@ podman compose -f containers/compose.yaml --env-file containers/env.local \
 ```
 
 The launcher's final output is the authoritative gateway port if it selected a
-free port other than 3000. Use that printed port for `curl` and browser access.
+free port other than the default `8080`. Use that printed port for `curl` and
+browser access. See `docs/CONTAINER_PORT_MAPPING.md` for the local and
+planned-AWS port boundaries.
 
 ## Failure behavior
 

@@ -10,9 +10,31 @@ export interface AssignmentCatalogRow {
 }
 
 export interface AssignmentEditorDraft extends AssignmentEditorInput {
+  /** Empty until the server creates the immutable assignment record. */
   readonly id: string;
   readonly courseId: string;
+  /** Empty in create mode because a new assignment has no server revision yet. */
   readonly revision: string;
+}
+
+/**
+ * The Fall-pilot mastery policy: complete only when every answer is correct,
+ * retain the highest score, and allow fresh unlimited practice runs.
+ */
+export function createMasteryAssignmentDraft(courseId: string): AssignmentEditorDraft {
+  return {
+    id: "",
+    courseId,
+    title: "",
+    problems: [],
+    policies: {
+      completion: { kind: "allCorrect" },
+      grade: "highest",
+      continuedPractice: { kind: "unlimited" },
+      variation: "newSeeds",
+    },
+    revision: "",
+  };
 }
 
 export function sameReference(left: ProblemVersionRef, right: ProblemVersionRef): boolean {

@@ -9,6 +9,10 @@ import type { AssignmentCatalogRow } from "./assignment_editor_model";
 
 export interface AssignmentEditorRepository {
   readonly load: (assignment: AssignmentId) => Promise<AssignmentEditorDetail>;
+  readonly create: (
+    course: CourseId,
+    input: AssignmentEditorInput,
+  ) => Promise<AssignmentEditorDetail>;
   readonly save: (
     course: CourseId,
     assignment: AssignmentId,
@@ -34,6 +38,7 @@ function catalogQuery(text: string): CatalogSearchQuery {
 export function createAssignmentEditorRepository(client: ApiClient): AssignmentEditorRepository {
   return {
     load: async (assignment) => await client.getAssignmentEditor(assignment),
+    create: async (course, input) => await client.createAssignment(course, input),
     save: async (course, assignment, input, revision) =>
       await client.saveAssignment(course, assignment, input, revision),
     searchPublished: async (text): Promise<ReadonlyArray<AssignmentCatalogRow>> => {

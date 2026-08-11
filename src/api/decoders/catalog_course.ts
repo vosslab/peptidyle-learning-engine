@@ -34,6 +34,7 @@ import type {
   AssignmentCapabilityViolation,
   AssignmentEditorDetail,
   AssignmentEditorInput,
+  CourseCreateInput,
   CourseRouteData,
 } from "../contracts";
 import {
@@ -428,6 +429,20 @@ export function decodeCourseSummary(
       "administrator",
     ]),
   } satisfies CourseSummary;
+  return decoded;
+}
+
+/** Strict request decoder for the public course-creation transport boundary. */
+export function decodeCourseCreateInput(value: unknown, path = "request"): CourseCreateInput {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["title"]);
+  const title = decodeNonemptyString(field(record, "title", path), `${path}.title`);
+  if (title.trim().length === 0) {
+    throw new DecodeError(`${path}.title`, "a course title containing non-whitespace content");
+  }
+  const decoded = {
+    title,
+  } satisfies CourseCreateInput;
   return decoded;
 }
 

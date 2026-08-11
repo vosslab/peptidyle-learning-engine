@@ -57,9 +57,10 @@ podman build --platform linux/amd64 -f containers/Containerfile.api -t peptidyle
 ## Ports and localhost
 
 Podman forwards published ports from the virtual machine to macOS `localhost`,
-so `curl http://localhost:3000/health` works from the host exactly as it would
+so `curl http://localhost:8080/health` works from the host exactly as it would
 on Linux. Inside the compose network, services address each other by service
-name (`postgres`, `minio`), not `localhost`.
+name (`postgres`, `minio`), not `localhost`. See
+`docs/CONTAINER_PORT_MAPPING.md` for port selection.
 
 ## Registry prefixes
 

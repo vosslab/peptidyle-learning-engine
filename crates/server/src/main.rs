@@ -12,12 +12,28 @@ enum ProcessMode {
     Worker,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ApiRouterMode {
+    Production,
+    LocalDevelopment,
+}
+
 fn process_mode(arguments: &[String]) -> anyhow::Result<ProcessMode> {
     match arguments {
         [] => Ok(ProcessMode::Api),
         [flag] if flag == "--health-probe" => Ok(ProcessMode::HealthProbe),
         [flag] if flag == "--worker" => Ok(ProcessMode::Worker),
         _ => anyhow::bail!("usage: peptidyle-api [--health-probe|--worker]"),
+    }
+}
+
+fn api_router_mode(local_development_auth: Option<&str>) -> anyhow::Result<ApiRouterMode> {
+    match local_development_auth {
+        None | Some("0") => Ok(ApiRouterMode::Production),
+        Some("1") => Ok(ApiRouterMode::LocalDevelopment),
+        Some(value) => anyhow::bail!(
+            "PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH must be unset, 0, or exactly 1; got {value:?}"
+        ),
     }
 }
 
@@ -59,7 +75,16 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let bind_addr = server_core::composition::bind_address_from_env()?;
-    let app = server_core::composition::production_router_from_env().await?;
+    let app = match api_router_mode(
+        std::env::var("PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH")
+            .ok()
+            .as_deref(),
+    )? {
+        ApiRouterMode::Production => server_core::composition::production_router_from_env().await?,
+        ApiRouterMode::LocalDevelopment => {
+            server_core::composition::local_development_router_from_env().await?
+        }
+    };
 
     let listener = tokio::net::TcpListener::bind(bind_addr).await?;
     eprintln!("peptidyle api listening on {bind_addr}");
@@ -88,6 +113,25 @@ mod tests {
             vec!["--worker".to_string(), "--health-probe".to_string()],
         ] {
             assert!(process_mode(&invalid).is_err());
+        }
+    }
+
+    #[test]
+    fn local_development_router_selection_is_exact_and_fail_closed() {
+        assert_eq!(
+            api_router_mode(None).expect("production default"),
+            ApiRouterMode::Production
+        );
+        assert_eq!(
+            api_router_mode(Some("0")).expect("production disabled"),
+            ApiRouterMode::Production
+        );
+        assert_eq!(
+            api_router_mode(Some("1")).expect("explicit local development"),
+            ApiRouterMode::LocalDevelopment
+        );
+        for invalid in ["", "01", "true", "2"] {
+            assert!(api_router_mode(Some(invalid)).is_err(), "{invalid:?}");
         }
     }
 }

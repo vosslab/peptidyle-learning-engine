@@ -34,7 +34,7 @@ def test_local_host_ports_are_loopback_parameterized_with_safe_defaults() -> Non
 		("PLE_POSTGRES_HOST_PORT", "5432", "5432"),
 		("PLE_MINIO_API_HOST_PORT", "9000", "9000"),
 		("PLE_MINIO_CONSOLE_HOST_PORT", "9001", "9001"),
-		("PLE_GATEWAY_HOST_PORT", "3000", "8080"),
+		("PLE_GATEWAY_HOST_PORT", "8080", "8080"),
 	):
 		assert f'"127.0.0.1:${{{setting}:-{default}}}:{container_port}"' in compose
 		assert f"{setting}={default}" in env_example

@@ -2,8 +2,8 @@
 
 PLE has implemented passwordless-account, course-roster, invitation,
 assignment-enrollment, and manual grade-export components. This document
-defines that boundary and distinguishes source and generic-route support from
-the still-open production composition and acceptance work.
+defines that boundary and distinguishes implemented production composition
+from the still-open acceptance work.
 
 The primary audience is a contributor implementing course membership,
 assignment enrollment, roster management, identity resolution, or the
@@ -24,20 +24,20 @@ the transaction that creates course membership, the tenant learner identity,
 every assignment enrollment, and every empty summary. Later assignment
 creation enrolls all current learners.
 
-**Current startable composition:** the API process entrypoint builds the
-persistent dependencies but then requires the explicit `local-file`
-development `IdentityProvider`. That local provider supplies the ordinary
-tenant-scoped `ple_session`; it is not a PLE-account bootstrap. The generic
-router still mounts the passwordless, passkey, and roster routes, but the
-local stack is a development composition, not an accepted production
-passwordless login deployment.
+**Current startable composition:** `production_router_from_env` builds the
+persistent dependencies and composes the provider-free PLE passwordless/
+account/session graph with an eight-hour `FirstPartyHttps` policy and explicit
+`ReviewNotRequired`. It does not read local identity settings or mount
+`/api/auth/login`. The separately callable local-development launcher retains
+the explicit `local-file` `IdentityProvider` and ordinary tenant-scoped
+`ple_session`; it is not a PLE-account bootstrap and the binary selects it
+only through the exact development flag.
 
-**Production acceptance still open:** a production composition must select
-the PLE-owned email-account path without treating institutional OIDC as the
-primary identity system. Canonical email-authentication evidence also needs an
-operator-selected external SMTP provider test account. Optional-passkey and
-multi-replica journeys plus independent security/HCI closeout remain. PLE
-does not own a mail server, sender reputation, or deliverability stack.
+**Production acceptance still open:** canonical email-authentication evidence
+needs a live operator-selected external SMTP provider test account. Optional-
+passkey and multi-replica journeys plus independent security/HCI closeout
+remain. PLE does not own a mail server, sender reputation, or deliverability
+stack.
 
 This document is the durable enrollment contract. Current route truth remains in
 [API_CONTRACTS.md](API_CONTRACTS.md) and
@@ -141,12 +141,15 @@ course, university, or email provider. Course membership and tenant-scoped RLS
 control access to educational records.
 
 The existing `IdentityProvider` trait remains the credential-verification
-boundary for the ordinary tenant-session login route. The direct passwordless
-email/passkey route family has its own account-session boundary and mints a
-tenant `ple_session` only after an authorized course relationship is chosen or
-claimed. The generic router can compose both boundaries, but the current
-environment entrypoint supplies only the local-file provider. WP-RC8 owns the
-remaining production composition work. Its required production direction is:
+boundary for the ordinary local tenant-session login route. The direct
+passwordless email/passkey route family has its own account-session boundary
+and mints a tenant `ple_session` only after an authorized course relationship
+is chosen or claimed. `production_router_from_env` composes that provider-free
+PLE account graph with an eight-hour `FirstPartyHttps` policy and explicit
+`ReviewNotRequired`; it does not read local identity settings or mount
+`/api/auth/login`. The separately callable local launcher retains the
+local-file provider only when the exact development flag selects it. The
+production direction is:
 
 - email authentication is the canonical registration and sign-in path;
 - passkeys are optional convenience credentials for the same account;
@@ -771,21 +774,22 @@ The safe dependency order is:
 
 ### ENR1 status
 
-The source and generic route components are implemented. Production
-composition acceptance remains open.
+The source and generic route components are implemented. The repository-owned
+production composition is implemented and independently reviewed; package
+acceptance remains open.
 
 - Add a production PLE-owned account store keyed by opaque global `UserId`.
 - Add short-lived, single-use email authentication for registration and sign-in,
   including browser binding where practical, uniform outward responses,
   rate limits, secret hashing, and redacted diagnostics.
-- Add discoverable WebAuthn credentials behind `IdentityProvider` using an
+- Add discoverable WebAuthn credentials on the PLE account boundary using an
   established implementation; support multiple passkeys and account-managed
   credential revocation.
 - Keep email mutable and separate from `UserId`; require verified account
   control for email changes.
 - Add the stable `(TenantId, UserId) <-> StudentId` pedagogical mapping without
   letting browser input select tenant or identity.
-- Wire the PLE-owned email-account path into the production composition;
+- Keep the PLE-owned email-account path in the production composition;
   optional SSO links to an existing account through the same identity boundary
   when enabled.
 
@@ -890,7 +894,7 @@ Disposable integration evidence must prove:
 - the instructor downloads a protected manual grade export whose roster IDs
   match the imported rows and whose contents exclude account email and global
   `UserId`; and
-- the local provider, accepted PLE passwordless production composition,
+- the local provider, implemented PLE passwordless production composition,
   optional OIDC/SAML connector, and future LTI adapter converge on the same
   `UserId`, session, and Store operation rather than implementing separate
   roster semantics.

@@ -278,7 +278,9 @@ evidence rather than a full route. MATCH, FIB, MULTI-FIB, and HOTSPOT are future
 must satisfy this contract as part of their family acceptance rather than being deferred to a later
 generic accessibility pass.
 
-The remaining human boundary is deliberate: run representative VoiceOver/Safari and NVDA/browser
-walkthroughs through canonical PLE email sign-in, invitation claim, account security, and any real
-third-party provider before claiming fall-pilot accessibility. Optional SSO account linking, if
-introduced later, needs its own focused accessibility evaluation and does not replace this path.
+The remaining human boundary is deliberate. Before claiming accessibility for the local Fall pilot,
+run representative VoiceOver/Safari and NVDA/browser walkthroughs through the visible local sign-in,
+instructor course/roster/assignment setup, and student take/feedback/retry/repeat path. Canonical PLE
+email sign-in, invitation claim, account security, and any real third-party provider remain separate
+production-account accessibility evidence. Optional SSO account linking, if introduced later, needs
+its own focused accessibility evaluation and does not replace either boundary.

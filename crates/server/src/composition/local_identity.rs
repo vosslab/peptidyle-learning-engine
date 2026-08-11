@@ -19,11 +19,13 @@ use uuid::Uuid;
 
 use crate::auth::{CookieTransport, IdentityProvider, IdentityProviderError, SessionConfig};
 use crate::catalog::{PublicReviewGate, ReviewGateError};
+use crate::course::{LocalDevelopmentRosterDirectory, LocalDevelopmentRosterIdentity};
 
 use super::settings::required_env;
 
 const LOCAL_CREDENTIAL_BYTES: usize = 32;
 const LOCAL_CREDENTIAL_ENCODED_LEN: usize = 43;
+const MAX_LOCAL_LEARNER_ALIAS_BYTES: usize = 128;
 
 /// The private request shape for the sole local-only authentication path.
 /// Operator-owned configuration maps its bearer credential to identity; the
@@ -44,6 +46,7 @@ struct LocalIdentityFile {
 #[serde(deny_unknown_fields)]
 struct LocalIdentityRecord {
     credential_sha256: String,
+    learner_alias: String,
     tenant_id: Uuid,
     user_id: Uuid,
     display_name: String,
@@ -59,6 +62,7 @@ pub(super) struct LocalFileIdentityProvider {
 
 struct LocalFileIdentity {
     credential_hash: [u8; 32],
+    learner_alias: String,
     subject: SessionSubject,
 }
 
@@ -85,6 +89,7 @@ impl LocalFileIdentityProvider {
         }
 
         let mut hashes = HashSet::with_capacity(file.credentials.len());
+        let mut aliases = HashSet::with_capacity(file.credentials.len());
         let mut identities = Vec::with_capacity(file.credentials.len());
         for record in file.credentials {
             if record.tenant_id.is_nil() || record.user_id.is_nil() {
@@ -103,6 +108,17 @@ impl LocalFileIdentityProvider {
                     "local development identity configuration is invalid".to_string(),
                 ));
             }
+            let learner_alias =
+                validated_local_learner_alias(&record.learner_alias).ok_or_else(|| {
+                    IdentityProviderError::Unavailable(
+                        "local development identity configuration is invalid".to_string(),
+                    )
+                })?;
+            if !aliases.insert(learner_alias.clone()) {
+                return Err(IdentityProviderError::Unavailable(
+                    "local development identity configuration is invalid".to_string(),
+                ));
+            }
             let subject = SessionSubject::new(
                 TenantId::from_uuid(record.tenant_id),
                 UserId::from_uuid(record.user_id),
@@ -116,11 +132,39 @@ impl LocalFileIdentityProvider {
             })?;
             identities.push(LocalFileIdentity {
                 credential_hash,
+                learner_alias,
                 subject,
             });
         }
         Ok(Self { identities })
     }
+
+    pub(super) fn roster_directory(&self) -> LocalDevelopmentRosterDirectory {
+        LocalDevelopmentRosterDirectory::new(self.identities.iter().map(|identity| {
+            (
+                identity.learner_alias.clone(),
+                LocalDevelopmentRosterIdentity {
+                    tenant: identity.subject.tenant(),
+                    user: identity.subject.user(),
+                    display_name: identity.subject.display_name().to_string(),
+                    roles: identity.subject.roles().to_vec(),
+                },
+            )
+        }))
+        .expect("validated local identity configuration has unique aliases")
+    }
+}
+
+fn validated_local_learner_alias(value: &str) -> Option<String> {
+    (1..=MAX_LOCAL_LEARNER_ALIAS_BYTES)
+        .contains(&value.len())
+        .then_some(())?;
+    value
+        .bytes()
+        .all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_')
+        })
+        .then(|| value.to_string())
 }
 
 #[async_trait::async_trait]
@@ -193,6 +237,7 @@ pub(super) fn local_development_session_config() -> SessionConfig {
 /// the deliberately insecure plain-HTTP cookie policy.
 pub(super) struct LocalDevelopmentAuthentication {
     pub(super) provider: Arc<LocalFileIdentityProvider>,
+    pub(super) roster_directory: Arc<LocalDevelopmentRosterDirectory>,
     pub(super) session_config: SessionConfig,
 }
 
@@ -222,8 +267,10 @@ pub(super) fn local_development_authentication(
     let provider = LocalFileIdentityProvider::from_path(path).map_err(|_| {
         anyhow::anyhow!("local development identity configuration could not be loaded")
     })?;
+    let provider = Arc::new(provider);
     Ok(LocalDevelopmentAuthentication {
-        provider: Arc::new(provider),
+        roster_directory: Arc::new(provider.roster_directory()),
+        provider,
         session_config: local_development_session_config(),
     })
 }

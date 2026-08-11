@@ -28,6 +28,31 @@ For a headless run or a quick restart with a known-current browser bundle:
 `--skip-build` requires an already-built `dist/index.html` and `dist/main.js`; use it only after a
 successful `./build.sh` or normal launcher run.
 
+## Opt-in UI walkthrough
+
+Run the real local UI walkthrough separately from the normal test baseline:
+
+```bash
+bash tests/e2e/e2e_ui_walkthrough.sh --master-seed 42
+```
+
+It uses only IPv4 loopback (`127.0.0.1` or `localhost`). AUTO reuses safe
+`dist/` outputs when they exist and builds only when they do not; `--build`
+forces a fresh build and `--skip-build` requires both built outputs. The runner
+writes its redacted result to `test-results/ui_walkthrough/` (default filename
+`ui_walkthrough_seed_42.json`); the directory is mode 0700 and report file is
+mode 0600. It is opt-in E2E evidence, not a baseline command.
+
+The schema-v1 retained-stack learner slice is accepted: visible native keyboard pagination
+reaches current targets after the first page, and manager plus independent
+`--build` runs passed J1/J2/J3/J4/J5/J8. The cursor session keeps opaque
+cursors and retries/deduplicates/fails closed without direct routes or API
+shortcuts. The corrected walkthrough remains in progress until an instructor
+visibly creates the course, activates the local student roster member, and
+constructs the corpus-backed assignment before the student take/score/repeat
+path. It intentionally has no email or canonical-onboarding prerequisite; see
+the active plan and pagination audits under `docs/active_plans/audits/`.
+
 ## Configuration preflight
 
 ```bash
@@ -74,9 +99,9 @@ Both accept `--release` for optimized artifacts.
 To validate or run a pre-existing non-default environment file, pass its path explicitly. The
 launcher does not bootstrap, rewrite, seed, or create credentials for it. Its required values are
 listed in [containers/env.example](../containers/env.example). The invitation issuer enables
-copy-link enrollment without SMTP. The current startup root still selects local-file development
-identity, so canonical PLE email sign-in remains unavailable; see the
-[current status report](active_plans/reports/project_status_report_2026-08-10.md).
+copy-link enrollment without SMTP. Production now uses the PLE passwordless/account/session graph
+with secure first-party cookies; the local-file launcher is selected only by its exact development
+flag. See the [current status report](active_plans/reports/project_status_report_2026-08-10.md).
 
 ```bash
 ./launch_local_stack.sh --env-file path/to/env.local --check
@@ -94,24 +119,25 @@ overlay explicitly:
 ```
 
 This connects to the selected provider with authenticated encrypted submission; it does not start a
-PLE mail service. In the current executable local and production composition, it prepares delivery
-only: canonical PLE email sign-in remains unavailable until the account-provider composition task
-lands. Omitting `--with-smtp` leaves copy-link invitations available. Local-file credentials cannot
-claim an invitation or register a first passkey.
+PLE mail service. Production composition can now enter the canonical account/session route graph,
+but a live provider send and browser acceptance remain open. Omitting `--with-smtp` leaves copy-link
+invitations available. Local-file credentials cannot claim an invitation or register a first passkey.
 
 ## Stack inspection
 
 After a local run, health is served through the one loopback gateway origin. Use the printed URL,
-or read `PLE_GATEWAY_HOST_PORT` in `containers/env.local`; first-run bootstrap selects 3000-3099.
+or read `PLE_GATEWAY_HOST_PORT` in `containers/env.local`; the default is `8080` and fallback uses
+the `8000-8099` gateway range. Existing explicit local values remain valid until changed.
 
 ```bash
-curl -s http://127.0.0.1:3000/health
+curl -s http://127.0.0.1:8080/health
 podman compose -f containers/compose.yaml --env-file containers/env.local ps
 podman compose -f containers/compose.yaml --env-file containers/env.local down
 ```
 
 The normal `down` command retains named data volumes. See
-[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for health behavior and service-specific logs.
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for health behavior and service-specific logs,
+and `docs/CONTAINER_PORT_MAPPING.md` for host and private port mappings.
 
 ## Known gaps
 

@@ -23,6 +23,7 @@ use question_model::{
 use tower::ServiceExt;
 use uuid::Uuid;
 
+mod course_creation;
 mod roster;
 
 fn id(value: u128) -> Uuid {

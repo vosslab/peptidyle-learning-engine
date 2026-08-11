@@ -461,6 +461,8 @@ test("the HTTP client decodes every implemented route and composes a run screen"
   );
   assert.deepEqual((await client.listTaxonomy()).items, fixture.publishedProblem.metadata.taxonomy);
   assert.equal((await client.listCourses()).items[0].id, fixture.course.id);
+  const createdCourse = await client.createCourse({ title: "BIOC 301: Biochemistry" });
+  assert.equal(createdCourse.id, fixture.course.id);
   assert.equal((await client.getCourse(fixture.course.id)).role, "student");
   assert.equal((await client.getCourseAppearance(fixture.course.id)).theme, "grass");
   const gradebook = await client.listGradebook(fixture.course.id, "next page", 25);
@@ -551,6 +553,35 @@ test("the HTTP client decodes every implemented route and composes a run screen"
   assert.notEqual(submission, undefined);
   assert.equal(submission.headers.get("idempotency-key"), "stable-retry-key");
   assert.equal(submission.headers.get("content-type"), "application/json");
+});
+
+test("course creation sends only a strict public title and rejects malformed input or output", async () => {
+  const requests = [];
+  const fixture = publishedProblemFixture.course;
+  const client = createHttpApiClient({
+    fetch: async (input, init) => {
+      const request = new Request(new URL(input.toString(), "https://client.example.test"), init);
+      requests.push(request);
+      return jsonResponse({ ...fixture, role: "instructor" }, 201);
+    },
+  });
+
+  const created = await client.createCourse({ title: "BIOC 301: Biochemistry" });
+  assert.equal(created.role, "instructor");
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].method, "POST");
+  assert.equal(new URL(requests[0].url).pathname, "/api/courses");
+  assert.deepEqual(JSON.parse(await requests[0].text()), { title: "BIOC 301: Biochemistry" });
+  assert.throws(
+    () => client.createCourse({ title: "   " }),
+    DecodeError,
+    "course creation must reject an all-whitespace title before transport",
+  );
+  assert.throws(
+    () => client.createCourse({ title: "BIOC 301", role: "administrator" }),
+    DecodeError,
+    "course creation must reject fields outside its public request contract",
+  );
 });
 
 test("gradebook pageSize rejects fractional, zero, and negative client input", () => {

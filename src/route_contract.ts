@@ -11,6 +11,7 @@ export interface RouteContract {
     | "problemDetail"
     | "workspaceList"
     | "workspaceEditor"
+    | "assignmentCreate"
     | "assignmentEditor"
     | "gradebook"
     | "courseAppearance"
@@ -71,6 +72,11 @@ export const ROUTE_CONTRACT = [
     id: "workspaceEditor",
     path: "/workspace/:workspaceId",
     surface: "Draft editor, validation, and preview",
+  },
+  {
+    id: "assignmentCreate",
+    path: "/instructor/courses/:courseId/assignments/new",
+    surface: "New assignment policy editor",
   },
   {
     id: "assignmentEditor",

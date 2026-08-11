@@ -91,6 +91,34 @@ File naming conventions are enforced by `tests/test_test_naming_conventions.py`
 - Prefer explicit exit codes and clear stderr messages so a failing E2E run
   is easy to diagnose without reading the script.
 
+## Opt-in UI walkthrough
+
+The Python-backed UI walkthrough is an opt-in real-stack check, never part of
+the fast baseline:
+
+```bash
+bash tests/e2e/e2e_ui_walkthrough.sh --master-seed 42
+```
+
+It accepts only local IPv4 loopback origins. AUTO reuses safe `dist/` outputs
+when present and builds when absent; `--build` forces a refresh and
+`--skip-build` requires those outputs. The private report is
+`test-results/ui_walkthrough/ui_walkthrough_seed_42.json` by default, in a
+mode-0700 directory with a mode-0600 file. It reports only redacted status,
+seed, stage, public arrangements, and eligible visible outcomes.
+
+The retained-stack schema-v1 learner slice is accepted: native
+`target="_self"` pagination
+links land in named `tabindex="-1"` regions, then Tab reaches visible load,
+retry, or reload controls. The cursor session keeps opaque cursors, retries
+the exact failed cursor, deduplicates rows, and fails closed on protocol
+errors. Manager and independent `--build` runs passed J1/J2/J3/J4/J5/J8 with
+the private report modes and no-volume cleanup above. It does not yet prove the
+corrected charter's visible instructor course creation, active local roster
+addition, or corpus-backed assignment creation. Email and canonical onboarding
+are outside this walkthrough rather than missing prerequisites. See the active
+plan and pagination audits under `docs/active_plans/audits/`.
+
 ## Related docs
 
 - [PYTEST_STYLE.md](PYTEST_STYLE.md): fast pytest unit and integration tests under `tests/`.

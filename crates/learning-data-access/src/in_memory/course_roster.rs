@@ -11,13 +11,13 @@ use question_model::{
 use super::sessions::active_subject;
 use super::{MemoryStore, State, page_records, require_course_records_accessible};
 use crate::{
-    ClaimCourseInvitation, ClaimedCourseMembership, CommitCourseRosterImport,
-    CommittedCourseRosterImport, CourseEnrollmentPolicy, CourseInvitation, CourseInvitationId,
-    CourseInvitationStatus, CourseMemberId, CourseMemberStatus, CourseRosterEntry,
-    CourseRosterImportPreview, CourseRosterPage, CourseRosterStore, CourseSignupPosture,
-    CreateCourseInvitation, ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation,
-    RevokeCourseMember, RosterRevision, SessionTokenHash, StageCourseRosterImport, StoreError,
-    TenantContext,
+    ActivateLocalDevelopmentCourseMember, ClaimCourseInvitation, ClaimedCourseMembership,
+    CommitCourseRosterImport, CommittedCourseRosterImport, CourseEnrollmentPolicy,
+    CourseInvitation, CourseInvitationId, CourseInvitationStatus, CourseMemberId,
+    CourseMemberStatus, CourseRosterEntry, CourseRosterImportPreview, CourseRosterMemberSource,
+    CourseRosterPage, CourseRosterStore, CourseSignupPosture, CreateCourseInvitation,
+    ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation, RevokeCourseMember, RosterRevision,
+    SessionTokenHash, StageCourseRosterImport, StoreError, TenantContext,
 };
 
 #[path = "course_roster/import.rs"]
@@ -236,6 +236,24 @@ impl CourseRosterStore for MemoryStore {
         result
     }
 
+    async fn activate_local_development_course_member(
+        &self,
+        context: TenantContext,
+        session: SessionTokenHash,
+        command: ActivateLocalDevelopmentCourseMember,
+    ) -> Result<ClaimedCourseMembership, StoreError> {
+        let tenant = context.tenant_id();
+        let mut state = self.write_state()?;
+        require_course_records_accessible(&state, tenant, command.course)?;
+        require_manager(&state, context, session, command.course)?;
+        let rollback = state.clone();
+        let result = activate_local_member_locked(&mut state, tenant, command);
+        if result.is_err() {
+            *state = rollback;
+        }
+        result
+    }
+
     async fn revoke_course_member(
         &self,
         context: TenantContext,
@@ -396,6 +414,7 @@ fn claim_locked(
             .map_err(|error| StoreError::InvalidRecord(error.to_string()))?,
         roster_email: Some(stored.record.email.clone()),
         roster_id: Some(stored.record.roster_id.clone()),
+        source: CourseRosterMemberSource::Invitation,
         status: CourseMemberStatus::Active,
         joined_at,
         revoked_at: None,
@@ -442,6 +461,105 @@ fn claim_locked(
         member,
         roster_revision,
     })
+}
+
+fn activate_local_member_locked(
+    state: &mut State,
+    tenant: question_model::TenantId,
+    command: ActivateLocalDevelopmentCourseMember,
+) -> Result<ClaimedCourseMembership, StoreError> {
+    let student = learner_identity(state, tenant, command.learner_user)?;
+    if let Some(existing_member_id) = state
+        .roster_member_by_user
+        .get(&(tenant, command.course, command.learner_user))
+        .copied()
+    {
+        let existing = state
+            .roster_members
+            .get(&(tenant, command.course, existing_member_id))
+            .cloned()
+            .ok_or(StoreError::Unavailable(
+                "local roster member index is inconsistent".to_string(),
+            ))?;
+        if existing.status == CourseMemberStatus::Active {
+            ensure_local_student_membership(state, tenant, command.course, command.learner_user)?;
+            reconcile_member_assignments(
+                state,
+                tenant,
+                command.course,
+                command.learner_user,
+                student,
+            )?;
+            return Ok(ClaimedCourseMembership {
+                tenant,
+                course: command.course,
+                member: existing,
+                roster_revision: roster_policy(state, tenant, command.course).revision,
+            });
+        }
+    }
+    let member_id = match state
+        .roster_member_by_user
+        .get(&(tenant, command.course, command.learner_user))
+        .copied()
+    {
+        Some(existing) => existing,
+        None => CourseMemberId::generate()?,
+    };
+    let member_key = (tenant, command.course, member_id);
+    let joined_at = state
+        .roster_members
+        .get(&member_key)
+        .map_or(state.authoritative_time, |member| member.joined_at);
+    let member = crate::CourseRosterMember {
+        id: member_id,
+        tenant,
+        course: command.course,
+        user: command.learner_user,
+        student,
+        display_name: crate::validated_account_display_name(&command.learner_display_name)
+            .map_err(|error| StoreError::InvalidRecord(error.to_string()))?,
+        roster_email: None,
+        roster_id: None,
+        source: CourseRosterMemberSource::LocalDevelopment,
+        status: CourseMemberStatus::Active,
+        joined_at,
+        revoked_at: None,
+    };
+    state
+        .roster_member_by_user
+        .insert((tenant, command.course, command.learner_user), member_id);
+    state.roster_members.insert(member_key, member.clone());
+    ensure_local_student_membership(state, tenant, command.course, command.learner_user)?;
+    reconcile_member_assignments(state, tenant, command.course, command.learner_user, student)?;
+    let roster_revision = bump_roster_revision(state, tenant, command.course, None)?;
+    Ok(ClaimedCourseMembership {
+        tenant,
+        course: command.course,
+        member,
+        roster_revision,
+    })
+}
+
+fn ensure_local_student_membership(
+    state: &mut State,
+    tenant: question_model::TenantId,
+    course: question_model::CourseId,
+    user: question_model::UserId,
+) -> Result<(), StoreError> {
+    let course_record = state
+        .courses
+        .get_mut(&(tenant, course))
+        .ok_or(StoreError::NotFound)?;
+    if course_record.role_for(user).is_none() {
+        course_record.members.push(CourseMembership {
+            user,
+            role: CourseMembershipRole::Student,
+        });
+    } else if course_record.role_for(user) != Some(CourseRole::Student) {
+        return Err(StoreError::Conflict);
+    }
+    Ok(())
 }
 
 fn learner_identity(

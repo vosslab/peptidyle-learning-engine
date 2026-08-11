@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "recordType": "walked-journey-baseline",
+  "masterSeed": 42,
+  "arrangementLabels": [
+    "launcher-seeded-enrollment",
+    "launcher-baseline-assignment",
+    "api-retry-corpus-publication",
+    "api-mastery-assignment",
+    "api-exam-assignment"
+  ],
+  "journeys": [
+    {
+      "id": "J1",
+      "outcome": "PASS"
+    },
+    {
+      "id": "J2",
+      "outcome": "PASS"
+    },
+    {
+      "id": "J3",
+      "outcome": "PASS"
+    },
+    {
+      "id": "J4",
+      "outcome": "PASS"
+    },
+    {
+      "id": "J5",
+      "outcome": "PASS"
+    },
+    {
+      "id": "J6",
+      "outcome": "BLOCKED",
+      "reasonCode": "RELEASE_READINESS_PREREQUISITE"
+    },
+    {
+      "id": "J7",
+      "outcome": "BLOCKED",
+      "reasonCode": "RELEASE_READINESS_PREREQUISITE"
+    },
+    {
+      "id": "J8",
+      "outcome": "PASS"
+    },
+    {
+      "id": "J9",
+      "outcome": "BLOCKED",
+      "reasonCode": "CANONICAL_ONBOARDING_PREREQUISITE"
+    },
+    {
+      "id": "J10",
+      "outcome": "BLOCKED",
+      "reasonCode": "CANONICAL_ONBOARDING_PREREQUISITE"
+    },
+    {
+      "id": "ALL_FAMILY",
+      "outcome": "BLOCKED",
+      "reasonCode": "ALL_FAMILY_AND_SECURE_PAYLOAD_RELEASE_GATES"
+    },
+    {
+      "id": "MULTI_LEARNER",
+      "outcome": "BLOCKED",
+      "reasonCode": "CANONICAL_ONBOARDING_AND_ALL_FAMILY_RELEASE_GATES"
+    }
+  ]
+}

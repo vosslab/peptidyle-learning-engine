@@ -9,7 +9,7 @@ use super::map_sqlx_error;
 use crate::{
     AuthenticationEmail, CourseInvitation, CourseInvitationId, CourseInvitationStatus,
     CourseMemberId, CourseMemberStatus, CourseRosterEntry, CourseRosterId, CourseRosterMember,
-    CourseSignupPosture, StoreError,
+    CourseRosterMemberSource, CourseSignupPosture, StoreError,
 };
 
 pub(super) fn decode_roster_entry(
@@ -70,10 +70,22 @@ pub(super) fn decode_member(
                     .map_err(|error| StoreError::Unavailable(error.to_string()))
             })
             .transpose()?,
+        source: decode_member_source(&row.try_get::<String, _>("source").map_err(map_sqlx_error)?)?,
         status: decode_member_status(&row.try_get::<String, _>("status").map_err(map_sqlx_error)?)?,
         joined_at: timestamp(row, "created_at_millis")?,
         revoked_at: optional_timestamp(row, "revoked_at_millis")?,
     })
+}
+
+fn decode_member_source(value: &str) -> Result<CourseRosterMemberSource, StoreError> {
+    match value {
+        "invitation" => Ok(CourseRosterMemberSource::Invitation),
+        "local_development" => Ok(CourseRosterMemberSource::LocalDevelopment),
+        "legacy" => Ok(CourseRosterMemberSource::Legacy),
+        _ => Err(StoreError::Unavailable(
+            "stored roster member source is invalid".to_string(),
+        )),
+    }
 }
 
 pub(super) fn decode_invitation(

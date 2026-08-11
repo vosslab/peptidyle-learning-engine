@@ -1,8 +1,48 @@
 # Changelog
 
+## 2026-08-11
+
+### Additions and New Features
+
+- Added `docs/CONTAINER_PORT_MAPPING.md` for loopback/local private mappings, the `8080`
+  gateway default, reserved port ranges, and the explicitly unimplemented AWS ALB/RDS/S3 boundary.
+- Added the accepted J2 keyboard-only Mastery retry journey. The forced-build real-stack run records
+  only ordered public J1/J2 milestones and retains no browser artifact, answer material, or score;
+  the later retained-volume M5 closeout accepts J3-J5/J8 separately.
+- Added the typed Python `argparse` walkthrough runner behind its stable shell entrypoint. AUTO
+  reuses safe built assets when available, builds when they are absent, and `--build` explicitly
+  refreshes them. The accepted M2 run validates only public, mock-free IPv4 `/health` readiness;
+  it makes no learner-journey, authentication, enrollment, or content-arrangement claim.
+- Added the accepted supported-API retry corpus and Mastery/Exam contrast arrangement in the
+  launcher-seeded course. Product assignment creation reconciles the existing learner, whose
+  rendered local sign-in flow opens the visible course and current assignment cards. Exact
+  Python-runner same-seed replays use IPv4 only and no secrets, SQL, account, or enrollment
+  fixtures; this is arrangement evidence, not journey, scoring, or enrollment simulation.
+- Added the accepted first keyboard-only learner journey and its visible-outcome report. The
+  Python runner uses IPv4-only local access and AUTO build reuse, while the learner uses rendered
+  controls without a pointer action or answer reconstruction. The private report remains mode 0600
+  in a mode-0700 directory and retains no trace, screenshot, video, or temporary state artifact.
+### Fixes and Maintenance
+
+- Corrected the walkthrough charter to require visible instructor course/roster/corpus assignment
+  setup and student keyboard take/score/repeat. Email and canonical onboarding are outside it.
+
+- Repaired native unlimited-Mastery retry receipt handling and the learner receipt transition, then
+  added exact redacted Python runner-stage diagnostics and accepted static harness/baseline gates.
+  Visible native retained-page pagination now passes M5 J1/J2/J3/J4/J5/J8; PostgreSQL, M6,
+  canonical onboarding, all-family, and release claims remain open.
+
+- Completed the independently accepted live walkthrough orchestration gate: its private redacted
+  report and no-volume cleanup leave no containers after a successful run. WP-A1 retry corpus work
+  is next.
+
 ## 2026-08-10
 
 ### Additions and New Features
+
+- Added deterministic named simulator RNG substreams and stable allocation/report ordering with six
+  focused tests. This is offline simulator support only: it makes no enrollment, scoring, or browser
+  journey claim, and M2 live orchestration remains next.
 
 - Added PLE flat-question JSON v2 as the closed internal source contract for multiple choice,
   multiple answer, fill-in-the-blank, multi-blank, numerical entry, matching, ordering, and image
@@ -123,6 +163,14 @@
   only for invitation handoff, while course and assignment creation remain the two arranged setup
   steps until their instructor UI exists.
 
+- Completed the repository-owned WP-RC8 production account composition without claiming package
+  acceptance. `production_router_from_env` now enters the provider-free PLE passwordless/account/
+  session graph with an eight-hour `FirstPartyHttps` policy and explicit `ReviewNotRequired`; it
+  neither reads local identity settings nor mounts `/api/auth/login`. The local-file launcher stays
+  available only through the exact development flag. A live operator-selected external SMTP send,
+  optional-passkey and multi-replica browser evidence, and independent security/HCI closeout remain
+  required before WP-RC8 acceptance.
+
 - Explored and then rejected a separate course-scoped account-recovery design. Because verified
   email is PLE's canonical registration and sign-in path, passkeys are optional conveniences rather
   than a stronger credential required for ordinary access. A course manager may revoke and re-invite
@@ -151,11 +199,14 @@
   through varied problems until they can solve them consistently, then continue with fresh versions
   after completion; architecture, setup, usage, related-project, FAQ, input-format, troubleshooting,
   design, and screenshot guidance now align with that current boundary. The Aug. 10 status and active
-  plan make the remaining passwordless distinction explicit: generic account and roster routes exist,
-  while production composition of the canonical PLE account provider remains open. This is a
+  plan made the then-open production-composition prerequisite explicit. This is a
   documentation/status refresh, not a release claim.
 
 ### Fixes and Maintenance
+
+- Added the independently accepted, fail-closed walkthrough runner: it requires a deterministic
+  explicit seed, writes a private redacted report, and refuses unsafe Podman cleanup ownership. No
+  browser or gateway PASS is claimed; WP-O2 live smoke configuration and evidence are next.
 
 - Completed the standalone WeBWorK renderer cutover without making the repository a second
   assignment platform. The normal local stack now consumes the external

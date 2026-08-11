@@ -37,6 +37,9 @@ use assignments::*;
 #[path = "conformance/core_store.rs"]
 mod core_store;
 use core_store::*;
+#[path = "conformance/pagination_scale.rs"]
+mod pagination_scale;
+use pagination_scale::*;
 #[path = "conformance/catalog.rs"]
 mod catalog;
 #[path = "conformance/course_appearance.rs"]

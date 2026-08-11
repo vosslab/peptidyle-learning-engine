@@ -4,7 +4,7 @@ import type { CourseAppearanceUpdate } from "../../../../generated/api/CourseApp
 import type { CourseSummary } from "../../../../generated/api/CourseSummary";
 import { DecodeError } from "../../decoder";
 import { createMockAssignmentState, respondAuthoring } from "./authoring";
-import { decodeCourseAppearanceUpdate } from "../../decoders";
+import { decodeCourseAppearanceUpdate, decodeCourseCreateInput } from "../../decoders";
 import {
   handlesResource,
   hasDuplicateJsonObjectMember,
@@ -77,6 +77,17 @@ async function appearanceInput(request: Request): Promise<CourseAppearanceUpdate
     const text = await request.text();
     if (hasDuplicateJsonObjectMember(text)) return undefined;
     return decodeCourseAppearanceUpdate(JSON.parse(text), "request");
+  } catch (error: unknown) {
+    if (error instanceof DecodeError || error instanceof SyntaxError) return undefined;
+    throw error;
+  }
+}
+
+async function courseCreateInput(request: Request): Promise<string | undefined> {
+  try {
+    const text = await request.text();
+    if (hasDuplicateJsonObjectMember(text)) return undefined;
+    return decodeCourseCreateInput(JSON.parse(text), "request").title;
   } catch (error: unknown) {
     if (error instanceof DecodeError || error instanceof SyntaxError) return undefined;
     throw error;
@@ -162,8 +173,19 @@ export async function respondCourse(
   const segments = pathSegments(request);
   const resource = segments[1];
   if (resource === "courses" && segments.length === 2) {
-    if (request.method !== "GET") return methodNotAllowed(request);
-    return jsonResponse({ items: [publishedProblemFixture.course], nextCursor: null });
+    if (request.method === "GET") {
+      return jsonResponse({ items: [publishedProblemFixture.course], nextCursor: null });
+    }
+    if (request.method === "POST") {
+      const title = await courseCreateInput(request);
+      if (title === undefined) return appearanceError(422, "course title is invalid");
+      return jsonResponse(
+        { ...publishedProblemFixture.course, title, role: "instructor" },
+        201,
+        noStoreHeaders(),
+      );
+    }
+    return methodNotAllowed(request);
   }
   if (resource === "courses" && segments.length === 3 && mockCourse(segments[2]) !== undefined) {
     if (request.method !== "GET") return methodNotAllowed(request);

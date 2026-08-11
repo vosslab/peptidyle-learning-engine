@@ -34,6 +34,7 @@ export function createMockEnrollmentClient(): CourseRosterClient {
         displayName: "Fixture Student",
         rosterEmail: "student@mail.roosevelt.edu",
         rosterId: "900123456",
+        source: "invitation",
         role: "student",
         status: "active",
       },
@@ -41,6 +42,7 @@ export function createMockEnrollmentClient(): CourseRosterClient {
     pendingInvitations: [],
     allowedEmailDomains: [{ domain: "mail.roosevelt.edu", includeSubdomains: false }],
     signupPosture: "invitationOnly",
+    localDevelopmentRoster: false,
     nextCursor: null,
     rosterRevision,
   };
@@ -85,6 +87,10 @@ export function createMockEnrollmentClient(): CourseRosterClient {
       return Promise.resolve();
     },
     listCourseRoster: () => Promise.resolve(roster),
+    addLocalDevelopmentMember: () =>
+      Promise.reject(
+        new Error("Local-development roster enrollment is unavailable in this preview."),
+      ),
     inviteCourseMember: (
       _courseId,
       email,

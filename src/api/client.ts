@@ -33,6 +33,7 @@ import type {
   AssignmentEditorInput,
   AssignmentSummary,
   AuthSession,
+  CourseCreateInput,
   CourseSummary,
   CursorPage,
   EnrollmentView,
@@ -85,6 +86,8 @@ export interface ApiClient extends CourseRosterClient {
   ) => Promise<QuestionDefinition>;
   readonly listTaxonomy: (cursor?: string) => Promise<CursorPage<TaxonomyTerm>>;
   readonly listCourses: (cursor?: string) => Promise<CursorPage<CourseSummary>>;
+  /** Creates one course for the authenticated instructor or administrator. */
+  readonly createCourse: (input: CourseCreateInput) => Promise<CourseSummary>;
   readonly getCourse: (courseId: CourseId) => Promise<CourseSummary>;
   /** Gets only the current authorized, browser-safe course appearance. */
   readonly getCourseAppearance: (courseId: CourseId) => Promise<CourseAppearance>;

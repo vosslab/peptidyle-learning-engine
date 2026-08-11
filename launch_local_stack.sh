@@ -154,29 +154,56 @@ gateway_container_is_running() {
 	podman ps --format '{{.Names}}' 2>/dev/null | awk '$0 == "containers_gateway_1" { found = 1 } END { exit !found }'
 }
 
+effective_gateway_port() {
+	configured_gateway_port="$(env_value PLE_GATEWAY_HOST_PORT)"
+	inherited_gateway_port="${PLE_GATEWAY_HOST_PORT:-}"
+	gateway_port="${inherited_gateway_port:-$configured_gateway_port}"
+	gateway_port="${gateway_port:-8080}"
+	case "$gateway_port" in
+	''|*[!0-9]*) die "PLE_GATEWAY_HOST_PORT must be an unquoted integer" ;;
+	esac
+	[ "$gateway_port" -ge 1 ] && [ "$gateway_port" -le 65535 ] \
+		|| die "PLE_GATEWAY_HOST_PORT must be between 1 and 65535"
+	printf '%s\n' "$gateway_port"
+}
+
 first_available_gateway_port() {
-	candidate_port=3000
-	while [ "$candidate_port" -le 3099 ]; do
+	candidate_port=8000
+	while [ "$candidate_port" -le 8099 ]; do
 		if ! lsof -nP -iTCP:"$candidate_port" -sTCP:LISTEN >/dev/null 2>&1; then
 			printf '%s\n' "$candidate_port"
 			return 0
 		fi
 		candidate_port=$((candidate_port + 1))
 	done
-	die "no available local gateway port was found from 3000 through 3099"
+	die "no available local gateway port was found from 8000 through 8099"
 }
 
 ensure_default_gateway_port() {
-	configured_gateway_port="$(env_value PLE_GATEWAY_HOST_PORT)"
-	configured_gateway_port="${configured_gateway_port:-3000}"
+	configured_gateway_port="$(effective_gateway_port)"
 	if lsof -nP -iTCP:"$configured_gateway_port" -sTCP:LISTEN >/dev/null 2>&1; then
 		gateway_container_is_running && return 0
 		available_gateway_port="$(first_available_gateway_port)"
 		write_env_value PLE_GATEWAY_HOST_PORT "$available_gateway_port"
+		export PLE_GATEWAY_HOST_PORT="$available_gateway_port"
 		echo "==> Port ${configured_gateway_port} is occupied; using gateway port ${available_gateway_port}"
-	elif [ -z "$(env_value PLE_GATEWAY_HOST_PORT)" ]; then
+	elif [ -z "$(env_value PLE_GATEWAY_HOST_PORT)" ] && [ -z "${PLE_GATEWAY_HOST_PORT:-}" ]; then
 		write_env_value PLE_GATEWAY_HOST_PORT "$configured_gateway_port"
 	fi
+}
+
+configure_local_webauthn_origin() {
+	effective_gateway_port_value="$(effective_gateway_port)"
+	configured_webauthn_origin="$(env_value PLE_WEBAUTHN_ORIGIN)"
+	case "$configured_webauthn_origin" in
+	"" | http://localhost:*)
+		if [ -z "${PLE_GATEWAY_HOST_PORT:-}" ] || \
+			[ "$(env_value PLE_GATEWAY_HOST_PORT)" = "$effective_gateway_port_value" ]; then
+			write_env_value PLE_WEBAUTHN_ORIGIN "http://localhost:${effective_gateway_port_value}"
+		fi
+		export PLE_WEBAUTHN_ORIGIN="http://localhost:${effective_gateway_port_value}"
+		;;
+	esac
 }
 
 random_hex() {
@@ -190,26 +217,8 @@ local_credential_record() {
 	printf '%s\t%s\n' "$credential" "$credential_hash"
 }
 
-bootstrap_local_identities() {
-	[ -r "$LOCAL_IDENTITY_FILE" ] && [ -r "$LOCAL_CREDENTIAL_FILE" ] && return 0
-
-	instructor_record="$(local_credential_record)"
-	student_record="$(local_credential_record)"
-	instructor_credential="${instructor_record%%	*}"
-	instructor_hash="${instructor_record#*	}"
-	student_credential="${student_record%%	*}"
-	student_hash="${student_record#*	}"
-
-	umask 077
-	printf 'instructor=%s\nstudent=%s\n' \
-		"$instructor_credential" "$student_credential" >"$LOCAL_CREDENTIAL_FILE"
-	printf '{"credentials":[{"credential_sha256":"%s","tenant_id":"%s","user_id":"%s","display_name":"Local Instructor","roles":["instructor","administrator"]},{"credential_sha256":"%s","tenant_id":"%s","user_id":"%s","display_name":"Local Student","roles":["student"]}]}\n' \
-		"$instructor_hash" "$LOCAL_TENANT_ID" "$LOCAL_INSTRUCTOR_ID" \
-		"$student_hash" "$LOCAL_TENANT_ID" "$LOCAL_STUDENT_ID" >"$LOCAL_IDENTITY_FILE"
-	# The container runs as a fixed non-root UID and needs to read hashes only;
-	# the bearer credentials remain in the adjacent mode-0600 file.
-	chmod 644 "$LOCAL_IDENTITY_FILE"
-}
+source "$REPO_ROOT/containers/local_identity_bootstrap.sh"
+ENV_FILE="$(normalize_default_local_env_file "$ENV_FILE")"
 
 validate_invitation_secret_file() {
 	secret_path="$1"
@@ -295,12 +304,7 @@ bootstrap_default_local_configuration() {
 	set_default_env_value PLE_WEBWORK_RENDERER_IMAGE "localhost/pg-renderer:latest"
 	set_default_env_value PLE_SECRET_INIT_IMAGE_SHA256 "$LOCAL_SECRET_INIT_IMAGE_SHA256"
 	ensure_default_gateway_port
-	configured_webauthn_origin="$(env_value PLE_WEBAUTHN_ORIGIN)"
-	case "$configured_webauthn_origin" in
-	"" | http://localhost:*)
-		write_env_value PLE_WEBAUTHN_ORIGIN "http://localhost:$(env_value PLE_GATEWAY_HOST_PORT)"
-		;;
-	esac
+	configure_local_webauthn_origin
 }
 
 if [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ] && [ "$CHECK_ONLY" -eq 0 ]; then
@@ -544,22 +548,7 @@ compose up -d identity-secret-init
 # PostgreSQL, MinIO, and their named volumes remain untouched.
 compose up -d --build --force-recreate --no-deps "${services[@]}"
 
-gateway_port="$({
-	awk -F= '
-		$1 == "PLE_GATEWAY_HOST_PORT" {
-			value = $2
-			sub(/^[[:space:]]+/, "", value)
-			sub(/[[:space:]]+$/, "", value)
-			print value
-		}
-	' "$ENV_FILE"
-} | tail -n 1)"
-gateway_port="${gateway_port:-3000}"
-gateway_port="${PLE_GATEWAY_HOST_PORT:-$gateway_port}"
-case "$gateway_port" in
-	''|*[!0-9]*) die "PLE_GATEWAY_HOST_PORT must be an unquoted integer" ;;
-esac
-[ "$gateway_port" -ge 1 ] && [ "$gateway_port" -le 65535 ] || die "PLE_GATEWAY_HOST_PORT must be between 1 and 65535"
+gateway_port="$(effective_gateway_port)"
 
 base_url="http://127.0.0.1:${gateway_port}"
 echo "==> Waiting up to ${TIMEOUT_SECONDS}s for ${base_url}/health"

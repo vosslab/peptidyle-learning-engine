@@ -52,11 +52,12 @@ Do not treat `--check` as a machine-start command: it is intentionally read-only
 
   ```bash
   podman compose -f containers/compose.yaml --env-file containers/env.local logs --tail=80 gateway api worker
-  curl -s http://127.0.0.1:3000/health
+  curl -s http://127.0.0.1:8080/health
   ```
 
-  If first-run bootstrap selected another gateway port, use the recorded `PLE_GATEWAY_HOST_PORT`
-  in `containers/env.local` for the health request.
+  If bootstrap selected another gateway port, use the recorded `PLE_GATEWAY_HOST_PORT` in
+  `containers/env.local` for the health request. See
+  `docs/CONTAINER_PORT_MAPPING.md` for the port policy.
 
 - **The gateway is `unhealthy` while `webwork-renderer` is `starting`:** this is an expected
   transient state during normal startup. The API waits for the renderer's real render-and-grade
@@ -98,6 +99,27 @@ podman compose -f containers/compose.yaml --env-file containers/env.local \
 the launcher found an existing data directory from another PostgreSQL major version. Preserve that
 volume and migrate it with an explicit PostgreSQL-major-version procedure; do not delete it merely
 to make the local stack start. Once the data is safely migrated, rerun the launcher.
+
+## UI walkthrough is blocked
+
+Use the opt-in walkthrough only with a fixed seed:
+
+```bash
+bash tests/e2e/e2e_ui_walkthrough.sh --master-seed 42
+```
+
+It uses IPv4 loopback only. AUTO reuses a safe existing bundle or builds when
+missing; use `--build` to force a refresh, while `--skip-build` requires both
+`dist/index.html` and `dist/main.js`. Its redacted `PASS` or `FAIL` report is
+under `test-results/ui_walkthrough/`, with directory/file modes 0700/0600.
+
+The former first-page pagination blocker is resolved. Assignment and gradebook
+surfaces now provide native `target="_self"` fragment routes to named
+`tabindex="-1"` pagination regions; Tab reaches visible load, retry, or reload
+controls. If `playwright_arranged` fails, preserve the report and inspect the
+reported stage rather than deleting volumes or using a direct route. The
+runner fails closed for missing/current-target, transport, and protocol issues;
+consult the active plan and pagination audits under `docs/active_plans/audits/`.
 
 ## Stop without deleting data
 

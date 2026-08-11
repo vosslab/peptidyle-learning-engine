@@ -88,7 +88,8 @@ The bootstrap belongs only to the default `containers/env.local` path. A non-def
 prepare it from [containers/env.example](../containers/env.example). The launcher validates its
 database, object-store, local-auth, invitation-secret, image-pin, and renderer settings. Keep
 operator-managed credentials and secret values out of tracked files; see
-[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for the complete contract.
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for the complete contract
+and `docs/CONTAINER_PORT_MAPPING.md` for loopback port use.
 
 An external SMTP account is optional delivery preparation for the local stack. PLE uses the
 established Rust `lettre` client to connect to an operator-selected provider; it does not install,

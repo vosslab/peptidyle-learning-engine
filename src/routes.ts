@@ -39,6 +39,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   problemDetail: ProblemDetailPage,
   workspaceList: WorkspaceListLivePage,
   workspaceEditor: WorkspaceEditorLivePage,
+  assignmentCreate: AssignmentEditorLivePage,
   assignmentEditor: AssignmentEditorLivePage,
   gradebook: GradebookPage,
   courseAppearance: CourseAppearancePage,

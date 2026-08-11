@@ -73,7 +73,7 @@ body limit, status response, and Rust type remain in the linked owner.
 | Family | Routes | Identity and payload boundary | Owner |
 | --- | --- | --- | --- |
 | Health | `GET /health` | Readiness only; it is not an authenticated API session probe. | [crates/server/src/composition/router.rs](../crates/server/src/composition/router.rs) |
-| Auth/session | legacy `POST /api/auth/login`; `POST /api/auth/passwordless/email/start` and `/complete`; account-email start/complete; passkey registration/authentication start/complete; passkey list/revoke; account course list/select; `GET /api/auth/session`; `POST /api/auth/logout` | PLE-owned accounts use email as the canonical sign-in path and optional passkeys as shortcuts. Email and passkey completion issue a bounded HttpOnly `ple_account_session`; invitation claim or course selection then derives a tenant-scoped `ple_session` from an authorized relationship. The generic router mounts this family, while the current process entrypoint still supplies only the local-file legacy `IdentityProvider`; see the composition note below. | [crates/server/src/auth.rs](../crates/server/src/auth.rs), [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) |
+| Auth/session | production `POST /api/auth/passwordless/email/start` and `/complete`; account-email start/complete; passkey registration/authentication start/complete; passkey list/revoke; account course list/select; `GET /api/auth/session`; `POST /api/auth/logout`; local development additionally has legacy `POST /api/auth/login` | PLE-owned accounts use email as the canonical sign-in path and optional passkeys as shortcuts. Email and passkey completion issue a bounded HttpOnly `ple_account_session`; invitation claim or course selection then derives a tenant-scoped `ple_session` from an authorized relationship. Production composes this provider-free graph with an eight-hour `FirstPartyHttps` policy and does not mount the legacy route. | [crates/server/src/auth.rs](../crates/server/src/auth.rs), [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) |
 | Catalog | `GET /api/problems`, `/search`, `/by-id/{reference}`, `/{problem}/versions/{version}`, `/{problem}/versions/{version}/detail`, `GET /api/taxonomy` | Browse and detail are browser-safe catalog projections. Source, private response/grading material, credentials, and student records are excluded. | [crates/server/src/catalog/routes.rs](../crates/server/src/catalog/routes.rs) |
 | Catalog lifecycle | `POST /api/problems/{workspace}/publish`, `POST /api/problems/{problem}/versions/{version}/deprecate`, `/archive` | Publication mints immutable content from an authorized workspace. Lifecycle actions operate on immutable published versions and retain historical references. | [crates/server/src/catalog/routes.rs](../crates/server/src/catalog/routes.rs) |
 | Course and assignment | `GET/POST /api/courses`, `GET/POST /api/courses/{course}/assignments`, `GET /api/courses/{course}`, `/gradebook`, `GET /api/assignments/{assignment}`, `PUT /api/courses/{course}/assignments/{assignment}` | Course comes from path plus membership. Assignment create/update bodies carry title, immutable version references, and policies; they cannot select tenant, draft, source, or answer payload. | [crates/server/src/course/routing.rs](../crates/server/src/course/routing.rs) |
@@ -94,23 +94,30 @@ body limit, status response, and Rust type remain in the linked owner.
 
 ### Identity composition and activation
 
-The route table describes the generic application router assembled by
+The route table describes the shared application router assembled by
 [`crates/server/src/composition/router.rs`](../crates/server/src/composition/router.rs).
-It injects an `IdentityProvider`, account and session Stores, invitation
-issuer/delivery capabilities, passwordless email delivery and rate-limit
-issuer, and optional WebAuthn configuration. This makes the account,
-passwordless, passkey, invitation, and roster route families independently
-testable without granting their route modules process-local authority.
+It injects account and session Stores, invitation issuer/delivery capabilities,
+passwordless email delivery and rate-limit issuer, and optional WebAuthn
+configuration. Local development additionally layers its `IdentityProvider`
+and legacy login route over that graph. This makes the account, passwordless,
+passkey, invitation, and roster route families independently testable without
+granting their route modules process-local authority.
 
-The current executable entrypoint at
+`production_router_from_env` at
 [`crates/server/src/composition.rs`](../crates/server/src/composition.rs)
-constructs persistent dependencies and then requires
-`PLE_AUTH_PROVIDER=local-file` with the explicit local-development flag and an
-operator-owned identity file. That provider serves legacy
-`POST /api/auth/login` and issues the tenant-scoped `ple_session`; it does not
-bootstrap a PLE account. The same local router mounts the passwordless and
-passkey routes, but that route presence does not make a production
-passwordless deployment available.
+constructs persistent dependencies and composes the provider-free PLE
+passwordless/account/session graph. Its eight-hour `FirstPartyHttps` policy
+makes account, email-binding, and tenant-session cookies Secure, HttpOnly, and
+first-party `SameSite=Lax`; its explicit `ReviewNotRequired` gate leaves
+institutional review integration optional. It does not read
+`PLE_AUTH_PROVIDER`, `PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH`, or
+`PLE_LOCAL_AUTH_FILE`, and it does not mount `/api/auth/login`.
+
+The separately callable local-development launcher requires
+`PLE_AUTH_PROVIDER=local-file`, the explicit development flag, and an
+operator-owned identity file. That provider serves legacy `POST /api/auth/login`
+and issues a tenant-scoped `ple_session`; it does not bootstrap a PLE account.
+The binary selects that launcher only when `PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH=1`.
 
 The established SMTP adapter is constructed only when the complete SMTP
 settings and `PLE_INVITATION_TOKEN_SECRET_FILE` are configured. It implements
@@ -118,8 +125,8 @@ both invitation and passwordless email delivery. Without them, the router uses
 unavailable delivery/issuer capabilities and email start fails closed; a
 server-secret-only deployment can still issue a manager copy link for an
 invitation. PLE has no mail-server container or deliverability subsystem. A
-live external-provider account, the PLE-owned production account composition,
-and its acceptance evidence remain WP-RC8 work. Optional OIDC/SAML linking is
+live external-provider account and its acceptance evidence remain WP-RC8 work.
+Optional OIDC/SAML linking is
 an integration path to an existing PLE account, not the primary identity
 system.
 

@@ -17,6 +17,7 @@ import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type {
   PrefetchedNextQuestion,
+  NextIssuedAttempt,
   RunScreenData,
   RunSummaryOutcome,
   RunSummaryResponse,
@@ -79,8 +80,23 @@ function formatRemaining(milliseconds: number | null): string {
   return `${minutes}:${remainder.toString().padStart(2, "0")} remaining`;
 }
 
-function sameAttempt(left: AttemptContext, right: AttemptContext): boolean {
-  return left.attemptId === right.attemptId;
+function matchesIssuedSuccessor(attempt: QuestionAttempt, receipt: NextIssuedAttempt): boolean {
+  return (
+    attempt.id === receipt.id &&
+    attempt.run === receipt.run &&
+    attempt.assignmentPosition === receipt.assignmentPosition &&
+    attempt.questionVersion === receipt.questionVersion &&
+    attempt.seed === receipt.seed &&
+    attempt.timer.deadline === receipt.deadline &&
+    attempt.provenance.renderedQuestionSha256 === receipt.renderedQuestionSha256
+  );
+}
+
+function completionHeading(summary: RunSummaryResponse | undefined): string {
+  if (summary === undefined) return "Run complete";
+  return summary.practiceAllowed
+    ? "Keep practicing with a fresh variation"
+    : "This run is complete";
 }
 
 /** Avoid turning an unusually image-heavy question into an unbounded background fetch. */
@@ -177,20 +193,30 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
       requestPrefetch(receiptNext.id);
       return;
     }
-    const next = await runtime.queries.runScreen(screen().run.id);
-    const nextContext = attemptContext(next.attempt);
-    if (sameAttempt(nextContext, machine.state().context)) {
+    if (receiptNext === null) {
       machine.complete();
       setSummaryVisible(true);
       void loadSummary();
       return;
     }
-    await machine.advance(() => {
-      setScreen(next);
-      return Promise.resolve({ context: nextContext, envelope: next.issuedQuestion });
+    let advancedScreen: RunScreenData | null = null;
+    let advancedAttemptId: string | null = null;
+    await machine.advance(async () => {
+      // Router query results can still describe the submitted attempt. A receipt
+      // with a successor must read a current server-issued screen before advancing.
+      const next = await runtime.client.getRunScreen(screen().run.id);
+      if (!matchesIssuedSuccessor(next.attempt, receiptNext)) {
+        throw new ApiProtocolError("Run screen does not match the issued successor receipt");
+      }
+      advancedScreen = next;
+      advancedAttemptId = next.attempt.id;
+      const nextContext = attemptContext(next.attempt);
+      return { context: nextContext, envelope: next.issuedQuestion };
     });
+    if (advancedScreen === null || advancedAttemptId === null) return;
+    setScreen(advancedScreen);
     setPrefetched(null);
-    requestPrefetch(next.attempt.id);
+    requestPrefetch(advancedAttemptId);
   }
 
   function requestPrefetch(attemptId: string): void {
@@ -345,7 +371,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
       <Show when={summaryVisible() || currentState()?.phase === "completed"}>
         <section class="attempt-summary" aria-labelledby="attempt-summary-heading">
           <p class="eyebrow">Run complete</p>
-          <h2 id="attempt-summary-heading">Keep practicing with a fresh variation</h2>
+          <h2 id="attempt-summary-heading">{completionHeading(runSummary())}</h2>
           <p>Your completed run is recorded.</p>
           <Show when={runSummary()}>
             {(summary) => (
@@ -479,21 +505,22 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
               when={feedbackState()}
               fallback={
                 <Show
-                  when={currentState()}
+                  // A new server-issued attempt must not inherit a locally selected response.
+                  // Key only on attempt identity so recovery updates for the same attempt persist.
+                  when={currentState()?.context.attemptId}
+                  keyed
                   fallback={<p class="loading-state">Restoring your saved response...</p>}
                 >
-                  {(attemptState) => (
+                  {(attemptId) => (
                     <ResponseWidget
-                      attemptId={attemptState().context.attemptId}
+                      attemptId={attemptId}
                       definition={currentEnvelope().response}
-                      initialResponse={attemptState().response ?? undefined}
+                      initialResponse={currentState()?.response ?? undefined}
                       validator={validator}
                       onResponseChange={responseChanged}
                       onSubmit={submit}
                       onEscape={escapeToAssignment}
-                      getExternalToolLaunch={() =>
-                        runtime.client.getExternalToolLaunch(attemptState().context.attemptId)
-                      }
+                      getExternalToolLaunch={() => runtime.client.getExternalToolLaunch(attemptId)}
                     />
                   )}
                 </Show>

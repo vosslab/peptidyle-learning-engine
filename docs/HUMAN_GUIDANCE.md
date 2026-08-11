@@ -121,6 +121,22 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`. New question families satisfy that contract in their
   owning package rather than waiting for a later generic audit.
 
+## Assignment walkthrough acceptance
+
+- Make this start-to-finish teaching loop usable for the Fall 2026 pilot, which
+  begins in approximately two weeks. Prioritize this pilot path over unrelated
+  release breadth.
+- Make the end-to-end walkthrough demonstrate the teaching workflow: an instructor creates a
+  course, adds an active student to its roster, creates an assignment from problems in the
+  published corpus, and then observes the student's scored work.
+- Make the student take, submit, complete, and repeat that assignment through visible controls.
+  The complete student assignment path must satisfy the keyboard accessibility contract above.
+- Keep email outside this walkthrough. The local instructor and student identities are the intended
+  actors; no agent needs an email account, mailbox, delivered link, SMTP provider, passwordless
+  challenge, invitation-delivery proof, or canonical-account acceptance for this walkthrough.
+- Do not report missing email infrastructure as a walkthrough blocker. Canonical email identity and
+  production onboarding remain separately owned release concerns.
+
 ## Flat question source
 
 - Use versioned PLE flat-question JSON as the canonical machine format for

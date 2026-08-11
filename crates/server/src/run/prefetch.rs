@@ -407,7 +407,7 @@ where
                 reference,
                 question: &question,
                 prefetched: None,
-                predecessor_submission: None,
+                predecessor_submission: predecessor,
             },
         )
         .await?;

@@ -201,7 +201,7 @@ require_file "$CREDENTIAL_FILE"
 require_file "$MANIFEST_FILE"
 
 gateway_port="$(env_value PLE_GATEWAY_HOST_PORT)"
-gateway_port="${gateway_port:-3000}"
+gateway_port="${gateway_port:-8080}"
 case "$gateway_port" in ''|*[!0-9]*) fail "PLE_GATEWAY_HOST_PORT is not an integer" ;; esac
 BASE_URL="http://127.0.0.1:${gateway_port}"
 ASSIGNMENT_ID="$(json_value "$MANIFEST_FILE" assignmentId)"

@@ -4,6 +4,7 @@ import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
 import type { CourseAppearanceUpdate } from "../../../generated/api/CourseAppearanceUpdate";
 import type { CourseBannerCandidateReceipt } from "../../../generated/api/CourseBannerCandidateReceipt";
 import type { CourseId } from "../../../generated/api/CourseId";
+import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
@@ -25,6 +26,8 @@ import {
   decodeCapabilityViolations,
   decodeCourseAppearance,
   decodeCourseBannerCandidateReceipt,
+  decodeCourseCreateInput,
+  decodeCourseSummary,
   decodeDraftQuestionDefinition,
   decodeFeedbackReleaseResponse,
   decodePrefetchedNextQuestion,
@@ -239,6 +242,7 @@ export function createRequestClient(
   | "publishWorkspace"
   | "uploadCourseBannerCandidate"
   | "saveCourseAppearance"
+  | "createCourse"
   | "createAssignment"
   | "saveAssignment"
   | "startRun"
@@ -388,6 +392,11 @@ export function createRequestClient(
         );
       return appearance;
     },
+    createCourse: (input): Promise<CourseSummary> =>
+      requestJson(fetchImplementation, basePath, "/api/courses", decodeCourseSummary, {
+        method: "POST",
+        body: decodeCourseCreateInput(input, "request"),
+      }),
     createAssignment: (courseId, input) =>
       requestAssignmentEditor(
         fetchImplementation,

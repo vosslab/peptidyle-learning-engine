@@ -62,6 +62,12 @@ where
     if !may_create_course(&authenticated) {
         return error_response(StatusCode::FORBIDDEN, "course creation is not authorized");
     }
+    if request.title.trim().is_empty() {
+        return error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "course title must contain non-whitespace content",
+        );
+    }
     let course = CourseRecord {
         id: CourseId::generate(),
         tenant: authenticated.tenant_context.tenant_id(),

@@ -1,6 +1,6 @@
 //! Manager-only course roster HTTP boundary and invitation delivery seam.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -21,7 +21,7 @@ use learning_data_access::{
     ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation, RevokeCourseMember,
     RosterIdempotencyKey, RosterRevision, SessionStore, Store,
 };
-use question_model::{ActivityTimestamp, CourseId};
+use question_model::{ActivityTimestamp, CourseId, TenantId, UserId, UserRole};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
@@ -186,6 +186,7 @@ struct CourseRosterRouteState<S> {
     store: Arc<S>,
     issuer: CourseInvitationIssuer,
     delivery: Arc<dyn CourseInvitationDelivery>,
+    local_development_roster: Option<Arc<LocalDevelopmentRosterDirectory>>,
 }
 
 impl<S> Clone for CourseRosterRouteState<S> {
@@ -194,7 +195,44 @@ impl<S> Clone for CourseRosterRouteState<S> {
             store: Arc::clone(&self.store),
             issuer: self.issuer.clone(),
             delivery: Arc::clone(&self.delivery),
+            local_development_roster: self.local_development_roster.clone(),
         }
+    }
+}
+
+/// Server-owned configured learner aliases for the local development router.
+#[derive(Clone)]
+pub(crate) struct LocalDevelopmentRosterDirectory {
+    identities: BTreeMap<String, LocalDevelopmentRosterIdentity>,
+}
+
+#[derive(Clone)]
+pub(crate) struct LocalDevelopmentRosterIdentity {
+    pub(crate) tenant: TenantId,
+    pub(crate) user: UserId,
+    pub(crate) display_name: String,
+    pub(crate) roles: Vec<UserRole>,
+}
+
+impl LocalDevelopmentRosterDirectory {
+    pub(crate) fn new(
+        identities: impl IntoIterator<Item = (String, LocalDevelopmentRosterIdentity)>,
+    ) -> Option<Self> {
+        let mut resolved = BTreeMap::new();
+        for (alias, identity) in identities {
+            if resolved.insert(alias, identity).is_some() {
+                return None;
+            }
+        }
+        (!resolved.is_empty()).then_some(Self {
+            identities: resolved,
+        })
+    }
+
+    fn learner(&self, alias: &str, tenant: TenantId) -> Option<&LocalDevelopmentRosterIdentity> {
+        self.identities.get(alias).filter(|identity| {
+            identity.tenant == tenant && identity.roles.as_slice() == [UserRole::Student]
+        })
     }
 }
 
@@ -202,6 +240,7 @@ pub(super) fn roster_router<S>(
     store: Arc<S>,
     issuer: CourseInvitationIssuer,
     delivery: Arc<dyn CourseInvitationDelivery>,
+    local_development_roster: Option<Arc<LocalDevelopmentRosterDirectory>>,
 ) -> Router
 where
     S: Store
@@ -211,7 +250,7 @@ where
         + SessionStore
         + 'static,
 {
-    Router::new()
+    let router = Router::new()
         .route("/api/courses/{course}/roster", get(list_roster::<S>))
         .route(
             "/api/courses/{course}/invitations",
@@ -240,12 +279,21 @@ where
         .route(
             "/api/courses/{course}/assignments/{assignment}/grade-export.csv",
             post(export::create::<S>),
+        );
+    let router = if local_development_roster.is_some() {
+        router.route(
+            "/api/courses/{course}/local-development-members",
+            post(activate_local_development_member::<S>),
         )
-        .with_state(CourseRosterRouteState {
-            store,
-            issuer,
-            delivery,
-        })
+    } else {
+        router
+    };
+    router.with_state(CourseRosterRouteState {
+        store,
+        issuer,
+        delivery,
+        local_development_roster,
+    })
 }
 
 #[derive(Debug, Deserialize)]
@@ -290,6 +338,7 @@ struct RosterResponse {
     pending_invitations: Vec<InvitationResponse>,
     allowed_email_domains: Vec<AllowedEmailDomainResponse>,
     signup_posture: &'static str,
+    local_development_roster: bool,
     next_cursor: Option<String>,
     roster_revision: u64,
 }
@@ -301,6 +350,7 @@ struct RosterMemberResponse {
     display_name: String,
     roster_email: Option<String>,
     roster_id: Option<String>,
+    source: &'static str,
     role: &'static str,
     status: &'static str,
 }
@@ -328,6 +378,19 @@ struct InvitationAcceptedResponse {
     invitation: InvitationResponse,
     redemption_path: String,
     email_delivery: &'static str,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ActivateLocalDevelopmentMemberRequest {
+    learner_alias: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LocalDevelopmentMemberAcceptedResponse {
+    member: RosterMemberResponse,
+    roster_revision: u64,
 }
 
 async fn list_roster<S>(
@@ -362,7 +425,62 @@ where
         )
         .await
     {
-        Ok(roster) => roster_response(StatusCode::OK, roster),
+        Ok(roster) => roster_response(
+            StatusCode::OK,
+            roster,
+            state.local_development_roster.is_some(),
+        ),
+        Err(error) => store_error_response(error),
+    }
+}
+
+async fn activate_local_development_member<S>(
+    State(state): State<CourseRosterRouteState<S>>,
+    headers: HeaderMap,
+    Path(course): Path<CourseId>,
+    Json(request): Json<ActivateLocalDevelopmentMemberRequest>,
+) -> Response
+where
+    S: Store + CourseRecordsAccessStore + CourseRosterStore + SessionStore + 'static,
+{
+    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
+        Ok(authenticated) => authenticated,
+        Err(error) => return auth_error_response(error),
+    };
+    if let Err(response) =
+        require_course_access(state.store.as_ref(), &authenticated, course, true).await
+    {
+        return response;
+    }
+    let Some(directory) = &state.local_development_roster else {
+        return error_response(
+            StatusCode::NOT_FOUND,
+            "local development roster is unavailable",
+        );
+    };
+    let Some(learner) = directory.learner(
+        &request.learner_alias,
+        authenticated.tenant_context.tenant_id(),
+    ) else {
+        return error_response(
+            StatusCode::NOT_FOUND,
+            "configured local learner was not found",
+        );
+    };
+    match state
+        .store
+        .activate_local_development_course_member(
+            authenticated.tenant_context,
+            authenticated.record.token_hash,
+            learning_data_access::ActivateLocalDevelopmentCourseMember {
+                course,
+                learner_user: learner.user,
+                learner_display_name: learner.display_name.clone(),
+            },
+        )
+        .await
+    {
+        Ok(accepted) => local_development_member_response(accepted),
         Err(error) => store_error_response(error),
     }
 }
@@ -627,7 +745,11 @@ where
     }
 }
 
-fn roster_response(status: StatusCode, roster: learning_data_access::CourseRosterPage) -> Response {
+fn roster_response(
+    status: StatusCode,
+    roster: learning_data_access::CourseRosterPage,
+    local_development_roster: bool,
+) -> Response {
     let revision = roster.policy.revision;
     let mut members = Vec::new();
     let mut pending_invitations = Vec::new();
@@ -640,6 +762,7 @@ fn roster_response(status: StatusCode, roster: learning_data_access::CourseRoste
                     .roster_email
                     .map(|email| email.delivery().to_string()),
                 roster_id: member.roster_id.map(|value| value.as_str().to_string()),
+                source: member_source(member.source),
                 role: "student",
                 status: member_status(member.status),
             }),
@@ -661,6 +784,7 @@ fn roster_response(status: StatusCode, roster: learning_data_access::CourseRoste
             })
             .collect(),
         signup_posture: posture_name(roster.policy.signup_posture),
+        local_development_roster,
         next_cursor: roster
             .entries
             .next_cursor
@@ -670,6 +794,29 @@ fn roster_response(status: StatusCode, roster: learning_data_access::CourseRoste
     response_with_revision(status, response, revision)
 }
 
+fn local_development_member_response(
+    accepted: learning_data_access::ClaimedCourseMembership,
+) -> Response {
+    let revision = accepted.roster_revision;
+    let member = accepted.member;
+    response_with_revision(
+        StatusCode::OK,
+        LocalDevelopmentMemberAcceptedResponse {
+            member: RosterMemberResponse {
+                member_id: member.id.as_uuid().to_string(),
+                display_name: member.display_name,
+                roster_email: None,
+                roster_id: None,
+                source: "localDevelopment",
+                role: "student",
+                status: member_status(member.status),
+            },
+            roster_revision: revision.value(),
+        },
+        revision,
+    )
+}
+
 fn invitation_projection(invitation: CourseInvitation) -> InvitationResponse {
     InvitationResponse {
         invitation_id: invitation.id.as_uuid().to_string(),
@@ -677,6 +824,14 @@ fn invitation_projection(invitation: CourseInvitation) -> InvitationResponse {
         roster_id: invitation.roster_id.as_str().to_string(),
         status: invitation_status(invitation.status),
         expires_at: invitation.expires_at,
+    }
+}
+
+fn member_source(source: learning_data_access::CourseRosterMemberSource) -> &'static str {
+    match source {
+        learning_data_access::CourseRosterMemberSource::Invitation => "invitation",
+        learning_data_access::CourseRosterMemberSource::LocalDevelopment => "localDevelopment",
+        learning_data_access::CourseRosterMemberSource::Legacy => "legacy",
     }
 }
 

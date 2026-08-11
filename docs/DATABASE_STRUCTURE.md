@@ -36,15 +36,15 @@ PostgreSQL migration ledger, but their owning product packages remain acceptance
 These counts exclude SQLx's ledger and runtime-created partition children; they are
 inventory checks, not capacity metrics.
 
-| Version | File | State | Owns |
-| --- | --- | --- | --- |
-| 2026080801 | [principals](../schemas/migrations/2026080801_principals.sql) | Accepted baseline | Roles, tenant context, session lookup, migration-state projection |
-| 2026080802 | [catalog authoring](../schemas/migrations/2026080802_catalog_authoring.sql) | Accepted baseline | Private drafts, immutable catalog versions, authoring/import evidence |
-| 2026080803 | [courses assignments](../schemas/migrations/2026080803_courses_assignments.sql) | Accepted baseline | Courses, membership, assignment configuration, enrollment, summaries |
-| 2026080804 | [activity feedback](../schemas/migrations/2026080804_activity_feedback.sql) | Accepted baseline | Runs, attempts, submissions, feedback, current scores, protected logs |
-| 2026080805 | [operations analytics](../schemas/migrations/2026080805_operations_analytics.sql) | Accepted baseline | Worker queue, timing, export, analytics, staging, object delivery |
-| 2026080806 | [retention](../schemas/migrations/2026080806_retention.sql) | Accepted baseline | Archive/delete lifecycle and frozen cleanup manifests |
-| 2026080907 | [course appearance](../schemas/migrations/2026080907_course_appearance.sql) | Accepted forward | Course theme and banner candidate/current presentation state |
+| Version    | File                                                                              | State             | Owns                                                                  |
+| ---------- | --------------------------------------------------------------------------------- | ----------------- | --------------------------------------------------------------------- |
+| 2026080801 | [principals](../schemas/migrations/2026080801_principals.sql)                     | Accepted baseline | Roles, tenant context, session lookup, migration-state projection     |
+| 2026080802 | [catalog authoring](../schemas/migrations/2026080802_catalog_authoring.sql)       | Accepted baseline | Private drafts, immutable catalog versions, authoring/import evidence |
+| 2026080803 | [courses assignments](../schemas/migrations/2026080803_courses_assignments.sql)   | Accepted baseline | Courses, membership, assignment configuration, enrollment, summaries  |
+| 2026080804 | [activity feedback](../schemas/migrations/2026080804_activity_feedback.sql)       | Accepted baseline | Runs, attempts, submissions, feedback, current scores, protected logs |
+| 2026080805 | [operations analytics](../schemas/migrations/2026080805_operations_analytics.sql) | Accepted baseline | Worker queue, timing, export, analytics, staging, object delivery     |
+| 2026080806 | [retention](../schemas/migrations/2026080806_retention.sql)                       | Accepted baseline | Archive/delete lifecycle and frozen cleanup manifests                 |
+| 2026080907 | [course appearance](../schemas/migrations/2026080907_course_appearance.sql)       | Accepted forward  | Course theme and banner candidate/current presentation state          |
 
 `2026080908_secure_question_grading_payloads.sql` is checked in as the WP-P2
 prerequisite, but is not an accepted migration or a claim about a deployed database. It
@@ -62,17 +62,21 @@ bounded import staging, and PII-free grade-export audit. WP-RC8 remains acceptan
 Later work takes the next ordered forward migration; it never inserts, renames, or edits
 an accepted version.
 
-| Version | Planned owner | Intended scope | Current source state |
-| --- | --- | --- | --- |
-| 2026080908 | WP-P2 | Secure learner grading payload binding and WeBWorK replay state | File present; acceptance open |
-| 2026080909 | WP-RC8 | Passwordless account, passkey/email identity, invitation, course roster, import, and grade-export audit | File present; migration gate passed; package acceptance open |
-| 2026080910 | WP-RC7 | Object inventory and reconciliation | Reserved; no migration file yet |
-| 2026080911 | WP-RC9 | LTI 1.3 / Advantage launches and passback | Reserved; no migration file yet |
-| 2026080912 | WP-FU | Secure learner upload capability | Reserved; no migration file yet |
+| Version    | Planned owner | Intended scope                                                                                          | Current source state                                               |
+| ---------- | ------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 2026080908 | WP-P2         | Secure learner grading payload binding and WeBWorK replay state                                         | File present; acceptance open                                      |
+| 2026080909 | WP-RC8        | Passwordless account, passkey/email identity, invitation, course roster, import, and grade-export audit | File present; migration gate passed; package acceptance open       |
+| 2026080910 | WP-RC7        | Object inventory and reconciliation                                                                     | Reserved; no migration file yet                                    |
+| 2026080911 | WP-RC9        | LTI 1.3 / Advantage launches and passback                                                               | Reserved; no migration file yet                                    |
+| 2026080912 | WP-FU         | Secure learner upload capability                                                                        | Reserved; no migration file yet                                    |
+| 2026080913 | WP-I2         | Local-development roster source                                                                         | Reserved; no migration file yet; local-only walkthrough capability |
 
 The upload migration follows the reserved identity/reconciliation/LTI sequence and remains planned while
 learner file responses fail closed. See the
 [secure learner upload plan](active_plans/active/secure_learner_file_upload_plan.md).
+The later `2026080913_local_development_roster.sql` migration is reserved for the
+email-free local walkthrough only. It adds an explicit `local_development`
+roster source without changing the production invitation or account model.
 
 ## Data ownership
 
@@ -81,15 +85,15 @@ replaceable projections separate. JSONB holds cohesive, versioned payloads; rela
 columns hold identities, ownership, constraints, joins, and lifecycle state. Object bytes
 are not stored in these relations.
 
-| Data class | Primary relations | Ownership and mutability |
-| --- | --- | --- |
+| Data class                 | Primary relations                                                                                                                                      | Ownership and mutability                                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
 | PLE account authentication | `ple_account`, `email_authentication_challenge`, `authentication_rate_limit`, `account_authentication_session`, `webauthn_ceremony`, `account_passkey` | Global opaque account and private credential state under the authentication role; email is mutable and never a primary key. |
-| Catalog and publication | `problem`, `problem_version`, `problem_version_payload`, `answer_key`, `published_source_artifact` | Shared immutable published content; a correction creates another version. |
-| Private authoring | `workspace_draft` and `workspace_*` import/source relations | Tenant-private mutable work before publication. |
-| Course activity | `course`, `course_member`, `tenant_learner_identity`, `course_roster_*`, `course_invitation`, `assignment`, `assignment_item`, `enrollment` | Tenant/course configuration, protected roster PII, membership, and enrollment. |
-| Learner evidence | `assignment_run`, `assignment_run_item`, `question_attempt`, `submission`, `submission_evaluation` | Tenant-owned educational records. |
-| Current projections | `attempt_score_current`, `student_assignment_summary`, `course_item_analysis_current` | Recomputed/published current state; not a substitute for source evidence. |
-| Protected delivery/audit | `asset_delivery`, `student_export_*`, `record_access_log`, `audit_event` | Explicitly authorized and retention-bound record access/evidence. |
+| Catalog and publication    | `problem`, `problem_version`, `problem_version_payload`, `answer_key`, `published_source_artifact`                                                     | Shared immutable published content; a correction creates another version.                                                   |
+| Private authoring          | `workspace_draft` and `workspace_*` import/source relations                                                                                            | Tenant-private mutable work before publication.                                                                             |
+| Course activity            | `course`, `course_member`, `tenant_learner_identity`, `course_roster_*`, `course_invitation`, `assignment`, `assignment_item`, `enrollment`            | Tenant/course configuration, protected roster PII, membership, and enrollment.                                              |
+| Learner evidence           | `assignment_run`, `assignment_run_item`, `question_attempt`, `submission`, `submission_evaluation`                                                     | Tenant-owned educational records.                                                                                           |
+| Current projections        | `attempt_score_current`, `student_assignment_summary`, `course_item_analysis_current`                                                                  | Recomputed/published current state; not a substitute for source evidence.                                                   |
+| Protected delivery/audit   | `asset_delivery`, `student_export_*`, `record_access_log`, `audit_event`                                                                               | Explicitly authorized and retention-bound record access/evidence.                                                           |
 
 Publication pins an assignment to an exact `(problem_id, version_id)` and an issued run item
 to what that learner actually received. A course edit therefore does not reinterpret an
@@ -114,16 +118,16 @@ All learner-facing transitions derive tenant, learner, assignment position, vers
 policy, backend, and timing from the authenticated attempt record. A request body cannot
 select those facts.
 
-| Relation | Durable responsibility |
-| --- | --- |
-| `assignment_run` | One owned pass through an assignment; completion is derived from attempt state. |
-| `assignment_run_item` | Exact version/order and selection evidence delivered in that run. |
-| `question_attempt` | One issued question instance, including seed, provenance, timing, and controlled state. |
-| `question_prefetch` | One bounded, not-yet-issued reservation; it has no started timer, response, or score. |
-| `submission` | Append-only learner response evidence. |
-| `submission_idempotency` and receipt relations | Exact retry/replay fence; no second grade on a conflicting retry. |
-| `submission_evaluation` | Server-produced normalized result and policy-controlled feedback basis. |
-| `attempt_score_current` and `student_assignment_summary` | Current scoring/gradebook projections, updated under scoring-generation rules. |
+| Relation                                                 | Durable responsibility                                                                  |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `assignment_run`                                         | One owned pass through an assignment; completion is derived from attempt state.         |
+| `assignment_run_item`                                    | Exact version/order and selection evidence delivered in that run.                       |
+| `question_attempt`                                       | One issued question instance, including seed, provenance, timing, and controlled state. |
+| `question_prefetch`                                      | One bounded, not-yet-issued reservation; it has no started timer, response, or score.   |
+| `submission`                                             | Append-only learner response evidence.                                                  |
+| `submission_idempotency` and receipt relations           | Exact retry/replay fence; no second grade on a conflicting retry.                       |
+| `submission_evaluation`                                  | Server-produced normalized result and policy-controlled feedback basis.                 |
+| `attempt_score_current` and `student_assignment_summary` | Current scoring/gradebook projections, updated under scoring-generation rules.          |
 
 The accepted target payload design binds a response to `AttemptId`, an idempotency key, a
 presentation digest, and a family-minimal response; it does not trust a browser-supplied
@@ -134,12 +138,12 @@ for the current-versus-target boundary.
 
 Migration 0908 introduces the persistence needed by the secure grading-payload cutover:
 
-| Relation or columns | Purpose | Privacy boundary |
-| --- | --- | --- |
-| `question_attempt.presentation_*` | Versioned descriptor, nonce, and SHA-256 digest for the exact public presentation. | Consistency evidence, not authentication or a grading key. |
-| `question_prefetch.presentation_*` | The same binding for one reservation before promotion to an attempt. | Prevents an unbound prefetch from becoming an issued render. |
-| `submission_idempotency.request_*` | Versioned request fingerprint for safe response retries. | Server compares it before regrading. |
-| `webwork_grade_replay_state` | Attempt-bound, answer-free mapping needed to reproduce a private WeBWorK grade call. | Never enters the browser envelope; contains no source text, credentials, correct answer, or raw renderer result. |
+| Relation or columns                | Purpose                                                                              | Privacy boundary                                                                                                 |
+| ---------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `question_attempt.presentation_*`  | Versioned descriptor, nonce, and SHA-256 digest for the exact public presentation.   | Consistency evidence, not authentication or a grading key.                                                       |
+| `question_prefetch.presentation_*` | The same binding for one reservation before promotion to an attempt.                 | Prevents an unbound prefetch from becoming an issued render.                                                     |
+| `submission_idempotency.request_*` | Versioned request fingerprint for safe response retries.                             | Server compares it before regrading.                                                                             |
+| `webwork_grade_replay_state`       | Attempt-bound, answer-free mapping needed to reproduce a private WeBWorK grade call. | Never enters the browser envelope; contains no source text, credentials, correct answer, or raw renderer result. |
 
 The relation is tenant-, course-, attempt-, version-, source-, seed-, renderer-, and
 presentation-bound. Its mapping has an explicit size and item-count limit, an SHA-256
@@ -155,15 +159,15 @@ transaction sets its tenant context locally; pooled connections must not inherit
 RLS is the tenant fence, while Store queries additionally bind a learner to the owned
 enrollment or require exact instructor course membership.
 
-| Role/capability | Narrow purpose |
-| --- | --- |
-| `ple_app` | Normal API/server work through RLS and narrowly granted tables/functions. |
-| `ple_student` | Read-only student projections subject to tenant and ownership predicates. |
+| Role/capability                     | Narrow purpose                                                                    |
+| ----------------------------------- | --------------------------------------------------------------------------------- |
+| `ple_app`                           | Normal API/server work through RLS and narrowly granted tables/functions.         |
+| `ple_student`                       | Read-only student projections subject to tenant and ownership predicates.         |
 | `ple_grader` / `ple_grading_reader` | Server-only grading material and approved reader functions; never browser access. |
-| `ple_auth` | Hash-based session resolution only. |
-| `ple_retention_broker` | Retention-manifest and learner-record cleanup work under its RLS policies. |
-| `ple_statistics_broker` | Identity-free aggregate/statistics contribution work. |
-| `ple_qti_*_broker` | Narrow staging/provenance capabilities for QTI import. |
+| `ple_auth`                          | Hash-based session resolution only.                                               |
+| `ple_retention_broker`              | Retention-manifest and learner-record cleanup work under its RLS policies.        |
+| `ple_statistics_broker`             | Identity-free aggregate/statistics contribution work.                             |
+| `ple_qti_*_broker`                  | Narrow staging/provenance capabilities for QTI import.                            |
 
 Grants do not replace RLS, and RLS does not prove individual learner ownership by itself.
 Production acceptance must exercise the deployed roles and transaction context, including
