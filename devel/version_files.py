@@ -1,11 +1,39 @@
+"""Discover and update repository files that carry version metadata."""
+
 # Standard Library
 import os
 import re
 import tomllib
 
 # local repo modules
-import bump_version.contracts
-import bump_version.parsing
+import version_lib
+
+
+SKIP_DIRS = {
+	".git",
+	".venv",
+	"venv",
+	"env",
+	"build",
+	"dist",
+	"__pycache__",
+	"node_modules",
+	"site-packages",
+}
+ROOT_SKIP_DIRS = {"OTHER_REPOS"}
+CANDIDATE_FILENAMES = {
+	"Cargo.lock",
+	"Cargo.toml",
+	"pyproject.toml",
+	"VERSION",
+	"version",
+	"version.txt",
+	"version.py",
+}
+CARGO_NAME_PATTERN = re.compile(
+	r"^\s*name\s*=\s*['\"](?P<name>[^'\"]+)['\"]\s*$"
+)
+
 
 def normalize_base_dir(base_dir: str) -> str:
 	"""Normalize a base directory path.
@@ -20,22 +48,6 @@ def normalize_base_dir(base_dir: str) -> str:
 	if not os.path.isdir(resolved):
 		raise FileNotFoundError(f"Base directory not found: {resolved}")
 	return resolved
-
-#============================================
-
-def normalize_base_version_override(value: str) -> str:
-	"""Normalize a base version override string.
-
-	Args:
-		value (str): Base version override.
-
-	Returns:
-		str: Normalized base version.
-	"""
-	candidate = value.strip()
-	if re.fullmatch(r"\d{2}\.\d{2}", candidate):
-		return f"{candidate}.0"
-	return candidate
 
 #============================================
 
@@ -58,17 +70,14 @@ def iter_candidate_files(base_dir: str, max_depth: int) -> list[str]:
 			continue
 
 		# ROOT_SKIP_DIRS applies only to the top-level scan directory
-		skip_names = (
-			bump_version.contracts.SKIP_DIRS | bump_version.contracts.ROOT_SKIP_DIRS
-			if depth == 0 else bump_version.contracts.SKIP_DIRS
-		)
+		skip_names = SKIP_DIRS | ROOT_SKIP_DIRS if depth == 0 else SKIP_DIRS
 		dirs[:] = [
 			d for d in dirs
 			if d not in skip_names and not d.startswith(".")
 		]
 
 		for filename in files:
-			if filename in bump_version.contracts.CANDIDATE_FILENAMES:
+			if filename in CANDIDATE_FILENAMES:
 				matches.append(os.path.join(root, filename))
 
 	matches.sort()
@@ -197,7 +206,7 @@ def parse_cargo_lock(path: str, package_names: set[str]) -> list[dict]:
 	package_index = -1
 	index = 0
 	while index < len(lines):
-		if not bump_version.contracts.CARGO_PACKAGE_HEADER_PATTERN.match(lines[index]):
+		if not version_lib.CARGO_PACKAGE_HEADER_PATTERN.match(lines[index]):
 			index += 1
 			continue
 
@@ -206,10 +215,10 @@ def parse_cargo_lock(path: str, package_names: set[str]) -> list[dict]:
 		package_version = ""
 		index += 1
 		while index < len(lines) and not lines[index].startswith("["):
-			match = bump_version.contracts.VERSION_LINE_PATTERN.match(lines[index])
+			match = version_lib.VERSION_LINE_PATTERN.match(lines[index])
 			if match:
 				package_version = match.group("version")
-			name_match = bump_version.contracts.CARGO_NAME_PATTERN.match(lines[index])
+			name_match = CARGO_NAME_PATTERN.match(lines[index])
 			if name_match:
 				package_name = name_match.group("name")
 			index += 1
@@ -244,7 +253,7 @@ def parse_simple_version_file(path: str, force_update: bool=False) -> dict | Non
 		strip_line = line.strip()
 		if not strip_line or strip_line.startswith("#"):
 			continue
-		if force_update or bump_version.parsing.is_version_candidate(strip_line):
+		if force_update or version_lib.is_version_candidate(strip_line):
 			entry = {
 				"path": path,
 				"kind": "simple",
@@ -303,7 +312,7 @@ def parse_version_py(path: str) -> dict | None:
 
 	versions = []
 	for line in lines:
-		match = bump_version.contracts.ASSIGNMENT_PATTERN.match(line)
+		match = version_lib.ASSIGNMENT_PATTERN.match(line)
 		if not match:
 			continue
 		versions.append(match.group("version"))
@@ -447,10 +456,70 @@ def choose_base_version(entries: list[dict], source: str) -> str:
 		return source_entry["version"]
 
 	versions = sorted(set(entry["version"] for entry in entries))
-	if len(versions) == 1:
+	identities = {version_lib.version_identity(version) for version in versions}
+	if len(identities) == 1:
+		for version in versions:
+			if version_lib.is_repo_calver(version):
+				return version
 		return versions[0]
 
 	joined = ", ".join(versions)
-	raise ValueError(f"Multiple versions found: {joined}. Use --source or --set-version.")
+	raise ValueError(
+		f"Several current versions were found: {joined}. "
+		"Choose one with --source FILE or --set-version VERSION."
+	)
+
+#============================================
+
+
+#============================================
+
+def update_entry(entry: dict, new_version: str, apply: bool) -> dict:
+	"""Update a version entry.
+
+	Args:
+		entry (dict): Version entry.
+		new_version (str): New version.
+		apply (bool): Whether to write changes.
+
+	Returns:
+		dict: Result summary.
+	"""
+	path = entry["path"]
+	if entry.get("create"):
+		text = ""
+	else:
+		with open(path, "r", encoding="utf-8") as handle:
+			text = handle.read()
+
+	version_value = version_lib.normalize_target_version(entry, new_version)
+	if entry["kind"] == "pyproject":
+		updated_text, changed = version_lib.update_pyproject(text, entry["sections"], version_value)
+	elif entry["kind"] == "cargo_toml":
+		updated_text, changed = version_lib.update_pyproject(text, entry["sections"], version_value)
+	elif entry["kind"] == "cargo_lock":
+		updated_text, changed = version_lib.update_cargo_lock(
+			text,
+			entry["package_index"],
+			version_value,
+		)
+	elif entry["kind"] == "version_py":
+		updated_text, changed = version_lib.update_version_py(text, version_value)
+	else:
+		updated_text, changed = version_lib.update_simple_version(
+			text,
+			version_value,
+			force_update=entry.get("force_update", False),
+		)
+
+	if changed and apply:
+		with open(path, "w", encoding="utf-8") as handle:
+			handle.write(updated_text)
+
+	result = {
+		"path": path,
+		"changed": changed,
+	}
+	return result
 
 #============================================

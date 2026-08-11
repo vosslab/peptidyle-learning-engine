@@ -22,6 +22,7 @@ import rich.panel
 
 # local repo modules
 import changelog_lib
+import version_lib
 
 CHANGELOG_PATHSPEC = "docs/CHANGELOG.md"
 VERSION_PATHSPEC = "VERSION"
@@ -70,8 +71,8 @@ def check_version_freshness() -> bool:
 		False if user declines to continue.
 	"""
 	version_value = read_version_file()
-	current_month = changelog_lib.current_calver_month()
-	version_month = changelog_lib.calver_month_prefix(version_value)
+	current_month = version_lib.current_calver_month()
+	version_month = version_lib.calver_month_prefix(version_value)
 
 	# If months match, freshness is confirmed
 	if version_month == current_month:

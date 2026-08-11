@@ -20,7 +20,9 @@ appropriate repo root or package.
 
 | File | Kind of work |
 | --- | --- |
-| [bump_version.py](bump_version.py) | Set or bump repo versions across version files. |
+| [bump_version.py](bump_version.py) | Preview and save repo version changes; enter `patch` for the next patch release. |
+| [version_lib.py](version_lib.py) | Shared version parsing and normalization behavior. |
+| [version_files.py](version_files.py) | Discover and update files that carry version metadata. |
 | [changelog_lib.py](changelog_lib.py) | Shared parser and helpers for changelog tools. |
 | [commit_changelog.py](commit_changelog.py) | Draft a commit message from new changelog entries. |
 | [query_changelog.py](query_changelog.py) | Search active and archived changelog entries. |
@@ -33,9 +35,9 @@ appropriate repo root or package.
 Some developer tools arrive by propagation and appear in `devel/` when this repo's
 `REPO_TYPE` calls for them.
 
-`devel/make_release.py` reaches non-PyPI python, rust, swift, and other repo types
-(repos that ship a `pyproject.toml` are excluded). When present, it prepares a GitHub
-source release: CalVer freshness check, free-tag check, committed-LICENSE verification,
+`devel/make_release.py` ships to the `scripted`, `compiled`, and `other` families, including
+their descendants (`python`, `pypi`, `rust`, and `swift`). It prepares a GitHub source release:
+CalVer freshness check, free-tag check, committed-LICENSE verification,
 zip and tgz archive build with byte-level LICENSE spot-check, LLM-prompt generation for
 the release description, optional `docs/RELEASE_HISTORY.md` and `docs/NEWS.md` updates,
 and printed `git tag` + `gh release create` commands. Use `--dry-run` to preview or

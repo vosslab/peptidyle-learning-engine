@@ -28,6 +28,7 @@ import subprocess
 # local repo modules
 import changelog_lib
 import commit_changelog
+import version_lib
 
 # Directory (relative to repo root) that receives built release archives.
 OUTPUT_DIR_NAME = "output_release"
@@ -83,8 +84,8 @@ def check_calver_freshness(version: str) -> None:
 		RuntimeError: When the version is not a CalVer-shaped YY.MM string.
 	"""
 	# Validate the leading year/month pair and compare against the current month.
-	version_month = changelog_lib.calver_month_prefix(version)
-	current_month = changelog_lib.current_calver_month()
+	version_month = version_lib.calver_month_prefix(version)
+	current_month = version_lib.current_calver_month()
 	if version_month != current_month:
 		print(
 			f"WARNING: VERSION month {version_month} does not match "
