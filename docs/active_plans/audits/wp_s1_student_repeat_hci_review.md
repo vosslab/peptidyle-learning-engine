@@ -1,5 +1,13 @@
 # WP-S1 student take-and-repeat HCI review
 
+## Acceptance addendum
+
+The retained-stack full run and independent replay subsequently passed the
+corrected local no-email pilot on 2026-08-11. The two keyboard-only student
+runs now have integrated J5 visible-score and schema-v2 report evidence. This
+does not accept email/canonical onboarding, J6/J7, all-family, multi-learner,
+or release work.
+
 ## Scope and verdict
 
 Independent read-only review of the in-progress schema-v2 J1--J4 student
@@ -59,10 +67,10 @@ rendered form boundary, which the contract intentionally allows.
 | `python3 -m py_compile tests/e2e/e2e_ui_walkthrough.py tests/test_ui_walkthrough_runner.py` | PASS. |
 | Focused Playwright `student_repeat_state` and keyboard-helper fixtures | State fixture PASS (3 tests); four browser-body fixture tests could not launch because this sandbox denies Chromium's macOS Mach-port registration. This is an environment limitation, not a test assertion failure; no Podman stack was started. |
 
-## Required next evidence
+## Historical next evidence
 
-Run the retained-stack partial command, then independently replay it before
-accepting the student slice as live evidence:
+At the time of this review, the required next step was the retained-stack
+partial command and independent replay before accepting the student slice:
 
 ```bash
 bash tests/e2e/e2e_ui_walkthrough.sh --master-seed 42 --build --student-repeat-only

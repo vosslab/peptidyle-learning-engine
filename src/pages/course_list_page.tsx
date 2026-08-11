@@ -1,14 +1,22 @@
 // course_list_page.tsx - mock-backed first-success route.
 
-import { A, createAsync } from "@solidjs/router";
+import { A, createAsync, revalidate } from "@solidjs/router";
 import { createMemo, createSignal, For, Show, Suspense, type JSX } from "solid-js";
 
-import type { CourseSummary } from "../api/contracts";
+import type { CourseSummary, CursorPage } from "../api/contracts";
 import { useApiRuntime } from "../api/runtime";
 import { useSessionBootstrap } from "../auth/session_context";
+import { CursorPageSession, type CursorPageSessionState } from "./cursor_page_session";
 
 interface CourseCardProps {
   readonly course: CourseSummary;
+  readonly registerLink: (course: CourseSummary, element: HTMLAnchorElement) => void;
+}
+
+export interface CourseListProps {
+  readonly initialPage: CursorPage<CourseSummary>;
+  readonly createdCourses: () => ReadonlyArray<CourseSummary>;
+  readonly reloadCourses: () => Promise<void>;
   readonly registerLink: (course: CourseSummary, element: HTMLAnchorElement) => void;
 }
 
@@ -21,11 +29,182 @@ function CourseCard(props: CourseCardProps): JSX.Element {
       <A
         class="primary-link"
         href={`/courses/${props.course.id}`}
+        id={`course-open-${props.course.id}`}
         ref={(element: HTMLAnchorElement) => props.registerLink(props.course, element)}
       >
         Open course
       </A>
     </article>
+  );
+}
+
+/** Visible, append-only course paging keeps a large learner roster reachable without a route shortcut. */
+export function CourseList(props: CourseListProps): JSX.Element {
+  const runtime = useApiRuntime();
+  const [state, setState] = createSignal<CursorPageSessionState<CourseSummary>>({
+    items: [],
+    nextCursor: null,
+    loading: false,
+    error: null,
+  });
+  const [announcement, setAnnouncement] = createSignal("");
+  let retryButton: HTMLButtonElement | undefined;
+  let reloadButton: HTMLButtonElement | undefined;
+  const session = new CursorPageSession(
+    props.initialPage,
+    (cursor) => runtime.client.listCourses(cursor),
+    (course) => course.id,
+    setState,
+  );
+  setState(session.state);
+
+  const visibleCourses = createMemo((): ReadonlyArray<CourseSummary> => {
+    const seen = new Set<string>();
+    const courses: CourseSummary[] = [];
+    for (const course of [...props.createdCourses(), ...state().items]) {
+      if (!seen.has(course.id)) {
+        seen.add(course.id);
+        courses.push(course);
+      }
+    }
+    return courses;
+  });
+
+  function focusFirstAppended(appended: ReadonlyArray<CourseSummary>): void {
+    const first = appended[0];
+    if (first === undefined) return;
+    requestAnimationFrame(() => document.getElementById(`course-open-${first.id}`)?.focus());
+  }
+
+  function focusRecoveryButton(kind: "protocol" | "transport"): void {
+    requestAnimationFrame(() => {
+      if (kind === "transport") retryButton?.focus();
+      else reloadButton?.focus();
+    });
+  }
+
+  function statusMessage(): string {
+    const current = state();
+    if (current.loading) return "Loading more courses...";
+    const shownCount = visibleCourses().length;
+    if (current.error !== null || shownCount === 0) return "";
+    if (current.nextCursor === null) return `All ${shownCount} courses are shown.`;
+    return announcement();
+  }
+
+  async function loadMore(): Promise<void> {
+    const appended = await session.loadMore();
+    const current = state();
+    if (current.error !== null) {
+      focusRecoveryButton(current.error.kind);
+      return;
+    }
+    if (appended.length > 0) {
+      setAnnouncement(
+        `Loaded ${appended.length} more courses. ${visibleCourses().length} courses shown.`,
+      );
+      focusFirstAppended(appended);
+    }
+  }
+
+  async function retryLoadMore(): Promise<void> {
+    const appended = await session.retry();
+    const current = state();
+    if (current.error !== null) {
+      focusRecoveryButton(current.error.kind);
+      return;
+    }
+    if (appended.length > 0) {
+      setAnnouncement(
+        `Loaded ${appended.length} more courses. ${visibleCourses().length} courses shown.`,
+      );
+      focusFirstAppended(appended);
+    }
+  }
+
+  return (
+    <>
+      <Show
+        when={
+          (state().error === null && state().nextCursor !== null) ||
+          state().error?.kind === "transport" ||
+          state().error?.kind === "protocol"
+        }
+      >
+        <a class="skip-link" href="#course-pagination" target="_self">
+          Skip to load more courses
+        </a>
+      </Show>
+      <Show
+        when={visibleCourses().length > 0 || state().nextCursor !== null}
+        fallback={<p class="empty-state">No courses are available for this account yet.</p>}
+      >
+        <div class="card-grid" aria-busy={state().loading}>
+          <For each={visibleCourses()}>
+            {(course) => <CourseCard course={course} registerLink={props.registerLink} />}
+          </For>
+        </div>
+      </Show>
+      <Show when={statusMessage().length > 0}>
+        <p role="status" aria-live="polite" aria-atomic="true">
+          {statusMessage()}
+        </p>
+      </Show>
+      <Show
+        when={
+          state().error?.kind === "transport" ||
+          state().error?.kind === "protocol" ||
+          state().nextCursor !== null
+        }
+      >
+        <section
+          id="course-pagination"
+          class="course-pagination"
+          aria-label="Course pagination"
+          tabindex="-1"
+        >
+          <Show when={state().error?.kind === "transport"}>
+            <section class="route-error" role="alert">
+              <p>
+                Could not load more courses. The {visibleCourses().length} already shown are still
+                available.
+              </p>
+              <button
+                class="primary-action"
+                type="button"
+                ref={(element) => (retryButton = element)}
+                onClick={() => void retryLoadMore()}
+              >
+                Try loading more courses again
+              </button>
+            </section>
+          </Show>
+          <Show when={state().error?.kind === "protocol"}>
+            <section class="route-error" role="alert">
+              <p>{state().error?.message}</p>
+              <button
+                class="primary-action"
+                type="button"
+                ref={(element) => (reloadButton = element)}
+                onClick={() => void props.reloadCourses()}
+              >
+                Reload courses
+              </button>
+            </section>
+          </Show>
+          <Show when={state().error === null && state().nextCursor !== null}>
+            <button
+              class="primary-action"
+              type="button"
+              disabled={state().loading}
+              onClick={() => void loadMore()}
+            >
+              {state().loading ? "Loading more courses..." : "Load more courses"}
+            </button>
+          </Show>
+        </section>
+      </Show>
+    </>
   );
 }
 
@@ -38,6 +217,10 @@ export function CourseListPage(): JSX.Element {
   const [isCreating, setIsCreating] = createSignal(false);
   const [creationError, setCreationError] = createSignal<string | null>(null);
   const courseLinks = new Map<string, HTMLAnchorElement>();
+
+  async function reloadCourses(): Promise<void> {
+    await revalidate(runtime.queries.courses.key);
+  }
 
   const mayCreateCourse = createMemo((): boolean => {
     const state = session.state();
@@ -108,17 +291,16 @@ export function CourseListPage(): JSX.Element {
       <Suspense fallback={<p class="loading-state">Loading your courses...</p>}>
         <Show
           when={courses()}
+          keyed
           fallback={<p class="empty-state">No courses are available for this account yet.</p>}
         >
           {(page) => (
-            <div class="card-grid">
-              <For each={createdCourses()}>
-                {(course) => <CourseCard course={course} registerLink={registerCourseLink} />}
-              </For>
-              <For each={page().items}>
-                {(course) => <CourseCard course={course} registerLink={registerCourseLink} />}
-              </For>
-            </div>
+            <CourseList
+              initialPage={page}
+              createdCourses={createdCourses}
+              reloadCourses={reloadCourses}
+              registerLink={registerCourseLink}
+            />
           )}
         </Show>
       </Suspense>

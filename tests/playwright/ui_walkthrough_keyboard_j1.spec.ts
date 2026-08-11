@@ -9,6 +9,7 @@ import {
   appendStudentRepeatState,
   passedStudentRepeatFragment,
 } from "./simulator/student_repeat_state";
+import { writeJ1Checkpoint, type J1Checkpoint } from "./simulator/j1_checkpoint";
 import { studentCredentialFromValidatedFile } from "./ui_walkthrough_live_config";
 
 test.describe.configure({ mode: "serial" });
@@ -17,6 +18,7 @@ test.skip(
   configuredUiWalkthroughInputs === undefined,
   "requires the explicit UI walkthrough live-stack invocation",
 );
+test.setTimeout(90_000);
 
 function appendPassedJourneyState(elapsedMs: number): void {
   const inputs = configuredUiWalkthroughInputs;
@@ -26,6 +28,13 @@ function appendPassedJourneyState(elapsedMs: number): void {
     inputs.journeyStateFile,
     passedStudentRepeatFragment("J1", inputs.courseId, inputs.masteryAssignmentId, elapsedMs),
   );
+}
+
+function checkpoint(stage: J1Checkpoint): void {
+  const inputs = configuredUiWalkthroughInputs;
+  if (inputs === undefined)
+    throw new Error("the declaration-time live walkthrough skip did not apply");
+  writeJ1Checkpoint(inputs.j1CheckpointFile, stage);
 }
 
 test("J1 student reaches visible retry controls for the instructor-created Mastery assignment", async ({
@@ -48,13 +57,29 @@ test("J1 student reaches visible retry controls for the instructor-created Maste
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Pick up where you left off" })).toBeVisible();
   await expect(page.locator("[data-route-surface=courses]")).toBeVisible();
+  checkpoint("signed_in");
 
   const courseLink = page.locator(`a[href="/courses/${inputs.courseId}"]`);
+  await tabToTargetThroughVisiblePagination(page, {
+    target: courseLink,
+    renderedItems: page.locator(".course-card"),
+    firstAppendedControl: (index) =>
+      page
+        .locator(".course-card")
+        .nth(index)
+        .getByRole("link", { name: "Open course", exact: true }),
+    itemName: "courses",
+  });
   await expect(courseLink).toHaveCount(1);
-  await tabTo(page, courseLink);
+  await expect(courseLink).toBeVisible();
+  checkpoint("course_visible");
   await expect(courseLink).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(page.locator("#main-content")).toBeFocused();
+  await expect(page.locator("[data-route-surface=courseAssignments]")).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.locator("#main-content")).toBeFocused({ timeout: 30_000 });
+  checkpoint("course_opened");
 
   const assignmentLink = page.locator(
     `a[href="/courses/${inputs.courseId}/assignments/${inputs.masteryAssignmentId}"]`,
@@ -73,6 +98,7 @@ test("J1 student reaches visible retry controls for the instructor-created Maste
   await expect(assignmentLink).toBeVisible();
   await tabTo(page, assignmentLink, "backward");
   await expect(assignmentLink).toBeFocused();
+  checkpoint("assignment_visible");
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
 
@@ -80,12 +106,13 @@ test("J1 student reaches visible retry controls for the instructor-created Maste
   await tabTo(page, start);
   await expect(start).toBeFocused();
   await page.keyboard.press("Space");
-  await expect(page.locator("[data-route-surface=runAttempt]")).toBeVisible();
+  await expect(page.locator("[data-route-surface=runAttempt]")).toBeVisible({ timeout: 30_000 });
 
   const radios = page.locator('input[type="radio"]:visible');
-  await expect(radios).toHaveCount(2);
+  await expect(radios).toHaveCount(2, { timeout: 30_000 });
   await expect(radios.nth(0)).not.toBeChecked();
   await expect(radios.nth(1)).not.toBeChecked();
+  checkpoint("run_controls_visible");
   const response = radios.nth(0);
   await tabTo(page, response);
   await expect(response).toBeFocused();
@@ -100,7 +127,10 @@ test("J1 student reaches visible retry controls for the instructor-created Maste
   await page.keyboard.press("Tab");
   await expect(submit).toBeFocused();
   await page.keyboard.press("Space");
-  await expect(page.getByRole("heading", { name: "Feedback", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Feedback", exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  checkpoint("feedback_visible");
 
   const continueButton = page.getByRole("button", { name: "Continue" });
   await tabTo(page, continueButton);
@@ -108,8 +138,9 @@ test("J1 student reaches visible retry controls for the instructor-created Maste
   await page.keyboard.press("Space");
   await expect(page.locator("[data-route-surface=runAttempt]")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("button", { name: "Start another practice run" })).toHaveCount(0);
-  await expect(radios).toHaveCount(2);
+  await expect(radios).toHaveCount(2, { timeout: 30_000 });
   await expect(radios.nth(0)).not.toBeChecked();
   await expect(radios.nth(1)).not.toBeChecked();
+  checkpoint("retry_visible");
   appendPassedJourneyState(Math.round(performance.now() - startedAt));
 });

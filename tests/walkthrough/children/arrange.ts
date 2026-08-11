@@ -1,4 +1,4 @@
-// ui_walkthrough_arrange.ts - fixed, redacted supported-API setup for the UI walkthrough.
+// arrange.ts - fixed, redacted supported-API setup for the UI walkthrough.
 
 import { lstatSync, readFileSync } from "node:fs";
 
@@ -7,8 +7,8 @@ import { request, type APIRequestContext } from "@playwright/test";
 import {
   arrangeSeededCourseAssignments,
   type AssignmentArrangement,
-} from "../playwright/simulator/assignment_arrangement";
-import { arrangeRetryCorpus } from "../playwright/simulator/retry_corpus";
+} from "../../playwright/simulator/assignment_arrangement";
+import { arrangeRetryCorpus } from "../../playwright/simulator/retry_corpus";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const CREDENTIAL = /^[A-Za-z0-9_-]{32,}$/u;

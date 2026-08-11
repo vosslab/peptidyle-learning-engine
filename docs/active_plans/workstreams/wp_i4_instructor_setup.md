@@ -24,6 +24,12 @@ learner modules and does not retarget J1-J5 or J8.
 - Focused Playwright state/config/arrangement tests pass; the live-only J11/J12/J13 test skips outside
   the explicit runner invocation.
 
-## Remaining gate
+## Accepted integration evidence
 
-Independent HCI and security re-review, followed by the documented real Podman instructor-only smoke.
+The two retained-stack seed-42 `--build` walkthroughs used this fixed child to
+create and open a fresh course, activate the local student, and construct the
+corpus-backed Mastery assignment before student work began. Its public-ID
+handoff then bound the remaining journeys to that visible setup. The reports
+were redacted mode-0700/0600 artifacts and cleanup left no containers or
+private state. This accepts only the local no-email pilot setup; canonical
+email onboarding and production enrollment remain outside this workstream.

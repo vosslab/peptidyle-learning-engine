@@ -238,6 +238,10 @@ enter the handoff or report.
   - The student completes two runs by keyboard and the exact gradebook row
     shows Best and Latest `100%`, Completed `2`, and two completed history rows.
   - Only corpus publication remains an API arrangement.
+- **Accepted 2026-08-11:** the retained-stack seed-42 `--build` run completed
+  J11, J12, J13, J1, J2, J3, J4, J5, and J8 in the required order. The
+  student completed two runs through the keyboard platform path and J5 visibly
+  confirmed Best `100%`, Latest `100%`, Completed `2`, and two history rows.
 - Parallel-plan ready: no; setup produces IDs consumed by serial learner and
   instructor children.
 
@@ -257,6 +261,13 @@ enter the handoff or report.
   - Runner-owned no-volume cleanup leaves no containers or private state.
   - The final checklist and implementation status describe the walkthrough as
     accepted independently of production email work.
+- **Accepted 2026-08-11:** an independent second seed-42 `--build` replay
+  created a fresh instructor course and assignment and passed the same nine
+  rows. Both reports were canonical redacted schema-v2 output in mode-0700
+  directories with mode-0600 files; cleanup left no containers or private
+  walkthrough state. Independent HCI, security, report-security, and final
+  walkthrough reviews accepted their boundaries; see the retained-live final
+  review recorded under `docs/active_plans/audits/`.
 - Parallel-plan ready: yes - max parallel doers: two. Evidence review and docs
   may proceed after the manager report stabilizes.
 
@@ -514,6 +525,31 @@ enter the handoff or report.
 - Evidence or review, when useful: docs gates and final independent review.
 - Obvious follow-ons: none; this closes the corrected walkthrough.
 
+### Work package: WP-E2 package the accepted runner
+
+- Owner: Python test engineer.
+- Status: ACCEPTED. The canonical command passed the retained-stack no-email
+  walkthrough after the package move; independent architecture, security,
+  retained-live, and closeout reviews found no P1/P2 issue.
+- Touch points: the new `tests/walkthrough/` owner and `walklib/` package,
+  compatibility E2E entry points, runner tests, harness discovery, and
+  architecture documentation.
+- Depends on: accepted M10/M11 evidence and WP-D1.
+- Acceptance criteria:
+  - The new canonical shell command and report behavior retain the accepted
+    contract; historical E2E paths remain compatibility launchers.
+  - The Python entry point is a thin executable facade over importable modules.
+  - Configuration, typed process values, strict arrangement/report contracts,
+    and runner orchestration have focused owners under one package.
+  - Playwright journeys remain under `tests/playwright/` and the anti-shortcut
+    scanner covers the complete runner package recursively.
+  - The walkthrough does not import another E2E runner or its test support.
+- Evidence or review, when useful: focused runner/cleanup/security suites,
+  source-line and import-policy gates, unchanged CLI help, and independent
+  architecture review.
+- Obvious follow-ons: split private-state or report capabilities only when
+  their ownership changes or the runner composition module grows materially.
+
 ## Acceptance criteria and gates
 
 - Charter gate: durable human guidance, this plan, status, and baseline use the
@@ -588,20 +624,21 @@ meaning of old report rows.
 ## Rollout and release checklist
 
 - [x] Owner correction is recorded in `docs/HUMAN_GUIDANCE.md`.
-- [ ] Active status and historical baseline/audits are marked superseded for
+- [x] Active status and historical baseline/audits are marked superseded for
       the corrected charter.
-- [ ] Visible instructor course creation passes focused review.
-- [ ] Local-only active roster addition passes Memory/PostgreSQL, production
+- [x] Visible instructor course creation passes focused review.
+- [x] Local-only active roster addition passes Memory/PostgreSQL, production
       absence, security, and browser review.
-- [ ] Visible corpus-backed assignment creation passes focused review.
-- [ ] Fixed instructor setup emits only validated public IDs.
-- [ ] Student completes two runs through the keyboard platform path.
-- [ ] Exact gradebook row visibly proves Best/Latest `100%`, Completed `2`, and
+- [x] Visible corpus-backed assignment creation passes focused review.
+- [x] Fixed instructor setup emits only validated public IDs.
+- [x] Student completes two runs through the keyboard platform path.
+- [x] Exact gradebook row visibly proves Best/Latest `100%`, Completed `2`, and
       two completed histories.
-- [ ] Manager and independent retained-stack `--build` runs pass schema v2.
-- [ ] Reports remain redacted 0700/0600 and cleanup leaves no containers or
+- [x] Manager and independent retained-stack `--build` runs pass schema v2.
+- [x] Reports remain redacted 0700/0600 and cleanup leaves no containers or
       private state.
-- [ ] Operator docs and changelog close without an email/onboarding gate.
+- [x] Operator docs and changelog close without an email/onboarding gate.
+- [x] Accepted runner lives behind a thin facade in its dedicated package.
 
 ## Documentation close-out requirements
 
@@ -623,6 +660,7 @@ meaning of old report rows.
 - Patch 6: WP-S1 student keyboard take and repeat.
 - Patch 7: WP-S2 visible score and gradebook evidence.
 - Patch 8: WP-E1 schema-v2 report/baseline and WP-D1 close-out.
+- Patch 9: WP-E2 importable walkthrough-runner package refactor.
 
 Each package reports its owner, touched files, focused commands, observed
 behavior, independent review, dependency state, and next package. Live reports

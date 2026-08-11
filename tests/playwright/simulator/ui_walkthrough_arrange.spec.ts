@@ -8,7 +8,7 @@ import {
   instructorSetupArrangementOutput,
   instructorCredential,
   launcherManifest,
-} from "../../e2e/ui_walkthrough_arrange";
+} from "../../walkthrough/children/arrange";
 
 const INSTRUCTOR =
   "instructor=fixture_instructor_credential_that_is_long_enough_for_local_provider";

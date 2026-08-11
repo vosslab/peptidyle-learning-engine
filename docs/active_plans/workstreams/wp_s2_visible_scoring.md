@@ -2,7 +2,10 @@
 
 ## Status
 
-**IMPLEMENTED OFFLINE; AWAITING RETAINED-STACK EVIDENCE.**
+**ACCEPTED AS PART OF THE CORRECTED LOCAL NO-EMAIL PILOT.** Two independent
+seed-42 retained-stack `--build` runs reached J5 after the visible instructor
+and keyboard student paths. Each visibly confirmed Best `100%`, Latest `100%`,
+Completed `2`, and exactly two completed history entries.
 
 ## Scope
 
@@ -26,5 +29,6 @@
 ## Acceptance boundary
 
 No score polling is permitted. Completion writes the run and gradebook summary transactionally;
-J5 waits only for normal visible Gradebook and run-history loads. Live evidence remains pending the
-serial WP-S1 student repeat integration and the final WP-E1 retained-stack report gate.
+J5 waits only for normal visible Gradebook and run-history loads. The live
+evidence is the serial WP-S1/WP-E1 full retained-stack integration, not a
+claim about email, canonical onboarding, or wider release scope.

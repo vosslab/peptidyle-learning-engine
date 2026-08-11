@@ -2,9 +2,11 @@
 
 ## Status
 
-Implementation is ready for independent HCI and security review. It has not
-received a Podman live-run claim. The command is deliberately partial until
-WP-S2 and WP-E1 add visible instructor scoring and the final schema-v2 report.
+**ACCEPTED AS PART OF THE CORRECTED LOCAL NO-EMAIL PILOT.** Two same-seed
+retained-stack `--build` runs exercised J1--J4 after visible J11/J12/J13
+setup; the student completed two runs using the keyboard platform path. The
+partial flag remains useful for failure isolation, but the default full command
+now supplies the accepted integrated evidence through WP-S2 and WP-E1.
 
 ## Delivered path
 
@@ -20,11 +22,12 @@ WP-S2 and WP-E1 add visible instructor scoring and the final schema-v2 report.
   visible first response, observes Feedback and Continue, and stops only at an
   active retry screen with two unchecked controls.
 - J2 resumes that retry, submits the visible second response, observes Feedback,
-  Continue, and the real fresh-practice control after completion one.
-- J3 activates that fresh-practice control, proves the new controls are clear,
-  leaves through the visible Return control, and resumes the same active second
-  run. J4 proves controls are still clear, completes it, and observes the fresh
-  practice and Back controls without starting a third run.
+  Continue, and the real fresh-practice control after completion one, then
+  activates it to begin the blank second run.
+- J3 resumes that active second run, selects a visible control, leaves through
+  the visible Return control, and resumes it with both controls cleared. J4
+  proves controls are still clear, completes it, and observes the fresh practice
+  and Back controls without starting a third run.
 
 ## State boundary
 
@@ -41,13 +44,8 @@ schema-v1 state/report modules remain intact for later WP-E1 migration work.
 - Focused Playwright state/config tests pass; live J1-J4 specs skip outside the
   explicit runner invocation.
 
-## Remaining gate
+## Acceptance boundary
 
-Independent HCI/security review, then a real retained-stack run of:
-
-```bash
-bash tests/e2e/e2e_ui_walkthrough.sh --master-seed 42 --build --student-repeat-only
-```
-
-That partial run does not accept gradebook cells, run-history counts, the final
-report, email onboarding, or production identity.
+The integrated full command completed the later visible gradebook and schema-v2
+report gates. This workstream still does not accept email onboarding,
+production identity, J6/J7, all-family, multi-learner, or release work.

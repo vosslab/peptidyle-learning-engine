@@ -1,11 +1,11 @@
-// ui_walkthrough_report.ts - fixed child that validates and renders J1 public outcome evidence.
+// report.ts - fixed child that validates and renders J1 public outcome evidence.
 
-import { readJourneyStatePrefix } from "../playwright/simulator/journey_state";
+import { readJourneyStatePrefix } from "../../playwright/simulator/journey_state";
 import {
   parseJourneyFragments,
   renderVisibleOutcomeReport,
   type ArrangementRecord,
-} from "../playwright/simulator/visible_outcome_report";
+} from "../../playwright/simulator/visible_outcome_report";
 
 const ARRANGEMENT_KEYS: Readonly<Record<string, readonly string[]>> = {
   "launcher-seeded-enrollment": [],

@@ -1,8 +1,17 @@
 # WP-G2 walked-journey baseline review
 
+## Supersession addendum
+
+This review remains accepted evidence for the historical schema-v1 baseline.
+The corrected local no-email pilot was accepted on 2026-08-11 with the
+schema-v2 baseline at `docs/active_plans/walked_journey_baseline_v2.json`.
+Its nine PASS rows replace this record only for the corrected charter; no
+email/canonical onboarding, J6/J7, all-family, multi-learner, or release claim
+is added.
+
 ## Verdict
 
-**ACCEPTED.** The static manifest is a closed non-live baseline. Its parser
+**ACCEPTED HISTORICAL BASELINE.** The static manifest is a closed non-live baseline. Its parser
 rejects duplicate JSON members at every object level before exact schema
 validation. This refreshed record truthfully incorporates the accepted M5
 journeys without importing live-run evidence.

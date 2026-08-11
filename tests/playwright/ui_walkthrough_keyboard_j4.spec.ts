@@ -10,6 +10,7 @@ import {
   passedStudentRepeatFragment,
 } from "./simulator/student_repeat_state";
 import { studentCredentialFromValidatedFile } from "./ui_walkthrough_live_config";
+import { captureDocumentationScreenshot } from "./docs_screenshot_capture";
 
 test.describe.configure({ mode: "serial" });
 
@@ -34,8 +35,18 @@ async function signInAndResumeSecondRun(page: Page): Promise<void> {
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-route-surface=courses]")).toBeVisible();
   const course = page.locator(`a[href="/courses/${inputs.courseId}"]`);
+  await tabToTargetThroughVisiblePagination(page, {
+    target: course,
+    renderedItems: page.locator(".course-card"),
+    firstAppendedControl: (index) =>
+      page
+        .locator(".course-card")
+        .nth(index)
+        .getByRole("link", { name: "Open course", exact: true }),
+    itemName: "courses",
+  });
   await expect(course).toHaveCount(1);
-  await tabTo(page, course);
+  await expect(course).toBeVisible();
   await expect(course).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
@@ -97,6 +108,12 @@ test("J4 completes the resumed second Mastery run through visible keyboard contr
   const back = page.getByRole("button", { name: "Back to assignment" });
   await tabTo(page, back);
   await expect(back).toBeFocused();
+  await captureDocumentationScreenshot(
+    page,
+    "student_fresh_practice.png",
+    page.locator(".attempt-summary"),
+    72,
+  );
   appendStudentRepeatState(
     inputs.journeyStateFile,
     passedStudentRepeatFragment(

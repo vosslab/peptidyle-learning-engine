@@ -2,9 +2,12 @@
 
 ## Status
 
-**ACCEPTED.** The manager's successful M4 run and independent artifact inspection are accepted in
-the [WP-V2 review](../audits/wp_v2_visible_outcome_report_review.md). The report records only the
-implemented J1 visible journey; it does not claim later journey coverage.
+**ACCEPTED HISTORICAL EVIDENCE; SUPERSEDED AS THE ACTIVE BASELINE.** The
+manager's successful M4 run and independent artifact inspection remain accepted
+in the [WP-V2 review](../audits/wp_v2_visible_outcome_report_review.md). This
+schema-v1 report records only J1 and does not claim later coverage. The
+2026-08-11 accepted corrected local no-email pilot uses the separate schema-v2
+baseline with J11/J12/J13/J1/J2/J3/J4/J5/J8; it does not rewrite this history.
 
 ## Scope
 

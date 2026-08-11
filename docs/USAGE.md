@@ -28,30 +28,42 @@ For a headless run or a quick restart with a known-current browser bundle:
 `--skip-build` requires an already-built `dist/index.html` and `dist/main.js`; use it only after a
 successful `./build.sh` or normal launcher run.
 
+## Instructor and student guides
+
+- [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md) follows visible course creation, local roster
+  activation, corpus-backed assignment construction, and gradebook review.
+- [STUDENT_GUIDE.md](STUDENT_GUIDE.md) follows the keyboard-only take, score, correction, and fresh
+  practice loop.
+
+Both guides describe the bounded local no-email pilot. They do not claim email registration or a
+production deployment.
+
 ## Opt-in UI walkthrough
 
 Run the real local UI walkthrough separately from the normal test baseline:
 
 ```bash
-bash tests/e2e/e2e_ui_walkthrough.sh --master-seed 42
+bash tests/walkthrough/run_ui_walkthrough.sh --master-seed 42
 ```
 
 It uses only IPv4 loopback (`127.0.0.1` or `localhost`). AUTO reuses safe
 `dist/` outputs when they exist and builds only when they do not; `--build`
-forces a fresh build and `--skip-build` requires both built outputs. The runner
+forces a fresh build. The runner
 writes its redacted result to `test-results/ui_walkthrough/` (default filename
 `ui_walkthrough_seed_42.json`); the directory is mode 0700 and report file is
 mode 0600. It is opt-in E2E evidence, not a baseline command.
 
-The schema-v1 retained-stack learner slice is accepted: visible native keyboard pagination
-reaches current targets after the first page, and manager plus independent
-`--build` runs passed J1/J2/J3/J4/J5/J8. The cursor session keeps opaque
-cursors and retries/deduplicates/fails closed without direct routes or API
-shortcuts. The corrected walkthrough remains in progress until an instructor
-visibly creates the course, activates the local student roster member, and
-constructs the corpus-backed assignment before the student take/score/repeat
-path. It intentionally has no email or canonical-onboarding prerequisite; see
-the active plan and pagination audits under `docs/active_plans/audits/`.
+The corrected local no-email pilot is accepted. A manager run and an
+independent same-seed `--build` replay each visibly create a fresh course,
+activate the configured local student, construct a corpus-backed Mastery
+assignment, and then run J1/J2/J3/J4/J5/J8. The student completes and repeats
+through keyboard platform controls; the instructor visibly sees Best `100%`,
+Latest `100%`, Completed `2`, and two completed run-history entries. The
+schema-v2 report contains only the ordered J11/J12/J13/J1/J2/J3/J4/J5/J8 PASS
+rows and the `api-retry-corpus-publication` arrangement label. The cursor
+session keeps opaque cursors and retries/deduplicates/fails closed without
+direct routes or API shortcuts. Email, canonical onboarding, J6/J7,
+all-family, multi-learner, and release acceptance remain outside this pilot.
 
 ## Configuration preflight
 

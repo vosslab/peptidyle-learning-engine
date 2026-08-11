@@ -62,7 +62,7 @@ Verify:
 - PASS: J4 Playwright listing found one test; its normal offline invocation
   skipped honestly without explicit live configuration.
 - PASS: strict TypeScript, targeted ESLint, and Prettier.
-- PASS: `node --import tsx --test tests/test_j4_policy_contrast_fragment.mjs` -
+- PASS: `node --import tsx --test tests/test_student_completion_policy_evidence.mjs` -
   4 passed.
 - PASS: `source source_me.sh && python3 -m pytest tests/test_ascii_compliance.py
 tests/test_markdown_links.py tests/test_source_file_line_limit.py -q` - 1774

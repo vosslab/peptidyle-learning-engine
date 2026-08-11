@@ -1,5 +1,14 @@
 # WP-I4 instructor setup HCI review
 
+## Acceptance addendum
+
+The handoff integration that was pending in this review subsequently passed in
+the corrected local no-email pilot. Manager and independent seed-42
+retained-stack `--build` runs used the visible J11/J12/J13 setup before the
+student keyboard and instructor-gradebook journeys, then emitted the canonical
+schema-v2 report. This accepts the bounded local setup only, not email,
+canonical onboarding, J6/J7, all-family, multi-learner, or release work.
+
 ## Scope and verdict
 
 Independently reviewed WP-I4 against

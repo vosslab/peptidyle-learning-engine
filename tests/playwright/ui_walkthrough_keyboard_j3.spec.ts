@@ -38,8 +38,18 @@ async function signInAndOpenMastery(page: Page): Promise<void> {
   await expect(page.locator("[data-route-surface=courses]")).toBeVisible();
 
   const courseLink = page.locator(`a[href="/courses/${inputs.courseId}"]`);
+  await tabToTargetThroughVisiblePagination(page, {
+    target: courseLink,
+    renderedItems: page.locator(".course-card"),
+    firstAppendedControl: (index) =>
+      page
+        .locator(".course-card")
+        .nth(index)
+        .getByRole("link", { name: "Open course", exact: true }),
+    itemName: "courses",
+  });
   await expect(courseLink).toHaveCount(1);
-  await tabTo(page, courseLink);
+  await expect(courseLink).toBeVisible();
   await expect(courseLink).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
@@ -65,20 +75,19 @@ async function signInAndOpenMastery(page: Page): Promise<void> {
   await expect(page.locator("#main-content")).toBeFocused();
 }
 
-async function startOrResumeMastery(page: Page): Promise<void> {
+async function resumeActiveSecondMastery(page: Page): Promise<void> {
   const start = page.getByRole("button", { name: "Start or resume practice" });
   await tabTo(page, start);
   await expect(start).toBeFocused();
   await page.keyboard.press("Space");
-  const freshPractice = page.getByRole("button", { name: "Start another practice run" });
-  await expect(freshPractice).toBeVisible({ timeout: 15_000 });
-  await tabTo(page, freshPractice);
-  await expect(freshPractice).toBeFocused();
-  await page.keyboard.press("Space");
-  await expect(page.locator("[data-route-surface=runAttempt]")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("[data-route-surface=runAttempt]")).toBeVisible({ timeout: 30_000 });
+  const radios = page.locator('input[type="radio"]:visible');
+  await expect(radios).toHaveCount(2, { timeout: 30_000 });
+  await expect(radios.nth(0)).not.toBeChecked();
+  await expect(radios.nth(1)).not.toBeChecked();
 }
 
-test("J3 starts the second Mastery run, proves cleared controls, and resumes it by keyboard", async ({
+test("J3 resumes the active second Mastery run, proves cleared controls, and resumes it by keyboard", async ({
   page,
 }) => {
   const inputs = configuredUiWalkthroughInputs;
@@ -86,11 +95,15 @@ test("J3 starts the second Mastery run, proves cleared controls, and resumes it 
     throw new Error("the declaration-time live walkthrough skip did not apply");
   const startedAt = performance.now();
   await signInAndOpenMastery(page);
-  await startOrResumeMastery(page);
+  await resumeActiveSecondMastery(page);
   const radios = page.locator('input[type="radio"]:visible');
   await expect(radios).toHaveCount(2);
   await expect(radios.nth(0)).not.toBeChecked();
   await expect(radios.nth(1)).not.toBeChecked();
+  await tabTo(page, radios.nth(0));
+  await expect(radios.nth(0)).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(radios.nth(0)).toBeChecked();
 
   const returnToAssignment = page.getByRole("button", { name: "Return to assignment" });
   await tabTo(page, returnToAssignment);

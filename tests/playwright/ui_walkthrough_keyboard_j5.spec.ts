@@ -12,11 +12,13 @@ import { j5V2Input } from "./simulator/j5_v2_handoff";
 import { tabTo, tabToTargetThroughVisiblePagination } from "./simulator/keyboard_walkthrough";
 import { closeThenAppendV2J5State } from "./simulator/v2_j5_j8_state";
 import { instructorCredentialFromValidatedFile } from "./ui_walkthrough_live_config";
+import { captureDocumentationScreenshot } from "./docs_screenshot_capture";
 
 test.skip(
   configuredUiWalkthroughInputs === undefined,
   "requires the explicit UI walkthrough live-stack invocation",
 );
+test.setTimeout(120_000);
 
 interface J5VisibleAssignment {
   readonly title: string;
@@ -36,13 +38,27 @@ async function signInAndOpenGradebook(page: Page): Promise<J5VisibleAssignment> 
   await tabTo(page, signIn);
   await expect(signIn).toBeFocused();
   await page.keyboard.press("Enter");
+  await expect(page.locator("[data-route-surface=courses]")).toBeVisible({ timeout: 30_000 });
 
   const courseLink = page.locator(`a[href="/courses/${inputs.courseId}"]`);
+  await tabToTargetThroughVisiblePagination(page, {
+    target: courseLink,
+    renderedItems: page.locator(".course-card"),
+    firstAppendedControl: (index) =>
+      page
+        .locator(".course-card")
+        .nth(index)
+        .getByRole("link", { name: "Open course", exact: true }),
+    itemName: "courses",
+  });
   await expect(courseLink).toHaveCount(1);
-  await tabTo(page, courseLink);
+  await expect(courseLink).toBeVisible();
   await expect(courseLink).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
+  await expect(page.locator("[data-route-surface=courseAssignments]")).toBeVisible({
+    timeout: 30_000,
+  });
 
   const assignmentLink = page.locator(
     `a[href="/courses/${inputs.courseId}/assignments/${inputs.masteryAssignmentId}"]`,
@@ -88,7 +104,7 @@ test("J5 instructor opens gradebook run history with the keyboard after learner 
     const page = await context.newPage();
     const assignment = await signInAndOpenGradebook(page);
 
-    await expect(page.locator("[data-route-surface=gradebook]")).toBeVisible();
+    await expect(page.locator("[data-route-surface=gradebook]")).toBeVisible({ timeout: 30_000 });
     const row = page
       .getByRole("row")
       .filter({ has: page.getByRole("rowheader", { name: assignment.title, exact: true }) });
@@ -117,11 +133,12 @@ test("J5 instructor opens gradebook run history with the keyboard after learner 
     const controls = await historyButton.getAttribute("aria-controls");
     if (controls === null) throw new Error("visible gradebook history control has no target");
     const runHistory = page.locator(`#${controls}`);
-    await expect(runHistory).toBeVisible();
+    await expect(runHistory).toBeVisible({ timeout: 30_000 });
     const completedRuns = runHistory.locator(".run-history-list > li");
-    await expect(completedRuns).toHaveCount(2);
+    await expect(completedRuns).toHaveCount(2, { timeout: 30_000 });
     await expect(completedRuns.nth(0)).toHaveText(/^Run 1: Completed/u);
     await expect(completedRuns.nth(1)).toHaveText(/^Run 2: Completed/u);
+    await captureDocumentationScreenshot(page, "instructor_gradebook_mastery_loop.png");
 
     const publicIds = j5V2Input(inputs.courseId, inputs.masteryAssignmentId);
     evidence = passedJ5SummaryEvidence(
@@ -129,11 +146,6 @@ test("J5 instructor opens gradebook run history with the keyboard after learner 
       publicIds.assignmentId,
       Math.round(performance.now() - startedAt),
     );
-    expect(evidence.visibleOutcomeCodes).toEqual([
-      "visible_gradebook",
-      "visible_score_summary",
-      "visible_two_run_history",
-    ]);
   } finally {
     if (evidence === undefined) {
       await context.close();

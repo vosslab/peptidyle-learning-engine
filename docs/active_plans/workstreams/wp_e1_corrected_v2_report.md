@@ -2,10 +2,12 @@
 
 ## Status
 
-**NOT ACCEPTED LIVE.** This workstream supplies isolated validation and rendering components for
-the corrected no-email pilot. It does not replace the historical accepted WP-V2 schema-v1/J1
-report, its audit, or its static baseline. The schema-v2 fixture is deliberately prospective until
-the complete retained-stack walkthrough has passed and independent review accepts its live reports.
+**ACCEPTED FOR THE CORRECTED LOCAL NO-EMAIL PILOT.** Two same-seed retained-stack
+`--build` runs passed with fresh instructor-created courses and assignments,
+canonical redacted mode-0700/0600 reports, and independent HCI, security,
+report-security, and final walkthrough acceptance. Schema v1 remains historical
+learner-slice evidence; it is not rewritten or used as the corrected pilot
+baseline.
 
 ## Scope
 
@@ -13,17 +15,22 @@ the complete retained-stack walkthrough has passed and independent review accept
 - Require exactly J11, J12, J13, J1, J2, J3, J4, J5, and J8, in that order, with closed PASS
   vocabularies and public-ID cross-binding.
 - Render only the fixed corpus-publication arrangement label and public milestone evidence.
-- Keep the prospective nine-PASS fixture under `tests/fixtures/`; it is not an authoritative
-  walked baseline and must not be moved to `docs/active_plans/` before live acceptance.
+- Publish the authoritative nine-PASS baseline at
+  `docs/active_plans/walked_journey_baseline_v2.json`; it is the strict
+  successor for this charter while schema v1 remains historical evidence.
 
 ## Exclusions
 
-- No runner integration, Podman launch, live acceptance claim, or change to schema-v1 artifacts.
 - No J6/J7, onboarding, email, mailbox, all-family, multi-learner, score value, learner identity,
   title, response, or run-detail evidence.
 
 ## Promotion gate
 
-Promotion requires two same-seed retained-stack runs with fresh instructor-created courses and
-assignments, canonical mode-0700/0600 reports, and independent HCI and report-security review.
-Only then may a corrected static baseline be published as accepted documentation.
+The promotion gate passed on 2026-08-11: the manager and independent same-seed
+retained-stack `--build` runs each used fresh visible instructor setup and
+produced the exact nine ordered PASS rows. The report retains no score value,
+identity, title, response, or run detail. This accepts neither email/canonical
+onboarding nor J6/J7, all-family, multi-learner, or release gates.
+
+The independent retained-stack evidence is recorded in the retained-live final
+review under `docs/active_plans/audits/`.

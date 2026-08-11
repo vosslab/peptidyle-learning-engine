@@ -1,8 +1,19 @@
 # WP-E1 schema-v2 report groundwork review
 
+## Acceptance addendum
+
+The originally prospective report is now accepted for the corrected local
+no-email pilot. The runner integrates J5, silent J8, and the schema-v2 report
+child; manager and independent seed-42 retained-stack `--build` runs passed
+the exact J11/J12/J13/J1/J2/J3/J4/J5/J8 sequence with canonical redacted
+mode-0700/0600 reports and no-volume cleanup. The authoritative baseline is
+`docs/active_plans/walked_journey_baseline_v2.json`. This addendum does not
+accept email/canonical onboarding, J6/J7, all-family, multi-learner, or release
+work.
+
 ## Result
 
-**ACCEPTED OFFLINE.** The isolated schema-v2 parser, renderer, child, and
+**ACCEPTED OFFLINE AT THE TIME OF REVIEW.** The isolated schema-v2 parser, renderer, child, and
 prospective fixture satisfy the reviewed closed-contract, redaction, and
 repository hygiene requirements. This is deliberately not final walkthrough
 acceptance: the runner does not yet invoke the v2 child, and J5/J8 integration
@@ -48,10 +59,10 @@ and retained-stack evidence remain owned by WP-E1.
   - `All matched files use Prettier code style!`.
 - PASS: focused `git diff --check` produced no diagnostic.
 
-## Boundary retained for promotion
+## Historical boundary before promotion
 
-`wp_e1_corrected_v2_report.md` now expressly marks this work **NOT ACCEPTED
-LIVE** and the fixture as prospective. Only a later integrated two-run
-retained-stack can accept the final schema-v2 report. The historical
+At the time of this review, `wp_e1_corrected_v2_report.md` marked this work
+**NOT ACCEPTED LIVE** and the fixture as prospective. The later integrated
+two-run retained-stack gate promoted the final schema-v2 report. The historical
 `wp_v2_visible_outcome_report` material remains schema-v1/J1 evidence and
 cannot be read as acceptance of this schema-v2 fixture.

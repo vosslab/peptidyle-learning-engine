@@ -300,7 +300,11 @@ are clean; and three independent reviewers reported no P0/P1/P2.
   2026-08-11. Overall acceptance now requires visible instructor course
   creation, active local-student roster addition, and corpus-backed assignment
   creation before the student keyboard take/score/repeat loop. Email and
-  canonical onboarding are intentionally outside this walkthrough.
+  canonical onboarding are intentionally outside this walkthrough. The bounded
+  local no-email pilot is accepted: it has two same-seed retained-stack
+  `bash tests/e2e/e2e_ui_walkthrough.sh --master-seed 42 --build` passes, one
+  manager run and one independent replay, each creating a fresh course and
+  assignment through visible instructor setup.
 - The earlier M5 learner slice remains accepted evidence: visible native
   keyboard pagination traverses retained assignment and gradebook pages, and
   manager plus independent
@@ -308,22 +312,34 @@ are clean; and three independent reviewers reported no P0/P1/P2.
   J1, J2, J3, J4, J5, and J8 with empty diagnostics. It used an API-arranged
   assignment in a seeded course, so it is not final evidence for the corrected
   instructor setup charter.
-- The private report directory/file were mode 0700/0600 and redacted; runner
+- The corrected schema-v2 report contains only the ordered PASS rows J11, J12,
+  J13, J1, J2, J3, J4, J5, and J8, with the sole
+  `api-retry-corpus-publication` arrangement label. J5 visibly proved Best
+  `100%`, Latest `100%`, Completed `2`, and two completed run-history rows;
+  the two student runs used the keyboard platform path. The private report
+  directory/file were mode 0700/0600 and redacted; runner
   no-volume cleanup left no private temporary state or containers. The cursor
   session uses opaque cursors, retry, deduplication, and fail-closed protocol
   handling; native `target="_self"` fragment links enter named
   `tabindex="-1"` regions, then Tab reaches visible actions. The route
   lifecycle guard prevents delayed course A responses from changing course B.
-- MemoryStore alone has generic 51-record pagination conformance; live
-  PostgreSQL is not claimed. The corrected charter is now in M8-M11 of the
-  active walkthrough plan. Its known product gaps are the missing visible
-  course-creation form, local-only active roster seam, and visible
-  new-assignment entry path.
+- The corrected charter in M8-M11 is accepted for its bounded local pilot.
+  Focused product and Store/PostgreSQL reviews cover its visible course form,
+  local-only active roster seam, and visible new-assignment entry path. This
+  does not promote the local roster capability to production enrollment.
+- Post-acceptance WP-E2 is accepted. The unchanged compatibility entry points
+  delegate to the canonical `tests/walkthrough/` command and importable
+  `walklib/` owner. A fresh host-bound retained-stack run passed all nine
+  schema-v2 journeys and left only the redacted 0700/0600 public report; Podman,
+  private state, and Python bytecode caches were empty. This maintenance slice
+  does not reopen or broaden the accepted pilot.
 - WP-G1, the schema-v1 WP-G2 baseline, G3 documentation, and the prior final
   review remain accepted historical evidence for the narrower learner slice.
-  They are superseded as final acceptance artifacts until schema v2 walks the
+  They are superseded as final acceptance artifacts by schema v2 for this
   corrected instructor-to-student sequence. WP-RC8 email/account acceptance
-  remains separate release work and does not block this walkthrough.
+  remains separate release work and does not block this walkthrough. J6/J7,
+  canonical onboarding, all-family, multi-learner, and working-codebase
+  release acceptance are likewise outside this pilot and remain unaccepted.
 
 ### Current package order
 

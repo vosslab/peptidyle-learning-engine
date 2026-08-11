@@ -14,6 +14,7 @@ export interface UiWalkthroughLiveInputs {
   readonly masterSeed: number;
   readonly masterSeedText: string;
   readonly journeyStateFile: string;
+  readonly j1CheckpointFile: string;
   readonly journeyArtifactsDirectory: string;
 }
 
@@ -27,6 +28,7 @@ export interface InstructorSetupLiveInputs {
   readonly masterSeed: number;
   readonly masterSeedText: string;
   readonly journeyStateFile: string;
+  readonly instructorSetupCheckpointFile: string;
   readonly journeyArtifactsDirectory: string;
 }
 
@@ -241,6 +243,10 @@ export function uiWalkthroughInputsFromEnvironment(
     throw new Error("walkthrough journey state path is unreadable or has unsafe metadata");
   }
   const journeyArtifactsDirectory = walkthroughArtifactsDirectory(journeyStateFile);
+  const j1CheckpointFile = resolve(dirname(journeyStateFile), "j1-checkpoint.txt");
+  if (relative(dirname(journeyStateFile), j1CheckpointFile) !== "j1-checkpoint.txt") {
+    throw new Error("walkthrough J1 checkpoint path must remain beside private state");
+  }
   return {
     baseUrl,
     credentialFile: credentialPath,
@@ -253,6 +259,7 @@ export function uiWalkthroughInputsFromEnvironment(
         : requiredUuid(environment, "PLE_UI_WALKTHROUGH_LIVE_EXAM_ASSIGNMENT_ID"),
     ...validatedMasterSeed(requiredEnvironmentValue(environment, "PLE_UI_WALKTHROUGH_MASTER_SEED")),
     journeyStateFile,
+    j1CheckpointFile,
     journeyArtifactsDirectory,
   };
 }
@@ -285,12 +292,27 @@ export function instructorSetupInputsFromEnvironment(
     environment,
     "PLE_UI_WALKTHROUGH_JOURNEY_STATE_FILE",
   );
+  const instructorSetupCheckpointFile = requiredEnvironmentValue(
+    environment,
+    "PLE_UI_WALKTHROUGH_INSTRUCTOR_SETUP_CHECKPOINT_FILE",
+  );
   try {
     inspectCredential(credentialFile);
     inspectCredential(learnerAliasFile);
     inspectJourneyState(journeyStateFile);
   } catch {
     throw new Error("walkthrough instructor setup input has unsafe metadata");
+  }
+  const expectedCheckpointFile = resolve(
+    dirname(journeyStateFile),
+    "instructor-setup-checkpoint.txt",
+  );
+  if (
+    resolve(instructorSetupCheckpointFile) !== expectedCheckpointFile ||
+    relative(dirname(journeyStateFile), expectedCheckpointFile) !==
+      "instructor-setup-checkpoint.txt"
+  ) {
+    throw new Error("walkthrough instructor setup checkpoint must remain beside private state");
   }
   return {
     baseUrl,
@@ -299,6 +321,7 @@ export function instructorSetupInputsFromEnvironment(
     catalogSearchTitle: requiredCatalogSearchTitle(environment),
     ...validatedMasterSeed(requiredEnvironmentValue(environment, "PLE_UI_WALKTHROUGH_MASTER_SEED")),
     journeyStateFile,
+    instructorSetupCheckpointFile,
     journeyArtifactsDirectory: walkthroughArtifactsDirectory(journeyStateFile),
   };
 }

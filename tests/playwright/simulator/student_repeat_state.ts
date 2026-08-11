@@ -43,7 +43,7 @@ export interface StudentRepeatFragment {
   readonly diagnostics: readonly [];
 }
 
-/** Builds one public-only student fragment after visible keyboard milestones. */
+/** Builds one public-only student fragment after visible keyboard outcomes. */
 export function passedStudentRepeatFragment(
   journey: StudentJourney,
   courseId: string,

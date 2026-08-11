@@ -17,6 +17,7 @@ import {
   passedStudentRepeatFragment,
 } from "./simulator/student_repeat_state";
 import { studentCredentialFromValidatedFile } from "./ui_walkthrough_live_config";
+import { captureDocumentationScreenshot } from "./docs_screenshot_capture";
 
 test.describe.configure({ mode: "serial" });
 
@@ -51,8 +52,18 @@ async function signInAndStartMastery(page: Page): Promise<void> {
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-route-surface=courses]")).toBeVisible();
   const courseLink = page.locator(`a[href="/courses/${inputs.courseId}"]`);
+  await tabToTargetThroughVisiblePagination(page, {
+    target: courseLink,
+    renderedItems: page.locator(".course-card"),
+    firstAppendedControl: (index) =>
+      page
+        .locator(".course-card")
+        .nth(index)
+        .getByRole("link", { name: "Open course", exact: true }),
+    itemName: "courses",
+  });
   await expect(courseLink).toHaveCount(1);
-  await tabTo(page, courseLink);
+  await expect(courseLink).toBeVisible();
   await expect(courseLink).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
@@ -78,6 +89,7 @@ async function signInAndStartMastery(page: Page): Promise<void> {
   const start = page.getByRole("button", { name: "Start or resume practice" });
   await tabTo(page, start);
   await expect(start).toBeFocused();
+  await captureDocumentationScreenshot(page, "peptide_bond_mastery_overview.png");
   await page.keyboard.press("Space");
   const freshPractice = page.getByRole("button", { name: "Start another practice run" });
   const surface = await waitForPostStartSurface(page, freshPractice);
@@ -209,6 +221,15 @@ test("J2 resumes the visible retry and completes the first instructor-created Ma
     throw new Error("final feedback cycle reached closed visible completion");
   if (finalSurface === "pending")
     throw new Error("final fresh-practice control did not appear in time");
-  await expect(page.getByRole("button", { name: "Start another practice run" })).toBeVisible();
+  const freshPractice = page.getByRole("button", { name: "Start another practice run" });
+  await expect(freshPractice).toBeVisible();
+  await tabTo(page, freshPractice);
+  await expect(freshPractice).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(page.locator("[data-route-surface=runAttempt]")).toBeVisible({ timeout: 30_000 });
+  const radios = page.locator('input[type="radio"]:visible');
+  await expect(radios).toHaveCount(2, { timeout: 30_000 });
+  await expect(radios.nth(0)).not.toBeChecked();
+  await expect(radios.nth(1)).not.toBeChecked();
   appendPassedJourneyState(Math.round(performance.now() - startedAt));
 });

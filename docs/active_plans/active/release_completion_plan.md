@@ -426,7 +426,10 @@ reserved migration ordering below.
 - **Walkthrough boundary:** WP-RC8 remains production identity and enrollment
   release work. Its provider, mailbox, delivered-link, passkey, and
   multi-replica evidence is intentionally not a dependency or acceptance gate
-  for the local instructor-to-student assignment walkthrough.
+  for the local instructor-to-student assignment walkthrough. That bounded
+  local no-email pilot is accepted separately in
+  `docs/active_plans/peptidyle-walkthrough-plan.md`; it does not advance or
+  satisfy WP-RC8 or working-codebase release acceptance.
 - **Status:** generic implementation exists and the repository-owned production-account
   composition task is independently reviewed on 2026-08-10; package acceptance remains open. The account/email/passkey,
   copy-link invitation, roster/policy/bulk import, atomic enrollment, Solid UI, migration, and

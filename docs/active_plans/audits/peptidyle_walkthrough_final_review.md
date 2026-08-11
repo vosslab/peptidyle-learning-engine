@@ -11,6 +11,12 @@ and exact gradebook scoring evidence. Email and canonical onboarding are
 outside that goal and must not appear as blockers. The active plan's M8-M11
 gates now own final acceptance.
 
+The corrected M8-M11 charter is now accepted for the bounded local no-email
+pilot after two independent seed-42 retained-stack `--build` runs passed its
+schema-v2 sequence. That later acceptance does not alter the historical verdict
+below or accept email/canonical onboarding, J6/J7, all-family, multi-learner,
+or release work.
+
 ## Verdict
 
 **ACCEPTED_WITH_DOCUMENTED_BLOCKERS.** M5 is complete: manager and independent

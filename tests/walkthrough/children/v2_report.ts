@@ -1,9 +1,9 @@
-// ui_walkthrough_v2_report.ts - isolated schema-v2 public-report child.
+// v2_report.ts - isolated schema-v2 public-report child.
 
 import {
   readV2WalkthroughState,
   renderV2VisibleOutcomeReport,
-} from "../playwright/simulator/v2_visible_outcome_report";
+} from "../../playwright/simulator/v2_visible_outcome_report";
 
 function required(name: string): string {
   const value = process.env[name];

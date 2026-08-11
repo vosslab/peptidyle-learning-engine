@@ -36,22 +36,22 @@ container build context, or runtime dependency.
 
 ## Rust workspace
 
-| Path | Owns |
-| --- | --- |
-| [crates/question_model/](../crates/question_model/) | Question types, capabilities, identities, and public presentation schemas. |
-| [crates/domain/](../crates/domain/) | Attempt state, policies, seeded generation, timing inputs, and answer-free validation. |
-| [crates/grading/](../crates/grading/) | Answer keys, checkers, and correctness decisions. |
-| [crates/objects/](../crates/objects/) | Typed object-store interface, key construction, checksums, and S3-compatible backends. |
+| Path                                                            | Owns                                                                                                  |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| [crates/question_model/](../crates/question_model/)             | Question types, capabilities, identities, and public presentation schemas.                            |
+| [crates/domain/](../crates/domain/)                             | Attempt state, policies, seeded generation, timing inputs, and answer-free validation.                |
+| [crates/grading/](../crates/grading/)                           | Answer keys, checkers, and correctness decisions.                                                     |
+| [crates/objects/](../crates/objects/)                           | Typed object-store interface, key construction, checksums, and S3-compatible backends.                |
 | [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, in-memory and PostgreSQL implementations, RLS, migrations, and conformance coverage. |
-| [crates/adapters/native/](../crates/adapters/native/) | First-party generated questions and flat-question source compilation. |
-| [crates/adapters/webwork/](../crates/adapters/webwork/) | Private standalone-renderer protocol, safe projection, cache, and grading delegation. |
-| [crates/adapters/qti/](../crates/adapters/qti/) | Bounded QTI parsing, profile mapping, and private grading handoff. |
-| [crates/adapters/h5p/](../crates/adapters/h5p/) | H5P practice import and capability declaration. |
-| [crates/adapters/imathas/](../crates/adapters/imathas/) | iMathAS provider and broker boundary. |
-| [crates/export/](../crates/export/) | Print model plus PDF and DOCX writers. |
-| [crates/wasm/](../crates/wasm/) | `wasm-bindgen` facade over answer-free domain behavior. |
-| [crates/server/](../crates/server/) | Axum API, auth, course and run routes, worker, and dependency composition. |
-| [crates/project-tools/](../crates/project-tools/) | Repository-only code generation, fixture, migration, and E2E seed commands. |
+| [crates/adapters/native/](../crates/adapters/native/)           | First-party generated questions and flat-question source compilation.                                 |
+| [crates/adapters/webwork/](../crates/adapters/webwork/)         | Private standalone-renderer protocol, safe projection, cache, and grading delegation.                 |
+| [crates/adapters/qti/](../crates/adapters/qti/)                 | Bounded QTI parsing, profile mapping, and private grading handoff.                                    |
+| [crates/adapters/h5p/](../crates/adapters/h5p/)                 | H5P practice import and capability declaration.                                                       |
+| [crates/adapters/imathas/](../crates/adapters/imathas/)         | iMathAS provider and broker boundary.                                                                 |
+| [crates/export/](../crates/export/)                             | Print model plus PDF and DOCX writers.                                                                |
+| [crates/wasm/](../crates/wasm/)                                 | `wasm-bindgen` facade over answer-free domain behavior.                                               |
+| [crates/server/](../crates/server/)                             | Axum API, auth, course and run routes, worker, and dependency composition.                            |
+| [crates/project-tools/](../crates/project-tools/)               | Repository-only code generation, fixture, migration, and E2E seed commands.                           |
 
 Cargo package directories use hyphens; Rust imports use underscores. For
 example, the directory `learning-data-access` is imported as
@@ -177,7 +177,9 @@ tests/
 +- test_*.py          Fast repository-policy and documentation checks
 +- test_*.mjs         Deterministic browser-contract checks without a browser
 +- playwright/        Built-browser interaction and accessibility tests
-+- e2e/               Disposable database, replica, WebAssembly, and stack tests
++- e2e/               Generic disposable whole-system runners
++- walkthrough/       Teaching-loop entry points and fixed child processes
+|  `- walklib/        Importable runner configuration, contracts, and lifecycle
 `- fixtures/          Small checked-in fixture evidence
 
 generated/
@@ -196,6 +198,8 @@ directories are reproducible ignored output. The checked-in fixtures under
 - [INSTALL.md](INSTALL.md), [USAGE.md](USAGE.md),
   [DEVELOPMENT.md](DEVELOPMENT.md), and [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
   describe operation and contributor workflows.
+- [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md) and [STUDENT_GUIDE.md](STUDENT_GUIDE.md)
+  document the visible local no-email teaching loop with real-stack screenshots.
 - [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md), [CONTRACTS.md](CONTRACTS.md),
   [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md), and
   [MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md) describe the

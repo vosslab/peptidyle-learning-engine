@@ -206,6 +206,11 @@ startup, rebuild, health, and shutdown.
   accessibility over HTTP.
 - [tests/e2e/](../tests/e2e/) holds slower disposable PostgreSQL, replica,
   WebAssembly, and local-stack evidence.
+- [tests/walkthrough/](../tests/walkthrough/) owns the teaching-loop runner,
+  fixed child processes, and importable `walklib/` configuration, contracts,
+  subprocess, and lifecycle behavior. The historical E2E paths are thin
+  compatibility launchers. Browser journeys remain independently readable
+  under `tests/playwright/`.
 - Learning data-access capabilities use a contract, an in-memory implementation,
   a PostgreSQL implementation, and conformance coverage where both backends
   should agree.

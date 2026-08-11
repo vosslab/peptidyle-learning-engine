@@ -1,5 +1,13 @@
 # WP-I4 instructor setup security review
 
+## Acceptance addendum
+
+The later corrected local no-email pilot integrated this reviewed handoff with
+the J1--J5/J8 path and an independent replay. Its two canonical schema-v2
+reports were mode 0700/0600 and cleanup left no containers or private state.
+The acceptance remains limited to the local pilot; it does not accept
+email/canonical onboarding, J6/J7, all-family, multi-learner, or release work.
+
 ## Verdict
 
 ACCEPTED for the bounded WP-I4 instructor-only slice. The manager's elevated

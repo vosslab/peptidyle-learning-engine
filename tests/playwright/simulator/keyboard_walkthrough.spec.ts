@@ -7,40 +7,54 @@ import { tabToTargetThroughVisiblePagination } from "./keyboard_walkthrough";
 interface FixtureOptions {
   readonly pages: readonly (readonly string[])[];
   readonly failAtPage?: number;
+  readonly initialLoadDelayMs?: number;
   readonly protocolAtPage?: number;
-  readonly itemName?: "assignments" | "gradebook records";
+  readonly itemName?: "assignments" | "courses" | "gradebook records";
 }
 
 function fixtureMarkup({
   pages,
   failAtPage,
+  initialLoadDelayMs = 0,
   protocolAtPage,
   itemName = "assignments",
 }: FixtureOptions): string {
-  const gradebook = itemName === "gradebook records";
-  const copy = gradebook
-    ? {
-        complete: "gradebook records",
-        error: "Could not load more gradebook records. The ",
-        fragmentId: "gradebook-pagination",
-        load: "Load more gradebook records",
-        loaded: "more gradebook records. ",
-        loading: "Loading more gradebook records...",
-        retry: "Try loading more gradebook records again",
-        shown: "records",
-        skip: "Skip to load more gradebook records",
-      }
-    : {
-        complete: "assignments",
-        error: "Could not load more assignments. The ",
-        fragmentId: "assignment-pagination",
-        load: "Load more assignments",
-        loaded: "more assignments. ",
-        loading: "Loading more assignments...",
-        retry: "Try loading more assignments again",
-        shown: "assignments",
-        skip: "Skip to load more assignments",
-      };
+  const copy =
+    itemName === "courses"
+      ? {
+          complete: "courses",
+          error: "Could not load more courses. The ",
+          fragmentId: "course-pagination",
+          load: "Load more courses",
+          loaded: "more courses. ",
+          loading: "Loading more courses...",
+          retry: "Try loading more courses again",
+          shown: "courses",
+          skip: "Skip to load more courses",
+        }
+      : itemName === "gradebook records"
+        ? {
+            complete: "gradebook records",
+            error: "Could not load more gradebook records. The ",
+            fragmentId: "gradebook-pagination",
+            load: "Load more gradebook records",
+            loaded: "more gradebook records. ",
+            loading: "Loading more gradebook records...",
+            retry: "Try loading more gradebook records again",
+            shown: "records",
+            skip: "Skip to load more gradebook records",
+          }
+        : {
+            complete: "assignments",
+            error: "Could not load more assignments. The ",
+            fragmentId: "assignment-pagination",
+            load: "Load more assignments",
+            loaded: "more assignments. ",
+            loading: "Loading more assignments...",
+            retry: "Try loading more assignments again",
+            shown: "assignments",
+            skip: "Skip to load more assignments",
+          };
   return `
     <a href="#main-content">Skip to main content</a>
     <main id="main-content" tabindex="-1">
@@ -51,8 +65,8 @@ function fixtureMarkup({
     </main>
     <script>
       const pages = ${JSON.stringify(pages)};
-      const gradebook = ${JSON.stringify(gradebook)};
       const failAtPage = ${JSON.stringify(failAtPage ?? null)};
+      const initialLoadDelayMs = ${JSON.stringify(initialLoadDelayMs)};
       const protocolAtPage = ${JSON.stringify(protocolAtPage ?? null)};
       let pageIndex = 0;
       const items = document.querySelector("#items");
@@ -60,6 +74,7 @@ function fixtureMarkup({
       const status = document.querySelector("#pagination-status");
       const shownCount = () => items.querySelectorAll("article.course-card").length;
       const appendPage = (page) => {
+        let firstLink = null;
         for (const title of pages[page]) {
           const card = document.createElement("article");
           card.className = "course-card";
@@ -70,7 +85,9 @@ function fixtureMarkup({
           if (title === "target") link.dataset.target = "true";
           card.append(link);
           items.append(card);
+          if (firstLink === null) firstLink = link;
         }
+        return firstLink;
       };
       const renderControl = () => {
         controls.replaceChildren();
@@ -109,17 +126,22 @@ function fixtureMarkup({
               return;
             }
             const before = shownCount();
-            appendPage(pageIndex);
+            const firstAppended = appendPage(pageIndex);
             pageIndex += 1;
             status.textContent = "Loaded " + (shownCount() - before) + " ${copy.loaded}" + shownCount() + " ${copy.shown} shown.";
+            firstAppended?.focus();
             renderControl();
           }, 15);
         });
         controls.append(button);
       };
-      appendPage(pageIndex);
-      pageIndex += 1;
-      renderControl();
+      const renderInitialPage = () => {
+        appendPage(pageIndex);
+        pageIndex += 1;
+        renderControl();
+      };
+      if (initialLoadDelayMs > 0) window.setTimeout(renderInitialPage, initialLoadDelayMs);
+      else renderInitialPage();
     </script>
   `;
 }
@@ -145,6 +167,58 @@ function visibleCards(page: Page): Locator {
 function firstAppendedControl(page: Page, previousCount: number): Locator {
   return visibleCards(page).nth(previousCount).getByRole("link");
 }
+
+test("keyboard pagination reaches a page-one target forward from focused main content", async ({
+  page,
+}) => {
+  await loadFixture(page, { pages: [["target"]] });
+  await expect(page.locator("#main-content")).toBeFocused();
+
+  await tabToTargetThroughVisiblePagination(page, {
+    target: visibleTarget(page),
+    renderedItems: visibleCards(page),
+    firstAppendedControl: (index) => firstAppendedControl(page, index),
+    itemName: "assignments",
+  });
+
+  await expect(visibleTarget(page)).toBeFocused();
+});
+
+test("keyboard pagination waits for an initially loading terminal-page target", async ({
+  page,
+}) => {
+  await loadFixture(page, { initialLoadDelayMs: 25, pages: [["target"]] });
+  await expect(page.locator("#main-content")).toBeFocused();
+
+  await tabToTargetThroughVisiblePagination(page, {
+    target: visibleTarget(page),
+    renderedItems: visibleCards(page),
+    firstAppendedControl: (index) => firstAppendedControl(page, index),
+    itemName: "assignments",
+  });
+
+  await expect(visibleTarget(page)).toBeFocused();
+  await expect(
+    page.getByRole("button", { name: "Load more assignments", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("course pagination reaches a third-page course through visible keyboard controls", async ({
+  page,
+}) => {
+  const pageOne = Array.from({ length: 50 }, (_, index) => `course-${index}`);
+  const pageTwo = Array.from({ length: 50 }, (_, index) => `course-${index + 50}`);
+  await loadFixture(page, { itemName: "courses", pages: [pageOne, pageTwo, ["target"]] });
+
+  await tabToTargetThroughVisiblePagination(page, {
+    target: visibleTarget(page),
+    renderedItems: visibleCards(page),
+    firstAppendedControl: (index) => firstAppendedControl(page, index),
+    itemName: "courses",
+  });
+
+  await expect(visibleTarget(page)).toBeFocused();
+});
 
 test("gradebook pagination fails closed with the visible protocol reload action", async ({
   page,

@@ -144,6 +144,8 @@ test("instructor-only setup accepts no arranged IDs and reads the alias only at 
       ...COMPLETE_ENVIRONMENT,
       PLE_UI_WALKTHROUGH_INSTRUCTOR_SETUP_ONLY: "1",
       PLE_UI_WALKTHROUGH_LIVE_LEARNER_ALIAS_FILE: "fixture-learner-alias.txt",
+      PLE_UI_WALKTHROUGH_INSTRUCTOR_SETUP_CHECKPOINT_FILE:
+        "/private/tmp/instructor-setup-checkpoint.txt",
       PLE_UI_WALKTHROUGH_CATALOG_SEARCH_TITLE:
         "Pilot retry corpus pilotref123e4567e89b12d3a456426614174000",
     },
@@ -154,6 +156,7 @@ test("instructor-only setup accepts no arranged IDs and reads the alias only at 
     baseUrl: "http://127.0.0.1:3000",
     learnerAliasFile: "fixture-learner-alias.txt",
     catalogSearchTitle: "Pilot retry corpus pilotref123e4567e89b12d3a456426614174000",
+    instructorSetupCheckpointFile: "/private/tmp/instructor-setup-checkpoint.txt",
   });
   expect(
     learnerAliasFromValidatedFile(
@@ -182,6 +185,8 @@ test("instructor-only setup accepts no arranged IDs and reads the alias only at 
         ...COMPLETE_ENVIRONMENT,
         PLE_UI_WALKTHROUGH_INSTRUCTOR_SETUP_ONLY: "1",
         PLE_UI_WALKTHROUGH_LIVE_LEARNER_ALIAS_FILE: "fixture-learner-alias.txt",
+        PLE_UI_WALKTHROUGH_INSTRUCTOR_SETUP_CHECKPOINT_FILE:
+          "/private/tmp/instructor-setup-checkpoint.txt",
         PLE_UI_WALKTHROUGH_CATALOG_SEARCH_TITLE:
           "Pilot retry corpus 123e4567-e89b-12d3-a456-426614174000",
       },
@@ -189,6 +194,20 @@ test("instructor-only setup accepts no arranged IDs and reads the alias only at 
       () => undefined,
     ),
   ).toThrow("bounded public corpus title");
+  expect(() =>
+    instructorSetupInputsFromEnvironment(
+      {
+        ...COMPLETE_ENVIRONMENT,
+        PLE_UI_WALKTHROUGH_INSTRUCTOR_SETUP_ONLY: "1",
+        PLE_UI_WALKTHROUGH_LIVE_LEARNER_ALIAS_FILE: "fixture-learner-alias.txt",
+        PLE_UI_WALKTHROUGH_INSTRUCTOR_SETUP_CHECKPOINT_FILE: "/private/tmp/other.txt",
+        PLE_UI_WALKTHROUGH_CATALOG_SEARCH_TITLE:
+          "Pilot retry corpus pilotref123e4567e89b12d3a456426614174000",
+      },
+      () => undefined,
+      () => undefined,
+    ),
+  ).toThrow("checkpoint must remain");
 });
 
 test("walkthrough artifact output is derived beside validated private state only", () => {

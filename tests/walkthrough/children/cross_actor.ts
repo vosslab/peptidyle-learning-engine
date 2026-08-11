@@ -1,7 +1,10 @@
-// ui_walkthrough_cross_actor.ts - fixed private-state J8 derivation child.
+// cross_actor.ts - fixed private-state J8 derivation child.
 
-import { passedJ8CrossActorFragment } from "../playwright/simulator/j8_cross_actor_fragment";
-import { appendJourneyState, readJourneyStatePrefix } from "../playwright/simulator/journey_state";
+import { passedJ8CrossActorFragment } from "../../playwright/simulator/j8_cross_actor_fragment";
+import {
+  appendJourneyState,
+  readJourneyStatePrefix,
+} from "../../playwright/simulator/journey_state";
 
 const path = process.env.PLE_UI_WALKTHROUGH_JOURNEY_STATE_FILE;
 if (path === undefined) process.exitCode = 1;

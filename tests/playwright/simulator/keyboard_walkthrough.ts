@@ -47,7 +47,7 @@ export interface VisiblePaginationTarget {
   /** Returns the first public control added after one successful page request. */
   readonly firstAppendedControl: (previousCount: number) => Locator;
   /** The noun phrase used in the product's public pagination controls. */
-  readonly itemName: "assignments" | "gradebook records";
+  readonly itemName: "assignments" | "courses" | "gradebook records";
 }
 
 function paginationCopy(itemName: VisiblePaginationTarget["itemName"]): {
@@ -62,6 +62,21 @@ function paginationCopy(itemName: VisiblePaginationTarget["itemName"]): {
   readonly protocolError: RegExp;
   readonly reload: string;
 } {
+  if (itemName === "courses") {
+    return {
+      loadMore: "Load more courses",
+      loading: "Loading more courses...",
+      loaded: /^Loaded \d+ more courses\. \d+ courses shown\.$/u,
+      complete: /^All \d+ courses are shown\.$/u,
+      error: /^Could not load more courses\. The \d+ already shown are still available\./u,
+      retry: "Try loading more courses again",
+      skipToLoadMore: "Skip to load more courses",
+      fragmentTargetId: "course-pagination",
+      protocolError:
+        /^The list (?:returned a repeated page marker|did not add new records), so loading stopped safely\./u,
+      reload: "Reload courses",
+    };
+  }
   if (itemName === "assignments") {
     return {
       loadMore: "Load more assignments",
@@ -122,11 +137,26 @@ export async function tabToTargetThroughVisiblePagination(
   let loadedPages = 0;
 
   for (let step = 0; step < MAX_PAGINATION_STEPS; step += 1) {
+    await expect
+      .poll(
+        async () => {
+          const targetCount = await target.count();
+          if (targetCount > 1) return "duplicate-target";
+          if (targetCount === 1 && (await target.isVisible())) return "target";
+          if (await error.isVisible()) return "error";
+          if (await protocolError.isVisible()) return "protocol-error";
+          if (await complete.isVisible()) return "complete";
+          if (await loadMore.isVisible()) return "load-more";
+          return "pending";
+        },
+        { timeout: 30_000 },
+      )
+      .not.toBe("pending");
+
     const targetCount = await target.count();
     if (targetCount === 1) {
       await expect(target).toBeVisible();
-      if (loadedPages === 0) await tabTo(page, keyboardTarget, "backward");
-      else await tabToPaginationTarget(page, keyboardTarget);
+      await tabToPaginationTarget(page, keyboardTarget);
       await expect(keyboardTarget).toBeFocused();
       return;
     }

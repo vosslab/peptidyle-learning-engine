@@ -40,7 +40,7 @@ test, runner, or report source.
 
 ## Offline validation
 
-- PASS: `node --import tsx --test tests/test_j3_leave_return_fragment.mjs` - 3 passed.
+- PASS: `node --import tsx --test tests/test_student_leave_resume_evidence.mjs` - 3 passed.
 - PASS: `npx playwright test tests/playwright/ui_walkthrough_keyboard_j3.spec.ts` - 1 expected
   live-only skip; no mock-browser substitution occurred.
 - PASS: `npx tsc --noEmit`.

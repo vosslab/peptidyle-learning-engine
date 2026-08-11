@@ -1,5 +1,15 @@
 # WP-S2 J5 and J8 HCI review
 
+## Acceptance addendum
+
+The required runner integration and independent replay subsequently passed on
+2026-08-11. The corrected local no-email pilot now accepts this J5/J8 boundary:
+J5 visibly confirms Best `100%`, Latest `100%`, Completed `2`, and two
+completed history rows after the two keyboard student runs; J8 contributes only
+its closed cross-actor vocabulary to the schema-v2 report. Email/canonical
+onboarding, J6/J7, all-family, multi-learner, and release work remain outside
+this acceptance.
+
 ## Scope and method
 
 Independent read-only cognitive walkthrough of the proposed J5 instructor
@@ -58,9 +68,9 @@ close rejection leaves the exact J11--J4 protected prefix untouched.
 | focused Prettier check | PASS |
 | `git diff --check` | PASS |
 
-## Required repair and next review
+## Historical next step
 
-Wire J5, J8, and the schema-v2 report child into the runner in fixed order,
-with J8 after J5 and before report rendering. Then run the focused gates, the
-planned retained-stack walkthrough, and an independent replay. Email remains
-outside this walkthrough.
+At the time of this review, the next step was to wire J5, J8, and the
+schema-v2 report child into the runner in fixed order, then run the retained
+stack and independent replay. That integration and replay are now accepted by
+the addendum above. Email remains outside this walkthrough.

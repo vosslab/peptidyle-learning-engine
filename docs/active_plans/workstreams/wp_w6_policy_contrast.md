@@ -22,15 +22,15 @@ walkthrough. See the [J4 review](../audits/wp_w6_policy_contrast_review.md),
 - The journey observes labels, focus, route surfaces, and completion controls only. It does not read
   feedback body content, correctness, score, answer material, browser storage, private state, API
   responses, direct post-login routes, or pointer actions.
-- `j4_policy_contrast_fragment.ts` accepts only fixed visible codes, public UUIDs, and bounded
+- `student_completion_policy_evidence.ts` accepts only fixed visible codes, public UUIDs, and bounded
   elapsed time. Report integration is intentionally deferred to the shared report owner.
-- `j4_terminal_surface.ts` treats neutral completion, Feedback, and pending rendering as bounded
+- `student_completion_terminal_surface.ts` treats neutral completion, Feedback, and pending rendering as bounded
   transients after Continue. Only the paired Mastery heading/action or exact closed Exam heading is
   accepted as the final visible policy surface.
 
 ## Offline evidence
 
-- PASS: `node --import tsx --test tests/test_j4_policy_contrast_fragment.mjs` reported three
+- PASS: `node --import tsx --test tests/test_student_completion_policy_evidence.mjs` reported three
   passing public-boundary and source-guard tests.
 - PASS: `npx playwright test tests/playwright/ui_walkthrough_keyboard_j4.spec.ts --list` found the
   one J4 test; the focused offline invocation skipped it as required outside the explicit live mode.

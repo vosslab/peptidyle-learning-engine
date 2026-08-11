@@ -21,11 +21,13 @@ that implement it.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Peptide bond mastery assignment overview with fresh variation and a Start or resume practice control](docs/screenshots/peptide_bond_mastery_overview.png)
+![Student assignment overview for Peptide bond mastery with keyboard focus on Start or resume practice](docs/screenshots/peptide_bond_mastery_overview.png)
 <!-- screenshots:end -->
 
-This deterministic mock-backed assignment overview demonstrates the current interface; it does not
-represent a live production deployment.
+This is a fresh real-stack capture from the accepted local no-email teaching-loop walkthrough. See
+the dedicated [instructor guide](docs/INSTRUCTOR_GUIDE.md) and
+[student guide](docs/STUDENT_GUIDE.md) for the complete visible workflow. It demonstrates the local
+pilot rather than a production deployment.
 
 ## Why this project
 
@@ -198,17 +200,17 @@ generation is discarded without delaying or rolling back the current grade.
 
 ## What exists today
 
-| Area                                 | State                                                                                                                                                                                                                                                                    |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Rust domain and learning data access | Attempt, timing, scoring, manual-grading, item-analysis, retention, catalog, and worker contracts; in-memory and PostgreSQL implementations share conformance tests                                                                                                      |
-| API server                           | Auth, catalog, course, assignment, run, submission, manual grade, item analysis, asset, export, workspace, and retention route groups                                                                                                                                    |
-| WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                           |
-| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, library, authoring, flat-question editing, assignment editing, and gradebook                                                                                                                               |
-| PostgreSQL                           | Forward-only SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification                                                                                                                                                 |
+| Area                                 | State                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rust domain and learning data access | Attempt, timing, scoring, manual-grading, item-analysis, retention, catalog, and worker contracts; in-memory and PostgreSQL implementations share conformance tests                                                                                                                                                                           |
+| API server                           | Auth, catalog, course, assignment, run, submission, manual grade, item analysis, asset, export, workspace, and retention route groups                                                                                                                                                                                                         |
+| WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                                                                                                |
+| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, library, authoring, flat-question editing, assignment editing, and gradebook                                                                                                                                                                                                    |
+| PostgreSQL                           | Forward-only SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification                                                                                                                                                                                                                      |
 | Question engines                     | PLE flat-question JSON v2 implements all eight required native families while preserving v1 single choice; the external WeBWorK PG `/render-api` supports live PLE render, grading, cache, outage, and browser checks for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
-| DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                                               |
-| Containers                           | Local PostgreSQL and MinIO named-volume state, stateless API/worker/gateway, and the private external stateless PG renderer; production runtime identities and deployment remain open                                                                                   |
-| Worker runtime                       | Production drains six complete families through a family-filtered registry; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                                              |
+| DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                                                                                                                    |
+| Containers                           | Local PostgreSQL and MinIO named-volume state, stateless API/worker/gateway, and the private external stateless PG renderer; production runtime identities and deployment remain open                                                                                                                                                         |
+| Worker runtime                       | Production drains six complete families through a family-filtered registry; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                                                                                                                   |
 
 The current checkpoint, evidence, and remaining dependency order live in
 [docs/active_plans/reports/project_status_report_2026-08-10.md](docs/active_plans/reports/project_status_report_2026-08-10.md),
@@ -260,6 +262,9 @@ Start with a local run and the system map:
   private WeBWorK profile.
 - [docs/USAGE.md](docs/USAGE.md) - native local-stack walkthrough, sign-in, health, and validation
   commands.
+- [docs/INSTRUCTOR_GUIDE.md](docs/INSTRUCTOR_GUIDE.md) and
+  [docs/STUDENT_GUIDE.md](docs/STUDENT_GUIDE.md) - role-focused course setup, assignment practice,
+  scoring, and repeat-workflow guides with real-stack screenshots.
 - [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) - system shape, crate ownership, storage,
   API, browser, and security boundaries.
 - [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) - repository map and the owner of each major

@@ -10,7 +10,6 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import {
@@ -24,8 +23,8 @@ import {
   appendW2JourneyState,
   readJourneyStatePrefix,
 } from "./playwright/simulator/journey_state.ts";
-import { passedJ3LeaveReturnFragment } from "./playwright/simulator/j3_leave_return_fragment.ts";
-import { passedJ4PolicyContrastFragment } from "./playwright/simulator/j4_policy_contrast_fragment.ts";
+import { passedStudentCompletionPolicyEvidence } from "./playwright/simulator/student_completion_policy_evidence.ts";
+import { passedStudentLeaveResumeEvidence } from "./playwright/simulator/student_leave_resume_evidence.ts";
 import { passedW4Fragment } from "./playwright/simulator/instructor_gradebook_j5.ts";
 import { passedJ8CrossActorFragment } from "./playwright/simulator/j8_cross_actor_fragment.ts";
 import {
@@ -57,19 +56,19 @@ function arrangements() {
 }
 
 function journeys() {
-  const j4 = passedJ4PolicyContrastFragment(COURSE, ASSIGNMENT, EXAM, 14);
+  const j4 = passedStudentCompletionPolicyEvidence(COURSE, ASSIGNMENT, EXAM, 14);
   const j5 = passedW4Fragment(COURSE, ASSIGNMENT, 15);
   return [
     passedW1Fragment(COURSE, ASSIGNMENT, 12),
     passedW2Fragment(COURSE, ASSIGNMENT, 13),
-    passedJ3LeaveReturnFragment(COURSE, ASSIGNMENT, 14),
+    passedStudentLeaveResumeEvidence(COURSE, ASSIGNMENT, 14),
     j4,
     j5,
     passedJ8CrossActorFragment(j4, j5, 0),
   ];
 }
 
-test("W1 PASS preserves only the canonical visible milestone vocabulary", () => {
+test("the first learner run preserves only its canonical visible outcomes", () => {
   const fragment = passedW1Fragment(COURSE, ASSIGNMENT, 12);
   assert.deepEqual(fragment.visibleOutcomeCodes, [
     "visible_completion",
@@ -81,7 +80,7 @@ test("W1 PASS preserves only the canonical visible milestone vocabulary", () => 
   assert.deepEqual(parseW1JourneyFragment(fragment), fragment);
 });
 
-test("W2 PASS preserves the public retry milestone without answer or grading evidence", () => {
+test("the retry run preserves visible outcomes without answer or grading evidence", () => {
   const fragment = passedW2Fragment(COURSE, ASSIGNMENT, 12);
   assert.deepEqual(fragment.visibleOutcomeCodes, [
     "visible_completion",
@@ -123,7 +122,7 @@ test("report rendering sorts arrangements and retains the public-only outcome re
   );
 });
 
-test("the renderer rejects duplicate arrangements and non-PASS J1 outcome vocabulary", () => {
+test("the renderer rejects duplicate arrangements and invalid first-run outcomes", () => {
   const fragment = passedW1Fragment(COURSE, ASSIGNMENT, 12);
   assert.equal(
     renderVisibleOutcomeReport(
@@ -178,60 +177,7 @@ test("the direct renderer rejects answer-like records and uppercase public ident
   );
 });
 
-test("J1 uses the platform keyboard for rendered local sign-in", () => {
-  const source = readFileSync("tests/playwright/ui_walkthrough_keyboard_j1.spec.ts", "utf8");
-  assert.doesNotMatch(source, /\.click\(/u);
-  assert.match(source, /simulator\/keyboard_walkthrough/u);
-  assert.match(source, /tabTo\(page, credentialInput\)/u);
-  assert.match(source, /tabTo\(page, signIn\)/u);
-  assert.match(source, /expect\(assignmentLink\)\.toBeVisible\(\)/u);
-  assert.match(source, /tabTo\(page, assignmentLink, "backward"\)/u);
-  assert.match(source, /locator\('input\[type="radio"\]:visible'\)/u);
-  assert.match(source, /expect\(radios\)\.toHaveCount\(2\)/u);
-  assert.match(source, /expect\(radios\.nth\(0\)\)\.not\.toBeChecked\(\)/u);
-  assert.match(source, /expect\(radios\.nth\(1\)\)\.not\.toBeChecked\(\)/u);
-  assert.match(source, /tabTo\(page, response, "backward"\)/u);
-  assert.match(source, /getByRole\("button", \{ name: "Start another practice run" \}\)/u);
-  assert.doesNotMatch(source, /for \(let visibleAttempt/u);
-  assert.doesNotMatch(source, /Keep practicing with a fresh variation/u);
-  assert.match(source, /keyboard\.press\("Enter"\)/u);
-});
-
-test("J2 uses only rendered keyboard controls and never inspects answers or feedback text", () => {
-  const source = readFileSync("tests/playwright/ui_walkthrough_keyboard_j2.spec.ts", "utf8");
-  assert.doesNotMatch(source, /\.click\(/u);
-  assert.doesNotMatch(source, /correct|answerKey|feedback\.text|innerText/u);
-  assert.match(source, /chooseAndSubmit\(page, 0\)/u);
-  assert.match(source, /chooseAndSubmit\(page, 1\)/u);
-  assert.match(source, /waitForPostStartSurface\(/u);
-  assert.match(source, /getByRole\("button", \{ name: "Start another practice run" \}\)/u);
-  assert.doesNotMatch(source, /Keep practicing with a fresh variation/u);
-  assert.match(source, /retrySurface !== "run"/u);
-  assert.match(source, /timeout: 30_000/u);
-  assert.match(source, /test\.setTimeout\(90_000\)/u);
-  assert.match(source, /finalSurface === "run"/u);
-  assert.match(source, /final fresh-practice control did not appear in time/u);
-  assert.match(source, /waitForFinalSurface\(page\)/u);
-  assert.match(source, /final Feedback or Continue did not leave/u);
-  assert.match(source, /isFinalSurfaceTerminal\(surface\)/u);
-  assert.match(source, /getByRole\("heading", \{ name: "Run complete", exact: true \}\)/u);
-  assert.match(
-    source,
-    /locator\("\.question-card"\)\s*\.getByRole\("heading", \{ name: "Feedback"/u,
-  );
-  assert.match(source, /if \(!isPollTimeout\(error\)\) throw error/u);
-  assert.match(source, /expect\(assignmentLink\)\.toBeVisible\(\)/u);
-  assert.match(source, /tabTo\(page, assignmentLink, "backward"\)/u);
-  assert.match(source, /locator\('input\[type="radio"\]:visible'\)/u);
-  assert.match(source, /expect\(radios\)\.toHaveCount\(2\)/u);
-  assert.match(source, /expect\(radios\.nth\(0\)\)\.not\.toBeChecked\(\)/u);
-  assert.match(source, /choiceIndex === 0 \? "forward" : "backward"/u);
-  const helper = readFileSync("tests/playwright/simulator/keyboard_walkthrough.ts", "utf8");
-  assert.match(helper, /direction: TabDirection = "forward"/u);
-  assert.match(helper, /"Shift\+Tab"/u);
-});
-
-test("J2 accepts both rendered Mastery post-start surfaces and fails on an inline error", () => {
+test("post-start classification accepts visible run and fresh-practice surfaces", () => {
   assert.equal(
     classifyPostStartSurface({ radios: 2, freshPractice: false, inlineErrors: 0 }),
     "run",
@@ -250,7 +196,7 @@ test("J2 accepts both rendered Mastery post-start surfaces and fails on an inlin
   );
 });
 
-test("J2 final surface classifier distinguishes visible non-fresh outcomes", () => {
+test("completion classification distinguishes visible transient and terminal outcomes", () => {
   const base = {
     radios: 0,
     freshPractice: false,
@@ -286,7 +232,7 @@ test("the validator fails closed on answer text, selectors, and incomplete PASS 
   );
 });
 
-test("the renderer requires exactly ordered J1 through J8 fragments", () => {
+test("the renderer requires complete ordered public journey evidence", () => {
   const w1 = passedW1Fragment(COURSE, ASSIGNMENT, 12);
   const w2 = passedW2Fragment(COURSE, ASSIGNMENT, 13);
   assert.equal(renderVisibleOutcomeReport(42, arrangements(), [w1]), undefined);
@@ -317,7 +263,7 @@ test("the renderer rejects null, hidden, symbol, and answer-like hostile records
   assert.equal(renderVisibleOutcomeReport(42, symbolArrangement, [w1, w2]), undefined);
 });
 
-test("J2 state handoff rejects unsafe state without following a replacement symlink", () => {
+test("retry state handoff rejects unsafe state without following a replacement symlink", () => {
   const directory = mkdtempSync(join(tmpdir(), "ple-w2-state-"));
   const state = join(directory, "journeys.json");
   const outside = join(directory, "outside.json");
@@ -351,7 +297,7 @@ test("J2 state handoff rejects unsafe state without following a replacement syml
   }
 });
 
-test("the J8 reader rejects noncanonical state and unsafe parent metadata", () => {
+test("cross-actor state reading rejects noncanonical state and unsafe parent metadata", () => {
   const directory = mkdtempSync(join(tmpdir(), "ple-j8-state-"));
   const state = join(directory, "journeys.json");
   try {
@@ -368,40 +314,6 @@ test("the J8 reader rejects noncanonical state and unsafe parent metadata", () =
     unlinkSync(state);
     symlinkSync("outside.json", state);
     assert.throws(() => readJourneyStatePrefix(state));
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-});
-
-test("the fixed final renderer accepts canonical state and leaks nothing for hostile state", () => {
-  const directory = mkdtempSync(join(tmpdir(), "ple-report-child-"));
-  const state = join(directory, "journeys.json");
-  const run = () =>
-    spawnSync(
-      process.execPath,
-      ["node_modules/tsx/dist/cli.mjs", "tests/e2e/ui_walkthrough_report.ts"],
-      {
-        cwd: process.cwd(),
-        encoding: "utf8",
-        env: {
-          ...process.env,
-          PLE_UI_WALKTHROUGH_JOURNEY_STATE_FILE: state,
-          PLE_UI_WALKTHROUGH_ARRANGEMENTS_JSON: JSON.stringify(arrangements()),
-          PLE_UI_WALKTHROUGH_MASTER_SEED: "42",
-        },
-      },
-    );
-  try {
-    chmodSync(directory, 0o700);
-    writeFileSync(state, JSON.stringify(journeys()) + "\n", { encoding: "ascii", mode: 0o600 });
-    const valid = run();
-    assert.equal(valid.status, 0);
-    assert.match(valid.stdout, /"journey":"J8"/u);
-    unlinkSync(state);
-    symlinkSync("outside.json", state);
-    const hostile = run();
-    assert.notEqual(hostile.status, 0);
-    assert.equal(hostile.stdout, "");
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

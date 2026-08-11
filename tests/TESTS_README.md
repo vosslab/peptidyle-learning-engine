@@ -9,7 +9,7 @@ tests/
   test_*.py              fast pytest unit/integration (collected by pytest)
   test_*.mjs             pure Node tests, no browser (rare)
   conftest.py            pytest config; declares collect_ignore
-  conftest.py includes:  collect_ignore = ["e2e", "playwright"]
+  conftest.py includes:  collect_ignore = ["e2e", "playwright", "walkthrough"]
   playwright/            browser-driven tests (Playwright)
     test_*.mjs           smoke/layout/regression
     repo_root.mjs        shared helper: exports REPO_ROOT (centrally propagated)
@@ -19,7 +19,10 @@ tests/
   e2e/                   non-browser whole-system E2E (shell/Python)
     e2e_*.sh             shell orchestration
     e2e_*.py             Python orchestration
-    run_all.sh           OPTIONAL: run all E2E tests at once
+    e2e_run_all.sh       run all non-browser E2E tests
+  walkthrough/           opt-in instructor-to-student teaching-loop runner
+    run_ui_walkthrough.sh canonical shell entrypoint
+    walklib/             importable orchestration library
 ```
 
 ## How to run
@@ -27,7 +30,7 @@ tests/
 - Fast pytest lane: `pytest tests/`
 - Single browser test: `node tests/playwright/test_<name>.mjs` (TypeScript repos include `PLAYWRIGHT_USAGE.md` in their propagated `docs/` folder)
 - Single non-browser E2E: `bash tests/e2e/e2e_<name>.sh` or `source source_me.sh && python3 tests/e2e/e2e_<name>.py` (see [../docs/E2E_TESTS.md](../docs/E2E_TESTS.md))
-- Bulk non-browser E2E: `bash tests/e2e/run_all.sh` (if present)
+- Bulk non-browser E2E: `bash tests/e2e/e2e_run_all.sh`
 
 ## Why two folders for E2E
 
@@ -35,12 +38,17 @@ Playwright is a tool; E2E is a scope. Not every Playwright test is end-to-end (a
 
 - `tests/playwright/` -- browser-driven tests (Playwright; future tools like Cypress would get their own tool-named folder)
 - `tests/e2e/` -- non-browser whole-system orchestration (CLIs, build pipelines, multi-suite runners)
+- `tests/walkthrough/` -- opt-in cross-actor teaching-loop orchestration
 
 The optional `tests/playwright/e2e/` subfolder groups full-path browser walkthroughs separately from smoke tests and regression checks.
 
 ## How pytest stays fast
 
-`tests/conftest.py` declares `collect_ignore = ["e2e", "playwright"]`, so pytest never collects test functions from those subtrees, regardless of filename inside them. The filename conventions (`e2e_*` prefix in `tests/e2e/`, `test_*.mjs` for Playwright) are a readability layer on top of this active guard.
+`tests/conftest.py` declares
+`collect_ignore = ["e2e", "playwright", "walkthrough"]`, so pytest never
+collects test functions from those subtrees, regardless of filename inside
+them. The filename conventions (`e2e_*` prefix in `tests/e2e/`, `test_*.mjs`
+for Playwright) are a readability layer on top of this active guard.
 
 Important: `collect_ignore` only affects pytest test collection. The repo's lint tests (ASCII compliance, whitespace, pyflakes, indentation, shebangs, etc.) enumerate files via `git ls-files` and still scan files inside `tests/playwright/` and `tests/e2e/`. A non-ASCII character in `tests/playwright/foo.mjs` will still fail the ASCII check - only execution as a pytest test is suppressed.
 

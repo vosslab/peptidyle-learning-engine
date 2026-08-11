@@ -1,5 +1,13 @@
 # WP-S1 student repeat state review
 
+## Acceptance addendum
+
+The later full retained-stack run and independent replay passed the corrected
+local no-email pilot on 2026-08-11. The reviewed J1--J4 state sequence is now
+integrated accepted evidence alongside J5/J8 and the schema-v2 report, without
+accepting email/canonical onboarding, J6/J7, all-family, multi-learner, or
+release work.
+
 ## Verdict
 
 ACCEPTED TO LIVE. The security, privacy, state, runner, and focused behavior

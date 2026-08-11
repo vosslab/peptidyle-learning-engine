@@ -105,21 +105,21 @@ to make the local stack start. Once the data is safely migrated, rerun the launc
 Use the opt-in walkthrough only with a fixed seed:
 
 ```bash
-bash tests/e2e/e2e_ui_walkthrough.sh --master-seed 42
+bash tests/walkthrough/run_ui_walkthrough.sh --master-seed 42
 ```
 
 It uses IPv4 loopback only. AUTO reuses a safe existing bundle or builds when
-missing; use `--build` to force a refresh, while `--skip-build` requires both
-`dist/index.html` and `dist/main.js`. Its redacted `PASS` or `FAIL` report is
+missing; use `--build` to force a refresh. Its redacted `PASS` or `FAIL` report is
 under `test-results/ui_walkthrough/`, with directory/file modes 0700/0600.
 
-The former first-page pagination blocker is resolved. Assignment and gradebook
-surfaces now provide native `target="_self"` fragment routes to named
-`tabindex="-1"` pagination regions; Tab reaches visible load, retry, or reload
-controls. If `playwright_arranged` fails, preserve the report and inspect the
-reported stage rather than deleting volumes or using a direct route. The
-runner fails closed for missing/current-target, transport, and protocol issues;
-consult the active plan and pagination audits under `docs/active_plans/audits/`.
+The accepted no-email pilot passes J11/J12/J13/J1/J2/J3/J4/J5/J8. Assignment,
+course, and gradebook surfaces provide native `target="_self"` fragment routes
+to named `tabindex="-1"` pagination regions; Tab reaches visible load, retry,
+or reload controls. If a future `playwright_*` stage fails, preserve the
+redacted report and inspect its bounded stage rather than deleting volumes or
+using a direct route. The runner fails closed for missing/current-target,
+transport, and protocol issues. Email/canonical onboarding is deliberately not
+a diagnostic prerequisite for this local pilot.
 
 ## Stop without deleting data
 

@@ -4,6 +4,11 @@
 
 Independently ACCEPTED. The 2026-08-11 elevated live command completed with exit 0:
 
+Superseded ownership note: WP-E2 later made
+`tests/walkthrough/run_ui_walkthrough.sh` the canonical entrypoint and retained
+the `tests/e2e/` command below as a directly runnable compatibility facade. The
+original command and result remain historical acceptance evidence.
+
 ```bash
 bash tests/e2e/e2e_ui_walkthrough.sh --master-seed 42
 ```
@@ -20,17 +25,17 @@ mode-0600 file; `podman ps --all --quiet` was empty after cleanup. See the indep
 
 - `tests/e2e/e2e_ui_walkthrough.sh` is the stable thin entrypoint. It sources `source_me.sh` and
   executes the typed Python argparse CLI, which requires `--master-seed UINT32` and accepts
-  `--env-file PATH`, `--report-file BASENAME`, `--keep`, `--build`, and `--skip-build`. Invalid
+  `--env-file PATH`, `--report-file BASENAME`, `--keep`, and `--build`. Invalid
   arguments fail before report creation or Podman work.
 - The seed is ASCII decimal unsigned 32-bit input, matching WP-V1. Leading-zero input is
   normalized before it becomes the report identity or the value exported to WP-O2. The runner
   rejects an invalid seed, report basename, selected environment file, selected gateway port, or
   an existing unsafe sibling credential file before it creates a report directory or launches the
   stack.
-- AUTO is the default build choice: it passes `--skip-build` only when both readable,
-  non-symlink `dist/index.html` and `dist/main.js` already exist; otherwise it invokes the
-  launcher without that flag. `--build` always invokes a build. Explicit `--skip-build` requires
-  both outputs and fails before report or Podman work if either is absent.
+- AUTO is the default build choice: it reuses only readable, non-symlink
+  `dist/index.html` and `dist/main.js`; otherwise it invokes a build. `--build`
+  always invokes a build. The launcher's reuse flag is an internal runner detail,
+  not a public walkthrough option.
 - The report is a private mode-0600 JSON file under the private mode-0700
   `test-results/ui_walkthrough/` directory. A caller may choose only a safe `.json` basename;
   traversal and symlink report paths are refused. Finalization revalidates every report component,

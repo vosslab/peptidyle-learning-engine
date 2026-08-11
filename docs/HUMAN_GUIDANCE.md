@@ -80,6 +80,9 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   [devel/DEVEL_README.md](../devel/DEVEL_README.md), and the relevant style documents.
 - Classify one-time implementation checks separately from permanent tests. Keep regular tests
   offline, deterministic, behavior-focused, and in the repository's documented test location.
+- Name permanent test files and cases for the product behavior they protect, not for plan,
+  milestone, work-package, or journey labels. Stable journey identifiers may remain only where a
+  serialized report contract or its executable journey mapping requires them.
 - Use the permanent-test checklist in [docs/PYTEST_STYLE.md](PYTEST_STYLE.md). Avoid unnecessary
   fixtures, networked regular tests, and tests of tunable constants or incidental structure. When in
   doubt, remove the permanent test.
@@ -284,6 +287,9 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Split by ownership and behavior rather than arbitrary line ranges. Preserve
   public paths and typed contracts during structural extraction so module work
   does not force unrelated callers to change.
+- Keep walkthrough entry scripts thin. Put reusable Python orchestration in a
+  dedicated importable package while preserving the documented shell command;
+  keep browser journeys under `tests/playwright/` as separate visible evidence.
 - A production worker may claim a job family only when that registry entry has
   both a real handler and its atomic committer. Derive the queue-family filter
   from those complete entries; leave reserved work queued instead of adding a

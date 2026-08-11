@@ -8,14 +8,17 @@ import {
   commitInstructorSetupState,
   type InstructorSetupFragment,
 } from "./simulator/instructor_setup_state";
+import { writeInstructorSetupCheckpoint } from "./simulator/instructor_setup_checkpoint";
 import { tabTo } from "./simulator/keyboard_walkthrough";
 import {
   instructorCredentialFromValidatedFile,
   learnerAliasFromValidatedFile,
 } from "./ui_walkthrough_live_config";
 import { exactCatalogResult } from "./simulator/instructor_catalog_binding";
+import { documentationScreenshotsEnabled } from "./docs_screenshot_capture";
 
 test.describe.configure({ mode: "serial" });
+test.setTimeout(120_000);
 
 test.skip(
   configuredInstructorSetupInputs === undefined,
@@ -49,12 +52,17 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
     throw new Error("the declaration-time instructor setup skip did not apply");
   const startedAt = performance.now();
   const uniqueSuffix = `${inputs.masterSeedText}-${Date.now().toString(36)}`;
-  const courseTitle = `Fall pilot instructor walkthrough ${uniqueSuffix}`;
-  const assignmentTitle = `Mastery peptide practice ${uniqueSuffix}`;
+  const courseTitle = documentationScreenshotsEnabled()
+    ? `Peptide bond mastery pilot ${uniqueSuffix}`
+    : `Fall pilot instructor walkthrough ${uniqueSuffix}`;
+  const assignmentTitle = documentationScreenshotsEnabled()
+    ? "Peptide bond mastery"
+    : `Mastery peptide practice ${uniqueSuffix}`;
 
   await page.goto("/");
   const credentialInput = page.getByLabel("Local development credential");
   await expect(credentialInput).toBeVisible();
+  writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "login_visible");
   await tabTo(page, credentialInput);
   await expect(credentialInput).toBeFocused();
   await credentialInput.fill(instructorCredentialFromValidatedFile(inputs.credentialFile));
@@ -63,6 +71,7 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
   await expect(signIn).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Pick up where you left off" })).toBeVisible();
+  writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "signed_in");
 
   const courseTitleInput = page.getByLabel("Course title");
   await expect(courseTitleInput).toBeVisible();
@@ -77,11 +86,14 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
     has: page.getByRole("heading", { name: courseTitle, exact: true }),
   });
   await expect(courseCard).toHaveCount(1);
+  await expect(courseCard).toBeVisible();
+  writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "course_created");
   const openCourse = courseCard.getByRole("link", { name: "Open course", exact: true });
   await expect(openCourse).toBeVisible();
   await expect(openCourse).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: courseTitle, exact: true })).toBeVisible();
+  writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "course_opened");
   const courseId = new URL(page.url()).pathname.split("/")[2];
   if (courseId === undefined || !/^[0-9a-f-]{36}$/iu.test(courseId))
     throw new Error("visible course link is unavailable");
@@ -111,6 +123,7 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
   const activeRow = page.locator("tr", { hasText: "Local pilot" }).filter({ hasText: "active" });
   await expect(activeRow).toHaveCount(1);
   await expect(activeRow).toBeFocused();
+  writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "student_active");
   const j12: InstructorSetupFragment = {
     schemaVersion: 2,
     journey: "J12",
@@ -132,6 +145,7 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
   await expect(newAssignment).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Create assignment", exact: true })).toBeVisible();
+  writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "assignment_editor_opened");
   const assignmentTitleInput = page.getByLabel("Assignment title");
   await expect(assignmentTitleInput).toBeFocused();
   await assignmentTitleInput.fill(assignmentTitle);
@@ -157,12 +171,14 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
   await expect(page.getByLabel("Completion requirement")).toHaveValue("allCorrect");
   await expect(page.getByLabel("Grade policy")).toHaveValue("highest");
   await expect(page.getByLabel("Continued practice")).toHaveValue("unlimited");
+  writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "catalog_result_selected");
   const createAssignment = page.getByRole("button", { name: "Create assignment", exact: true });
   await tabTo(page, createAssignment);
   await expect(createAssignment).toBeFocused();
   await page.keyboard.press("Enter");
   const assignmentLink = page.getByRole("link", { name: `Open ${assignmentTitle}`, exact: true });
   await expect(assignmentLink).toBeVisible();
+  writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "assignment_created");
   const assignmentHref: unknown = await assignmentLink.getAttribute("href");
   if (typeof assignmentHref !== "string") {
     throw new Error("visible assignment link is unavailable");

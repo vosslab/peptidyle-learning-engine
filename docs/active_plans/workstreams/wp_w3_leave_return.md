@@ -20,7 +20,7 @@ rendered recovery path. See the [J3 review](../audits/wp_w3_leave_return_review.
 - J3 gives the rendered route surfaces bounded waits: after visible Return to assignment, the
   overview and focused main landmark must arrive; after each visible Start or resume practice action,
   the `runAttempt` surface must arrive. The J3 fragment appends only after those final assertions.
-- `tests/playwright/simulator/j3_leave_return_fragment.ts` defines the narrow future report fragment:
+- `tests/playwright/simulator/student_leave_resume_evidence.ts` defines the narrow future report fragment:
   public course and assignment UUIDs, elapsed time, and only visible start, leave, and return codes.
   It contains no response, answer, feedback, scoring, persistence, or credential material.
 

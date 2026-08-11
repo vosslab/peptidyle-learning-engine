@@ -1,6 +1,6 @@
-// ui_walkthrough_v2_cross_actor.ts - isolated descriptor-safe J8 state child.
+// v2_cross_actor.ts - isolated descriptor-safe J8 state child.
 
-import { appendV2J8State } from "../playwright/simulator/v2_j5_j8_state";
+import { appendV2J8State } from "../../playwright/simulator/v2_j5_j8_state";
 
 function required(name: string): string {
   const value = process.env[name];

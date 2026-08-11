@@ -1,9 +1,9 @@
-// j4_terminal_surface.ts - public visible-terminal classifier for the J4 contrast.
+// student_completion_terminal_surface.ts - classifier for visible completion outcomes.
 
-export type J4TerminalSurface =
+export type StudentCompletionTerminalSurface =
   "pending" | "feedback" | "neutral" | "mastery" | "closed" | "inconsistent" | "error";
 
-export interface J4TerminalObservation {
+export interface StudentCompletionTerminalObservation {
   readonly freshPractice: boolean;
   readonly masteryHeading: boolean;
   readonly closedHeading: boolean;
@@ -16,14 +16,14 @@ export interface J4TerminalObservation {
  * Classifies only rendered terminal controls after Continue. Neutral completion,
  * Feedback, and absence of a terminal surface are asynchronous transients.
  */
-export function classifyJ4TerminalSurface({
+export function classifyStudentCompletionTerminalSurface({
   freshPractice,
   masteryHeading,
   closedHeading,
   neutralHeading,
   feedback,
   inlineErrors,
-}: J4TerminalObservation): J4TerminalSurface {
+}: StudentCompletionTerminalObservation): StudentCompletionTerminalSurface {
   if (inlineErrors > 0) return "error";
   if (freshPractice !== masteryHeading) return "inconsistent";
   if (freshPractice && masteryHeading) return "mastery";
@@ -33,7 +33,9 @@ export function classifyJ4TerminalSurface({
   return "pending";
 }
 
-export function isJ4TerminalSurfaceTerminal(surface: J4TerminalSurface): boolean {
+export function isStudentCompletionTerminalSurface(
+  surface: StudentCompletionTerminalSurface,
+): boolean {
   return (
     surface === "mastery" ||
     surface === "closed" ||

@@ -1,5 +1,12 @@
 # WP-S2 schema-v2 J5/J8 tail state review
 
+## Acceptance addendum
+
+The later integrated retained-stack walkthrough and independent replay passed
+the corrected local no-email pilot on 2026-08-11. This state boundary therefore
+contributes to accepted J5/J8 evidence only; it does not expand scope to email
+or canonical onboarding, J6/J7, all-family, multi-learner, or release work.
+
 ## Verdict
 
 **ACCEPTED OFFLINE.** This accepts only the isolated schema-v2 J5/J8 state and report tail; it

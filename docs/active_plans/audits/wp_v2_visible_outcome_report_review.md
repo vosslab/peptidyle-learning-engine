@@ -1,5 +1,13 @@
 # WP-V2 visible-outcome report review
 
+## Supersession addendum
+
+This review remains accepted evidence for its bounded schema-v1 J1 report. It
+is not the active acceptance baseline after the 2026-08-11 corrected local
+no-email pilot passed the schema-v2 J11/J12/J13/J1/J2/J3/J4/J5/J8 sequence.
+That pilot does not accept email/canonical onboarding, J6/J7, all-family,
+multi-learner, or release work.
+
 ## Type Safety
 
 - ACCEPTED after re-review: `renderVisibleOutcomeReport` now owns the exact five arrangement

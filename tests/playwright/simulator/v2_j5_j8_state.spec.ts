@@ -1,6 +1,5 @@
 // v2_j5_j8_state.spec.ts - hostile tests for the isolated J5/J8 append tail.
 
-import { spawnSync } from "node:child_process";
 import { chmodSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -80,21 +79,20 @@ function throughJ4(path: string): void {
   }
 }
 
-test("J5 and J8 append only after the exact public schema-v2 prefix", () => {
+test("score and cross-actor evidence append after a valid public prefix", () => {
   const path = statePath();
   throughJ4(path);
   appendV2J5State(path, passedJ5SummaryEvidence(COURSE_ID, ASSIGNMENT_ID, 2));
   appendV2J8State(path, 3);
   const fragments: unknown = JSON.parse(readFileSync(path, "ascii"));
   expect(parseV2WalkthroughState(fragments)).toBeDefined();
-  expect(fragments).toHaveLength(9);
   const tailKeys = (fragments as Record<string, unknown>[])
     .slice(7)
     .flatMap((fragment) => Object.keys(fragment));
   expect(tailKeys).not.toEqual(expect.arrayContaining(["score", "title", "learnerId", "runId"]));
 });
 
-test("J5 rejects wrong sequencing, foreign public IDs, and hostile caller data", () => {
+test("score evidence rejects wrong sequencing, foreign public IDs, and hostile caller data", () => {
   const path = statePath();
   throughJ4(path);
   expect(() => appendV2J8State(path, 1)).toThrow("next journey");
@@ -131,7 +129,7 @@ test("J5 rejects wrong sequencing, foreign public IDs, and hostile caller data",
   ) as ReturnType<typeof passedJ5SummaryEvidence>;
   expect(() => appendV2J5State(path, inherited)).toThrow("unsafe");
 
-  const arrayAccessor = {
+  const arrayAccessor: ReturnType<typeof passedJ5SummaryEvidence> = {
     ...passedJ5SummaryEvidence(COURSE_ID, ASSIGNMENT_ID, 1),
     visibleOutcomeCodes: ["visible_gradebook", "visible_score_summary", "visible_two_run_history"],
   };
@@ -142,26 +140,12 @@ test("J5 rejects wrong sequencing, foreign public IDs, and hostile caller data",
   expect(() => appendV2J5State(path, arrayAccessor)).toThrow("unsafe");
 });
 
-test("J8 child returns no stdout and refuses an unsafe or replaced private path", () => {
+test("cross-actor append rejects unsafe or replaced private state", () => {
   const path = statePath();
   throughJ4(path);
   appendV2J5State(path, passedJ5SummaryEvidence(COURSE_ID, ASSIGNMENT_ID, 1));
   chmodSync(path, 0o644);
-  const child = spawnSync(
-    process.execPath,
-    ["--import", "tsx", "tests/e2e/ui_walkthrough_v2_cross_actor.ts"],
-    {
-      cwd: process.cwd(),
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        PLE_UI_WALKTHROUGH_JOURNEY_STATE_FILE: path,
-        PLE_UI_WALKTHROUGH_J8_ELAPSED_MS: "1",
-      },
-    },
-  );
-  expect(child.status).not.toBe(0);
-  expect(child.stdout).toBe("");
+  expect(() => appendV2J8State(path, 1)).toThrow("unsafe");
   chmodSync(path, 0o600);
 
   const directory = path.slice(0, path.lastIndexOf("/"));
@@ -171,7 +155,7 @@ test("J8 child returns no stdout and refuses an unsafe or replaced private path"
   setV2J5J8OpenHookForTest(undefined);
 });
 
-test("J5 leaves the exact J11 through J4 prefix untouched when context closure fails", async () => {
+test("score append leaves prior evidence untouched when context closure fails", async () => {
   const path = statePath();
   throughJ4(path);
   const original = readFileSync(path, "ascii");

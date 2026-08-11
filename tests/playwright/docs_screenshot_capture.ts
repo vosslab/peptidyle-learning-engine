@@ -1,0 +1,122 @@
+/**
+ * Opt-in documentation screenshot capture for the real UI walkthrough.
+ *
+ * The launcher owns PLE_DOCS_SCREENSHOT_DIR. Ordinary Playwright tests do not
+ * set it, so this module leaves their behavior and artifacts unchanged.
+ */
+
+import { chmod, lstat } from "node:fs/promises";
+import path from "node:path";
+
+import type { Locator, Page } from "@playwright/test";
+
+const CAPTURE_DIRECTORY_ENVIRONMENT = "PLE_DOCS_SCREENSHOT_DIR";
+const CAPTURE_DIRECTORY_PARENT = "/private/tmp";
+const CAPTURE_DIRECTORY_PREFIX = "ple-docs-screenshots.";
+
+export const documentationScreenshotNames = [
+  "peptide_bond_mastery_overview.png",
+  "student_fresh_practice.png",
+  "instructor_gradebook_mastery_loop.png",
+] as const;
+
+export type DocumentationScreenshotName = (typeof documentationScreenshotNames)[number];
+
+function documentationScreenshotDirectory(): string | undefined {
+  const directory = process.env[CAPTURE_DIRECTORY_ENVIRONMENT];
+  if (directory === undefined || directory === "") return undefined;
+  return directory;
+}
+
+export function documentationScreenshotsEnabled(): boolean {
+  return documentationScreenshotDirectory() !== undefined;
+}
+
+async function validateCaptureDirectory(directory: string): Promise<void> {
+  if (!path.isAbsolute(directory)) {
+    throw new Error("documentation screenshot directory must be absolute");
+  }
+  if (
+    path.dirname(directory) !== CAPTURE_DIRECTORY_PARENT ||
+    !path.basename(directory).startsWith(CAPTURE_DIRECTORY_PREFIX)
+  ) {
+    throw new Error("documentation screenshot directory must be runner-created under /private/tmp");
+  }
+  const metadata = await lstat(directory);
+  if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
+    throw new Error("documentation screenshot directory must be a regular directory");
+  }
+  if (metadata.uid !== process.getuid()) {
+    throw new Error("documentation screenshot directory must be owned by this user");
+  }
+  if ((metadata.mode & 0o777) !== 0o700) {
+    throw new Error("documentation screenshot directory must have mode 0700");
+  }
+}
+
+async function validateScreenshotPath(filePath: string): Promise<void> {
+  try {
+    const metadata = await lstat(filePath);
+    if (metadata.isSymbolicLink() || !metadata.isFile()) {
+      throw new Error("documentation screenshot path must be a regular file");
+    }
+    throw new Error("documentation screenshot path already exists");
+  } catch (error: unknown) {
+    if (isMissingPathError(error)) return;
+    throw error;
+  }
+}
+
+function isMissingPathError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+}
+
+/** Capture one bounded public UI state only when the dedicated launcher opts in. */
+export async function captureDocumentationScreenshot(
+  page: Page,
+  screenshotName: DocumentationScreenshotName,
+  anchor?: Locator,
+  cropTopPixels?: number,
+): Promise<void> {
+  const directory = documentationScreenshotDirectory();
+  if (directory === undefined) return;
+  if (!documentationScreenshotNames.includes(screenshotName)) {
+    throw new Error("documentation screenshot name is not approved");
+  }
+  if (
+    cropTopPixels !== undefined &&
+    (!Number.isInteger(cropTopPixels) || cropTopPixels < 0 || cropTopPixels >= 960)
+  ) {
+    throw new Error(
+      "documentation screenshot crop must be a whole number below the viewport height",
+    );
+  }
+  await validateCaptureDirectory(directory);
+  const filePath = path.join(directory, screenshotName);
+  await validateScreenshotPath(filePath);
+  const viewportHeight = 960 - (cropTopPixels ?? 0);
+  const anchorMargin = cropTopPixels === undefined ? 72 : 0;
+  await page.setViewportSize({ width: 1440, height: viewportHeight });
+  if (anchor !== undefined) {
+    await anchor.scrollIntoViewIfNeeded();
+    await anchor.evaluate((element, margin) => {
+      const top = element.getBoundingClientRect().top;
+      window.scrollBy(0, top - margin);
+    }, anchorMargin);
+  }
+  const devicePixelRatio = await page.evaluate(() => window.devicePixelRatio);
+  if (devicePixelRatio !== 1) {
+    throw new Error("documentation screenshots require device pixel ratio 1");
+  }
+  await page.screenshot({
+    path: filePath,
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+  });
+  const metadata = await lstat(filePath);
+  if (metadata.isSymbolicLink() || !metadata.isFile() || metadata.size === 0) {
+    throw new Error("documentation screenshot was not written as a nonempty regular file");
+  }
+  await chmod(filePath, 0o644);
+}

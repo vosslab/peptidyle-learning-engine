@@ -174,27 +174,6 @@ export function renderV2VisibleOutcomeReport(
   return rendered;
 }
 
-/** Builds the J8 public-only evidence after matching browser-visible observations. */
-export function passedV2J8Fragment(
-  courseId: string,
-  assignmentId: string,
-  elapsedMs: number,
-): V2JourneyFragment {
-  if (!UUID.test(courseId) || !UUID.test(assignmentId) || !validElapsed(elapsedMs)) {
-    throw new Error("J8 requires matching canonical public observations");
-  }
-  return {
-    schemaVersion: 2,
-    journey: "J8",
-    status: "PASS",
-    elapsedMs,
-    courseId,
-    assignmentId,
-    visibleOutcomeCodes: JOURNEY_CODES.J8,
-    diagnostics: [],
-  };
-}
-
 function parseFragment(value: unknown, journey: V2Journey): V2JourneyFragment | undefined {
   const expectedKeys = keysForJourney(journey);
   if (!isExactDataObject(value, expectedKeys)) return undefined;
