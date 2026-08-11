@@ -53,9 +53,9 @@ interface FlatQuestionSource {
     readonly maxAttempts: null;
     readonly feedback: "immediateFull";
   };
-  readonly timingPolicy: {
-    readonly kind: "untimed";
-  };
+  readonly timingPolicy:
+    | { readonly kind: "untimed" }
+    | { readonly kind: "perQuestion"; readonly seconds: 900; readonly graceSeconds: 30 };
   readonly tags: readonly [];
   readonly taxonomy: readonly [];
   readonly license: {
@@ -97,6 +97,7 @@ export interface RetryCorpusInputs {
   readonly baseUrl: string;
   readonly instructorCredential: string;
   readonly masterSeed: number;
+  readonly timedQuestion?: boolean;
 }
 
 export interface PublishedRetryCorpus {
@@ -171,7 +172,11 @@ export async function arrangeRetryCorpusWithRequestFactory(
     stage = "save";
     const workspace = globalThis.crypto.randomUUID();
     const catalogSearchTitle = retryCorpusCatalogSearchTitle(workspace);
-    const source = retryCorpusSource(inputs.masterSeed, catalogSearchTitle);
+    const source = retryCorpusSource(
+      inputs.masterSeed,
+      catalogSearchTitle,
+      inputs.timedQuestion === true,
+    );
     const etag = await savePrivateSource(context, workspace, source);
     stage = "publish";
     const published = await publishInstitutionally(context, workspace, etag);
@@ -194,17 +199,21 @@ export async function arrangeRetryCorpusWithRequestFactory(
 
 /**
  * Names the newly arranged public corpus without deriving anything from its answer-bearing source.
- * The random workspace UUID makes a retained catalog unambiguous for the visible instructor search.
- * Its compact token has no web-search punctuation, so simple-dictionary search treats it as one
- * ordinary term rather than interpreting UUID hyphens as operators.
+ * A bounded token from the random workspace UUID keeps retained-catalog collisions negligible for
+ * the visible instructor search without turning the learner-facing title into an internal ID dump.
+ * The explicit Fake label makes captured demo content impossible to mistake for a real course item.
  */
 export function retryCorpusCatalogSearchTitle(workspace: string): string {
   if (!UUID.test(workspace)) throw new Error("retry corpus workspace must be a UUID");
   const workspaceToken = workspace.replace(/-/gu, "").toLowerCase();
-  return `Pilot retry corpus pilotref${workspaceToken}`;
+  return `Fake amino acid question ${workspaceToken.slice(0, 12)}`;
 }
 
-function retryCorpusSource(masterSeed: number, title: string): FlatQuestionSource {
+function retryCorpusSource(
+  masterSeed: number,
+  title: string,
+  timedQuestion: boolean,
+): FlatQuestionSource {
   const stream = create_named_stream(masterSeed, RETRY_CORPUS_STREAM);
   const variant = choose_value(stream, RETRY_CORPUS_VARIANTS);
   return {
@@ -218,7 +227,9 @@ function retryCorpusSource(masterSeed: number, title: string): FlatQuestionSourc
     feedback: {},
     points: 1,
     attemptPolicy: { maxAttempts: null, feedback: "immediateFull" },
-    timingPolicy: { kind: "untimed" },
+    timingPolicy: timedQuestion
+      ? { kind: "perQuestion", seconds: 900, graceSeconds: 30 }
+      : { kind: "untimed" },
     tags: [],
     taxonomy: [],
     license: { kind: "cc0" },

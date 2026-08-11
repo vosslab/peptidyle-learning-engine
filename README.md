@@ -21,13 +21,23 @@ that implement it.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Student assignment overview for Peptide bond mastery with keyboard focus on Start or resume practice](docs/screenshots/peptide_bond_mastery_overview.png)
+![Instructor assignment editor showing a selected immutable problem and Mastery run policies](docs/screenshots/instructor_assignment_settings.png)
+
+![Instructor Assignment created confirmation showing Peptide bond mastery and its Open assignment link](docs/screenshots/instructor_assignment_created.png)
+
+![Student peptide-bond problem showing the server-authoritative countdown and keyboard-focused response](docs/screenshots/student_timed_problem.png)
+
+![Student completed-run summary showing a correct score and keyboard focus on Start another practice run](docs/screenshots/student_fresh_practice.png)
+
+![Student Practice run 2 showing a reset 15-minute timer and an unanswered focused response](docs/screenshots/student_retake_fresh_problem.png)
 <!-- screenshots:end -->
 
-This is a fresh real-stack capture from the accepted local no-email teaching-loop walkthrough. See
+These are fresh real-stack captures from the accepted local no-email teaching-loop walkthrough. See
 the dedicated [instructor guide](docs/INSTRUCTOR_GUIDE.md) and
 [student guide](docs/STUDENT_GUIDE.md) for the complete visible workflow. It demonstrates the local
-pilot rather than a production deployment.
+pilot rather than a production deployment; every displayed person and course record is simulated.
+The fixed labels `Dr. Fake Professor`, `Mary Fake Student`, and `Jack Fake Student` make that status
+explicit in screenshots.
 
 ## Why this project
 

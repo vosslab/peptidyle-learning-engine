@@ -104,16 +104,19 @@ test("J4 completes the resumed second Mastery run through visible keyboard contr
   await expect(
     page.getByRole("heading", { name: "Keep practicing with a fresh variation" }),
   ).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole("button", { name: "Start another practice run" })).toBeVisible();
-  const back = page.getByRole("button", { name: "Back to assignment" });
-  await tabTo(page, back);
-  await expect(back).toBeFocused();
+  const freshPractice = page.getByRole("button", { name: "Start another practice run" });
+  await expect(freshPractice).toBeVisible();
+  await tabTo(page, freshPractice);
+  await expect(freshPractice).toBeFocused();
   await captureDocumentationScreenshot(
     page,
     "student_fresh_practice.png",
     page.locator(".attempt-summary"),
     72,
   );
+  const back = page.getByRole("button", { name: "Back to assignment" });
+  await tabTo(page, back);
+  await expect(back).toBeFocused();
   appendStudentRepeatState(
     inputs.journeyStateFile,
     passedStudentRepeatFragment(

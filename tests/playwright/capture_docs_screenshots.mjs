@@ -7,8 +7,16 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const screenshotNames = [
+  "instructor_course_overview.png",
+  "instructor_roster_active_student.png",
+  "instructor_problem_catalog.png",
+  "instructor_assignment_settings.png",
+  "instructor_assignment_created.png",
   "peptide_bond_mastery_overview.png",
+  "student_assignment_list.png",
+  "student_timed_problem.png",
   "student_fresh_practice.png",
+  "student_retake_fresh_problem.png",
   "instructor_gradebook_mastery_loop.png",
 ];
 const privateTemporaryParent = "/private/tmp";

@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 
 import { exactCatalogResult } from "./instructor_catalog_binding";
 
-const CATALOG_TITLE = "Pilot retry corpus pilotref123e4567e89b12d3a456426614174000";
+const CATALOG_TITLE = "Fake amino acid question 123e4567e89b";
 
 function catalogArticle(title: string): string {
   return `<article><h3>${title}</h3><button type="button">Add published version</button></article>`;

@@ -15,7 +15,10 @@ import {
   learnerAliasFromValidatedFile,
 } from "./ui_walkthrough_live_config";
 import { exactCatalogResult } from "./simulator/instructor_catalog_binding";
-import { documentationScreenshotsEnabled } from "./docs_screenshot_capture";
+import {
+  captureDocumentationScreenshot,
+  documentationScreenshotsEnabled,
+} from "./docs_screenshot_capture";
 
 test.describe.configure({ mode: "serial" });
 test.setTimeout(120_000);
@@ -53,7 +56,7 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
   const startedAt = performance.now();
   const uniqueSuffix = `${inputs.masterSeedText}-${Date.now().toString(36)}`;
   const courseTitle = documentationScreenshotsEnabled()
-    ? `Peptide bond mastery pilot ${uniqueSuffix}`
+    ? `Fake Biochemistry Course ${Date.now().toString(36).slice(-6)}`
     : `Fall pilot instructor walkthrough ${uniqueSuffix}`;
   const assignmentTitle = documentationScreenshotsEnabled()
     ? "Peptide bond mastery"
@@ -94,6 +97,7 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: courseTitle, exact: true })).toBeVisible();
   writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "course_opened");
+  await captureDocumentationScreenshot(page, "instructor_course_overview.png");
   const courseId = new URL(page.url()).pathname.split("/")[2];
   if (courseId === undefined || !/^[0-9a-f-]{36}$/iu.test(courseId))
     throw new Error("visible course link is unavailable");
@@ -124,6 +128,22 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
   await expect(activeRow).toHaveCount(1);
   await expect(activeRow).toBeFocused();
   writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "student_active");
+  if (documentationScreenshotsEnabled()) {
+    await tabTo(page, learnerAlias);
+    await expect(learnerAlias).toBeFocused();
+    await learnerAlias.fill("student-jack");
+    await tabTo(page, addStudent);
+    await expect(addStudent).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(activeRow).toHaveCount(2);
+    await expect(page.getByRole("row", { name: /Jack Fake Student.*active/u })).toBeFocused();
+  }
+  await captureDocumentationScreenshot(
+    page,
+    "instructor_roster_active_student.png",
+    page.getByRole("heading", { name: "Course members", exact: true }),
+    72,
+  );
   const j12: InstructorSetupFragment = {
     schemaVersion: 2,
     journey: "J12",
@@ -167,17 +187,35 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
   const addVersion = catalogRow.getByRole("button", { name: "Add published version", exact: true });
   await tabTo(page, addVersion);
   await expect(addVersion).toBeFocused();
+  await captureDocumentationScreenshot(
+    page,
+    "instructor_problem_catalog.png",
+    page.getByRole("heading", { name: "Published problem catalog", exact: true }),
+    72,
+  );
   await page.keyboard.press("Enter");
   await expect(page.getByLabel("Completion requirement")).toHaveValue("allCorrect");
   await expect(page.getByLabel("Grade policy")).toHaveValue("highest");
   await expect(page.getByLabel("Continued practice")).toHaveValue("unlimited");
   writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "catalog_result_selected");
+  await captureDocumentationScreenshot(
+    page,
+    "instructor_assignment_settings.png",
+    page.locator(".assignment-editor-grid"),
+    72,
+  );
   const createAssignment = page.getByRole("button", { name: "Create assignment", exact: true });
   await tabTo(page, createAssignment);
   await expect(createAssignment).toBeFocused();
   await page.keyboard.press("Enter");
   const assignmentLink = page.getByRole("link", { name: `Open ${assignmentTitle}`, exact: true });
   await expect(assignmentLink).toBeVisible();
+  await captureDocumentationScreenshot(
+    page,
+    "instructor_assignment_created.png",
+    page.locator(".success-state"),
+    72,
+  );
   writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "assignment_created");
   const assignmentHref: unknown = await assignmentLink.getAttribute("href");
   if (typeof assignmentHref !== "string") {

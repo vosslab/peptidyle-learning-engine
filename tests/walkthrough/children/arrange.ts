@@ -190,6 +190,7 @@ async function arrange(): Promise<ArrangementOutput> {
     baseUrl,
     instructorCredential: credential,
     masterSeed,
+    timedQuestion: process.env["PLE_DOCS_SCREENSHOT_DIR"] !== undefined,
   });
   let context: APIRequestContext | undefined;
   try {

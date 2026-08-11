@@ -11,6 +11,10 @@ import {
 } from "./simulator/student_repeat_state";
 import { writeJ1Checkpoint, type J1Checkpoint } from "./simulator/j1_checkpoint";
 import { studentCredentialFromValidatedFile } from "./ui_walkthrough_live_config";
+import {
+  captureDocumentationScreenshot,
+  documentationScreenshotsEnabled,
+} from "./docs_screenshot_capture";
 
 test.describe.configure({ mode: "serial" });
 
@@ -99,6 +103,12 @@ test("J1 student reaches visible retry controls for the instructor-created Maste
   await tabTo(page, assignmentLink, "backward");
   await expect(assignmentLink).toBeFocused();
   checkpoint("assignment_visible");
+  await captureDocumentationScreenshot(
+    page,
+    "student_assignment_list.png",
+    assignmentLink.locator("xpath=ancestor::article[contains(@class, 'course-card')]"),
+    72,
+  );
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
 
@@ -116,6 +126,10 @@ test("J1 student reaches visible retry controls for the instructor-created Maste
   const response = radios.nth(0);
   await tabTo(page, response);
   await expect(response).toBeFocused();
+  if (documentationScreenshotsEnabled()) {
+    await expect(page.getByRole("timer")).not.toHaveText("Untimed");
+  }
+  await captureDocumentationScreenshot(page, "student_timed_problem.png");
   await page.keyboard.press("Space");
   await expect(response).toBeChecked();
   const submit = page.getByRole("button", { name: "Submit answer" });

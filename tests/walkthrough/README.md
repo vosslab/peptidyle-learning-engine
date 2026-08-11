@@ -19,8 +19,8 @@ entry points and delegate here. They do not own implementation.
 
 ## Documentation screenshots
 
-Refresh the three checked-in role screenshots through the same real-stack
-walkthrough:
+Refresh the complete instructor and student stage set through the same
+real-stack walkthrough:
 
 ```bash
 node tests/playwright/capture_docs_screenshots.mjs
@@ -29,8 +29,11 @@ node tests/playwright/capture_docs_screenshots.mjs
 The default is AUTO: reuse safe existing `dist/` outputs and build only when
 they are missing. Pass `--build` to force a fresh bundle. The capture owns and
 removes its private temporary directory, requires the full cleanup-enabled
-walkthrough, and atomically installs only its three approved PNG files under
+walkthrough, and atomically installs only its approved stage PNG files under
 `docs/screenshots/`.
+
+These fake-user screenshots are required walkthrough evidence, not a privacy exception. The
+capture still excludes login credentials, answer material, traces, and raw child output.
 
 ## Test value boundary
 

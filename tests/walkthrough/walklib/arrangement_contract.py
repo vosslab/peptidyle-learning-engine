@@ -9,7 +9,7 @@ UUID_TEXT = re.compile(
 	"^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
 	re.IGNORECASE,
 )
-CATALOG_SEARCH_TITLE = re.compile(r"^Pilot retry corpus pilotref[0-9a-f]{32}$")
+CATALOG_SEARCH_TITLE = re.compile(r"^Fake amino acid question [0-9a-f]{12}$")
 
 
 def parse_arrangement_output(stdout: str) -> tuple[list[dict[str, str]], str | None]:

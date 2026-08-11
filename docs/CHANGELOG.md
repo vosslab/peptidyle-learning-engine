@@ -4,6 +4,14 @@
 
 ### Additions and New Features
 
+- Expanded the accepted real-stack documentation capture from three images to the complete eleven-stage
+  instructor and student story: fake course, two-member fake roster, published problem, assignment
+  policies, post-create assignment confirmation, assignment list and overview, timed problem, scored
+  retake control, a visibly new Practice run 2, and multi-learner gradebook history. The capture
+  still walks visible controls, now uses the unmistakable identities
+  `Dr. Fake Professor`, `Mary Fake Student`, and `Jack Fake Student`, and gives demo course/problem
+  titles concise `Fake` labels. Fake-user screenshots are required acceptance evidence; credentials,
+  answer material, traces, and raw child output remain excluded.
 - Added dedicated instructor and student guides with three fresh real-stack
   Playwright screenshots from the accepted local no-email teaching loop. The
   reproducible capture command follows the visible keyboard journey, records

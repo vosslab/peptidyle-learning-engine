@@ -15,8 +15,16 @@ const CAPTURE_DIRECTORY_PARENT = "/private/tmp";
 const CAPTURE_DIRECTORY_PREFIX = "ple-docs-screenshots.";
 
 export const documentationScreenshotNames = [
+  "instructor_course_overview.png",
+  "instructor_roster_active_student.png",
+  "instructor_problem_catalog.png",
+  "instructor_assignment_settings.png",
+  "instructor_assignment_created.png",
   "peptide_bond_mastery_overview.png",
+  "student_assignment_list.png",
+  "student_timed_problem.png",
   "student_fresh_practice.png",
+  "student_retake_fresh_problem.png",
   "instructor_gradebook_mastery_loop.png",
 ] as const;
 
@@ -46,7 +54,8 @@ async function validateCaptureDirectory(directory: string): Promise<void> {
   if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
     throw new Error("documentation screenshot directory must be a regular directory");
   }
-  if (metadata.uid !== process.getuid()) {
+  const getuid = process.getuid;
+  if (getuid === undefined || metadata.uid !== getuid()) {
     throw new Error("documentation screenshot directory must be owned by this user");
   }
   if ((metadata.mode & 0o777) !== 0o700) {

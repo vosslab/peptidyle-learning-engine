@@ -27,7 +27,7 @@ def instructor_arrangement_output() -> str:
 				"label": "api-retry-corpus-publication",
 				"problemId": "123e4567-e89b-12d3-a456-426614174001",
 				"versionId": "123e4567-e89b-12d3-a456-426614174002",
-				"catalogSearchTitle": "Pilot retry corpus pilotref123e4567e89b12d3a456426614174000",
+				"catalogSearchTitle": "Fake amino acid question 123e4567e89b",
 			}
 		]
 	}
@@ -271,10 +271,10 @@ class UiWalkthroughRunnerTests(unittest.TestCase):
 			runner.finish(False)
 			report_text = runner.report_path.read_text(encoding="ascii")
 			public_state = environment["PLE_UI_WALKTHROUGH_ARRANGEMENTS_JSON"] + report_text
-			self.assertNotIn("Pilot retry corpus", public_state)
+			self.assertNotIn("Fake amino acid question", public_state)
 			with self.assertRaisesRegex(walkthrough.RunnerError, "invalid output"):
 				runner.parse_arrangement_output(
-					instructor_arrangement_output().replace("Pilot retry corpus", "peptide")
+					instructor_arrangement_output().replace("Fake amino acid question", "peptide")
 				)
 
 	def test_private_journey_state_is_mode_0600_and_removed_on_finish(self) -> None:
@@ -665,7 +665,7 @@ class UiWalkthroughRunnerTests(unittest.TestCase):
 					if environ is not None and environ.get("PLE_UI_WALKTHROUGH_ARRANGER_CHILD") == "1":
 						return walkthrough.CommandResult(
 							0,
-							'{"arrangements":[{"label":"api-retry-corpus-publication","problemId":"123e4567-e89b-12d3-a456-426614174001","versionId":"123e4567-e89b-12d3-a456-426614174002","catalogSearchTitle":"Pilot retry corpus pilotref123e4567e89b12d3a456426614174000"}]}\n',
+							'{"arrangements":[{"label":"api-retry-corpus-publication","problemId":"123e4567-e89b-12d3-a456-426614174001","versionId":"123e4567-e89b-12d3-a456-426614174002","catalogSearchTitle":"Fake amino acid question 123e4567e89b"}]}\n',
 							"student-local",
 						)
 					if environ is not None and "PLE_UI_WALKTHROUGH_INSTRUCTOR_SETUP_CHECKPOINT_FILE" in environ:

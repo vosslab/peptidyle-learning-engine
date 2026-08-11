@@ -167,7 +167,7 @@ test("authors, publishes, and inspects an answer-free retry corpus through suppo
     masterSeed: 42,
   });
   expect(published).toMatchObject({ ...PUBLISHED_REFERENCE, arrangement: "native-retry-corpus" });
-  expect(published.catalogSearchTitle).toMatch(/^Pilot retry corpus pilotref[0-9a-f]{32}$/u);
+  expect(published.catalogSearchTitle).toMatch(/^Fake amino acid question [0-9a-f]{12}$/u);
   expect(published).not.toHaveProperty("correctChoice");
   const replay = fakeRequest(successfulReplies());
   await expect(
@@ -178,7 +178,7 @@ test("authors, publishes, and inspects an answer-free retry corpus through suppo
     }),
   ).resolves.toMatchObject({ ...PUBLISHED_REFERENCE, arrangement: "native-retry-corpus" });
   expect(replay.captured[1]?.data).toMatchObject({
-    title: expect.stringMatching(/^Pilot retry corpus pilotref[0-9a-f]{32}$/u),
+    title: expect.stringMatching(/^Fake amino acid question [0-9a-f]{12}$/u),
   });
   expect(fake.captured.map(({ method, path }) => ({ method, path }))).toEqual([
     { method: "post", path: "/api/auth/login" },
@@ -212,12 +212,25 @@ test("authors, publishes, and inspects an answer-free retry corpus through suppo
   expect(fake.state.disposed).toBe(true);
 });
 
-test("derives a unique public catalog token that simple web search reads as ordinary terms", () => {
+test("derives a compact, unmistakably fake public catalog title", () => {
   const title = retryCorpusCatalogSearchTitle("123e4567-e89b-12d3-a456-426614174000");
-  expect(title).toBe("Pilot retry corpus pilotref123e4567e89b12d3a456426614174000");
+  expect(title).toBe("Fake amino acid question 123e4567e89b");
   expect(title).toMatch(/^[A-Za-z0-9 ]+$/u);
   expect(title).not.toContain("-");
   expect(() => retryCorpusCatalogSearchTitle("not-a-uuid")).toThrow("workspace");
+});
+
+test("authors a bounded per-question timer for documentation capture when requested", async () => {
+  const fake = fakeRequest(successfulReplies());
+  await arrangeRetryCorpusWithRequestFactory(fake.request, {
+    baseUrl: "http://127.0.0.1:3000",
+    instructorCredential: INSTRUCTOR_CREDENTIAL,
+    masterSeed: 42,
+    timedQuestion: true,
+  });
+  expect(fake.captured[1]?.data).toMatchObject({
+    timingPolicy: { kind: "perQuestion", seconds: 900, graceSeconds: 30 },
+  });
 });
 
 test("rejects a weak save revision before publication and redacts the credential", async () => {

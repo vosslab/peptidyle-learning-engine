@@ -106,8 +106,11 @@ test("J5 instructor opens gradebook run history with the keyboard after learner 
 
     await expect(page.locator("[data-route-surface=gradebook]")).toBeVisible({ timeout: 30_000 });
     const row = page
-      .getByRole("row")
-      .filter({ has: page.getByRole("rowheader", { name: assignment.title, exact: true }) });
+      .locator("tr.gradebook-row")
+      .filter({ has: page.getByRole("rowheader", { name: assignment.title, exact: true }) })
+      .filter({ has: page.locator('td[data-label="Best"]', { hasText: /^100%$/u }) })
+      .filter({ has: page.locator('td[data-label="Latest"]', { hasText: /^100%$/u }) })
+      .filter({ has: page.locator('td[data-label="Completed"]', { hasText: /^2$/u }) });
     const historyButton = row.getByRole("button", { name: "View run history", exact: true });
     await tabToTargetThroughVisiblePagination(page, {
       target: row,

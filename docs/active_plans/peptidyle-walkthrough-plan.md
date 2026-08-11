@@ -93,8 +93,9 @@ two-actor testing capability, not a weakened production identity path.
   policy contrast, or unrelated release gates for this walkthrough to pass.
 - Inspect SQL, private answer material, grading code, internal score records,
   cookies, browser storage, or direct application APIs from journey code.
-- Put credentials, student identity, raw percentages, answers, response values,
-  traces, screenshots, or child output in the final report.
+- Put credentials, answer material, response values, traces, or child output in the final report.
+  Retain the approved visible-stage screenshots as required public evidence, using only the
+  unmistakably fake local identities named in `docs/HUMAN_GUIDANCE.md`.
 - Reset retained volumes or delete prior course data to make selectors easy.
 
 ## Current state summary
@@ -104,13 +105,20 @@ builds automatically unless explicitly overridden, and runs fixed Playwright
 children. Its report directory and file are mode 0700 and 0600, and runner-owned
 cleanup removes containers without removing retained volumes.
 
+The walkthrough's documentation gate also retains eleven approved instructor and student stage
+PNGs: course, roster, catalog selection, assignment policies, post-create confirmation, assignment
+list, assignment overview, timed run 1, scored completion with the retake action, the resulting run
+2, and the two-run gradebook. Fake-user screenshots are required evidence and must not be omitted
+under a student-privacy claim; credential, answer-key, trace, and raw child-output prohibitions
+remain security boundaries.
+
 The launcher already creates separate local instructor and student credentials.
 Existing J1/J2/J3/J4 use the student through visible local sign-in and keyboard
 controls; J5 uses a separate instructor context. The retained-volume run proves
 retry, leave/return, fresh practice, gradebook navigation, and cross-actor
 visibility against an API-arranged Mastery assignment.
 
-Three product gaps prevent the corrected charter from passing today:
+The corrected charter is accepted. Its three formerly blocking product gaps are closed:
 
 - `POST /api/courses` exists and authorizes course creation, but the browser
   client and course list have no create-course form.
@@ -679,8 +687,8 @@ or child output.
   problem authoring is outside this charter.
 - J6/J7, J9/J10, all-family, and multi-learner outcomes do not gate or appear in
   the corrected walkthrough baseline.
-- Existing learner evidence is preserved, but overall acceptance is reopened
-  until the newly required instructor setup and visible scoring pass.
+- Existing learner evidence is preserved, and overall corrected-walkthrough acceptance is closed
+  by the passed visible instructor setup, student repeat, scoring, report, and cleanup gates.
 
 ## Open questions and decisions needed
 

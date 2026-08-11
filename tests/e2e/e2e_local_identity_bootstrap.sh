@@ -82,16 +82,19 @@ bootstrap_local_identities >"$success_stdout" 2>"$success_stderr"
 [ "$projection_inode" != "$(file_inode "$LOCAL_IDENTITY_FILE")" ] || die
 [ ! -s "$success_stdout" ] && [ ! -s "$success_stderr" ] || die
 [ ! -L "$LOCAL_IDENTITY_FILE" ] || die
-[ "$(rg -o '"learner_alias"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "2" ] || die
+[ "$(rg -o '"learner_alias"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "3" ] || die
 [ "$(rg -o '"learner_alias":"instructor-local"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
 [ "$(rg -o '"learner_alias":"student-local"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
-[ "$(rg -o '"tenant_id":"00000000-0000-0000-0000-000000000100"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "2" ] || die
+[ "$(rg -o '"learner_alias":"student-jack"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
+[ "$(rg -o '"tenant_id":"00000000-0000-0000-0000-000000000100"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "3" ] || die
 [ "$(rg -o '"user_id":"00000000-0000-0000-0000-000000000101"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
 [ "$(rg -o '"user_id":"00000000-0000-0000-0000-000000000102"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
-[ "$(rg -o '"display_name":"Local Instructor"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
-[ "$(rg -o '"display_name":"Local Student"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
+[ "$(rg -o '"user_id":"00000000-0000-0000-0000-000000000103"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
+[ "$(rg -o '"display_name":"Dr. Fake Professor"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
+[ "$(rg -o '"display_name":"Mary Fake Student"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
+[ "$(rg -o '"display_name":"Jack Fake Student"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
 [ "$(rg -o '"roles":\["instructor","administrator"\]' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
-[ "$(rg -o '"roles":\["student"\]' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
+[ "$(rg -o '"roles":\["student"\]' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "2" ] || die
 if rg -F "$INSTRUCTOR_CREDENTIAL" "$LOCAL_IDENTITY_FILE" >/dev/null \
 	|| rg -F "$STUDENT_CREDENTIAL" "$LOCAL_IDENTITY_FILE" >/dev/null; then
 	die

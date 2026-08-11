@@ -134,6 +134,15 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   published corpus, and then observes the student's scored work.
 - Make the student take, submit, complete, and repeat that assignment through visible controls.
   The complete student assignment path must satisfy the keyboard accessibility contract above.
+- Keep the public pilot guides visually complete. Show the instructor's course, roster, published
+  problem selection, and assignment settings. Show the student's assignment list, live timed
+  problem, score, and visible option to start another practice run.
+- Use the unmistakably fictional, deterministic labels `Dr. Fake Professor`, `Mary Fake Student`,
+  and `Jack Fake Student` for local pilot identities and screenshot data. No screenshot should
+  imply that a real Roosevelt student or instructor participated.
+- Treat the approved fake-user walkthrough screenshots as required acceptance evidence. Do not use
+  student privacy as a reason to omit them. Continue excluding credentials, answer material,
+  traces, and raw child output because those are security and test-integrity boundaries.
 - Keep email outside this walkthrough. The local instructor and student identities are the intended
   actors; no agent needs an email account, mailbox, delivered link, SMTP provider, passwordless
   challenge, invitation-delivery proof, or canonical-account acceptance for this walkthrough.

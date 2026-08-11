@@ -146,8 +146,7 @@ test("instructor-only setup accepts no arranged IDs and reads the alias only at 
       PLE_UI_WALKTHROUGH_LIVE_LEARNER_ALIAS_FILE: "fixture-learner-alias.txt",
       PLE_UI_WALKTHROUGH_INSTRUCTOR_SETUP_CHECKPOINT_FILE:
         "/private/tmp/instructor-setup-checkpoint.txt",
-      PLE_UI_WALKTHROUGH_CATALOG_SEARCH_TITLE:
-        "Pilot retry corpus pilotref123e4567e89b12d3a456426614174000",
+      PLE_UI_WALKTHROUGH_CATALOG_SEARCH_TITLE: "Fake amino acid question 123e4567e89b",
     },
     () => undefined,
     () => undefined,
@@ -155,7 +154,7 @@ test("instructor-only setup accepts no arranged IDs and reads the alias only at 
   expect(setupInputs).toMatchObject({
     baseUrl: "http://127.0.0.1:3000",
     learnerAliasFile: "fixture-learner-alias.txt",
-    catalogSearchTitle: "Pilot retry corpus pilotref123e4567e89b12d3a456426614174000",
+    catalogSearchTitle: "Fake amino acid question 123e4567e89b",
     instructorSetupCheckpointFile: "/private/tmp/instructor-setup-checkpoint.txt",
   });
   expect(
@@ -187,8 +186,7 @@ test("instructor-only setup accepts no arranged IDs and reads the alias only at 
         PLE_UI_WALKTHROUGH_LIVE_LEARNER_ALIAS_FILE: "fixture-learner-alias.txt",
         PLE_UI_WALKTHROUGH_INSTRUCTOR_SETUP_CHECKPOINT_FILE:
           "/private/tmp/instructor-setup-checkpoint.txt",
-        PLE_UI_WALKTHROUGH_CATALOG_SEARCH_TITLE:
-          "Pilot retry corpus 123e4567-e89b-12d3-a456-426614174000",
+        PLE_UI_WALKTHROUGH_CATALOG_SEARCH_TITLE: "Amino acid question 123e4567e89b",
       },
       () => undefined,
       () => undefined,
@@ -201,8 +199,7 @@ test("instructor-only setup accepts no arranged IDs and reads the alias only at 
         PLE_UI_WALKTHROUGH_INSTRUCTOR_SETUP_ONLY: "1",
         PLE_UI_WALKTHROUGH_LIVE_LEARNER_ALIAS_FILE: "fixture-learner-alias.txt",
         PLE_UI_WALKTHROUGH_INSTRUCTOR_SETUP_CHECKPOINT_FILE: "/private/tmp/other.txt",
-        PLE_UI_WALKTHROUGH_CATALOG_SEARCH_TITLE:
-          "Pilot retry corpus pilotref123e4567e89b12d3a456426614174000",
+        PLE_UI_WALKTHROUGH_CATALOG_SEARCH_TITLE: "Fake amino acid question 123e4567e89b",
       },
       () => undefined,
       () => undefined,

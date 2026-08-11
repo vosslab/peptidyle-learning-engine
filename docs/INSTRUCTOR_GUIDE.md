@@ -4,7 +4,21 @@ This guide follows the supported local no-email teaching loop: create a course, 
 local student, build a Mastery assignment from the published problem corpus, and confirm learning in
 the gradebook. Start the local system first with [USAGE.md](USAGE.md).
 
+All people and course records shown in these captures are simulated. The fixed labels
+`Dr. Fake Professor`, `Mary Fake Student`, and `Jack Fake Student` are intentionally unmistakable
+placeholders.
+
 <!-- screenshots:begin (managed by screenshot-docs) -->
+
+![Instructor course overview showing the Assignments page and course-management navigation](screenshots/instructor_course_overview.png)
+
+![Instructor roster showing Mary Fake Student and Jack Fake Student as active local course members](screenshots/instructor_roster_active_student.png)
+
+![Instructor published problem catalog showing the selected peptide-bond problem and Add published version control](screenshots/instructor_problem_catalog.png)
+
+![Instructor assignment editor showing the selected immutable problem and Mastery run policies](screenshots/instructor_assignment_settings.png)
+
+![Instructor Assignment created confirmation showing Peptide bond mastery and its Open assignment link](screenshots/instructor_assignment_created.png)
 
 ![Instructor gradebook showing Best and Latest at 100 percent, two completed runs, and keyboard focus on View run history](screenshots/instructor_gradebook_mastery_loop.png)
 <!-- screenshots:end -->

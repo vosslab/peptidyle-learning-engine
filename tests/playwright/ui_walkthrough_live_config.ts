@@ -83,7 +83,7 @@ export function walkthroughArtifactsDirectory(journeyStateFile: string): string 
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
-const CATALOG_SEARCH_TITLE = new RegExp("^Pilot retry corpus pilotref[0-9a-f]{32}$", "u");
+const CATALOG_SEARCH_TITLE = new RegExp("^Fake amino acid question [0-9a-f]{12}$", "u");
 
 function validateLocalCredential(contents: string, role: "student" | "instructor"): string {
   const matches = [...contents.matchAll(new RegExp(`^${role}=([^\\r\\n]+)$`, "gmu"))];

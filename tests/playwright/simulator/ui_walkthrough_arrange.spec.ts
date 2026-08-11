@@ -33,7 +33,7 @@ test("instructor setup retains only the supported retry-corpus publication arran
   const output = instructorSetupArrangementOutput({
     problem: "123e4567-e89b-12d3-a456-426614174001",
     version: "123e4567-e89b-12d3-a456-426614174002",
-    catalogSearchTitle: "Pilot retry corpus pilotref123e4567e89b12d3a456426614174000",
+    catalogSearchTitle: "Fake amino acid question 123e4567e89b",
   });
   expect(output).toEqual({
     arrangements: [
@@ -41,7 +41,7 @@ test("instructor setup retains only the supported retry-corpus publication arran
         label: "api-retry-corpus-publication",
         problemId: "123e4567-e89b-12d3-a456-426614174001",
         versionId: "123e4567-e89b-12d3-a456-426614174002",
-        catalogSearchTitle: "Pilot retry corpus pilotref123e4567e89b12d3a456426614174000",
+        catalogSearchTitle: "Fake amino acid question 123e4567e89b",
       },
     ],
   });
