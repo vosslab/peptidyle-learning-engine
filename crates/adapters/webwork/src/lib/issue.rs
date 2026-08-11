@@ -154,6 +154,11 @@ where
         Self { store, renderer }
     }
 
+    /// Returns the configured renderer identity used by this adapter.
+    pub fn renderer_identity(&self) -> &crate::renderer_contract::RendererIdentity {
+        self.renderer.identity()
+    }
+
     /// Returns only capabilities this adapter can deliver for every PG source.
     pub fn capabilities(
         &self,
@@ -197,6 +202,7 @@ where
                     seed,
                     source,
                     &question.metadata.title,
+                    self.renderer.identity(),
                 )?;
                 cache_witness("cache_hit");
                 let replay = self
@@ -241,6 +247,7 @@ where
                     seed,
                     source,
                     &question.metadata.title,
+                    self.renderer.identity(),
                 )?;
                 let bytes = serde_json::to_vec(&rendered).map_err(|error| {
                     WebworkAdapterError::InvalidRendererEnvelope(error.to_string())
@@ -275,6 +282,7 @@ where
                             seed,
                             source,
                             &question.metadata.title,
+                            self.renderer.identity(),
                         )?;
                         cache_witness("cache_hit");
                         self.issued(cached, seed, source, Some(replay), true)
@@ -325,6 +333,7 @@ where
             seed,
             source,
             &question.metadata.title,
+            self.renderer.identity(),
         )?;
         cache_witness("cache_hit");
         self.issued(cached, seed, source, None, true)

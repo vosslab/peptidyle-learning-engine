@@ -302,7 +302,7 @@ The complete sequence is authoritative in
 1. WP-RC1 course appearance is accepted.
 2. WP-RC2 production-seam closure is accepted. WP-RC3's pinned upstream WeBWorK `/render_rpc`
    integration is accepted after its live PLE/browser gate and final independent review. It remains
-   compatibility evidence, not the final runtime: WP-RC3R now owns replacement of the full
+   compatibility evidence, not the final runtime: accepted WP-RC3R replaced the full
    WeBWorK2/MariaDB/render-course stack with the private standalone WebWork PG renderer.
 3. WP-ARCH1 is accepted. Its dated 26-file maintained-source acceptance baseline had zero
    maintained-code violations behind stable facades; the permanent size gate (582 tests),
@@ -312,13 +312,15 @@ The complete sequence is authoritative in
    PostgreSQL, security, provider, TypeScript/HCI, test, size-policy, and architecture reviews found
    no unresolved P0/P1 issue. The later persistence regressions were repaired by moving complete
    attempt-issuance capabilities into paired in-memory and PostgreSQL owners. The current permanent
-   size gate passes 801 cases, and the feature-enabled persistence check, test, and strict Clippy
+   size gate passes 824 cases, and the feature-enabled persistence check, test, and strict Clippy
    gates pass.
 4. WP-RC3R has removed the parallel WeBWorK2 assignment application, render-course credentials, and
    MariaDB. The normal stack now relies on the external stateless `webwork-pg-renderer` image and
    retains immutable-source, strict projection, grading, cache/replay, outage, and browser-secrecy
-   behavior through the private `/render-api`. The focused and live gates pass; final repository
-   gates and independent closeout review remain. `OTHER_REPOS/` is read-only comparison evidence.
+   behavior through the private `/render-api`. WP-RC3R is accepted: its focused, complete repository,
+   and live Podman/browser gates pass, and independent review found no unresolved P0/P1/P2 after the
+   configured renderer identity was bound to cache reuse and grading of persisted attempts.
+   `OTHER_REPOS/` is read-only comparison evidence.
 5. WP-RC8 passwordless identity, copy-link/optional-SMTP enrollment, course roster metadata, bulk
    import, and manual grade export are implemented with acceptance open. Migration
    `2026080909_passwordless_identity.sql` has passed the disposable PostgreSQL baseline. The opt-in

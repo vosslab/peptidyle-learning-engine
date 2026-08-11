@@ -47,6 +47,10 @@ struct RecordedRenderer {
 
 #[async_trait]
 impl WebworkRenderer for RecordedRenderer {
+    fn identity(&self) -> &RendererIdentity {
+        &self.identity
+    }
+
     async fn render(
         &self,
         request: RenderRequest<'_>,
@@ -398,7 +402,7 @@ async fn renderer_markup_is_sanitized_before_cache_or_issued_envelope() {
 }
 
 #[tokio::test]
-async fn cache_hit_keeps_the_renderer_that_produced_cached_bytes() {
+async fn cache_reuse_refuses_a_different_active_renderer_without_calling_it() {
     let store = MemoryObjectStore::default();
     let question = question_with_response(fixture_response());
     let source = source(&store, &question).await;
@@ -430,19 +434,13 @@ async fn cache_hit_keeps_the_renderer_that_produced_cached_bytes() {
         ..recorded_renderer(second_calls.clone())
     };
     let second_adapter = WebworkAdapter::new(store, second_renderer);
-    let cached = second_adapter
+    let result = second_adapter
         .reproduce(&question, Seed::new(21), &source)
-        .await
-        .expect("cache hit should not call a newly deployed renderer");
+        .await;
     assert!(!first.cache_hit);
-    assert!(cached.cache_hit);
     assert_eq!(first_calls.load(Ordering::SeqCst), 1);
     assert_eq!(second_calls.load(Ordering::SeqCst), 0);
-    assert_eq!(cached.provenance.renderer, first.provenance.renderer);
-    assert_eq!(
-        cached.provenance.renderer.expect("renderer").id,
-        "renderer-a"
-    );
+    assert!(matches!(result, Err(WebworkAdapterError::InvalidCache(_))));
 }
 
 #[tokio::test]

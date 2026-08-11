@@ -76,7 +76,7 @@ accepted boundary proves one licensed, immutable, user-authored RadioButtons PGM
 This is intentionally not broad OPL compatibility. WeBWorK MATCH and other PG controls remain
 assigned to WP-RC5 rather than inferred from the private renderer implementation.
 
-### Standalone WeBWorK renderer implemented, closeout open
+### Standalone WeBWorK renderer accepted
 
 WP-RC3R replaced that accepted compatibility topology with the external
 `webwork-pg-renderer` `/render-api`. The normal local stack now contains one private stateless PG
@@ -88,8 +88,11 @@ teardown/rebuild retained both PostgreSQL and MinIO data, recreated the renderer
 healthy gateway. The complete live E2E then passed correct and incorrect grading, cache behavior,
 renderer outage recovery, keyboard operation, and browser non-disclosure. These gates prove the
 supported source-to-browser behavior; they do not require byte-identical images, an arbitrary
-startup duration, or broad PG compatibility. Full repository gates and independent closeout review
-remain before WP-RC3R is accepted.
+startup duration, or broad PG compatibility. The final security correction binds a persisted
+attempt and every cache reuse to the configured renderer identity; an upgrade mismatch now refuses
+before replay recovery, rendering, or grading. The eleven-stage repository gate, 3,190-case
+Python/documentation suite, live Podman/browser path, and independent security/runtime re-review all
+pass. WP-RC3R is accepted for its bounded RadioButtons scope.
 
 ### Source ownership accepted
 
@@ -159,9 +162,10 @@ ledger verification, role/grant/forced-RLS checks, and the disposable PostgreSQL
 The all-feature Rust workspace and complete browser suite are green, including a keyboard-only
 instructor copy-link invitation path. The refreshed local stack also proved a live HTTP 202 no-store
 copy-link creation with no SMTP configured, followed by API revocation. The 11-stage codebase gate,
-3,270-test Python/documentation suite, and browser suite with 76 passes and two deliberate opt-in
+3,190-test Python/documentation suite, and browser suite with 76 passes and two deliberate opt-in
 skips are green. Acceptance remains open for canonical email authentication through an off-the-shelf
-disposable sink, optional-passkey and multi-replica journey plus independent security/HCI closeout.
+external provider test account, optional-passkey and multi-replica journey plus independent
+security/HCI closeout.
 Email authentication is the
 canonical account path and passkeys are optional shortcuts. Version 1 has no manager-assisted
 account merge or educational-record transfer; email possession authenticates only the account
@@ -174,6 +178,14 @@ through a networkless initializer, and exposes no SMTP password in the API
 environment. PLE adds no mail-server container and owns no sender-reputation or
 deliverability tooling. Live provider evidence remains open until an operator
 account is selected.
+
+The local walkthrough has one explicit session boundary. Local-file sign-in creates the
+tenant-scoped `ple_session` used by ordinary course APIs; invitation redemption requires a persisted
+PLE account and `ple_account_session`. Passkey registration starts from that account and therefore
+cannot bootstrap it. The supported walkthrough must use canonical email authentication before
+invitation redemption. Copy-link delivery removes SMTP from the invitation handoff, but not from
+account authentication. Course and assignment creation are the only remaining arranged setup steps
+until their instructor UI exists.
 
 ### File upload planned safely
 
@@ -195,6 +207,7 @@ production deployment.
 | WP-RC1 course appearance | Accepted | Fifteen measured themes, Grass default, exact entry banner, persistence, cleanup, browser and visual gates |
 | WP-RC2 production seams | Accepted | Concrete production module/capability names and no hidden native-renderer placeholder |
 | WP-RC3 WeBWorK | Accepted, bounded | One immutable RadioButtons PGML path through live PLE render, cache, grade, outage, recovery, and keyboard evidence |
+| WP-RC3R standalone renderer | Accepted, bounded | External stateless `/render-api`, no WebWork2 or MariaDB, identity-bound cache and persisted grading, live Podman/browser gate, and independent closeout |
 | WP-ARCH1 source ownership | Accepted | Capability owners and stable facades remain below the permanent 1,000-line boundary |
 | WP-RC4 flat JSON v2 | Implemented, acceptance open | Eight native runtime/source families exist; independent contract/security closeout remains |
 | WP-P1 through WP-P6 payload | Decision accepted; offline persistence slice implemented | Codec, migration, exact replay binding, and one-call normal WeBWorK grading exist; complete API/browser/live cutover and independent evidence remain |
@@ -259,9 +272,10 @@ production deployment.
 
 - WP-RC3: live Podman 6 upstream build, authenticated PLE API render/grade/cache/outage/recovery,
   required Playwright keyboard and privacy trace, and final independent review.
-- WP-RC3R implementation: external-renderer adapter tests and strict Clippy pass; the retained-volume
-  teardown/rebuild and complete live PLE/browser render/grade/cache/outage gate pass. Independent
-  closeout remains open.
+- WP-RC3R: external-renderer adapter tests and strict Clippy pass; the retained-volume
+  teardown/rebuild and complete live PLE/browser render/grade/cache/outage gate pass; renderer
+  identity drift refuses before external work; and independent closeout found no unresolved
+  P0/P1/P2.
 - WP-ARCH1 acceptance snapshot: permanent source-size gate 582 passed, repository Python suite
   2,451 passed, eleven-stage codebase gate passed, browser suite 72 passed with two deliberate
   opt-in skips, focused server suite 189 passed with three live fixtures intentionally ignored, and
@@ -272,13 +286,13 @@ production deployment.
 
 ### Current report checks
 
-- Working tree: mixed indexed, unindexed, and untracked implementation/documentation work; this is
-  not a release or commit boundary.
+- Working tree: uncommitted implementation and documentation work; this is not a release or commit
+  boundary.
 - Permanent source-size gate: 824 passed with no maintained-source violation. It ignores an indexed
   path deleted from the working tree while retaining its symlink, invalid-UTF-8, NUL, and 1,000-line
   refusal behavior.
 - Feature-enabled learning-data-access passes its check, strict Clippy, and 49 Store conformance
-  tests. Server core passes 205 library tests with three intentional live ignores plus its binary
+  tests. Server core passes 206 library tests with three intentional live ignores plus its binary
   test under the complete gate.
 - Focused presentation reproduction, replay ownership/concealment/deletion, and one-private-RPC
   WeBWorK grading tests pass. This is offline implementation evidence, not the WP-P2/P4 live gate.
@@ -286,7 +300,7 @@ production deployment.
   pass; the browser suite passes 76 tests with two deliberate opt-in skips.
 - The maintained eleven-stage codebase gate passes, including 189 Node tests, generated-contract
   checks, strict TypeScript, Rust format/Clippy/workspace tests, and doctests. The independent
-  Python/documentation policy suite passes 3,270 tests.
+  Python/documentation policy suite passes 3,190 tests.
 - The disposable PostgreSQL baseline passes all nine migrations, fresh/no-op/verify behavior,
   passwordless/enrollment RLS and role boundaries, and the existing partition/QTI/flat/manual/item
   analysis oracles. The disposable project and volume were removed after the run.

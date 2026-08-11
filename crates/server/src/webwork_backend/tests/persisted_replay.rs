@@ -215,3 +215,57 @@ async fn persisted_replay_grades_with_one_private_rpc_and_no_rerender() {
     assert_eq!(renders.load(Ordering::SeqCst), 1, "grade uses safe cache");
     assert_eq!(grades.load(Ordering::SeqCst), 1, "one private grade RPC");
 }
+
+#[tokio::test]
+async fn persisted_attempt_refuses_renderer_identity_drift_before_grade_rpc() {
+    let (backend, context, question, _renders, _grades, _unavailable) = fixture().await;
+    let issued = backend
+        .issue(context, reference(), &question, 99)
+        .await
+        .expect("renderer A issues the attempt");
+    let (actor, attempt) = persist_attempt(&backend, context, &issued).await;
+    let before = backend
+        .sources
+        .get_question_attempt(context, attempt.id)
+        .await
+        .expect("attempt read")
+        .expect("attempt exists");
+
+    let drift_renders = Arc::new(AtomicUsize::new(0));
+    let drift_grades = Arc::new(AtomicUsize::new(0));
+    let drift_backend = WebworkBackend::new(
+        Arc::clone(&backend.sources),
+        Arc::clone(&backend.objects),
+        Arc::new(WebworkAdapter::new(
+            backend.objects.as_ref().clone(),
+            RecordedRenderer {
+                renders: Arc::clone(&drift_renders),
+                grades: Arc::clone(&drift_grades),
+                unavailable: Arc::new(AtomicBool::new(false)),
+                identity: adapter_webwork::renderer_contract::RendererIdentity {
+                    id: "recorded-opl".to_string(),
+                    version: "2".to_string(),
+                },
+            },
+        )),
+    );
+    let response = StudentResponse::MultipleChoice {
+        selected: vec![ChoiceId::new("water")],
+    };
+
+    assert!(matches!(
+        drift_backend
+            .grade(context, actor, reference(), &question, &attempt, &response)
+            .await,
+        Err(RunBackendError::Invalid(_))
+    ));
+    assert_eq!(drift_renders.load(Ordering::SeqCst), 0);
+    assert_eq!(drift_grades.load(Ordering::SeqCst), 0);
+    let after = backend
+        .sources
+        .get_question_attempt(context, attempt.id)
+        .await
+        .expect("attempt reread")
+        .expect("attempt remains");
+    assert_eq!(after, before, "identity drift leaves the attempt unchanged");
+}

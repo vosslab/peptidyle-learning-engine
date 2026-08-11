@@ -3,13 +3,12 @@
 ## Status
 
 Planning state: implementation in progress on 2026-08-10. WP-RC1 course appearance, WP-RC2
-production-seam closure, WP-RC3's bounded WeBWorK integration, and WP-ARCH1 source ownership are
-accepted; this plan owns all remaining work through the version 1 release. It supplements the
+production-seam closure, WP-RC3's bounded WeBWorK compatibility proof, WP-RC3R's standalone
+renderer replacement, and WP-ARCH1 source ownership are accepted; this plan owns all remaining work
+through the version 1 release. It supplements the
 architecture in [implementation_plan.md](../implementation_plan.md) and replaces every unresolved
 scope question in that document and its active companion plans. WP-RC4 flat JSON v2 implementation
-is present and awaits its independent closeout. WP-RC3R must first replace the accepted full
-WeBWorK2 compatibility deployment with the standalone WebWork PG renderer so PLE does not retain a
-second assignment platform or its MariaDB. WP-RC8 passwordless identity/enrollment is
+is present and awaits its independent closeout. WP-RC8 passwordless identity/enrollment is
 implemented; SMTP-backed email authentication through an operator-selected provider,
 optional-passkey and multi-replica evidence, and independent acceptance remain open. The secure
 payload cutover and WP-RC5 authoring and pilot work remain dependency-ordered next work.
@@ -140,7 +139,7 @@ WP-RC2 production-seam cleanup
 WP-RC3 accepted compatibility proof ---> WP-ARCH1 accepted source decomposition
                                                    |
                                                    v
-                                WP-RC3R standalone PG renderer
+                                WP-RC3R accepted standalone PG renderer
                                                    |
                                                    v
                                 WP-RC8 passwordless identity/enrollment
@@ -275,9 +274,10 @@ reserved migration ordering below.
 
 - **Owner:** `rust-code-expert` for the adapter, container integrator for the private runtime, and an
   independent security/runtime reviewer.
-- **Status:** implementation and live behavior complete on 2026-08-10; final repository gates and
-  independent closeout review remain before package acceptance. RC3 remains historical compatibility
-  evidence; this package is the current runtime topology.
+- **Status:** accepted on 2026-08-10. RC3 remains historical compatibility evidence; this package is
+  the current runtime topology. The final correction binds persisted attempts and render-cache hits
+  to the configured renderer identity and refuses version drift before any replay lookup, render, or
+  grade RPC.
 - **Files:** `crates/adapters/webwork/src/http_renderer/`, its protocol owner and tests;
   `crates/server/src/composition/` settings/tests; `containers/compose.yaml`,
   `containers/env.example`, `containers/webwork/probe_render_api.sh`, and
@@ -681,7 +681,7 @@ development. They must pass, not skip, in WP-RC12 release evidence.
 - [x] WP-RC1 course appearance accepted.
 - [x] WP-RC2 production seams accepted.
 - [x] WP-RC3 shipped WeBWorK accepted.
-- [ ] WP-RC3R standalone WebWork PG renderer accepted; WebWork2 and MariaDB removed from the PLE
+- [x] WP-RC3R standalone WebWork PG renderer accepted; WebWork2 and MariaDB removed from the PLE
       runtime.
 - [ ] WP-RC4 PLE flat JSON v2 independently accepted.
 - [ ] WP-RC5 eight families and Chapter 1 content accepted.

@@ -112,9 +112,16 @@
   secret-free, and the Solid roster page keeps the bearer link only in page-session memory with
   keyboard-accessible copy guidance. The local launcher now installs a separate mode-0600 issuer
   secret through a networkless UID-owned volume rather than introducing a PLE mail server. The
-  11-stage codebase gate, 3,270-test Python/documentation suite, full browser suite with 76 passes and
+  11-stage codebase gate, 3,190-test Python/documentation suite, full browser suite with 76 passes and
   two deliberate opt-in skips, and live local create/revoke check pass; canonical
   email-authentication acceptance still requires the operator-selected SMTP provider.
+
+- Documented the local identity boundary used by enrollment walkthroughs. Local-file sign-in creates
+  only a tenant-scoped `ple_session`; invitation redemption requires a persisted PLE account and
+  `ple_account_session`, and passkey registration begins after that account exists. The supported
+  path therefore uses canonical email authentication before claim. Copy-link delivery bypasses SMTP
+  only for invitation handoff, while course and assignment creation remain the two arranged setup
+  steps until their instructor UI exists.
 
 - Explored and then rejected a separate course-scoped account-recovery design. Because verified
   email is PLE's canonical registration and sign-in path, passkeys are optional conveniences rather
@@ -151,17 +158,20 @@
   brittle launcher and Compose source-text assertions with four fast permanent trust-boundary tests;
   the retained-volume major guard now runs noninteractively, and the opt-in live browser path uses
   the repository's canonical Playwright wrapper so successful operations stay warning-free.
-  exact runtime identities, timings, volume persistence, and full live behavior remain one-time or
-  opt-in integration evidence. Renamed the operator runbook to `LOCAL_STACK_OPERATIONS.md` and kept
-  service necessity and state ownership in `LOCAL_STACK_ARCHITECTURE.md`. The eleven-stage codebase
-  gate and all 3,190 repository pytest cases pass.
+  Persisted attempts and cache hits are now bound to the configured renderer identity; version drift
+  refuses before replay recovery, rendering, or grading. The independent security/runtime re-review
+  found no unresolved P0/P1/P2, so WP-RC3R is accepted for its bounded RadioButtons scope.
+  The exact runtime identities, timings, volume persistence, and full live behavior remain one-time
+  or opt-in integration evidence. Renamed the operator runbook to `LOCAL_STACK_OPERATIONS.md` and
+  kept service necessity and state ownership in `LOCAL_STACK_ARCHITECTURE.md`. The eleven-stage
+  codebase gate and all 3,190 repository pytest cases pass.
 
 - Clarified the three WeBWorK project boundaries and corrected the release direction. `openwebwork/pg`
   is the PG/PGML render-and-grade engine, `vosslab/webwork-pg-renderer` is PLE's required private
   HTTP integration target, and `openwebwork/webwork2` is the full course/homework application used
-  only by the accepted RC3 compatibility path. Added WP-RC3R to replace that path before broader
-  question support, removing the duplicate render course, renderer account, MariaDB, and second
-  assignment distribution while retaining RC3's source, projection, grading, cache, outage, and
+  only by the accepted RC3 compatibility path. Recorded WP-RC3R's accepted replacement before
+  broader question support, removing the duplicate render course, renderer account, MariaDB, and
+  second assignment distribution while retaining RC3's source, projection, grading, cache, outage, and
   browser-secrecy proofs. Durable guidance now states that every `OTHER_REPOS/` copy is read-only
   reference evidence and cannot be a build, import, mount, or runtime dependency.
 
@@ -169,7 +179,7 @@
   the working tree is no longer opened as though source bytes still exist. The gate continues to
   reject file symlinks, directory-symlink traversal, invalid UTF-8, NUL bytes, and files at the
   exclusive 1,000-line boundary. The focused gate passes 824 cases, the full Python/documentation
-  suite passes 3,270 tests, and the eleven-stage codebase gate passes.
+  suite passes 3,190 tests, and the eleven-stage codebase gate passes.
 
 - Hardened the in-progress WP-RC8 PostgreSQL identity and roster slice without claiming passwordless
   enrollment complete. Roster writers now acquire one course, roster-state, then invitation/member

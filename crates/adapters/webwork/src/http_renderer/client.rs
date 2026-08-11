@@ -203,6 +203,10 @@ impl HttpWebworkRenderer {
 
 #[async_trait]
 impl WebworkRenderer for HttpWebworkRenderer {
+    fn identity(&self) -> &RendererIdentity {
+        &self.settings.expected_renderer
+    }
+
     async fn render(
         &self,
         request: RenderRequest<'_>,

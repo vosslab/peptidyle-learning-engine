@@ -121,6 +121,10 @@ impl std::error::Error for RendererFailure {}
 /// credentials cross this trait.
 #[async_trait]
 pub trait WebworkRenderer: Send + Sync {
+    /// Returns the deployment identity that this client will use for render
+    /// and grade requests.
+    fn identity(&self) -> &RendererIdentity;
+
     /// Renders an immutable source/version/seed into browser-safe output,
     /// including the renderer identity that produced this exact response.
     async fn render(

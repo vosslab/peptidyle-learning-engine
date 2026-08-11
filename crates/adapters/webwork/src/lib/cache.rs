@@ -58,6 +58,7 @@ pub(super) fn validate_cached(
     seed: Seed,
     source: &WebworkSource,
     title: &str,
+    active_renderer: &crate::renderer_contract::RendererIdentity,
 ) -> Result<(), WebworkAdapterError> {
     if cached.schema_version != CACHE_SCHEMA_VERSION
         || cached.source_artifact != source.artifact
@@ -66,6 +67,11 @@ pub(super) fn validate_cached(
     {
         return Err(WebworkAdapterError::InvalidCache(
             "cache provenance is incomplete or does not match the published source".to_string(),
+        ));
+    }
+    if &cached.rendered.renderer != active_renderer {
+        return Err(WebworkAdapterError::InvalidCache(
+            "cache renderer identity does not match the configured renderer".to_string(),
         ));
     }
     validate_envelope(&cached.rendered.envelope, version, seed)?;

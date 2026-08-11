@@ -101,6 +101,7 @@ where
         response: &StudentResponse,
     ) -> Result<grading::GradeOutcome, RunBackendError> {
         validate_attempt_reference(reference, question, attempt)?;
+        validate_active_renderer(attempt, self.adapter.renderer_identity())?;
         let binding = self
             .sources
             .get_attempt_presentation_binding(context, actor, attempt.id)
@@ -181,6 +182,23 @@ where
         .map_err(map_adapter_error)?;
         Ok((source, created_at))
     }
+}
+
+fn validate_active_renderer(
+    attempt: &question_model::QuestionAttempt,
+    active: &adapter_webwork::renderer_contract::RendererIdentity,
+) -> Result<(), RunBackendError> {
+    let Some(issued) = attempt.provenance.renderer.as_ref() else {
+        return Err(RunBackendError::Invalid(
+            "WeBWorK attempt omitted its renderer identity".into(),
+        ));
+    };
+    if issued.id != active.id || issued.version != active.version {
+        return Err(RunBackendError::Invalid(
+            "configured WeBWorK renderer does not match the issued attempt".into(),
+        ));
+    }
+    Ok(())
 }
 
 fn validate_replay_state(
@@ -512,10 +530,15 @@ mod tests {
         renders: Arc<AtomicUsize>,
         grades: Arc<AtomicUsize>,
         unavailable: Arc<AtomicBool>,
+        identity: adapter_webwork::renderer_contract::RendererIdentity,
     }
 
     #[async_trait]
     impl adapter_webwork::renderer_contract::WebworkRenderer for RecordedRenderer {
+        fn identity(&self) -> &adapter_webwork::renderer_contract::RendererIdentity {
+            &self.identity
+        }
+
         async fn render(
             &self,
             request: adapter_webwork::renderer_contract::RenderRequest<'_>,
@@ -539,10 +562,7 @@ mod tests {
                 adapter_webwork::renderer_contract::RenderedWebworkQuestion {
                     envelope: question_envelope(request.seed),
                     html: "<p>Which molecule is water?</p>".to_string(),
-                    renderer: adapter_webwork::renderer_contract::RendererIdentity {
-                        id: "recorded-opl".to_string(),
-                        version: "1".to_string(),
-                    },
+                    renderer: self.identity.clone(),
                     replay: Some(
                         adapter_webwork::renderer_contract::WebworkReplayMappingV1::SingleChoice {
                             controls: BTreeMap::from([
@@ -748,6 +768,10 @@ mod tests {
             renders: Arc::clone(&renders),
             grades: Arc::clone(&grades),
             unavailable: Arc::clone(&unavailable),
+            identity: adapter_webwork::renderer_contract::RendererIdentity {
+                id: "recorded-opl".to_string(),
+                version: "1".to_string(),
+            },
         };
         let adapter = Arc::new(WebworkAdapter::new(objects.as_ref().clone(), renderer));
         let question = QuestionDefinition::from_draft(

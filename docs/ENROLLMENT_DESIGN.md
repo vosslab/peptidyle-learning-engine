@@ -181,6 +181,29 @@ retains an independently scoped pedagogical record. The current
 context while deriving it only from an authorized course or tenant
 relationship, never from a browser-supplied tenant identifier.
 
+### Local development session boundary
+
+The local stack currently exercises two distinct authenticated session
+contracts:
+
+| Session | Issuer and purpose | What it establishes |
+| --- | --- | --- |
+| `ple_session` | The local-file `IdentityProvider` and ordinary API sign-in | One tenant-scoped `SessionSubject` for course, assignment, run, and roster actions |
+| `ple_account_session` | Passwordless email or an already registered passkey | One tenant-independent PLE account backed by persisted account and account-session records |
+
+Invitation redemption requires the second contract. A local-file login creates
+the tenant session only; it does not provision a PLE account or account session.
+Passkey registration likewise begins from an authenticated PLE account, so a
+passkey can shorten later sign-in but cannot bootstrap the first account by
+itself.
+
+ENR6 therefore uses canonical email authentication to create or restore the PLE
+account before invitation redemption. Copy-link delivery removes SMTP from the
+invitation handoff, but it does not replace account authentication. A future
+local-development bootstrap may support the same walkthrough only if it creates
+the real account and account-session records through a reviewed development
+adapter rather than a parallel identity or invitation path.
+
 ### Person, course, and email
 
 The account belongs to the learner:
@@ -783,9 +806,14 @@ The safe dependency order is:
 
 - Replace SQL-arranged membership in the primary multi-actor walkthrough with
   instructor roster action and learner claim/login.
+- Keep course and assignment creation as the only arranged setup steps until
+  their instructor UI exists; every later membership, login, course-entry,
+  learner-work, and gradebook action is walked through the supported surface.
 - Exercise copy-link invitation handoff without a PLE-owned mail system. Use a
   test account at the operator-selected SMTP provider for the canonical
-  email-authentication ceremony; do not add a test-only authentication bypass.
+  email-authentication ceremony. The local-file tenant session is not an
+  account-bootstrap substitute, and the optional passkey path applies only
+  after the learner account exists.
 - Prove gradebook, item analysis, learner isolation, assignment creation after
   roster creation, and roster addition after assignment creation.
 - Keep LTI Names and Roles roster synchronization in its separately authorized
