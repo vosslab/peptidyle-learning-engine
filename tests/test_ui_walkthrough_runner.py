@@ -86,7 +86,7 @@ def test_playwright_uses_standard_config_and_no_hidden_ple_protocol(tmp_path: pa
 		commands,
 	)
 	runner.prepare_journey_state()
-	runner.run_playwright_specification("tests/playwright/ui_walkthrough_keyboard_j1.spec.ts")
+	runner.run_playwright("tests/playwright/ui_walkthrough_keyboard_j1.spec.ts")
 	command, environment = commands.calls[0]
 	config_path = runner.playwright_config_file
 	assert config_path is not None

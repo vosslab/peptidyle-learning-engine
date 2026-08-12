@@ -8,13 +8,12 @@
 ## Status
 
 PLE flat-question JSON version 2 now implements the eight required runtime families: MC, MA, FIB,
-MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. Version 1 `singleChoice` parsing, canonical bytes, family
-identity, publication, and grading remain compatible.
+MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. It is the only native flat source reader.
 
 The implemented slice includes strict answer-bearing source parsing, public/private compilation,
 family registration, answer-free publication validation, browser decoding, key-free response
 validation, accessible learner controls, and isolated all-or-nothing server grading. It does not
-complete WP-RC5: the visual author editor is still version 1 single choice, the secure learner
+complete WP-RC5: the visual author editor currently exposes v2 single choice, the secure learner
 payload cutover remains a prerequisite, and all-family PostgreSQL/object-store acceptance, pilot
 content, hotspot pointer authoring, and independent family review remain open.
 
@@ -44,7 +43,7 @@ answer-free public     grader-only key,
 question model         feedback, and binding
 ```
 
-- `crates/adapters/native/src/flat_question.rs` owns the stable facade and version 1 compatibility.
+- `crates/adapters/native/src/flat_question.rs` owns the stable v2-only facade.
 - `crates/adapters/native/src/flat_question/v2.rs` owns the closed version 2 source shapes and
   compiler.
 - Stores, SQL, HTTP, generated clients, Solid components, and grading consume PLE runtime types;
@@ -61,16 +60,16 @@ browser boundary without changing these durable source identities.
 
 ## Family contract
 
-| Family | Implemented source/runtime contract | Remaining milestone work |
-| ------ | ----------------------------------- | ------------------------ |
-| MC | Exactly one stable choice ID; version 1 and version 2 both compile to native radio choices | Add version 2 visual author form |
-| MA | Unique correct choice set; public checkboxes disclose no correct IDs or correct count | Add visual author form and full path acceptance |
-| FIB | One or more accepted strings, explicit match mode, bounded entry | Add visual author form and feedback presentation |
-| MULTI-FIB | Stable blank IDs, labels, accepted strings, match modes, and per-blank bounds | Add inline visual authoring and complete screen-reader review |
-| NUM | Finite answer, exact/absolute/relative/significant-figures tolerance, optional unit | Add visual author form and tolerance explanation text |
-| MATCH | Explicit prompt/choice IDs and one-to-one private pairing; native radio groups per prompt | Add visual author form and Chapter 1 source |
-| ORDER | Stable item IDs and an exact private permutation; accessible move controls | Add visual author form and full path acceptance |
-| HOTSPOT | Immutable asset/checksum, normalized nonoverlapping candidate regions, private correct set, and keyboard region list | Add secure media selection, pointer overlay authoring/interaction, and object lifecycle E2E |
+| Family    | Implemented source/runtime contract                                                                                  | Remaining milestone work                                                                    |
+| --------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| MC        | Exactly one stable choice ID; v2 compiles to native radio choices                                                    | Extend the v2 visual author form                                                            |
+| MA        | Unique correct choice set; public checkboxes disclose no correct IDs or correct count                                | Add visual author form and full path acceptance                                             |
+| FIB       | One or more accepted strings, explicit match mode, bounded entry                                                     | Add visual author form and feedback presentation                                            |
+| MULTI-FIB | Stable blank IDs, labels, accepted strings, match modes, and per-blank bounds                                        | Add inline visual authoring and complete screen-reader review                               |
+| NUM       | Finite answer, exact/absolute/relative/significant-figures tolerance, optional unit                                  | Add visual author form and tolerance explanation text                                       |
+| MATCH     | Explicit prompt/choice IDs and one-to-one private pairing; native radio groups per prompt                            | Add visual author form and Chapter 1 source                                                 |
+| ORDER     | Stable item IDs and an exact private permutation; accessible move controls                                           | Add visual author form and full path acceptance                                             |
+| HOTSPOT   | Immutable asset/checksum, normalized nonoverlapping candidate regions, private correct set, and keyboard region list | Add secure media selection, pointer overlay authoring/interaction, and object lifecycle E2E |
 
 The family compiler currently uses all-or-nothing scoring. Partial-credit policy remains server-owned
 and requires a deliberate grading contract rather than browser-supplied component scores.

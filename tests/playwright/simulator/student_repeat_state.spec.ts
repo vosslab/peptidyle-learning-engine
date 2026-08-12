@@ -13,8 +13,6 @@ import {
 
 const courseId = "123e4567-e89b-12d3-a456-426614174000";
 const assignmentId = "123e4567-e89b-12d3-a456-426614174001";
-const problemId = "123e4567-e89b-12d3-a456-426614174002";
-const versionId = "123e4567-e89b-12d3-a456-426614174003";
 
 function statePath(): string {
   const directory = mkdtempSync(join(tmpdir(), "ple-student-repeat-state-"));
@@ -52,8 +50,6 @@ function setupPrefix(): InstructorSetupPrefix {
       courseId,
       assignmentId,
       selectedDisplayIds: ["P-11-v1", "P-12-v1", "P-13-v1", "P-14-v1"],
-      problemId,
-      versionId,
       visibleOutcomeCodes: [
         "visible_assignment_created",
         "visible_catalog_problem_selected",

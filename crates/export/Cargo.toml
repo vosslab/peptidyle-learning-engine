@@ -9,7 +9,7 @@ rust-version.workspace = true
 question_model.workspace = true
 # Rendered exam artifacts are written to the object store.
 objects.workspace = true
-flate2 = ">=1.1.9"
+flate2 = "*"
 
 [dev-dependencies]
 serde.workspace = true

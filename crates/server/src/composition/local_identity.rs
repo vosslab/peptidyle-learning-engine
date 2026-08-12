@@ -24,7 +24,6 @@ use super::settings::required_env;
 
 const LOCAL_CREDENTIAL_BYTES: usize = 32;
 const LOCAL_CREDENTIAL_ENCODED_LEN: usize = 43;
-const MAX_LOCAL_LEARNER_ALIAS_BYTES: usize = 128;
 
 /// The private request shape for the sole local-only authentication path.
 /// Operator-owned configuration maps its bearer credential to identity; the
@@ -60,11 +59,11 @@ pub(super) struct LocalFileIdentityProvider {
 
 struct LocalFileIdentity {
     credential_hash: [u8; 32],
-    learner_alias: String,
     subject: SessionSubject,
 }
 
 impl LocalFileIdentityProvider {
+    /// Loads the operator-owned local identity configuration from a regular file.
     pub(super) fn from_path(path: impl AsRef<Path>) -> Result<Self, IdentityProviderError> {
         let bytes = std::fs::read(path).map_err(|_| {
             IdentityProviderError::Unavailable(
@@ -74,6 +73,7 @@ impl LocalFileIdentityProvider {
         Self::from_json_bytes(&bytes)
     }
 
+    /// Decodes a private local identity configuration for composition tests and startup.
     pub(super) fn from_json_bytes(bytes: &[u8]) -> Result<Self, IdentityProviderError> {
         let file: LocalIdentityFile = serde_json::from_slice(bytes).map_err(|_| {
             IdentityProviderError::Unavailable(
@@ -87,7 +87,6 @@ impl LocalFileIdentityProvider {
         }
 
         let mut hashes = HashSet::with_capacity(file.credentials.len());
-        let mut aliases = HashSet::with_capacity(file.credentials.len());
         let mut identities = Vec::with_capacity(file.credentials.len());
         for record in file.credentials {
             if record.tenant_id.is_nil() || record.user_id.is_nil() {
@@ -102,17 +101,6 @@ impl LocalFileIdentityProvider {
                     )
                 })?;
             if !hashes.insert(credential_hash) {
-                return Err(IdentityProviderError::Unavailable(
-                    "local development identity configuration is invalid".to_string(),
-                ));
-            }
-            let learner_alias =
-                validated_local_learner_alias(&record.learner_alias).ok_or_else(|| {
-                    IdentityProviderError::Unavailable(
-                        "local development identity configuration is invalid".to_string(),
-                    )
-                })?;
-            if !aliases.insert(learner_alias) {
                 return Err(IdentityProviderError::Unavailable(
                     "local development identity configuration is invalid".to_string(),
                 ));
@@ -135,18 +123,6 @@ impl LocalFileIdentityProvider {
         }
         Ok(Self { identities })
     }
-}
-
-fn validated_local_learner_alias(value: &str) -> Option<String> {
-    (1..=MAX_LOCAL_LEARNER_ALIAS_BYTES)
-        .contains(&value.len())
-        .then_some(())?;
-    value
-        .bytes()
-        .all(|byte| {
-            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_')
-        })
-        .then(|| value.to_string())
 }
 
 #[async_trait::async_trait]

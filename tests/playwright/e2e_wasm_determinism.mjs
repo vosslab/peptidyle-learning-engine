@@ -26,7 +26,20 @@ if (!fs.existsSync(runner)) {
 }
 
 const runnerVersion = execFileSync(runner, ["--version"], { encoding: "utf8" }).trim();
-assert.match(runnerVersion, /0\.2\.126$/, "wasm-bindgen test runner version drifted");
+const wasmBindgenPackage = execFileSync("cargo", ["pkgid", "wasm-bindgen"], {
+  cwd: repoRoot,
+  encoding: "utf8",
+}).trim();
+const expectedRunnerVersion = wasmBindgenPackage.match(/@([^@]+)$/u)?.[1];
+assert.ok(
+  expectedRunnerVersion,
+  `could not determine wasm-bindgen version from ${wasmBindgenPackage}`,
+);
+assert.equal(
+  runnerVersion,
+  `wasm-bindgen-test-runner ${expectedRunnerVersion}`,
+  "wasm-bindgen test runner must match the lockfile-resolved binding crate",
+);
 
 const cargo = spawn(
   "cargo",
@@ -105,8 +118,17 @@ try {
   assert.ok(output, "wasm-bindgen-test page returned no output");
   process.stdout.write(`\n${output}`);
   assert.match(output, /test result: ok\./, "wasm-bindgen browser parity test failed");
-  assert.match(output, /1 passed; 0 failed;/, "unexpected wasm-bindgen test count");
-  console.log("PASS: committed seed vectors match in headless Chromium");
+  assert.match(
+    output,
+    /committed_seed_vectors_match_browser_generation/u,
+    "browser ran the committed deterministic generator vectors",
+  );
+  assert.match(
+    output,
+    /flat_v2_public_response_corpus_matches_browser_wasm/u,
+    "browser ran the shared answer-free flat-v2 response corpus",
+  );
+  console.log("PASS: deterministic vectors and flat-v2 response format match in headless Chromium");
 } finally {
   clearTimeout(startupTimeout);
   if (browser) {

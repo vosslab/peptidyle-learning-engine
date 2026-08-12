@@ -31,6 +31,46 @@ if (!fs.existsSync(bridgePath)) {
 
 const bridge = await import(bridgePath);
 
+// One committed, answer-free corpus drives the native Rust, generated Node,
+// and real-browser Wasm checks. It belongs to the Wasm package instead of
+// `tests/fixtures/` because it is part of this boundary's durable contract.
+const { cases: flatV2ParityCases } = JSON.parse(
+  fs.readFileSync(
+    path.join(repoRoot, "crates", "wasm", "flat_v2_response_format_corpus.json"),
+    "utf8",
+  ),
+);
+
+for (const parityCase of flatV2ParityCases) {
+  const report = JSON.parse(
+    bridge.validate_response_format(
+      JSON.stringify(parityCase.definition),
+      JSON.stringify(parityCase.response),
+    ),
+  );
+  assert.deepEqual(report, parityCase.expectedReport, `flat-v2 Node parity: ${parityCase.name}`);
+}
+
+const repeatedCase = flatV2ParityCases.find(
+  ({ name }) => name === "flat-v2-matching-full-permutation",
+);
+assert.ok(repeatedCase, "flat-v2 repeated-call test case is present");
+const firstRepeatedReport = bridge.validate_response_format(
+  JSON.stringify(repeatedCase.definition),
+  JSON.stringify(repeatedCase.response),
+);
+const secondRepeatedReport = bridge.validate_response_format(
+  JSON.stringify(repeatedCase.definition),
+  JSON.stringify(repeatedCase.response),
+);
+assert.equal(secondRepeatedReport, firstRepeatedReport, "flat-v2 format validation is stateless");
+
+assert.throws(
+  () => bridge.validate_response_format("{", "{}"),
+  /^invalid response definition:/u,
+  "malformed public input keeps its documented JavaScript error category",
+);
+
 // The Rust side returns its own CARGO_PKG_VERSION. Comparing against the
 // version in crates/wasm/Cargo.toml proves the value crossed the boundary
 // rather than being produced by the glue.

@@ -3,7 +3,6 @@
 import json
 import os
 import pathlib
-import re
 import secrets
 import shutil
 import stat
@@ -12,16 +11,13 @@ import tempfile
 
 import walklib.arrangement_contract
 import walklib.configuration
+import walklib.instructor_handoff
 import walklib.models
+import walklib.playwright_boundary
 import walklib.process
 import walklib.v2_report_contract
 
-
 ARRANGER_RELATIVE_PATH = pathlib.Path("node_modules/tsx/dist/cli.mjs")
-MAX_JOURNEY_ELAPSED_MS = 30 * 60 * 1000
-LOWER_UUID_TEXT = re.compile(
-	r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-)
 J1_CHECKPOINT_FILE = "j1-checkpoint.txt"
 J2_CHECKPOINT_FILE = "j2-checkpoint.txt"
 INSTRUCTOR_SETUP_CHECKPOINT_FILE = "instructor-setup-checkpoint.txt"
@@ -388,104 +384,11 @@ class WalkthroughRunner:
 	#============================================
 	def hand_off_instructor_setup(self) -> None:
 		"""Pass only validated public J11/J12/J13 identifiers to fixed student children."""
-		if (
-			self.journey_state_file is None
-			or self.journey_state_file.name != "journeys.json"
-			or self.journey_state_file.is_symlink()
-		):
-			raise RunnerError("instructor setup public-ID handoff is unavailable")
-		parent = self.journey_state_file.parent
-		parent_descriptor = -1
-		file_descriptor = -1
-		try:
-			parent_descriptor = os.open(
-				parent,
-				os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
-			)
-			parent_metadata = os.fstat(parent_descriptor)
-			file_descriptor = os.open(
-				"journeys.json",
-				os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
-				dir_fd=parent_descriptor,
-			)
-		except OSError as error:
-			raise RunnerError("instructor setup public-ID handoff is unavailable") from error
-		try:
-			metadata = os.fstat(file_descriptor)
-			current_parent = parent.lstat()
-			if (
-				not stat.S_ISDIR(parent_metadata.st_mode)
-				or stat.S_IMODE(parent_metadata.st_mode) != 0o700
-				or not stat.S_ISREG(metadata.st_mode)
-				or stat.S_IMODE(metadata.st_mode) != 0o600
-				or metadata.st_size > 4096
-				or not stat.S_ISDIR(current_parent.st_mode)
-				or stat.S_ISLNK(current_parent.st_mode)
-				or stat.S_IMODE(current_parent.st_mode) != 0o700
-				or current_parent.st_dev != parent_metadata.st_dev
-				or current_parent.st_ino != parent_metadata.st_ino
-			):
-				raise RunnerError("instructor setup public-ID handoff is unavailable")
-			raw = os.read(file_descriptor, metadata.st_size)
-		finally:
-			os.close(file_descriptor)
-			os.close(parent_descriptor)
-		try:
-			text = raw.decode("ascii")
-			value = json.loads(text)
-		except (UnicodeDecodeError, json.JSONDecodeError) as error:
-			raise RunnerError("instructor setup public-ID handoff is unavailable") from error
-		if text != json.dumps(value, separators=(",", ":")) + "\n":
-			raise RunnerError("instructor setup public-ID handoff is unavailable")
-		if not isinstance(value, list) or len(value) != 3:
-			raise RunnerError("instructor setup public-ID handoff is unavailable")
-		expected = (
-			("J11", {"schemaVersion", "journey", "status", "elapsedMs", "courseId", "visibleOutcomeCodes", "diagnostics"}, ["visible_course_created", "visible_course_opened"]),
-			("J12", {"schemaVersion", "journey", "status", "elapsedMs", "courseId", "visibleOutcomeCodes", "diagnostics"}, ["visible_local_student_active"]),
-			("J13", {"schemaVersion", "journey", "status", "elapsedMs", "courseId", "assignmentId", "selectedDisplayIds", "visibleOutcomeCodes", "diagnostics"}, ["visible_assignment_created", "visible_catalog_problem_selected", "visible_four_question_chapter_one_selection", "visible_mastery_policy"]),
+		course_id, assignment_id = walklib.instructor_handoff.read_handoff(
+			self.journey_state_file,
+			self.arrangements,
+			self.instructor_catalog_display_ids,
 		)
-		course_id: str | None = None
-		for fragment, (journey, keys, outcome_codes) in zip(value, expected, strict=True):
-			if not isinstance(fragment, dict) or set(fragment) != keys:
-				raise RunnerError("instructor setup public-ID handoff is unavailable")
-			if (
-				fragment.get("schemaVersion") != 2
-				or fragment.get("journey") != journey
-				or fragment.get("status") != "PASS"
-				or not isinstance(fragment.get("elapsedMs"), int)
-				or isinstance(fragment.get("elapsedMs"), bool)
-				or fragment["elapsedMs"] < 0
-				or fragment["elapsedMs"] > MAX_JOURNEY_ELAPSED_MS
-				or not isinstance(fragment.get("diagnostics"), list)
-				or fragment["diagnostics"] != []
-				or fragment.get("visibleOutcomeCodes") != outcome_codes
-				or not isinstance(fragment.get("courseId"), str)
-				or not LOWER_UUID_TEXT.fullmatch(fragment["courseId"])
-			):
-				raise RunnerError("instructor setup public-ID handoff is unavailable")
-			if course_id is None:
-				course_id = fragment["courseId"]
-			elif fragment["courseId"] != course_id:
-				raise RunnerError("instructor setup public-ID handoff is unavailable")
-		j13 = value[2]
-		if course_id is None or not isinstance(j13, dict):
-			raise RunnerError("instructor setup public-ID handoff is unavailable")
-		for key in ("assignmentId",):
-			identifier = j13.get(key)
-			if not isinstance(identifier, str) or not LOWER_UUID_TEXT.fullmatch(identifier):
-				raise RunnerError("instructor setup public-ID handoff is unavailable")
-		if (
-			self.arrangements is None
-			or len(self.arrangements) != 1
-			or self.instructor_catalog_display_ids is None
-		):
-			raise RunnerError("instructor setup public-ID handoff is unavailable")
-		selected_display_ids = j13.get("selectedDisplayIds")
-		if (
-			not isinstance(selected_display_ids, list)
-			or selected_display_ids != self.instructor_catalog_display_ids
-		):
-			raise RunnerError("instructor setup public-ID handoff is unavailable")
 		self.write_private_child_inputs(
 			walklib.models.WalkthroughChildInputs(
 				"learner_journey",
@@ -496,7 +399,7 @@ class WalkthroughRunner:
 				j1_checkpoint_file=self.j1_checkpoint_file,
 				j2_checkpoint_file=self.j2_checkpoint_file,
 				course_id=course_id,
-				mastery_assignment_id=j13["assignmentId"],
+				mastery_assignment_id=assignment_id,
 				screenshot_directory=self.inputs.screenshot_directory,
 			)
 		)
@@ -881,7 +784,13 @@ class WalkthroughRunner:
 		)
 		if result.returncode != 0 or result.stderr != "":
 			raise RunnerError("visible outcome renderer failed")
-		self.visible_outcomes = self.parse_visible_outcome_output(result.stdout)
+		try:
+			self.visible_outcomes = walklib.v2_report_contract.parse_public_v2_report(
+				result.stdout,
+				self.inputs.master_seed,
+			)
+		except ValueError as error:
+			raise RunnerError("visible outcome renderer emitted invalid output") from error
 
 	#============================================
 	def append_cross_actor_evidence(self) -> None:
@@ -907,32 +816,14 @@ class WalkthroughRunner:
 			raise RunnerError("cross-actor child failed")
 
 	#============================================
-	def run_playwright_specification(self, specification: str) -> None:
-		"""Run one live journey through the standard explicit Playwright config argument."""
-		if self.playwright_config_file is None:
-			raise RunnerError("private Playwright configuration is unavailable")
-		self.run_required(
-			[
-				"bash",
-				"run_playwright_tests.sh",
-				"--config",
-				str(self.playwright_config_file),
-				specification,
-			],
+	def run_playwright(self, specification: str) -> None:
+		"""Run one fixed browser journey through the private explicit configuration."""
+		walklib.playwright_boundary.run_specification(
+			self.playwright_config_file,
+			specification,
+			self.run_required,
 			self.sanitized_child_environment(),
 		)
-
-	#============================================
-	def parse_visible_outcome_output(self, stdout: str) -> dict[str, object]:
-		"""Accept only the complete schema-v2 public report emitted by the fixed child."""
-		try:
-			payload = walklib.v2_report_contract.parse_public_v2_report(
-				stdout,
-				self.inputs.master_seed,
-			)
-		except ValueError as error:
-			raise RunnerError("visible outcome renderer emitted invalid output") from error
-		return payload
 
 	#============================================
 	def remove_private_state(self) -> None:
@@ -1050,7 +941,9 @@ class WalkthroughRunner:
 			)
 		)
 		self.report_stage = "playwright_instructor_setup"
-		self.run_playwright_specification("tests/playwright/ui_walkthrough_instructor_setup.spec.ts")
+		self.run_playwright(
+			"tests/playwright/ui_walkthrough_instructor_setup.spec.ts"
+		)
 		if self.inputs.instructor_setup_only:
 			return
 		self.report_stage = "instructor_setup_handoff"
@@ -1058,20 +951,20 @@ class WalkthroughRunner:
 		if self.j1_checkpoint_file is None:
 			raise RunnerError("J1 checkpoint is unavailable")
 		self.report_stage = "playwright_j1"
-		self.run_playwright_specification("tests/playwright/ui_walkthrough_keyboard_j1.spec.ts")
+		self.run_playwright("tests/playwright/ui_walkthrough_keyboard_j1.spec.ts")
 		self.report_stage = "playwright_j2"
-		self.run_playwright_specification("tests/playwright/ui_walkthrough_keyboard_j2.spec.ts")
+		self.run_playwright("tests/playwright/ui_walkthrough_keyboard_j2.spec.ts")
 		for stage, specification in (
 			("playwright_j3", "tests/playwright/ui_walkthrough_keyboard_j3.spec.ts"),
 			("playwright_j4", "tests/playwright/ui_walkthrough_keyboard_j4.spec.ts"),
 		):
 			self.report_stage = stage
-			self.run_playwright_specification(specification)
+			self.run_playwright(specification)
 		if self.inputs.student_repeat_only:
 			self.report_stage = "student_repeat_complete"
 			return
 		self.report_stage = "playwright_j5"
-		self.run_playwright_specification("tests/playwright/ui_walkthrough_keyboard_j5.spec.ts")
+		self.run_playwright("tests/playwright/ui_walkthrough_keyboard_j5.spec.ts")
 		self.append_cross_actor_evidence()
 		self.collect_visible_outcomes()
 

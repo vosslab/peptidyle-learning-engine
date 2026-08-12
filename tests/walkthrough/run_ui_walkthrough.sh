@@ -9,4 +9,4 @@ readonly REPO_ROOT
 # Repository Python commands run through the maintained local environment.
 # shellcheck disable=SC1091
 source "$REPO_ROOT/source_me.sh"
-exec python3 "$REPO_ROOT/tests/walkthrough/run_ui_walkthrough.py" "$@"
+exec python -B "$REPO_ROOT/tests/walkthrough/run_ui_walkthrough.py" "$@"

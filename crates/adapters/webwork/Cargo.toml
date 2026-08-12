@@ -19,10 +19,10 @@ async-trait.workspace = true
 base64.workspace = true
 # This private-service client deliberately owns its HTTP dialect here rather
 # than leaking a renderer protocol into the adapter's shared contracts.
-reqwest = { version = ">=0.12.28", default-features = false, features = ["json", "rustls-tls-native-roots"] }
+reqwest = { version = "*", default-features = false, features = ["form", "json", "rustls"] }
 tokio.workspace = true
-url = ">=2.5.8"
+url = "*"
 html5ever.workspace = true
-tracing = ">=0.1.44"
+tracing = "*"
 
 [dev-dependencies]

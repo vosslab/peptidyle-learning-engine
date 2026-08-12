@@ -18,11 +18,11 @@ html5ever.workspace = true
 # ZIP parsing is deliberately confined to this hostile-input adapter.  The
 # adapter applies its own path, entry-count, and expanded-size policy before
 # any QTI XML is inspected.
-zip = { version = ">=6.0.0", default-features = false, features = ["deflate"] }
+zip = { version = "*", default-features = false, features = ["deflate"] }
 # `xmlparser` is a tokenizing XML parser.  The importer builds a deliberately
 # small tree on top of it so QTI support remains explicit while malformed XML,
 # DTDs, and entities are rejected before conversion.
-xmlparser = ">=0.13.6"
+xmlparser = "*"
 uuid.workspace = true
 
 [dev-dependencies]

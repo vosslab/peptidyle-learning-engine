@@ -1586,15 +1586,15 @@ or implementer-authored specification is required.
   `docs/active_plans/active/flat_question_family_evolution_plan.md`.
   Depends on: accepted WP-M3-COURSE-APPEARANCE, the secure learner-payload package, and
   the existing native flat, grading, object, Store, schema, server, client, and frontend contracts.
-- Touch points: v1 compatibility; closed PLE flat JSON v2 source/compiler; public/private
+- Touch points: closed PLE flat JSON v2 source/compiler; public/private
   compilation; family response/checker types; source-to-object bindings; persistence, author
   editors, learner widgets, live evidence, and durable documentation.
-- Current implementation: the version 2 source/runtime core covers MC, MA, FIB, MULTI-FIB, NUM,
-  MATCH, ORDER, and HOTSPOT, while version 1 single choice remains compatible.
+- Current implementation: the v2-only source/runtime core covers MC, MA, FIB, MULTI-FIB, NUM,
+  MATCH, ORDER, and HOTSPOT.
 - Acceptance criteria: keep answers and optional feedback protected; complete family-specific visual
   authoring and the Memory/PostgreSQL/object-store paths; prove accessible author/learner flows,
-  immutable publication, forced RLS, asset lifecycle, correct/incorrect grading, cleanup,
-  historical-version compatibility, and no browser/Wasm answer association.
+  immutable publication, forced RLS, asset lifecycle, correct/incorrect grading, cleanup, and no
+  browser/Wasm answer association.
 - Evidence or review: focused Rust/Node/Playwright gates, disposable PostgreSQL/object-store oracles,
   the full repository gate, and independent PASS with no remaining P0/P1 finding.
 - Next dependency: WP-RC5 publishes the exact Chapter 1 content after MATCH and completes the other

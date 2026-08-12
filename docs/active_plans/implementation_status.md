@@ -1,6 +1,6 @@
 # Implementation status and handoff
 
-Last updated: 2026-08-11
+Last updated: 2026-08-12
 
 This file is a durable execution handoff. The architecture, scope, milestone order, security
 boundaries, and acceptance criteria remain authoritative in `implementation_plan.md`. Durable owner
@@ -321,14 +321,17 @@ are clean; and three independent reviewers reported no P0/P1/P2.
 ### Current walkthrough disposition
 
 - The repository owner corrected the binding walkthrough charter on
-  2026-08-11. Overall acceptance now requires visible instructor course
-  creation, active local-student roster addition, and corpus-backed assignment
-  creation before the student keyboard take/score/repeat loop. Email and
-  canonical onboarding are intentionally outside this walkthrough. The bounded
-  local no-email pilot is accepted: it has two same-seed retained-stack
-  `bash tests/e2e/e2e_ui_walkthrough.sh --master-seed 42 --build` passes, one
-  manager run and one independent replay, each creating a fresh course and
-  assignment through visible instructor setup.
+  2026-08-11. Overall acceptance requires visible instructor course creation,
+  canonical roster membership/enrollment for the fictional learner, and
+  corpus-backed assignment creation before the student keyboard
+  take/score/repeat loop. Email and canonical onboarding are intentionally
+  outside this walkthrough. The local-file identity configuration authenticates
+  the fictional actors only; it is not a second roster, membership, or
+  enrollment system. The current disposable seed uses the canonical
+  `UpsertCourseMember` operation to create the no-contact roster member,
+  membership, and enrollment records that the product uses. The rebuilt
+  empty-stack teaching-loop evidence remains required before this walkthrough
+  can be called accepted.
 - The earlier M5 learner slice remains accepted evidence: visible native
   keyboard pagination traverses retained assignment and gradebook pages, and
   manager plus independent
@@ -357,20 +360,20 @@ are clean; and three independent reviewers reported no P0/P1/P2.
   cover its validation and environment isolation. Its rebuilt Podman/Playwright execution is still
   required one-time acceptance evidence, alongside the strengthened J13 visible copy/paste run;
   it is not yet a basis for restoring overall walkthrough acceptance.
-- The current Genetics assignment remains untimed because the visible editor does not yet carry the
-  existing course-owned whole-run timing policy. WP-HG1.T is pending: it adds the revision-atomic
-  editor boundary `assignmentTiming.timeLimitSeconds`, uses the Rust-generated 900-second mastery
-  default, and leaves immutable question versions unchanged. Its focused store/API/browser behavior
-  gates and live timed Podman walkthrough evidence remain separate from the current accepted history.
-- The previous corrected charter evidence in M8-M11 remains useful historical evidence for the
-  bounded local pilot, but it is not acceptance for the strengthened human-reference contract.
-  WP-HG1 in the active release plan must record its permanent boundary tests, rebuilt live J13
-  copy/paste run, refreshed screenshots, and independent review before this walkthrough is again
-  called accepted. This vertical slice still does not promote the local roster capability to
-  production enrollment or close RC4--RC12.
-  Focused product and Store/PostgreSQL reviews cover its visible course form,
-  local-only active roster seam, and visible new-assignment entry path. This
-  does not promote the local roster capability to production enrollment.
+- The assignment editor now carries the course-owned whole-run timing policy
+  through the revision-atomic `assignmentTiming.timeLimitSeconds` boundary. A
+  new Mastery draft visibly defaults to 900 seconds; an explicit `null` remains
+  an intentional untimed assignment, and immutable question versions remain
+  unchanged. WP-HG1.T permanent Store/API/browser behavior gates are accepted.
+  The real timed Podman walkthrough and refreshed visual evidence remain
+  one-time acceptance work, not a claim that the live teaching loop has passed.
+- The previous corrected-charter evidence in M8-M11 remains useful historical
+  evidence for the bounded local pilot, but is superseded as acceptance evidence
+  by the strengthened human-reference contract. WP-HG1 must still record the
+  rebuilt live J13 copy/paste run, refreshed screenshots, and independent review
+  before this walkthrough is again called accepted. This vertical slice does not
+  close RC4--RC12 or substitute the local-file authentication adapter for
+  production account onboarding.
 - Post-acceptance WP-E2 is accepted. The unchanged compatibility entry points
   delegate to the canonical `tests/walkthrough/` command and importable
   `walklib/` owner. A fresh host-bound retained-stack run passed all nine
@@ -453,7 +456,7 @@ and `2026080907_course_appearance.sql` is the first forward migration. Migration
 present with package acceptance open. The release plan reserves
 `2026080910_object_reconciliation.sql`, `2026080911_lti_advantage.sql`, and
 `2026080912_secure_learner_uploads.sql`. The fresh pre-production identity schema already owns
-the explicit local-development roster source; no separate local-roster migration exists. Accepted
+the canonical course-roster member model; no separate local-roster migration or provenance exists. Accepted
 filenames are not renamed or reordered.
 
 ### Immediate package: WP-RC8 production account-provider composition and acceptance closeout

@@ -73,9 +73,14 @@ an accepted version.
 The upload migration follows the reserved identity/reconciliation/LTI sequence and remains planned while
 learner file responses fail closed. See the
 [secure learner upload plan](active_plans/active/secure_learner_file_upload_plan.md).
-The fresh pre-production `2026080909_passwordless_identity.sql` schema owns both
-invitation and email-free `local_development` roster sources. There is no separate
-local-roster migration or legacy-member source.
+The fresh pre-production `2026080909_passwordless_identity.sql` schema owns the one
+canonical course-roster member model: optional roster contact, course membership, and
+enrollment reconciliation. There is no provenance column, local-roster migration, or
+legacy-member source. The local-file development adapter authenticates a fictional
+actor only; the disposable no-contact learner seed calls canonical
+`UpsertCourseMember` to create roster, membership, and enrollment records. Because
+this checked-in schema is pre-production-only, a changed migration baseline requires
+a clean disposable PostgreSQL volume rather than an in-place ledger edit.
 
 ## Data ownership
 

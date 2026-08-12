@@ -294,10 +294,10 @@ browser, clipboard, and visual evidence are one-time acceptance work.
       settings surfaces. Preserve the distinct practical control and learner-response target sizes;
       the responsive keyboard scenario protects the matching interaction at narrow and wide viewports.
 - [x] **Completed dependency policy and security review -- Cargo manifests and resolved graph.**
-      Inventory every tracked `Cargo.toml`, standardize registry dependencies on the durable
-      explicit `>=x.y.z` minimum instead of shorthand or `*`, and enforce that boundary across all
-      dependency tables. A fresh RustSec scan reports no vulnerabilities; `rust_decimal` and its
-      vulnerable optional `rkyv` graph were removed. Keep the still-visible transitive `lru 0.16.4`
+      Inventory every tracked `Cargo.toml`, standardize each direct registry dependency on the
+      manager-selected `version = "*"` form, and enforce that boundary across all dependency
+      tables. `Cargo.lock` records the reviewed exact resolution; `rust_decimal` and its vulnerable
+      optional `rkyv` graph were removed. Keep the still-visible transitive `lru 0.16.4`
       unsoundness warning tracked until the latest AWS S3 SDK permits the repaired line; do not
       suppress it.
 - [x] **Permanent gates -- implement and prove WP-HG1.T before live evidence.** Carry the
@@ -334,19 +334,19 @@ PLE has no users or durable production data. Complete this cleanup in order befo
 package or walkthrough acceptance. It removes provisional variants from the current design; it does
 not rewrite historical audit reports.
 
-- [ ] **Unify the roster model.** Make the PLE-owned course roster the single source for local and
-      production flows. Remove `2026080913_local_development_roster.sql`, its local roster source,
-      selection bridge, and duplicate route/test setup from the server, Store, launcher, and browser
-      walkthrough. Keep one explicit disposable seeding path that creates the same canonical roster
-      records used by the UI. Prove Memory/PostgreSQL roster conformance, enrollment creation, and
-      the local teaching loop from an empty database.
+- [ ] **Unify the roster model.** The code and focused review now use the PLE-owned course roster as
+      the single source for local and production flows: `2026080913_local_development_roster.sql`,
+      its separate source, selection bridge, and duplicate route/test setup are gone. Local-file auth
+      identifies the fictional actor only. One explicit disposable `UpsertCourseMember` seed creates
+      the canonical no-contact roster, membership, and enrollment records used by the UI. Keep this
+      unchecked until the live PostgreSQL conformance and empty-database teaching-loop evidence pass.
 - [ ] **Require the submission receipt snapshot.** Persist the authoritative attempt presentation
       snapshot with every first submission receipt before returning feedback or advancing. Make
       retries/replay read that receipt-bound snapshot; remove the pre-snapshot lookup or fallback
       through newer run state. Prove correct feedback/advance after refresh, duplicate submission,
       replica recovery, and unavailable successor data with focused Store/server/browser behavior
       tests plus the live PostgreSQL oracle.
-- [ ] **Adopt the v2-only native flat reader.** Remove the native flat v1 reader, its compatibility
+- [x] **Adopt the v2-only native flat reader.** Removed the native flat v1 reader, its compatibility
       branches, and v1-only fixtures after moving current pilot source and inline test inputs to
       the closed v2 contract. Retain exact v2 source validation, answer-free public/private
       compilation, and all-family grading/learner behavior. Use inline or generated inputs under
@@ -721,9 +721,10 @@ atomically consume one ready upload into the existing manual-grading path. They 
 `2026080912_secure_learner_uploads.sql`; the current learner route remains fail-closed until all six
 packages are accepted.
 
-The provisional `2026080913_local_development_roster.sql` source is a pre-production bridge. The
-pre-production cleanup below retires it in favor of the one canonical roster model; that work does
-not alter or satisfy WP-RC8 production email identity, invitation, or enrollment acceptance.
+Historical note: the former `2026080913_local_development_roster.sql` source was a pre-production
+bridge. The completed code/focused-review portion of the cleanup removed it in favor of one
+canonical roster model; the remaining live empty-stack evidence does not alter or satisfy WP-RC8
+production email identity, invitation, or enrollment acceptance.
 
 ### WP-RC10: Add declarative AWS deployment
 

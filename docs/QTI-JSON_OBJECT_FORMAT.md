@@ -1,7 +1,6 @@
 # PLE flat-question JSON
 
-Status: accepted v1 and v2 source contracts. Version 1 remains the immutable
-single-choice compatibility contract. Version 2 implements all eight required
+Status: accepted v2-only source contract. Version 2 implements all eight required
 flat-question families through strict parsing, answer-free compilation,
 publication validation, learner rendering, response validation, and isolated
 server grading.
@@ -13,16 +12,14 @@ questions. The contract is named **PLE flat-question JSON**, not QTI JSON. QTI
 is an import/export adapter and archival interchange format; it does not define
 the internal model.
 
-Version 1 deliberately supports one exactly-one-choice question and is never
-reinterpreted. Version 2 adds a closed type-specific `response` object. PLE
-does not add QTI expression trees, arbitrary response processing, or vendor
-extension containers to either contract.
+Version 2 uses a closed type-specific `response` object. PLE does not add QTI
+expression trees, arbitrary response processing, or vendor extension containers.
 
 ## Required family roadmap
 
 The complete product must support at least these eight flat-question families:
 
-- multiple choice (MC), implemented by version 1 as `singleChoice`;
+- multiple choice (MC), implemented by `singleChoice`;
 - multiple answer (MA);
 - fill-in-the-blank (FIB);
 - multiple fill-in-the-blank (MULTI-FIB);
@@ -31,9 +28,8 @@ The complete product must support at least these eight flat-question families:
 - ordered list (ORDER); and
 - image hot spot (HOTSPOT).
 
-Version 1 remains the closed MC contract described below. Version 2 is based on
-the lossless semantics of QTI Package Maker's `MC`, `MA`, `MATCH`, `NUM`,
-`FIB`, `MULTI_FIB`, and `ORDER` item models: visible content and stable item
+Version 2 is based on the lossless semantics of QTI Package Maker's `MC`,
+`MA`, `MATCH`, `NUM`, `FIB`, `MULTI_FIB`, and `ORDER` item models: visible content and stable item
 identifiers compile separately from accepted answers. PLE adds one bounded
 `hotspot` extension because the reviewed QTI Package Maker model does not
 define that family. A wholesale Rust port of QTI Package Maker remains out of
@@ -42,35 +38,37 @@ scope.
 This is an internal PLE source contract, not an implementation of a missing or
 future external QTI-JSONL specification. A later QTI-JSONL adapter may map an
 accepted external record into these public/private compiler outputs, but it
-must not silently reinterpret version 1 or version 2 bytes.
+must not silently reinterpret v2 source bytes.
 
 ## Example
 
 ```json
 {
   "format": "pleFlatQuestion",
-  "version": 1,
-  "kind": "singleChoice",
+  "version": 2,
   "title": "Favorite color",
   "prompt": "What is my favorite color?",
-  "choices": [
-    {
-      "id": "blue",
-      "text": "Blue",
-      "feedback": "Blue is a calm choice."
-    },
-    {
-      "id": "red",
-      "text": "Red",
-      "feedback": "Red is not my favorite."
-    },
-    {
-      "id": "yellow",
-      "text": "Yellow",
-      "feedback": "Yellow is bright."
-    }
-  ],
-  "correctChoice": "blue",
+  "response": {
+    "kind": "singleChoice",
+    "choices": [
+      {
+        "id": "blue",
+        "text": "Blue",
+        "feedback": "Blue is a calm choice."
+      },
+      {
+        "id": "red",
+        "text": "Red",
+        "feedback": "Red is not my favorite."
+      },
+      {
+        "id": "yellow",
+        "text": "Yellow",
+        "feedback": "Yellow is bright."
+      }
+    ],
+    "correctChoice": "blue"
+  },
   "feedback": {
     "correct": "Exactly right.",
     "incorrect": "Try thinking of a cool color."
@@ -111,19 +109,19 @@ refused at every level.
 
 The eight exact response shapes are:
 
-| `response.kind` | Answer-bearing source members | Browser-safe compiled shape |
-| ---------------- | ----------------------------- | --------------------------- |
-| `singleChoice` | `choices`, `correctChoice` | radio choices with stable IDs |
-| `multipleAnswer` | `choices`, `correctChoices` | checkbox choices; the correct count is not disclosed |
-| `fillIn` | `answers`, `matchMode`, `maxLength` | one bounded text field |
-| `multiFillIn` | `blanks`, each with `id`, `label`, `answers`, `matchMode`, and `maxLength` | named bounded text fields |
-| `numeric` | `answer`, `tolerance`, optional `unit` | numeric field, public tolerance rule, and unit |
-| `matching` | `prompts`, `choices`, `matches` | one accessible radio group per prompt |
-| `ordering` | `items`, `correctOrder` | one reorderable list |
-| `hotspot` | `surface`, `regions`, `correctRegions` | immutable image reference plus keyboard-operable candidate regions |
+| `response.kind`  | Answer-bearing source members                                              | Browser-safe compiled shape                                        |
+| ---------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `singleChoice`   | `choices`, `correctChoice`                                                 | radio choices with stable IDs                                      |
+| `multipleAnswer` | `choices`, `correctChoices`                                                | checkbox choices; the correct count is not disclosed               |
+| `fillIn`         | `answers`, `matchMode`, `maxLength`                                        | one bounded text field                                             |
+| `multiFillIn`    | `blanks`, each with `id`, `label`, `answers`, `matchMode`, and `maxLength` | named bounded text fields                                          |
+| `numeric`        | `answer`, `tolerance`, optional `unit`                                     | numeric field, public tolerance rule, and unit                     |
+| `matching`       | `prompts`, `choices`, `matches`                                            | one accessible radio group per prompt                              |
+| `ordering`       | `items`, `correctOrder`                                                    | one reorderable list                                               |
+| `hotspot`        | `surface`, `regions`, `correctRegions`                                     | immutable image reference plus keyboard-operable candidate regions |
 
 Choice, prompt, blank, ordering-item, and region identifiers use the same
-stable identifier grammar as version 1 choices. They identify semantics, not
+stable identifier grammar. They identify semantics, not
 display positions. The server may later project attempt-specific rendered item
 IDs at the learner wire boundary without changing these durable source IDs.
 
@@ -198,7 +196,7 @@ model            answer key + feedback
 
 | Value                        | Storage and readers                                                                       | Contents                                                                                           |
 | ---------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Authoring source             | Private workspace source; authenticated author-source route and server-side compiler only | The complete PLE document, including accepted answers, pairings, regions, order, and feedback       |
+| Authoring source             | Private workspace source; authenticated author-source route and server-side compiler only | The complete PLE document, including accepted answers, pairings, regions, order, and feedback      |
 | Published source             | Immutable private `ProblemSource` object                                                  | The canonical PLE JSON promoted at publication for provenance, recovery, and exact re-import       |
 | Public compiled model        | Checksummed `problem_version_payload` JSONB                                               | Prompt, choices, policies, points, taxonomy, license, and language; no answer or private feedback  |
 | Private compiled material    | Checksummed grader-only `answer_key` JSONB                                                | Answer key, per-choice and outcome feedback, schema version, and binding to the exact public model |
@@ -238,7 +236,7 @@ The native codec currently enforces these bounds:
 - the exact format and schema version are required;
 - unknown and duplicate members are rejected, including nested policies,
   taxonomy terms, and licenses;
-- a choice question has 2 through 100 choices; v1 and v2 `singleChoice` have exactly one correct choice;
+- a choice question has 2 through 100 choices; `singleChoice` has exactly one correct choice;
 - choice IDs start with a lowercase ASCII letter, use only lowercase letters,
   digits, `_`, or `-`, are unique, and are at most 64 bytes;
 - prompt, choice, title, tag, taxonomy, language, and license text is nonblank and bounded;
@@ -246,7 +244,7 @@ The native codec currently enforces these bounds:
 - points are finite and nonnegative, using the shared `f64` score model; and
 - `maxAttempts` is positive or `null` for unlimited attempts.
 
-Version 2 additionally enforces exact family-specific bindings: accepted text
+The v2 contract additionally enforces exact family-specific bindings: accepted text
 answers are nonempty and unique; multi-blank IDs and answers are complete;
 numeric answers and tolerance parameters are finite; matching binds every
 prompt once to one unique available choice; ordering names every item exactly
@@ -274,7 +272,7 @@ outputs, retain the original package for provenance, and record unsupported
 features. Vendor-specific XML is not copied into the PLE flat-question schema
 merely because one exporter emits it.
 
-The compatibility parser/compiler facade is
+The native parser/compiler facade is
 `crates/adapters/native/src/flat_question.rs`; version 2 family shapes and
 compilation live in `crates/adapters/native/src/flat_question/v2.rs`.
 The persistence boundary is `crates/learning-data-access/src/flat_question.rs`

@@ -85,6 +85,10 @@ MinIO, role/RLS, migration, restart, and private-renderer claims require their n
 real disposable services. Do not treat a memory-backend pass as evidence for a live storage or
 authorization boundary.
 
+The roster schema is pre-production-only. After changing its checked-in baseline, discard and
+recreate the disposable PostgreSQL volume before rerunning SQLx; a ledger checksum mismatch is a
+clean-volume reset signal, never an instruction to edit the database ledger in place.
+
 Keep permanent tests small, deterministic, and behavior-focused. A one-time migration probe,
 manual inspection, or live diagnostic is useful implementation evidence, but it belongs in the
 work-package record rather than the permanent fast suite unless it satisfies the checklist in

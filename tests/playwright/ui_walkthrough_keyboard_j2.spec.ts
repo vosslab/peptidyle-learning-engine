@@ -151,25 +151,27 @@ async function waitForNextMasterySurface(page: Page): Promise<"run" | "complete"
   const radios = page.getByRole("radio");
   const freshPractice = page.getByRole("button", { name: "Start another practice run" });
   const inlineErrors = page.locator(".inline-error:visible");
-  let surface: PostStartSurface = "pending";
+  // Keep the observed state in an object: `expect.poll` invokes its callback later,
+  // so TypeScript correctly cannot prove an outer local variable was reassigned.
+  const observed: { surface: PostStartSurface } = { surface: "pending" };
   await expect
     .poll(
       async () => {
-        surface = classifyPostStartSurface({
+        observed.surface = classifyPostStartSurface({
           radios: await radios.count(),
           freshPractice: await freshPractice.isVisible(),
           inlineErrors: await inlineErrors.count(),
         });
-        return surface;
+        return observed.surface;
       },
       { timeout: 30_000 },
     )
     .not.toBe("pending");
-  if (surface === "error") {
+  if (observed.surface === "error") {
     throw new Error("rendered Mastery continuation surface reported an inline error");
   }
-  if (surface === "fresh-practice") return "complete";
-  if (surface === "run") return "run";
+  if (observed.surface === "fresh-practice") return "complete";
+  if (observed.surface === "run") return "run";
   throw new Error("rendered Mastery continuation surface remained unavailable");
 }
 

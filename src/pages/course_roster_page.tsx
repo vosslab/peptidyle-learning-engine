@@ -566,13 +566,7 @@ export function CourseRosterPage(): JSX.Element {
                     <tbody>
                       <For each={current().roster.members}>
                         {(member) => (
-                          <tr
-                            tabindex={member.memberId === activatedMemberId() ? -1 : undefined}
-                            ref={(element) => {
-                              if (member.memberId === activatedMemberId())
-                                queueMicrotask(() => element.focus());
-                            }}
-                          >
+                          <tr>
                             <th scope="row">{member.displayName}</th>
                             <td>
                               {member.rosterEmail ?? "Not provided"}

@@ -479,7 +479,7 @@ fn upsert_member_locked(
                 "local roster member index is inconsistent".to_string(),
             ))?;
         if existing.status == CourseMemberStatus::Active {
-            ensure_local_student_membership(state, tenant, command.course, command.user)?;
+            ensure_student_membership(state, tenant, command.course, command.user)?;
             reconcile_member_assignments(state, tenant, command.course, command.user, student)?;
             return Ok(ClaimedCourseMembership {
                 tenant,
@@ -510,8 +510,14 @@ fn upsert_member_locked(
         student,
         display_name: crate::validated_account_display_name(&command.display_name)
             .map_err(|error| StoreError::InvalidRecord(error.to_string()))?,
-        roster_email: None,
-        roster_id: None,
+        roster_email: command
+            .roster_contact
+            .as_ref()
+            .map(|contact| contact.email.clone()),
+        roster_id: command
+            .roster_contact
+            .as_ref()
+            .map(|contact| contact.roster_id.clone()),
         status: CourseMemberStatus::Active,
         joined_at,
         revoked_at: None,
@@ -519,8 +525,16 @@ fn upsert_member_locked(
     state
         .roster_member_by_user
         .insert((tenant, command.course, command.user), member_id);
+    if let Some(roster_id) = member.roster_id.clone()
+        && let Some(existing) = state
+            .roster_member_by_roster_id
+            .insert((tenant, command.course, roster_id), member_id)
+        && existing != member_id
+    {
+        return Err(StoreError::Conflict);
+    }
     state.roster_members.insert(member_key, member.clone());
-    ensure_local_student_membership(state, tenant, command.course, command.user)?;
+    ensure_student_membership(state, tenant, command.course, command.user)?;
     reconcile_member_assignments(state, tenant, command.course, command.user, student)?;
     let roster_revision = bump_roster_revision(state, tenant, command.course, None)?;
     Ok(ClaimedCourseMembership {
@@ -531,7 +545,7 @@ fn upsert_member_locked(
     })
 }
 
-fn ensure_local_student_membership(
+fn ensure_student_membership(
     state: &mut State,
     tenant: question_model::TenantId,
     course: question_model::CourseId,

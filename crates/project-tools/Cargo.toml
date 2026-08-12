@@ -31,6 +31,6 @@ serde_yaml_ng.workspace = true
 sha2.workspace = true
 syn.workspace = true
 tokio.workspace = true
-url = ">=2.5.8"
+url = "*"
 uuid.workspace = true
-wasm-bindgen-cli-support = ">=0.2.126"
+wasm-bindgen-cli-support = "*"

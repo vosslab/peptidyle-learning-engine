@@ -59,9 +59,9 @@ No. PLE flat-question JSON is the small, versioned, answer-bearing authoring
 format for ordinary static questions. The native adapter compiles it into an
 answer-free public question model and separate grader-only material. QTI is a
 bounded import/export adapter and archival interchange format, so vendor XML
-and QTI expression trees do not become PLE's internal schema. Version 1
-`singleChoice` remains stable while PLE flat JSON version 2 supplies all eight
-native families at one versioned compiler boundary. A future QTI-JSONL format
+and QTI expression trees do not become PLE's internal schema. PLE flat JSON
+version 2 is the closed native source contract for all eight families, including
+`singleChoice`. A future QTI-JSONL format
 would be an external adapter, not the internal source model. See
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and
 [flat_question_family_evolution_plan.md](active_plans/active/flat_question_family_evolution_plan.md).

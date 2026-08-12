@@ -149,7 +149,6 @@ fn composed_memory_router_with_legacy_login(legacy_login: bool) -> Router {
                 )
                 .expect("valid test WebAuthn configuration"),
             ),
-            None,
             health,
         )
     } else {
@@ -173,7 +172,6 @@ fn composed_memory_router_with_legacy_login(legacy_login: bool) -> Router {
                 )
                 .expect("valid test WebAuthn configuration"),
             ),
-            None,
             health,
         )
     }
@@ -266,7 +264,6 @@ fn local_provider() -> LocalFileIdentityProvider {
             br#"{
                 "credentials": [{
                     "credential_sha256": "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd",
-                    "learner_alias": "student-local",
                     "tenant_id": "00000000-0000-0000-0000-000000000001",
                     "user_id": "00000000-0000-0000-0000-000000000002",
                     "display_name": "Local Student",
@@ -516,6 +513,18 @@ const IMATHAS_ENV_NAMES: [&str; 12] = [
     "PLE_IMATHAS_PROVIDER_AUTH_VALUE",
 ];
 
+fn replace_imathas_environment_variable(name: &str, value: Option<&str>) {
+    // SAFETY: `with_imathas_environment` holds `ENVIRONMENT_LOCK` for this complete
+    // mutation-and-read interval. Every test that mutates these iMathAS-only names uses
+    // that helper, so no test thread reads or writes them concurrently.
+    unsafe {
+        match value {
+            Some(value) => std::env::set_var(name, value),
+            None => std::env::remove_var(name),
+        }
+    }
+}
+
 fn with_imathas_environment<T>(
     replacements: &[(&str, Option<&str>)],
     action: impl FnOnce() -> T,
@@ -527,24 +536,17 @@ fn with_imathas_environment<T>(
         .map(|name| (*name, std::env::var(name).ok()))
         .collect::<Vec<_>>();
     for name in IMATHAS_ENV_NAMES {
-        // Test-only process environment setup is serialized above. These
-        // names are read solely by the production configuration boundary.
-        unsafe { std::env::remove_var(name) };
+        replace_imathas_environment_variable(name, None);
     }
     for (name, value) in replacements {
-        unsafe { std::env::remove_var(name) };
-        if let Some(value) = value {
-            unsafe { std::env::set_var(name, value) };
-        }
+        replace_imathas_environment_variable(name, *value);
     }
     let output = action();
     for name in IMATHAS_ENV_NAMES {
-        unsafe { std::env::remove_var(name) };
+        replace_imathas_environment_variable(name, None);
     }
     for (name, value) in saved {
-        if let Some(value) = value {
-            unsafe { std::env::set_var(name, value) };
-        }
+        replace_imathas_environment_variable(name, value.as_deref());
     }
     output
 }
@@ -800,7 +802,7 @@ async fn local_provider_hashes_raw_bearer_bytes_not_base64url_spelling() {
         .collect::<String>();
     let encoded_provider = LocalFileIdentityProvider::from_json_bytes(
             format!(
-                r#"{{"credentials":[{{"credential_sha256":"{encoded_hash}","learner_alias":"student-local","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Local Student","roles":["student"]}}]}}"#
+                r#"{{"credentials":[{{"credential_sha256":"{encoded_hash}","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Local Student","roles":["student"]}}]}}"#
             )
             .as_bytes(),
         )
@@ -878,8 +880,8 @@ async fn local_provider_only_accepts_canonical_fixed_identity_login() {
 fn local_identity_file_rejects_invalid_records() {
     for invalid in [
             br#"{"credentials":[]}"#.as_slice(),
-            br#"{"credentials":[{"credential_sha256":"ABCDEF","learner_alias":"student-local","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Student","roles":["student"]}]}"#.as_slice(),
-            br#"{"credentials":[{"credential_sha256":"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd","learner_alias":"student-local","tenant_id":"00000000-0000-0000-0000-000000000000","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Student","roles":["student"]}]}"#.as_slice(),
+            br#"{"credentials":[{"credential_sha256":"ABCDEF","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Student","roles":["student"]}]}"#.as_slice(),
+            br#"{"credentials":[{"credential_sha256":"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd","tenant_id":"00000000-0000-0000-0000-000000000000","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Student","roles":["student"]}]}"#.as_slice(),
         ] {
             assert!(matches!(
                 LocalFileIdentityProvider::from_json_bytes(invalid),

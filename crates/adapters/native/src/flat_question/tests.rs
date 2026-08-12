@@ -450,6 +450,16 @@ fn malformed_or_ambiguous_sources_are_refused() {
 }
 
 #[test]
+fn version_one_flat_source_is_refused_without_a_legacy_reader() {
+    let version_one = FAVORITE_COLOR.replacen("\"version\": 2", "\"version\": 1", 1);
+
+    assert_eq!(
+        FlatQuestionDocument::parse(version_one.as_bytes()),
+        Err(FlatQuestionError::UnsupportedVersion(1))
+    );
+}
+
+#[test]
 fn private_material_refuses_a_different_public_definition() {
     let document =
         FlatQuestionDocument::parse(FAVORITE_COLOR.as_bytes()).expect("flat source should parse");

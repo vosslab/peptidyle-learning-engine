@@ -374,7 +374,9 @@ pub struct ClaimCourseInvitation {
 /// Canonical optional contact identity for one roster member.
 #[derive(Debug, Clone)]
 pub struct CourseRosterContact {
+    /// Verified email address used for roster matching and delivery.
     pub email: AuthenticationEmail,
+    /// Instructor-facing identifier unique within the course roster.
     pub roster_id: CourseRosterId,
 }
 
@@ -382,9 +384,13 @@ pub struct CourseRosterContact {
 /// `course_member`, and assignment enrollments in one Store transaction.
 #[derive(Debug, Clone)]
 pub struct UpsertCourseMember {
+    /// Course receiving the canonical roster member.
     pub course: CourseId,
+    /// Authenticated or configured user receiving student access.
     pub user: UserId,
+    /// Display name shown on the roster and gradebook.
     pub display_name: String,
+    /// Optional roster contact; configured local learners have no email identity.
     pub roster_contact: Option<CourseRosterContact>,
 }
 

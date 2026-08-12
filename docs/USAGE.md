@@ -44,8 +44,9 @@ successful `./build.sh` or normal launcher run.
 
 ## Instructor and student guides
 
-- [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md) follows visible course creation, local roster
-  activation, corpus-backed assignment construction, and gradebook review.
+- [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md) follows visible course creation, canonical no-contact
+  roster membership/enrollment for the fictional learner, corpus-backed assignment construction, and
+  gradebook review. Local-file configuration authenticates the fictional actor only.
 - [STUDENT_GUIDE.md](STUDENT_GUIDE.md) follows the keyboard-only take, score, correction, and fresh
   practice loop.
 

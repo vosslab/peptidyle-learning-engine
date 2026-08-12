@@ -393,7 +393,6 @@ function decodeRosterMember(value: unknown, path: string): CourseRosterMember {
     "displayName",
     "rosterEmail",
     "rosterId",
-    "source",
     "role",
     "status",
   ]);

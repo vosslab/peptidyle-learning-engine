@@ -9,8 +9,8 @@ use super::{PostgresStore, map_sqlx_error, page_from_keyed_records};
 use crate::{
     ClaimCourseInvitation, ClaimedCourseMembership, CommitCourseRosterImport,
     CommittedCourseRosterImport, CourseEnrollmentPolicy, CourseInvitation, CourseInvitationId,
-    CourseMemberId, CourseMemberStatus, CourseRosterImportPreview, CourseRosterMember,
-    CourseRosterPage, CourseRosterStore, CreateCourseInvitation, PageRequest,
+    CourseMemberId, CourseMemberStatus, CourseRosterContact, CourseRosterImportPreview,
+    CourseRosterMember, CourseRosterPage, CourseRosterStore, CreateCourseInvitation, PageRequest,
     ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation, RevokeCourseMember, RosterRevision,
     SessionTokenHash, StageCourseRosterImport, StoreError, TenantContext, UpsertCourseMember,
 };
@@ -392,6 +392,7 @@ impl CourseRosterStore for PostgresStore {
             command.user,
             student,
             &command.display_name,
+            command.roster_contact.as_ref(),
         )
         .await?;
         ensure_student_membership(&mut transaction, tenant, command.course, command.user).await?;
@@ -654,6 +655,7 @@ async fn upsert_course_member_record(
     user: UserId,
     student: StudentId,
     display_name: &str,
+    roster_contact: Option<&CourseRosterContact>,
 ) -> Result<CourseRosterMember, StoreError> {
     let display_name = crate::validated_account_display_name(display_name)
         .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
@@ -663,11 +665,13 @@ async fn upsert_course_member_record(
         .map_or_else(CourseMemberId::generate, |member| Ok(member.id))?;
     let row = sqlx::query(
         "INSERT INTO course_roster_member \
-         (tenant_id, course_id, course_member_id, user_id, student_id, display_name, status, joined_at) \
-         VALUES ($1, $2, $3, $4, $5, $6, 'active', transaction_timestamp()) \
+         (tenant_id, course_id, course_member_id, user_id, student_id, display_name, \
+          roster_email_normalized, roster_email_delivery, roster_id, status, joined_at) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active', transaction_timestamp()) \
          ON CONFLICT (tenant_id, course_id, user_id) DO UPDATE SET \
              student_id = EXCLUDED.student_id, display_name = EXCLUDED.display_name, \
-             roster_email_normalized = NULL, roster_email_delivery = NULL, roster_id = NULL, \
+             roster_email_normalized = EXCLUDED.roster_email_normalized, \
+             roster_email_delivery = EXCLUDED.roster_email_delivery, roster_id = EXCLUDED.roster_id, \
              status = 'active', revoked_at = NULL \
          RETURNING course_member_id, user_id, student_id, display_name, \
                    roster_email_normalized AS normalized_email, \
@@ -681,6 +685,9 @@ async fn upsert_course_member_record(
     .bind(user.as_uuid())
     .bind(student.as_uuid())
     .bind(display_name)
+    .bind(roster_contact.map(|contact| contact.email.normalized()))
+    .bind(roster_contact.map(|contact| contact.email.delivery()))
+    .bind(roster_contact.map(|contact| contact.roster_id.as_str()))
     .fetch_one(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;

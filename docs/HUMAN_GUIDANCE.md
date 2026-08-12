@@ -409,7 +409,8 @@ and current [ICO guidance on strictly necessary storage/access](https://ico.org.
 
 - Focus on the latest versions of all code because many security bugs are being
   fixed.
-- Never pin versions; `>=` version requirements are acceptable.
+- Never pin versions. This private application workspace uses `version = "*"` for every
+  direct registry dependency; `Cargo.lock` records the reviewed exact resolution.
 
 ## Generated artifacts
 

@@ -24,7 +24,7 @@ uuid.workspace = true
 # keep it visible until an upstream SDK release removes the transitive version.
 base64 = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
-aws-sdk-s3 = { version = ">=1.141.0", default-features = false, features = [
+aws-sdk-s3 = { version = "*", default-features = false, features = [
     "behavior-version-latest",
     "default-https-client",
     "rt-tokio",

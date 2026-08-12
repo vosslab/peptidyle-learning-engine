@@ -270,9 +270,8 @@ def test_nonregistry_dependency_sources_are_exempt_from_registry_version_policy(
 
 
 #============================================
-def test_registry_dependencies_use_explicit_open_minimum_versions() -> None:
-	"""Keep registry requirements open for security fixes without hiding their floor."""
-	minimum_version = re.compile(r"^>=\d+\.\d+\.\d+$")
+def test_registry_dependencies_use_manager_selected_wildcards() -> None:
+	"""Keep private-workspace registry requirements open to every current release."""
 	violations = []
 	for manifest_path in _tracked_cargo_manifests():
 		manifest = _read_toml(manifest_path)
@@ -281,10 +280,10 @@ def test_registry_dependencies_use_explicit_open_minimum_versions() -> None:
 				version = _registry_version_requirement(specification)
 				if version is None:
 					continue
-				if not minimum_version.fullmatch(version):
+				if version != "*":
 					relative_path = manifest_path.relative_to(REPO_ROOT)
 					violations.append(
 						f"{relative_path}: [{table_name}] {dependency_name} must use exactly "
-						f"one open-minimum registry requirement >=x.y.z, found {version!r}"
+						f"the manager-selected wildcard registry requirement '*', found {version!r}"
 					)
 	assert not violations, "\n".join(violations)

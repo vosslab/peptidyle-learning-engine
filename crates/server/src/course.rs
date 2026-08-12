@@ -27,8 +27,6 @@ use axum::http::header::{ETAG, IF_MATCH};
 #[cfg(test)]
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 #[cfg(test)]
-use axum::response::Response;
-#[cfg(test)]
 use learning_data_access::{CourseRecord, Store};
 #[cfg(test)]
 use question_model::{

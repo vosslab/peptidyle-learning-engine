@@ -27,12 +27,12 @@ lettre.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
-subtle = ">=2.6.1"
+subtle = "*"
 chacha20poly1305.workspace = true
 uuid.workspace = true
-libc = ">=0.2.183"
-tracing = ">=0.1.44"
-tracing-subscriber = ">=0.3.23"
+libc = "*"
+tracing = "*"
+tracing-subscriber = "*"
 url.workspace = true
 webauthn-rs.workspace = true
 
@@ -54,7 +54,7 @@ learning-data-access = { workspace = true, features = ["postgres"] }
 
 [dev-dependencies]
 tower.workspace = true
-futures-core = ">=0.3.31"
-zip = { version = ">=6.0.0", default-features = false, features = ["deflate"] }
+futures-core = "*"
+zip = { version = "*", default-features = false, features = ["deflate"] }
 learning-data-access = { workspace = true, features = ["test-support"] }
 adapter_imathas = { workspace = true, features = ["test-support"] }

@@ -4,17 +4,17 @@
 
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
-    AccountIdentityStore, ActivateLocalDevelopmentCourseMember, AuthenticationEmail,
-    AuthenticationRateLimitDecision, AuthenticationRateLimitKey, AuthenticationRateLimitPolicy,
-    AuthenticationRateLimitScope, BeginWebauthnCeremony, BrowserBindingHash,
-    CommitCourseRosterImport, CompletePasskeyAuthenticationAndCreateSession,
-    ConsumeAuthenticationRateLimit, CourseInvitationLifetime, CourseInvitationSecretHash,
-    CourseRosterId, CourseRosterImportLifetime, CourseRosterImportRowInput,
-    CourseRosterMemberSource, CourseRosterStore, CreateCourseInvitation, CredentialIdHash,
-    PageRequest, PageSize, PasskeyId, PasskeyRecord, RegisterPasskey, RosterIdempotencyKey,
-    RosterImportInvitation, SessionLifetime, SessionStore, SessionSubject, SessionTokenHash,
-    StageCourseRosterImport, StoreError, TenantContext, WebauthnCeremonyId, WebauthnCeremonyKind,
-    WebauthnCeremonyLifetime, WebauthnState,
+    AccountIdentityStore, AuthenticationEmail, AuthenticationRateLimitDecision,
+    AuthenticationRateLimitKey, AuthenticationRateLimitPolicy, AuthenticationRateLimitScope,
+    BeginWebauthnCeremony, BrowserBindingHash, CommitCourseRosterImport,
+    CompletePasskeyAuthenticationAndCreateSession, ConsumeAuthenticationRateLimit,
+    CourseInvitationLifetime, CourseInvitationSecretHash, CourseRosterId,
+    CourseRosterImportLifetime, CourseRosterImportRowInput, CourseRosterStore,
+    CreateCourseInvitation, CredentialIdHash, PageRequest, PageSize, PasskeyId, PasskeyRecord,
+    RegisterPasskey, RosterIdempotencyKey, RosterImportInvitation, SessionLifetime, SessionStore,
+    SessionSubject, SessionTokenHash, StageCourseRosterImport, StoreError, TenantContext,
+    UpsertCourseMember, WebauthnCeremonyId, WebauthnCeremonyKind, WebauthnCeremonyLifetime,
+    WebauthnState,
 };
 use objects::Sha256Digest;
 use question_model::{CourseId, CourseRole, TenantId, UserId, UserRole};
@@ -411,7 +411,7 @@ async fn postgres_enrollment_capability_is_locked_unique_and_role_separated() {
 
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL acceptance database"]
-async fn postgres_local_development_activation_is_atomic_idempotent_and_tenant_scoped() {
+async fn postgres_course_member_upsert_is_atomic_idempotent_and_tenant_scoped() {
     let database_url = std::env::var("PLE_TEST_DATABASE_URL")
         .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
     let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
@@ -420,21 +420,15 @@ async fn postgres_local_development_activation_is_atomic_idempotent_and_tenant_s
         .expect("live PostgreSQL schema compatibility");
     let store = PostgresStore::new(pool.clone());
     let tenant = TenantId::from_uuid(id());
-    let foreign_tenant = TenantId::from_uuid(id());
     let course = CourseId::from_uuid(id());
     let manager = UserId::from_uuid(id());
     let learner = UserId::from_uuid(id());
-    let outsider = UserId::from_uuid(id());
     let conflicting_instructor = UserId::from_uuid(id());
     let assignments = [id(), id()];
     let manager_session = SessionTokenHash::compute(id().as_bytes());
-    let outsider_session = SessionTokenHash::compute(id().as_bytes());
     let context = TenantContext::from_authenticated_session(tenant);
 
-    for (user, roles, token) in [
-        (manager, vec![UserRole::Instructor], manager_session),
-        (outsider, vec![UserRole::Instructor], outsider_session),
-    ] {
+    for (user, roles, token) in [(manager, vec![UserRole::Instructor], manager_session)] {
         store
             .create_session(
                 token,
@@ -491,22 +485,19 @@ async fn postgres_local_development_activation_is_atomic_idempotent_and_tenant_s
     }
     fixture.commit().await.expect("commit local roster fixture");
 
-    let command = ActivateLocalDevelopmentCourseMember {
+    let command = UpsertCourseMember {
         course,
-        learner_user: learner,
-        learner_display_name: "Local Learner".to_string(),
+        user: learner,
+        display_name: "Canonical Learner".to_string(),
+        roster_contact: None,
     };
     let (first, second) = tokio::join!(
-        store.activate_local_development_course_member(context, manager_session, command.clone()),
-        store.activate_local_development_course_member(context, manager_session, command),
+        store.upsert_course_member(context, command.clone()),
+        store.upsert_course_member(context, command),
     );
-    let first = first.expect("first local activation");
-    let second = second.expect("concurrent local activation retry");
-    assert_eq!(first, second, "retries must not duplicate a local learner");
-    assert_eq!(
-        first.member.source,
-        CourseRosterMemberSource::LocalDevelopment
-    );
+    let first = first.expect("first canonical roster upsert");
+    let second = second.expect("concurrent canonical roster upsert retry");
+    assert_eq!(first, second, "retries must not duplicate a course member");
     assert_eq!(first.member.roster_email, None);
     assert_eq!(first.member.roster_id, None);
 
@@ -518,7 +509,7 @@ async fn postgres_local_development_activation_is_atomic_idempotent_and_tenant_s
             PageRequest::first(PageSize::new(20).expect("bounded page size")),
         )
         .await
-        .expect("manager local roster read");
+        .expect("manager roster read");
     assert_eq!(roster.entries.items.len(), 1);
     assert_eq!(roster.policy.revision, first.roster_revision);
     let student_memberships = sqlx::query_scalar::<_, i64>(
@@ -566,54 +557,36 @@ async fn postgres_local_development_activation_is_atomic_idempotent_and_tenant_s
     .expect("count enrollment summaries");
     assert_eq!(summary_count, 2, "every enrollment has one empty summary");
 
-    let unauthorized = store
-        .activate_local_development_course_member(
-            context,
-            outsider_session,
-            ActivateLocalDevelopmentCourseMember {
-                course,
-                learner_user: UserId::from_uuid(id()),
-                learner_display_name: "Unauthorized Learner".to_string(),
-            },
-        )
-        .await;
-    assert!(
-        matches!(
-            unauthorized,
-            Err(StoreError::Forbidden | StoreError::NotFound)
-        ),
-        "a persisted session without course management rights cannot activate local learners: {unauthorized:?}"
-    );
     let foreign = store
-        .activate_local_development_course_member(
-            TenantContext::from_authenticated_session(foreign_tenant),
-            manager_session,
-            ActivateLocalDevelopmentCourseMember {
+        .upsert_course_member(
+            TenantContext::from_authenticated_session(TenantId::from_uuid(id())),
+            UpsertCourseMember {
                 course,
-                learner_user: UserId::from_uuid(id()),
-                learner_display_name: "Foreign Learner".to_string(),
+                user: UserId::from_uuid(id()),
+                display_name: "Foreign Learner".to_string(),
+                roster_contact: None,
             },
         )
         .await;
     assert!(
         matches!(foreign, Err(StoreError::Forbidden | StoreError::NotFound)),
-        "a foreign tenant context must not activate a local learner: {foreign:?}"
+        "a foreign tenant context must not upsert a course member: {foreign:?}"
     );
 
     assert_eq!(
         store
-            .activate_local_development_course_member(
+            .upsert_course_member(
                 context,
-                manager_session,
-                ActivateLocalDevelopmentCourseMember {
+                UpsertCourseMember {
                     course,
-                    learner_user: conflicting_instructor,
-                    learner_display_name: "Conflicting Instructor".to_string(),
+                    user: conflicting_instructor,
+                    display_name: "Conflicting Instructor".to_string(),
+                    roster_contact: None,
                 },
             )
             .await,
         Err(StoreError::Conflict),
-        "a local learner cannot replace an instructor course membership"
+        "a course member cannot replace an instructor course membership"
     );
     let stored_conflict = sqlx::query_scalar::<_, i64>(
         "SELECT count(*) FROM course_roster_member \
