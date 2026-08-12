@@ -9,7 +9,9 @@ import {
   assignmentProblemLabel,
   assignmentInput,
   createMasteryAssignmentDraft,
+  minutesToRunTimeLimit,
   moveCatalogReference,
+  parseExactProblemDisplayReferences,
   questionBackendLabel,
   removeCatalogReference,
 } from "../src/pages/assignment_editor_model.ts";
@@ -27,6 +29,7 @@ function draft() {
     title: "Editable peptide practice",
     problems: [],
     policies: publishedProblemFixture.assignment.policies,
+    assignmentTiming: { timeLimitSeconds: null },
     revision: '"7"',
   };
 }
@@ -55,6 +58,7 @@ test("assignment editor retains ordered immutable tuples and emits only editable
     title: "Editable peptide practice",
     problems: [reference],
     policies: publishedProblemFixture.assignment.policies,
+    assignmentTiming: { timeLimitSeconds: null },
   });
   assert.equal("workspace" in assignmentInput(twice), false);
   assert.equal("source" in assignmentInput(twice), false);
@@ -75,9 +79,45 @@ test("new assignments start with the Fall-pilot Mastery policy and no private st
     title: "",
     problems: [],
     policies: created.policies,
+    assignmentTiming: { timeLimitSeconds: 900 },
   });
   assert.equal("source" in created, false);
   assert.equal("answerKey" in created, false);
+});
+
+test("run timing minutes parse exactly and reject values outside the storage domain", () => {
+  assert.deepEqual(minutesToRunTimeLimit("1.5", true), { seconds: 90, error: null });
+  assert.equal(
+    minutesToRunTimeLimit("0.016", true).error,
+    "Enter minutes that convert to a whole number of seconds.",
+  );
+  assert.deepEqual(minutesToRunTimeLimit("35791394", true), {
+    seconds: 2_147_483_640,
+    error: null,
+  });
+  assert.equal(
+    minutesToRunTimeLimit("35791395", true).error,
+    "Enter a duration no longer than 2147483647 seconds.",
+  );
+});
+
+test("direct assignment import accepts only bounded exact human-readable versions", () => {
+  assert.deepEqual(parseExactProblemDisplayReferences(" P-12-v3,\nP-41-v1 "), [
+    "P-12-v3",
+    "P-41-v1",
+  ]);
+  assert.deepEqual(parseExactProblemDisplayReferences("P-2147483647-v2147483647"), [
+    "P-2147483647-v2147483647",
+  ]);
+  for (const value of ["", "P-12", "12-v3", "P-0-v1", "P-12-v0", "P-12-v3, P-12-v3"]) {
+    assert.throws(() => parseExactProblemDisplayReferences(value));
+  }
+  for (const value of ["P-2147483648-v1", "P-1-v2147483648"]) {
+    assert.throws(
+      () => parseExactProblemDisplayReferences(value),
+      new Error(`${value} is not an exact question ID. Use the form P-12-v3.`),
+    );
+  }
 });
 
 test("assignment editor repository creates a bounded catalog query and passes the exact CAS input", async () => {
@@ -95,6 +135,10 @@ test("assignment editor repository creates a bounded catalog query and passes th
     searchCatalog: async (query) => {
       calls.push({ query });
       return { items: [publishedProblemFixture.catalogProblem] };
+    },
+    resolveCatalogProblem: async (displayReference) => {
+      calls.push({ displayReference });
+      return publishedProblemFixture.catalogProblem;
     },
     getCatalogProblemDetail: async (problem, version) => ({
       summary: { ...publishedProblemFixture.catalogProblem, problem, version },
@@ -118,12 +162,16 @@ test("assignment editor repository creates a bounded catalog query and passes th
     pageSize: 20,
   });
 
+  const resolved = await repository.resolvePublished("P-1-v1");
+  assert.deepEqual(resolved, rows[0]);
+  assert.deepEqual(calls[1], { displayReference: "P-1-v1" });
+
   const described = await repository.describePublished([reference]);
   assert.deepEqual(described, rows);
 
   const input = assignmentInput({ ...draft(), problems: [reference] });
   await repository.create(publishedProblemFixture.course.id, input);
-  assert.deepEqual(calls[1], {
+  assert.deepEqual(calls[2], {
     course: publishedProblemFixture.course.id,
     input,
     create: true,
@@ -134,7 +182,7 @@ test("assignment editor repository creates a bounded catalog query and passes th
     input,
     '"7"',
   );
-  assert.deepEqual(calls[2], {
+  assert.deepEqual(calls[3], {
     course: publishedProblemFixture.course.id,
     assignment: publishedProblemFixture.assignment.id,
     input,

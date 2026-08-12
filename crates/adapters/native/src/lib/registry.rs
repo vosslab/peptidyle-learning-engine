@@ -74,9 +74,6 @@ impl NativeAdapter {
     /// Builds the production registry with reviewed built-in source families.
     pub fn new() -> Self {
         let mut adapter = Self::empty();
-        adapter
-            .register_family(crate::flat_question::FlatSingleChoiceFamily)
-            .expect("the built-in static flat family registration is unique");
         for family in crate::flat_question::FLAT_V2_FAMILIES {
             adapter
                 .register_family(family)

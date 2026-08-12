@@ -447,7 +447,7 @@ where
         .await
         .expect("conforming course write should succeed");
     store
-        .create_assignment(context, assignment.clone())
+        .create_untimed_assignment(context, assignment.clone())
         .await
         .expect("conforming assignment write should succeed");
     store

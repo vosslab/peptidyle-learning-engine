@@ -41,16 +41,18 @@ interface QtiRouteOptions {
 
 interface FlatSource {
   readonly format: "pleFlatQuestion";
-  readonly version: 1;
-  readonly kind: "singleChoice";
+  readonly version: 2;
   readonly title: string;
   readonly prompt: string;
-  readonly choices: ReadonlyArray<{
-    readonly id: string;
-    readonly text: string;
-    readonly feedback: string | null;
-  }>;
-  readonly correctChoice: string;
+  readonly response: {
+    readonly kind: "singleChoice";
+    readonly choices: ReadonlyArray<{
+      readonly id: string;
+      readonly text: string;
+      readonly feedback: string | null;
+    }>;
+    readonly correctChoice: string;
+  };
   readonly feedback: { readonly correct: string | null; readonly incorrect: string | null };
   readonly points: number;
   readonly attemptPolicy: { readonly maxAttempts: null; readonly feedback: "immediateFull" };
@@ -64,15 +66,17 @@ interface FlatSource {
 function flatSource(title = "Original private draft"): FlatSource {
   return {
     format: "pleFlatQuestion",
-    version: 1,
-    kind: "singleChoice",
+    version: 2,
     title,
     prompt: "Which molecule stores hereditary information?",
-    choices: [
-      { id: "dna", text: "DNA", feedback: null },
-      { id: "lipid", text: "A lipid", feedback: null },
-    ],
-    correctChoice: "dna",
+    response: {
+      kind: "singleChoice",
+      choices: [
+        { id: "dna", text: "DNA", feedback: null },
+        { id: "lipid", text: "A lipid", feedback: null },
+      ],
+      correctChoice: "dna",
+    },
     feedback: { correct: null, incorrect: null },
     points: 1,
     attemptPolicy: { maxAttempts: null, feedback: "immediateFull" },
@@ -87,11 +91,11 @@ function flatSource(title = "Original private draft"): FlatSource {
 function publicDraft(source: FlatSource): unknown {
   return {
     workspace,
-    source: { backend: "native", family: "flat_single_choice_v1" },
+    source: { backend: "native", family: "flat_single_choice_v2" },
     prompt: [{ kind: "text", markdown: source.prompt }],
     response: {
       kind: "multipleChoice",
-      choices: source.choices.map((choice) => ({
+      choices: source.response.choices.map((choice) => ({
         id: choice.id,
         body: [{ kind: "text", markdown: choice.text }],
       })),

@@ -17,8 +17,8 @@ dist_*/
 dist-single/
 _site/
 generated/
-target/
 coverage/
+target/
 
 # Agent scratch files and directories.
 _temp*

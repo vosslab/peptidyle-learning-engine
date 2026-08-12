@@ -1,15 +1,15 @@
 /**
- * The answer-bearing PLE flat-question v1 authoring contract.
+ * The answer-bearing PLE flat-question v2 authoring contract.
  *
  * This type stays inside the authoring feature.  Learner-facing code uses the
  * answer-free projection from flat_question_public_preview.ts instead.
  */
 
 export const FLAT_QUESTION_FORMAT = "pleFlatQuestion";
-export const FLAT_QUESTION_VERSION = 1;
-export const FLAT_QUESTION_KIND = "singleChoice";
+export const FLAT_QUESTION_VERSION = 2;
+export const FLAT_QUESTION_RESPONSE_KIND = "singleChoice";
 export const FLAT_QUESTION_MEDIA_TYPE = "application/vnd.peptidyle.flat-question+json";
-export const FLAT_QUESTION_FAMILY = "flat_single_choice_v1";
+export const FLAT_QUESTION_FAMILY = "flat_single_choice_v2";
 
 export type FlatQuestionFeedbackDisclosure =
   "immediateFull" | "immediateCorrectness" | "deferred" | "onRelease";
@@ -52,14 +52,18 @@ export type FlatQuestionOutcomeFeedback = {
 };
 
 /** Exact JSON source shape accepted by the private authoring endpoint. */
-export type FlatQuestionSourceV1 = {
-  readonly format: typeof FLAT_QUESTION_FORMAT;
-  readonly version: typeof FLAT_QUESTION_VERSION;
-  readonly kind: typeof FLAT_QUESTION_KIND;
-  readonly title: string;
-  readonly prompt: string;
+export type FlatQuestionSingleChoiceResponse = {
+  readonly kind: typeof FLAT_QUESTION_RESPONSE_KIND;
   readonly choices: ReadonlyArray<FlatQuestionChoice>;
   readonly correctChoice: string;
+};
+
+export type FlatQuestionSourceV2 = {
+  readonly format: typeof FLAT_QUESTION_FORMAT;
+  readonly version: typeof FLAT_QUESTION_VERSION;
+  readonly title: string;
+  readonly prompt: string;
+  readonly response: FlatQuestionSingleChoiceResponse;
   readonly feedback: FlatQuestionOutcomeFeedback;
   readonly points: number;
   readonly attemptPolicy: FlatQuestionAttemptPolicy;

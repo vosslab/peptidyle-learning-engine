@@ -17,6 +17,7 @@ import { dirname, join } from "node:path";
 import { expect, test } from "@playwright/test";
 
 import { writeJ1Checkpoint } from "./j1_checkpoint";
+import { writeJ2Checkpoint } from "./j2_checkpoint";
 
 const temporaryDirectories: string[] = [];
 
@@ -26,21 +27,27 @@ test.afterEach(() => {
   }
 });
 
-function checkpointPath(): string {
+function checkpointPath(filename = "j1-checkpoint.txt"): string {
   const directory = mkdtempSync(join(tmpdir(), "ple-j1-checkpoint-"));
   temporaryDirectories.push(directory);
   chmodSync(directory, 0o700);
-  const path = join(directory, "j1-checkpoint.txt");
+  const path = join(directory, filename);
   writeFileSync(path, "", { encoding: "ascii", mode: 0o600 });
   return path;
 }
 
-test("J1 checkpoint atomically records one closed, ASCII visible stage", () => {
+test("journey checkpoint atomically records a closed, ASCII visible stage", () => {
   const path = checkpointPath();
   writeJ1Checkpoint(path, "course_opened");
   expect(readFileSync(path, "ascii")).toBe("course_opened\n");
   expect(lstatSync(path).isFile()).toBe(true);
   expect(lstatSync(path).mode & 0o777).toBe(0o600);
+});
+
+test("J2 checkpoint records the last safe first-run milestone", () => {
+  const path = checkpointPath("j2-checkpoint.txt");
+  writeJ2Checkpoint(path, "first_run_completed");
+  expect(readFileSync(path, "ascii")).toBe("first_run_completed\n");
 });
 
 test("J1 checkpoint rejects unknown stages and hostile private filesystem shapes", () => {

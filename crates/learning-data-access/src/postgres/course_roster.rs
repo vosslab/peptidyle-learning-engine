@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use question_model::{CourseId, CourseMembershipRole, StudentId, TenantId, UserId};
+use question_model::{CourseId, StudentId, TenantId, UserId};
 use sqlx::types::Uuid;
 use sqlx::{Postgres, Row, Transaction};
 use std::collections::BTreeSet;
@@ -7,22 +7,18 @@ use std::collections::BTreeSet;
 use super::course_roster_decode::*;
 use super::{PostgresStore, map_sqlx_error, page_from_keyed_records};
 use crate::{
-    ActivateLocalDevelopmentCourseMember, ClaimCourseInvitation, ClaimedCourseMembership,
-    CommitCourseRosterImport, CommittedCourseRosterImport, CourseEnrollmentPolicy,
-    CourseInvitation, CourseInvitationId, CourseMemberId, CourseMemberStatus,
-    CourseRosterImportPreview, CourseRosterMember, CourseRosterPage, CourseRosterStore,
-    CreateCourseInvitation, PageRequest, ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation,
-    RevokeCourseMember, RosterRevision, SessionTokenHash, StageCourseRosterImport, StoreError,
-    TenantContext,
+    ClaimCourseInvitation, ClaimedCourseMembership, CommitCourseRosterImport,
+    CommittedCourseRosterImport, CourseEnrollmentPolicy, CourseInvitation, CourseInvitationId,
+    CourseMemberId, CourseMemberStatus, CourseRosterImportPreview, CourseRosterMember,
+    CourseRosterPage, CourseRosterStore, CreateCourseInvitation, PageRequest,
+    ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation, RevokeCourseMember, RosterRevision,
+    SessionTokenHash, StageCourseRosterImport, StoreError, TenantContext, UpsertCourseMember,
 };
 
 #[path = "course_roster/enrollment.rs"]
 mod enrollment;
 #[path = "course_roster/import.rs"]
 mod import;
-#[path = "course_roster/local_development.rs"]
-mod local_development;
-use local_development::upsert_local_development_member;
 
 #[async_trait]
 impl CourseRosterStore for PostgresStore {
@@ -43,7 +39,7 @@ impl CourseRosterStore for PostgresStore {
             .map(|cursor| cursor.as_str().to_string());
         let rows = sqlx::query(
             "SELECT stable_key, record_kind, record_id, user_id, student_id, display_name, \
-                    normalized_email, delivery_email, roster_id, source, status, invited_by, \
+                    normalized_email, delivery_email, roster_id, status, invited_by, \
                     claimed_user_id, \
                     floor(extract(epoch FROM created_at) * 1000)::bigint AS created_at_millis, \
                     floor(extract(epoch FROM expires_at) * 1000)::bigint AS expires_at_millis, \
@@ -53,7 +49,7 @@ impl CourseRosterStore for PostgresStore {
                         'member'::text AS record_kind, member.course_member_id AS record_id, \
                         member.user_id, member.student_id, member.display_name, \
                         member.roster_email_normalized AS normalized_email, \
-                        member.roster_email_delivery AS delivery_email, member.roster_id, member.source, \
+                        member.roster_email_delivery AS delivery_email, member.roster_id, member.status, \
                         member.status, NULL::uuid AS invited_by, NULL::uuid AS claimed_user_id, \
                         member.joined_at AS created_at, NULL::timestamptz AS expires_at, \
                         member.revoked_at \
@@ -64,7 +60,7 @@ impl CourseRosterStore for PostgresStore {
                         'invitation'::text AS record_kind, invitation.invitation_id AS record_id, \
                         NULL::uuid AS user_id, NULL::uuid AS student_id, \
                         NULL::text AS display_name, invitation.normalized_email, \
-                        invitation.delivery_email, invitation.roster_id, NULL::text AS source, \
+                        invitation.delivery_email, invitation.roster_id, \
                         CASE WHEN invitation.status = 'pending' \
                                   AND invitation.expires_at <= transaction_timestamp() \
                              THEN 'expired' ELSE invitation.status END AS status, \
@@ -356,39 +352,27 @@ impl CourseRosterStore for PostgresStore {
         })
     }
 
-    async fn activate_local_development_course_member(
+    async fn upsert_course_member(
         &self,
         context: TenantContext,
-        session: SessionTokenHash,
-        command: ActivateLocalDevelopmentCourseMember,
+        command: UpsertCourseMember,
     ) -> Result<ClaimedCourseMembership, StoreError> {
         let tenant = context.tenant_id();
         let mut transaction = self.begin_tenant(context).await?;
-        require_manager(&mut transaction, session, command.course).await?;
         lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-        require_manager(&mut transaction, session, command.course).await?;
-        let student = resolve_learner(&mut transaction, tenant, command.learner_user).await?;
-        if let Some(existing) = load_member_by_user_optional(
-            &mut transaction,
-            tenant,
-            command.course,
-            command.learner_user,
-        )
-        .await?
+        let student = resolve_learner(&mut transaction, tenant, command.user).await?;
+        if let Some(existing) =
+            load_member_by_user_optional(&mut transaction, tenant, command.course, command.user)
+                .await?
             && existing.status == CourseMemberStatus::Active
         {
-            ensure_student_membership(
-                &mut transaction,
-                tenant,
-                command.course,
-                command.learner_user,
-            )
-            .await?;
+            ensure_student_membership(&mut transaction, tenant, command.course, command.user)
+                .await?;
             reconcile_member_assignments(
                 &mut transaction,
                 tenant,
                 command.course,
-                command.learner_user,
+                command.user,
                 student,
             )
             .await?;
@@ -401,27 +385,21 @@ impl CourseRosterStore for PostgresStore {
                 roster_revision: policy.revision,
             });
         }
-        let member = upsert_local_development_member(
+        let member = upsert_course_member_record(
             &mut transaction,
             tenant,
             command.course,
-            command.learner_user,
+            command.user,
             student,
-            &command.learner_display_name,
+            &command.display_name,
         )
         .await?;
-        ensure_student_membership(
-            &mut transaction,
-            tenant,
-            command.course,
-            command.learner_user,
-        )
-        .await?;
+        ensure_student_membership(&mut transaction, tenant, command.course, command.user).await?;
         reconcile_member_assignments(
             &mut transaction,
             tenant,
             command.course,
-            command.learner_user,
+            command.user,
             student,
         )
         .await?;
@@ -640,59 +618,6 @@ pub(super) async fn lock_course_roster_cross_product(
     Ok(())
 }
 
-pub(super) async fn reconcile_legacy_course_members(
-    transaction: &mut Transaction<'_, Postgres>,
-    course: &crate::CourseRecord,
-) -> Result<(), StoreError> {
-    let students = course
-        .members
-        .iter()
-        .filter(|membership| membership.role == CourseMembershipRole::Student)
-        .map(|membership| membership.user)
-        .collect::<BTreeSet<_>>();
-    for user in &students {
-        let student = resolve_learner(transaction, course.tenant, *user).await?;
-        sqlx::query(
-            "INSERT INTO course_roster_member \
-             (tenant_id, course_id, course_member_id, user_id, student_id, display_name, \
-              source, status, joined_at) \
-             VALUES ($1, $2, $3, $4, $5, 'Legacy learner', 'legacy', 'active', \
-                     transaction_timestamp()) \
-             ON CONFLICT (tenant_id, course_id, user_id) DO UPDATE SET \
-                 student_id = EXCLUDED.student_id, \
-                 status = CASE WHEN course_roster_member.source = 'legacy' \
-                               THEN 'active' ELSE course_roster_member.status END, \
-                 revoked_at = CASE WHEN course_roster_member.source = 'legacy' \
-                                   THEN NULL ELSE course_roster_member.revoked_at END",
-        )
-        .bind(course.tenant.as_uuid())
-        .bind(course.id.as_uuid())
-        .bind(CourseMemberId::generate()?.as_uuid())
-        .bind(user.as_uuid())
-        .bind(student.as_uuid())
-        .execute(&mut **transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-    }
-    let student_ids = students
-        .iter()
-        .map(|user| user.as_uuid())
-        .collect::<Vec<_>>();
-    sqlx::query(
-        "UPDATE course_roster_member SET status = 'revoked', \
-                revoked_at = transaction_timestamp() \
-         WHERE tenant_id = $1 AND course_id = $2 AND status = 'active' \
-           AND NOT (user_id = ANY($3::uuid[]))",
-    )
-    .bind(course.tenant.as_uuid())
-    .bind(course.id.as_uuid())
-    .bind(student_ids)
-    .execute(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    Ok(())
-}
-
 async fn reconcile_member_assignments(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
@@ -720,6 +645,46 @@ async fn reconcile_member_assignments(
         .await?;
     }
     Ok(())
+}
+
+async fn upsert_course_member_record(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    course: CourseId,
+    user: UserId,
+    student: StudentId,
+    display_name: &str,
+) -> Result<CourseRosterMember, StoreError> {
+    let display_name = crate::validated_account_display_name(display_name)
+        .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+    let member = load_member_by_user_optional(transaction, tenant, course, user).await?;
+    let member_id = member
+        .as_ref()
+        .map_or_else(CourseMemberId::generate, |member| Ok(member.id))?;
+    let row = sqlx::query(
+        "INSERT INTO course_roster_member \
+         (tenant_id, course_id, course_member_id, user_id, student_id, display_name, status, joined_at) \
+         VALUES ($1, $2, $3, $4, $5, $6, 'active', transaction_timestamp()) \
+         ON CONFLICT (tenant_id, course_id, user_id) DO UPDATE SET \
+             student_id = EXCLUDED.student_id, display_name = EXCLUDED.display_name, \
+             roster_email_normalized = NULL, roster_email_delivery = NULL, roster_id = NULL, \
+             status = 'active', revoked_at = NULL \
+         RETURNING course_member_id, user_id, student_id, display_name, \
+                   roster_email_normalized AS normalized_email, \
+                   roster_email_delivery AS delivery_email, roster_id, status, \
+                   floor(extract(epoch FROM joined_at) * 1000)::bigint AS created_at_millis, \
+                   floor(extract(epoch FROM revoked_at) * 1000)::bigint AS revoked_at_millis",
+    )
+    .bind(tenant.as_uuid())
+    .bind(course.as_uuid())
+    .bind(member_id.as_uuid())
+    .bind(user.as_uuid())
+    .bind(student.as_uuid())
+    .bind(display_name)
+    .fetch_one(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    decode_member(&row, tenant, course)
 }
 
 async fn resolve_learner(
@@ -764,17 +729,17 @@ async fn upsert_claimed_member(
     let row = sqlx::query(
         "INSERT INTO course_roster_member \
          (tenant_id, course_id, course_member_id, user_id, student_id, display_name, \
-          roster_email_normalized, roster_email_delivery, roster_id, source, status, joined_at) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'invitation', 'active', \
+          roster_email_normalized, roster_email_delivery, roster_id, status, joined_at) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active', \
                  transaction_timestamp()) \
          ON CONFLICT (tenant_id, course_id, user_id) DO UPDATE SET \
              student_id = EXCLUDED.student_id, display_name = EXCLUDED.display_name, \
              roster_email_normalized = EXCLUDED.roster_email_normalized, \
              roster_email_delivery = EXCLUDED.roster_email_delivery, roster_id = EXCLUDED.roster_id, \
-             source = 'invitation', status = 'active', revoked_at = NULL \
+             status = 'active', revoked_at = NULL \
          RETURNING course_member_id, user_id, student_id, display_name, \
                    roster_email_normalized AS normalized_email, \
-                   roster_email_delivery AS delivery_email, roster_id, source, status, \
+                   roster_email_delivery AS delivery_email, roster_id, status, \
                    floor(extract(epoch FROM joined_at) * 1000)::bigint AS created_at_millis, \
                    floor(extract(epoch FROM revoked_at) * 1000)::bigint AS revoked_at_millis",
     )
@@ -974,7 +939,7 @@ async fn load_member_by_user_optional(
     let row = sqlx::query(
         "SELECT course_member_id, user_id, student_id, display_name, \
                 roster_email_normalized AS normalized_email, \
-                   roster_email_delivery AS delivery_email, roster_id, source, status, \
+                   roster_email_delivery AS delivery_email, roster_id, status, \
                 floor(extract(epoch FROM joined_at) * 1000)::bigint AS created_at_millis, \
                 floor(extract(epoch FROM revoked_at) * 1000)::bigint AS revoked_at_millis \
          FROM course_roster_member WHERE tenant_id = $1 AND course_id = $2 AND user_id = $3",

@@ -1,8 +1,8 @@
 // ui_walkthrough_keyboard_j5.spec.ts - J5 instructor gradebook through rendered keyboard controls.
 
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
-import { configuredUiWalkthroughInputs } from "../../playwright.config";
+import { expect, test } from "./ui_walkthrough_fixture";
 
 import {
   instructorGradebookLinkSelector,
@@ -11,29 +11,27 @@ import {
 import { j5V2Input } from "./simulator/j5_v2_handoff";
 import { tabTo, tabToTargetThroughVisiblePagination } from "./simulator/keyboard_walkthrough";
 import { closeThenAppendV2J5State } from "./simulator/v2_j5_j8_state";
-import { instructorCredentialFromValidatedFile } from "./ui_walkthrough_live_config";
+import {
+  credentialFromValidatedFile,
+  type UiWalkthroughInputs,
+} from "./ui_walkthrough_config_factory";
 import { captureDocumentationScreenshot } from "./docs_screenshot_capture";
 
-test.skip(
-  configuredUiWalkthroughInputs === undefined,
-  "requires the explicit UI walkthrough live-stack invocation",
-);
 test.setTimeout(120_000);
 
 interface J5VisibleAssignment {
   readonly title: string;
 }
 
-async function signInAndOpenGradebook(page: Page): Promise<J5VisibleAssignment> {
-  const inputs = configuredUiWalkthroughInputs;
-  if (inputs === undefined)
-    throw new Error("the declaration-time live walkthrough skip did not apply");
-
+async function signInAndOpenGradebook(
+  page: Page,
+  inputs: UiWalkthroughInputs,
+): Promise<J5VisibleAssignment> {
   await page.goto("/");
   const credentialInput = page.getByLabel("Local development credential");
   await tabTo(page, credentialInput);
   await expect(credentialInput).toBeFocused();
-  await credentialInput.fill(instructorCredentialFromValidatedFile(inputs.credentialFile));
+  await credentialInput.fill(credentialFromValidatedFile(inputs.credentialFile, "instructor"));
   const signIn = page.getByRole("button", { name: "Sign in locally" });
   await tabTo(page, signIn);
   await expect(signIn).toBeFocused();
@@ -93,16 +91,17 @@ async function signInAndOpenGradebook(page: Page): Promise<J5VisibleAssignment> 
 
 test("J5 instructor opens gradebook run history with the keyboard after learner activity", async ({
   browser,
+  uiWalkthroughInputs,
 }) => {
-  const inputs = configuredUiWalkthroughInputs;
-  if (inputs === undefined)
-    throw new Error("the declaration-time live walkthrough skip did not apply");
+  test.skip(uiWalkthroughInputs === undefined, "requires the explicit UI walkthrough config");
+  if (uiWalkthroughInputs === undefined) return;
+  const inputs = uiWalkthroughInputs;
   const startedAt = performance.now();
   const context = await browser.newContext({ baseURL: inputs.baseUrl });
   let evidence: ReturnType<typeof passedJ5SummaryEvidence> | undefined;
   try {
     const page = await context.newPage();
-    const assignment = await signInAndOpenGradebook(page);
+    const assignment = await signInAndOpenGradebook(page, inputs);
 
     await expect(page.locator("[data-route-surface=gradebook]")).toBeVisible({ timeout: 30_000 });
     const row = page
@@ -141,7 +140,13 @@ test("J5 instructor opens gradebook run history with the keyboard after learner 
     await expect(completedRuns).toHaveCount(2, { timeout: 30_000 });
     await expect(completedRuns.nth(0)).toHaveText(/^Run 1: Completed/u);
     await expect(completedRuns.nth(1)).toHaveText(/^Run 2: Completed/u);
-    await captureDocumentationScreenshot(page, "instructor_gradebook_mastery_loop.png");
+    await captureDocumentationScreenshot(
+      page,
+      "instructor_gradebook_mastery_loop.png",
+      undefined,
+      undefined,
+      inputs.screenshotDirectory,
+    );
 
     const publicIds = j5V2Input(inputs.courseId, inputs.masteryAssignmentId);
     evidence = passedJ5SummaryEvidence(

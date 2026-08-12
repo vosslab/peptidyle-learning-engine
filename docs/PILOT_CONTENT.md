@@ -52,11 +52,13 @@ Run the disposable publication oracle separately:
 bash tests/e2e/e2e_chapter_one_pilot.sh
 ```
 
-It starts a uniquely named PostgreSQL and MinIO project, publishes all eight immutable sources and
-the two four-item assignments, reruns the seed without mutation, verifies eight distinct
-human-readable `P-...-v1` identities, and checks the persisted four-native/four-WeBWorK split. It
-removes only its own disposable containers and volumes. The normal local launcher uses this same
-host-only seed path and writes its answer-free manifest to
+It starts a uniquely named PostgreSQL and MinIO project, publishes the eight immutable current
+questions and two four-item Mastery assignments, then reruns the seed without mutation. Every
+instructor-readable identity is `P-...-v1`; the reviewed WeBWorK sources directly admit immediate
+correctness without disclosing answer material. The oracle checks the four-native/four-WeBWorK
+inventory, source artifacts, and absence of synthetic predecessors. It removes only its own
+disposable containers and volumes. The normal local launcher uses this same host-only seed path
+and writes its answer-free manifest to
 `containers/local-chapter-one-pilot.json`.
 
 Run the complete built-browser learner gate separately:
@@ -70,5 +72,5 @@ the same two assignments, and has the local student complete all eight questions
 keyboard controls without consulting answer keys. After each submission it requires the visible
 feedback region to show either released feedback or the policy-correct recorded-response state. It
 also requires the fresh-practice control after each four-question chapter, then removes only its own
-stack and volumes. The canonical UI walkthrough includes the Genetics four-question chapter as
-representative release-content evidence; this complete two-chapter gate remains the release oracle.
+stack and volumes. The canonical UI walkthrough visibly constructs the Genetics assignment in J13
+but does not run this all-eight learner sweep; this complete two-chapter gate remains the release oracle.

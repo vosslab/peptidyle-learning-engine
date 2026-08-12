@@ -222,7 +222,7 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
         .await
         .expect("course");
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,

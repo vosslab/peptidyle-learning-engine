@@ -89,8 +89,28 @@ visibility state.
 [SECURITY_MODEL.md](SECURITY_MODEL.md#catalog-publication-boundary), and the identity/catalog rows
 in [CONTRACTS.md](CONTRACTS.md#domain-contracts).
 
-**Planned closure.** Later schema evolution follows forward migrations and compatibility readers;
-it does not rewrite already published versions.
+**Planned closure.** Later schema evolution uses forward migrations and explicitly versioned
+protocols; while PLE remains pre-production, it removes obsolete readers rather than carrying
+compatibility paths. It does not rewrite already published versions once those exist.
+
+### Instructor-facing problem identities are operational
+
+**Decision.** `P-<number>-v<version>` is the human-facing identity of one immutable published
+problem version. Instructors copy it from the library and paste it into an assignment's add-by-ID
+control; problem and version UUIDs remain internal routing and persistence identities.
+
+**Why.** An identifier shown to a person needs to support the work that person actually does:
+recognizing, communicating, copying, and entering an exact question. A UUID is valuable at internal
+boundaries, but it is oversized and hostile for this instructor task.
+
+**Consequence.** The assignment editor accepts one or more exact display IDs, resolves every one
+before changing the draft, and adds only the corresponding immutable versions. Invalid, unavailable,
+unauthorized, or duplicate input preserves the pasted text and leaves the assignment unchanged.
+Human-readable labels are therefore an operational contract, not presentation-only decoration.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#teaching-and-product-priorities),
+`crates/question_model/src/catalog.rs`, and MOD-API-CAT in
+[CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
 
 ## Grading and learner traffic
 

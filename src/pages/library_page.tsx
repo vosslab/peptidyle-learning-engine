@@ -3,6 +3,7 @@
 import { A } from "@solidjs/router";
 import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 
+import { CopyableProblemId } from "../components/copyable_problem_id";
 import "./library_page.css";
 import {
   EMPTY_CATALOG_QUERY,
@@ -14,7 +15,7 @@ import {
   type CatalogBrowseState,
 } from "./library_page_model";
 
-const ROW_HEIGHT_PX = 116;
+const ROW_HEIGHT_PX = 152;
 const OVERSCAN_ROWS = 5;
 
 function catalogLink(row: CatalogBrowseRow): string {
@@ -199,6 +200,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                     <h2>{row.title}</h2>
                     <p>{row.summary}</p>
                     <p class="card-kicker">{row.taxonomy.join(" * ")}</p>
+                    <CopyableProblemId displayId={row.displayId} />
                     <A class="quiet-link" href={catalogLink(row)}>
                       Open immutable version
                     </A>

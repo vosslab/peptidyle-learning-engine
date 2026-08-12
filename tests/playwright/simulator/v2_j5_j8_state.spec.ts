@@ -19,8 +19,6 @@ import { parseV2WalkthroughState } from "./v2_visible_outcome_report";
 
 const COURSE_ID = "123e4567-e89b-12d3-a456-426614174000";
 const ASSIGNMENT_ID = "123e4567-e89b-12d3-a456-426614174001";
-const PROBLEM_ID = "123e4567-e89b-12d3-a456-426614174002";
-const VERSION_ID = "123e4567-e89b-12d3-a456-426614174003";
 
 function statePath(): string {
   const directory = mkdtempSync(join(tmpdir(), "ple-v2-j5-j8-state-"));
@@ -57,11 +55,11 @@ function setup(): InstructorSetupPrefix {
       elapsedMs: 1,
       courseId: COURSE_ID,
       assignmentId: ASSIGNMENT_ID,
-      problemId: PROBLEM_ID,
-      versionId: VERSION_ID,
+      selectedDisplayIds: ["P-11-v1", "P-12-v1", "P-13-v1", "P-14-v1"],
       visibleOutcomeCodes: [
         "visible_assignment_created",
         "visible_catalog_problem_selected",
+        "visible_four_question_chapter_one_selection",
         "visible_mastery_policy",
       ],
       diagnostics: [],
@@ -96,9 +94,12 @@ test("score evidence rejects wrong sequencing, foreign public IDs, and hostile c
   const path = statePath();
   throughJ4(path);
   expect(() => appendV2J8State(path, 1)).toThrow("next journey");
-  expect(() => appendV2J5State(path, passedJ5SummaryEvidence(COURSE_ID, PROBLEM_ID, 1))).toThrow(
-    "next journey",
-  );
+  expect(() =>
+    appendV2J5State(
+      path,
+      passedJ5SummaryEvidence(COURSE_ID, "123e4567-e89b-12d3-a456-426614174002", 1),
+    ),
+  ).toThrow("next journey");
 
   const hostile = { ...passedJ5SummaryEvidence(COURSE_ID, ASSIGNMENT_ID, 1) } as Record<
     string,

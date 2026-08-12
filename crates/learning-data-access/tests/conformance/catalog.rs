@@ -144,7 +144,7 @@ where
     );
     assert!(foreign_taxonomy.items.is_empty());
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: AssignmentId::from_uuid(uuid(313)),
@@ -163,7 +163,7 @@ where
         .expect("publishing tenant should assign institution content");
     assert!(matches!(
         store
-            .create_assignment(
+            .create_untimed_assignment(
                 foreign_context,
                 AssignmentRecord {
                     id: AssignmentId::from_uuid(uuid(314)),
@@ -416,7 +416,7 @@ where
         "existing references remain resolvable"
     );
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: AssignmentId::from_uuid(uuid(315)),
@@ -461,7 +461,7 @@ where
     ));
     assert!(matches!(
         store
-            .create_assignment(
+            .create_untimed_assignment(
                 context,
                 AssignmentRecord {
                     id: AssignmentId::from_uuid(uuid(316)),

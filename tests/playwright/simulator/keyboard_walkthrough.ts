@@ -17,6 +17,15 @@ export async function tabTo(
   await tabToWithinBound(page, target, direction, MAX_TAB_STEPS);
 }
 
+async function targetIsFocused(target: Locator): Promise<boolean> {
+  try {
+    await expect(target).toBeFocused({ timeout: 50 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Keeps the wider 50-row pagination traversal private to this helper module. */
 async function tabToPaginationTarget(page: Page, target: Locator): Promise<void> {
   await tabToWithinBound(page, target, "forward", MAX_PAGINATION_TAB_STEPS);
@@ -28,11 +37,11 @@ async function tabToWithinBound(
   direction: TabDirection,
   maxSteps: number,
 ): Promise<void> {
-  if (await target.evaluate((element) => element === document.activeElement)) return;
+  if (await targetIsFocused(target)) return;
   for (let step = 0; step < maxSteps; step += 1) {
     if (direction === "forward") await page.keyboard.press("Tab");
     else await page.keyboard.press("Shift+Tab");
-    if (await target.evaluate((element) => element === document.activeElement)) return;
+    if (await targetIsFocused(target)) return;
   }
   throw new Error("visible keyboard target was not reached through bounded native tab navigation");
 }

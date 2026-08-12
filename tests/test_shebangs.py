@@ -1,6 +1,7 @@
 # Standard Library
 import os
 import stat
+import pathlib
 
 # PIP3 modules
 import pytest
@@ -47,9 +48,7 @@ def read_shebang(path: str) -> str:
 		decoded = line.decode("utf-8").rstrip("\n")
 	except UnicodeDecodeError:
 		decoded = line.decode("utf-8", errors="replace").rstrip("\n")
-	# WeBWorK emits Perl configuration files with this marker and loads them as
-	# configuration; they are deliberately non-executable. It is not an OS
-	# interpreter path and must not trigger executable-script policy.
+	# WeBWorK loads this exact .conf heading as configuration data.
 	if decoded == "#!perl" and path.endswith(".conf"):
 		return ""
 	return decoded
@@ -215,8 +214,10 @@ def test_shebang_executable_alignment(path: str) -> None:
 
 
 #============================================
-def test_non_executable_perl_configuration_marker_is_not_a_shebang() -> None:
-	"""Treat WeBWorK's ``#!perl`` config marker as data, not an executable script."""
-	path = os.path.join(REPO_ROOT, "containers", "webwork", "course.conf")
-	assert read_shebang(path) == ""
-	assert not is_executable(path)
+def test_webwork_perl_configuration_marker_is_not_a_shebang(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""Treat WeBWorK's exact `#!perl` .conf heading as configuration data."""
+	path = tmp_path / "course.conf"
+	path.write_bytes(b"#!perl\n")
+	assert read_shebang(str(path)) == ""

@@ -43,15 +43,13 @@ const OWNER_TENANT: u128 = 4;
 
 const FLAT_SOURCE: &str = r#"{
   "format":"pleFlatQuestion",
-  "version":1,
-  "kind":"singleChoice",
+  "version":2,
   "title":"Favorite color",
   "prompt":"What is my favorite color?",
-  "choices":[
+  "response":{"kind":"singleChoice","choices":[
     {"id":"blue","text":"Blue","feedback":"PRIVATE_CHOICE_FEEDBACK"},
     {"id":"red","text":"Red","feedback":"PRIVATE_RED_FEEDBACK"}
-  ],
-  "correctChoice":"blue",
+  ],"correctChoice":"blue"},
   "feedback":{"correct":"PRIVATE_CORRECT_FEEDBACK","incorrect":"PRIVATE_INCORRECT_FEEDBACK"},
   "points":10.0,
   "attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},
@@ -537,7 +535,7 @@ async fn owner_save_stages_canonical_non_signable_source_and_returns_only_public
     assert_no_private_tokens(&body);
     let saved: serde_json::Value = serde_json::from_slice(&body).expect("public draft JSON");
     assert_eq!(saved["source"]["backend"], "native");
-    assert_eq!(saved["source"]["family"], FLAT_SINGLE_CHOICE_FAMILY);
+    assert_eq!(saved["source"]["family"], FLAT_SINGLE_CHOICE_V2_FAMILY);
 
     let draft = fixture
         .store
@@ -850,7 +848,7 @@ async fn current_publish_is_private_atomic_and_stale_publish_preserves_staging()
     let published: question_model::QuestionDefinition =
         serde_json::from_slice(&body).expect("published browser projection");
     assert!(
-        matches!(published.source, QuestionSource::Native { ref family } if family == FLAT_SINGLE_CHOICE_FAMILY)
+        matches!(published.source, QuestionSource::Native { ref family } if family == FLAT_SINGLE_CHOICE_V2_FAMILY)
     );
     let reference = ProblemVersionRef {
         problem: published.problem,

@@ -69,6 +69,8 @@ pub struct AssignmentRecord {
 pub struct StoredAssignment {
     pub record: AssignmentRecord,
     pub revision: AssignmentRevision,
+    /// Editor-only whole-run timer choice held under the same revision.
+    pub assignment_timing: question_model::AssignmentRunTiming,
     /// Generation matched by current computed score rows.
     pub scoring_generation: ScoringGeneration,
     /// Whether scores for this generation may be presented.
@@ -84,6 +86,18 @@ pub struct AssignmentUpdate {
     pub items: Vec<question_model::AssignmentItem>,
     pub selection_groups: Vec<question_model::AssignmentSelectionGroup>,
     pub policies: RunPolicies,
+}
+
+/// One editor save expressed as one revision-checked persistence operation.
+///
+/// `assignment_timing` is deliberately narrower than `AssignmentTimingPolicy`:
+/// a normal editor save must not clear schedule, access, or accommodation
+/// settings owned by their dedicated policy workflow.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssignmentEditorUpdate {
+    pub assignment: AssignmentUpdate,
+    pub assignment_timing: question_model::AssignmentRunTiming,
 }
 
 /// Current timing policy paired with the assignment's shared revision token.

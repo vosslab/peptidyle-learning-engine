@@ -13,7 +13,6 @@ import {
   decodePasskeyAuthenticated,
   decodePasskeyList,
   decodePasskeySummary,
-  decodeLocalDevelopmentMemberAccepted,
   decodeRosterImportCommitResult,
   decodeRosterImportPreview,
   decodeRosterRevisionResult,
@@ -275,21 +274,6 @@ export function createEnrollmentClient(
         }`,
         decodeCourseRosterPage,
       ),
-    addLocalDevelopmentMember: async (
-      courseId,
-      learnerAlias,
-    ): ReturnType<CourseRosterClient["addLocalDevelopmentMember"]> => {
-      const path = `/api/courses/${encodedId(courseId)}/local-development-members`;
-      const result = await rosterMutation(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeLocalDevelopmentMemberAccepted,
-        { method: "POST", body: { learnerAlias } },
-      );
-      verifyNumericEtag(result.response, result.body.rosterRevision, path);
-      return result.body;
-    },
     inviteCourseMember: async (
       courseId,
       email,

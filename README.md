@@ -21,11 +21,11 @@ that implement it.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Instructor assignment editor showing a selected immutable problem and Mastery run policies](docs/screenshots/instructor_assignment_settings.png)
+![Instructor assignment editor showing four selected Genetics Chapter 1 immutable versions and Mastery run policies](docs/screenshots/instructor_assignment_settings.png)
 
-![Instructor Assignment created confirmation showing Peptide bond mastery and its Open assignment link](docs/screenshots/instructor_assignment_created.png)
+![Instructor Assignment created confirmation showing Genetics Chapter 1 Practice and its Open assignment link](docs/screenshots/instructor_assignment_created.png)
 
-![Student peptide-bond problem showing the server-authoritative countdown and keyboard-focused response](docs/screenshots/student_timed_problem.png)
+![Student Genetics Chapter 1 problem showing the server-authoritative countdown and keyboard-focused response](docs/screenshots/student_timed_problem.png)
 
 ![Student completed-run summary showing a correct score and keyboard focus on Start another practice run](docs/screenshots/student_fresh_practice.png)
 
@@ -217,7 +217,7 @@ generation is discarded without delaying or rolling back the current grade.
 | WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                                                                                                |
 | Browser client                       | Solid routes for courses, assignments, attempt loop, summary, library, authoring, flat-question editing, assignment editing, and gradebook                                                                                                                                                                                                    |
 | PostgreSQL                           | Forward-only SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification                                                                                                                                                                                                                      |
-| Question engines                     | PLE flat-question JSON v2 implements all eight required native families while preserving v1 single choice; the external WeBWorK PG `/render-api` supports live PLE render, grading, cache, outage, and browser checks for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
+| Question engines                     | PLE flat-question JSON v2 implements all eight required native families; the external WeBWorK PG `/render-api` supports live PLE render, grading, cache, outage, and browser checks for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
 | DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                                                                                                                    |
 | Containers                           | Local PostgreSQL and MinIO named-volume state, stateless API/worker/gateway, and the private external stateless PG renderer; production runtime identities and deployment remain open                                                                                                                                                         |
 | Worker runtime                       | Production drains six complete families through a family-filtered registry; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                                                                                                                   |

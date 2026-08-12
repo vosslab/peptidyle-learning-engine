@@ -77,7 +77,7 @@ impl PersistedFlatImportProfile {
     }
 }
 
-/// Version of the server-owned composition from a QTI mapping to flat v1.
+/// Version of the server-owned composition from a QTI mapping to flat v2.
 ///
 /// The server owns the meaning of this value. Persistence only enforces a
 /// bounded, migration-friendly identifier and stores it without interpretation.

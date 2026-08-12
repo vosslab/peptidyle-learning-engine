@@ -2,6 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { build, type Plugin } from "esbuild";
 import { solidPlugin } from "esbuild-plugin-solid";
 
+import { classifyPostStartSurface } from "./simulator/post_start_surface";
+
 const routerPlugin = {
   name: "prefetch-fixture-router",
   setup(api): void {
@@ -50,6 +52,7 @@ test.beforeAll(async () => {
         const hash = (n) => String(n).repeat(64);
         const requests = [];
         const held = new Map();
+        let heldSuccessorScreen = null;
         let runId = ids.run30;
         let active = { [ids.run30]: 0, [ids.run31]: 0 };
         let mode = window.__prefetchMode ?? "match";
@@ -80,7 +83,12 @@ test.beforeAll(async () => {
           requests.push({ method, path, runId, body: method === "GET" ? null : await request.clone().text(), aborted: request.signal.aborted });
           const currentRun = makeRun(runId, runId === ids.run30 ? 30 : 31);
           const current = screenAttempt();
-          if (method === "GET" && path === "/api/runs/" + runId) return json(currentRun);
+          if (method === "GET" && path === "/api/runs/" + runId) {
+            if (submitted && screenMode === "hold") {
+              return new Promise((resolve) => { heldSuccessorScreen = () => resolve(json(currentRun)); });
+            }
+            return json(currentRun);
+          }
           if (method === "GET" && path === "/api/runs/" + runId + "/attempts") return json({ items: [current], nextCursor: null });
           if (method === "GET" && path === "/api/attempts/" + current.id + "/question") return json(envelope(current));
           if (method === "GET" && path === "/api/courses/" + publishedProblemFixture.course.id) return json(publishedProblemFixture.course);
@@ -117,7 +125,7 @@ test.beforeAll(async () => {
         const root = document.createElement("div"); root.id = "run-prefetch-fixture"; document.documentElement.append(root);
         const mount = () => render(() => createComponent(ApiRuntimeProvider, { runtime, get children() { return createComponent(WasmRuntimeProvider, { formatFallback: async () => ({ violations: [] }), timerFallback: async () => "open", capabilityFallback: async () => [], get children() { return createComponent(RunPage, {}); } }); } }), root);
         let dispose = mount();
-        window.__prefetchFixture = { get runId() { return runId; }, requests: () => requests, armStaleRunScreenQuery: () => { rejectStaleRunScreenQuery = true; }, staleRunScreenQueryCalls: () => staleRunScreenQueryCalls, setMode: (value) => { mode = value; }, setScreenMode: (value) => { screenMode = value; }, switchRun: (next) => { dispose(); runId = next; active[next] = 0; mode = "match"; screenMode = "exact"; submitted = false; dispose = mount(); }, settleHeld: (run) => { const entry = held.get(run); if (!entry) return false; const next = entry.next; entry.resolve(json({ predecessor: run === ids.run30 ? ids.a30 : ids.a31, run: next.run, assignmentPosition: 1, questionVersion: next.questionVersion, seed: next.seed, renderedQuestionSha256: hash("b"), envelope: envelope(next) })); return entry.signal.aborted; }, ids };
+        window.__prefetchFixture = { get runId() { return runId; }, requests: () => requests, armStaleRunScreenQuery: () => { rejectStaleRunScreenQuery = true; }, staleRunScreenQueryCalls: () => staleRunScreenQueryCalls, setMode: (value) => { mode = value; }, setScreenMode: (value) => { screenMode = value; }, releaseSuccessorScreen: () => { const release = heldSuccessorScreen; heldSuccessorScreen = null; if (release === null) return false; screenMode = "exact"; release(); return true; }, switchRun: (next) => { dispose(); runId = next; active[next] = 0; mode = "match"; screenMode = "exact"; submitted = false; dispose = mount(); }, settleHeld: (run) => { const entry = held.get(run); if (!entry) return false; const next = entry.next; entry.resolve(json({ predecessor: run === ids.run30 ? ids.a30 : ids.a31, run: next.run, assignmentPosition: 1, questionVersion: next.questionVersion, seed: next.seed, renderedQuestionSha256: hash("b"), envelope: envelope(next) })); return entry.signal.aborted; }, ids };
       `,
     },
     write: false,
@@ -138,6 +146,7 @@ interface PrefetchFixture {
   readonly staleRunScreenQueryCalls: () => number;
   readonly setMode: (mode: string) => void;
   readonly setScreenMode: (mode: string) => void;
+  readonly releaseSuccessorScreen: () => boolean;
   readonly switchRun: (run: string) => void;
   readonly settleHeld: (run: string) => boolean;
 }
@@ -308,6 +317,53 @@ test("a distinct retry attempt resets choice entry while the active attempt keep
   await root.getByRole("button", { name: "Continue" }).click();
   const retryRadio = root.locator('input[type="radio"]').first();
   await expect(retryRadio).not.toBeChecked();
+});
+
+test("fallback hides the submitted response until the successor screen is issued", async ({
+  page,
+}) => {
+  await mount(page, "outage");
+  await page.evaluate(() => window.__prefetchFixture.setScreenMode("hold"));
+  const root = page.locator("#run-prefetch-fixture");
+  const submittedRadio = root.locator('input[type="radio"]').first();
+  await submittedRadio.check();
+  await root.getByRole("button", { name: /submit answer/i }).click();
+  await root.getByRole("button", { name: "Continue" }).click();
+
+  const runSurface = root.locator("[data-route-surface=runAttempt]");
+  await expect(runSurface).toHaveAttribute("aria-busy", "true");
+  await expect(
+    root.getByRole("status").filter({ hasText: "Loading the next question..." }),
+  ).toBeVisible();
+  await expect(root.locator('input[type="radio"]')).toHaveCount(0);
+  await expect(root.getByRole("button", { name: /submit answer/i })).toHaveCount(0);
+  expect(
+    classifyPostStartSurface({
+      radios: await root.getByRole("radio").count(),
+      freshPractice: await root
+        .getByRole("button", { name: "Start another practice run" })
+        .isVisible(),
+      inlineErrors: await root.locator(".inline-error:visible").count(),
+    }),
+  ).toBe("pending");
+
+  await expect
+    .poll(() => page.evaluate(() => window.__prefetchFixture.releaseSuccessorScreen()))
+    .toBe(true);
+  await expect(root.getByRole("heading", { name: /Position 2/ })).toBeVisible();
+  await expect(runSurface).toHaveAttribute("aria-busy", "false");
+  const successorRadios = root.locator('input[type="radio"]');
+  expect(await successorRadios.count()).toBeGreaterThan(1);
+  expect(
+    classifyPostStartSurface({
+      radios: await root.getByRole("radio").count(),
+      freshPractice: await root
+        .getByRole("button", { name: "Start another practice run" })
+        .isVisible(),
+      inlineErrors: await root.locator(".inline-error:visible").count(),
+    }),
+  ).toBe("run");
+  for (const radio of await successorRadios.all()) await expect(radio).not.toBeChecked();
 });
 
 for (const descriptor of [

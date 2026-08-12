@@ -146,7 +146,9 @@ test.beforeAll(async () => {
             return {
               ...publishedProblemFixture.catalogProblem,
               problem: identifier(index),
+              publicId: index,
               version: identifier(index + totalRows),
+              versionNumber: 1,
               metadata: {
                 ...publishedProblemFixture.catalogProblem.metadata,
                 title: text + " catalog problem " + index,
@@ -227,6 +229,7 @@ test("built library keeps a 10,000-row catalog bounded, stale-safe, retryable, a
   // Change the query before the deliberately delayed initial response can settle.
   await search.fill("new");
   await expect(fixture.getByText("new catalog problem 1", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("P-1-v1", { exact: true })).toBeVisible();
   await expect(fixture.getByText("old catalog problem 1", { exact: true })).toHaveCount(0);
 
   await window.evaluate((element) => {

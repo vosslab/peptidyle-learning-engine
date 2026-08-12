@@ -6,7 +6,7 @@ import test from "node:test";
 import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
 import { DecodeError } from "../src/api/decoder.ts";
 import { decodeCatalogProblemDetail, decodeCatalogSearchPage } from "../src/api/decoders.ts";
-import { ApiProtocolError, createHttpApiClient } from "../src/api/http_client.ts";
+import { ApiProtocolError, ApiRequestError, createHttpApiClient } from "../src/api/http_client.ts";
 import { createMockApiClient } from "../src/api/mock/client.ts";
 import { createMockFetch } from "../src/api/mock/handlers.ts";
 
@@ -90,6 +90,16 @@ test("catalog detail decoder exposes only its safe immutable projection", async 
     JSON.stringify(detail),
     /"(?:source|response|grading|answerKey|provider|token)"\s*:/i,
   );
+});
+
+test("catalog search returns one immutable version for its copied human display ID", async () => {
+  const summary = publishedProblemFixture.catalogProblem;
+  const displayId = `P-${summary.publicId}-v${summary.versionNumber}`;
+  const page = await mockJson(`/api/problems/search?text=${encodeURIComponent(displayId)}`);
+
+  assert.equal(page.items.length, 1);
+  assert.equal(page.items[0].publicId, summary.publicId);
+  assert.equal(page.items[0].versionNumber, summary.versionNumber);
 });
 
 test("catalog detail decoder preserves scalar suppression and strictly decodes safe statistics", async () => {
@@ -187,6 +197,62 @@ test("HTTP catalog client serializes repeated filters, cursor, and page size on 
   assert.equal(requested.searchParams.get("cursor"), "opaque+cursor");
   assert.equal(requested.searchParams.get("pageSize"), "25");
   assert.equal(requested.searchParams.get("offset"), null);
+});
+
+test("catalog clients resolve one copyable exact version without exposing UUID input", async () => {
+  const requests = [];
+  const mockFetch = createMockFetch();
+  const client = createHttpApiClient({
+    fetch: async (input, init) => {
+      const request = new Request(new URL(String(input), "https://client.example.test"), init);
+      requests.push(new URL(request.url).pathname);
+      return await mockFetch(
+        `${new URL(request.url).pathname}${new URL(request.url).search}`,
+        init,
+      );
+    },
+  });
+  const summary = await client.resolveCatalogProblem(" P-1-v1 ");
+  assert.equal(summary.publicId, 1);
+  assert.equal(summary.versionNumber, 1);
+  assert.deepEqual(requests, ["/api/problems/by-id/P-1-v1"]);
+
+  const mock = createMockApiClient();
+  assert.equal((await mock.resolveCatalogProblem("P-1-v1")).problem, summary.problem);
+  await assert.rejects(mock.resolveCatalogProblem("P-999-v1"), ApiRequestError);
+  assert.throws(() => client.resolveCatalogProblem(" "), /problem reference must be 1 to 44/);
+});
+
+test("mock catalog display references preserve live 400 malformed and 404 unavailable semantics", async () => {
+  const mockFetch = createMockFetch();
+  const live = createHttpApiClient({ fetch: mockFetch });
+  const mock = createMockApiClient({ fetch: mockFetch });
+
+  assert.equal((await live.resolveCatalogProblem("P-1")).versionNumber, 1);
+  for (const malformed of [
+    "P-0",
+    "P-1-v0",
+    "P-one-v1",
+    "P-1-v",
+    "P-2147483648-v1",
+    "not-a-reference",
+  ]) {
+    const response = await mockFetch(`/api/problems/by-id/${encodeURIComponent(malformed)}`);
+    assert.equal(response.status, 400, `${malformed} must be rejected as malformed`);
+    for (const client of [live, mock]) {
+      await assert.rejects(
+        client.resolveCatalogProblem(malformed),
+        (error) => error instanceof ApiRequestError && error.status === 400,
+      );
+    }
+  }
+
+  for (const client of [live, mock]) {
+    await assert.rejects(
+      client.resolveCatalogProblem("P-999-v1"),
+      (error) => error instanceof ApiRequestError && error.status === 404,
+    );
+  }
 });
 
 test("catalog HTTP client rejects invalid query bounds and mismatched detail identity", async () => {

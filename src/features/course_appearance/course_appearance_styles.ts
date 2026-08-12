@@ -3,16 +3,17 @@
 export const COURSE_APPEARANCE_STYLES = `
 .course-appearance-form {
   display: grid;
-  gap: 1.5rem;
+  gap: 1rem;
   max-width: 72rem;
 }
 
 .course-appearance-section {
   min-width: 0;
-  padding: clamp(1rem, 3vw, 1.5rem);
-  border: 1px solid var(--ple-border);
-  border-radius: 1rem;
-  background: var(--ple-card-surface);
+  padding: 0.9rem 0 0;
+  border: 0;
+  border-top: 1px solid var(--ple-border);
+  border-radius: 0;
+  background: transparent;
 }
 
 .course-appearance-section > :first-child {
@@ -228,10 +229,11 @@ export const COURSE_APPEARANCE_STYLES = `
 .course-appearance-conflict,
 .course-appearance-error,
 .course-appearance-success {
-  padding: 1rem;
-  border: 2px solid var(--ple-border);
-  border-radius: 0.8rem;
-  background: var(--ple-card-surface);
+  padding: 0.75rem 0.85rem;
+  border: 0;
+  border-inline-start: 4px solid var(--ple-border);
+  border-radius: 0;
+  background: var(--ple-surface-soft);
 }
 
 .course-appearance-conflict h2,

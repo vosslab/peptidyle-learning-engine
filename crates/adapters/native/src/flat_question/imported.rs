@@ -2,19 +2,14 @@
 //!
 //! This module is deliberately not a QTI adapter. Its input is the already
 //! mapped, server-only flat-question shape. It fixes the PLE defaults required
-//! for an imported v1 static single-choice item, then delegates validation,
+//! for an imported v2 static single-choice item, then delegates validation,
 //! canonical serialization, and compilation to the native flat-question owner.
 
 use std::fmt;
 
-use question_model::run_policy::FeedbackDisclosure;
 use question_model::{DraftQuestionDefinition, WorkspaceId};
 
-use super::{
-    CompiledFlatQuestion, FlatAttemptPolicy, FlatChoice, FlatDocumentVersion, FlatLicense,
-    FlatOutcomeFeedback, FlatQuestionDocument, FlatQuestionError, FlatQuestionKind,
-    FlatSingleChoiceV1, FlatTimingPolicy,
-};
+use super::{CompiledFlatQuestion, FlatChoice, FlatQuestionDocument, FlatQuestionError};
 
 /// One ordered PLE choice from a trusted profile mapping.
 ///
@@ -115,7 +110,7 @@ pub struct ImportedFlatQuestion {
 pub enum ImportedFlatQuestionError {
     /// The supplied points string is not the canonical finite nonnegative form.
     InvalidCanonicalPoints,
-    /// The supplied mapped fields violate the PLE flat-question v1 contract.
+    /// The supplied mapped fields violate the PLE flat-question v2 contract.
     InvalidFlatQuestion,
 }
 
@@ -135,23 +130,20 @@ impl fmt::Display for ImportedFlatQuestionError {
 impl std::error::Error for ImportedFlatQuestionError {}
 
 impl ImportedFlatQuestion {
-    /// Constructs a canonical PLE v1 source using the fixed import defaults.
+    /// Constructs a canonical PLE v2 source using the fixed import defaults.
     ///
     /// # Errors
     ///
     /// Refuses noncanonical points and any mapped field that does not satisfy
-    /// the native flat-question v1 validation contract.
+    /// the native flat-question v2 validation contract.
     pub fn from_imported(
         input: ImportedSingleChoiceInput,
     ) -> Result<Self, ImportedFlatQuestionError> {
         let points = parse_canonical_points(&input.canonical_points)?;
-        let document = FlatQuestionDocument(FlatDocumentVersion::V1(FlatSingleChoiceV1 {
-            format: super::FORMAT_NAME.to_string(),
-            version: super::FORMAT_VERSION_V1,
-            kind: FlatQuestionKind::SingleChoice,
-            title: input.title,
-            prompt: input.prompt,
-            choices: input
+        let document = FlatQuestionDocument(super::v2::FlatQuestionV2::imported_single_choice(
+            input.title,
+            input.prompt,
+            input
                 .choices
                 .into_iter()
                 .map(|choice| FlatChoice {
@@ -160,19 +152,9 @@ impl ImportedFlatQuestion {
                     feedback: None,
                 })
                 .collect(),
-            correct_choice: input.correct_choice,
-            feedback: FlatOutcomeFeedback::default(),
+            input.correct_choice,
             points,
-            attempt_policy: FlatAttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateFull,
-            },
-            timing_policy: FlatTimingPolicy::Untimed,
-            tags: Vec::new(),
-            taxonomy: Vec::new(),
-            license: FlatLicense::AllRightsReserved,
-            language: "en-US".to_string(),
-        }));
+        ));
         document
             .validate()
             .map_err(|_| ImportedFlatQuestionError::InvalidFlatQuestion)?;
@@ -233,7 +215,7 @@ mod tests {
     use question_model::WorkspaceId;
     use uuid::Uuid;
 
-    const HAND_AUTHORED: &str = r#"{"format":"pleFlatQuestion","version":1,"kind":"singleChoice","title":"Favorite color","prompt":"What is my favorite color?","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"blue","feedback":{},"points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"tags":[],"taxonomy":[],"license":{"kind":"allRightsReserved"},"language":"en-US"}"#;
+    const HAND_AUTHORED: &str = r#"{"format":"pleFlatQuestion","version":2,"title":"Favorite color","prompt":"What is my favorite color?","response":{"kind":"singleChoice","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"blue"},"feedback":{},"points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"tags":[],"taxonomy":[],"license":{"kind":"allRightsReserved"},"language":"en-US"}"#;
 
     fn imported(points: &str) -> ImportedFlatQuestion {
         ImportedFlatQuestion::from_imported(ImportedSingleChoiceInput::new(

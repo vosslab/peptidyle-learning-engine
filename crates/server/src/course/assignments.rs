@@ -64,7 +64,11 @@ where
     }
     match state
         .store
-        .create_assignment(authenticated.tenant_context, assignment)
+        .create_assignment_with_timing(
+            authenticated.tenant_context,
+            assignment,
+            request.assignment_timing,
+        )
         .await
     {
         Ok(assignment) => assignment_response(StatusCode::CREATED, assignment),
@@ -176,16 +180,19 @@ where
     }
     match state
         .store
-        .replace_assignment(
+        .replace_assignment_with_timing(
             authenticated.tenant_context,
             course,
             assignment,
             expected_revision,
-            learning_data_access::AssignmentUpdate {
-                title: request.title,
-                items,
-                selection_groups: current.record.selection_groups,
-                policies: request.policies,
+            learning_data_access::AssignmentEditorUpdate {
+                assignment: learning_data_access::AssignmentUpdate {
+                    title: request.title,
+                    items,
+                    selection_groups: current.record.selection_groups,
+                    policies: request.policies,
+                },
+                assignment_timing: request.assignment_timing,
             },
         )
         .await
@@ -236,7 +243,21 @@ pub(super) fn required_assignment_revision(
 }
 
 fn assignment_response(status: StatusCode, assignment: StoredAssignment) -> Response {
-    let mut response = (status, Json(assignment.record.summary())).into_response();
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct AssignmentEditorResponse {
+        #[serde(flatten)]
+        assignment: question_model::AssignmentSummary,
+        assignment_timing: question_model::AssignmentRunTiming,
+    }
+    let mut response = (
+        status,
+        Json(AssignmentEditorResponse {
+            assignment: assignment.record.summary(),
+            assignment_timing: assignment.assignment_timing,
+        }),
+    )
+        .into_response();
     let etag = format!("\"{}\"", assignment.revision.value());
     let header = HeaderValue::from_str(&etag).expect("positive revision produces a valid ETag");
     response.headers_mut().insert(ETAG, header);

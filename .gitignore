@@ -9,6 +9,7 @@ _temp*.?*
 # === LOCAL ===
 # Local container credentials. containers/env.example is the committed
 # template; the .local file holds real values and must never be committed.
+/_temp/
 /generated/
 containers/env.local
 containers/local-identities.json
@@ -45,3 +46,5 @@ stats.html
 **/target/
 **/*.rs.bk
 .rust_analyzer/
+
+

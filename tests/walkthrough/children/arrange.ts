@@ -2,13 +2,8 @@
 
 import { lstatSync, readFileSync } from "node:fs";
 
-import { request, type APIRequestContext } from "@playwright/test";
-
-import {
-  arrangeSeededCourseAssignments,
-  type AssignmentArrangement,
-} from "../../playwright/simulator/assignment_arrangement";
-import { arrangeRetryCorpus } from "../../playwright/simulator/retry_corpus";
+import { type AssignmentArrangement } from "../../playwright/simulator/assignment_arrangement";
+import { childInputsFromArguments } from "./child_inputs";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const CREDENTIAL = /^[A-Za-z0-9_-]{32,}$/u;
@@ -24,7 +19,8 @@ export interface ArrangementRecord {
     | "launcher-baseline-assignment"
     | "api-retry-corpus-publication"
     | "api-mastery-assignment"
-    | "api-exam-assignment";
+    | "api-exam-assignment"
+    | "launcher-chapter-one-genetics";
   readonly baselineAssignmentId?: string;
   readonly courseId?: string;
   readonly problemId?: string;
@@ -33,33 +29,100 @@ export interface ArrangementRecord {
   readonly catalogSearchTitle?: string;
   readonly masteryAssignmentId?: string;
   readonly examAssignmentId?: string;
+  /** Private instructor-only source of the four exact immutable Genetics selections. */
+  readonly questions?: readonly ChapterOneQuestionReference[];
 }
 
 export interface ArrangementOutput {
   readonly arrangements: readonly ArrangementRecord[];
 }
 
-export function instructorSetupArrangementOutput(corpus: {
-  readonly problem: string;
-  readonly version: string;
-  readonly catalogSearchTitle: string;
-}): ArrangementOutput {
+export interface ChapterOneQuestionReference {
+  readonly displayId: string;
+  readonly problemId: string;
+  readonly versionId: string;
+}
+
+const DISPLAY_ID = /^P-[1-9][0-9]*-v[1-9][0-9]*$/u;
+const GENETICS_CHAPTER_ONE_SLUGS = [
+  "genetics-disorders-webwork-mc",
+  "genetics-disorders-webwork-matching",
+  "genetics-disorders-flat-mc",
+  "genetics-disorders-flat-matching",
+] as const;
+
+/**
+ * Reads the launcher-produced, answer-free Genetics manifest. This is product
+ * runtime output, rather than a test-arranged replacement corpus.
+ */
+export function chapterOneGeneticsQuestions(
+  manifestContents: string,
+): readonly ChapterOneQuestionReference[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(manifestContents);
+  } catch {
+    throw new Error("arrangement-input");
+  }
+  if (!isRecord(parsed) || Object.keys(parsed).length !== 1 || !Array.isArray(parsed["chapters"])) {
+    throw new Error("arrangement-input");
+  }
+  const chapter = parsed["chapters"].find(
+    (value): value is Readonly<Record<string, unknown>> =>
+      isRecord(value) && value["slug"] === "genetics-chapter-1",
+  );
+  if (
+    chapter === undefined ||
+    Object.keys(chapter).length !== 5 ||
+    !["slug", "courseId", "assignmentId", "enrollmentId", "questions"].every((key) =>
+      owns(chapter, key),
+    ) ||
+    !Array.isArray(chapter["questions"]) ||
+    chapter["questions"].length !== 4
+  ) {
+    throw new Error("arrangement-input");
+  }
+  const questions = chapter["questions"].map((value, index): ChapterOneQuestionReference => {
+    if (
+      !isRecord(value) ||
+      Object.keys(value).length !== 4 ||
+      !["slug", "displayId", "problemId", "versionId"].every((key) => owns(value, key)) ||
+      value["slug"] !== GENETICS_CHAPTER_ONE_SLUGS[index]
+    )
+      throw new Error("arrangement-input");
+    const displayId = value["displayId"];
+    const problemId = value["problemId"];
+    const versionId = value["versionId"];
+    // The seed manifest intentionally does not duplicate titles. The visible
+    // catalog's exact human ID is the authoritative selection key.
+    if (
+      typeof displayId !== "string" ||
+      !DISPLAY_ID.test(displayId) ||
+      !isUuid(problemId) ||
+      !isUuid(versionId)
+    ) {
+      throw new Error("arrangement-input");
+    }
+    return { displayId, problemId, versionId };
+  });
+  if (new Set(questions.map((question) => question.displayId)).size !== 4) {
+    throw new Error("arrangement-input");
+  }
+  return questions;
+}
+
+export function instructorSetupArrangementOutput(
+  questions: readonly ChapterOneQuestionReference[],
+): ArrangementOutput {
+  if (questions.length !== 4) throw new Error("arrangement-input");
   return {
     arrangements: [
       {
-        label: "api-retry-corpus-publication",
-        problemId: corpus.problem,
-        versionId: corpus.version,
-        catalogSearchTitle: corpus.catalogSearchTitle,
+        label: "launcher-chapter-one-genetics",
+        questions,
       },
     ],
   };
-}
-
-function requiredEnvironment(name: string): string {
-  const value = process.env[name];
-  if (value === undefined || value.trim() === "") throw new Error("arrangement-input");
-  return value.trim();
 }
 
 function readPrivateRegularFile(path: string): string {
@@ -108,6 +171,10 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function owns(value: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
 function isUuid(value: unknown): value is string {
   return typeof value === "string" && UUID.test(value);
 }
@@ -153,6 +220,7 @@ interface RequestFactory<T extends InstructorLoginContext> {
   newContext(options: { readonly baseURL: string }): Promise<T>;
 }
 
+/** Retained for the focused arranger API boundary test without ambient configuration. */
 export async function authenticatedInstructorContextWithRequest<T extends InstructorLoginContext>(
   requestFactory: RequestFactory<T>,
   baseUrl: string,
@@ -169,43 +237,10 @@ export async function authenticatedInstructorContextWithRequest<T extends Instru
   throw new Error("assignment-login");
 }
 
-async function authenticatedInstructorContext(
-  baseUrl: string,
-  credential: string,
-): Promise<APIRequestContext> {
-  return authenticatedInstructorContextWithRequest(request, baseUrl, credential);
-}
-
 async function arrange(): Promise<ArrangementOutput> {
-  const baseUrl = requiredEnvironment("PLE_UI_WALKTHROUGH_LIVE_BASE_URL");
-  const masterSeedText = requiredEnvironment("PLE_UI_WALKTHROUGH_MASTER_SEED");
-  if (!/^[0-9]+$/u.test(masterSeedText)) throw new Error("arrangement-input");
-  const masterSeed = Number(masterSeedText);
-  if (!Number.isSafeInteger(masterSeed) || masterSeed > 0xffffffff)
-    throw new Error("arrangement-input");
-  const credential = instructorCredential(
-    readPrivateRegularFile(requiredEnvironment("PLE_UI_WALKTHROUGH_LIVE_CREDENTIAL_FILE")),
-  );
-  const corpus = await arrangeRetryCorpus(request, {
-    baseUrl,
-    instructorCredential: credential,
-    masterSeed,
-    timedQuestion: process.env["PLE_DOCS_SCREENSHOT_DIR"] !== undefined,
-  });
-  let context: APIRequestContext | undefined;
-  try {
-    if (process.env["PLE_UI_WALKTHROUGH_INSTRUCTOR_SETUP_ONLY"] === "1") {
-      return instructorSetupArrangementOutput(corpus);
-    }
-    const manifest = launcherManifest(
-      readPrivateRegularFile(requiredEnvironment("PLE_UI_WALKTHROUGH_LIVE_MANIFEST_FILE")),
-    );
-    context = await authenticatedInstructorContext(baseUrl, credential);
-    const assignments = await arrangeSeededCourseAssignments(context, manifest, corpus);
-    return arrangementOutputFor(manifest.assignmentId, corpus, assignments);
-  } finally {
-    if (context !== undefined) await context.dispose();
-  }
+  const inputs = childInputsFromArguments(process.argv.slice(2), "arrangement");
+  const manifest = readPrivateRegularFile(inputs.chapterOneManifestFile);
+  return instructorSetupArrangementOutput(chapterOneGeneticsQuestions(manifest));
 }
 
 async function main(): Promise<void> {
@@ -221,4 +256,4 @@ async function main(): Promise<void> {
   }
 }
 
-if (process.env["PLE_UI_WALKTHROUGH_ARRANGER_CHILD"] === "1") void main();
+void main();

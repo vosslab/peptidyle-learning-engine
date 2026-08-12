@@ -21,7 +21,7 @@ where
     let scale_assignment = AssignmentId::from_uuid(uuid(89_990 + fixture_offset));
     let scale_enrollment = EnrollmentId::from_uuid(uuid(89_991 + fixture_offset));
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: scale_assignment,

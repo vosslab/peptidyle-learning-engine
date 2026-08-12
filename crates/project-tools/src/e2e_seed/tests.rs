@@ -165,6 +165,117 @@ fn chapter_one_seed_keeps_the_exact_two_by_four_teaching_matrix() {
     }
 }
 
+#[tokio::test]
+async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster() {
+    let store = learning_data_access::in_memory::MemoryStore::default();
+    let tenant = TenantId::from_uuid(Uuid::from_u128(301));
+    let instructor = UserId::from_uuid(Uuid::from_u128(302));
+    let student = UserId::from_uuid(Uuid::from_u128(303));
+    let course = CourseId::from_uuid(Uuid::from_u128(304));
+    let assignment = AssignmentId::from_uuid(Uuid::from_u128(305));
+    let context = TenantContext::from_authenticated_session(tenant);
+    let question = pilot_chapters()
+        .expect("the tracked pilot inventory is valid")
+        .into_iter()
+        .flat_map(|chapter| chapter.questions)
+        .find(|question| matches!(question.kind, PilotQuestionKind::WebworkMultipleChoice))
+        .expect("the Chapter 1 matrix includes a WeBWorK multiple-choice question");
+    let question_ids = question_ids(tenant, &question.slug);
+    let published = publish_webwork_question(
+        &store,
+        &objects::memory::MemoryObjectStore::default(),
+        context,
+        instructor,
+        &question,
+        &question_ids,
+    )
+    .await
+    .expect("the fixture publishes an assignment item through the catalog contract");
+    store
+        .upsert_course(
+            context,
+            CourseRecord {
+                id: course,
+                tenant,
+                title: "Disposable Chapter 1 Genetics".to_string(),
+                members: vec![CourseMembership {
+                    user: instructor,
+                    role: CourseMembershipRole::Instructor,
+                }],
+            },
+        )
+        .await
+        .expect("the seed creates an instructor-owned course before roster activation");
+    store
+        .create_untimed_assignment(
+            context,
+            AssignmentRecord {
+                id: assignment,
+                tenant,
+                course_id: course,
+                title: "Disposable Chapter 1 assignment".to_string(),
+                items: vec![AssignmentItem {
+                    id: AssignmentItemId::from_uuid(Uuid::from_u128(306)),
+                    reference: ProblemVersionRef {
+                        problem: published.problem,
+                        version: published.version,
+                    },
+                    position: 0,
+                    points_possible: PointValue::from_whole(1),
+                    delivery_state: AssignmentDeliveryState::Active,
+                    scoring_mode: AssignmentScoringMode::Normal,
+                }],
+                selection_groups: Vec::new(),
+                policies: RunPolicies {
+                    completion: CompletionRequirement::AnswerAll,
+                    grade: GradePolicy::Highest,
+                    continued_practice: ContinuedPractice::Unlimited,
+                    variation: VariationPolicy::NewSeeds,
+                },
+            },
+        )
+        .await
+        .expect("the seed creates the assignment before roster activation");
+
+    let first = upsert_chapter_one_student(&store, context, student, course, assignment)
+        .await
+        .expect("the canonical roster derives the first enrollment");
+    let second = upsert_chapter_one_student(&store, context, student, course, assignment)
+        .await
+        .expect("the canonical roster upsert is idempotent on rerun");
+    assert_eq!(first, second);
+    assert_eq!(first.user, student);
+    let claimed = store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: student,
+                display_name: CHAPTER_ONE_FAKE_STUDENT_DISPLAY_NAME.to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("the canonical roster returns the previously created learner");
+    let member = &claimed.member;
+    assert_eq!(member.display_name, CHAPTER_ONE_FAKE_STUDENT_DISPLAY_NAME);
+    assert_eq!(
+        member.status,
+        learning_data_access::CourseMemberStatus::Active
+    );
+    assert_eq!(member.roster_email, None);
+    assert_eq!(member.roster_id, None);
+    assert_eq!(
+        store
+            .get_course(context, course)
+            .await
+            .expect("course read succeeds")
+            .expect("course remains")
+            .role_for(student),
+        Some(question_model::CourseRole::Student)
+    );
+}
+
 #[test]
 fn chapter_one_seed_sources_compile_and_use_evidence_bounded_capabilities() {
     for chapter in pilot_chapters().expect("the tracked pilot inventory is valid") {
@@ -187,21 +298,122 @@ fn chapter_one_seed_sources_compile_and_use_evidence_bounded_capabilities() {
                     let source = QuestionSource::Webwork {
                         pg_path: question.source_path.to_string(),
                     };
-                    let capabilities = adapter_webwork::reviewed_webwork_source_capabilities(
-                        &source,
-                        &objects::Sha256Digest::compute(question.source).to_string(),
-                    )
-                    .expect("tracked PGML pilot source is registered");
+                    let capabilities =
+                        adapter_webwork::reviewed_webwork_source_capabilities_for_feedback(
+                            &source,
+                            &objects::Sha256Digest::compute(question.source).to_string(),
+                            FeedbackDisclosure::ImmediateCorrectness,
+                        )
+                        .expect("tracked PGML pilot source is registered");
                     assert!(capabilities.supports(Capability::AlgorithmicGeneration));
                     assert!(capabilities.supports(Capability::ServerGrading));
+                    assert!(capabilities.supports(Capability::Hints));
                     assert_eq!(
                         capabilities.supports(Capability::PartialCredit),
                         matches!(question.kind, PilotQuestionKind::WebworkMatching)
+                    );
+                    let draft = webwork_draft(
+                        WorkspaceId::from_uuid(Uuid::from_u128(78)),
+                        &question,
+                        FeedbackDisclosure::ImmediateCorrectness,
+                    );
+                    assert!(
+                        domain::policy::validate_draft_for_publication(&draft, &capabilities)
+                            .is_empty()
                     );
                 }
             }
         }
     }
+}
+
+#[tokio::test]
+async fn chapter_one_webwork_publishers_converge_on_one_current_immutable_version() {
+    let tenant = TenantId::from_uuid(Uuid::from_u128(91));
+    let context = TenantContext::from_authenticated_session(tenant);
+    let publisher = UserId::from_uuid(Uuid::from_u128(92));
+    let question = pilot_chapters()
+        .expect("the tracked pilot inventory is valid")
+        .into_iter()
+        .flat_map(|chapter| chapter.questions)
+        .find(|question| {
+            matches!(
+                question.kind,
+                PilotQuestionKind::WebworkMultipleChoice | PilotQuestionKind::WebworkMatching
+            )
+        })
+        .expect("the teaching matrix includes a WebWork question");
+    let ids = question_ids(tenant, &question.slug);
+    let store = learning_data_access::in_memory::MemoryStore::default();
+    let objects = objects::memory::MemoryObjectStore::default();
+
+    let (first, second) = tokio::join!(
+        publish_webwork_question(&store, &objects, context, publisher, &question, &ids),
+        publish_webwork_question(&store, &objects, context, publisher, &question, &ids),
+    );
+    let first = first.expect("first concurrent publisher converges");
+    let second = second.expect("second concurrent publisher converges");
+    assert_eq!(first.problem, ids.problem);
+    assert_eq!(first.version, ids.version);
+    assert_eq!(first, second);
+
+    let reference = ProblemVersionRef {
+        problem: ids.problem,
+        version: ids.version,
+    };
+    let published = store
+        .get_catalog_problem(context, reference)
+        .await
+        .expect("published read succeeds")
+        .expect("current version is published");
+    let artifact = store
+        .catalog_source_artifact(context, reference)
+        .await
+        .expect("source artifact read succeeds")
+        .expect("source artifact is bound");
+    let stored = objects
+        .get(&artifact.object.key)
+        .await
+        .expect("source bytes are stored");
+
+    assert_eq!(published.version_number.value(), 1);
+    assert_eq!(published.previous_version, None);
+    assert!(published.capabilities.supports(Capability::Hints));
+    assert_eq!(
+        published.question.attempt_policy.feedback,
+        FeedbackDisclosure::ImmediateCorrectness
+    );
+    assert_eq!(stored.bytes, question.source);
+    assert_eq!(artifact.object.version, Some(published.version));
+
+    let projected = serde_json::to_string(&published).expect("public record serializes");
+    let source_text = std::str::from_utf8(question.source).expect("tracked PGML is UTF-8");
+    assert!(!projected.contains(source_text));
+    assert!(!projected.contains("correctResponse"));
+
+    let mut versions = store
+        .list_catalog(
+            context,
+            PageRequest::first(PageSize::new(10).expect("page size is valid")),
+        )
+        .await
+        .expect("catalog listing succeeds")
+        .items
+        .into_iter()
+        .filter(|item| item.public_id == published.public_id)
+        .map(|item| item.version_number.value())
+        .collect::<Vec<_>>();
+    versions.sort_unstable();
+    assert_eq!(
+        versions,
+        vec![1],
+        "concurrent publication does not create a synthetic successor"
+    );
+
+    let rerun = publish_webwork_question(&store, &objects, context, publisher, &question, &ids)
+        .await
+        .expect("rerun converges");
+    assert_eq!(rerun, published);
 }
 
 #[test]

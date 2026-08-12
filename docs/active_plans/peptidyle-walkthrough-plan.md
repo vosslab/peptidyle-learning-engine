@@ -73,6 +73,11 @@ two-actor testing capability, not a weakened production identity path.
 - Add an instructor-visible new-assignment route that searches the published
   problem corpus, selects immutable problem versions, configures policies, and
   creates the assignment.
+- Make the displayed `P-<number>-v<version>` reference operational: the
+  instructor copies and pastes the four exact Genetics Chapter 1 references
+  into the visible add-by-ID control, then observes the four selected immutable
+  versions before creating the assignment. UUIDs are not part of this human
+  workflow.
 - Walk the corrected core sequence J11, J12, J13, J1, J2, J3, J4, J5, and J8.
 - Strengthen J5/J8 so the exact learner and assignment visibly show a scored
   result and the expected repeated-run count.
@@ -146,8 +151,10 @@ The fixed walkthrough tells one coherent story:
 3. The instructor opens Students and adds the configured local learner as an
    active member. The application visibly confirms the active roster row.
 4. The instructor creates a Mastery assignment, searches the published problem
-   corpus, adds the arranged problem, selects continued-practice policies, and
-   confirms the assignment in the course.
+   corpus for the four Genetics Chapter 1 questions, copies their displayed
+   `P-n-vn` references, pastes them into the visible add-by-ID control, observes
+   all four selected immutable versions, selects continued-practice policies,
+   and confirms the assignment in the course.
 5. The local student signs in through a separate browser context, opens that
    exact course and assignment, responds, submits, sees feedback, corrects an
    intentional first error, and completes the run by keyboard.
@@ -176,10 +183,11 @@ route or advertise the control. The browser never submits a credential, email,
 arbitrary user ID, tenant ID, or account record to this capability.
 
 Public course and assignment IDs created by the instructor browser may cross
-fixed child boundaries through the existing protected private-state mechanism.
-The Python runner validates that state and supplies only those public IDs to
-later fixed children. Credentials remain path-only private inputs and never
-enter the handoff or report.
+fixed child boundaries through one runner-generated schema-versioned private
+input file passed by explicit argument. The Python runner validates that state,
+removes inherited walkthrough `PLE_*` overrides for owned children, and
+supplies only the required public IDs to each later fixed stage. Credentials
+remain path-only private inputs and never enter the handoff or report.
 
 ### Mapping (milestones / workstreams -> components / patches)
 
@@ -246,10 +254,13 @@ enter the handoff or report.
   - The student completes two runs by keyboard and the exact gradebook row
     shows Best and Latest `100%`, Completed `2`, and two completed history rows.
   - Only corpus publication remains an API arrangement.
-- **Accepted 2026-08-11:** the retained-stack seed-42 `--build` run completed
-  J11, J12, J13, J1, J2, J3, J4, J5, and J8 in the required order. The
-  student completed two runs through the keyboard platform path and J5 visibly
-  confirmed Best `100%`, Latest `100%`, Completed `2`, and two history rows.
+- **Historical evidence, superseded for final walkthrough acceptance:** the
+  retained-stack seed-42 `--build` run completed J11, J12, J13, J1, J2, J3,
+  J4, J5, and J8 in the required order. The student completed two runs through
+  the keyboard platform path and J5 visibly confirmed Best `100%`, Latest
+  `100%`, Completed `2`, and two history rows. It did not yet prove the
+  strengthened four-reference copy/paste construction contract; WP-HG1 owns
+  the required rebuilt run and independent acceptance.
 - Parallel-plan ready: no; setup produces IDs consumed by serial learner and
   instructor children.
 
@@ -447,8 +458,15 @@ enter the handoff or report.
 - Acceptance criteria:
   - J11 creates and opens a unique course through visible controls.
   - J12 adds and observes the active local student through Students.
-  - J13 creates the corpus-backed Mastery assignment and observes its course
+  - J13 searches the published catalog through visible controls, copies and
+    pastes the four displayed Genetics Chapter 1 `P-n-vn` references into the
+    add-by-ID control, observes exactly four selected immutable versions, then
+    creates the corpus-backed Mastery assignment and observes its course
     card/link.
+  - J13 validates malformed, unavailable, unauthorized, and duplicate
+    add-by-ID recovery in focused product tests; those cases preserve the
+    pasted value and existing draft. The real walkthrough proves the successful
+    clipboard/paste path, not every error state.
   - The spec appends only exact public course, assignment, and problem IDs to
     protected private state after all visible assertions pass.
   - The runner validates the fragment and supplies IDs only to fixed later
@@ -457,11 +475,41 @@ enter the handoff or report.
   real-stack instructor-only run.
 - Obvious follow-ons: WP-S1 and WP-S2.
 
+### Work package: WP-I5 connect visible whole-run timing
+
+- Owner: Rust, PostgreSQL, TypeScript/Solid, and HCI engineers.
+- Touch points: assignment editor request/response contract, assignment editor Store capabilities,
+  existing timing resolver, generated browser contracts/defaults, editor model/page, and focused
+  Rust/TypeScript/Playwright tests.
+- Depends on: WP-I3 and the existing `AssignmentTimingPolicy`; its Rust/store/editor API boundary
+  precedes the Solid form and the live J13/J1 sequence.
+- Acceptance criteria:
+  - The course-owned whole-run timing field is editor-only
+    `assignmentTiming.timeLimitSeconds: positive u32 | null`; it is not a `RunPolicies` field or a
+    published-question setting.
+  - New mastery assignments start from the Rust-generated `900`-second default. The editor visibly
+    presents 15 minutes with accessible Timed/Untimed controls and saves `null` only for an explicit
+    Untimed choice.
+  - Editor create, update, and GET compose definition and timing atomically under one shared
+    revision. A stale save has no partial definition, item, or timing result; question versions and
+    immutable question-level timing remain unchanged.
+  - A timed student run displays the server-backed countdown. A fresh practice run resolves a fresh
+    server deadline. Only a saved null value displays `Untimed`.
+  - Invalid timing input and request/revision failure preserve the visible radio state and literal
+    minutes input with labelled recovery.
+- Permanent evidence: Store/route/decoder/component behavior tests plus keyboard-focused Playwright
+  coverage for default, conversion, toggle, validation, recovery, and timed/untimed display. These
+  do not retain timing snapshots or implementation-string checks.
+- One-time acceptance evidence: a real Podman PostgreSQL plus `webwork-pg-renderer` J13/J1--J4 run
+  creates the Genetics assignment from copied `P-n-vn` references, visibly keeps the 15-minute
+  default, and captures the server-backed countdown, retry, and fresh timed run for guide review.
+- Obvious follow-ons: WP-S1, WP-S2, and WP-E1.
+
 ### Work package: WP-S1 prove student keyboard take and repeat
 
 - Owner: Playwright and HCI engineer.
 - Touch points: refocused J1/J2/J3/J4 specs and shared keyboard helpers.
-- Depends on: WP-I4.
+- Depends on: WP-I4 and WP-I5.
 - Acceptance criteria:
   - The separate local student context opens the exact newly created course and
     assignment through visible links.
@@ -565,6 +613,11 @@ enter the handoff or report.
 - Product gate: course creation, local active-roster addition, and assignment
   creation each pass focused authorization, keyboard, recovery, and independent
   review before live integration.
+- Human-reference gate: browser and server accept the same bounded exact
+  `P-n-vn` domain; no UUID is an instructor entry value or test-only DOM
+  extraction path. The successful J13 path uses copied visible references and
+  selects exactly the requested four immutable versions. Batch recovery leaves
+  the assignment draft unchanged until all references resolve.
 - Composition gate: production router tests prove the local roster route and UI
   capability are absent; local requests cannot select arbitrary identities.
 - Arrangement gate: only problem-corpus publication may be arranged by API.
@@ -572,6 +625,9 @@ enter the handoff or report.
   invalidates the walkthrough PASS.
 - Student keyboard gate: all student actions use the platform path and visible
   focus. Widget shortcuts remain supplementary only.
+- Timing gate: the instructor visibly retains the new-mastery 15-minute default while creating the
+  assignment; the student's timed run uses a server-backed countdown, and a fresh run has a fresh
+  deadline. `Untimed` is visible only for an explicit null course-owned setting.
 - Scoring gate: the exact instructor gradebook row visibly shows the expected
   score and two completions after two browser-completed runs; no internal score
   endpoint or calculation is used.
@@ -586,15 +642,25 @@ enter the handoff or report.
 
 ## Test and verification strategy
 
-| Tier                   | Evidence                                                      | Failure semantics     |
-| ---------------------- | ------------------------------------------------------------- | --------------------- |
-| Rust unit/route        | Local composition absence, alias validation, authorization    | Blocks WP-I2          |
-| Store conformance      | Atomic local member/roster/enrollment on Memory/PostgreSQL    | Blocks WP-I2          |
-| Node/TypeScript        | Strict client decoders, forms, state, report schema           | Blocks owning package |
-| Focused Playwright     | Production course, roster, assignment, keyboard, gradebook UI | Blocks owning package |
-| Static harness scanner | No pointer, shortcut, direct API/storage, answer, hidden PASS | Blocks WS-WALK        |
-| Real-stack runner      | Fixed instructor setup plus student take/score/repeat         | Blocks M10/M11        |
-| Independent review     | Security, HCI, privacy, report, and final charter audit       | Blocks acceptance     |
+| Tier                   | Evidence                                                       | Failure semantics     |
+| ---------------------- | -------------------------------------------------------------- | --------------------- |
+| Rust unit/route        | Local composition absence, alias validation, authorization     | Blocks WP-I2          |
+| Store conformance      | Atomic local member/roster/enrollment on Memory/PostgreSQL     | Blocks WP-I2          |
+| Node/TypeScript        | Strict client decoders, forms, state, report schema            | Blocks owning package |
+| Focused Playwright     | Production course, roster, ID recovery, keyboard, gradebook UI | Blocks owning package |
+| Static harness scanner | No pointer, shortcut, direct API/storage, answer, hidden PASS  | Blocks WS-WALK        |
+| Real-stack runner      | Fixed instructor setup plus student take/score/repeat          | Blocks M10/M11        |
+| Independent review     | Security, HCI, privacy, report, and final charter audit        | Blocks acceptance     |
+
+The parser/domain/RLS, mock/live error parity, editor recovery, focused
+copy/paste and timing Playwright coverage, assignment timing Store/route
+conformance, and explicit child-input parsing/environment isolation are
+permanent behavior tests. A rebuilt retained-stack run with real clipboard
+permission, redacted report, explicit child handoff, server-backed timed run,
+and refreshed public screenshots is one-time acceptance evidence; it is not
+replaced by fixture-count or exact-source-string tests. The isolated
+PostgreSQL/MinIO two-chapter eight-question publication sweep is a separate
+release-content oracle and does not substitute for instructor construction.
 
 Repository Python commands use `source source_me.sh && python3 ...`. Browser
 launches use the existing fixed shell front door. PostgreSQL evidence uses a
@@ -687,8 +753,10 @@ or child output.
   problem authoring is outside this charter.
 - J6/J7, J9/J10, all-family, and multi-learner outcomes do not gate or appear in
   the corrected walkthrough baseline.
-- Existing learner evidence is preserved, and overall corrected-walkthrough acceptance is closed
-  by the passed visible instructor setup, student repeat, scoring, report, and cleanup gates.
+- Existing learner evidence is preserved. Overall corrected-walkthrough
+  acceptance remains open until the strengthened four-ID copy/paste and
+  explicit-input real-stack run, refreshed screenshots, and independent review
+  pass.
 
 ## Open questions and decisions needed
 

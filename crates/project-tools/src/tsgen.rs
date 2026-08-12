@@ -95,7 +95,7 @@ pub fn run(model_dir: &Path, out_dir: &Path) -> Result<usize> {
                 }
                 Item::Const(item)
                     if matches!(item.vis, syn::Visibility::Public(_))
-                        && matches!(*item.ty, syn::Type::Path(ref path) if path.path.is_ident("usize"))
+                        && matches!(*item.ty, syn::Type::Path(ref path) if path.path.is_ident("usize") || path.path.is_ident("u32"))
                         && matches!(
                             &*item.expr,
                             syn::Expr::Lit(syn::ExprLit {
@@ -418,7 +418,7 @@ fn map_type(rust_type: &Type, dependencies: &mut BTreeSet<String>) -> Result<Str
         "String" | "str" | "Uuid" | "PathBuf" => "string".to_string(),
         "bool" => "boolean".to_string(),
         "u8" | "u16" | "u32" | "u64" | "usize" | "i8" | "i16" | "i32" | "i64" | "isize" | "f32"
-        | "f64" | "NonZeroU64" => "number".to_string(),
+        | "f64" | "NonZeroU32" | "NonZeroU64" => "number".to_string(),
         // Option<T> becomes `T | null`: serde writes `null` for None, so the
         // client sees null rather than a missing key.
         "Option" => {
@@ -760,6 +760,24 @@ mod tests {
     }
 
     #[test]
+    fn public_u32_constants_become_safe_typescript_constants() {
+        let source_dir = temporary_output_dir("u32-constant-source");
+        let out_dir = temporary_output_dir("u32-constant-output");
+        fs::create_dir_all(&source_dir).expect("temporary source directory should be created");
+        fs::write(
+            source_dir.join("timing.rs"),
+            "/// A browser-safe whole-run time limit.\npub const DEFAULT_TIME_LIMIT_SECONDS: u32 = 900;\n",
+        )
+        .expect("temporary source should be written");
+        run(&source_dir, &out_dir).expect("u32 constant should generate");
+        let generated = fs::read_to_string(out_dir.join("DEFAULT_TIME_LIMIT_SECONDS.ts"))
+            .expect("generated constant should be readable");
+        assert!(generated.contains("export const DEFAULT_TIME_LIMIT_SECONDS = 900 as const;"));
+        fs::remove_dir_all(source_dir).expect("temporary source should be removed");
+        fs::remove_dir_all(out_dir).expect("temporary output should be removed");
+    }
+
+    #[test]
     fn union_wrapping_accounts_for_the_declared_type_name() {
         let members = vec![
             "\"immediateFull\"".to_string(),
@@ -784,11 +802,11 @@ mod tests {
     }
 
     #[test]
-    fn transparent_nonzero_u64_newtypes_use_their_numeric_wire_type() {
+    fn transparent_nonzero_integer_newtypes_use_their_numeric_wire_type() {
         let item: syn::ItemStruct = syn::parse_quote! {
             #[derive(Serialize)]
             #[serde(transparent)]
-            pub struct PublicId(NonZeroU64);
+            pub struct PublicId(NonZeroU32);
         };
         let generated = generate_struct(&item).expect("generation should succeed");
         assert_eq!(generated.body, "number");

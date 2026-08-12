@@ -9,9 +9,9 @@ import { courseRouteData, useCourseThemeRouteData } from "./course_theme_context
 const COURSE_ENTRY_IDENTITY_STYLES = `
 .course-entry-identity {
   display: grid;
-  gap: 1rem;
+  gap: var(--ple-space-2, 0.5rem);
   min-width: 0;
-  margin-bottom: 2rem;
+  margin-bottom: var(--ple-space-5, 1.5rem);
 }
 
 .course-entry-identity h1 {
@@ -24,7 +24,7 @@ const COURSE_ENTRY_IDENTITY_STYLES = `
   height: auto;
   aspect-ratio: 1200 / 328;
   border: 1px solid var(--ple-border);
-  border-radius: 0.85rem;
+  border-radius: var(--ple-radius-group, 0.5rem);
   object-fit: cover;
 }
 `;

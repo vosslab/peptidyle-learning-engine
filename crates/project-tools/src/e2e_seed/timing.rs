@@ -43,7 +43,7 @@ pub(super) async fn exercise_assignment_timing(
         },
     };
     let created = store
-        .create_assignment(context, timing_assignment)
+        .create_untimed_assignment(context, timing_assignment)
         .await
         .context("creating mutable timing acceptance assignment")?;
     store

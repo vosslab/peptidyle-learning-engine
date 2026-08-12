@@ -16,7 +16,7 @@ fn compiled_flat(
     Vec<u8>,
 ) {
     let source = format!(
-        r#"{{"format":"pleFlatQuestion","version":1,"kind":"singleChoice","title":"{title}","prompt":"What is my favorite color?","choices":[{{"id":"blue","text":"Blue","feedback":"Blue is correct."}},{{"id":"red","text":"Red","feedback":"Red is not correct."}}],"correctChoice":"blue","feedback":{{"correct":"Correct.","incorrect":"Try again."}},"points":1.0,"attemptPolicy":{{"maxAttempts":null,"feedback":"immediateFull"}},"timingPolicy":{{"kind":"untimed"}},"license":{{"kind":"cc0"}},"language":"en-US"}}"#
+        r#"{{"format":"pleFlatQuestion","version":2,"title":"{title}","prompt":"What is my favorite color?","response":{{"kind":"singleChoice","choices":[{{"id":"blue","text":"Blue","feedback":"Blue is correct."}},{{"id":"red","text":"Red","feedback":"Red is not correct."}}],"correctChoice":"blue"}},"feedback":{{"correct":"Correct.","incorrect":"Try again."}},"points":1.0,"attemptPolicy":{{"maxAttempts":null,"feedback":"immediateFull"}},"timingPolicy":{{"kind":"untimed"}},"license":{{"kind":"cc0"}},"language":"en-US"}}"#
     );
     let document = adapter_native::flat_question::FlatQuestionDocument::parse(source.as_bytes())
         .expect("flat conformance fixture should parse");
@@ -221,7 +221,7 @@ async fn exercise_flat_question_store(
         expected_revision,
         publication: reference,
         published_source: QuestionSource::Native {
-            family: "flat_single_choice_v1".to_string(),
+            family: "flat_single_choice_v2".to_string(),
         },
         source_artifact: Some(source_artifact),
         qti_promotion: None,

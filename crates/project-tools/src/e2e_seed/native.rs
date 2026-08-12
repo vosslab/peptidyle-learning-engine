@@ -99,7 +99,7 @@ pub(super) async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
         },
     };
     store
-        .create_assignment(context, assignment.clone())
+        .create_untimed_assignment(context, assignment.clone())
         .await
         .context("creating E2E assignment")?;
     let reloaded = store
@@ -111,7 +111,7 @@ pub(super) async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
         bail!("normalized E2E assignment did not round-trip exactly");
     }
     let replaced = store
-        .replace_assignment(
+        .replace_assignment_preserving_timing(
             context,
             ids.course,
             ids.assignment,

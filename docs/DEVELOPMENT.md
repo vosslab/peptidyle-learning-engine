@@ -91,6 +91,14 @@ work-package record rather than the permanent fast suite unless it satisfies the
 [PYTEST_STYLE.md](PYTEST_STYLE.md#is-this-a-good-pytest). Record both the evidence run and any
 unrun live boundary in the handoff.
 
+For Python tools, make routine operator choices visible in the small `argparse`
+surface or in an explicitly selected config file. Do not add undocumented
+environment switches for test modes, paths, ports, or child-process values.
+Fixed child processes receive a single versioned private input file by an
+explicit argument, with each reader validating the file's schema and private
+filesystem boundary. Test that durable contract offline; record the real
+Podman/browser execution separately as one-time evidence.
+
 For the first teaching corpus, run `cargo tools pilot-content` for the tracked source/compiler
 contract and `bash tests/e2e/e2e_chapter_one_pilot.sh` for the disposable PostgreSQL/MinIO
 publication, exact two-by-four assignment matrix, human display identity, and idempotent-rerun

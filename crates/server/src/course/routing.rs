@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use super::assignments::{create_assignment, get_assignment, update_assignment};
 use super::queries::{create_course, get_course, list_assignments, list_courses, list_gradebook};
 use super::roster::{
-    CourseInvitationDelivery, CourseInvitationIssuer, LocalDevelopmentRosterDirectory,
-    UnavailableCourseInvitationDelivery, roster_router,
+    CourseInvitationDelivery, CourseInvitationIssuer, UnavailableCourseInvitationDelivery,
+    roster_router,
 };
 
 pub(super) const DEFAULT_PAGE_SIZE: u16 = 50;
@@ -30,11 +30,10 @@ where
         + SessionStore
         + 'static,
 {
-    router_with_invitations_and_local_development(
+    router_with_invitations(
         store,
         CourseInvitationIssuer::unavailable(),
         Arc::new(UnavailableCourseInvitationDelivery),
-        None,
     )
 }
 
@@ -45,26 +44,6 @@ pub fn router_with_invitations<S>(
     store: Arc<S>,
     issuer: CourseInvitationIssuer,
     delivery: Arc<dyn CourseInvitationDelivery>,
-) -> Router
-where
-    S: Store
-        + CatalogStore
-        + CourseRecordsAccessStore
-        + CourseRosterStore
-        + ManualGradeExportStore
-        + SessionStore
-        + 'static,
-{
-    router_with_invitations_and_local_development(store, issuer, delivery, None)
-}
-
-/// Builds the local-development-only course router. The caller can only
-/// construct its alias directory from the paired file-backed identity mode.
-pub(crate) fn router_with_invitations_and_local_development<S>(
-    store: Arc<S>,
-    issuer: CourseInvitationIssuer,
-    delivery: Arc<dyn CourseInvitationDelivery>,
-    local_development_roster: Option<Arc<LocalDevelopmentRosterDirectory>>,
 ) -> Router
 where
     S: Store
@@ -95,12 +74,7 @@ where
         .with_state(CourseRouteState {
             store: Arc::clone(&store),
         });
-    course_routes.merge(roster_router(
-        store,
-        issuer,
-        delivery,
-        local_development_roster,
-    ))
+    course_routes.merge(roster_router(store, issuer, delivery))
 }
 
 pub(super) struct CourseRouteState<S> {
@@ -137,6 +111,9 @@ pub(super) struct CreateAssignmentRequest {
     pub(super) title: String,
     pub(super) problems: Vec<question_model::ProblemVersionRef>,
     pub(super) policies: question_model::RunPolicies,
+    /// Whole-run timing is always an explicit instructor decision. `null`
+    /// within the object deliberately means Untimed.
+    pub(super) assignment_timing: question_model::AssignmentRunTiming,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -145,6 +122,7 @@ pub(super) struct UpdateAssignmentRequest {
     pub(super) title: String,
     pub(super) problems: Vec<question_model::ProblemVersionRef>,
     pub(super) policies: question_model::RunPolicies,
+    pub(super) assignment_timing: question_model::AssignmentRunTiming,
 }
 
 /// Rejects unknown fields at every level by comparing the request to the
@@ -158,5 +136,46 @@ where
         Ok(request)
     } else {
         Err(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn explicit_request() -> serde_json::Value {
+        serde_json::to_value(CreateAssignmentRequest {
+            title: "Mastery".to_string(),
+            problems: Vec::new(),
+            policies: question_model::RunPolicies {
+                completion: question_model::CompletionRequirement::AllCorrect,
+                grade: question_model::GradePolicy::Highest,
+                continued_practice: question_model::ContinuedPractice::Unlimited,
+                variation: question_model::VariationPolicy::NewSeeds,
+            },
+            assignment_timing: question_model::AssignmentRunTiming::default(),
+        })
+        .expect("request fixture serializes")
+    }
+
+    #[test]
+    fn assignment_timing_requires_an_object_with_nullable_member() {
+        let explicit = strict_assignment_request::<CreateAssignmentRequest>(explicit_request())
+            .expect("explicit null member is an untimed editor choice");
+        assert_eq!(
+            explicit.assignment_timing,
+            question_model::AssignmentRunTiming::default()
+        );
+
+        let mut omitted = explicit_request();
+        omitted
+            .as_object_mut()
+            .expect("request object")
+            .remove("assignmentTiming");
+        assert!(strict_assignment_request::<CreateAssignmentRequest>(omitted).is_err());
+
+        let mut invalid = explicit_request();
+        invalid["assignmentTiming"] = serde_json::Value::Null;
+        assert!(strict_assignment_request::<CreateAssignmentRequest>(invalid).is_err());
     }
 }

@@ -202,14 +202,15 @@ impl CatalogStore for MemoryStore {
                     Some(revises.version),
                     base.derived_from,
                     base.public_id,
-                    ProblemVersionNumber::new(
-                        base.version_number.value().checked_add(1).ok_or_else(|| {
+                    base.version_number
+                        .value()
+                        .checked_add(1)
+                        .and_then(|value| ProblemVersionNumber::new(u64::from(value)))
+                        .ok_or_else(|| {
                             StoreError::Unavailable(
                                 "problem version number limit reached".to_string(),
                             )
                         })?,
-                    )
-                    .expect("incremented problem version remains positive"),
                 )
             } else {
                 if state
@@ -236,8 +237,9 @@ impl CatalogStore for MemoryStore {
                     vec![command.publisher],
                     None,
                     command.expected_draft.derived_from,
-                    ProblemPublicId::new(state.next_problem_public_id)
-                        .expect("incremented public ID remains positive"),
+                    ProblemPublicId::new(state.next_problem_public_id).ok_or_else(|| {
+                        StoreError::Unavailable("problem public ID limit reached".to_string())
+                    })?,
                     ProblemVersionNumber::new(1).expect("one is positive"),
                 )
             };
@@ -624,19 +626,27 @@ pub(super) fn catalog_search_matches(
         return false;
     }
     if let Some(text) = &query.text {
-        let searchable = std::iter::once(record.question.metadata.title.as_str())
-            .chain(record.question.metadata.language.split_whitespace())
-            .chain(record.question.metadata.tags.iter().map(|tag| tag.as_str()))
-            .chain(record.question.metadata.taxonomy.iter().flat_map(|term| {
-                [
-                    term.scheme.as_str(),
-                    term.code.as_str(),
-                    term.label.as_str(),
-                ]
-            }))
-            .any(|value| value.to_lowercase().contains(text));
-        if !searchable {
-            return false;
+        if let Some(reference) = query.exact_display_version() {
+            if record.public_id != reference.problem
+                || Some(record.version_number) != reference.version
+            {
+                return false;
+            }
+        } else {
+            let metadata_match = std::iter::once(record.question.metadata.title.as_str())
+                .chain(record.question.metadata.language.split_whitespace())
+                .chain(record.question.metadata.tags.iter().map(|tag| tag.as_str()))
+                .chain(record.question.metadata.taxonomy.iter().flat_map(|term| {
+                    [
+                        term.scheme.as_str(),
+                        term.code.as_str(),
+                        term.label.as_str(),
+                    ]
+                }))
+                .any(|value| value.to_lowercase().contains(text));
+            if !metadata_match {
+                return false;
+            }
         }
     }
     if !query.taxonomy.iter().all(|wanted| {

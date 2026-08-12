@@ -5,6 +5,7 @@ import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery"
 const MAX_CATALOG_TEXT_UNICODE_SCALARS = 256;
 const MAX_CATALOG_TAXONOMY_FILTERS = 64;
 const MAX_CATALOG_PAGE_SIZE = 100;
+const MAX_PROBLEM_DISPLAY_REFERENCE_CHARACTERS = 44;
 const CATALOG_CAPABILITIES = [
   "algorithmicGeneration",
   "clientRendering",
@@ -99,4 +100,16 @@ export function catalogSearchPath(query: CatalogSearchQuery): string {
   }
   const suffix = parameters.size === 0 ? "" : `?${parameters.toString()}`;
   return `/api/problems/search${suffix}`;
+}
+
+/** Serializes the bounded copyable problem locator without interpreting its server-owned syntax. */
+export function catalogProblemReferencePath(displayReference: string): string {
+  const reference = displayReference.trim();
+  if (
+    reference.length === 0 ||
+    Array.from(reference).length > MAX_PROBLEM_DISPLAY_REFERENCE_CHARACTERS
+  ) {
+    throw new Error("problem reference must be 1 to 44 characters");
+  }
+  return `/api/problems/by-id/${encodeURIComponent(reference)}`;
 }

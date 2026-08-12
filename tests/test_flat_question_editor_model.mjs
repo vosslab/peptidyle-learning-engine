@@ -92,22 +92,25 @@ test("choice edits retain semantic IDs and enforce choices and correct-answer in
   const initial = source();
   const added = addChoice(initial);
   assert.equal(added.changed, true);
-  assert.equal(added.source.choices[2].id, "choice_1");
+  assert.equal(added.source.response.choices[2].id, "choice_1");
   const reordered = reorderChoices(added.source, ["choice_1", "choice_b", "choice_a"]);
   assert.deepEqual(
-    reordered.source.choices.map((choice) => choice.id),
+    reordered.source.response.choices.map((choice) => choice.id),
     ["choice_1", "choice_b", "choice_a"],
   );
-  assert.equal(reordered.source.correctChoice, "choice_a");
+  assert.equal(reordered.source.response.correctChoice, "choice_a");
   const removed = removeChoice(reordered.source, "choice_a");
-  assert.equal(removed.source.correctChoice, "choice_b");
+  assert.equal(removed.source.response.correctChoice, "choice_b");
   assert.equal(removeChoice(source(), "choice_a").changed, false);
   assert.equal(renameChoiceId(source(), "choice_a", "Bad ID").changed, false);
   assert.equal(renameChoiceId(source(), "choice_a", "choice_b").changed, false);
   const renamed = renameChoiceId(source(), "choice_a", "correct_answer");
-  assert.equal(renamed.source.correctChoice, "correct_answer");
+  assert.equal(renamed.source.response.correctChoice, "correct_answer");
   assert.equal(setCorrectChoice(source(), "missing").changed, false);
-  assert.equal(setChoiceText(source(), "choice_a", "Edited").source.choices[0].text, "Edited");
+  assert.equal(
+    setChoiceText(source(), "choice_a", "Edited").source.response.choices[0].text,
+    "Edited",
+  );
 });
 
 test("policy and metadata helpers are immutable and validation gives safe author guidance", () => {

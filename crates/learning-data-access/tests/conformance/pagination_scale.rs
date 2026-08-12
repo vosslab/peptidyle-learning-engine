@@ -60,7 +60,7 @@ where
         let assignment = AssignmentId::from_uuid(uuid(80_200 + offset));
         let enrollment = EnrollmentId::from_uuid(uuid(80_300 + offset));
         store
-            .create_assignment(
+            .create_untimed_assignment(
                 context,
                 AssignmentRecord {
                     id: assignment,

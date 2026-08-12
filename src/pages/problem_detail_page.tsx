@@ -4,6 +4,7 @@ import { A, createAsync, useParams } from "@solidjs/router";
 import { For, Show, Suspense, type JSX } from "solid-js";
 
 import { useApiRuntime } from "../api/runtime";
+import { CopyableProblemId } from "../components/copyable_problem_id";
 
 function versionLink(problem: string, version: string): string {
   return `/library/${encodeURIComponent(problem)}/versions/${encodeURIComponent(version)}`;
@@ -45,6 +46,9 @@ export function ProblemDetailPage(): JSX.Element {
             <article>
               <p class="eyebrow">Immutable published version</p>
               <h1>{record().summary.metadata.title}</h1>
+              <CopyableProblemId
+                displayId={`P-${record().summary.publicId}-v${record().summary.versionNumber}`}
+              />
               <p>{`Backend: ${record().summary.backend}`}</p>
               <p>
                 {record().statistics === "unavailable"

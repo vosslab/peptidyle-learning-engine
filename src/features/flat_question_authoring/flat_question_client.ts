@@ -6,7 +6,7 @@ import { decodeDraftQuestionDefinition, decodeQuestionDefinition } from "../../a
 import {
   FLAT_QUESTION_FAMILY,
   FLAT_QUESTION_MEDIA_TYPE,
-  type FlatQuestionSourceV1,
+  type FlatQuestionSourceV2,
 } from "./flat_question_source";
 import { parseFlatQuestionSource, serializeFlatQuestionSource } from "./flat_question_codec";
 
@@ -44,7 +44,7 @@ export class FlatQuestionConflictError extends FlatQuestionRequestError {
 export class FlatQuestionProtocolError extends Error {}
 
 export type FlatQuestionRead = {
-  readonly source: FlatQuestionSourceV1;
+  readonly source: FlatQuestionSourceV2;
   readonly revision: string;
 };
 
@@ -57,7 +57,7 @@ export interface FlatQuestionClient {
   load(workspace: WorkspaceId): Promise<FlatQuestionRead>;
   save(
     workspace: WorkspaceId,
-    source: FlatQuestionSourceV1,
+    source: FlatQuestionSourceV2,
     revision?: string,
   ): Promise<FlatQuestionSave>;
   publish(
@@ -223,7 +223,7 @@ export function createFlatQuestionClient(
 
   async function save(
     workspace: WorkspaceId,
-    source: FlatQuestionSourceV1,
+    source: FlatQuestionSourceV2,
     revision?: string,
   ): Promise<FlatQuestionSave> {
     const path = sourcePath(workspace);

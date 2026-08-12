@@ -1,16 +1,21 @@
 // ui_walkthrough_keyboard_j1.spec.ts - J1 through the rendered platform keyboard path.
 
-import { expect, test } from "@playwright/test";
-
-import { configuredUiWalkthroughInputs } from "../../playwright.config";
+import { expect, test } from "./ui_walkthrough_fixture";
 
 import { tabTo, tabToTargetThroughVisiblePagination } from "./simulator/keyboard_walkthrough";
+import {
+  expectVisibleResponseControlsCleared,
+  submitVisibleResponseCandidate,
+} from "./simulator/chapter_question_responses";
 import {
   appendStudentRepeatState,
   passedStudentRepeatFragment,
 } from "./simulator/student_repeat_state";
 import { writeJ1Checkpoint, type J1Checkpoint } from "./simulator/j1_checkpoint";
-import { studentCredentialFromValidatedFile } from "./ui_walkthrough_live_config";
+import {
+  credentialFromValidatedFile,
+  type UiWalkthroughInputs,
+} from "./ui_walkthrough_config_factory";
 import {
   captureDocumentationScreenshot,
   documentationScreenshotsEnabled,
@@ -18,39 +23,30 @@ import {
 
 test.describe.configure({ mode: "serial" });
 
-test.skip(
-  configuredUiWalkthroughInputs === undefined,
-  "requires the explicit UI walkthrough live-stack invocation",
-);
 test.setTimeout(90_000);
 
-function appendPassedJourneyState(elapsedMs: number): void {
-  const inputs = configuredUiWalkthroughInputs;
-  if (inputs === undefined)
-    throw new Error("the declaration-time live walkthrough skip did not apply");
+function appendPassedJourneyState(inputs: UiWalkthroughInputs, elapsedMs: number): void {
   appendStudentRepeatState(
     inputs.journeyStateFile,
     passedStudentRepeatFragment("J1", inputs.courseId, inputs.masteryAssignmentId, elapsedMs),
   );
 }
 
-function checkpoint(stage: J1Checkpoint): void {
-  const inputs = configuredUiWalkthroughInputs;
-  if (inputs === undefined)
-    throw new Error("the declaration-time live walkthrough skip did not apply");
+function checkpoint(inputs: UiWalkthroughInputs, stage: J1Checkpoint): void {
   writeJ1Checkpoint(inputs.j1CheckpointFile, stage);
 }
 
-test("J1 student reaches visible retry controls for the instructor-created Mastery assignment", async ({
+test("J1 student reaches visible feedback and the next question in the instructor-created Mastery assignment", async ({
   page,
+  uiWalkthroughInputs,
 }) => {
-  const inputs = configuredUiWalkthroughInputs;
-  if (inputs === undefined)
-    throw new Error("the declaration-time live walkthrough skip did not apply");
+  test.skip(uiWalkthroughInputs === undefined, "requires the explicit UI walkthrough config");
+  if (uiWalkthroughInputs === undefined) return;
+  const inputs = uiWalkthroughInputs;
   const startedAt = performance.now();
 
   await page.goto("/");
-  const credential = studentCredentialFromValidatedFile(inputs.credentialFile);
+  const credential = credentialFromValidatedFile(inputs.credentialFile, "student");
   const credentialInput = page.getByLabel("Local development credential");
   await tabTo(page, credentialInput);
   await expect(credentialInput).toBeFocused();
@@ -61,7 +57,7 @@ test("J1 student reaches visible retry controls for the instructor-created Maste
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Pick up where you left off" })).toBeVisible();
   await expect(page.locator("[data-route-surface=courses]")).toBeVisible();
-  checkpoint("signed_in");
+  checkpoint(inputs, "signed_in");
 
   const courseLink = page.locator(`a[href="/courses/${inputs.courseId}"]`);
   await tabToTargetThroughVisiblePagination(page, {
@@ -76,14 +72,14 @@ test("J1 student reaches visible retry controls for the instructor-created Maste
   });
   await expect(courseLink).toHaveCount(1);
   await expect(courseLink).toBeVisible();
-  checkpoint("course_visible");
+  checkpoint(inputs, "course_visible");
   await expect(courseLink).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-route-surface=courseAssignments]")).toBeVisible({
     timeout: 30_000,
   });
   await expect(page.locator("#main-content")).toBeFocused({ timeout: 30_000 });
-  checkpoint("course_opened");
+  checkpoint(inputs, "course_opened");
 
   const assignmentLink = page.locator(
     `a[href="/courses/${inputs.courseId}/assignments/${inputs.masteryAssignmentId}"]`,
@@ -102,15 +98,20 @@ test("J1 student reaches visible retry controls for the instructor-created Maste
   await expect(assignmentLink).toBeVisible();
   await tabTo(page, assignmentLink, "backward");
   await expect(assignmentLink).toBeFocused();
-  checkpoint("assignment_visible");
+  checkpoint(inputs, "assignment_visible");
   await captureDocumentationScreenshot(
     page,
     "student_assignment_list.png",
     assignmentLink.locator("xpath=ancestor::article[contains(@class, 'course-card')]"),
     72,
+    inputs.screenshotDirectory,
   );
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
+  const questionsPerRun = page.locator(".assignment-facts > div", {
+    has: page.locator("dt", { hasText: "Questions per run" }),
+  });
+  await expect(questionsPerRun.locator("dd")).toHaveText("4");
 
   const start = page.getByRole("button", { name: "Start or resume practice" });
   await tabTo(page, start);
@@ -118,33 +119,21 @@ test("J1 student reaches visible retry controls for the instructor-created Maste
   await page.keyboard.press("Space");
   await expect(page.locator("[data-route-surface=runAttempt]")).toBeVisible({ timeout: 30_000 });
 
-  const radios = page.locator('input[type="radio"]:visible');
-  await expect(radios).toHaveCount(2, { timeout: 30_000 });
-  await expect(radios.nth(0)).not.toBeChecked();
-  await expect(radios.nth(1)).not.toBeChecked();
-  checkpoint("run_controls_visible");
-  const response = radios.nth(0);
-  await tabTo(page, response);
-  await expect(response).toBeFocused();
-  if (documentationScreenshotsEnabled()) {
+  await expectVisibleResponseControlsCleared(page);
+  checkpoint(inputs, "run_controls_visible");
+  if (documentationScreenshotsEnabled(inputs.screenshotDirectory)) {
     await expect(page.getByRole("timer")).not.toHaveText("Untimed");
   }
-  await captureDocumentationScreenshot(page, "student_timed_problem.png");
-  await page.keyboard.press("Space");
-  await expect(response).toBeChecked();
-  const submit = page.getByRole("button", { name: "Submit answer" });
-  await expect(submit).toBeEnabled();
-  await page.keyboard.press("Tab");
-  await expect(submit).toBeFocused();
-  await page.keyboard.press("Shift+Tab");
-  await expect(response).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(submit).toBeFocused();
-  await page.keyboard.press("Space");
-  await expect(page.getByRole("heading", { name: "Feedback", exact: true })).toBeVisible({
-    timeout: 15_000,
-  });
-  checkpoint("feedback_visible");
+  await captureDocumentationScreenshot(
+    page,
+    "student_timed_problem.png",
+    undefined,
+    undefined,
+    inputs.screenshotDirectory,
+  );
+  const submitted = await submitVisibleResponseCandidate(page);
+  expect(submitted.outcome).toBe("not-quite");
+  checkpoint(inputs, "feedback_visible");
 
   const continueButton = page.getByRole("button", { name: "Continue" });
   await tabTo(page, continueButton);
@@ -152,9 +141,7 @@ test("J1 student reaches visible retry controls for the instructor-created Maste
   await page.keyboard.press("Space");
   await expect(page.locator("[data-route-surface=runAttempt]")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("button", { name: "Start another practice run" })).toHaveCount(0);
-  await expect(radios).toHaveCount(2, { timeout: 30_000 });
-  await expect(radios.nth(0)).not.toBeChecked();
-  await expect(radios.nth(1)).not.toBeChecked();
-  checkpoint("retry_visible");
-  appendPassedJourneyState(Math.round(performance.now() - startedAt));
+  await expectVisibleResponseControlsCleared(page);
+  checkpoint(inputs, "next_question_visible");
+  appendPassedJourneyState(inputs, Math.round(performance.now() - startedAt));
 });

@@ -87,17 +87,16 @@ pub use crate::course_appearance::{
     RegisterCourseBannerCandidate, SaveCourseAppearance,
 };
 pub use crate::course_roster::{
-    ActivateLocalDevelopmentCourseMember, AllowedEmailDomain, ClaimCourseInvitation,
-    ClaimedCourseMembership, CommitCourseRosterImport, CommittedCourseRosterImport,
-    CourseEnrollmentPolicy, CourseInvitation, CourseInvitationId, CourseInvitationLifetime,
-    CourseInvitationSecretHash, CourseInvitationStatus, CourseMemberId, CourseMemberStatus,
-    CourseRosterEntry, CourseRosterError, CourseRosterId, CourseRosterImportId,
-    CourseRosterImportLifetime, CourseRosterImportPreview, CourseRosterImportRow,
-    CourseRosterImportRowInput, CourseRosterImportState, CourseRosterMember,
-    CourseRosterMemberSource, CourseRosterPage, CourseRosterStore, CourseSignupPosture,
-    CreateCourseInvitation, MAX_ROSTER_IMPORT_ROWS, ReplaceCourseEnrollmentPolicy,
-    RevokeCourseInvitation, RevokeCourseMember, RosterIdempotencyKey, RosterImportInvitation,
-    RosterImportRevision, RosterImportRowStatus, RosterRevision, StageCourseRosterImport,
+    AllowedEmailDomain, ClaimCourseInvitation, ClaimedCourseMembership, CommitCourseRosterImport,
+    CommittedCourseRosterImport, CourseEnrollmentPolicy, CourseInvitation, CourseInvitationId,
+    CourseInvitationLifetime, CourseInvitationSecretHash, CourseInvitationStatus, CourseMemberId,
+    CourseMemberStatus, CourseRosterContact, CourseRosterEntry, CourseRosterError, CourseRosterId,
+    CourseRosterImportId, CourseRosterImportLifetime, CourseRosterImportPreview,
+    CourseRosterImportRow, CourseRosterImportRowInput, CourseRosterImportState, CourseRosterMember,
+    CourseRosterPage, CourseRosterStore, CourseSignupPosture, CreateCourseInvitation,
+    MAX_ROSTER_IMPORT_ROWS, ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation,
+    RevokeCourseMember, RosterIdempotencyKey, RosterImportInvitation, RosterImportRevision,
+    RosterImportRowStatus, RosterRevision, StageCourseRosterImport, UpsertCourseMember,
 };
 pub(crate) use crate::external_tool::fresh_external_tool_launch_id;
 pub use crate::external_tool::{

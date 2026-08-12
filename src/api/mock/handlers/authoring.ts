@@ -12,6 +12,7 @@ import {
 
 export interface MockAssignmentState {
   assignment: AssignmentSummary;
+  assignmentTiming: AssignmentEditorInput["assignmentTiming"];
   revision: bigint;
   nextId: bigint;
   nextItemId: bigint;
@@ -20,6 +21,7 @@ export interface MockAssignmentState {
 export function createMockAssignmentState(): MockAssignmentState {
   return {
     assignment: structuredClone(publishedProblemFixture.assignment),
+    assignmentTiming: { timeLimitSeconds: null },
     revision: 1n,
     nextId: 60n,
     nextItemId: 160n,
@@ -34,10 +36,11 @@ function noStoreHeaders(revision?: bigint): HeadersInit {
 
 function assignmentEditorResponse(
   assignment: AssignmentSummary,
+  assignmentTiming: AssignmentEditorInput["assignmentTiming"],
   revision: bigint,
   status = 200,
 ): Response {
-  return jsonResponse(assignment, status, noStoreHeaders(revision));
+  return jsonResponse({ ...assignment, assignmentTiming }, status, noStoreHeaders(revision));
 }
 
 function assignmentError(status: number, error: string): Response {
@@ -175,7 +178,8 @@ export async function respondAuthoring(
       policies: input.policies,
     };
     state.revision = 1n;
-    return assignmentEditorResponse(state.assignment, state.revision, 201);
+    state.assignmentTiming = input.assignmentTiming;
+    return assignmentEditorResponse(state.assignment, state.assignmentTiming, state.revision, 201);
   }
   if (
     resource === "courses" &&
@@ -205,12 +209,13 @@ export async function respondAuthoring(
       items: mockAssignmentItems(state, input),
       policies: input.policies,
     };
+    state.assignmentTiming = input.assignmentTiming;
     state.revision += 1n;
-    return assignmentEditorResponse(state.assignment, state.revision);
+    return assignmentEditorResponse(state.assignment, state.assignmentTiming, state.revision);
   }
   if (resource === "assignments" && segments[2] === state.assignment.id) {
     if (request.method === "GET") {
-      return assignmentEditorResponse(state.assignment, state.revision);
+      return assignmentEditorResponse(state.assignment, state.assignmentTiming, state.revision);
     }
     return methodNotAllowed(request);
   }

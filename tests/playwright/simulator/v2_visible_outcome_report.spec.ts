@@ -23,8 +23,6 @@ import {
 
 const COURSE_ID = "123e4567-e89b-12d3-a456-426614174000";
 const ASSIGNMENT_ID = "123e4567-e89b-12d3-a456-426614174001";
-const PROBLEM_ID = "123e4567-e89b-12d3-a456-426614174002";
-const VERSION_ID = "123e4567-e89b-12d3-a456-426614174003";
 
 function validState(): unknown {
   return [
@@ -33,6 +31,7 @@ function validState(): unknown {
     fragment("J13", [
       "visible_assignment_created",
       "visible_catalog_problem_selected",
+      "visible_four_question_chapter_one_selection",
       "visible_mastery_policy",
     ]),
     fragment("J1", ["visible_feedback", "visible_response", "visible_retry", "visible_submit"]),
@@ -78,8 +77,7 @@ function fragment(
   };
   if (journey === "J13") {
     base["assignmentId"] = ASSIGNMENT_ID;
-    base["problemId"] = PROBLEM_ID;
-    base["versionId"] = VERSION_ID;
+    base["selectedDisplayIds"] = ["P-11-v1", "P-12-v1", "P-13-v1", "P-14-v1"];
   } else if (journey !== "J11" && journey !== "J12") {
     base["assignmentId"] = ASSIGNMENT_ID;
   }

@@ -7,7 +7,7 @@ import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { ProblemVersionRef } from "../../generated/api/ProblemVersionRef";
 import type { AssignmentEditorDetail, AssignmentEditorInput } from "../api/contracts";
 import type { ApiClient } from "../api/client";
-import type { AssignmentCatalogRow } from "./assignment_editor_model";
+import { assignmentProblemLabel, type AssignmentCatalogRow } from "./assignment_editor_model";
 
 export interface AssignmentEditorRepository {
   readonly load: (assignment: AssignmentId) => Promise<AssignmentEditorDetail>;
@@ -22,6 +22,8 @@ export interface AssignmentEditorRepository {
     revision: string,
   ) => Promise<AssignmentEditorDetail>;
   readonly searchPublished: (text: string) => Promise<ReadonlyArray<AssignmentCatalogRow>>;
+  /** Resolves one exact, copyable P-n-vn identity to an immutable assignment tuple. */
+  readonly resolvePublished: (displayReference: string) => Promise<AssignmentCatalogRow>;
   /** Resolves safe display metadata for immutable references already on an assignment. */
   readonly describePublished: (
     references: ReadonlyArray<ProblemVersionRef>,
@@ -60,6 +62,13 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
     searchPublished: async (text): Promise<ReadonlyArray<AssignmentCatalogRow>> => {
       const page = await client.searchCatalog(catalogQuery(text));
       return page.items.map(catalogRow);
+    },
+    resolvePublished: async (displayReference): Promise<AssignmentCatalogRow> => {
+      const row = catalogRow(await client.resolveCatalogProblem(displayReference));
+      if (assignmentProblemLabel(row) !== displayReference) {
+        throw new Error("The catalog resolved an unrelated question identity.");
+      }
+      return row;
     },
     describePublished: async (references) =>
       await Promise.all(

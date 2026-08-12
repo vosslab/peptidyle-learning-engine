@@ -12,7 +12,7 @@ const screenshotNames = [
   "instructor_problem_catalog.png",
   "instructor_assignment_settings.png",
   "instructor_assignment_created.png",
-  "peptide_bond_mastery_overview.png",
+  "genetics_chapter_one_overview.png",
   "student_assignment_list.png",
   "student_timed_problem.png",
   "student_fresh_practice.png",
@@ -106,16 +106,20 @@ async function copyScreenshotsAtomically(repositoryRootPath, directory) {
 }
 
 function runWalkthrough(repositoryRootPath, argumentsToPass, directory) {
-  const childEnvironment = {
-    ...process.env,
-    PLE_DOCS_SCREENSHOT_DIR: directory,
-  };
   return new Promise((resolve, reject) => {
-    const child = spawn("bash", ["tests/walkthrough/run_ui_walkthrough.sh", ...argumentsToPass], {
-      cwd: repositoryRootPath,
-      env: childEnvironment,
-      stdio: "inherit",
-    });
+    const child = spawn(
+      "bash",
+      [
+        "tests/walkthrough/run_ui_walkthrough.sh",
+        "--screenshot-directory",
+        directory,
+        ...argumentsToPass,
+      ],
+      {
+        cwd: repositoryRootPath,
+        stdio: "inherit",
+      },
+    );
     child.once("error", reject);
     child.once("exit", (code, signal) => {
       if (code === 0) {

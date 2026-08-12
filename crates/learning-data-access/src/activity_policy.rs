@@ -199,6 +199,15 @@ pub(crate) fn validate_assignment_timing(policy: AssignmentTimingPolicy) -> Resu
             "assignment time limit must be greater than zero".to_string(),
         ));
     }
+    if policy
+        .time_limit_seconds
+        .is_some_and(|seconds| seconds > question_model::MAX_ASSIGNMENT_TIME_LIMIT_SECONDS)
+    {
+        return Err(StoreError::InvalidRecord(format!(
+            "assignment time limit must not exceed {} seconds",
+            question_model::MAX_ASSIGNMENT_TIME_LIMIT_SECONDS
+        )));
+    }
     if policy.attempt_limit == Some(0) {
         return Err(StoreError::InvalidRecord(
             "assignment attempt limit must be greater than zero".to_string(),
@@ -222,6 +231,26 @@ pub(crate) fn validate_assignment_timing(policy: AssignmentTimingPolicy) -> Resu
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn assignment_time_limit_accepts_postgres_maximum_and_rejects_first_larger_value() {
+        let mut policy = AssignmentTimingPolicy {
+            time_limit_seconds: Some(question_model::MAX_ASSIGNMENT_TIME_LIMIT_SECONDS),
+            ..AssignmentTimingPolicy::default()
+        };
+        assert!(validate_assignment_timing(policy).is_ok());
+
+        policy.time_limit_seconds = Some(question_model::MAX_ASSIGNMENT_TIME_LIMIT_SECONDS + 1);
+        assert!(matches!(
+            validate_assignment_timing(policy),
+            Err(StoreError::InvalidRecord(message)) if message.contains("must not exceed")
+        ));
+    }
 }
 
 /// Validates that delivery metadata agrees with the typed immutable object key.

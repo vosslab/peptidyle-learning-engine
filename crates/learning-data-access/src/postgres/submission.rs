@@ -615,22 +615,14 @@ pub(super) async fn load_submission_replay(
     }
     let submitted: QuestionAttempt = decode_payload_row(&row)?;
     let feedback = load_attempt_feedback(transaction, tenant, attempt).await?;
-    let Some((run, summary)) =
-        load_submission_receipt_snapshot(transaction, tenant, attempt).await?
-    else {
-        // A pre-snapshot row predates this migration. There is no honest way
-        // to recreate its receipt-time state, so retain the old current-state
-        // fallback only for that legacy data; new writes never take this path.
-        let run = load_run_for_update(transaction, tenant, submitted.run).await?;
-        let enrollment = load_enrollment_for_update(transaction, tenant, run.enrollment).await?;
-        let summary = load_summary_for_update(transaction, tenant, enrollment.id).await?;
-        return Ok(Some(SubmissionRecord {
-            attempt: submitted,
-            run,
-            summary,
-            feedback,
-        }));
-    };
+    let (run, summary) = load_submission_receipt_snapshot(transaction, tenant, attempt)
+        .await?
+        .ok_or_else(|| {
+            StoreError::Unavailable(
+                "submission replay receipt snapshot is missing; replay cannot be reconstructed"
+                    .to_string(),
+            )
+        })?;
     Ok(Some(SubmissionRecord {
         attempt: submitted,
         run,

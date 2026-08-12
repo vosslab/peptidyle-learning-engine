@@ -189,6 +189,36 @@ struct FlatHotspotRegion {
 }
 
 impl FlatQuestionV2 {
+    pub(super) fn imported_single_choice(
+        title: String,
+        prompt: String,
+        choices: Vec<FlatChoice>,
+        correct_choice: String,
+        points: f64,
+    ) -> Self {
+        Self {
+            format: FORMAT_NAME.to_string(),
+            version: FORMAT_VERSION_V2,
+            title,
+            prompt,
+            response: FlatResponseV2::SingleChoice {
+                choices,
+                correct_choice,
+            },
+            feedback: FlatOutcomeFeedback::default(),
+            points,
+            attempt_policy: FlatAttemptPolicy {
+                max_attempts: None,
+                feedback: question_model::run_policy::FeedbackDisclosure::ImmediateFull,
+            },
+            timing_policy: FlatTimingPolicy::Untimed,
+            tags: Vec::new(),
+            taxonomy: Vec::new(),
+            license: FlatLicense::AllRightsReserved,
+            language: "en-US".to_string(),
+        }
+    }
+
     pub(super) fn validate(&self) -> Result<(), FlatQuestionError> {
         if self.format != FORMAT_NAME {
             return Err(FlatQuestionError::UnsupportedFormat);

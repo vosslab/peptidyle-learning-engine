@@ -666,7 +666,7 @@ mod tests {
             .expect("fixture course saves");
         let reference = published_fixture(store.as_ref(), context, tenant, author).await;
         store
-            .create_assignment(
+            .create_untimed_assignment(
                 context,
                 AssignmentRecord {
                     id: assignment,

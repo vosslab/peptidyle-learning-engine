@@ -411,7 +411,7 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
     .await;
     let first_assignment = AssignmentId::from_uuid(uuid(121_020));
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: first_assignment,
@@ -468,7 +468,7 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
     .await;
     let second_assignment = AssignmentId::from_uuid(uuid(121_040));
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: second_assignment,

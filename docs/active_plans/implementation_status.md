@@ -259,9 +259,13 @@ The WP-QTI-12 independent review and documentation close-out is complete:
 
 ## Recent owner-requested support work
 
-- The 2026-08-11 Human Guidance reconciliation slice is complete. The assignment editor resolves catalog
-  titles and displays copyable `P-...-v...` identities plus backend labels rather than presenting UUID
-  tuples as problem numbers. The Chapter 1 source corpus now contains the owner-specified eight
+- The 2026-08-11 Human Guidance reconciliation remains active; its completed content and
+  instructor-identifier sub-slice does not close the broader guidance audit. The assignment editor
+  resolves catalog titles and displays copyable `P-...-v...` identities plus backend labels rather
+  than presenting UUID tuples as problem numbers. Its **Add by question ID** control accepts one or
+  more comma- or newline-separated exact IDs, resolves all of them before changing the draft, and
+  preserves both pasted input and the assignment for malformed, unavailable, unauthorized, or
+  duplicate IDs. The Chapter 1 source corpus now contains the owner-specified eight
   reviewed questions: one WeBWorK MC, WeBWorK MATCH, PLE flat MC, and PLE flat MATCH in each of
   Genetics and Biochemistry. `cargo tools pilot-content` proves the source/compiler contract, and
   `bash tests/e2e/e2e_chapter_one_pilot.sh` now passes the real PostgreSQL/MinIO publication path,
@@ -277,8 +281,8 @@ The WP-QTI-12 independent review and documentation close-out is complete:
   projects the current renderer's direct selects, mixed plain/color labels, and exact empty
   compatibility controls without widening arbitrary markup. Both tracked matching sources now
   provide numeric partial-credit thresholds instead of string-formatted JSON scores. The canonical
-  walkthrough also runs the Genetics four-question chapter as representative release-content
-  evidence.
+  walkthrough visibly constructs the Genetics four-question assignment in J13; the isolated release
+  gate owns the all-eight learner sweep.
 - The current PLE-owned student browser flow and all implemented response families passed a focused
   no-mouse audit. The primary route uses Tab, Shift+Tab, Space, explicit submission, and native link
   activation; Arrow, digit, Enter-to-submit, and Escape extensions have separately classified
@@ -334,7 +338,7 @@ are clean; and three independent reviewers reported no P0/P1/P2.
   instructor setup charter.
 - The corrected schema-v2 report contains only the ordered PASS rows J11, J12,
   J13, J1, J2, J3, J4, J5, and J8, with the sole
-  `api-retry-corpus-publication` arrangement label. J5 visibly proved Best
+  `launcher-chapter-one-genetics` arrangement label. J5 visibly proved Best
   `100%`, Latest `100%`, Completed `2`, and two completed run-history rows;
   the two student runs used the keyboard platform path. The private report
   directory/file were mode 0700/0600 and redacted; runner
@@ -344,11 +348,26 @@ are clean; and three independent reviewers reported no P0/P1/P2.
   `tabindex="-1"` regions, then Tab reaches visible actions. The route
   lifecycle guard prevents delayed course A responses from changing course B.
 - The default canonical walkthrough now also requires two owner-requested human-guidance checks
-  without widening the public schema-v2 report: J13 verifies a human-readable `P-...-v...` catalog
-  identity plus backend label rather than UUID text, and a separate browser phase completes the
-  exact four-question Genetics Chapter 1 assignment. The complete two-chapter eight-question sweep
-  remains the isolated release oracle.
-- The corrected charter in M8-M11 is accepted for its bounded local pilot.
+  without widening the public schema-v2 report: J13 verifies an operational human-readable
+  `P-...-v...` catalog identity plus backend label rather than UUID text, copies/pastes the four
+  exact Genetics Chapter 1 IDs, and visibly observes four selected immutable versions before
+  creation. The complete two-chapter eight-question sweep remains the isolated release oracle.
+- The current runner refactor replaces inherited hidden Python walkthrough switches with documented
+  arguments and one explicit schema-versioned private child-input boundary. Focused offline tests
+  cover its validation and environment isolation. Its rebuilt Podman/Playwright execution is still
+  required one-time acceptance evidence, alongside the strengthened J13 visible copy/paste run;
+  it is not yet a basis for restoring overall walkthrough acceptance.
+- The current Genetics assignment remains untimed because the visible editor does not yet carry the
+  existing course-owned whole-run timing policy. WP-HG1.T is pending: it adds the revision-atomic
+  editor boundary `assignmentTiming.timeLimitSeconds`, uses the Rust-generated 900-second mastery
+  default, and leaves immutable question versions unchanged. Its focused store/API/browser behavior
+  gates and live timed Podman walkthrough evidence remain separate from the current accepted history.
+- The previous corrected charter evidence in M8-M11 remains useful historical evidence for the
+  bounded local pilot, but it is not acceptance for the strengthened human-reference contract.
+  WP-HG1 in the active release plan must record its permanent boundary tests, rebuilt live J13
+  copy/paste run, refreshed screenshots, and independent review before this walkthrough is again
+  called accepted. This vertical slice still does not promote the local roster capability to
+  production enrollment or close RC4--RC12.
   Focused product and Store/PostgreSQL reviews cover its visible course form,
   local-only active roster seam, and visible new-assignment entry path. This
   does not promote the local roster capability to production enrollment.
@@ -433,8 +452,8 @@ and `2026080907_course_appearance.sql` is the first forward migration. Migration
 `2026080908_secure_question_grading_payloads.sql` and `2026080909_passwordless_identity.sql` are
 present with package acceptance open. The release plan reserves
 `2026080910_object_reconciliation.sql`, `2026080911_lti_advantage.sql`, and
-`2026080912_secure_learner_uploads.sql`. The corrected local walkthrough then reserves
-`2026080913_local_development_roster.sql` for its explicit local-only roster source. Accepted
+`2026080912_secure_learner_uploads.sql`. The fresh pre-production identity schema already owns
+the explicit local-development roster source; no separate local-roster migration exists. Accepted
 filenames are not renamed or reordered.
 
 ### Immediate package: WP-RC8 production account-provider composition and acceptance closeout

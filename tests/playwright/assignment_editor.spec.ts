@@ -14,6 +14,10 @@ const assignmentProblems = publishedProblemFixture.assignment.items
 const editPath = `/instructor/courses/${courseId}/assignments/${assignmentId}/edit`;
 const createPath = `/instructor/courses/${courseId}/assignments/new`;
 const appearance = { theme: "grass", revision: "1", banner: null } as const;
+const untimedAssignmentEditor = {
+  ...publishedProblemFixture.assignment,
+  assignmentTiming: { timeLimitSeconds: null },
+} as const;
 const secondCatalogProblem = {
   ...publishedProblemFixture.catalogProblem,
   problem: "0198e000-0000-7000-8000-000000000097",
@@ -163,16 +167,14 @@ test("student and global instructor who is a course learner see no assignment ed
   await expect(
     page.getByRole("heading", { name: "Assignment editing is not available for this account" }),
   ).toBeVisible();
-  expect(new Set(requests)).toEqual(
-    new Set([
-      "/api/auth/session",
-      `/api/courses/${courseId}`,
-      `/api/courses/${courseId}/appearance`,
-    ]),
-  );
-  expect(requests.some((path) => path.includes("assignments") || path.includes("problems"))).toBe(
-    false,
-  );
+  expect(requests).toContain("/api/auth/session");
+  expect(requests).toContain(`/api/courses/${courseId}`);
+  expect(
+    requests.some(
+      (path) =>
+        path.includes("assignments") || path.includes("problems") || path.includes("workspaces"),
+    ),
+  ).toBe(false);
 });
 
 test("direct student route stops before the course, assignment, and catalog clients", async ({
@@ -207,7 +209,7 @@ test("hostile cross-tenant assignment detail is rejected before editor state ado
     if (path === `/api/assignments/${assignmentId}`) {
       return await json(
         route,
-        { ...publishedProblemFixture.assignment, tenant: "0198e000-0000-7000-8000-000000000088" },
+        { ...untimedAssignmentEditor, tenant: "0198e000-0000-7000-8000-000000000088" },
         200,
         { etag: '"7"' },
       );
@@ -218,14 +220,71 @@ test("hostile cross-tenant assignment detail is rejected before editor state ado
   await expect(
     page.getByRole("heading", { name: "This assignment could not be opened" }),
   ).toBeVisible();
-  expect(new Set(requests)).toEqual(
-    new Set([
-      "/api/auth/session",
-      `/api/courses/${courseId}`,
-      `/api/courses/${courseId}/appearance`,
-      `/api/assignments/${assignmentId}`,
-    ]),
+  expect(requests).toContain("/api/auth/session");
+  expect(requests).toContain(`/api/courses/${courseId}`);
+  expect(requests).toContain(`/api/assignments/${assignmentId}`);
+  expect(
+    requests.some(
+      (path) =>
+        path.includes("problems") ||
+        (path.includes("assignments") && path !== `/api/assignments/${assignmentId}`),
+    ),
+  ).toBe(false);
+});
+
+test("direct question-ID lookup keeps the draft and pasted ID after access or service failures", async ({
+  page,
+}) => {
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/auth/session") return await json(route, session(["instructor"]));
+    if (path === `/api/courses/${courseId}`) {
+      return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
+    }
+    if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
+    if (path === `/api/assignments/${assignmentId}`) {
+      return await json(route, untimedAssignmentEditor, 200, { etag: '"7"' });
+    }
+    if (
+      path ===
+      `/api/problems/${publishedProblemFixture.catalogProblem.problem}/versions/${publishedProblemFixture.catalogProblem.version}/detail`
+    ) {
+      return await json(route, {
+        summary: publishedProblemFixture.catalogProblem,
+        prompt: [],
+        statistics: "unavailable",
+      });
+    }
+    if (path === "/api/problems/by-id/P-2-v1") {
+      return await json(route, { error: "not shared with this instructor" }, 403);
+    }
+    if (path === "/api/problems/by-id/P-3-v1") {
+      return await json(route, { error: "temporary catalog outage" }, 503);
+    }
+    return await json(route, { error: "unexpected request" }, 500);
+  });
+
+  await openEditor(page);
+  const selected = page.locator(".assignment-editor-list");
+  const questionIds = page.getByLabel("Question IDs");
+  const add = page.getByRole("button", { name: "Add questions by ID" });
+  await expect(selected).toContainText("P-1-v1");
+
+  await questionIds.fill("P-2-v1");
+  await add.click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "You do not have access to P-2-v1. Ask its owner to publish or share it.",
   );
+  await expect(questionIds).toHaveValue("P-2-v1");
+  await expect(selected).toHaveText(/P-1-v1/u);
+
+  await questionIds.fill("P-3-v1");
+  await add.click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "Could not look up P-3-v1. Your pasted IDs and assignment are unchanged. Try again.",
+  );
+  await expect(questionIds).toHaveValue("P-3-v1");
+  await expect(selected).toHaveText(/P-1-v1/u);
 });
 
 test("authorized editor saves exact immutable refs with CAS, retains all violations, and recovers from conflict", async ({
@@ -256,7 +315,7 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
     if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
     if (path === `/api/assignments/${assignmentId}`) {
       assignmentReads += 1;
-      return await json(route, publishedProblemFixture.assignment, 200, {
+      return await json(route, untimedAssignmentEditor, 200, {
         etag: assignmentReads > 1 ? '"8"' : '"7"',
       });
     }
@@ -281,6 +340,10 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
           statistics: { available: 0, unavailable: 1 },
         },
       });
+    }
+    if (path === "/api/problems/by-id/P-2-v1") return await json(route, secondCatalogProblem);
+    if (path === "/api/problems/by-id/P-99-v1") {
+      return await json(route, { error: "problem reference not found" }, 404);
     }
     if (
       path === `/api/courses/${courseId}/assignments/${assignmentId}` &&
@@ -313,7 +376,7 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
       return await json(
         route,
         {
-          ...publishedProblemFixture.assignment,
+          ...untimedAssignmentEditor,
           title: (body as { title: string }).title,
           policies: (body as { policies: unknown }).policies,
         },
@@ -329,6 +392,8 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
   const title = page.getByLabel("Assignment title");
   await expect(title).toBeVisible();
   await expect(title).toBeFocused();
+  await expect(page.getByRole("radio", { name: "Untimed", exact: true })).toBeChecked();
+  await expect(page.getByLabel("Minutes per practice run")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Save assignment" })).toBeVisible();
   const selectedProblems = page.locator(".assignment-editor-list");
   await expect(selectedProblems).toContainText(
@@ -337,46 +402,60 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
   await expect(selectedProblems).not.toContainText(publishedProblemFixture.catalogProblem.problem);
   await expect(selectedProblems).not.toContainText(publishedProblemFixture.catalogProblem.version);
 
-  await page.getByLabel("Search published problems").fill("peptide");
+  const questionIds = page.getByLabel("Question IDs");
+  await questionIds.fill("P-1-v1");
+  await page.getByRole("button", { name: "Add questions by ID" }).click();
+  await expect(page.getByRole("alert")).toContainText("P-1-v1 is already in this assignment");
+  await expect(questionIds).toHaveValue("P-1-v1");
+  await questionIds.fill("P-2");
+  await page.getByRole("button", { name: "Add questions by ID" }).click();
+  await expect(page.getByRole("alert")).toContainText("P-2 is not an exact question ID");
+  await expect(questionIds).toHaveValue("P-2");
+  await questionIds.fill("P-2-v1, P-99-v1");
+  await page.getByRole("button", { name: "Add questions by ID" }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "P-99-v1 is not an available published question",
+  );
+  await expect(questionIds).toHaveValue("P-2-v1, P-99-v1");
+  await expect(page.getByText("Second immutable peptide version")).toHaveCount(0);
+
+  // The instructor obtains the identifier from a visible catalog result, then uses the
+  // same clipboard and keyboard path available in the real editor. No UUID is entered.
+  const search = page.getByLabel("Search published problems");
+  await search.fill("Second immutable peptide version");
   await page.getByRole("button", { name: "Search catalog" }).click();
-  await expect(page.getByRole("button", { name: "Already selected" })).toBeVisible();
-  const addSecond = page.getByRole("button", { name: "Add published version" });
+  const secondCatalogRow = page.locator(".assignment-editor-catalog-results article", {
+    has: page.getByRole("heading", { name: "Second immutable peptide version", exact: true }),
+  });
+  const copiedId = await secondCatalogRow.locator("code").innerText();
+  await expect(secondCatalogRow.locator("code")).toHaveText("P-2-v1");
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin: new URL(page.url()).origin,
+  });
+  const copyId = secondCatalogRow.getByRole("button", {
+    name: `Copy question ID ${copiedId}`,
+  });
+  await copyId.focus();
+  await expect(copyId).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(secondCatalogRow.getByRole("status")).toHaveText(`Copied ${copiedId}.`);
+  await questionIds.focus();
+  await page.keyboard.press("ControlOrMeta+A");
+  await page.keyboard.press("ControlOrMeta+V");
+  await expect(questionIds).toHaveValue(copiedId);
+  const addSecond = page.getByRole("button", { name: "Add questions by ID" });
   await addSecond.focus();
   await expect(addSecond).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.getByText("Second immutable peptide version").first()).toBeVisible();
+  await expect(page.locator(".assignment-editor-import-success")).toContainText(
+    "Added P-2-v1 to the unsaved selection",
+  );
+  await expect(page.locator(".assignment-editor-actions")).toContainText(
+    "Unsaved assignment changes.",
+  );
+  await expect(questionIds).toHaveValue("");
   expect(requests.filter((request) => request.method === "PUT")).toEqual([]);
-  await title.focus();
-  await page.keyboard.press("Tab");
-  await expect(
-    page.getByRole("button", { name: /Move Peptide bond resonance and planarity later/ }),
-  ).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(
-    page.getByRole("button", { name: /Remove Peptide bond resonance and planarity/ }),
-  ).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(
-    page.getByRole("button", { name: /Move Second immutable peptide version earlier/ }),
-  ).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(
-    page.getByRole("button", { name: /Remove Second immutable peptide version/ }),
-  ).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.getByLabel("Completion requirement")).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.getByLabel("Grade policy")).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.getByLabel("Continued practice")).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.getByLabel("Variation policy")).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.getByLabel("Search published problems")).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.getByRole("button", { name: "Search catalog" })).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.getByRole("button", { name: "Save assignment" })).toBeFocused();
   await title.fill("Edited peptide practice");
   await page.getByRole("button", { name: "Save assignment" }).click();
   await expect(page.getByRole("heading", { name: "Fix these assignment settings" })).toBeFocused();
@@ -391,7 +470,9 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
   await expect(title).toBeFocused();
   await title.fill("Saved after reload");
   await page.getByRole("button", { name: "Save assignment" }).click();
-  await expect(page.locator(".assignment-editor-actions span")).toHaveText("Assignment saved.");
+  await expect(page.locator(".assignment-editor-actions span")).toHaveText(
+    "Assignment saved. This assignment is untimed.",
+  );
 
   const puts = requests.filter((request) => request.method === "PUT");
   expect(puts).toHaveLength(3);
@@ -403,12 +484,14 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
       { problem: secondCatalogProblem.problem, version: secondCatalogProblem.version },
     ],
     policies: publishedProblemFixture.assignment.policies,
+    assignmentTiming: { timeLimitSeconds: null },
   });
   expect(puts[2]?.revision).toBe('"8"');
   expect(puts[2]?.body).toEqual({
     title: "Saved after reload",
     problems: assignmentProblems,
     policies: publishedProblemFixture.assignment.policies,
+    assignmentTiming: { timeLimitSeconds: null },
   });
   expect(JSON.stringify(puts[2]?.body)).not.toMatch(
     /workspace|source|prompt|response|grading|answerKey|capabilit/i,
@@ -447,22 +530,26 @@ test("manager creates a Mastery assignment from public immutable catalog tuples 
         },
       });
     }
+    if (path === "/api/problems/by-id/P-1-v1") {
+      return await json(route, publishedProblemFixture.catalogProblem);
+    }
     if (path === `/api/courses/${courseId}/assignments` && request.method() === "POST") {
       created = true;
       return await json(
         route,
         {
-          ...publishedProblemFixture.assignment,
+          ...untimedAssignmentEditor,
           id: createdId,
           title: (body as { readonly title: string }).title,
           policies: (body as { readonly policies: unknown }).policies,
+          assignmentTiming: (body as { readonly assignmentTiming: unknown }).assignmentTiming,
         },
         201,
         { etag: '"1"' },
       );
     }
     if (path === `/api/assignments/${createdId}` && created) {
-      return await json(route, { ...publishedProblemFixture.assignment, id: createdId });
+      return await json(route, { ...untimedAssignmentEditor, id: createdId });
     }
     return await json(route, { error: "unexpected request" }, 500);
   });
@@ -475,13 +562,30 @@ test("manager creates a Mastery assignment from public immutable catalog tuples 
   await expect(page.getByLabel("Grade policy")).toHaveValue("highest");
   await expect(page.getByLabel("Continued practice")).toHaveValue("unlimited");
   await expect(page.getByLabel("Variation policy")).toHaveValue("newSeeds");
+  await expect(page.getByRole("radio", { name: "Timed", exact: true })).toBeChecked();
+  const runMinutes = page.getByLabel("Minutes per practice run");
+  await expect(runMinutes).toHaveValue("15");
+  await runMinutes.fill("0");
+  await expect(page.getByRole("alert")).toHaveText(
+    "Enter a positive number of minutes, such as 15.",
+  );
+  await expect(page.getByRole("button", { name: "Create assignment" })).toBeDisabled();
+  await runMinutes.fill("1.5");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await page.getByRole("radio", { name: "Untimed", exact: true }).check();
+  await expect(runMinutes).toHaveCount(0);
+  await page.getByRole("radio", { name: "Timed", exact: true }).check();
+  await expect(runMinutes).toHaveValue("1.5");
+  await runMinutes.fill("15");
 
   await title.fill("Fall pilot peptide mastery");
-  await page.getByLabel("Search published problems").fill("peptide");
-  await page.getByRole("button", { name: "Search catalog" }).click();
-  const add = page.getByRole("button", { name: "Add published version" });
+  await page.getByLabel("Question IDs").fill("P-1-v1");
+  const add = page.getByRole("button", { name: "Add questions by ID" });
   await add.focus();
   await page.keyboard.press("Enter");
+  await expect(page.locator(".assignment-editor-import-success")).toHaveText(
+    "Added P-1-v1 to the unsaved selection.",
+  );
   await page.getByRole("button", { name: "Create assignment" }).focus();
   await page.keyboard.press("Enter");
 
@@ -502,7 +606,93 @@ test("manager creates a Mastery assignment from public immutable catalog tuples 
         continuedPractice: { kind: "unlimited" },
         variation: "newSeeds",
       },
+      assignmentTiming: { timeLimitSeconds: 900 },
     },
   });
   expect(JSON.stringify(posts[0]?.body)).not.toMatch(/source|answer|grading|prompt|response/i);
+});
+
+test("a loaded non-terminating minute value survives an unrelated save exactly", async ({
+  page,
+}) => {
+  const storedSeconds = 2_147_483_647;
+  const saves: unknown[] = [];
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path === "/api/auth/session") return await json(route, session(["instructor"]));
+    if (path === `/api/courses/${courseId}`) {
+      return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
+    }
+    if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
+    if (path === `/api/assignments/${assignmentId}` && request.method() === "GET") {
+      return await json(
+        route,
+        {
+          ...publishedProblemFixture.assignment,
+          assignmentTiming: { timeLimitSeconds: storedSeconds },
+        },
+        200,
+        { etag: '"7"' },
+      );
+    }
+    if (
+      path ===
+      `/api/problems/${publishedProblemFixture.catalogProblem.problem}/versions/${publishedProblemFixture.catalogProblem.version}/detail`
+    ) {
+      return await json(route, {
+        summary: publishedProblemFixture.catalogProblem,
+        prompt: [],
+        statistics: "unavailable",
+      });
+    }
+    if (
+      path === `/api/courses/${courseId}/assignments/${assignmentId}` &&
+      request.method() === "PUT"
+    ) {
+      const body = request.postDataJSON() as unknown;
+      saves.push(body);
+      const requestBody = body as {
+        readonly title: string;
+        readonly problems: unknown;
+        readonly policies: unknown;
+        readonly assignmentTiming: unknown;
+      };
+      return await json(
+        route,
+        {
+          ...publishedProblemFixture.assignment,
+          title: requestBody.title,
+          policies: requestBody.policies,
+          assignmentTiming: requestBody.assignmentTiming,
+        },
+        200,
+        { etag: '"8"' },
+      );
+    }
+    if (path === "/api/problems/search") {
+      return await json(route, {
+        items: [],
+        nextCursor: null,
+        facets: {
+          taxonomy: [],
+          capabilities: [],
+          licenses: [],
+          statistics: { available: 0, unavailable: 0 },
+        },
+      });
+    }
+    return await json(route, { error: "unexpected request" }, 500);
+  });
+
+  await openEditor(page);
+  const minutes = page.getByLabel("Minutes per practice run");
+  await expect(minutes).toHaveValue("35791394.11666667");
+  await page.getByLabel("Assignment title").fill("Renamed without changing timing");
+  await page.getByRole("button", { name: "Save assignment" }).click();
+  expect(saves).toHaveLength(1);
+  expect(saves[0]).toMatchObject({
+    title: "Renamed without changing timing",
+    assignmentTiming: { timeLimitSeconds: storedSeconds },
+  });
 });

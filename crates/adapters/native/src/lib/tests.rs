@@ -20,16 +20,14 @@ use super::*;
 
 const FLAT_FAVORITE_COLOR: &str = r#"{
   "format": "pleFlatQuestion",
-  "version": 1,
-  "kind": "singleChoice",
+  "version": 2,
   "title": "Favorite color",
   "prompt": "What is my favorite color?",
-  "choices": [
+  "response": {"kind": "singleChoice", "choices": [
     {"id": "blue", "text": "Blue", "feedback": "Blue is a calm choice."},
     {"id": "red", "text": "Red", "feedback": "Red is not my favorite."},
     {"id": "yellow", "text": "Yellow", "feedback": "Yellow is bright."}
-  ],
-  "correctChoice": "blue",
+  ], "correctChoice": "blue"},
   "feedback": {
     "correct": "Exactly right.",
     "incorrect": "Try thinking of a cool color."
@@ -58,7 +56,7 @@ fn flat_question() -> QuestionDefinition {
         ProblemId::from_uuid(Uuid::from_u128(2)),
         VersionId::from_uuid(Uuid::from_u128(3)),
         QuestionSource::Native {
-            family: crate::flat_question::FLAT_SINGLE_CHOICE_FAMILY.to_string(),
+            family: crate::flat_question::FLAT_SINGLE_CHOICE_V2_FAMILY.to_string(),
         },
     )
 }

@@ -206,7 +206,7 @@ async fn fixture() -> Fixture {
         .await
         .expect("course");
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,

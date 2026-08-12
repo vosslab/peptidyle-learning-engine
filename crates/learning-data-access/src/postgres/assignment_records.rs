@@ -726,9 +726,7 @@ pub(super) async fn insert_problem_version(
     )
     .bind(record.problem.as_uuid())
     .bind(record.version.as_uuid())
-    .bind(i64::try_from(record.version_number.value()).map_err(|_| {
-        StoreError::InvalidRecord("problem version number is too large".to_string())
-    })?)
+    .bind(i64::from(record.version_number.value()))
     .bind(content_sha256)
     .bind(record.question.workspace.as_uuid())
     .bind(&record.question.metadata.title)

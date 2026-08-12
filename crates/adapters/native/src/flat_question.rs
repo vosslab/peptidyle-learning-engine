@@ -1,13 +1,11 @@
 //! Strict JSON source and compiler for static flat questions.
 //!
-//! Version 1 remains the original static exactly-one multiple-choice contract.
-//! Version 2 adds the closed family set based on the reviewed QTI Package Maker item model.
+//! The closed version 2 family set follows the reviewed QTI Package Maker item model.
 //! Parsing produces two values:
 //! a browser-safe draft and answer-bearing private material. The latter stays
 //! in this server-only adapter crate and is bound by checksum to the public
 //! definition it grades.
 
-use std::collections::HashSet;
 use std::fmt::Write as _;
 
 use crate::generator::NativeQuestionFamily;
@@ -15,20 +13,14 @@ use grading::AnswerKey;
 pub use grading::flat_question::{
     FLAT_FILL_IN_FAMILY, FLAT_HOTSPOT_FAMILY, FLAT_MATCHING_FAMILY, FLAT_MULTI_FILL_IN_FAMILY,
     FLAT_MULTIPLE_ANSWER_FAMILY, FLAT_NUMERIC_FAMILY, FLAT_ORDERING_FAMILY,
-    FLAT_SINGLE_CHOICE_FAMILY, FLAT_SINGLE_CHOICE_V2_FAMILY, FlatQuestionError,
-    FlatQuestionEvaluation, FlatQuestionPrivate, is_flat_question_family,
-    validate_flat_question_question, validate_flat_single_choice_draft,
-    validate_flat_single_choice_question, validate_for_draft,
+    FLAT_SINGLE_CHOICE_V2_FAMILY, FlatQuestionError, FlatQuestionEvaluation, FlatQuestionPrivate,
+    is_flat_question_family, validate_flat_question_question, validate_for_draft,
 };
-use question_model::answer::SelectionCardinality;
 use question_model::envelope::ContentBlock;
-use question_model::generation::RandomizationDefinition;
-use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
 use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
-use question_model::taxonomy::{License, Tag, TaxonomyTerm};
+use question_model::taxonomy::{License, TaxonomyTerm};
 use question_model::{
-    DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionDefinition,
-    QuestionMetadata, WorkspaceId,
+    DraftQuestionDefinition, QuestionDefinition, WorkspaceId,
     capability::{BackendCapabilities, Capability},
 };
 use serde::{Deserialize, Serialize};
@@ -45,7 +37,6 @@ pub const FLAT_QUESTION_MEDIA_TYPE: &str = "application/vnd.peptidyle.flat-quest
 pub const MAX_FLAT_QUESTION_BYTES: usize = grading::flat_question::MAX_FLAT_QUESTION_BYTES;
 
 const FORMAT_NAME: &str = "pleFlatQuestion";
-const FORMAT_VERSION_V1: u32 = 1;
 const MAX_CHOICES: usize = 100;
 const MAX_CHOICE_ID_BYTES: usize = 64;
 const MAX_PROMPT_CHARS: usize = 65_536;
@@ -61,45 +52,7 @@ const MAX_METADATA_TEXT_CHARS: usize = 256;
 /// split it before persistence or delivery.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct FlatQuestionDocument(FlatDocumentVersion);
-
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-enum FlatDocumentVersion {
-    V1(FlatSingleChoiceV1),
-    V2(v2::FlatQuestionV2),
-}
-
-/// Preserved answer-bearing version 1 single-choice document.
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct FlatSingleChoiceV1 {
-    format: String,
-    version: u32,
-    kind: FlatQuestionKind,
-    title: String,
-    prompt: String,
-    choices: Vec<FlatChoice>,
-    correct_choice: String,
-    #[serde(default)]
-    feedback: FlatOutcomeFeedback,
-    points: f64,
-    attempt_policy: FlatAttemptPolicy,
-    timing_policy: FlatTimingPolicy,
-    #[serde(default)]
-    tags: Vec<String>,
-    #[serde(default)]
-    taxonomy: Vec<FlatTaxonomyTerm>,
-    license: FlatLicense,
-    language: String,
-}
-
-/// Question shape supported by flat-question JSON v1.
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-enum FlatQuestionKind {
-    SingleChoice,
-}
+pub struct FlatQuestionDocument(v2::FlatQuestionV2);
 
 /// Closed authoring form of the shared attempt policy.
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -246,42 +199,6 @@ impl CompiledFlatQuestion {
     }
 }
 
-/// Built-in static multiple-choice family for canonical flat questions.
-///
-/// This family compiles a fixed public shape and delegates answer-bearing
-/// grading material to `FlatQuestionPrivate`, persisted separately in a
-/// server-only store.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct FlatSingleChoiceFamily;
-
-impl NativeQuestionFamily for FlatSingleChoiceFamily {
-    fn family(&self) -> &'static str {
-        FLAT_SINGLE_CHOICE_FAMILY
-    }
-
-    fn generator(&self) -> Option<question_model::GeneratorReference> {
-        None
-    }
-
-    fn capabilities(&self) -> BackendCapabilities {
-        BackendCapabilities::from_iter([
-            Capability::ClientRendering,
-            Capability::ServerGrading,
-            Capability::Hints,
-            Capability::PerQuestionTiming,
-        ])
-    }
-
-    fn derive_answer_key(
-        &self,
-        question: &QuestionDefinition,
-        _generated: &domain::generator::GeneratedVariant,
-    ) -> Result<Option<AnswerKey>, crate::NativeAdapterError> {
-        validate_flat_question_shape(question)?;
-        Ok(None)
-    }
-}
-
 /// One registered static version 2 family.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct FlatV2Family(&'static str);
@@ -348,7 +265,7 @@ impl FlatQuestionDocument {
     /// # Errors
     ///
     /// Refuses oversized input, malformed or duplicate members, unknown
-    /// fields, unsupported versions, and invalid v1 content.
+    /// fields, unsupported versions, and invalid v2 content.
     pub fn parse(bytes: &[u8]) -> Result<Self, FlatQuestionError> {
         if bytes.len() > MAX_FLAT_QUESTION_BYTES {
             return Err(FlatQuestionError::TooLarge);
@@ -387,121 +304,11 @@ impl FlatQuestionDocument {
         &self,
         workspace: WorkspaceId,
     ) -> Result<CompiledFlatQuestion, FlatQuestionError> {
-        match &self.0 {
-            FlatDocumentVersion::V1(document) => document.compile(workspace),
-            FlatDocumentVersion::V2(document) => document.compile(workspace),
-        }
+        self.0.compile(workspace)
     }
 
     fn validate(&self) -> Result<(), FlatQuestionError> {
-        match &self.0 {
-            FlatDocumentVersion::V1(document) => document.validate(),
-            FlatDocumentVersion::V2(document) => document.validate(),
-        }
-    }
-}
-
-impl FlatSingleChoiceV1 {
-    fn compile(&self, workspace: WorkspaceId) -> Result<CompiledFlatQuestion, FlatQuestionError> {
-        self.validate()?;
-        let choices = self
-            .choices
-            .iter()
-            .map(|choice| ChoiceOption {
-                id: ChoiceId::new(&choice.id),
-                body: markdown_blocks(&choice.text),
-            })
-            .collect();
-        let draft = DraftQuestionDefinition {
-            workspace,
-            source: DraftQuestionSource::Native {
-                family: FLAT_SINGLE_CHOICE_FAMILY.to_string(),
-            },
-            prompt: markdown_blocks(&self.prompt),
-            response: ResponseDefinition::MultipleChoice {
-                choices,
-                selection: SelectionCardinality::ExactlyOne,
-            },
-            attempt_policy: self.attempt_policy.into(),
-            timing_policy: self.timing_policy.into(),
-            randomization: RandomizationDefinition::Static,
-            grading: GradingDefinition::AllOrNothing {
-                points: self.points,
-            },
-            metadata: QuestionMetadata {
-                title: self.title.clone(),
-                tags: self.tags.iter().map(Tag::new).collect(),
-                taxonomy: self.taxonomy.iter().map(TaxonomyTerm::from).collect(),
-                license: License::from(&self.license),
-                language: self.language.clone(),
-            },
-        };
-        let choice_feedback = self
-            .choices
-            .iter()
-            .filter_map(|choice| {
-                choice
-                    .feedback
-                    .as_ref()
-                    .map(|markdown| (ChoiceId::new(&choice.id), markdown.clone()))
-            })
-            .collect();
-        let private = FlatQuestionPrivate::new(
-            &draft,
-            ChoiceId::new(&self.correct_choice),
-            choice_feedback,
-            self.feedback.correct.clone(),
-            self.feedback.incorrect.clone(),
-        )?;
-        Ok(CompiledFlatQuestion { draft, private })
-    }
-
-    fn validate(&self) -> Result<(), FlatQuestionError> {
-        if self.format != FORMAT_NAME {
-            return Err(FlatQuestionError::UnsupportedFormat);
-        }
-        if self.version != FORMAT_VERSION_V1 {
-            return Err(FlatQuestionError::UnsupportedVersion(self.version));
-        }
-        question_model::validate_question_title(&self.title)
-            .map_err(FlatQuestionError::InvalidTitle)?;
-        validate_markdown("prompt", &self.prompt, MAX_PROMPT_CHARS)?;
-        if !(2..=MAX_CHOICES).contains(&self.choices.len()) {
-            return invalid("single-choice questions require 2 to 100 choices");
-        }
-        let mut identifiers = HashSet::with_capacity(self.choices.len());
-        for choice in &self.choices {
-            validate_choice_id(&choice.id)?;
-            if !identifiers.insert(choice.id.as_str()) {
-                return invalid("choice identifiers must be unique");
-            }
-            validate_markdown("choice text", &choice.text, MAX_CHOICE_TEXT_CHARS)?;
-            validate_optional_feedback(choice.feedback.as_deref())?;
-        }
-        if !identifiers.contains(self.correct_choice.as_str()) {
-            return invalid("correctChoice must name an available choice");
-        }
-        validate_optional_feedback(self.feedback.correct.as_deref())?;
-        validate_optional_feedback(self.feedback.incorrect.as_deref())?;
-        if !self.points.is_finite() || self.points < 0.0 {
-            return invalid("points must be finite and nonnegative");
-        }
-        if self.attempt_policy.max_attempts == Some(0) {
-            return invalid("maxAttempts must be positive or null");
-        }
-        validate_metadata_text("language", &self.language)?;
-        for tag in &self.tags {
-            validate_bounded_text("tag", tag, MAX_TAG_CHARS)?;
-        }
-        for term in &self.taxonomy {
-            validate_metadata_text("taxonomy scheme", &term.scheme)?;
-            validate_metadata_text("taxonomy code", &term.code)?;
-            validate_metadata_text("taxonomy label", &term.label)?;
-        }
-        if let FlatLicense::Other { spdx } = &self.license {
-            validate_metadata_text("SPDX license", spdx)?;
-        }
-        Ok(())
+        self.0.validate()
     }
 }
 
@@ -548,17 +355,6 @@ fn validate_optional_feedback(value: Option<&str>) -> Result<(), FlatQuestionErr
         validate_bounded_text("feedback", value, MAX_FEEDBACK_CHARS)?;
     }
     Ok(())
-}
-
-fn validate_flat_question_shape(
-    question: &QuestionDefinition,
-) -> Result<(), crate::NativeAdapterError> {
-    validate_flat_single_choice_question(question).map_err(|error| {
-        crate::NativeAdapterError::InvalidFamilyDefinition {
-            family: FLAT_SINGLE_CHOICE_FAMILY.to_string(),
-            message: error.to_string(),
-        }
-    })
 }
 
 fn validate_metadata_text(name: &str, value: &str) -> Result<(), FlatQuestionError> {

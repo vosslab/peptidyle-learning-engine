@@ -46,7 +46,7 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 
 | Backend              | Current authority                                                   | Browser response                                           | Server grading authority                            | Current scope                                                                                         |
 | -------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Native flat          | Immutable PLE flat source and private flat grading payload          | Typed PLE response                                         | Native adapter plus isolated flat grader            | All eight PLE flat JSON v2 families; visual author editor remains v1 single choice                    |
+| Native flat          | Immutable PLE flat source and private flat grading payload          | Typed PLE response                                         | Native adapter plus isolated flat grader            | All eight PLE flat JSON v2 families; visual author editor exposes v2 single choice                    |
 | QTI profile          | Immutable staged/published archive plus profile conversion evidence | Typed PLE response                                         | `QtiBackend` plus least-privilege `QtiGradingStore` | Canvas 1.2 and Blackboard 2.1 static single-choice profiles                                           |
 | WeBWorK              | Immutable licensed PGML source and private renderer                 | Opaque PLE choice or match IDs                             | Private external `/render-api`                      | Four reviewed Chapter 1 PGML sources: MC plus MATCH per chapter; exact-source matching partial credit |
 | iMathAS              | Immutable server snapshot and deployment-selected provider profile  | `ExternalTool` marker through protected same-origin routes | Server broker and verified provider result          | Explicitly configured contracted scored-embed provider only                                           |
@@ -65,8 +65,8 @@ version, or a scoring decision.
 
 The current closed source contract supports multiple choice, multiple answer, fill-in-the-blank,
 multi-blank, numerical, matching, ordering, and hotspot questions. The native adapter dispatches by
-registered family rather than making the run model family-specific. The visual author editor remains
-the deliberately smaller v1 single-choice authoring surface.
+registered family rather than making the run model family-specific. The visual author editor exposes
+the deliberately smaller v2 single-choice authoring surface.
 
 ### Grade, replay, and cache
 

@@ -38,7 +38,7 @@ impl ConversionFixture {
         let import = WorkspaceImportId::from_uuid(uuid(seed));
         let context = TenantContext::from_authenticated_session(tenant);
         let source_text = format!(
-            r#"{{"format":"pleFlatQuestion","version":1,"kind":"singleChoice","title":"{title}","prompt":"Which choice is blue?","choices":[{{"id":"blue","text":"Blue"}},{{"id":"red","text":"Red"}}],"correctChoice":"blue","points":1.0,"attemptPolicy":{{"maxAttempts":null,"feedback":"immediateFull"}},"timingPolicy":{{"kind":"untimed"}},"license":{{"kind":"allRightsReserved"}},"language":"en-US"}}"#
+            r#"{{"format":"pleFlatQuestion","version":2,"title":"{title}","prompt":"Which choice is blue?","response":{{"kind":"singleChoice","choices":[{{"id":"blue","text":"Blue"}},{{"id":"red","text":"Red"}}],"correctChoice":"blue"}},"points":1.0,"attemptPolicy":{{"maxAttempts":null,"feedback":"immediateFull"}},"timingPolicy":{{"kind":"untimed"}},"license":{{"kind":"allRightsReserved"}},"language":"en-US"}}"#
         );
         let document =
             adapter_native::flat_question::FlatQuestionDocument::parse(source_text.as_bytes())
@@ -491,7 +491,7 @@ fn publication_command(
         expected_revision: staged.workspace_revision,
         publication: reference,
         published_source: QuestionSource::Native {
-            family: "flat_single_choice_v1".to_string(),
+            family: "flat_single_choice_v2".to_string(),
         },
         source_artifact: Some(published_source_artifact(
             reference,

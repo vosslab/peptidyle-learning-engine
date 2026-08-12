@@ -565,6 +565,57 @@ fn reviewed_chapter_matching_sources_claim_partial_credit_without_widening_near_
     assert!(!near_miss.supports(Capability::PartialCredit));
 }
 
+#[test]
+fn reviewed_chapter_sources_admit_immediate_correctness_without_widening_pg_support() {
+    for (pg_path, source_sha256) in [
+        (
+            "content/pilot/sources/genetics/genetic_disorders-which_one.pgml",
+            "810fc1ed93a5ed60ec79e94aa86ded3caebe2bdf8627fb71d6fecd7c6b4f062c",
+        ),
+        (
+            "content/pilot/sources/genetics/genetic_disorders-matching.pgml",
+            "ae59425dce95bbffe0992aa5e072cd01370b736ef958685e409004d7580d2718",
+        ),
+        (
+            "content/pilot/sources/biochemistry/biochemical_functional_groups-which_one.pgml",
+            "7e27357885fc8d71410bf42431105a515bdc75a776359a2d02013813e362b5fa",
+        ),
+        (
+            "content/pilot/sources/biochemistry/biochemical_functional_groups-matching.pgml",
+            "42c52281516511410623e56a315ed74f687f412a24c6ca1d028ffbe3eab12f17",
+        ),
+    ] {
+        let source = QuestionSource::Webwork {
+            pg_path: pg_path.to_string(),
+        };
+        assert!(
+            reviewed_webwork_source_capabilities_for_feedback(
+                &source,
+                source_sha256,
+                FeedbackDisclosure::ImmediateCorrectness,
+            )
+            .expect("reviewed Chapter 1 source has a capability profile")
+            .supports(Capability::Hints)
+        );
+    }
+    let historical = reviewed_webwork_source_capabilities(
+        &QuestionSource::Webwork {
+            pg_path: "content/pilot/sources/genetics/genetic_disorders-which_one.pgml".to_string(),
+        },
+        "810fc1ed93a5ed60ec79e94aa86ded3caebe2bdf8627fb71d6fecd7c6b4f062c",
+    )
+    .expect("historical reviewed source has a conservative profile");
+    assert!(!historical.supports(Capability::Hints));
+    let unreviewed = QuestionSource::Webwork {
+        pg_path: "content/pilot/sources/genetics/genetic_disorders-which_one.pgml".to_string(),
+    };
+    assert!(
+        !reviewed_webwork_source_capabilities(&unreviewed, &"0".repeat(64))
+            .expect("changed source bytes keep only conservative capabilities")
+            .supports(Capability::Hints)
+    );
+}
+
 #[tokio::test]
 async fn unreviewed_source_refuses_partial_credit_before_renderer_grading() {
     let calls = Arc::new(AtomicUsize::new(0));

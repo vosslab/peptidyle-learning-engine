@@ -432,7 +432,7 @@ INSERT INTO public.problem_version_payload
 VALUES
     ('11111111-1111-4111-8111-0000000000b8',
      '11111111-1111-4111-8111-0000000000b9',
-     '{"question":{"source":{"backend":"native","family":"flat_single_choice_v1"}}}',
+     '{"question":{"source":{"backend":"native","family":"flat_single_choice_v2"}}}',
      repeat('5', 64));
 
 SET LOCAL ROLE ple_app;

@@ -68,6 +68,24 @@
 
 ### Fixes and Maintenance
 
+- Removed the pre-production PLE flat-question JSON v1 reader, compiler, family registration,
+  private-payload branch, current fixtures, and authoring contract. Native flat content now accepts
+  only the closed v2 eight-family source contract, including the v2 single-choice editor and QTI
+  profile bridge. QTI profile v1, presentation v1, migrations, and `P-<number>-v<version>` remain
+  separate current protocols rather than compatibility shims.
+- Replaced the UI walkthrough's inherited hidden Python `PLE_*` run switches
+  with documented `argparse` choices and a single explicit, schema-versioned
+  private input file for fixed Node and Playwright children. The runner clears
+  inherited walkthrough overrides before it starts owned children; private
+  input files remain mode 0600 within a mode-0700 runner directory. Focused
+  offline boundary checks cover the durable contract. The rebuilt Podman and
+  browser walkthrough remains pending one-time acceptance evidence.
+- Decoupled the persistent-volume canonical UI walkthrough from the Chapter 1
+  all-eight learner sweep. Its default lifecycle now remains J11/J12/J13 then
+  J1/J2/J3/J4/J5/J8 against the instructor-created four-question Genetics
+  assignment, so reruns preserve student progress rather than resuming it as a
+  release sweep. `bash tests/e2e/e2e_chapter_one_browser.sh` remains unchanged
+  as the isolated disposable Genetics-plus-Biochemistry release oracle.
 - Made the human-readable Chapter 1 manifest the publication seed's source of truth for course and
   assignment display names, question titles, families, point values, and source paths. Validation
   now rejects flat-payload title drift and unsupported point values before the seed publishes, and
@@ -77,6 +95,10 @@
   backend label, such as `P-1-v1` with `WeBWorK`. Existing assignments now resolve their immutable
   catalog titles and display identities when loaded, while saved requests and walkthrough
   selectors retain the exact internal references without presenting them as problem numbers.
+  The editor now makes that identity operational: an instructor can paste one or more comma- or
+  newline-separated exact IDs into **Add by question ID**, resolve their immutable published
+  versions, and add them atomically. Invalid, unavailable, unauthorized, or duplicate input keeps
+  the pasted text and assignment unchanged for correction and retry.
   Focused model, type, production-build, and seven-scenario rendered editor checks pass, including
   reload, conflict recovery, keyboard assignment creation, and assertions that UUIDs are absent
   from selected-question text.

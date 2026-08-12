@@ -261,16 +261,15 @@ impl CatalogStore for PostgresStore {
                             base.derived_from,
                             Some((
                                 base.public_id,
-                                ProblemVersionNumber::new(
-                                    base.version_number.value().checked_add(1).ok_or_else(
-                                        || {
-                                            StoreError::Unavailable(
-                                                "problem version number limit reached".to_string(),
-                                            )
-                                        },
-                                    )?,
-                                )
-                                .expect("incremented version remains positive"),
+                                base.version_number
+                                    .value()
+                                    .checked_add(1)
+                                    .and_then(|value| ProblemVersionNumber::new(u64::from(value)))
+                                    .ok_or_else(|| {
+                                        StoreError::Unavailable(
+                                            "problem version number limit reached".to_string(),
+                                        )
+                                    })?,
                             )),
                         )
                     } else {
@@ -522,13 +521,8 @@ impl CatalogStore for PostgresStore {
         context: TenantContext,
         reference: question_model::ProblemDisplayRef,
     ) -> Result<Option<PublishedProblemRecord>, StoreError> {
-        let requested_version = reference
-            .version
-            .map(|version| i64::try_from(version.value()))
-            .transpose()
-            .map_err(|_| StoreError::InvalidRecord("problem version is too large".to_string()))?;
-        let public_id = i64::try_from(reference.problem.value())
-            .map_err(|_| StoreError::InvalidRecord("problem ID is too large".to_string()))?;
+        let requested_version = reference.version.map(|version| i64::from(version.value()));
+        let public_id = i64::from(reference.problem.value());
         let mut transaction = self.begin_tenant(context).await?;
         let row = sqlx::query(
             "SELECT pv.problem_id, p.public_id, pv.version_id, pv.version_number, \
@@ -644,6 +638,12 @@ impl CatalogStore for PostgresStore {
             .map(|(problem, version)| (Some(problem), Some(version)))
             .unwrap_or((None, None));
         let text = query.text.clone();
+        let exact_display_version = query.exact_display_version();
+        let exact_public_id =
+            exact_display_version.map(|reference| i64::from(reference.problem.value()));
+        let exact_version_number = exact_display_version
+            .and_then(|reference| reference.version)
+            .map(|version| i32::try_from(version.value()).expect("31-bit version number fits i32"));
         let taxonomy = Json(query.taxonomy.clone());
         let capabilities = Json(query.capabilities.clone());
         let licenses = Json(query.licenses.clone());
@@ -668,7 +668,12 @@ impl CatalogStore for PostgresStore {
                         AS published_at_millis \
              FROM catalog_search_view AS document \
              WHERE document.lifecycle = 'published' \
-               AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1)) \
+               AND ( \
+                   ($9::bigint IS NOT NULL AND document.public_id = $9::bigint \
+                       AND document.version_number = $10::integer) \
+                   OR ($9::bigint IS NULL AND ($1::text IS NULL \
+                       OR document.search_text @@ websearch_to_tsquery('simple', $1))) \
+               ) \
                AND NOT EXISTS ( \
                    SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted \
                    WHERE NOT EXISTS ( \
@@ -693,6 +698,8 @@ impl CatalogStore for PostgresStore {
         .bind(after_problem)
         .bind(after_version)
         .bind(limit)
+        .bind(exact_public_id)
+        .bind(exact_version_number)
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -701,8 +708,10 @@ impl CatalogStore for PostgresStore {
             "WITH filtered AS ( \
                  SELECT document.metadata FROM catalog_search_view AS document \
                  WHERE document.lifecycle = 'published' \
-                   AND ($1::text IS NULL OR document.search_text \
-                        @@ websearch_to_tsquery('simple', $1)) \
+                   AND (($6::bigint IS NOT NULL AND document.public_id = $6::bigint \
+                         AND document.version_number = $7::integer) \
+                        OR ($6::bigint IS NULL AND ($1::text IS NULL OR document.search_text \
+                         @@ websearch_to_tsquery('simple', $1)))) \
                    AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted \
                        WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements( \
                            document.taxonomy) AS stored \
@@ -720,39 +729,80 @@ impl CatalogStore for PostgresStore {
                GROUP BY term->>'scheme', term->>'code' \
                ORDER BY count(*) DESC, term->>'scheme', term->>'code' LIMIT 64",
         )
-        .bind(text.clone()).bind(taxonomy.clone()).bind(capabilities.clone()).bind(licenses.clone())
-        .bind(statistics).fetch_all(&mut *transaction).await.map_err(map_sqlx_error)?;
+        .bind(text.clone())
+        .bind(taxonomy.clone())
+        .bind(capabilities.clone())
+        .bind(licenses.clone())
+        .bind(statistics)
+        .bind(exact_public_id)
+        .bind(exact_version_number)
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
         let capability_rows = sqlx::query(
             "WITH filtered AS (SELECT document.capabilities FROM catalog_search_view AS document \
                WHERE document.lifecycle = 'published' \
-               AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1)) \
+               AND (($6::bigint IS NOT NULL AND document.public_id = $6::bigint AND document.version_number = $7::integer) \
+                    OR ($6::bigint IS NULL AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1))) ) \
                AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(document.taxonomy) AS stored WHERE stored->>'scheme' = wanted->>'scheme' AND stored->>'code' = wanted->>'code')) \
                AND document.capabilities @> $3::jsonb AND (jsonb_array_length($4::jsonb) = 0 OR document.license IN (SELECT jsonb_array_elements_text($4::jsonb))) \
                AND ($5::smallint <> 1 OR document.statistics_available) \
                AND ($5::smallint <> 2 OR NOT document.statistics_available)) \
              SELECT capability, count(*)::bigint AS facet_count FROM filtered CROSS JOIN LATERAL jsonb_array_elements_text(capabilities) AS capability GROUP BY capability ORDER BY capability",
-        ).bind(text.clone()).bind(taxonomy.clone()).bind(capabilities.clone()).bind(licenses.clone()).bind(statistics).fetch_all(&mut *transaction).await.map_err(map_sqlx_error)?;
+        )
+        .bind(text.clone())
+        .bind(taxonomy.clone())
+        .bind(capabilities.clone())
+        .bind(licenses.clone())
+        .bind(statistics)
+        .bind(exact_public_id)
+        .bind(exact_version_number)
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
         let license_rows = sqlx::query(
             "WITH filtered AS (SELECT document.license FROM catalog_search_view AS document \
                WHERE document.lifecycle = 'published' \
-               AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1)) \
+               AND (($6::bigint IS NOT NULL AND document.public_id = $6::bigint AND document.version_number = $7::integer) \
+                    OR ($6::bigint IS NULL AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1))) ) \
                AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(document.taxonomy) AS stored WHERE stored->>'scheme' = wanted->>'scheme' AND stored->>'code' = wanted->>'code')) \
                AND document.capabilities @> $3::jsonb AND (jsonb_array_length($4::jsonb) = 0 OR document.license IN (SELECT jsonb_array_elements_text($4::jsonb))) \
                AND ($5::smallint <> 1 OR document.statistics_available) \
                AND ($5::smallint <> 2 OR NOT document.statistics_available)) \
              SELECT license, count(*)::bigint AS facet_count FROM filtered GROUP BY license ORDER BY license",
-        ).bind(text.clone()).bind(taxonomy.clone()).bind(capabilities.clone()).bind(licenses.clone()).bind(statistics).fetch_all(&mut *transaction).await.map_err(map_sqlx_error)?;
+        )
+        .bind(text.clone())
+        .bind(taxonomy.clone())
+        .bind(capabilities.clone())
+        .bind(licenses.clone())
+        .bind(statistics)
+        .bind(exact_public_id)
+        .bind(exact_version_number)
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
         let statistics_facet = sqlx::query(
             "SELECT count(*) FILTER (WHERE document.statistics_available)::bigint AS available, \
                     count(*) FILTER (WHERE NOT document.statistics_available)::bigint AS unavailable \
              FROM catalog_search_view AS document \
              WHERE document.lifecycle = 'published' \
-             AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1)) \
+             AND (($6::bigint IS NOT NULL AND document.public_id = $6::bigint AND document.version_number = $7::integer) \
+                  OR ($6::bigint IS NULL AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1))) ) \
              AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(document.taxonomy) AS stored WHERE stored->>'scheme' = wanted->>'scheme' AND stored->>'code' = wanted->>'code')) \
              AND document.capabilities @> $3::jsonb AND (jsonb_array_length($4::jsonb) = 0 OR document.license IN (SELECT jsonb_array_elements_text($4::jsonb))) \
              AND ($5::smallint <> 1 OR document.statistics_available) \
              AND ($5::smallint <> 2 OR NOT document.statistics_available)",
-        ).bind(text).bind(taxonomy).bind(capabilities).bind(licenses).bind(statistics).fetch_one(&mut *transaction).await.map_err(map_sqlx_error)?;
+        )
+        .bind(text)
+        .bind(taxonomy)
+        .bind(capabilities)
+        .bind(licenses)
+        .bind(statistics)
+        .bind(exact_public_id)
+        .bind(exact_version_number)
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(CatalogSearchPage {
             items: page_result.items,

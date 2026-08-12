@@ -44,7 +44,7 @@ async fn memory_student_and_group_exceptions_are_most_permissive_and_immediate()
     let assignment = AssignmentId::from_uuid(uuid(96_020));
     let student_record = StudentId::from_uuid(uuid(96_021));
     let created = store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,

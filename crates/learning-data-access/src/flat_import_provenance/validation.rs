@@ -116,7 +116,7 @@ pub(super) fn validate_conversion_inputs(
     }
     if !matches!(
         &draft.question.source,
-        DraftQuestionSource::Native { family } if family == "flat_single_choice_v1"
+        DraftQuestionSource::Native { family } if family == "flat_single_choice_v2"
     ) {
         return Err(StoreError::InvalidRecord(
             "flat-import conversion requires the flat single-choice family".to_string(),

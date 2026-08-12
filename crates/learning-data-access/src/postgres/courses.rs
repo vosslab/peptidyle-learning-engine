@@ -92,8 +92,6 @@ impl crate::CourseStore for PostgresStore {
                 .execute(&mut *transaction)
                 .await
                 .map_err(map_sqlx_error)?;
-                super::course_roster::reconcile_legacy_course_members(&mut transaction, &course)
-                    .await?;
                 sqlx::query(
                     "DELETE FROM course_group_member AS grouped USING course_member AS member \
              WHERE grouped.tenant_id = $1 AND grouped.course_id = $2 \

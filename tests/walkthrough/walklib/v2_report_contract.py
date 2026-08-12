@@ -14,6 +14,7 @@ EXPECTED_JOURNEYS = (
 		[
 			"visible_assignment_created",
 			"visible_catalog_problem_selected",
+			"visible_four_question_chapter_one_selection",
 			"visible_mastery_policy",
 		],
 	),
@@ -64,7 +65,7 @@ def parse_public_v2_report(stdout: str, master_seed: int) -> dict[str, object]:
 		or isinstance(payload["elapsedMs"], bool)
 		or payload["elapsedMs"] < 0
 		or payload["elapsedMs"] > len(EXPECTED_JOURNEYS) * MAX_JOURNEY_ELAPSED_MS
-		or payload["arrangements"] != [{"label": "api-retry-corpus-publication"}]
+		or payload["arrangements"] != [{"label": "launcher-chapter-one-genetics"}]
 		or not isinstance(payload["journeys"], list)
 		or len(payload["journeys"]) != len(EXPECTED_JOURNEYS)
 	):

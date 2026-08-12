@@ -580,7 +580,7 @@ async fn fixture_with_response(
         .await
         .expect("course");
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,
@@ -808,7 +808,7 @@ async fn native_feedback_fixture(
         .await
         .expect("course");
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,

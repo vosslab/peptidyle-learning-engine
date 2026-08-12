@@ -3,8 +3,8 @@
 //! the mutable evaluation row and minimal action receipt.
 
 use async_trait::async_trait;
+use bigdecimal::BigDecimal;
 use question_model::{AttemptResult, AttemptStatus, FeedbackContent};
-use rust_decimal::Decimal;
 use sqlx::Row;
 
 use super::*;
@@ -326,7 +326,7 @@ async fn set_postgres_manual_grade(
     }
     let resulting_revision = evaluation.revision.next()?;
     let credit = command.credit.as_decimal();
-    let correct = credit == Decimal::ONE;
+    let correct = credit == &BigDecimal::from(1);
     let result = AttemptResult {
         correct,
         points_earned: command.credit.try_as_f64()?,
@@ -477,7 +477,7 @@ fn manual_evaluation_row(
 ) -> Result<Option<ManualEvaluationRecord>, StoreError> {
     row.map(|row| {
         let status: String = row.try_get("grading_status").map_err(map_sqlx_error)?;
-        let credit: Option<Decimal> = row.try_get("credit_fraction").map_err(map_sqlx_error)?;
+        let credit: Option<BigDecimal> = row.try_get("credit_fraction").map_err(map_sqlx_error)?;
         let revision = EvaluationRevision::from_u64(
             u64::try_from(
                 row.try_get::<i64, _>("evaluation_revision")

@@ -35,8 +35,8 @@ use uuid::Uuid;
 
 const ITEM_ID: &str = "accepted-profile-item";
 const FLAT_MEDIA_TYPE: &str = "application/vnd.peptidyle.flat-question+json";
-const IMPORTED_FLAT_SOURCE: &str = r#"{"format":"pleFlatQuestion","version":1,"kind":"singleChoice","title":"Imported color","prompt":"Which color was imported?","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"blue","feedback":{"correct":"Imported answer retained","incorrect":"Try the imported blue choice"},"points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"license":{"kind":"cc0"},"language":"en-US"}"#;
-const EDITED_FLAT_SOURCE: &str = r#"{"format":"pleFlatQuestion","version":1,"kind":"singleChoice","title":"Edited color","prompt":"Which color should the edited question use?","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"red","feedback":{"correct":"Edited answer retained","incorrect":"Try the edited red choice"},"points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"license":{"kind":"cc0"},"language":"en-US"}"#;
+const IMPORTED_FLAT_SOURCE: &str = r#"{"format":"pleFlatQuestion","version":2,"title":"Imported color","prompt":"Which color was imported?","response":{"kind":"singleChoice","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"blue"},"feedback":{"correct":"Imported answer retained","incorrect":"Try the imported blue choice"},"points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"license":{"kind":"cc0"},"language":"en-US"}"#;
+const EDITED_FLAT_SOURCE: &str = r#"{"format":"pleFlatQuestion","version":2,"title":"Edited color","prompt":"Which color should the edited question use?","response":{"kind":"singleChoice","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"red"},"feedback":{"correct":"Edited answer retained","incorrect":"Try the edited red choice"},"points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"license":{"kind":"cc0"},"language":"en-US"}"#;
 
 fn id() -> Uuid {
     let mut bytes = [0_u8; 16];
@@ -619,7 +619,7 @@ fn publication_command(
         expected_revision,
         publication: reference,
         published_source: QuestionSource::Native {
-            family: "flat_single_choice_v1".to_string(),
+            family: "flat_single_choice_v2".to_string(),
         },
         source_artifact: Some(published_flat_source(reference, &fixture.source)),
         qti_promotion: None,

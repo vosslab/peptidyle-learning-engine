@@ -102,7 +102,7 @@ where
     let mut external_policies = policies();
     external_policies.completion = CompletionRequirement::AnswerAll;
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,

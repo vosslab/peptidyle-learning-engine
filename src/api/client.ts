@@ -75,6 +75,8 @@ export interface ApiClient extends CourseRosterClient {
   readonly listProblems: (cursor?: string) => Promise<CursorPage<CatalogProblemSummary>>;
   /** Searches immutable hot catalog metadata with server-computed facets. */
   readonly searchCatalog: (query: CatalogSearchQuery) => Promise<CatalogSearchPage>;
+  /** Resolves one copyable instructor-facing ID to its exact safe catalog summary. */
+  readonly resolveCatalogProblem: (displayReference: string) => Promise<CatalogProblemSummary>;
   /** Gets the safe immutable library projection, never a question definition. */
   readonly getCatalogProblemDetail: (
     problemId: ProblemId,

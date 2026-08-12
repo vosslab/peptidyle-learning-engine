@@ -100,7 +100,7 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
     let automatic_item = items[0].id;
     let manual_item = items[1].id;
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,

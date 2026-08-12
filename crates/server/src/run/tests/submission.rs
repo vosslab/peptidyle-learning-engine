@@ -400,7 +400,7 @@ async fn a_run_issues_only_one_active_question_then_advances() {
     duplicate.position = u32::try_from(items.len()).expect("test assignment position fits u32");
     items.push(duplicate);
     store
-        .replace_assignment(
+        .replace_assignment_preserving_timing(
             context,
             stored_assignment.record.course_id,
             assignment_id,

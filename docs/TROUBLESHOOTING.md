@@ -112,14 +112,24 @@ It uses IPv4 loopback only. AUTO reuses a safe existing bundle or builds when
 missing; use `--build` to force a refresh. Its redacted `PASS` or `FAIL` report is
 under `test-results/ui_walkthrough/`, with directory/file modes 0700/0600.
 
-The accepted no-email pilot passes J11/J12/J13/J1/J2/J3/J4/J5/J8. Assignment,
-course, and gradebook surfaces provide native `target="_self"` fragment routes
-to named `tabindex="-1"` pagination regions; Tab reaches visible load, retry,
-or reload controls. If a future `playwright_*` stage fails, preserve the
-redacted report and inspect its bounded stage rather than deleting volumes or
-using a direct route. The runner fails closed for missing/current-target,
-transport, and protocol issues. Email/canonical onboarding is deliberately not
-a diagnostic prerequisite for this local pilot.
+Use documented arguments rather than exporting `PLE_*` values to change this
+run. For example, select a nondefault Compose file with `--env-file PATH` or
+request documentation capture through the documented screenshot command. The
+runner deliberately removes inherited `PLE_*` values before it launches owned
+children. If a child reports `walkthrough-inputs`, rerun the shell command and
+allow the runner to recreate its private input file; do not create or edit that
+file by hand.
+
+The earlier no-email pilot provides historical diagnosis evidence. The current
+human-guidance acceptance still requires a fresh real-stack J13 copy/paste run
+of the four Genetics visible IDs. Assignment, course, and gradebook surfaces
+provide native `target="_self"` fragment routes to named `tabindex="-1"`
+pagination regions; Tab reaches visible load, retry, or reload controls. If a
+future `playwright_*` stage fails, preserve the redacted report and inspect its
+bounded stage rather than deleting volumes or using a direct route. The runner
+fails closed for missing/current-target, transport, and protocol issues.
+Email/canonical onboarding is deliberately not a diagnostic prerequisite for
+this local pilot.
 
 ## Stop without deleting data
 

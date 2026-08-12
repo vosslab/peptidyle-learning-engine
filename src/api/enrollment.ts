@@ -87,7 +87,6 @@ export interface CourseRosterMember {
   readonly displayName: string;
   readonly rosterEmail: string | null;
   readonly rosterId: string | null;
-  readonly source: "invitation" | "localDevelopment" | "legacy";
   readonly role: CourseRosterRole;
   readonly status: CourseRosterMemberStatus;
 }
@@ -105,15 +104,7 @@ export interface CourseRosterPage {
   readonly pendingInvitations: ReadonlyArray<PendingCourseInvitation>;
   readonly allowedEmailDomains: ReadonlyArray<AllowedEmailDomain>;
   readonly signupPosture: CourseSignupPosture;
-  /** True only when the server mounted the explicitly local-development roster seam. */
-  readonly localDevelopmentRoster: boolean;
   readonly nextCursor: string | null;
-  readonly rosterRevision: number;
-}
-
-/** Redacted result of adding the configured local learner to one course. */
-export interface LocalDevelopmentMemberAccepted {
-  readonly member: CourseRosterMember;
   readonly rosterRevision: number;
 }
 
@@ -188,14 +179,6 @@ export interface CourseRosterClient {
   readonly listPasskeys: () => Promise<ReadonlyArray<PasskeySummary>>;
   readonly revokePasskey: (passkeyId: string) => Promise<void>;
   readonly listCourseRoster: (courseId: CourseId, cursor?: string) => Promise<CourseRosterPage>;
-  /**
-   * Local-composition-only enrollment command. The alias is the sole browser
-   * input; the server resolves every identity attribute from its local config.
-   */
-  readonly addLocalDevelopmentMember: (
-    courseId: CourseId,
-    learnerAlias: string,
-  ) => Promise<LocalDevelopmentMemberAccepted>;
   readonly inviteCourseMember: (
     courseId: CourseId,
     email: string,
@@ -427,11 +410,6 @@ function decodeRosterMember(value: unknown, path: string): CourseRosterMember {
       `${path}.rosterId`,
       decodeNonemptyString,
     ),
-    source: decodeStringEnum(field(record, "source", path), `${path}.source`, [
-      "invitation",
-      "localDevelopment",
-      "legacy",
-    ]),
     role: decodeStringEnum(field(record, "role", path), `${path}.role`, ["student"]),
     status: decodeStringEnum(field(record, "status", path), `${path}.status`, [
       "active",
@@ -468,7 +446,6 @@ export function decodeCourseRosterPage(value: unknown, path = "response"): Cours
     "pendingInvitations",
     "allowedEmailDomains",
     "signupPosture",
-    "localDevelopmentRoster",
     "nextCursor",
     "rosterRevision",
   ]);
@@ -497,40 +474,11 @@ export function decodeCourseRosterPage(value: unknown, path = "response"): Cours
       "invitationOnly",
       "permittedDomains",
     ]),
-    localDevelopmentRoster: decodeBoolean(
-      field(record, "localDevelopmentRoster", path),
-      `${path}.localDevelopmentRoster`,
-    ),
     nextCursor: decodeNullable(
       field(record, "nextCursor", path),
       `${path}.nextCursor`,
       decodeCursor,
     ),
-    rosterRevision: decodeRosterRevision(
-      field(record, "rosterRevision", path),
-      `${path}.rosterRevision`,
-    ),
-  };
-}
-
-export function decodeLocalDevelopmentMemberAccepted(
-  value: unknown,
-  path = "response",
-): LocalDevelopmentMemberAccepted {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["member", "rosterRevision"]);
-  const member = decodeRosterMember(field(record, "member", path), `${path}.member`);
-  if (
-    member.rosterEmail !== null ||
-    member.rosterId !== null ||
-    member.source !== "localDevelopment" ||
-    member.role !== "student" ||
-    member.status !== "active"
-  ) {
-    throw new DecodeError(`${path}.member`, "a redacted active student member");
-  }
-  return {
-    member,
     rosterRevision: decodeRosterRevision(
       field(record, "rosterRevision", path),
       `${path}.rosterRevision`,

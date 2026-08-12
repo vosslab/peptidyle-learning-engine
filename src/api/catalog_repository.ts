@@ -112,6 +112,7 @@ export function createCatalogRepository(client: ApiClient): CatalogBrowseReposit
       const page = await client.searchCatalog(search);
       return {
         items: page.items.map((item) => ({
+          displayId: `P-${item.publicId}-v${item.versionNumber}`,
           problemId: item.problem,
           versionId: item.version,
           title: item.metadata.title,

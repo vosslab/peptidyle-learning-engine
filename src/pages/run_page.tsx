@@ -354,7 +354,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
     <section
       class="page run-page"
       data-route-surface="runAttempt"
-      aria-busy={currentState()?.phase === "loading"}
+      aria-busy={currentState()?.phase === "loading" || currentState()?.phase === "advancing"}
     >
       <header class="run-header">
         <div>
@@ -502,40 +502,54 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
             </Show>
 
             <Show
-              when={feedbackState()}
+              when={currentState()?.phase === "advancing"}
               fallback={
                 <Show
-                  // A new server-issued attempt must not inherit a locally selected response.
-                  // Key only on attempt identity so recovery updates for the same attempt persist.
-                  when={currentState()?.context.attemptId}
-                  keyed
-                  fallback={<p class="loading-state">Restoring your saved response...</p>}
+                  when={feedbackState()}
+                  fallback={
+                    <Show
+                      // A new server-issued attempt must not inherit a locally selected response.
+                      // Key only on attempt identity so same-attempt recovery keeps local entry.
+                      when={currentState()?.context.attemptId}
+                      keyed
+                      fallback={<p class="loading-state">Restoring your saved response...</p>}
+                    >
+                      {(attemptId) => (
+                        <ResponseWidget
+                          attemptId={attemptId}
+                          definition={currentEnvelope().response}
+                          initialResponse={currentState()?.response ?? undefined}
+                          validator={validator}
+                          onResponseChange={responseChanged}
+                          onSubmit={submit}
+                          onEscape={escapeToAssignment}
+                          getExternalToolLaunch={() =>
+                            runtime.client.getExternalToolLaunch(attemptId)
+                          }
+                        />
+                      )}
+                    </Show>
+                  }
                 >
-                  {(attemptId) => (
-                    <ResponseWidget
-                      attemptId={attemptId}
-                      definition={currentEnvelope().response}
-                      initialResponse={currentState()?.response ?? undefined}
-                      validator={validator}
-                      onResponseChange={responseChanged}
-                      onSubmit={submit}
-                      onEscape={escapeToAssignment}
-                      getExternalToolLaunch={() => runtime.client.getExternalToolLaunch(attemptId)}
+                  {(feedback) => (
+                    <FeedbackPanel
+                      disclosure={feedbackPanelState(feedback())}
+                      learnerResponse={projectLearnerResponse(
+                        currentEnvelope(),
+                        feedback().response,
+                      )}
+                      assetUrl={(asset) =>
+                        new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
+                      }
+                      onAdvance={() => void continueAttempt()}
                     />
                   )}
                 </Show>
               }
             >
-              {(feedback) => (
-                <FeedbackPanel
-                  disclosure={feedbackPanelState(feedback())}
-                  learnerResponse={projectLearnerResponse(currentEnvelope(), feedback().response)}
-                  assetUrl={(asset) =>
-                    new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
-                  }
-                  onAdvance={() => void continueAttempt()}
-                />
-              )}
+              <p class="loading-state" role="status">
+                Loading the next question...
+              </p>
             </Show>
           </div>
         </article>

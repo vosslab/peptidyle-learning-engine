@@ -99,10 +99,17 @@ test.beforeAll(async () => {
           definition: {
             kind: "matching",
             prompts: [text("dna", "DNA"), text("rna", "RNA")],
-            choices: [text("deoxy", "Deoxyribose"), text("ribose", "Ribose")],
+            choices: [
+              text("deoxy", "Deoxyribose"),
+              text("ribose", "Ribose"),
+              text("phosphate", "Phosphate"),
+            ],
           },
           validator,
-          onSubmit: async () => { matchingRoot.dataset.submitted = "true"; },
+          onSubmit: async (response) => {
+            matchingRoot.dataset.submitted = "true";
+            matchingRoot.dataset.response = JSON.stringify(response);
+          },
           onEscape: () => { matchingRoot.dataset.escaped = "true"; },
         }), matchingRoot);
 
@@ -143,7 +150,7 @@ async function mountFixture(page: Page): Promise<void> {
   await page.addScriptTag({ content: fixtureScript });
 }
 
-async function tabTo(page: Page, target: Locator, limit = 30): Promise<void> {
+async function tabTo(page: Page, target: Locator, limit = 80): Promise<void> {
   for (let index = 0; index < limit; index += 1) {
     if (await target.evaluate((element) => document.activeElement === element)) return;
     await page.keyboard.press("Tab");
@@ -220,22 +227,127 @@ test("platform contract uses Tab and typing for every multi-blank field", async 
   await expect(fixture).toHaveAttribute("data-submitted", "true");
 });
 
-test("platform contract uses native radio-group keyboard behavior for matching", async ({
+test("platform contract uses Tab, Shift+Tab, and Space for matching", async ({ page }) => {
+  await mountFixture(page);
+  const fixture = page.locator("#matching-keyboard-fixture");
+  const dna = fixture.getByRole("group", { name: "DNA" });
+  const rna = fixture.getByRole("group", { name: "RNA" });
+  const dnaDeoxyribose = dna.getByRole("radio", { name: /Deoxyribose/u });
+  const rnaRibose = rna.getByRole("radio", { name: /Ribose/u });
+  await tabTo(page, dnaDeoxyribose);
+  await expect(dnaDeoxyribose).toHaveCSS("outline-style", "solid");
+  await page.keyboard.press("Space");
+  await expect(dnaDeoxyribose).toHaveAttribute("aria-checked", "true");
+  await tabTo(page, rnaRibose);
+  await page.keyboard.press("Space");
+  await expect(rnaRibose).toHaveAttribute("aria-checked", "true");
+  await page.keyboard.press("Shift+Tab");
+  const previousAvailablePairing = fixture.locator(
+    '[role="radio"]:focus:not([aria-disabled="true"])',
+  );
+  await expect(previousAvailablePairing).toHaveCount(1);
+  await expect(previousAvailablePairing).toHaveAttribute("aria-disabled", "false");
+  await tabTo(page, fixture.getByRole("button", { name: "Submit answer" }));
+  await page.keyboard.press("Space");
+  await expect(fixture).toHaveAttribute("data-submitted", "true");
+});
+
+test("native matching retains arrow navigation as an optional radio-group extension", async ({
   page,
 }) => {
   await mountFixture(page);
   const fixture = page.locator("#matching-keyboard-fixture");
-  const radios = fixture.getByRole("radio");
-  await tabTo(page, radios.first());
+  const dna = fixture.getByRole("group", { name: "DNA" });
+  const dnaDeoxyribose = dna.getByRole("radio", { name: /Deoxyribose/u });
+  const dnaRibose = dna.getByRole("radio", { name: /Ribose/u });
+
+  await tabTo(page, dnaDeoxyribose);
   await page.keyboard.press("Space");
-  await expect(radios.first()).toBeChecked();
-  await page.keyboard.press("Tab");
-  await expect(radios.nth(2)).toBeFocused();
   await page.keyboard.press("ArrowDown");
-  await expect(radios.nth(3)).toBeChecked();
+  await expect(dnaRibose).toBeFocused();
+  await expect(dnaRibose).toHaveAttribute("aria-checked", "true");
+});
+
+test("native matching visibly tracks exclusive keyboard selections without exposing an answer key", async ({
+  page,
+}) => {
+  await mountFixture(page);
+  const fixture = page.locator("#matching-keyboard-fixture");
+  const progress = fixture.getByRole("status").filter({ hasText: "0 of 2 prompts matched" });
+  const dna = fixture.getByRole("group", { name: "DNA" });
+  const rna = fixture.getByRole("group", { name: "RNA" });
+  const dnaDeoxyribose = dna.getByRole("radio", { name: /Deoxyribose/u });
+  const dnaRibose = dna.getByRole("radio", { name: /Ribose/u });
+  const rnaDeoxyribose = rna.getByRole("radio", { name: /Deoxyribose/u });
+
+  await expect(progress).toBeVisible();
+  await tabTo(page, dnaDeoxyribose);
+  await page.keyboard.press("Space");
+  await expect(dnaDeoxyribose).toHaveAttribute("aria-checked", "true");
+  await expect(dnaDeoxyribose).toHaveAttribute("aria-disabled", "false");
+  await expect(dna.getByText("Selected for this prompt.", { exact: true })).toBeVisible();
+  await expect(rnaDeoxyribose).toHaveAttribute("aria-disabled", "true");
+  await expect(rnaDeoxyribose).toHaveAccessibleName(
+    /Deoxyribose.*Already selected for another prompt/iu,
+  );
+  await expect(
+    rna.getByText("Already selected for another prompt.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByRole("status").filter({ hasText: "1 of 2 prompts matched" }),
+  ).toBeVisible();
+
+  await page.keyboard.press("ArrowDown");
+  await expect(dnaRibose).toBeFocused();
+  await expect(dnaRibose).toHaveAttribute("aria-checked", "true");
+  await expect(dna.getByText("Selected for this prompt.", { exact: true })).toBeVisible();
+  await expect(rnaDeoxyribose).toHaveAttribute("aria-disabled", "false");
+  await expect(rnaDeoxyribose).toHaveAccessibleName(/Deoxyribose.*Available/iu);
+
+  await tabTo(page, rnaDeoxyribose);
+  await expect(rnaDeoxyribose).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(rnaDeoxyribose).toHaveAttribute("aria-checked", "true");
+  await expect(
+    fixture.getByRole("status").filter({ hasText: "2 of 2 prompts matched" }),
+  ).toBeVisible();
+
   await tabTo(page, fixture.getByRole("button", { name: "Submit answer" }));
   await page.keyboard.press("Space");
   await expect(fixture).toHaveAttribute("data-submitted", "true");
+  const submitted = await fixture.getAttribute("data-response");
+  expect(submitted).not.toBeNull();
+  expect(submitted).not.toMatch(/answer|correct|key/iu);
+  expect(JSON.parse(submitted ?? "")).toEqual({
+    kind: "matching",
+    matches: [
+      { prompt: "dna", choice: "ribose" },
+      { prompt: "rna", choice: "deoxy" },
+    ],
+  });
+});
+
+test("matching remains keyboard-visible and horizontally usable across learner viewports", async ({
+  page,
+}) => {
+  for (const width of [320, 480, 768, 1_920]) {
+    await page.setViewportSize({ width, height: 900 });
+    await mountFixture(page);
+
+    const fixture = page.locator("#matching-keyboard-fixture");
+    const dna = fixture.getByRole("group", { name: "DNA" });
+    const firstPairing = dna.getByRole("radio", { name: /Deoxyribose/u });
+
+    await tabTo(page, firstPairing);
+    await expect(firstPairing).toBeFocused();
+    await expect(firstPairing).toBeInViewport();
+    await expect(firstPairing).toHaveCSS("outline-style", "solid");
+    await page.keyboard.press("Space");
+    await expect(firstPairing).toHaveAttribute("aria-checked", "true");
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+  }
 });
 
 test("platform contract makes the hotspot region list fully no-mouse operable", async ({

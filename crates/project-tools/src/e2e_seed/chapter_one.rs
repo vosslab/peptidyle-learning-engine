@@ -10,6 +10,7 @@ use question_model::response::ChoiceOption;
 
 const PILOT_PROVENANCE: &str = "Reviewed Chapter 1 pilot corpus from biology-problems-website revision 11f9ff635bd20d8fa334c360a8cba86bb0ab6527";
 const PILOT_CONVERGENCE_ATTEMPTS: u8 = 3;
+pub(super) const CHAPTER_ONE_FAKE_STUDENT_DISPLAY_NAME: &str = "Mary Fake Student";
 
 const GENETICS_WEBWORK_MC: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -161,12 +162,12 @@ struct QuestionManifest {
     version_id: VersionId,
 }
 
-struct QuestionIds {
-    workspace: WorkspaceId,
-    problem: ProblemId,
-    version: VersionId,
-    workspace_source: ObjectId,
-    published_source: ObjectId,
+pub(super) struct QuestionIds {
+    pub(super) workspace: WorkspaceId,
+    pub(super) problem: ProblemId,
+    pub(super) version: VersionId,
+    pub(super) workspace_source: ObjectId,
+    pub(super) published_source: ObjectId,
 }
 
 pub(super) async fn seed_chapter_one_pilot(
@@ -191,8 +192,6 @@ pub(super) async fn seed_chapter_one_pilot(
         let course_id = CourseId::from_uuid(pilot_uuid(arguments.tenant, &chapter.slug, "course"));
         let assignment_id =
             AssignmentId::from_uuid(pilot_uuid(arguments.tenant, &chapter.slug, "assignment"));
-        let proposed_enrollment_id =
-            EnrollmentId::from_uuid(pilot_uuid(arguments.tenant, &chapter.slug, "enrollment"));
         let mut published = Vec::with_capacity(chapter.questions.len());
         let mut items = Vec::with_capacity(chapter.questions.len());
         for (position, question) in chapter.questions.iter().enumerate() {
@@ -252,16 +251,10 @@ pub(super) async fn seed_chapter_one_pilot(
                 id: course_id,
                 tenant: arguments.tenant,
                 title: chapter.course_title.clone(),
-                members: vec![
-                    CourseMembership {
-                        user: arguments.instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: arguments.student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+                members: vec![CourseMembership {
+                    user: arguments.instructor,
+                    role: CourseMembershipRole::Instructor,
+                }],
             },
         )
         .await?;
@@ -284,19 +277,12 @@ pub(super) async fn seed_chapter_one_pilot(
             },
         )
         .await?;
-        let enrollment = ensure_webwork_pilot_enrollment(
+        let enrollment = upsert_chapter_one_student(
             &store,
             context,
-            AssignmentEnrollment {
-                id: proposed_enrollment_id,
-                tenant: arguments.tenant,
-                assignment: assignment_id,
-                user: arguments.student,
-                student: StudentId::from_uuid(arguments.student.as_uuid()),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
+            arguments.student,
+            course_id,
+            assignment_id,
         )
         .await?;
         chapters.push(ChapterManifest {
@@ -308,6 +294,43 @@ pub(super) async fn seed_chapter_one_pilot(
         });
     }
     Ok(ChapterOnePilotManifest { chapters })
+}
+
+/// Creates the disposable Chapter 1 learner through the sole roster owner.
+/// That transaction owns the roster row, course membership, and one
+/// enrollment for every existing assignment; the seed never writes any of
+/// those records directly.
+pub(super) async fn upsert_chapter_one_student<S>(
+    store: &S,
+    context: TenantContext,
+    student: UserId,
+    course: CourseId,
+    assignment: AssignmentId,
+) -> Result<AssignmentEnrollment>
+where
+    S: Store + CourseRosterStore,
+{
+    let accepted = store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: student,
+                display_name: CHAPTER_ONE_FAKE_STUDENT_DISPLAY_NAME.to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .context("creating the disposable Chapter 1 learner through the canonical roster")?;
+    if accepted.member.status != learning_data_access::CourseMemberStatus::Active
+        || accepted.member.roster_email.is_some()
+        || accepted.member.roster_id.is_some()
+    {
+        bail!("Chapter 1 learner creation did not produce an active no-contact roster member");
+    }
+    find_assignment_enrollment(store, context, assignment, student)
+        .await
+        .context("resolving roster-derived Chapter 1 assignment enrollment")
 }
 
 fn pilot_object_store(storage: &WebworkPilotStorage) -> Result<objects::s3::S3ObjectStore> {
@@ -326,14 +349,18 @@ fn pilot_object_store(storage: &WebworkPilotStorage) -> Result<objects::s3::S3Ob
     ))
 }
 
-async fn publish_webwork_question(
-    store: &learning_data_access::postgres::PostgresStore,
-    objects: &objects::s3::S3ObjectStore,
+pub(super) async fn publish_webwork_question<S, O>(
+    store: &S,
+    objects: &O,
     context: TenantContext,
     publisher: UserId,
     spec: &PilotQuestionSpec,
     ids: &QuestionIds,
-) -> Result<PublishedProblemRecord> {
+) -> Result<PublishedProblemRecord>
+where
+    S: Store + CatalogStore + CatalogSourceStore + AuthoritativeTimeStore,
+    O: ObjectStore,
+{
     let reference = ProblemVersionRef {
         problem: ids.problem,
         version: ids.version,
@@ -343,14 +370,21 @@ async fn publish_webwork_question(
     };
     let draft = DraftRecord {
         tenant: context.tenant_id(),
-        question: webwork_draft(ids.workspace, spec),
+        question: webwork_draft(
+            ids.workspace,
+            spec,
+            FeedbackDisclosure::ImmediateCorrectness,
+        ),
         revises: None,
         derived_from: None,
     };
     let source_sha256 = objects::Sha256Digest::compute(spec.source).to_string();
-    let capabilities =
-        adapter_webwork::reviewed_webwork_source_capabilities(&source, &source_sha256)
-            .context("resolving reviewed WeBWorK pilot capabilities")?;
+    let capabilities = adapter_webwork::reviewed_webwork_source_capabilities_for_feedback(
+        &source,
+        &source_sha256,
+        FeedbackDisclosure::ImmediateCorrectness,
+    )
+    .context("resolving reviewed WeBWorK pilot capabilities")?;
     let source_key = ObjectKey::ProblemSource {
         problem: ids.problem,
         version: ids.version,
@@ -370,6 +404,8 @@ async fn publish_webwork_question(
             &source_key,
             spec.source,
             "text/x-wework-pg",
+            None,
+            1,
         )
         .await?;
         return Ok(existing);
@@ -384,8 +420,9 @@ async fn publish_webwork_question(
         Some(ids.version),
     )
     .await?;
-    if !domain::policy::validate_draft_for_publication(&draft.question, &capabilities).is_empty() {
-        bail!("reviewed WeBWorK pilot question failed capability admission");
+    let violations = domain::policy::validate_draft_for_publication(&draft.question, &capabilities);
+    if !violations.is_empty() {
+        bail!("reviewed WeBWorK pilot question failed capability admission: {violations:?}");
     }
     let source_artifact = PublishedSourceArtifact {
         reference,
@@ -407,11 +444,19 @@ async fn publish_webwork_question(
                 &source_key,
                 spec.source,
                 "text/x-wework-pg",
+                None,
+                1,
             )
             .await?;
             return Ok(existing);
         }
-        let saved = ensure_pilot_draft(store, context, publisher, draft.clone()).await?;
+        let Some(saved) = ensure_pilot_draft(store, context, publisher, draft.clone()).await?
+        else {
+            // A concurrent publisher may consume this exact draft before this
+            // caller rereads it. The next iteration rechecks the immutable
+            // version before creating anything else.
+            continue;
+        };
         match store
             .publish_draft(
                 context,
@@ -495,6 +540,8 @@ async fn publish_flat_question(
             &published_key,
             &canonical,
             adapter_native::flat_question::FLAT_QUESTION_MEDIA_TYPE,
+            None,
+            1,
         )
         .await?;
         return Ok(existing);
@@ -583,6 +630,8 @@ async fn publish_flat_question(
                 &published_key,
                 &canonical,
                 adapter_native::flat_question::FLAT_QUESTION_MEDIA_TYPE,
+                None,
+                1,
             )
             .await?;
             return Ok(existing);
@@ -621,34 +670,56 @@ async fn publish_flat_question(
     bail!("reviewed flat pilot publication did not converge")
 }
 
-async fn ensure_pilot_draft(
-    store: &learning_data_access::postgres::PostgresStore,
+async fn ensure_pilot_draft<S>(
+    store: &S,
     context: TenantContext,
     publisher: UserId,
     expected: DraftRecord,
-) -> Result<learning_data_access::WorkspaceDraft> {
+) -> Result<Option<learning_data_access::WorkspaceDraft>>
+where
+    S: Store,
+{
     match store
         .get_draft(context, publisher, expected.question.workspace)
         .await?
     {
-        Some(actual) if actual.record == expected => Ok(actual),
+        Some(actual) if actual.record == expected => Ok(Some(actual)),
         Some(_) => bail!("existing pilot draft differs from reviewed content"),
-        None => store
-            .upsert_draft(context, publisher, None, expected)
+        None => match store
+            .upsert_draft(context, publisher, None, expected.clone())
             .await
-            .context("staging reviewed pilot draft"),
+        {
+            Ok(saved) => Ok(Some(saved)),
+            Err(StoreError::AlreadyExists | StoreError::Conflict) => store
+                .get_draft(context, publisher, expected.question.workspace)
+                .await?
+                .map_or_else(
+                    || Ok(None),
+                    |actual| {
+                        (actual.record == expected)
+                            .then_some(actual)
+                            .context("concurrent pilot draft differs from reviewed content")
+                            .map(Some)
+                    },
+                ),
+            Err(error) => Err(error).context("staging reviewed pilot draft"),
+        },
     }
 }
 
-async fn put_pilot_object(
-    store: &learning_data_access::postgres::PostgresStore,
-    objects: &objects::s3::S3ObjectStore,
+async fn put_pilot_object<S, O>(
+    store: &S,
+    objects: &O,
     context: TenantContext,
     key: ObjectKey,
     bytes: &[u8],
     media_type: &str,
     version: Option<VersionId>,
-) -> Result<objects::ObjectRecord> {
+) -> Result<objects::ObjectRecord>
+where
+    S: Store + AuthoritativeTimeStore,
+    O: ObjectStore,
+{
     let expected_sha256 = objects::Sha256Digest::compute(bytes);
     let expected_id = key.object_id();
     let record = match objects
@@ -681,7 +752,11 @@ async fn put_pilot_object(
     Ok(record)
 }
 
-fn webwork_draft(workspace: WorkspaceId, spec: &PilotQuestionSpec) -> DraftQuestionDefinition {
+pub(super) fn webwork_draft(
+    workspace: WorkspaceId,
+    spec: &PilotQuestionSpec,
+    feedback: FeedbackDisclosure,
+) -> DraftQuestionDefinition {
     let response = match spec.kind {
         PilotQuestionKind::WebworkMultipleChoice => ResponseDefinition::MultipleChoice {
             choices: vec![placeholder_choice("renderer-choice", "Rendered by WeBWorK")],
@@ -706,7 +781,7 @@ fn webwork_draft(workspace: WorkspaceId, spec: &PilotQuestionSpec) -> DraftQuest
         response,
         attempt_policy: AttemptPolicy {
             max_attempts: None,
-            feedback: FeedbackDisclosure::Deferred,
+            feedback,
         },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Seeded {
@@ -744,9 +819,9 @@ fn placeholder_choice(id: &str, text: &str) -> ChoiceOption {
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn verify_existing_question(
-    store: &learning_data_access::postgres::PostgresStore,
-    objects: &objects::s3::S3ObjectStore,
+async fn verify_existing_question<S, O>(
+    store: &S,
+    objects: &O,
     context: TenantContext,
     publisher: UserId,
     record: &PublishedProblemRecord,
@@ -757,7 +832,13 @@ async fn verify_existing_question(
     expected_key: &ObjectKey,
     expected_bytes: &[u8],
     expected_media_type: &str,
-) -> Result<()> {
+    expected_previous_version: Option<VersionId>,
+    expected_version_number: u32,
+) -> Result<()>
+where
+    S: CatalogSourceStore,
+    O: ObjectStore,
+{
     let expected_question = QuestionDefinition::from_draft(
         expected_draft.clone(),
         record.problem,
@@ -769,9 +850,9 @@ async fn verify_existing_question(
         || record.scope != PublicationScope::Institution
         || record.lifecycle != CatalogLifecycle::Published
         || record.authors.as_slice() != [publisher]
-        || record.previous_version.is_some()
+        || record.previous_version != expected_previous_version
         || record.derived_from.is_some()
-        || record.version_number.value() != 1
+        || record.version_number.value() != expected_version_number
     {
         bail!("existing Chapter 1 pilot publication differs from reviewed content");
     }
@@ -807,7 +888,7 @@ async fn verify_existing_question(
     Ok(())
 }
 
-fn question_ids(tenant: TenantId, slug: &str) -> QuestionIds {
+pub(super) fn question_ids(tenant: TenantId, slug: &str) -> QuestionIds {
     QuestionIds {
         workspace: WorkspaceId::from_uuid(pilot_uuid(tenant, slug, "workspace")),
         problem: ProblemId::from_uuid(pilot_uuid(tenant, slug, "problem")),
@@ -817,7 +898,7 @@ fn question_ids(tenant: TenantId, slug: &str) -> QuestionIds {
     }
 }
 
-fn pilot_uuid(tenant: TenantId, slug: &str, purpose: &str) -> Uuid {
+pub(super) fn pilot_uuid(tenant: TenantId, slug: &str, purpose: &str) -> Uuid {
     let mut hasher = Sha256::new();
     hasher.update(b"ple-chapter-one-pilot-v1:");
     hasher.update(tenant.as_uuid().as_bytes());

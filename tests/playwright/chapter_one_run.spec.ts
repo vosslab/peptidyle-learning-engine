@@ -1,18 +1,16 @@
 // chapter_one_run.spec.ts - opt-in real-browser acceptance for the first teaching corpus.
 
-import {
-  configuredLiveWebworkInputs,
-  configuredUiWalkthroughInputs,
-} from "../../playwright.config";
+import { configuredLiveWebworkInputs } from "../../playwright.config";
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { tabTo, tabToTargetThroughVisiblePagination } from "./simulator/keyboard_walkthrough";
-import { exactCatalogResult } from "./simulator/instructor_catalog_binding";
 import {
-  instructorCredentialFromValidatedFile,
-  studentCredentialFromValidatedFile,
-} from "./ui_walkthrough_live_config";
+  answerAndSubmitVisibleQuestion,
+  continueFromVisibleFeedback,
+} from "./simulator/chapter_question_responses";
+import { currentCatalogResult } from "./simulator/instructor_catalog_binding";
+import { credentialFromValidatedFile } from "./ui_walkthrough_config_factory";
 
 test.describe.configure({ mode: "serial" });
 
@@ -25,7 +23,7 @@ interface ChapterJourney {
 const CHAPTERS: ReadonlyArray<ChapterJourney> = [
   {
     course: "Genetics Fall 2026 pilot",
-    assignment: "Genetics Chapter 1 Practice",
+    assignment: "Genetics Chapter 1 Mastery",
     questions: [
       { title: "Genetic disorders: Which one?", matching: false },
       { title: "Genetic disorders: Matching", matching: true },
@@ -35,7 +33,7 @@ const CHAPTERS: ReadonlyArray<ChapterJourney> = [
   },
   {
     course: "Biochemistry Fall 2026 pilot",
-    assignment: "Biochemistry Chapter 1 Practice",
+    assignment: "Biochemistry Chapter 1 Mastery",
     questions: [
       { title: "Biochemical functional groups: Which one?", matching: false },
       { title: "Biochemical functional groups: Matching", matching: true },
@@ -60,30 +58,13 @@ function liveInputs(): {
     return {
       baseUrl: configuredLiveWebworkInputs.baseUrl,
       studentCredential: configuredLiveWebworkInputs.studentCredential,
-      instructorCredential: instructorCredentialFromValidatedFile(
+      instructorCredential: credentialFromValidatedFile(
         configuredLiveWebworkInputs.credentialFile,
-      ),
-    };
-  }
-  if (configuredUiWalkthroughInputs !== undefined) {
-    return {
-      baseUrl: configuredUiWalkthroughInputs.baseUrl,
-      studentCredential: studentCredentialFromValidatedFile(
-        configuredUiWalkthroughInputs.credentialFile,
-      ),
-      instructorCredential: instructorCredentialFromValidatedFile(
-        configuredUiWalkthroughInputs.credentialFile,
+        "instructor",
       ),
     };
   }
   throw new Error("live Chapter 1 inputs are unavailable");
-}
-
-function selectedChapters(): ReadonlyArray<ChapterJourney> {
-  const scope = process.env["PLE_CHAPTER_ONE_BROWSER_SCOPE"] ?? "all";
-  if (scope === "all") return CHAPTERS;
-  if (scope === "genetics") return CHAPTERS.slice(0, 1);
-  throw new Error("PLE_CHAPTER_ONE_BROWSER_SCOPE must be exactly all or genetics when set");
 }
 
 async function signIn(page: Page, credentialValue: string): Promise<void> {
@@ -115,60 +96,6 @@ async function openCourseFromDashboard(page: Page, courseTitle: string): Promise
   });
   await expect(course).toHaveCount(1);
   await page.keyboard.press("Enter");
-}
-
-async function choosePlausibleMultipleChoice(page: Page): Promise<void> {
-  const radios = page.getByRole("radio");
-  await expect(radios).toHaveCount(4);
-  await activateWithKeyboard(page, radios.first());
-  await expect(radios.first()).toBeChecked();
-}
-
-async function chooseOneDistinctMatchPerPrompt(page: Page): Promise<void> {
-  const groups = page.locator(".matching-group");
-  await expect(groups).toHaveCount(4);
-  const selectedValues = new Set<string>();
-  for (let index = 0; index < 4; index += 1) {
-    const choices = groups.nth(index).getByRole("radio");
-    const count = await choices.count();
-    expect(count).toBeGreaterThanOrEqual(4);
-    const choice = choices.nth(index);
-    const value = await choice.getAttribute("value");
-    expect(value).not.toBeNull();
-    selectedValues.add(value ?? "");
-    await activateWithKeyboard(page, choice);
-    await expect(choice).toBeChecked();
-  }
-  expect(selectedValues.size).toBe(4);
-}
-
-async function answerCurrentQuestion(page: Page, matching: boolean): Promise<void> {
-  if (matching) await chooseOneDistinctMatchPerPrompt(page);
-  else await choosePlausibleMultipleChoice(page);
-  await expect(page.getByRole("status", { name: "Response format" })).toContainText(
-    "ready to submit",
-  );
-  const submissionResponse = page.waitForResponse(
-    (response) =>
-      new URL(response.url()).pathname.startsWith("/api/submissions/") &&
-      response.request().method() === "POST",
-  );
-  await activateWithKeyboard(page, page.getByRole("button", { name: "Submit answer" }));
-  const submitted = await submissionResponse;
-  if (!submitted.ok()) {
-    await expect(page.getByRole("button", { name: "Retry saved response" })).toBeVisible();
-    const detail = await Promise.race([
-      submitted.text(),
-      page.waitForTimeout(1_000).then(() => "response body unavailable"),
-    ]);
-    throw new Error(`Chapter 1 submission returned HTTP ${submitted.status()}: ${detail}`);
-  }
-  const feedback = page.getByRole("region", { name: "Feedback" });
-  await expect(feedback.getByRole("heading", { name: "Feedback" })).toBeVisible();
-  await expect(feedback.getByRole("heading", { name: "Your response" })).toBeVisible();
-  await expect(feedback.getByRole("status")).toContainText(
-    /Feedback released|Your response was recorded/u,
-  );
 }
 
 async function completeChapter(page: Page, chapter: ChapterJourney): Promise<void> {
@@ -203,8 +130,10 @@ async function completeChapter(page: Page, chapter: ChapterJourney): Promise<voi
 
   for (const [index, question] of chapter.questions.entries()) {
     await expect(page.getByRole("heading", { name: question.title })).toBeVisible();
-    await answerCurrentQuestion(page, question.matching);
-    await activateWithKeyboard(page, page.getByRole("button", { name: "Continue" }));
+    await expect(await answerAndSubmitVisibleQuestion(page)).toBe(
+      question.matching ? "matching" : "multiple-choice",
+    );
+    await continueFromVisibleFeedback(page);
     if (index < chapter.questions.length - 1) {
       await expect(
         page.getByRole("heading", { name: chapter.questions[index + 1]?.title }),
@@ -221,7 +150,7 @@ async function completeChapter(page: Page, chapter: ChapterJourney): Promise<voi
 
 test.describe("private live Chapter 1 browser acceptance", () => {
   test.skip(
-    configuredLiveWebworkInputs === undefined && configuredUiWalkthroughInputs === undefined,
+    configuredLiveWebworkInputs === undefined,
     "requires the explicit private live-stack invocation",
   );
 
@@ -243,10 +172,28 @@ test.describe("private live Chapter 1 browser acceptance", () => {
     const searchCatalog = page.getByRole("button", { name: "Search catalog", exact: true });
     await tabTo(page, searchCatalog);
     await page.keyboard.press("Enter");
-    const catalogRow = await exactCatalogResult(page, title);
-    await expect(catalogRow.locator("p[data-problem-id][data-version-id]")).toHaveText(
-      /^P-[1-9][0-9]*-v1 · WeBWorK$/u,
+    const catalogRow = await currentCatalogResult(page, title);
+    const humanReference = catalogRow.locator("code");
+    await expect(humanReference).toHaveText(/^P-[1-9][0-9]*-v1$/u);
+    const displayId = await humanReference.innerText();
+    const copyId = catalogRow.getByRole("button", { name: `Copy question ID ${displayId}` });
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
+      origin: new URL(inputs.baseUrl).origin,
+    });
+    await tabTo(page, copyId);
+    await page.keyboard.press("Enter");
+    await expect(catalogRow.getByRole("status")).toHaveText(`Copied ${displayId}.`);
+    const questionIds = page.getByLabel("Question IDs");
+    await tabTo(page, questionIds);
+    await page.keyboard.press("ControlOrMeta+V");
+    await expect(questionIds).toHaveValue(displayId);
+    const addById = page.getByRole("button", { name: "Add questions by ID" });
+    await tabTo(page, addById);
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".assignment-editor-import-success")).toHaveText(
+      `Added ${displayId} to the unsaved selection.`,
     );
+    await expect(page.locator(".assignment-editor-list")).toContainText(`${displayId}WeBWorK`);
   });
 
   test("student completes the selected exact four-question chapters with visible keyboard controls", async ({
@@ -256,7 +203,7 @@ test.describe("private live Chapter 1 browser acceptance", () => {
     const inputs = liveInputs();
 
     await signIn(page, inputs.studentCredential);
-    for (const chapter of selectedChapters()) {
+    for (const chapter of CHAPTERS) {
       await completeChapter(page, chapter);
       await page.goto(inputs.baseUrl);
       await expect(page.getByRole("heading", { name: "Pick up where you left off" })).toBeVisible();

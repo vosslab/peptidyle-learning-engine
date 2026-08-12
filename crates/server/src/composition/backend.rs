@@ -159,18 +159,6 @@ impl PersistentDependencies {
     where
         R: PublicReviewGate + 'static,
     {
-        self.passwordless_router_with_local(review_gate, session_config, None)
-    }
-
-    fn passwordless_router_with_local<R>(
-        &self,
-        review_gate: Arc<R>,
-        session_config: SessionConfig,
-        local_development_roster: Option<Arc<crate::course::LocalDevelopmentRosterDirectory>>,
-    ) -> Router
-    where
-        R: PublicReviewGate + 'static,
-    {
         let native_adapter = Arc::new(adapter_native::NativeAdapter::new());
         let flat_grader: Arc<dyn FlatQuestionGradingStore> = self.grader.clone();
         let native = NativeBackend::with_flat_grader(
@@ -214,7 +202,6 @@ impl PersistentDependencies {
             Arc::clone(&self.passwordless_email_delivery),
             self.passwordless_rate_limit_issuer.clone(),
             Some(self.webauthn.clone()),
-            local_development_roster,
             Arc::clone(&self.health),
         );
         if let Some(imathas) = &self.imathas {
@@ -235,16 +222,12 @@ impl PersistentDependencies {
     where
         R: PublicReviewGate + 'static,
     {
-        self.passwordless_router_with_local(
-            review_gate,
-            local_authentication.session_config,
-            Some(local_authentication.roster_directory),
-        )
-        .merge(crate::auth::router(
-            local_authentication.provider,
-            Arc::clone(&self.store),
-            local_authentication.session_config,
-        ))
+        self.passwordless_router(review_gate, local_authentication.session_config)
+            .merge(crate::auth::router(
+                local_authentication.provider,
+                Arc::clone(&self.store),
+                local_authentication.session_config,
+            ))
     }
 }
 

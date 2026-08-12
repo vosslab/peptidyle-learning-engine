@@ -1,4 +1,4 @@
-//! Pure server-side conversion from a validated QTI profile item to flat v1.
+//! Pure server-side conversion from a validated QTI profile item to flat v2.
 //!
 //! The QTI adapter owns hostile archive parsing and the native adapter owns
 //! flat-question validation, canonicalization, and compilation.  This module
@@ -211,7 +211,7 @@ mod tests {
         include_str!("../../adapters/qti/tests/fixtures/profiles/blackboard_assessment_meta.xml");
     const BLACKBOARD_ITEM: &str =
         include_str!("../../adapters/qti/tests/fixtures/profiles/blackboard_positive_item.xml");
-    const HAND_AUTHORED: &str = r#"{"format":"pleFlatQuestion","version":1,"kind":"singleChoice","title":"Favorite color","prompt":"What is my favorite color?","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"blue","feedback":{},"points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"tags":[],"taxonomy":[],"license":{"kind":"allRightsReserved"},"language":"en-US"}"#;
+    const HAND_AUTHORED: &str = r#"{"format":"pleFlatQuestion","version":2,"title":"Favorite color","prompt":"What is my favorite color?","response":{"kind":"singleChoice","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"blue"},"feedback":{},"points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"tags":[],"taxonomy":[],"license":{"kind":"allRightsReserved"},"language":"en-US"}"#;
 
     fn workspace() -> WorkspaceId {
         WorkspaceId::from_uuid(Uuid::from_u128(0x5154_495f_4252_4944_4745))

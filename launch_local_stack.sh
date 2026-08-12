@@ -337,6 +337,28 @@ compose() {
 	"${COMPOSE_COMMAND[@]}" "${compose_arguments[@]}" "$@"
 }
 
+compose_service_container_id() {
+	service_name="$1"
+	compose_container_ids="$(compose ps -q)"
+	service_container_ids=()
+	while IFS= read -r compose_container_id; do
+		[ -n "$compose_container_id" ] || continue
+		podman_service_name="$(podman container inspect \
+			--format '{{ index .Config.Labels "io.podman.compose.service" }}' \
+			"$compose_container_id")"
+		docker_service_name="$(podman container inspect \
+			--format '{{ index .Config.Labels "com.docker.compose.service" }}' \
+			"$compose_container_id")"
+		if [ "$podman_service_name" = "$service_name" ] || [ "$docker_service_name" = "$service_name" ]; then
+			service_container_ids+=("$compose_container_id")
+		fi
+	done <<<"$compose_container_ids"
+	case "${#service_container_ids[@]}" in
+	1) printf '%s\n' "${service_container_ids[0]}" ;;
+	*) die "expected exactly one running PLE ${service_name} container" ;;
+	esac
+}
+
 require_env_value() {
 	setting_name="$1"
 	[ -n "$(env_value "$setting_name")" ] || die "$setting_name is missing from $ENV_FILE"
@@ -492,13 +514,7 @@ chmod 600 "$LOCAL_WEBWORK_PROVENANCE_FILE"
 # owns the image contents and PG compatibility; PLE owns only this integration.
 PLE_WEBWORK_RENDERER_VERSION="${renderer_image_id#sha256:}"
 export PLE_WEBWORK_RENDERER_VERSION
-renderer_container_id="$(podman ps \
-	--filter label=io.podman.compose.project=containers \
-	--filter label=io.podman.compose.service=webwork-renderer \
-	--format '{{.ID}}')"
-case "$renderer_container_id" in
-""|*$'\n'*) die "expected exactly one running PLE webwork-renderer container" ;;
-esac
+renderer_container_id="$(compose_service_container_id webwork-renderer)"
 echo "==> Verifying standalone PG render and grade behavior"
 started_at=$SECONDS
 until podman exec -i "$renderer_container_id" bash -s -- --exercise <containers/webwork/probe_render_api.sh >/dev/null 2>&1; do

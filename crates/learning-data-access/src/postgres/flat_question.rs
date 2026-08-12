@@ -428,7 +428,7 @@ mod tests {
     use super::*;
     use crate::flat_question::FlatQuestionGradingPayload;
 
-    const FIXTURE: &str = r#"{"format":"pleFlatQuestion","version":1,"kind":"singleChoice","title":"Favorite color","prompt":"What is my favorite color?","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"blue","points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"license":{"kind":"cc0"},"language":"en-US"}"#;
+    const FIXTURE: &str = r#"{"format":"pleFlatQuestion","version":2,"title":"Favorite color","prompt":"What is my favorite color?","response":{"kind":"singleChoice","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"blue"},"points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"license":{"kind":"cc0"},"language":"en-US"}"#;
 
     fn grading() -> FlatQuestionGradingPayload {
         let private =
@@ -445,7 +445,7 @@ mod tests {
     #[test]
     fn postgres_staging_accepts_every_closed_flat_family_and_rejects_other_native_sources() {
         for family in [
-            grading::flat_question::FLAT_SINGLE_CHOICE_FAMILY,
+            grading::flat_question::FLAT_SINGLE_CHOICE_V2_FAMILY,
             grading::flat_question::FLAT_SINGLE_CHOICE_V2_FAMILY,
             grading::flat_question::FLAT_MULTIPLE_ANSWER_FAMILY,
             grading::flat_question::FLAT_FILL_IN_FAMILY,

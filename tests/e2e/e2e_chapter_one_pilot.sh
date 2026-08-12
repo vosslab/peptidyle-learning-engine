@@ -125,8 +125,9 @@ expect_query "2" "SELECT count(*) FROM assignment WHERE tenant_id = '$TENANT_ID'
 expect_query "8" "SELECT count(*) FROM assignment_item WHERE tenant_id = '$TENANT_ID' AND delivery_state = 'active';"
 expect_query "4|4" "SELECT count(*) FILTER (WHERE backend = 'native') || '|' || count(*) FILTER (WHERE backend = 'webwork') FROM problem_version;"
 expect_query "8" "SELECT count(*) FROM published_source_artifact;"
+expect_query "0" "SELECT count(*) FROM problem_version WHERE version_number <> 1 OR previous_version_id IS NOT NULL;"
 expect_query "2" "SELECT count(*) FROM enrollment WHERE tenant_id = '$TENANT_ID';"
-expect_query "Biochemistry Chapter 1 Practice|4
-Genetics Chapter 1 Practice|4" "SELECT assignment.title || '|' || count(assignment_item.assignment_item_id) FROM assignment JOIN assignment_item USING (tenant_id, assignment_id) WHERE assignment.tenant_id = '$TENANT_ID' GROUP BY assignment.title ORDER BY assignment.title;"
+expect_query "Biochemistry Chapter 1 Mastery|4
+Genetics Chapter 1 Mastery|4" "SELECT assignment.title || '|' || count(assignment_item.assignment_item_id) FROM assignment JOIN assignment_item USING (tenant_id, assignment_id) WHERE assignment.tenant_id = '$TENANT_ID' GROUP BY assignment.title ORDER BY assignment.title;"
 
 echo "Chapter 1 pilot E2E: PASS"

@@ -9,6 +9,7 @@ import type { ProblemVersionRef } from "../../generated/api/ProblemVersionRef";
 import type { RunPolicies } from "../../generated/api/RunPolicies";
 import type { TenantId } from "../../generated/api/TenantId";
 import type { AssignmentCapabilityViolation, AssignmentEditorDetail } from "../api/contracts";
+import { CopyableProblemId } from "../components/copyable_problem_id";
 import {
   ApiRequestError,
   AssignmentConflictError,
@@ -20,13 +21,17 @@ import {
   assignmentInput,
   capabilityLabel,
   createMasteryAssignmentDraft,
+  minutesToRunTimeLimit,
   moveCatalogReference,
   questionBackendLabel,
+  parseExactProblemDisplayReferences,
   removeCatalogReference,
   sameReference,
+  runTimeLimitMinutes,
   violationMatchesReference,
   type AssignmentCatalogRow,
   type AssignmentEditorDraft,
+  type TimeLimitValidation,
 } from "./assignment_editor_model";
 import type { AssignmentEditorRepository } from "./assignment_editor_repository";
 import { ASSIGNMENT_EDITOR_STYLES } from "./assignment_editor_styles";
@@ -42,6 +47,24 @@ type CatalogState =
   | { readonly kind: "ready"; readonly rows: ReadonlyArray<AssignmentCatalogRow> }
   | { readonly kind: "error"; readonly rows: ReadonlyArray<AssignmentCatalogRow> };
 
+type DirectImportState =
+  | { readonly kind: "idle" }
+  | { readonly kind: "loading"; readonly count: number }
+  | { readonly kind: "success"; readonly message: string }
+  | { readonly kind: "error"; readonly message: string };
+
+class DirectImportLookupError extends Error {
+  public readonly reference: string;
+  public readonly lookupCause: unknown;
+
+  public constructor(reference: string, cause: unknown) {
+    super(`Catalog lookup failed for ${reference}.`);
+    this.name = "DirectImportLookupError";
+    this.reference = reference;
+    this.lookupCause = cause;
+  }
+}
+
 function editorDraft(detail: AssignmentEditorDetail): AssignmentEditorDraft {
   return {
     id: detail.id,
@@ -49,6 +72,7 @@ function editorDraft(detail: AssignmentEditorDetail): AssignmentEditorDraft {
     title: detail.title,
     problems: [...detail.problems],
     policies: detail.policies,
+    assignmentTiming: detail.assignmentTiming,
     revision: detail.revision,
   };
 }
@@ -100,15 +124,39 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
   const [catalog, setCatalog] = createSignal<CatalogState>({ kind: "idle", rows: [] });
   const [knownProblems, setKnownProblems] = createSignal<ReadonlyArray<AssignmentCatalogRow>>([]);
   const [searchText, setSearchText] = createSignal("");
+  const [directImportText, setDirectImportText] = createSignal("");
+  const [directImport, setDirectImport] = createSignal<DirectImportState>({ kind: "idle" });
   const [saving, setSaving] = createSignal(false);
   const [saveMessage, setSaveMessage] = createSignal("");
   const [conflict, setConflict] = createSignal(false);
+  const [runTimed, setRunTimed] = createSignal(true);
+  const [runMinutesText, setRunMinutesText] = createSignal("15");
+  // A database-valid integer second value can have a recurring minute form.
+  // Keep that canonical value for an unrelated save until the instructor edits
+  // the displayed approximation.
+  const [preservedRunSeconds, setPreservedRunSeconds] = createSignal<number | null>(null);
+  const [runMinutesEdited, setRunMinutesEdited] = createSignal(false);
   const [created, setCreated] = createSignal<AssignmentEditorDetail | null>(null);
   const [violations, setViolations] = createSignal<ReadonlyArray<AssignmentCapabilityViolation>>(
     [],
   );
   let titleInput: HTMLInputElement | undefined;
   let violationHeading: HTMLHeadingElement | undefined;
+  let runMinutesInput: HTMLInputElement | undefined;
+
+  function adoptTiming(seconds: number | null): void {
+    setRunTimed(seconds !== null);
+    setRunMinutesText(runTimeLimitMinutes(seconds));
+    setPreservedRunSeconds(seconds);
+    setRunMinutesEdited(false);
+  }
+
+  function runTimingValidation(): TimeLimitValidation {
+    if (!runMinutesEdited()) {
+      return { seconds: runTimed() ? preservedRunSeconds() : null, error: null };
+    }
+    return minutesToRunTimeLimit(runMinutesText(), runTimed());
+  }
 
   const ready = (): Extract<EditorState, { readonly kind: "ready" }> | undefined => {
     const current = state();
@@ -152,8 +200,10 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
 
   async function load(): Promise<void> {
     if (props.mode.kind === "create") {
+      const draft = createMasteryAssignmentDraft(props.courseId);
       setKnownProblems([]);
-      setState({ kind: "ready", draft: createMasteryAssignmentDraft(props.courseId) });
+      setState({ kind: "ready", draft });
+      adoptTiming(draft.assignmentTiming.timeLimitSeconds);
       setSaveMessage("Choose a title and published problem versions.");
       setConflict(false);
       setViolations([]);
@@ -186,6 +236,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
       }
       setKnownProblems(described);
       setState({ kind: "ready", draft: editorDraft(detail) });
+      adoptTiming(detail.assignmentTiming.timeLimitSeconds);
       setSaveMessage("Assignment loaded.");
       queueMicrotask(() => titleInput?.focus());
     } catch (error: unknown) {
@@ -205,6 +256,84 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
     }
   }
 
+  function directImportError(reference: string, error: unknown): string {
+    if (error instanceof ApiRequestError && error.status === 404) {
+      return `${reference} is not an available published question. Check the number and version.`;
+    }
+    if (error instanceof ApiRequestError && error.status === 403) {
+      return `You do not have access to ${reference}. Ask its owner to publish or share it.`;
+    }
+    if (error instanceof ApiRequestError && error.status === 400) {
+      return `${reference} is not an exact question ID. Use the form P-12-v3.`;
+    }
+    return `Could not look up ${reference}. Your pasted IDs and assignment are unchanged. Try again.`;
+  }
+
+  async function addByQuestionId(): Promise<void> {
+    const current = ready();
+    if (current === undefined || directImport().kind === "loading") return;
+    let references: ReadonlyArray<string>;
+    try {
+      references = parseExactProblemDisplayReferences(directImportText());
+    } catch (error: unknown) {
+      setDirectImport({ kind: "error", message: errorMessage(error, "Question IDs are invalid.") });
+      return;
+    }
+    const alreadySelected = references.find((reference) =>
+      current.draft.problems.some((candidate) => {
+        const row = problemFor(candidate);
+        return row !== undefined && assignmentProblemLabel(row) === reference;
+      }),
+    );
+    if (alreadySelected !== undefined) {
+      setDirectImport({
+        kind: "error",
+        message: `${alreadySelected} is already in this assignment. Remove it from the pasted list or paste another ID.`,
+      });
+      return;
+    }
+    setDirectImport({ kind: "loading", count: references.length });
+    try {
+      const rows = await Promise.all(
+        references.map(async (reference) => {
+          try {
+            return await props.repository.resolvePublished(reference);
+          } catch (error: unknown) {
+            throw new DirectImportLookupError(reference, error);
+          }
+        }),
+      );
+      const currentAfterLookup = ready();
+      if (currentAfterLookup === undefined) return;
+      const becameSelected = rows.find((row) => selected(row.reference));
+      if (becameSelected !== undefined) {
+        setDirectImport({
+          kind: "error",
+          message: `${assignmentProblemLabel(becameSelected)} is already in this assignment. Your pasted IDs and assignment are unchanged.`,
+        });
+        return;
+      }
+      rememberProblems(rows);
+      const draft = rows.reduce(addCatalogReference, currentAfterLookup.draft);
+      replaceDraft(draft);
+      const labels = rows.map(assignmentProblemLabel);
+      setDirectImport({
+        kind: "success",
+        message: `Added ${labels.join(", ")} to the unsaved selection.`,
+      });
+      setDirectImportText("");
+    } catch (error: unknown) {
+      const failure = error instanceof DirectImportLookupError ? error : undefined;
+      setDirectImport({
+        kind: "error",
+        message: directImportError(
+          failure?.reference ?? references[0] ?? "that ID",
+          failure?.lookupCause ?? error,
+        ),
+      });
+    }
+  }
+
   function updatePolicies(policies: RunPolicies): void {
     const current = ready();
     if (current === undefined) return;
@@ -214,6 +343,12 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
   async function save(): Promise<void> {
     const current = ready();
     if (current === undefined || saving()) return;
+    const timing = runTimingValidation();
+    if (timing.error !== null) {
+      setSaveMessage(timing.error);
+      queueMicrotask(() => runMinutesInput?.focus());
+      return;
+    }
     setSaving(true);
     setSaveMessage("Saving assignment...");
     setConflict(false);
@@ -221,11 +356,17 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
     try {
       const saved =
         props.mode.kind === "create"
-          ? await props.repository.create(props.courseId, assignmentInput(current.draft))
+          ? await props.repository.create(props.courseId, {
+              ...assignmentInput(current.draft),
+              assignmentTiming: { timeLimitSeconds: timing.seconds },
+            })
           : await props.repository.save(
               props.courseId,
               props.mode.assignmentId,
-              assignmentInput(current.draft),
+              {
+                ...assignmentInput(current.draft),
+                assignmentTiming: { timeLimitSeconds: timing.seconds },
+              },
               current.draft.revision,
             );
       if (
@@ -236,11 +377,16 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
         throw new Error("The assignment editor received an unrelated saved record.");
       }
       setState({ kind: "ready", draft: editorDraft(saved) });
+      adoptTiming(saved.assignmentTiming.timeLimitSeconds);
       if (props.mode.kind === "create") {
         setCreated(saved);
         setSaveMessage("Assignment created. Open it to review the student-facing course link.");
       } else {
-        setSaveMessage("Assignment saved.");
+        setSaveMessage(
+          saved.assignmentTiming.timeLimitSeconds === null
+            ? "Assignment saved. This assignment is untimed."
+            : `Assignment saved. Students have a ${runTimeLimitMinutes(saved.assignmentTiming.timeLimitSeconds)}-minute limit per practice run.`,
+        );
       }
     } catch (error: unknown) {
       if (error instanceof AssignmentValidationError) {
@@ -285,7 +431,8 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
       current === undefined ||
       (props.mode.kind === "create" && created() !== null) ||
       current.draft.title.trim().length === 0 ||
-      current.draft.problems.length === 0
+      current.draft.problems.length === 0 ||
+      runTimingValidation().error !== null
     );
   }
 
@@ -295,6 +442,17 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
 
   function problemFor(reference: ProblemVersionRef): AssignmentCatalogRow | undefined {
     return knownProblems().find((candidate) => sameReference(candidate.reference, reference));
+  }
+
+  function directImportButtonLabel(): string {
+    const current = directImport();
+    if (current.kind !== "loading") return "Add questions by ID";
+    return `Adding ${current.count} question${current.count === 1 ? "" : "s"}...`;
+  }
+
+  function directImportMessage(kind: "error" | "success"): string {
+    const current = directImport();
+    return current.kind === kind ? current.message : "";
   }
 
   onMount(() => void load());
@@ -421,21 +579,19 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                       {(reference, index) => (
                         <li class="assignment-editor-row">
                           <h3>{titleFor(reference)}</h3>
-                          <p
-                            data-problem-id={reference.problem}
-                            data-version-id={reference.version}
-                          >
+                          <div class="assignment-editor-problem-identity">
                             <Show
                               when={problemFor(reference)}
                               fallback="Published problem details unavailable"
                             >
-                              {(row) =>
-                                `${assignmentProblemLabel(row())} · ${questionBackendLabel(
-                                  row().backend,
-                                )}`
-                              }
+                              {(row) => (
+                                <>
+                                  <code>{assignmentProblemLabel(row())}</code>
+                                  <span>{questionBackendLabel(row().backend)}</span>
+                                </>
+                              )}
                             </Show>
-                          </p>
+                          </div>
                           <Show
                             when={violations().some((violation) =>
                               violationMatchesReference(violation, reference),
@@ -484,6 +640,56 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                     </For>
                   </ol>
                 </Show>
+                <section
+                  class="assignment-editor-direct-import"
+                  aria-labelledby="add-by-id-heading"
+                >
+                  <h3 id="add-by-id-heading">Add by question ID</h3>
+                  <p id="add-by-id-help" class="assignment-editor-note">
+                    Paste exact IDs copied from the problem library. Use commas or separate lines
+                    for more than one, for example <code>P-12-v3, P-41-v1</code>.
+                  </p>
+                  <label class="assignment-editor-field">
+                    Question IDs
+                    <textarea
+                      rows="3"
+                      value={directImportText()}
+                      placeholder="P-12-v3"
+                      aria-describedby={
+                        directImport().kind === "error" || directImport().kind === "success"
+                          ? "add-by-id-help add-by-id-feedback"
+                          : "add-by-id-help"
+                      }
+                      aria-invalid={directImport().kind === "error"}
+                      onInput={(event) => {
+                        setDirectImportText(event.currentTarget.value);
+                        if (directImport().kind !== "loading") setDirectImport({ kind: "idle" });
+                      }}
+                    />
+                  </label>
+                  <button
+                    class="primary-action"
+                    type="button"
+                    disabled={directImport().kind === "loading"}
+                    onClick={() => void addByQuestionId()}
+                  >
+                    {directImportButtonLabel()}
+                  </button>
+                  <Show when={directImport().kind === "error"}>
+                    <p id="add-by-id-feedback" class="inline-error" role="alert">
+                      {directImportMessage("error")}
+                    </p>
+                  </Show>
+                  <Show when={directImport().kind === "success"}>
+                    <p
+                      id="add-by-id-feedback"
+                      class="assignment-editor-import-success"
+                      role="status"
+                    >
+                      {directImportMessage("success")}
+                    </p>
+                  </Show>
+                </section>
               </div>
 
               <aside class="assignment-editor-panel" aria-label="Assignment policies and catalog">
@@ -617,9 +823,67 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                     </select>
                   </label>
                 </fieldset>
+                <fieldset class="assignment-editor-policy-set assignment-editor-run-timing">
+                  <legend>Time limit for each practice run</legend>
+                  <label class="assignment-editor-radio">
+                    <input
+                      type="radio"
+                      name="assignment-run-timing"
+                      checked={runTimed()}
+                      onChange={() => {
+                        setRunTimed(true);
+                        if (preservedRunSeconds() === null) setRunMinutesEdited(true);
+                        queueMicrotask(() => runMinutesInput?.focus());
+                      }}
+                    />
+                    Timed
+                  </label>
+                  <Show when={runTimed()}>
+                    <label class="assignment-editor-field">
+                      Minutes per practice run
+                      <input
+                        ref={(element: HTMLInputElement) => {
+                          runMinutesInput = element;
+                        }}
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="any"
+                        value={runMinutesText()}
+                        aria-describedby="run-time-limit-help"
+                        aria-invalid={runTimingValidation().error !== null}
+                        onInput={(event) => {
+                          setRunMinutesEdited(true);
+                          setRunMinutesText(event.currentTarget.value);
+                        }}
+                      />
+                    </label>
+                    <Show when={runTimingValidation().error}>
+                      {(message) => (
+                        <p class="inline-error" role="alert">
+                          {message()}
+                        </p>
+                      )}
+                    </Show>
+                  </Show>
+                  <label class="assignment-editor-radio">
+                    <input
+                      type="radio"
+                      name="assignment-run-timing"
+                      checked={!runTimed()}
+                      onChange={() => setRunTimed(false)}
+                    />
+                    Untimed
+                  </label>
+                  <p id="run-time-limit-help" class="assignment-editor-note">
+                    The server keeps the time running and automatically submits work when the run
+                    ends. A loaded time may display as an approximate number of minutes; it stays
+                    exact until you edit this field.
+                  </p>
+                </fieldset>
                 <p class="assignment-editor-note">
-                  Attempt and timing rules remain immutable properties of each published question
-                  version; this assignment does not override them.
+                  This setting limits the whole practice run. Published question versions keep their
+                  own response and feedback rules.
                 </p>
 
                 <h2>Published problem catalog</h2>
@@ -627,7 +891,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                   Search published problems
                   <input
                     value={searchText()}
-                    placeholder="Title or concept"
+                    placeholder="Title, concept, or P-123-v1"
                     onInput={(event) => setSearchText(event.currentTarget.value)}
                   />
                 </label>
@@ -654,12 +918,10 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                     {(row) => (
                       <article class="assignment-editor-row">
                         <h3>{row.title}</h3>
-                        <p
-                          data-problem-id={row.reference.problem}
-                          data-version-id={row.reference.version}
-                        >
-                          {assignmentProblemLabel(row)} · {questionBackendLabel(row.backend)}
-                        </p>
+                        <div class="assignment-editor-problem-identity">
+                          <CopyableProblemId displayId={assignmentProblemLabel(row)} />
+                          <span>{questionBackendLabel(row.backend)}</span>
+                        </div>
                         <button
                           class="quiet-action"
                           type="button"

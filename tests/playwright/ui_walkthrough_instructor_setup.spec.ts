@@ -1,8 +1,6 @@
 // Selector contract: visible labels in course_list_page.tsx, course_roster_page.tsx, and assignment_editor_page.tsx.
 
-import { expect, test } from "@playwright/test";
-
-import { configuredInstructorSetupInputs } from "../../playwright.config";
+import { expect, test } from "./ui_walkthrough_fixture";
 
 import {
   commitInstructorSetupState,
@@ -11,10 +9,9 @@ import {
 import { writeInstructorSetupCheckpoint } from "./simulator/instructor_setup_checkpoint";
 import { tabTo } from "./simulator/keyboard_walkthrough";
 import {
-  instructorCredentialFromValidatedFile,
+  credentialFromValidatedFile,
   learnerAliasFromValidatedFile,
-} from "./ui_walkthrough_live_config";
-import { exactCatalogResult } from "./simulator/instructor_catalog_binding";
+} from "./ui_walkthrough_config_factory";
 import {
   captureDocumentationScreenshot,
   documentationScreenshotsEnabled,
@@ -23,44 +20,26 @@ import {
 test.describe.configure({ mode: "serial" });
 test.setTimeout(120_000);
 
-test.skip(
-  configuredInstructorSetupInputs === undefined,
-  "requires the explicit instructor-only UI walkthrough invocation",
-);
-
 function elapsedSince(startedAt: number): number {
   return Math.round(performance.now() - startedAt);
 }
 
-function publicIdsFromAttributes(
-  problemId: unknown,
-  versionId: unknown,
-): readonly [string, string] {
-  if (
-    typeof problemId !== "string" ||
-    typeof versionId !== "string" ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(problemId) ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(versionId)
-  ) {
-    throw new Error("visible catalog reference is unavailable");
-  }
-  return [problemId, versionId];
-}
-
-test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and hands off public IDs", async ({
+test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignment and hands off public IDs", async ({
   page,
+  instructorSetupInputs,
 }) => {
-  const inputs = configuredInstructorSetupInputs;
-  if (inputs === undefined)
-    throw new Error("the declaration-time instructor setup skip did not apply");
+  test.skip(instructorSetupInputs === undefined, "requires the explicit instructor setup config");
+  if (instructorSetupInputs === undefined) return;
+  const inputs = instructorSetupInputs;
+  writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "browser_ready");
   const startedAt = performance.now();
   const uniqueSuffix = `${inputs.masterSeedText}-${Date.now().toString(36)}`;
-  const courseTitle = documentationScreenshotsEnabled()
-    ? `Fake Biochemistry Course ${Date.now().toString(36).slice(-6)}`
+  const courseTitle = documentationScreenshotsEnabled(inputs.screenshotDirectory)
+    ? `Fake Genetics Course ${Date.now().toString(36).slice(-6)}`
     : `Fall pilot instructor walkthrough ${uniqueSuffix}`;
-  const assignmentTitle = documentationScreenshotsEnabled()
-    ? "Peptide bond mastery"
-    : `Mastery peptide practice ${uniqueSuffix}`;
+  const assignmentTitle = documentationScreenshotsEnabled(inputs.screenshotDirectory)
+    ? "Genetics Chapter 1 Practice"
+    : `Mastery genetics practice ${uniqueSuffix}`;
 
   await page.goto("/");
   const credentialInput = page.getByLabel("Local development credential");
@@ -68,7 +47,7 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
   writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "login_visible");
   await tabTo(page, credentialInput);
   await expect(credentialInput).toBeFocused();
-  await credentialInput.fill(instructorCredentialFromValidatedFile(inputs.credentialFile));
+  await credentialInput.fill(credentialFromValidatedFile(inputs.credentialFile, "instructor"));
   const signIn = page.getByRole("button", { name: "Sign in locally", exact: true });
   await tabTo(page, signIn);
   await expect(signIn).toBeFocused();
@@ -97,7 +76,13 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: courseTitle, exact: true })).toBeVisible();
   writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "course_opened");
-  await captureDocumentationScreenshot(page, "instructor_course_overview.png");
+  await captureDocumentationScreenshot(
+    page,
+    "instructor_course_overview.png",
+    undefined,
+    undefined,
+    inputs.screenshotDirectory,
+  );
   const courseId = new URL(page.url()).pathname.split("/")[2];
   if (courseId === undefined || !/^[0-9a-f-]{36}$/iu.test(courseId))
     throw new Error("visible course link is unavailable");
@@ -128,7 +113,7 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
   await expect(activeRow).toHaveCount(1);
   await expect(activeRow).toBeFocused();
   writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "student_active");
-  if (documentationScreenshotsEnabled()) {
+  if (documentationScreenshotsEnabled(inputs.screenshotDirectory)) {
     await tabTo(page, learnerAlias);
     await expect(learnerAlias).toBeFocused();
     await learnerAlias.fill("student-jack");
@@ -143,6 +128,7 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
     "instructor_roster_active_student.png",
     page.getByRole("heading", { name: "Course members", exact: true }),
     72,
+    inputs.screenshotDirectory,
   );
   const j12: InstructorSetupFragment = {
     schemaVersion: 2,
@@ -166,35 +152,76 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Create assignment", exact: true })).toBeVisible();
   writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "assignment_editor_opened");
+  await expect(page.getByRole("radio", { name: "Timed", exact: true })).toBeChecked();
+  await expect(page.getByLabel("Minutes per practice run")).toHaveValue("15");
   const assignmentTitleInput = page.getByLabel("Assignment title");
   await expect(assignmentTitleInput).toBeFocused();
   await assignmentTitleInput.fill(assignmentTitle);
   const search = page.getByLabel("Search published problems");
   await tabTo(page, search);
   await expect(search).toBeFocused();
-  await search.fill(inputs.catalogSearchTitle);
   const searchCatalog = page.getByRole("button", { name: "Search catalog", exact: true });
-  await tabTo(page, searchCatalog);
-  await expect(searchCatalog).toBeFocused();
+  await page.context().grantPermissions(["clipboard-write"], {
+    origin: new URL(inputs.baseUrl).origin,
+  });
+  const copiedDisplayIds = inputs.catalogDisplayIds;
+  const directImport = page.getByLabel("Question IDs");
+  for (const [index, displayId] of copiedDisplayIds.entries()) {
+    await search.fill(displayId);
+    await tabTo(page, searchCatalog);
+    await expect(searchCatalog).toBeFocused();
+    await page.keyboard.press("Enter");
+    const catalogRow = page.locator(".assignment-editor-catalog-results article", {
+      has: page.locator("code", { hasText: new RegExp(`^${displayId}$`, "u") }),
+    });
+    await expect(catalogRow).toHaveCount(1);
+    await expect(catalogRow).toBeVisible();
+    if (index === 0) {
+      await captureDocumentationScreenshot(
+        page,
+        "instructor_problem_catalog.png",
+        page.getByRole("heading", { name: "Published problem catalog", exact: true }),
+        72,
+        inputs.screenshotDirectory,
+      );
+    }
+    const humanReference = catalogRow.locator("code");
+    await expect(humanReference).toHaveText(displayId);
+    const copyId = catalogRow.getByRole("button", { name: `Copy question ID ${displayId}` });
+    await tabTo(page, copyId);
+    await expect(copyId).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(catalogRow.getByRole("status")).toHaveText(`Copied ${displayId}.`);
+    await tabTo(page, directImport);
+    await expect(directImport).toBeFocused();
+    if (index > 0) {
+      await page.keyboard.press("Enter");
+      await expect(directImport).toHaveValue(copiedDisplayIds.slice(0, index).join("\n") + "\n");
+    }
+    await page.keyboard.press("ControlOrMeta+V");
+    await expect(directImport).toHaveValue(copiedDisplayIds.slice(0, index + 1).join("\n"));
+    if (index < copiedDisplayIds.length - 1) {
+      await tabTo(page, search, "backward");
+      await expect(search).toBeFocused();
+    }
+  }
+  await expect(directImport).toHaveValue(copiedDisplayIds.join("\n"));
+  const addById = page.getByRole("button", { name: "Add questions by ID", exact: true });
+  await tabTo(page, addById);
+  await expect(addById).toBeFocused();
   await page.keyboard.press("Enter");
-  const catalogRow = await exactCatalogResult(page, inputs.catalogSearchTitle);
-  const catalogReference = catalogRow.locator("p[data-problem-id][data-version-id]");
-  await expect(catalogReference).toHaveCount(1);
-  const [problemId, versionId] = publicIdsFromAttributes(
-    await catalogReference.getAttribute("data-problem-id"),
-    await catalogReference.getAttribute("data-version-id"),
+  await expect(page.locator(".assignment-editor-import-success")).toHaveText(
+    `Added ${copiedDisplayIds.join(", ")} to the unsaved selection.`,
   );
-  await expect(catalogReference).toHaveText(/^P-[1-9][0-9]*-v[1-9][0-9]* · PLE native$/u);
-  const addVersion = catalogRow.getByRole("button", { name: "Add published version", exact: true });
-  await tabTo(page, addVersion);
-  await expect(addVersion).toBeFocused();
-  await captureDocumentationScreenshot(
-    page,
-    "instructor_problem_catalog.png",
-    page.getByRole("heading", { name: "Published problem catalog", exact: true }),
-    72,
-  );
-  await page.keyboard.press("Enter");
+  await expect(page.locator(".assignment-editor-list").getByRole("listitem")).toHaveCount(4);
+  for (const displayId of copiedDisplayIds) {
+    const selectedId = page
+      .locator(".assignment-editor-list")
+      .getByRole("listitem")
+      .locator("code", { hasText: new RegExp(`^${displayId}$`, "u") });
+    await expect(selectedId).toHaveCount(1);
+    await expect(selectedId).toHaveText(displayId);
+  }
   await expect(page.getByLabel("Completion requirement")).toHaveValue("allCorrect");
   await expect(page.getByLabel("Grade policy")).toHaveValue("highest");
   await expect(page.getByLabel("Continued practice")).toHaveValue("unlimited");
@@ -204,6 +231,7 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
     "instructor_assignment_settings.png",
     page.locator(".assignment-editor-grid"),
     72,
+    inputs.screenshotDirectory,
   );
   const createAssignment = page.getByRole("button", { name: "Create assignment", exact: true });
   await tabTo(page, createAssignment);
@@ -216,6 +244,7 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
     "instructor_assignment_created.png",
     page.locator(".success-state"),
     72,
+    inputs.screenshotDirectory,
   );
   writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "assignment_created");
   const assignmentHref: unknown = await assignmentLink.getAttribute("href");
@@ -225,18 +254,18 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
   const assignmentId = assignmentHref.slice(assignmentHref.lastIndexOf("/") + 1);
   if (!/^[0-9a-f-]{36}$/iu.test(assignmentId))
     throw new Error("visible assignment link is unavailable");
-  const j13: InstructorSetupFragment = {
+  const j13: Extract<InstructorSetupFragment, { readonly journey: "J13" }> = {
     schemaVersion: 2,
     journey: "J13",
     status: "PASS",
     elapsedMs: elapsedSince(startedAt),
     courseId,
     assignmentId,
-    problemId,
-    versionId,
+    selectedDisplayIds: [...inputs.catalogDisplayIds] as [string, string, string, string],
     visibleOutcomeCodes: [
       "visible_assignment_created",
       "visible_catalog_problem_selected",
+      "visible_four_question_chapter_one_selection",
       "visible_mastery_policy",
     ],
     diagnostics: [],

@@ -24,7 +24,7 @@ where
     let retired_item = delete_items[0].id;
     let retained_item = delete_items[1].id;
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: delete_assignment,

@@ -8,6 +8,7 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use bigdecimal::{BigDecimal, ToPrimitive};
 use domain::item_analysis::{
     AssignmentItemAnalysis, CourseItemAnalysisReport, ItemAnalysisMetricInput,
     calculate_item_analysis_metrics,
@@ -16,7 +17,6 @@ use question_model::{
     ActivityTimestamp, AssignmentId, AssignmentItemId, CourseId, ProblemId, ProblemVersionRef,
     ScoringGeneration, TenantId, VersionId,
 };
-use rust_decimal::{Decimal, prelude::ToPrimitive};
 use serde_json::Value;
 use sqlx::postgres::PgRow;
 use sqlx::{Postgres, Row, Transaction};
@@ -42,10 +42,10 @@ struct DeliveredItem {
     completion_millis: Option<u64>,
     status: Option<String>,
     grading_status: Option<String>,
-    credit: Option<Decimal>,
+    credit: Option<BigDecimal>,
     correct: Option<bool>,
-    earned_points: Option<Decimal>,
-    possible_points: Option<Decimal>,
+    earned_points: Option<BigDecimal>,
+    possible_points: Option<BigDecimal>,
 }
 
 #[derive(Clone, Copy)]
@@ -755,7 +755,7 @@ fn checked_count(value: i64) -> Result<u32, StoreError> {
         .map_err(|_| StoreError::Unavailable("stored item-analysis count is invalid".to_string()))
 }
 
-fn checked_credit(value: Decimal) -> Result<f64, StoreError> {
+fn checked_credit(value: BigDecimal) -> Result<f64, StoreError> {
     let credit = value
         .to_f64()
         .filter(|credit| credit.is_finite() && (-1000.0..=1000.0).contains(credit))
@@ -765,7 +765,7 @@ fn checked_credit(value: Decimal) -> Result<f64, StoreError> {
     Ok(credit)
 }
 
-fn checked_earned_points(value: Decimal) -> Result<f64, StoreError> {
+fn checked_earned_points(value: BigDecimal) -> Result<f64, StoreError> {
     value
         .to_f64()
         .filter(|points| points.is_finite())
@@ -774,7 +774,7 @@ fn checked_earned_points(value: Decimal) -> Result<f64, StoreError> {
         })
 }
 
-fn checked_possible_points(value: Decimal) -> Result<f64, StoreError> {
+fn checked_possible_points(value: BigDecimal) -> Result<f64, StoreError> {
     value
         .to_f64()
         .filter(|points| points.is_finite() && *points >= 0.0)
@@ -834,10 +834,10 @@ mod tests {
         assignment_item: u128,
         status: &str,
         grading_status: &str,
-        credit: Option<Decimal>,
+        credit: Option<BigDecimal>,
         correct: Option<bool>,
-        earned_points: Option<Decimal>,
-        possible_points: Option<Decimal>,
+        earned_points: Option<BigDecimal>,
+        possible_points: Option<BigDecimal>,
     ) -> DeliveredItem {
         DeliveredItem {
             assignment_item: AssignmentItemId::from_uuid(uuid(assignment_item)),
@@ -865,10 +865,10 @@ mod tests {
                 10,
                 "submitted",
                 "graded",
-                Some(Decimal::new(8, 1)),
+                Some("0.8".parse().expect("valid credit")),
                 Some(false),
-                Some(Decimal::from(1_600)),
-                Some(Decimal::from(2_000)),
+                Some(BigDecimal::from(1_600)),
+                Some(BigDecimal::from(2_000)),
             )],
         )
         .expect("large exact point values remain valid");
@@ -886,10 +886,10 @@ mod tests {
                     10,
                     "submitted",
                     "graded",
-                    Some(Decimal::ONE),
+                    Some(BigDecimal::from(1)),
                     Some(true),
-                    Some(Decimal::ONE),
-                    Some(Decimal::ONE),
+                    Some(BigDecimal::from(1)),
+                    Some(BigDecimal::from(1)),
                 ),
                 delivered(
                     11,

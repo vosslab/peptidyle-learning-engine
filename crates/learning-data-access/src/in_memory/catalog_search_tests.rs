@@ -561,6 +561,47 @@ async fn statistics_receipts_are_exactly_once_and_disclose_only_at_k_five() {
 }
 
 #[tokio::test]
+async fn catalog_search_finds_an_exact_human_version_reference_beyond_the_first_page() {
+    let store = MemoryStore::default();
+    let context =
+        TenantContext::from_authenticated_session(TenantId::from_uuid(Uuid::from_u128(73_000)));
+    let mut decoy = record(70);
+    let exact = record(71);
+    let exact_reference = format!(
+        "P-{}-v{}",
+        exact.public_id.value(),
+        exact.version_number.value()
+    );
+    {
+        let mut state = store.write_state().expect("catalog search state");
+        decoy.question.metadata.title = exact_reference.clone();
+        state
+            .published
+            .insert((decoy.problem, decoy.version), decoy);
+        state
+            .published
+            .insert((exact.problem, exact.version), exact);
+    }
+
+    let page = store
+        .search_catalog(
+            context,
+            CatalogSearchQuery {
+                text: Some(exact_reference),
+                page_size: Some(1),
+                ..CatalogSearchQuery::default()
+            },
+        )
+        .await
+        .expect("exact display reference search");
+
+    assert_eq!(page.items.len(), 1);
+    assert_eq!(page.items[0].public_id.value(), 72);
+    assert_eq!(page.items[0].version_number.value(), 1);
+    assert_eq!(page.next_cursor, None);
+}
+
+#[tokio::test]
 async fn catalog_statistics_filter_facets_and_detail_use_only_k_gated_aggregates() {
     let store = MemoryStore::default();
     let tenant = TenantId::from_uuid(Uuid::from_u128(73_001));

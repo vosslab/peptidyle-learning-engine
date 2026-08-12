@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 #[cfg(test)]
-use adapter_native::flat_question::FLAT_SINGLE_CHOICE_FAMILY;
+use adapter_native::flat_question::FLAT_SINGLE_CHOICE_V2_FAMILY;
 use adapter_native::flat_question::{
     FLAT_QUESTION_MEDIA_TYPE, FlatQuestionDocument, is_flat_question_family,
 };

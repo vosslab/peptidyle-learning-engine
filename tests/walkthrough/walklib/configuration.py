@@ -11,6 +11,8 @@ import walklib.models
 
 UINT32_MAX = 4_294_967_295
 SAFE_REPORT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.json$")
+SCREENSHOT_DIRECTORY_PARENT = pathlib.Path("/private/tmp")
+SCREENSHOT_DIRECTORY_PREFIX = "ple-docs-screenshots."
 
 
 #============================================
@@ -36,6 +38,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 		"--report-file",
 		metavar="BASENAME",
 		help="Safe .json basename below test-results/ui_walkthrough/.",
+	)
+	parser.add_argument(
+		"-s",
+		"--screenshot-directory",
+		dest="screenshot_directory",
+		metavar="PATH",
+		help="Pre-created private directory for the explicit documentation screenshot capture.",
 	)
 	parser.add_argument(
 		"--keep",
@@ -98,6 +107,10 @@ def resolve_inputs(
 	if report_basename is None:
 		report_basename = f"ui_walkthrough_seed_{master_seed}.json"
 	validate_report_basename(report_basename)
+	screenshot_directory = None
+	if args.screenshot_directory is not None:
+		screenshot_directory = pathlib.Path(args.screenshot_directory)
+		validate_screenshot_directory(screenshot_directory)
 
 	if args.instructor_setup_only and args.student_repeat_only:
 		raise walklib.models.RunnerError(
@@ -111,6 +124,7 @@ def resolve_inputs(
 		args.build,
 		args.instructor_setup_only,
 		args.student_repeat_only,
+		screenshot_directory,
 	)
 	return inputs
 
@@ -134,6 +148,28 @@ def validate_report_basename(report_basename: str) -> None:
 	if not SAFE_REPORT_NAME.fullmatch(report_basename):
 		raise walklib.models.RunnerError(
 			"--report-file must contain only safe ASCII filename characters and end in .json"
+		)
+
+
+#============================================
+def validate_screenshot_directory(path: pathlib.Path) -> None:
+	"""Require the explicit documentation capture output to be one owned private directory."""
+	if (
+		not path.is_absolute()
+		or path.parent != SCREENSHOT_DIRECTORY_PARENT
+		or not path.name.startswith(SCREENSHOT_DIRECTORY_PREFIX)
+	):
+		raise walklib.models.RunnerError(
+			"--screenshot-directory must be a private /private/tmp/ple-docs-screenshots.* directory"
+		)
+	if path.is_symlink() or not path.is_dir():
+		raise walklib.models.RunnerError(
+			"--screenshot-directory must be a regular private directory"
+		)
+	metadata = path.stat()
+	if metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) != 0o700:
+		raise walklib.models.RunnerError(
+			"--screenshot-directory must be owned by this user with mode 0700"
 		)
 
 
@@ -172,14 +208,11 @@ def env_value(env_file: pathlib.Path, setting_name: str) -> str:
 #============================================
 def effective_gateway_port(
 	inputs: walklib.models.RunnerInputs,
-	environ: dict[str, str],
 ) -> int:
-	"""Resolve the gateway port using the launcher's exact precedence.
+	"""Resolve the gateway port from the selected explicit environment file.
 
 	Args:
 		inputs: Validated runner inputs containing the selected environment file.
-		environ: Process environment whose nonempty port takes precedence.
-
 	Returns:
 		A validated TCP port in the inclusive range 1 through 65535.
 
@@ -187,8 +220,7 @@ def effective_gateway_port(
 		walklib.models.RunnerError: The effective port is malformed or out of range.
 	"""
 	configured_port = env_value(inputs.env_file, "PLE_GATEWAY_HOST_PORT")
-	inherited_port = environ.get("PLE_GATEWAY_HOST_PORT", "")
-	port_text = inherited_port if inherited_port else configured_port
+	port_text = configured_port
 	if not port_text:
 		port_text = "8080"
 	if not re.fullmatch(r"[0-9]+", port_text):

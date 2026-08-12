@@ -1,9 +1,9 @@
 //! In-memory implementation of the server-only manual-evaluation contract.
 
 use async_trait::async_trait;
+use bigdecimal::BigDecimal;
 use objects::Sha256Digest;
 use question_model::{AttemptResult, AttemptStatus, CourseRole, FeedbackContent, ScoringStatus};
-use rust_decimal::Decimal;
 
 use super::*;
 use crate::{
@@ -258,7 +258,7 @@ fn set_memory_manual_grade(
     if prior.revision != command.expected_revision {
         return Err(StoreError::Conflict);
     }
-    let correct = command.credit.as_decimal() == Decimal::ONE;
+    let correct = command.credit.as_decimal() == &BigDecimal::from(1);
     let credit = command.credit.try_as_f64()?;
     let result = AttemptResult {
         correct,

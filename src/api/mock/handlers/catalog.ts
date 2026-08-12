@@ -4,6 +4,26 @@ import type { CatalogSearchPage } from "../../../../generated/api/CatalogSearchP
 
 import { handlesResource, jsonResponse, pathSegments, routeNotFound } from "./shared";
 
+const MAX_DISPLAY_ID_DIGITS = 10;
+const MAX_DISPLAY_ID = 2_147_483_647n;
+
+/** Mirrors the live `ProblemDisplayRef` parser so mock route status is useful evidence. */
+function isProblemDisplayReference(reference: string): boolean {
+  if (!reference.startsWith("P-")) return false;
+  const body = reference.slice(2);
+  const separator = body.lastIndexOf("-v");
+  const problem = separator === -1 ? body : body.slice(0, separator);
+  const version = separator === -1 ? undefined : body.slice(separator + 2);
+  const isPositiveU64 = (value: string): boolean => {
+    if (value.length === 0 || value.length > MAX_DISPLAY_ID_DIGITS || !/^[0-9]+$/.test(value)) {
+      return false;
+    }
+    const parsed = BigInt(value);
+    return parsed > 0n && parsed <= MAX_DISPLAY_ID;
+  };
+  return isPositiveU64(problem) && (version === undefined || isPositiveU64(version));
+}
+
 export function canHandleCatalog(request: Request): boolean {
   return handlesResource(request, ["problems", "taxonomy"]);
 }
@@ -42,8 +62,10 @@ function catalogSearchFixture(request: Request): CatalogSearchPage | Response {
   }
   const summary = publishedProblemFixture.catalogProblem;
   const normalizedText = (parameters.get("text") ?? "").trim().toLowerCase();
+  const displayId = `p-${summary.publicId}-v${summary.versionNumber}`;
   const textMatches =
     normalizedText.length === 0 ||
+    normalizedText === displayId ||
     summary.metadata.title.toLowerCase().includes(normalizedText) ||
     summary.metadata.tags.some((tag) => tag.toLowerCase().includes(normalizedText));
   const taxonomyMatches = parameters
@@ -83,6 +105,23 @@ export function respondCatalog(request: Request): Response {
   if (request.method === "GET" && resource === "problems" && segments[2] === "search") {
     const page = catalogSearchFixture(request);
     return page instanceof Response ? page : jsonResponse(page);
+  }
+  if (
+    request.method === "GET" &&
+    resource === "problems" &&
+    segments.length === 4 &&
+    segments[2] === "by-id"
+  ) {
+    const summary = publishedProblemFixture.catalogProblem;
+    const reference = segments[3] ?? "";
+    if (!isProblemDisplayReference(reference)) {
+      return jsonResponse({ error: "invalid problem reference" }, 400);
+    }
+    const exact = `P-${summary.publicId}-v${summary.versionNumber}`;
+    const stable = `P-${summary.publicId}`;
+    return reference === exact || reference === stable
+      ? jsonResponse(summary)
+      : jsonResponse({ error: "problem reference not found" }, 404);
   }
   if (
     request.method === "GET" &&

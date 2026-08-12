@@ -90,7 +90,7 @@ async fn persist_attempt(
         .expect("course");
     backend
         .sources
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,

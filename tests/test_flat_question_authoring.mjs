@@ -26,15 +26,17 @@ const workspace = "00000000-0000-4000-8000-000000000001";
 function source() {
   return {
     format: "pleFlatQuestion",
-    version: 1,
-    kind: "singleChoice",
+    version: 2,
     title: "Favorite color",
     prompt: "What is my favorite color?",
-    choices: [
-      { id: "blue", text: "Blue", feedback: "Correct choice." },
-      { id: "red", text: "Red", feedback: "Not this one." },
-    ],
-    correctChoice: "blue",
+    response: {
+      kind: "singleChoice",
+      choices: [
+        { id: "blue", text: "Blue", feedback: "Correct choice." },
+        { id: "red", text: "Red", feedback: "Not this one." },
+      ],
+      correctChoice: "blue",
+    },
     feedback: { correct: "Exactly right.", incorrect: "Try again." },
     points: 1,
     attemptPolicy: { maxAttempts: null, feedback: "immediateFull" },
@@ -49,7 +51,7 @@ function source() {
 function publicDefinition(includeVersion = false) {
   const definition = {
     workspace,
-    source: { backend: "native", family: "flat_single_choice_v1" },
+    source: { backend: "native", family: "flat_single_choice_v2" },
     prompt: [{ kind: "text", markdown: "What is my favorite color?" }],
     response: {
       kind: "multipleChoice",
@@ -95,7 +97,7 @@ test("codec accepts a valid source and serializes deterministic compact JSON", (
 
 test("codec normalizes omitted optional feedback to Rust canonical null members", () => {
   const input = source();
-  delete input.choices[1].feedback;
+  delete input.response.choices[1].feedback;
   input.feedback = {};
   const serialized = serializeFlatQuestionSource(decodeFlatQuestionSource(input));
   assert.equal(serialized.includes('"feedback":null'), true);
@@ -167,24 +169,35 @@ test("source JSON parse failures do not expose parser details or source text", (
 test("codec rejects unknown fields, invalid identifiers, invalid choice count, and bad correct choices", () => {
   assert.throws(() => decodeFlatQuestionSource({ ...source(), surprise: true }));
   assert.throws(() =>
-    decodeFlatQuestionSource({ ...source(), choices: [{ id: "A", text: "Only one" }] }),
+    decodeFlatQuestionSource({
+      ...source(),
+      response: { ...source().response, choices: [{ id: "A", text: "Only one" }] },
+    }),
   );
   assert.throws(() =>
     decodeFlatQuestionSource({
       ...source(),
-      choices: [
-        { id: "Bad", text: "One" },
-        { id: "two", text: "Two" },
-      ],
+      response: {
+        ...source().response,
+        choices: [
+          { id: "Bad", text: "One" },
+          { id: "two", text: "Two" },
+        ],
+      },
     }),
   );
-  assert.throws(() => decodeFlatQuestionSource({ ...source(), correctChoice: "green" }));
+  assert.throws(() =>
+    decodeFlatQuestionSource({
+      ...source(),
+      response: { ...source().response, correctChoice: "green" },
+    }),
+  );
 });
 
 test("defaults use stable semantic IDs and public preview cannot serialize answers or feedback", () => {
   const defaults = createDefaultFlatQuestionSource();
   assert.deepEqual(
-    defaults.choices.map((choice) => choice.id),
+    defaults.response.choices.map((choice) => choice.id),
     ["choice_a", "choice_b"],
   );
   const preview = flatQuestionPublicPreview(source());
@@ -307,7 +320,7 @@ test("client rejects save and publication DTOs that are not the exact flat nativ
     fetch: async () =>
       jsonResponse({ ...publicDefinition(), source: { backend: "native", family: "other" } }),
   });
-  await assert.rejects(wrongSave.save(workspace, source()), /flat_single_choice_v1/u);
+  await assert.rejects(wrongSave.save(workspace, source()), /flat_single_choice_v2/u);
 
   const wrongPublication = createFlatQuestionClient({
     fetch: async () =>
@@ -318,7 +331,7 @@ test("client rejects save and publication DTOs that are not the exact flat nativ
   });
   await assert.rejects(
     wrongPublication.publish(workspace, "institution", '"1"'),
-    /flat_single_choice_v1/u,
+    /flat_single_choice_v2/u,
   );
 });
 

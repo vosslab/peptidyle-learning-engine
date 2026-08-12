@@ -20,8 +20,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{AnswerKey, GradeOutcome, GradingError, grade};
 
-/// Stable source-family identifier persisted in the public question model.
-pub const FLAT_SINGLE_CHOICE_FAMILY: &str = "flat_single_choice_v1";
+/// Stable source-family identifiers persisted in the public question model.
 pub const FLAT_SINGLE_CHOICE_V2_FAMILY: &str = "flat_single_choice_v2";
 pub const FLAT_MULTIPLE_ANSWER_FAMILY: &str = "flat_multiple_answer_v2";
 pub const FLAT_FILL_IN_FAMILY: &str = "flat_fill_in_v2";
@@ -32,8 +31,7 @@ pub const FLAT_ORDERING_FAMILY: &str = "flat_ordering_v2";
 pub const FLAT_HOTSPOT_FAMILY: &str = "flat_hotspot_v2";
 /// Upper bound shared by persisted private material and source adapters.
 pub const MAX_FLAT_QUESTION_BYTES: usize = 256 * 1024;
-const PRIVATE_SCHEMA_VERSION: u32 = 1;
-const PRIVATE_SCHEMA_VERSION_V2: u32 = 2;
+const PRIVATE_SCHEMA_VERSION: u32 = 2;
 const MAX_CHOICES: usize = 100;
 const MAX_CHOICE_ID_BYTES: usize = 64;
 const MAX_FEEDBACK_CHARS: usize = 16_384;
@@ -119,49 +117,7 @@ pub struct FlatQuestionEvaluation {
 }
 
 impl FlatQuestionPrivate {
-    /// Builds answer-bearing material only after its exact public draft passed
-    /// the family contract. Feedback identifiers are checked against choices.
-    pub fn new(
-        draft: &DraftQuestionDefinition,
-        correct_choice: ChoiceId,
-        choice_feedback: Vec<(ChoiceId, String)>,
-        correct_feedback: Option<String>,
-        incorrect_feedback: Option<String>,
-    ) -> Result<Self, FlatQuestionError> {
-        validate_flat_single_choice_draft(draft)?;
-        let available = choices_for_draft(draft)?;
-        if !available.contains(&correct_choice) {
-            return invalid("correct choice must name an available choice");
-        }
-        let mut feedback_ids = HashSet::new();
-        let mut feedback = Vec::with_capacity(choice_feedback.len());
-        for (choice, markdown) in choice_feedback {
-            if !available.contains(&choice) || !feedback_ids.insert(choice.clone()) {
-                return invalid("choice feedback targets must be unique available choices");
-            }
-            validate_feedback(&markdown)?;
-            feedback.push(FlatChoiceFeedback {
-                choice: choice.as_str().to_string(),
-                markdown,
-            });
-        }
-        validate_optional_feedback(correct_feedback.as_deref())?;
-        validate_optional_feedback(incorrect_feedback.as_deref())?;
-        Ok(Self {
-            schema_version: PRIVATE_SCHEMA_VERSION,
-            public_sha256: public_binding_sha256_for_draft(draft)?,
-            answer_key: AnswerKey::MultipleChoice {
-                correct: BTreeSet::from([correct_choice]),
-            },
-            choice_feedback: feedback,
-            outcome_feedback: FlatOutcomeFeedback {
-                correct: correct_feedback,
-                incorrect: incorrect_feedback,
-            },
-        })
-    }
-
-    /// Builds version 2 private material for one of the closed flat families.
+    /// Builds private material for one of the closed v2 flat families.
     pub fn new_with_key(
         draft: &DraftQuestionDefinition,
         answer_key: AnswerKey,
@@ -187,7 +143,7 @@ impl FlatQuestionPrivate {
         validate_optional_feedback(incorrect_feedback.as_deref())?;
         validate_key_against_response(&draft.response, &answer_key)?;
         Ok(Self {
-            schema_version: PRIVATE_SCHEMA_VERSION_V2,
+            schema_version: PRIVATE_SCHEMA_VERSION,
             public_sha256: public_binding_sha256_for_draft(draft)?,
             answer_key,
             choice_feedback: feedback,
@@ -263,9 +219,7 @@ impl FlatQuestionPrivate {
     }
 
     fn validate_private_shape(&self) -> Result<(), FlatQuestionError> {
-        if self.schema_version != PRIVATE_SCHEMA_VERSION
-            && self.schema_version != PRIVATE_SCHEMA_VERSION_V2
-        {
+        if self.schema_version != PRIVATE_SCHEMA_VERSION {
             return Err(FlatQuestionError::UnsupportedVersion(self.schema_version));
         }
         if !is_hex_sha256(&self.public_sha256) {
@@ -273,14 +227,6 @@ impl FlatQuestionPrivate {
         }
         validate_optional_feedback(self.outcome_feedback.correct.as_deref())?;
         validate_optional_feedback(self.outcome_feedback.incorrect.as_deref())?;
-        if self.schema_version == PRIVATE_SCHEMA_VERSION {
-            let AnswerKey::MultipleChoice { correct } = &self.answer_key else {
-                return invalid("version 1 flat material requires a multiple-choice answer key");
-            };
-            if correct.len() != 1 {
-                return invalid("version 1 flat material requires exactly one correct choice");
-            }
-        }
         let mut feedback_ids = HashSet::new();
         for feedback in &self.choice_feedback {
             validate_choice_id(&feedback.choice)?;
@@ -369,42 +315,6 @@ pub fn validate_for_draft(draft: &DraftQuestionDefinition) -> Result<(), FlatQue
     )
 }
 
-/// Alias for callers that name the flat family explicitly.
-pub fn validate_flat_single_choice_draft(
-    draft: &DraftQuestionDefinition,
-) -> Result<(), FlatQuestionError> {
-    let DraftQuestionSource::Native { family } = &draft.source else {
-        return Err(FlatQuestionError::PublicBindingMismatch);
-    };
-    if family != FLAT_SINGLE_CHOICE_FAMILY {
-        return Err(FlatQuestionError::PublicBindingMismatch);
-    }
-    validate_flat_shape(
-        family,
-        &draft.randomization,
-        &draft.response,
-        &draft.grading,
-    )
-}
-
-/// Validates the immutable public form used by the native backend registry.
-pub fn validate_flat_single_choice_question(
-    question: &QuestionDefinition,
-) -> Result<(), FlatQuestionError> {
-    let QuestionSource::Native { family } = &question.source else {
-        return Err(FlatQuestionError::PublicBindingMismatch);
-    };
-    if family != FLAT_SINGLE_CHOICE_FAMILY {
-        return Err(FlatQuestionError::PublicBindingMismatch);
-    }
-    validate_flat_shape(
-        family,
-        &question.randomization,
-        &question.response,
-        &question.grading,
-    )
-}
-
 /// Validates any closed flat-question family after publication.
 pub fn validate_flat_question_question(
     question: &QuestionDefinition,
@@ -427,8 +337,7 @@ pub fn validate_flat_question_question(
 pub fn is_flat_question_family(family: &str) -> bool {
     matches!(
         family,
-        FLAT_SINGLE_CHOICE_FAMILY
-            | FLAT_SINGLE_CHOICE_V2_FAMILY
+        FLAT_SINGLE_CHOICE_V2_FAMILY
             | FLAT_MULTIPLE_ANSWER_FAMILY
             | FLAT_FILL_IN_FAMILY
             | FLAT_MULTI_FILL_IN_FAMILY
@@ -464,7 +373,7 @@ fn validate_response_for_family(
 ) -> Result<(), FlatQuestionError> {
     match (family, response) {
         (
-            FLAT_SINGLE_CHOICE_FAMILY | FLAT_SINGLE_CHOICE_V2_FAMILY,
+            FLAT_SINGLE_CHOICE_V2_FAMILY,
             ResponseDefinition::MultipleChoice { choices, selection },
         ) if *selection == SelectionCardinality::ExactlyOne => validate_options(choices, 2),
         (
@@ -753,14 +662,6 @@ fn blocks_text(blocks: &[ContentBlock]) -> String {
         .join(" ")
 }
 
-fn choices_for_draft(
-    draft: &DraftQuestionDefinition,
-) -> Result<BTreeSet<ChoiceId>, FlatQuestionError> {
-    let ResponseDefinition::MultipleChoice { choices, .. } = &draft.response else {
-        return invalid("flat family requires multiple-choice response");
-    };
-    Ok(choices.iter().map(|choice| choice.id.clone()).collect())
-}
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PublicBinding<'a> {

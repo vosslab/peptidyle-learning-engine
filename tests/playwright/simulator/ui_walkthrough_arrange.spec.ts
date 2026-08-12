@@ -29,23 +29,38 @@ test("private parser accepts only the instructor and the launcher baseline refer
   expect(() => instructorCredential(`instructor=${SENTINEL}!`)).toThrow("arrangement-input");
 });
 
-test("instructor setup retains only the supported retry-corpus publication arrangement", () => {
-  const output = instructorSetupArrangementOutput({
-    problem: "123e4567-e89b-12d3-a456-426614174001",
-    version: "123e4567-e89b-12d3-a456-426614174002",
-    catalogSearchTitle: "Fake amino acid question 123e4567e89b",
-  });
+test("instructor setup retains the four launcher Chapter 1 Genetics references", () => {
+  const output = instructorSetupArrangementOutput([
+    {
+      displayId: "P-11-v1",
+      problemId: "123e4567-e89b-12d3-a456-426614174001",
+      versionId: "123e4567-e89b-12d3-a456-426614174002",
+    },
+    {
+      displayId: "P-12-v1",
+      problemId: "123e4567-e89b-12d3-a456-426614174003",
+      versionId: "123e4567-e89b-12d3-a456-426614174004",
+    },
+    {
+      displayId: "P-13-v1",
+      problemId: "123e4567-e89b-12d3-a456-426614174005",
+      versionId: "123e4567-e89b-12d3-a456-426614174006",
+    },
+    {
+      displayId: "P-14-v1",
+      problemId: "123e4567-e89b-12d3-a456-426614174007",
+      versionId: "123e4567-e89b-12d3-a456-426614174008",
+    },
+  ]);
   expect(output).toEqual({
     arrangements: [
       {
-        label: "api-retry-corpus-publication",
-        problemId: "123e4567-e89b-12d3-a456-426614174001",
-        versionId: "123e4567-e89b-12d3-a456-426614174002",
-        catalogSearchTitle: "Fake amino acid question 123e4567e89b",
+        label: "launcher-chapter-one-genetics",
+        questions: expect.any(Array),
       },
     ],
   });
-  expect(JSON.stringify(output)).not.toContain("courseId");
+  expect(output.arrangements[0]?.questions).toHaveLength(4);
 });
 
 test("arrangement output separates every setup boundary into fixed public records", () => {

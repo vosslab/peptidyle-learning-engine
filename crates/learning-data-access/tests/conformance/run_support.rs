@@ -62,7 +62,7 @@ where
     let support_enrollment = EnrollmentId::from_uuid(uuid(89_973 + fixture_offset));
     let support_run_id = RunId::from_uuid(uuid(89_974 + fixture_offset));
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: support_assignment,

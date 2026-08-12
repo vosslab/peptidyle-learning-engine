@@ -30,5 +30,6 @@ pub use crate::http_renderer::{
 pub use artifact::WebworkSource;
 pub use issue::{
     WebworkAdapter, WebworkAdapterError, WebworkIssuedAttempt,
-    reviewed_webwork_source_capabilities, webwork_source_capabilities,
+    reviewed_webwork_source_capabilities, reviewed_webwork_source_capabilities_for_feedback,
+    webwork_source_capabilities,
 };

@@ -9,11 +9,11 @@ UUID_TEXT = re.compile(
 	"^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
 	re.IGNORECASE,
 )
-CATALOG_SEARCH_TITLE = re.compile(r"^Fake amino acid question [0-9a-f]{12}$")
+DISPLAY_ID = re.compile(r"^P-[1-9][0-9]*-v[1-9][0-9]*$")
 
 
-def parse_arrangement_output(stdout: str) -> tuple[list[dict[str, str]], str | None]:
-	"""Return strict public arrangement references and an optional instructor title."""
+def parse_arrangement_output(stdout: str) -> tuple[list[dict[str, object]], list[dict[str, str]] | None]:
+	"""Return strict public arrangement references and private instructor question locators."""
 	try:
 		encoded = stdout.encode("ascii")
 		payload = json.loads(stdout)
@@ -37,25 +37,29 @@ def parse_arrangement_output(stdout: str) -> tuple[list[dict[str, str]], str | N
 		value = arrangements[0]
 		if (
 			not isinstance(value, dict)
-			or set(value) != {"label", "problemId", "versionId", "catalogSearchTitle"}
-			or value.get("label") != "api-retry-corpus-publication"
-			or not isinstance(value["problemId"], str)
-			or not isinstance(value["versionId"], str)
-			or not isinstance(value["catalogSearchTitle"], str)
-			or not UUID_TEXT.fullmatch(value["problemId"])
-			or not UUID_TEXT.fullmatch(value["versionId"])
-			or not CATALOG_SEARCH_TITLE.fullmatch(value["catalogSearchTitle"])
+			or set(value) != {"label", "questions"}
+			or value.get("label") != "launcher-chapter-one-genetics"
+			or not isinstance(value["questions"], list)
+			or len(value["questions"]) != 4
 		):
 			raise ValueError("invalid output")
+		questions: list[dict[str, str]] = []
+		for question in value["questions"]:
+			if (
+				not isinstance(question, dict)
+				or set(question) != {"displayId", "problemId", "versionId"}
+				or not all(isinstance(question[key], str) for key in question)
+				or not DISPLAY_ID.fullmatch(question["displayId"])
+				or not UUID_TEXT.fullmatch(question["problemId"])
+				or not UUID_TEXT.fullmatch(question["versionId"])
+			):
+				raise ValueError("invalid output")
+			questions.append(question)
+		if len({question["displayId"] for question in questions}) != 4:
+			raise ValueError("invalid output")
 		return (
-			[
-				{
-					"label": value["label"],
-					"problemId": value["problemId"],
-					"versionId": value["versionId"],
-				}
-			],
-			value["catalogSearchTitle"],
+			[{"label": value["label"]}],
+			questions,
 		)
 	allowed = (
 		({"label"}, "launcher-seeded-enrollment"),
@@ -64,7 +68,7 @@ def parse_arrangement_output(stdout: str) -> tuple[list[dict[str, str]], str | N
 		({"label", "courseId", "masteryAssignmentId"}, "api-mastery-assignment"),
 		({"label", "courseId", "examAssignmentId"}, "api-exam-assignment"),
 	)
-	validated: list[dict[str, str]] = []
+	validated: list[dict[str, object]] = []
 	for value, (keys, label) in zip(arrangements, allowed, strict=True):
 		if not isinstance(value, dict) or set(value) != keys or value.get("label") != label:
 			raise ValueError("invalid output")

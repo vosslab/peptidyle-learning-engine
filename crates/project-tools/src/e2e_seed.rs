@@ -14,12 +14,12 @@ use learning_data_access::{
     AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore, AssignmentUpdate,
     AttemptAutoSubmitCommitOutcome, AttemptAutoSubmitWorkerCommand, AttemptAutoSubmitWorkerStore,
     AttemptSupportActionId, AuthoritativeTimeStore, CatalogSourceStore, CatalogStore,
-    ClearAttemptCommand, CourseGroupRecord, CourseRecord, DeleteAndRegradeAssignmentItemCommand,
-    DeleteAssignmentPolicyExceptionCommand, DraftRecord, ForceSubmitAttemptCommand,
-    IssueQuestionAttemptCommand, JobClaimFilter, JobLeaseDuration, JobPayload, JobStore,
-    PageRequest, PageSize, PublishDraftCommand, PutCourseGroupCommand,
+    ClearAttemptCommand, CourseGroupRecord, CourseRecord, CourseRosterStore,
+    DeleteAndRegradeAssignmentItemCommand, DeleteAssignmentPolicyExceptionCommand, DraftRecord,
+    ForceSubmitAttemptCommand, IssueQuestionAttemptCommand, JobClaimFilter, JobLeaseDuration,
+    JobPayload, JobStore, PageRequest, PageSize, PublishDraftCommand, PutCourseGroupCommand,
     SetAssignmentPolicyExceptionCommand, Store, StoreError, SubmissionIdempotencyKey,
-    SubmitQuestionAttemptCommand, TenantContext, UpdateAssignmentTimingCommand,
+    SubmitQuestionAttemptCommand, TenantContext, UpdateAssignmentTimingCommand, UpsertCourseMember,
 };
 use objects::{ObjectCategory, ObjectKey, ObjectStore, PutObject};
 use question_model::answer::SelectionCardinality;

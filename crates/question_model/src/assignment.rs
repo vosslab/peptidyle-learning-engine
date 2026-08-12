@@ -99,6 +99,30 @@ pub struct AssignmentTimingPolicy {
     pub deadline_behavior: AssignmentDeadlineBehavior,
 }
 
+/// Editor-owned whole-run timer choice.
+///
+/// This deliberately contains only the one value that an assignment editor
+/// may change in this release.  Schedule, visibility, late-work, and
+/// accommodation policy remain server-managed `AssignmentTimingPolicy`
+/// concerns and are not accidentally overwritten by an editor save.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssignmentRunTiming {
+    /// Whole-run limit in seconds, or no whole-run limit.
+    pub time_limit_seconds: Option<u32>,
+}
+
+/// Default timed-Mastery choice used by the instructor editor.
+///
+/// This is a `u32` because it crosses the TypeScript boundary and every
+/// JavaScript number in the accepted range remains exactly representable.
+pub const DEFAULT_MASTERY_TIME_LIMIT_SECONDS: u32 = 900;
+
+/// Largest whole-run limit representable by the current PostgreSQL `INTEGER`
+/// columns. Keeping this public makes every browser and storage boundary share
+/// the same lossless domain without a needless `BIGINT` migration.
+pub const MAX_ASSIGNMENT_TIME_LIMIT_SECONDS: u32 = 2_147_483_647;
+
 impl Default for AssignmentTimingPolicy {
     fn default() -> Self {
         Self {
@@ -307,5 +331,10 @@ mod tests {
         for invalid in ["", "-1", "+1", "1.00001", "NaN", "1000000001"] {
             assert!(invalid.parse::<PointValue>().is_err(), "{invalid}");
         }
+    }
+
+    #[test]
+    fn assignment_time_limit_domain_matches_postgres_integer() {
+        assert_eq!(MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, 2_147_483_647);
     }
 }

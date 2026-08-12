@@ -21,6 +21,28 @@ use crate::{
     validate_assignment_policy_exception, validate_assignment_timing,
 };
 
+/// Decodes the shared PostgreSQL `INTEGER` duration column without widening
+/// its domain into Rust's larger unsigned range.
+pub(super) fn decode_postgres_assignment_time_limit(
+    value: Option<i32>,
+) -> Result<Option<u32>, StoreError> {
+    let seconds = value
+        .map(|value| {
+            u32::try_from(value).map_err(|_| {
+                StoreError::Unavailable("stored assignment time limit is invalid".to_string())
+            })
+        })
+        .transpose()?;
+    if seconds == Some(0)
+        || seconds.is_some_and(|value| value > question_model::MAX_ASSIGNMENT_TIME_LIMIT_SECONDS)
+    {
+        return Err(StoreError::Unavailable(
+            "stored assignment time limit is invalid".to_string(),
+        ));
+    }
+    Ok(seconds)
+}
+
 pub(super) fn decode_stored_assignment_timing(
     row: &PgRow,
     tenant: TenantId,
@@ -53,15 +75,7 @@ pub(super) fn decode_stored_assignment_timing(
             due_at: timestamp("due_at_millis")?,
             closes_at: timestamp("closes_at_millis")?,
             late_submission: parse_late_submission_policy(&late_submission)?,
-            time_limit_seconds: time_limit_seconds
-                .map(|value| {
-                    u32::try_from(value).map_err(|_| {
-                        StoreError::Unavailable(
-                            "stored assignment time limit is invalid".to_string(),
-                        )
-                    })
-                })
-                .transpose()?,
+            time_limit_seconds: decode_postgres_assignment_time_limit(time_limit_seconds)?,
             attempt_limit: attempt_limit
                 .map(|value| {
                     u32::try_from(value).map_err(|_| {
@@ -531,13 +545,7 @@ pub(super) fn decode_postgres_resolved_attempt_timing(
             &row.try_get::<String, _>("resolved_late_submission_policy")
                 .map_err(map_sqlx_error)?,
         )?,
-        time_limit_seconds: time_limit
-            .map(|value| {
-                u32::try_from(value).map_err(|_| {
-                    StoreError::Unavailable("stored resolved time limit is invalid".to_string())
-                })
-            })
-            .transpose()?,
+        time_limit_seconds: decode_postgres_assignment_time_limit(time_limit)?,
         attempt_limit: attempt_limit
             .map(|value| {
                 u32::try_from(value).map_err(|_| {

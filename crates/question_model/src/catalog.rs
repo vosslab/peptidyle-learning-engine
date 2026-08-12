@@ -1,7 +1,7 @@
 //! Browser-safe shared-catalog metadata (MOD-API-CAT).
 
 use serde::{Deserialize, Serialize};
-use std::num::NonZeroU64;
+use std::num::NonZeroU32;
 
 use crate::taxonomy::{License, Tag, TaxonomyTerm};
 use crate::{
@@ -12,22 +12,35 @@ use crate::{
 /// Maximum taxonomy facet values returned with one bounded catalog page.
 pub const MAX_CATALOG_TAXONOMY_FACETS: usize = 64;
 
+/// Largest value for either component of a copyable catalog locator.
+///
+/// The catalog is scoped to this product, rather than to every object ever
+/// created anywhere. A positive 31-bit sequence provides more than two
+/// billion stable problems and versions while remaining lossless in the
+/// PostgreSQL `bigint` columns, Rust, JSON, and JavaScript's safe-integer
+/// `number` representation.
+pub const MAX_CATALOG_DISPLAY_NUMBER: u32 = i32::MAX as u32;
+
 /// Copyable decimal identifier for one stable published problem.
 ///
 /// This identifier is intentionally separate from [`ProblemId`]. It is safe
 /// to display and search, but never carries authorization authority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct ProblemPublicId(NonZeroU64);
+pub struct ProblemPublicId(NonZeroU32);
 
 impl ProblemPublicId {
     /// Builds a public identifier from its positive database value.
     pub fn new(value: u64) -> Option<Self> {
-        NonZeroU64::new(value).map(Self)
+        u32::try_from(value)
+            .ok()
+            .filter(|value| *value <= MAX_CATALOG_DISPLAY_NUMBER)
+            .and_then(NonZeroU32::new)
+            .map(Self)
     }
 
     /// Returns the positive decimal value stored by PostgreSQL.
-    pub fn value(self) -> u64 {
+    pub fn value(self) -> u32 {
         self.0.get()
     }
 }
@@ -44,7 +57,7 @@ impl std::str::FromStr for ProblemPublicId {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let digits = value.strip_prefix("P-").unwrap_or(value);
         if digits.is_empty()
-            || digits.len() > 20
+            || digits.len() > 10
             || !digits.bytes().all(|byte| byte.is_ascii_digit())
         {
             return Err("problem ID must look like P-123456");
@@ -53,23 +66,27 @@ impl std::str::FromStr for ProblemPublicId {
             .parse::<u64>()
             .ok()
             .and_then(Self::new)
-            .ok_or("problem ID must be a positive 64-bit decimal value")
+            .ok_or("problem ID must be a positive 31-bit decimal value")
     }
 }
 
 /// One-based display version within a stable published problem.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct ProblemVersionNumber(NonZeroU64);
+pub struct ProblemVersionNumber(NonZeroU32);
 
 impl ProblemVersionNumber {
     /// Builds a version number from its positive database value.
     pub fn new(value: u64) -> Option<Self> {
-        NonZeroU64::new(value).map(Self)
+        u32::try_from(value)
+            .ok()
+            .filter(|value| *value <= MAX_CATALOG_DISPLAY_NUMBER)
+            .and_then(NonZeroU32::new)
+            .map(Self)
     }
 
     /// Returns the one-based version number.
-    pub fn value(self) -> u64 {
+    pub fn value(self) -> u32 {
         self.0.get()
     }
 }
@@ -103,7 +120,7 @@ impl std::str::FromStr for ProblemDisplayRef {
         let (problem, version) = match rest.rsplit_once("-v") {
             Some((problem, version)) => {
                 if version.is_empty()
-                    || version.len() > 20
+                    || version.len() > 10
                     || !version.bytes().all(|byte| byte.is_ascii_digit())
                 {
                     return Err("problem version must be a positive decimal value");
@@ -112,7 +129,7 @@ impl std::str::FromStr for ProblemDisplayRef {
                     .parse::<u64>()
                     .ok()
                     .and_then(ProblemVersionNumber::new)
-                    .ok_or("problem version must be a positive 64-bit decimal value")?;
+                    .ok_or("problem version must be a positive 31-bit decimal value")?;
                 (problem, Some(version))
             }
             None => (rest, None),
@@ -408,6 +425,21 @@ impl std::fmt::Display for CatalogSearchQueryError {
 impl std::error::Error for CatalogSearchQueryError {}
 
 impl CatalogSearchQuery {
+    /// Returns the immutable catalog version named by an exact human-facing
+    /// display reference in the text field.  Catalog text remains
+    /// case-insensitive, while the returned value is canonicalized before it
+    /// reaches a store.  A stable `P-n` reference is deliberately not a
+    /// search shortcut: only `P-n-vn` identifies one immutable version.
+    pub fn exact_display_version(&self) -> Option<ProblemDisplayRef> {
+        let text = self.text.as_deref()?;
+        let rest = text
+            .strip_prefix("P-")
+            .or_else(|| text.strip_prefix("p-"))?;
+        let reference = format!("P-{rest}");
+        let reference = reference.parse::<ProblemDisplayRef>().ok()?;
+        reference.version.is_some().then_some(reference)
+    }
+
     /// Produces the canonical query used for both rows and facet aggregates.
     ///
     /// Text is Unicode-lowercased with internal whitespace collapsed.  Exact
@@ -573,6 +605,74 @@ mod tests {
         for invalid in ["123", "P-0", "P-12-v0", "P--1", "P-12-vx"] {
             assert!(invalid.parse::<ProblemDisplayRef>().is_err(), "{invalid}");
         }
+    }
+
+    #[test]
+    fn human_problem_references_stay_within_the_lossless_cross_layer_range() {
+        let maximum = MAX_CATALOG_DISPLAY_NUMBER.to_string();
+        let exact: ProblemDisplayRef = format!("P-{maximum}-v{maximum}")
+            .parse()
+            .expect("the positive 31-bit boundary should parse");
+        assert_eq!(exact.problem.value(), MAX_CATALOG_DISPLAY_NUMBER);
+        assert_eq!(
+            exact
+                .version
+                .expect("exact reference has a version")
+                .value(),
+            MAX_CATALOG_DISPLAY_NUMBER
+        );
+
+        let first_out_of_range = u64::from(MAX_CATALOG_DISPLAY_NUMBER) + 1;
+        assert!(
+            format!("P-{first_out_of_range}")
+                .parse::<ProblemDisplayRef>()
+                .is_err()
+        );
+        assert!(
+            format!("P-1-v{first_out_of_range}")
+                .parse::<ProblemDisplayRef>()
+                .is_err()
+        );
+        assert!(ProblemPublicId::new(first_out_of_range).is_none());
+        assert!(ProblemVersionNumber::new(first_out_of_range).is_none());
+
+        assert_eq!(
+            serde_json::to_value(
+                ProblemPublicId::new(u64::from(MAX_CATALOG_DISPLAY_NUMBER))
+                    .expect("maximum public ID is valid"),
+            )
+            .expect("public ID serializes"),
+            serde_json::json!(MAX_CATALOG_DISPLAY_NUMBER)
+        );
+        assert_eq!(
+            serde_json::to_value(
+                ProblemVersionNumber::new(u64::from(MAX_CATALOG_DISPLAY_NUMBER))
+                    .expect("maximum version number is valid"),
+            )
+            .expect("version number serializes"),
+            serde_json::json!(MAX_CATALOG_DISPLAY_NUMBER)
+        );
+    }
+
+    #[test]
+    fn catalog_text_recognizes_only_exact_human_version_references() {
+        let exact = CatalogSearchQuery {
+            text: Some(" p-70-v1 ".to_string()),
+            ..CatalogSearchQuery::default()
+        }
+        .normalized()
+        .expect("search text normalizes")
+        .exact_display_version()
+        .expect("exact reference is recognized");
+        assert_eq!(exact.to_string(), "P-70-v1");
+
+        let stable = CatalogSearchQuery {
+            text: Some("P-70".to_string()),
+            ..CatalogSearchQuery::default()
+        }
+        .normalized()
+        .expect("search text normalizes");
+        assert_eq!(stable.exact_display_version(), None);
     }
 
     #[test]

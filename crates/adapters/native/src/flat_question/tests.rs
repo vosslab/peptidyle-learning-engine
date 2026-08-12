@@ -1,22 +1,26 @@
 use super::*;
 use grading::GradeOutcome;
-use question_model::response::{HotspotPoint, MatchPair, StudentResponse, TextEntryAnswer};
-use question_model::{ProblemId, QuestionSource, VersionId};
+use question_model::response::{
+    ChoiceId, HotspotPoint, MatchPair, StudentResponse, TextEntryAnswer,
+};
+use question_model::{DraftQuestionSource, ProblemId, QuestionSource, VersionId};
 use serde_json::Value;
 use uuid::Uuid;
 
 const FAVORITE_COLOR: &str = r#"{
   "format": "pleFlatQuestion",
-  "version": 1,
-  "kind": "singleChoice",
+  "version": 2,
   "title": "Favorite color",
   "prompt": "What is my favorite color?",
-  "choices": [
-    {"id": "blue", "text": "Blue", "feedback": "Blue is a calm choice."},
-    {"id": "red", "text": "Red", "feedback": "Red is not my favorite."},
-    {"id": "yellow", "text": "Yellow", "feedback": "Yellow is bright."}
-  ],
-  "correctChoice": "blue",
+  "response": {
+    "kind": "singleChoice",
+    "choices": [
+      {"id": "blue", "text": "Blue", "feedback": "Blue is a calm choice."},
+      {"id": "red", "text": "Red", "feedback": "Red is not my favorite."},
+      {"id": "yellow", "text": "Yellow", "feedback": "Yellow is bright."}
+    ],
+    "correctChoice": "blue"
+  },
   "feedback": {
     "correct": "Exactly right.",
     "incorrect": "Try thinking of a cool color."
@@ -408,7 +412,7 @@ fn canonical_bytes_ignore_input_whitespace_and_member_order() {
 #[test]
 fn malformed_or_ambiguous_sources_are_refused() {
     let duplicate_member =
-        FAVORITE_COLOR.replacen("\"version\": 1,", "\"version\": 1, \"version\": 1,", 1);
+        FAVORITE_COLOR.replacen("\"version\": 2,", "\"version\": 2, \"version\": 2,", 1);
     assert!(matches!(
         FlatQuestionDocument::parse(duplicate_member.as_bytes()),
         Err(FlatQuestionError::MalformedJson(_))
@@ -416,7 +420,7 @@ fn malformed_or_ambiguous_sources_are_refused() {
 
     let mut duplicate_choice: Value =
         serde_json::from_str(FAVORITE_COLOR).expect("fixture JSON should parse");
-    duplicate_choice["choices"][1]["id"] = Value::String("blue".to_string());
+    duplicate_choice["response"]["choices"][1]["id"] = Value::String("blue".to_string());
     assert!(matches!(
         FlatQuestionDocument::parse(
             &serde_json::to_vec(&duplicate_choice).expect("modified fixture encodes")

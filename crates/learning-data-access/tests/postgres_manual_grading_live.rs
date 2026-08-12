@@ -257,7 +257,7 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
         .await
         .expect("create live mixed-grading course");
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,

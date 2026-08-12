@@ -6,13 +6,13 @@ import {
   type FlatQuestionRead,
   type FlatQuestionSave,
 } from "./flat_question_client";
-import type { FlatQuestionSourceV1 } from "./flat_question_source";
+import type { FlatQuestionSourceV2 } from "./flat_question_source";
 
 export interface FlatQuestionAuthoringClient {
   load(workspace: WorkspaceId): Promise<FlatQuestionRead>;
   save(
     workspace: WorkspaceId,
-    source: FlatQuestionSourceV1,
+    source: FlatQuestionSourceV2,
     revision?: string,
   ): Promise<FlatQuestionSave>;
   publish(
@@ -24,16 +24,16 @@ export interface FlatQuestionAuthoringClient {
 
 export interface FlatQuestionRepository {
   load(workspace: WorkspaceId): Promise<FlatQuestionRead>;
-  save(workspace: WorkspaceId, source: FlatQuestionSourceV1): Promise<FlatQuestionSave>;
+  save(workspace: WorkspaceId, source: FlatQuestionSourceV2): Promise<FlatQuestionSave>;
   reload(workspace: WorkspaceId): Promise<FlatQuestionRead>;
   publish(workspace: WorkspaceId, scope: PublicationScope): Promise<QuestionDefinition>;
 }
 
 /** A stale save keeps the caller's private source available for a deliberate merge or reload. */
 export class FlatQuestionStaleConflictError extends FlatQuestionConflictError {
-  public readonly source: FlatQuestionSourceV1;
+  public readonly source: FlatQuestionSourceV2;
 
-  public constructor(cause: FlatQuestionConflictError, source: FlatQuestionSourceV1) {
+  public constructor(cause: FlatQuestionConflictError, source: FlatQuestionSourceV2) {
     super(cause.status, cause.path);
     this.source = source;
   }
@@ -69,7 +69,7 @@ export function createFlatQuestionRepository(
 
   async function save(
     workspace: WorkspaceId,
-    source: FlatQuestionSourceV1,
+    source: FlatQuestionSourceV2,
   ): Promise<FlatQuestionSave> {
     const generation = startOperation(workspace);
     const revision = revisions.get(workspace);

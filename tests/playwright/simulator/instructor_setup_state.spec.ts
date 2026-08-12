@@ -14,8 +14,6 @@ import {
 
 const courseId = "123e4567-e89b-12d3-a456-426614174000";
 const assignmentId = "123e4567-e89b-12d3-a456-426614174001";
-const problemId = "123e4567-e89b-12d3-a456-426614174002";
-const versionId = "123e4567-e89b-12d3-a456-426614174003";
 
 function statePath(): string {
   const directory = mkdtempSync(join(tmpdir(), "ple-instructor-state-"));
@@ -57,11 +55,11 @@ function j13(): Extract<InstructorSetupFragment, { readonly journey: "J13" }> {
     elapsedMs: 3,
     courseId,
     assignmentId,
-    problemId,
-    versionId,
+    selectedDisplayIds: ["P-11-v1", "P-12-v1", "P-13-v1", "P-14-v1"],
     visibleOutcomeCodes: [
       "visible_assignment_created",
       "visible_catalog_problem_selected",
+      "visible_four_question_chapter_one_selection",
       "visible_mastery_policy",
     ],
     diagnostics: [],

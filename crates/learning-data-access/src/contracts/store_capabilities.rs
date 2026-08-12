@@ -156,21 +156,66 @@ pub trait CourseStore: Send + Sync {
 /// Focused persistence capability composed by [`Store`].
 #[async_trait]
 pub trait CourseAssignmentStore: Send + Sync {
-    /// Creates a new assignment with an initial strong revision token.
-    async fn create_assignment_impl(
+    /// Creates a non-editor assignment with the explicitly chosen Untimed
+    /// policy. Internal provisioning uses this narrower command; browser
+    /// editor requests always carry timing on the wire.
+    async fn create_untimed_assignment_impl(
         &self,
         context: TenantContext,
         assignment: AssignmentRecord,
+    ) -> Result<StoredAssignment, StoreError> {
+        self.create_assignment_with_timing_impl(
+            context,
+            assignment,
+            question_model::AssignmentRunTiming::default(),
+        )
+        .await
+    }
+
+    /// Creates the definition and its editor-owned run timing in one commit,
+    /// returning its initial strong revision token.
+    async fn create_assignment_with_timing_impl(
+        &self,
+        context: TenantContext,
+        assignment: AssignmentRecord,
+        assignment_timing: question_model::AssignmentRunTiming,
     ) -> Result<StoredAssignment, StoreError>;
 
-    /// Replaces one assignment only when the caller holds its exact revision.
-    async fn replace_assignment_impl(
+    /// Replaces non-timing assignment fields while retaining the currently
+    /// persisted timing choice for internal workflows that never own timing.
+    async fn replace_assignment_preserving_timing_impl(
         &self,
         context: TenantContext,
         course: CourseId,
         assignment: AssignmentId,
         expected_revision: AssignmentRevision,
         update: AssignmentUpdate,
+    ) -> Result<StoredAssignment, StoreError> {
+        let current = self
+            .get_assignment_for_edit_impl(context, assignment)
+            .await?
+            .ok_or(StoreError::NotFound)?;
+        self.replace_assignment_with_timing_impl(
+            context,
+            course,
+            assignment,
+            expected_revision,
+            AssignmentEditorUpdate {
+                assignment: update,
+                assignment_timing: current.assignment_timing,
+            },
+        )
+        .await
+    }
+
+    /// Replaces definition and editor timing under one shared revision.
+    async fn replace_assignment_with_timing_impl(
+        &self,
+        context: TenantContext,
+        course: CourseId,
+        assignment: AssignmentId,
+        expected_revision: AssignmentRevision,
+        update: AssignmentEditorUpdate,
     ) -> Result<StoredAssignment, StoreError>;
 
     /// Retires one fixed item or selection candidate and recalculates all current grades.

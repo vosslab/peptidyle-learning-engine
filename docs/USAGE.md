@@ -19,10 +19,18 @@ This local-file session exercises seeded course work, not passwordless account c
 invitation claim, email sign-in, or passkey enrollment.
 
 The normal local launch publishes the reviewed Genetics Chapter 1 and Biochemistry Chapter 1
-assignments. Each has exactly four questions in the documented order: WeBWorK MC, WeBWorK MATCH,
-PLE flat MC, and PLE flat MATCH. The answer-free seed manifest is written with mode 0600 to
-`containers/local-chapter-one-pilot.json`; its `displayId` values use instructor-readable
-`P-...-v1` identities while UUIDs remain internal routing fields.
+Mastery assignments. Each has exactly four questions in the documented order: WeBWorK MC, WeBWorK
+MATCH, PLE flat MC, and PLE flat MATCH. The answer-free seed manifest is written with mode 0600 to
+`containers/local-chapter-one-pilot.json`; every instructor-readable `displayId` is a direct
+immutable `P-...-v1` publication. The reviewed WeBWorK sources provide retry correctness without
+answer disclosure; UUIDs remain internal routing fields.
+
+When composing an assignment, copy the visible `P-<number>-v<version>` ID from the
+published problem library and paste it into **Add by question ID**. The editor accepts
+one or more exact IDs separated by commas or new lines and resolves each to that exact
+immutable published version. UUIDs are not an instructor input. A malformed,
+unavailable, unauthorized, or already-selected ID leaves both the pasted text and the
+assignment unchanged so the instructor can correct and retry it.
 
 For a headless run or a quick restart with a known-current browser bundle:
 
@@ -59,22 +67,24 @@ writes its redacted result to `test-results/ui_walkthrough/` (default filename
 `ui_walkthrough_seed_42.json`); the directory is mode 0700 and report file is
 mode 0600. It is opt-in E2E evidence, not a baseline command.
 
-The corrected local no-email pilot is accepted. A manager run and an
-independent same-seed `--build` replay each visibly create a fresh course,
-activate the configured local student, construct a corpus-backed Mastery
-assignment, verify its human-readable `P-...-v...` catalog identity and backend label, and then run
-J1/J2/J3/J4/J5/J8. The default walkthrough also completes the exact four-question Genetics Chapter
-1 assignment through keyboard controls. The student completes and repeats the focused Mastery
-assignment through keyboard platform controls; the instructor visibly sees Best `100%`, Latest
-`100%`, Completed `2`, and two completed run-history entries. The
-schema-v2 report contains only the ordered J11/J12/J13/J1/J2/J3/J4/J5/J8 PASS
-rows and the `api-retry-corpus-publication` arrangement label; the representative Chapter 1 phase
-is a required browser gate rather than a new serialized journey row. The cursor
-session keeps opaque cursors and retries/deduplicates/fails closed without
-direct routes or API shortcuts. Email, canonical onboarding, J6/J7, all eight response families,
-multi-learner, and complete two-chapter release acceptance remain outside this
-walkthrough. Run `bash tests/e2e/e2e_chapter_one_browser.sh` for the complete Genetics and
-Biochemistry eight-question learner gate.
+Choose the walkthrough seed, selected Compose file, report name, build refresh,
+and documentation screenshot directory with its documented arguments. The
+runner does not read inherited `PLE_*` switches as hidden walkthrough input.
+It passes fixed browser and Node children one generated schema-versioned private
+input file by an explicit `--inputs` argument; this file is runner-owned,
+mode 0600 inside a mode-0700 directory, and is not an operator configuration
+file to edit or retain.
+
+The earlier local no-email pilot is retained historical evidence. The current
+human-guidance slice requires a rebuilt real-stack run that visibly copies and
+pastes all four Genetics `P-n-vn` references in J13 and uses the explicit child
+input boundary above before this walkthrough is again called accepted. That
+one-time acceptance run must still show the keyboard-focused J1/J2/J3/J4/J5/J8
+outcomes and refreshed fake-user screenshots. Email, canonical onboarding,
+J6/J7, all eight response families, multi-learner, and complete two-chapter
+release acceptance remain outside this walkthrough. Run
+`bash tests/e2e/e2e_chapter_one_browser.sh` for the separate complete Genetics
+and Biochemistry eight-question learner gate.
 
 ## Configuration preflight
 

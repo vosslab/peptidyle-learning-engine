@@ -12,7 +12,7 @@ chapters:
     course: Genetics
     course_title: Genetics Fall 2026 pilot
     chapter: 1
-    assignment_title: Genetics Chapter 1 Practice
+    assignment_title: Genetics Chapter 1 Mastery
     questions:
       - slug: genetics-disorders-webwork-mc
         title: "Genetic disorders: Which one?"
@@ -61,7 +61,7 @@ chapters:
     course: Biochemistry
     course_title: Biochemistry Fall 2026 pilot
     chapter: 1
-    assignment_title: Biochemistry Chapter 1 Practice
+    assignment_title: Biochemistry Chapter 1 Mastery
     questions:
       - slug: biochemistry-functional-groups-webwork-mc
         title: "Biochemical functional groups: Which one?"

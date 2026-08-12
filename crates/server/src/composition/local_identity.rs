@@ -19,7 +19,6 @@ use uuid::Uuid;
 
 use crate::auth::{CookieTransport, IdentityProvider, IdentityProviderError, SessionConfig};
 use crate::catalog::{PublicReviewGate, ReviewGateError};
-use crate::course::{LocalDevelopmentRosterDirectory, LocalDevelopmentRosterIdentity};
 
 use super::settings::required_env;
 
@@ -46,7 +45,6 @@ struct LocalIdentityFile {
 #[serde(deny_unknown_fields)]
 struct LocalIdentityRecord {
     credential_sha256: String,
-    learner_alias: String,
     tenant_id: Uuid,
     user_id: Uuid,
     display_name: String,
@@ -114,7 +112,7 @@ impl LocalFileIdentityProvider {
                         "local development identity configuration is invalid".to_string(),
                     )
                 })?;
-            if !aliases.insert(learner_alias.clone()) {
+            if !aliases.insert(learner_alias) {
                 return Err(IdentityProviderError::Unavailable(
                     "local development identity configuration is invalid".to_string(),
                 ));
@@ -132,26 +130,10 @@ impl LocalFileIdentityProvider {
             })?;
             identities.push(LocalFileIdentity {
                 credential_hash,
-                learner_alias,
                 subject,
             });
         }
         Ok(Self { identities })
-    }
-
-    pub(super) fn roster_directory(&self) -> LocalDevelopmentRosterDirectory {
-        LocalDevelopmentRosterDirectory::new(self.identities.iter().map(|identity| {
-            (
-                identity.learner_alias.clone(),
-                LocalDevelopmentRosterIdentity {
-                    tenant: identity.subject.tenant(),
-                    user: identity.subject.user(),
-                    display_name: identity.subject.display_name().to_string(),
-                    roles: identity.subject.roles().to_vec(),
-                },
-            )
-        }))
-        .expect("validated local identity configuration has unique aliases")
     }
 }
 
@@ -237,7 +219,6 @@ pub(super) fn local_development_session_config() -> SessionConfig {
 /// the deliberately insecure plain-HTTP cookie policy.
 pub(super) struct LocalDevelopmentAuthentication {
     pub(super) provider: Arc<LocalFileIdentityProvider>,
-    pub(super) roster_directory: Arc<LocalDevelopmentRosterDirectory>,
     pub(super) session_config: SessionConfig,
 }
 
@@ -269,7 +250,6 @@ pub(super) fn local_development_authentication(
     })?;
     let provider = Arc::new(provider);
     Ok(LocalDevelopmentAuthentication {
-        roster_directory: Arc::new(provider.roster_directory()),
         provider,
         session_config: local_development_session_config(),
     })

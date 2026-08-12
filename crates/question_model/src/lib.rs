@@ -52,9 +52,11 @@ pub use crate::activity::{
     RunId, RunMode, SourceArtifact, StudentAssignmentSummary, StudentId, TenantId,
 };
 pub use crate::assignment::{
-    AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentItem, AssignmentScoringMode,
-    AssignmentSelectionCandidate, AssignmentSelectionGroup, AssignmentTimingPolicy,
-    LateSubmissionPolicy, PointValue, ScoringGeneration, ScoringStatus, SelectionOrdering,
+    AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentItem, AssignmentRunTiming,
+    AssignmentScoringMode, AssignmentSelectionCandidate, AssignmentSelectionGroup,
+    AssignmentTimingPolicy, DEFAULT_MASTERY_TIME_LIMIT_SECONDS, LateSubmissionPolicy,
+    MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, PointValue, ScoringGeneration, ScoringStatus,
+    SelectionOrdering,
 };
 pub use crate::auth::{UserId, UserRole};
 pub use crate::capability::{BackendCapabilities, Capability};

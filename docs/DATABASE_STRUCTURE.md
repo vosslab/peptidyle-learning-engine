@@ -69,14 +69,13 @@ an accepted version.
 | 2026080910 | WP-RC7        | Object inventory and reconciliation                                                                     | Reserved; no migration file yet                                    |
 | 2026080911 | WP-RC9        | LTI 1.3 / Advantage launches and passback                                                               | Reserved; no migration file yet                                    |
 | 2026080912 | WP-FU         | Secure learner upload capability                                                                        | Reserved; no migration file yet                                    |
-| 2026080913 | WP-I2         | Local-development roster source                                                                         | Reserved; no migration file yet; local-only walkthrough capability |
 
 The upload migration follows the reserved identity/reconciliation/LTI sequence and remains planned while
 learner file responses fail closed. See the
 [secure learner upload plan](active_plans/active/secure_learner_file_upload_plan.md).
-The later `2026080913_local_development_roster.sql` migration is reserved for the
-email-free local walkthrough only. It adds an explicit `local_development`
-roster source without changing the production invitation or account model.
+The fresh pre-production `2026080909_passwordless_identity.sql` schema owns both
+invitation and email-free `local_development` roster sources. There is no separate
+local-roster migration or legacy-member source.
 
 ## Data ownership
 

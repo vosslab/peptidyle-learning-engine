@@ -216,9 +216,9 @@ startup, rebuild, health, and shutdown.
 - [tests/walkthrough/](../tests/walkthrough/) owns the teaching-loop runner,
   fixed child processes, and importable `walklib/` configuration, contracts,
   subprocess, and lifecycle behavior. The historical E2E paths are thin
-  compatibility launchers. Its default run also invokes the representative Genetics Chapter 1
-  browser phase while retaining the accepted public report schema. Browser journeys remain
-  independently readable under `tests/playwright/`.
+  compatibility launchers. Its default run ends after the instructor-created Genetics assignment
+  and focused J1-J5/J8 student journey; the isolated Chapter 1 release gate owns the all-eight
+  browser sweep. Browser journeys remain independently readable under `tests/playwright/`.
 - Learning data-access capabilities use a contract, an in-memory implementation,
   a PostgreSQL implementation, and conformance coverage where both backends
   should agree.

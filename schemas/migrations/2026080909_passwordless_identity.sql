@@ -269,7 +269,6 @@ CREATE TABLE public.course_roster_member (
     roster_email_normalized text,
     roster_email_delivery text,
     roster_id text,
-    source text NOT NULL,
     status text NOT NULL,
     joined_at timestamp with time zone NOT NULL,
     revoked_at timestamp with time zone,
@@ -295,16 +294,11 @@ CREATE TABLE public.course_roster_member (
     CONSTRAINT course_roster_member_display_name_check CHECK (
         char_length(display_name) BETWEEN 1 AND 200 AND display_name = btrim(display_name)
     ),
-    CONSTRAINT course_roster_member_source_check CHECK (source IN ('invitation', 'legacy')),
     CONSTRAINT course_roster_member_status_check CHECK (status IN ('active', 'revoked')),
     CONSTRAINT course_roster_member_revocation_check CHECK (
         (status = 'active' AND revoked_at IS NULL)
         OR (status = 'revoked' AND revoked_at IS NOT NULL AND revoked_at >= joined_at)
     ),
-    CONSTRAINT course_roster_member_managed_fields_check CHECK (
-        source = 'legacy'
-        OR (roster_email_normalized IS NOT NULL AND roster_id IS NOT NULL)
-    )
 );
 
 CREATE UNIQUE INDEX course_roster_member_roster_id_key
@@ -503,28 +497,6 @@ SELECT cm.tenant_id,
     ON e.tenant_id = cm.tenant_id AND e.user_id = cm.user_id
  WHERE cm.role = 'student'
  GROUP BY cm.tenant_id, cm.user_id;
-
-INSERT INTO public.course_roster_member (
-    tenant_id, course_id, course_member_id, user_id, student_id,
-    display_name, roster_email_normalized, roster_email_delivery, roster_id,
-    source, status, joined_at
-)
-SELECT cm.tenant_id,
-       cm.course_id,
-       gen_random_uuid(),
-       cm.user_id,
-       learner.student_id,
-       'Legacy learner',
-       NULL,
-       NULL,
-       NULL,
-       'legacy',
-       'active',
-       transaction_timestamp()
-  FROM public.course_member cm
-  JOIN public.tenant_learner_identity learner
-    ON learner.tenant_id = cm.tenant_id AND learner.user_id = cm.user_id
- WHERE cm.role = 'student';
 
 ALTER TABLE public.tenant_learner_identity ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tenant_learner_identity FORCE ROW LEVEL SECURITY;

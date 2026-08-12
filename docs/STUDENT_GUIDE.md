@@ -10,15 +10,15 @@ placeholders.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Student course assignment list showing Peptide bond mastery with keyboard focus on Review assignment](screenshots/student_assignment_list.png)
+![Student course assignment list showing Genetics Chapter 1 Mastery with keyboard focus on Review assignment](screenshots/student_assignment_list.png)
 
-![Student assignment overview for Peptide bond mastery with keyboard focus on Start or resume practice](screenshots/peptide_bond_mastery_overview.png)
+![Student assignment overview for Genetics Chapter 1 Mastery with keyboard focus on Start or resume practice](screenshots/genetics_chapter_one_overview.png)
 
-![Student peptide-bond problem showing the server-authoritative countdown and keyboard-focused response](screenshots/student_timed_problem.png)
+![Student Genetics Chapter 1 problem showing the server-authoritative countdown and keyboard-focused response](screenshots/student_timed_problem.png)
 
 ![Student completed-run summary showing a correct score and keyboard focus on Start another practice run](screenshots/student_fresh_practice.png)
 
-![Student Practice run 2 showing a reset 15-minute timer and an unanswered focused response](screenshots/student_retake_fresh_problem.png)
+![Student Mastery practice run 2 showing a reset 15-minute timer and an unanswered focused response](screenshots/student_retake_fresh_problem.png)
 <!-- screenshots:end -->
 
 ## Before you begin
@@ -54,7 +54,7 @@ server. The browser displays the countdown; the server decides whether a respons
 ## Practice again
 
 The completed summary keeps **Start another practice run** available. Activating it opens the captured
-**Practice run 2** screen with a reset 15-minute timer and no response selected, proving that the
+**Mastery practice run 2** screen with a reset 15-minute timer and no response selected, proving that the
 student entered a new run rather than reopening the completed one. The completed assignment remains
 recorded. Leaving an unsubmitted response and resuming the active run clears that response, so the
 learner returns to an intentional fresh choice.

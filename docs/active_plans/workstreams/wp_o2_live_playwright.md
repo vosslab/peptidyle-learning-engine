@@ -1,50 +1,67 @@
 # WP-O2 live Playwright configuration
 
-## Scope
+## Current disposition
 
-- Package: WP-O2, validated live Playwright mode.
-- Owner: Playwright/E2E engineer.
-- Status: independently ACCEPTED; real-stack acceptance completed 2026-08-11.
-- Files: `playwright.config.ts`, `tests/playwright/live_mode_activation.ts`,
-  `tests/playwright/ui_walkthrough_live_config.ts`, and focused Playwright specs.
+The 2026-08-11 WP-O2 smoke acceptance is historical. It validates the prior
+real-gateway `/health` check, not the strengthened instructor copy/paste
+workflow or the refactored explicit child-input path. Current live acceptance
+remains part of [WP-HG1](../active/release_completion_plan.md#wp-hg1-close-the-human-guidance-operational-workflow-gaps).
 
-## Delivered contract
+## Current contract
 
-- `PLE_UI_WALKTHROUGH_LIVE_REQUIRED` is disabled only when unset, empty, or
-  `0`; it is enabled only when exactly `1`.
-- The pure activation helper rejects invalid values and simultaneous WebWork and
-  walkthrough live modes before either credential parser reads a file.
-- Walkthrough live mode validates an origin-only HTTP(S) URL, permits cleartext
-  HTTP only for `127.0.0.1` or `localhost`, checks a regular
-  non-symlink mode-0600 credential file on non-Windows hosts, requires exactly
-  one valid `student=` line without returning it, and canonicalizes a decimal
-  uint32 master seed.
-- Either exact live mode disables the mock preview server. The walkthrough
-  smoke is skipped offline and otherwise visits public same-origin `/health`,
-  requires HTTP 200 and exact `{"status":"ready"}`, and checks the final
-  browser origin.
+- `playwright.config.ts` remains the ordinary repository configuration. It no
+  longer activates a walkthrough mode through `PLE_UI_WALKTHROUGH_*`, and
+  `ui_walkthrough_live_config.ts` no longer exists.
+- The Python runner creates one private config file and invokes Playwright with
+  `--config PATH`. That config imports
+  `tests/playwright/ui_walkthrough_config_factory.ts` and calls
+  `createUiWalkthroughConfig(inputPath)`.
+- The factory reads one explicit private `walkthrough-inputs.json` before
+  Chromium starts. It requires ASCII canonical JSON, schema version 1, a
+  mode-0700 parent, a mode-0600 regular input file, a validated loopback
+  origin, and exact stage-specific fields.
+- The setup and learner stages receive credentials only as validated private
+  file paths. Specs read a role credential at the visible local-login action;
+  the config boundary does not export credentials, answer material, or raw
+  child output through environment variables or reports.
+- The factory sets the absolute walkthrough test directory, a private artifact
+  directory beside the runner state, the selected gateway `baseURL`, and a
+  single `ui-walkthrough` project. Fixed Node children likewise use
+  `--inputs PATH` for arrangement, cross-actor evidence, and report rendering.
+- The current live suite covers visible instructor setup followed by J1--J5
+  and J8. J13 uses the published catalog to visibly copy each exact
+  `P-n-vn` reference and paste the growing list into the add-by-ID control;
+  it does not read or write the clipboard through page evaluation and does not
+  extract a UUID from the DOM.
 
-## Evidence
+## Current validation and acceptance
 
-- `npm ci --cache /private/tmp/peptidyle-npm-cache` succeeded without changing
-  package files. The default npm cache was root-owned and failed before this
-  scoped cache retry.
-- Focused Prettier check passed.
-- Isolated strict TypeScript check passed for the WP-O2 files.
-- Focused Playwright selection reported four passed parser/config tests and one deliberately
-  offline-skipped smoke after `bash build.sh` supplied the two dist outputs.
-- Repository-wide `npx tsc -p tsconfig.lint.json` remains blocked by missing
-  generated API modules outside this package.
-- The exact runner command passed with elevated macOS Chromium and Podman access: it opened the
-  public IPv4 `/health` origin, required HTTP 200 and exact `{"status":"ready"}`, and proved mock
-  preview disabled. The runner report was PASS and its cleanup left no containers. See the
-  independent [WP-O2 review](../audits/wp_o2_live_playwright_review.md).
-- The same command under the ordinary execution sandbox hit macOS Chromium's browser-sandbox
-  Mach-port denial before any browser context opened. That is environment evidence, not a product
-  failure; the runner correctly failed closed.
+Permanent focused tests validate the private-input schema and metadata, strict
+Playwright configuration, keyboard-visible student and instructor interactions,
+and the J13 copy/paste contract. They are offline, deterministic behavior
+checks, not a substitute for the live stack.
 
-## Completed gate
+One-time WP-HG1 evidence remains pending: a rebuilt retained-stack canonical
+run through J13 and J1--J8 with the Podman WebWork renderer, clipboard
+permission, redacted report, refreshed public instructor screenshots, the
+separate eight-question publication oracle, and independent architecture,
+security, and HCI review. Do not call the current walkthrough accepted until
+that evidence is recorded.
 
-On 2026-08-11, `bash tests/e2e/e2e_ui_walkthrough.sh --master-seed 42` passed with the real
-Podman gateway and mock preview disabled. M2 has accepted runner and browser-smoke evidence; this
-does not claim a learner journey, authentication, enrollment, or content arrangement.
+## Separate onboarding follow-up
+
+Source inspection finds the inactive simulator-only onboarding preflight still
+uses `PLE_UI_WALKTHROUGH_ONBOARDING_MAILBOX_READY` and
+`PLE_UI_WALKTHROUGH_ONBOARDING_DELIVERED_LINK_READY`. Those are outside the
+Python walkthrough runner and outside this no-email pilot. The active
+[WP-RC8 production identity package](../active/release_completion_plan.md#wp-rc8-complete-production-identity-and-enrollment) must either replace those
+operator confirmations with an explicit interface or document their bounded
+deployment contract before onboarding is accepted; WP-O2 does not silently
+adopt them.
+
+## Historical evidence
+
+The earlier elevated runner command passed against the public IPv4 `/health`
+origin with mock preview disabled and cleaned up its containers. It remains
+historical browser-smoke evidence only; see the independent
+[WP-O2 review](../audits/wp_o2_live_playwright_review.md).

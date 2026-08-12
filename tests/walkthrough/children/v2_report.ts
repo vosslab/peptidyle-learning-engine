@@ -4,17 +4,12 @@ import {
   readV2WalkthroughState,
   renderV2VisibleOutcomeReport,
 } from "../../playwright/simulator/v2_visible_outcome_report";
-
-function required(name: string): string {
-  const value = process.env[name];
-  if (value === undefined || value === "") throw new Error("missing fixed report input");
-  return value;
-}
+import { childInputsFromArguments } from "./child_inputs";
 
 function main(): void {
-  const state = readV2WalkthroughState(required("PLE_UI_WALKTHROUGH_JOURNEY_STATE_FILE"));
-  const masterSeed = Number(required("PLE_UI_WALKTHROUGH_MASTER_SEED"));
-  const rendered = renderV2VisibleOutcomeReport(masterSeed, state);
+  const inputs = childInputsFromArguments(process.argv.slice(2), "learner_journey");
+  const state = readV2WalkthroughState(inputs.journeyStateFile);
+  const rendered = renderV2VisibleOutcomeReport(inputs.masterSeed, state);
   if (rendered === undefined) throw new Error("invalid fixed report input");
   process.stdout.write(rendered);
 }

@@ -31,6 +31,7 @@ import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseAppearance } from "../../generated/api/CourseAppearance";
 import type { Seed } from "../../generated/api/Seed";
 import type { VersionId } from "../../generated/api/VersionId";
+import type { AssignmentRunTiming } from "../../generated/api/AssignmentRunTiming";
 
 export type { AssignmentSummary, CourseSummary };
 export type { GradebookSummaryRow };
@@ -57,6 +58,8 @@ export interface AssignmentEditorDetail {
   readonly title: string;
   readonly problems: ReadonlyArray<ProblemVersionRef>;
   readonly policies: RunPolicies;
+  /** Course-owned whole-practice-run timer; null explicitly means Untimed. */
+  readonly assignmentTiming: AssignmentRunTiming;
   /** Strong server-issued ETag; send it byte-for-byte when updating. */
   readonly revision: string;
 }
@@ -66,6 +69,8 @@ export interface AssignmentEditorInput {
   readonly title: string;
   readonly problems: ReadonlyArray<ProblemVersionRef>;
   readonly policies: RunPolicies;
+  /** Modern editor saves always state the whole-run timing choice explicitly. */
+  readonly assignmentTiming: AssignmentRunTiming;
 }
 
 /** The deliberately small public request accepted when an instructor creates a course. */

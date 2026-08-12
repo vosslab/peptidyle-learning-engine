@@ -334,7 +334,7 @@ async fn postgres_item_analysis_is_current_private_and_generation_fenced() {
         },
     ];
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,

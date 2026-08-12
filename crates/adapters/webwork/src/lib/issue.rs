@@ -9,6 +9,7 @@
 use objects::{ObjectStore, ObjectStoreError, PutObject};
 use question_model::capability::{BackendCapabilities, Capability};
 use question_model::generation::Seed;
+use question_model::run_policy::FeedbackDisclosure;
 use question_model::{
     ActivityTimestamp, AttemptProvenance, ImplementationVersion, QuestionDefinition,
     QuestionEnvelope, QuestionSource, QuestionTitleError, StudentResponse,
@@ -163,6 +164,27 @@ pub fn reviewed_webwork_source_capabilities(
         capabilities.push(Capability::PartialCredit);
     }
     Ok(BackendCapabilities::from_iter(capabilities))
+}
+
+/// Returns reviewed capabilities for an exact immutable source and its
+/// attempt-feedback policy. Immediate correctness is admitted only for
+/// source-and-digest pairs with reviewed learner-facing evidence.
+pub fn reviewed_webwork_source_capabilities_for_feedback(
+    source: &QuestionSource,
+    source_sha256: &str,
+    feedback: FeedbackDisclosure,
+) -> Result<BackendCapabilities, WebworkAdapterError> {
+    let QuestionSource::Webwork { pg_path } = source else {
+        return Err(WebworkAdapterError::UnsupportedSource);
+    };
+    let mut capabilities = reviewed_webwork_source_capabilities(source, source_sha256)?;
+    if feedback == FeedbackDisclosure::ImmediateCorrectness
+        && crate::source_profile::supports_immediate_correctness(pg_path, source_sha256)
+    {
+        capabilities =
+            BackendCapabilities::from_iter(capabilities.declared().chain([Capability::Hints]));
+    }
+    Ok(capabilities)
 }
 
 /// Question-agnostic WeBWorK adapter composed from an object store and a

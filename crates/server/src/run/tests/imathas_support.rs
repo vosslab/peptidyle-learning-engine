@@ -286,7 +286,7 @@ pub(super) async fn contracted_route_fixture(
         .await
         .expect("course");
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,

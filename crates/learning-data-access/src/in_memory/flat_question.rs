@@ -143,7 +143,7 @@ mod tests {
     };
     use uuid::Uuid;
 
-    const FIXTURE: &str = r#"{"format":"pleFlatQuestion","version":1,"kind":"singleChoice","title":"Favorite color","prompt":"What is my favorite color?","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"blue","points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"license":{"kind":"cc0"},"language":"en-US"}"#;
+    const FIXTURE: &str = r#"{"format":"pleFlatQuestion","version":2,"title":"Favorite color","prompt":"What is my favorite color?","response":{"kind":"singleChoice","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"blue"},"points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"license":{"kind":"cc0"},"language":"en-US"}"#;
 
     fn tenant() -> TenantId {
         TenantId::from_uuid(Uuid::nil())
@@ -265,7 +265,7 @@ mod tests {
             expected_revision: staged.workspace_revision,
             publication,
             published_source: QuestionSource::Native {
-                family: "flat_single_choice_v1".to_string(),
+                family: "flat_single_choice_v2".to_string(),
             },
             source_artifact: Some(artifact),
             qti_promotion: None,

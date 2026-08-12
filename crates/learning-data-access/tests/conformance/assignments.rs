@@ -183,7 +183,7 @@ where
         policies: policies(),
     };
     let created = store
-        .create_assignment(context, initial.clone())
+        .create_untimed_assignment(context, initial.clone())
         .await
         .expect("published and deprecated versions are assignable");
     assert_eq!(created.revision.value(), 1);
@@ -202,7 +202,7 @@ where
         policies: updated_policies,
     };
     let updated = store
-        .replace_assignment(
+        .replace_assignment_preserving_timing(
             context,
             course,
             assignment,
@@ -217,7 +217,7 @@ where
     assert_eq!(updated.record.title, update.title);
     assert_eq!(
         store
-            .replace_assignment(
+            .replace_assignment_preserving_timing(
                 context,
                 course,
                 assignment,
@@ -237,7 +237,7 @@ where
     );
     assert_eq!(
         store
-            .replace_assignment(
+            .replace_assignment_preserving_timing(
                 context,
                 wrong_course,
                 assignment,
@@ -250,7 +250,7 @@ where
     );
     assert_eq!(
         store
-            .replace_assignment(
+            .replace_assignment_preserving_timing(
                 foreign_context,
                 course,
                 assignment,
@@ -271,7 +271,7 @@ where
 
     assert!(matches!(
         store
-            .create_assignment(
+            .create_untimed_assignment(
                 context,
                 AssignmentRecord {
                     id: AssignmentId::from_uuid(uuid(70_201)),
@@ -288,7 +288,7 @@ where
     ));
     assert!(matches!(
         store
-            .create_assignment(
+            .create_untimed_assignment(
                 foreign_context,
                 AssignmentRecord {
                     id: AssignmentId::from_uuid(uuid(70_202)),
@@ -304,7 +304,7 @@ where
         Err(StoreError::InvalidRecord(_))
     ));
     let repeated = store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: AssignmentId::from_uuid(uuid(70_203)),
@@ -328,7 +328,7 @@ where
     };
     assert!(matches!(
         store
-            .create_assignment(
+            .create_untimed_assignment(
                 context,
                 AssignmentRecord {
                     id: AssignmentId::from_uuid(uuid(70_204)),

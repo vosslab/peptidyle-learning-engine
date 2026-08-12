@@ -37,7 +37,6 @@ pub(super) fn compose_router<S, O, C, B, P, R>(
     passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
     passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
     webauthn: Option<crate::auth::PasswordlessWebauthn>,
-    local_development_roster: Option<Arc<crate::course::LocalDevelopmentRosterDirectory>>,
     health: Arc<HealthState>,
 ) -> Router
 where
@@ -82,7 +81,6 @@ where
         passwordless_email_delivery,
         passwordless_rate_limit_issuer,
         webauthn,
-        local_development_roster,
         health,
     )
     .merge(crate::auth::router(
@@ -109,7 +107,6 @@ pub(super) fn compose_passwordless_router<S, O, C, B, R>(
     passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
     passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
     webauthn: Option<crate::auth::PasswordlessWebauthn>,
-    local_development_roster: Option<Arc<crate::course::LocalDevelopmentRosterDirectory>>,
     health: Arc<HealthState>,
 ) -> Router
 where
@@ -180,14 +177,11 @@ where
             Arc::clone(&store),
             native_adapter,
         ))
-        .merge(
-            crate::course::router_with_invitations_and_local_development(
-                Arc::clone(&store),
-                invitation_issuer,
-                invitation_delivery,
-                local_development_roster,
-            ),
-        )
+        .merge(crate::course::router_with_invitations(
+            Arc::clone(&store),
+            invitation_issuer,
+            invitation_delivery,
+        ))
         .merge(crate::course_appearance::router(
             Arc::clone(&store),
             Arc::clone(&objects),

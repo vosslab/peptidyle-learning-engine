@@ -1,14 +1,14 @@
 import { DecodeError, decodeRecord } from "../../api/decoder";
 import {
   FLAT_QUESTION_FORMAT,
-  FLAT_QUESTION_KIND,
+  FLAT_QUESTION_RESPONSE_KIND,
   FLAT_QUESTION_VERSION,
   type FlatQuestionAttemptPolicy,
   type FlatQuestionChoice,
   type FlatQuestionFeedbackDisclosure,
   type FlatQuestionLicense,
   type FlatQuestionOutcomeFeedback,
-  type FlatQuestionSourceV1,
+  type FlatQuestionSourceV2,
   type FlatQuestionTaxonomyTerm,
   type FlatQuestionTimingPolicy,
 } from "./flat_question_source";
@@ -42,7 +42,7 @@ function onlyFields(
 ): void {
   for (const key of Object.keys(record)) {
     if (!fields.includes(key)) {
-      throw new DecodeError(`${path}.${key}`, "a field allowed by PLE flat-question JSON v1");
+      throw new DecodeError(`${path}.${key}`, "a field allowed by PLE flat-question JSON v2");
     }
   }
 }
@@ -197,16 +197,14 @@ function decodeLicense(value: unknown, path: string): FlatQuestionLicense {
 }
 
 /** Strictly decodes source returned by the protected authoring endpoint. */
-export function decodeFlatQuestionSource(value: unknown, path = "source"): FlatQuestionSourceV1 {
+export function decodeFlatQuestionSource(value: unknown, path = "source"): FlatQuestionSourceV2 {
   const record = decodeRecord(value, path);
   onlyFields(record, path, [
     "format",
     "version",
-    "kind",
     "title",
     "prompt",
-    "choices",
-    "correctChoice",
+    "response",
     "feedback",
     "points",
     "attemptPolicy",
@@ -222,38 +220,42 @@ export function decodeFlatQuestionSource(value: unknown, path = "source"): FlatQ
   if (field(record, "version", path) !== FLAT_QUESTION_VERSION) {
     throw new DecodeError(`${path}.version`, `the literal ${FLAT_QUESTION_VERSION}`);
   }
-  if (field(record, "kind", path) !== FLAT_QUESTION_KIND) {
-    throw new DecodeError(`${path}.kind`, `the literal ${FLAT_QUESTION_KIND}`);
+  const responsePath = `${path}.response`;
+  const response = decodeRecord(field(record, "response", path), responsePath);
+  onlyFields(response, responsePath, ["kind", "choices", "correctChoice"]);
+  if (field(response, "kind", responsePath) !== FLAT_QUESTION_RESPONSE_KIND) {
+    throw new DecodeError(`${responsePath}.kind`, `the literal ${FLAT_QUESTION_RESPONSE_KIND}`);
   }
-  const choicesValue = field(record, "choices", path);
+  const choicesValue = field(response, "choices", responsePath);
   if (
     !Array.isArray(choicesValue) ||
     choicesValue.length < 2 ||
     choicesValue.length > MAX_CHOICES
   ) {
-    throw new DecodeError(`${path}.choices`, "an array of 2 to 100 choices");
+    throw new DecodeError(`${responsePath}.choices`, "an array of 2 to 100 choices");
   }
   const choices = choicesValue.map((choice, index) =>
-    decodeChoice(choice, `${path}.choices[${index}]`),
+    decodeChoice(choice, `${responsePath}.choices[${index}]`),
   );
   const identifiers = new Set<string>();
   for (const choice of choices) {
     if (identifiers.has(choice.id))
-      throw new DecodeError(`${path}.choices`, "unique choice identifiers");
+      throw new DecodeError(`${responsePath}.choices`, "unique choice identifiers");
     identifiers.add(choice.id);
   }
-  const correctChoice = string(field(record, "correctChoice", path), `${path}.correctChoice`);
+  const correctChoice = string(
+    field(response, "correctChoice", responsePath),
+    `${responsePath}.correctChoice`,
+  );
   if (!identifiers.has(correctChoice)) {
-    throw new DecodeError(`${path}.correctChoice`, "an identifier of an available choice");
+    throw new DecodeError(`${responsePath}.correctChoice`, "an identifier of an available choice");
   }
   return {
     format: FLAT_QUESTION_FORMAT,
     version: FLAT_QUESTION_VERSION,
-    kind: FLAT_QUESTION_KIND,
     title: boundedText(field(record, "title", path), `${path}.title`, MAX_TITLE_CHARS),
     prompt: boundedText(field(record, "prompt", path), `${path}.prompt`, MAX_PROMPT_CHARS),
-    choices,
-    correctChoice,
+    response: { kind: FLAT_QUESTION_RESPONSE_KIND, choices, correctChoice },
     feedback:
       record.feedback === undefined
         ? { correct: null, incorrect: null }
@@ -273,7 +275,7 @@ export function decodeFlatQuestionSource(value: unknown, path = "source"): FlatQ
 }
 
 /** Parses bounded JSON bytes from the protected source endpoint. */
-export function parseFlatQuestionSource(text: string): FlatQuestionSourceV1 {
+export function parseFlatQuestionSource(text: string): FlatQuestionSourceV2 {
   if (new TextEncoder().encode(text).length > MAX_SOURCE_BYTES) {
     throw new DecodeError("source", `JSON no larger than ${MAX_SOURCE_BYTES} bytes`);
   }
@@ -287,7 +289,7 @@ export function parseFlatQuestionSource(text: string): FlatQuestionSourceV1 {
 }
 
 /** Emits the Rust-compatible compact member order used for canonical source bytes. */
-export function serializeFlatQuestionSource(source: FlatQuestionSourceV1): string {
+export function serializeFlatQuestionSource(source: FlatQuestionSourceV2): string {
   const valid = decodeFlatQuestionSource(source);
   const text = JSON.stringify(valid);
   if (new TextEncoder().encode(text).length > MAX_SOURCE_BYTES) {

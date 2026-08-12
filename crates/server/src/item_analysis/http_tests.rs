@@ -204,7 +204,7 @@ async fn current_item_analysis_route_authorizes_without_leaking_private_analysis
     let reference = publish_fixture(&store, context, tenant, instructor).await;
     let assignment = AssignmentId::from_uuid(id(9));
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,

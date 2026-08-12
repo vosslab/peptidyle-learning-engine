@@ -395,14 +395,16 @@ where
         Some(actual) if actual.record == expected => Ok(()),
         Some(_) => bail!("existing WebWork pilot assignment differs from the deterministic seed"),
         None => {
-            let created = match store.create_assignment(context, expected.clone()).await {
+            let created = match store.create_untimed_assignment(context, expected.clone()).await {
                 Ok(record) => record,
                 Err(StoreError::AlreadyExists) => store
                     .get_assignment_for_edit(context, expected.id)
                     .await
                     .context("reading concurrently created WebWork pilot assignment")?
                     .ok_or_else(|| {
-                        anyhow::anyhow!("WebWork pilot assignment disappeared after conflict")
+                        anyhow::anyhow!(
+                            "WebWork pilot assignment creation conflicted without creating its assignment ID; a nested deterministic identity is already in use"
+                        )
                     })?,
                 Err(error) => return Err(error).context("creating WebWork pilot E2E assignment"),
             };
@@ -453,7 +455,7 @@ pub(super) fn webwork_pilot_enrollment_identity_matches(
         && actual.user == expected.user
 }
 
-async fn find_assignment_enrollment<S>(
+pub(super) async fn find_assignment_enrollment<S>(
     store: &S,
     context: TenantContext,
     assignment: AssignmentId,

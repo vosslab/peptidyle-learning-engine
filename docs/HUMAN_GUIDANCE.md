@@ -97,9 +97,25 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 
 ## Teaching and product priorities
 
+- PLE is pre-production: it has no users and no current durable data. Improve
+  the current design directly. Do not add compatibility shims, legacy readers,
+  migration or adoption paths, or duplicate retained fixtures for hypothetical
+  users. Keep explicit versioning where it defines the current external or
+  artifact protocol and supports future evolution; ordinary disposable local
+  data may be rebuilt.
+- Push harder on the visual design. Make the interface less bubbly, especially by reducing overly
+  padded content.
+- Use human-readable identifiers for workflows where people need to read, recognize, communicate,
+  copy, or enter an identifier. Size identifiers according to the uniqueness actually required by
+  their scope. Keep opaque globally unique identifiers for internal boundaries where that level of
+  uniqueness is useful.
 - Use human-readable problem titles and copyable `P-<number>-v<version>` identities in instructor
   workflows and documentation. Keep problem/version UUIDs as internal routing and persistence
-  identifiers rather than asking people to recognize or assign them.
+  identifiers rather than asking people to recognize or assign them. A visible friendly label alone
+  is not sufficient: an instructor must be able to copy one or more exact `P-<number>-v<version>`
+  identities from the problem library, paste them into an assignment's add-by-ID field, and add
+  those exact immutable versions without reading or entering a UUID. Preserve pasted input and the
+  unchanged assignment when an ID is malformed, unavailable, unauthorized, or already selected.
 - The product supports learning through repeated algorithmic practice. A first
   completion or a 100 percent score must not end continued practice when policy
   permits another run.
@@ -141,6 +157,9 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   Keep the complete Genetics-plus-Biochemistry eight-question learner sweep as a separate release
   gate so the walkthrough remains focused without substituting a synthetic one-question story for
   release content.
+- Have the instructor visibly copy and paste the four Genetics Chapter 1 `P-n-vn` identities into
+  the assignment editor during that walkthrough, then visibly confirm the four selected immutable
+  versions before creating the assignment.
 - Keep the public pilot guides visually complete. Show the instructor's course, roster, published
   problem selection, and assignment settings. Show the student's assignment list, live timed
   problem, score, and visible option to start another practice run.
@@ -177,8 +196,8 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Use closed PLE flat-question JSON version 2 as the internal source contract for all eight families.
   Base MC, MA, MATCH, NUM, FIB, MULTI-FIB, and ORDER semantics on the reviewed QTI Package Maker item
   model while retaining accepted answers and grading data that print-oriented writers omit. HOTSPOT
-  is a bounded PLE extension because the reviewed item model does not define it. Preserve version 1
-  `singleChoice` bytes and behavior exactly.
+  is a bounded PLE extension because the reviewed item model does not define it. Do not retain a
+  version 1 `singleChoice` reader, source bytes, or compatibility behavior.
 - Treat a future external QTI-JSONL format as an adapter/interchange concern, not a prerequisite for
   native family support. Keep any accepted external interpretation in one versioned adapter and map
   it into PLE's answer-free public model plus grader-only private material; never spread external
@@ -307,6 +326,13 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Keep walkthrough entry scripts thin. Put reusable Python orchestration in a
   dedicated importable package while preserving the documented shell command;
   keep browser journeys under `tests/playwright/` as separate visible evidence.
+- Give Python programs a small explicit interface: put choices that an operator
+  makes between runs in documented `argparse` arguments or a selected
+  configuration file. Reserve the process environment for operating-system and
+  ecosystem configuration, not hidden walkthrough modes, ports, paths, or
+  credentials. When fixed child processes need a handoff, pass one explicit,
+  versioned private input file by argument; validate its schema, ownership,
+  path, and permissions at each boundary.
 - A production worker may claim a job family only when that registry entry has
   both a real handler and its atomic committer. Derive the queue-family filter
   from those complete entries; leave reserved work queued instead of adding a

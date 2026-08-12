@@ -1,7 +1,7 @@
 import type {
   FlatQuestionAttemptPolicy,
   FlatQuestionLicense,
-  FlatQuestionSourceV1,
+  FlatQuestionSourceV2,
   FlatQuestionTaxonomyTerm,
   FlatQuestionTimingPolicy,
 } from "./flat_question_source";
@@ -21,8 +21,8 @@ export type FlatQuestionPublicPreview = {
 };
 
 /** Projects an author source into exactly the information a learner may receive. */
-export function flatQuestionPublicPreview(source: FlatQuestionSourceV1): FlatQuestionPublicPreview {
-  const choices = source.choices.map((choice) => ({ id: choice.id, text: choice.text }));
+export function flatQuestionPublicPreview(source: FlatQuestionSourceV2): FlatQuestionPublicPreview {
+  const choices = source.response.choices.map((choice) => ({ id: choice.id, text: choice.text }));
   return {
     title: source.title,
     prompt: source.prompt,
@@ -38,6 +38,6 @@ export function flatQuestionPublicPreview(source: FlatQuestionSourceV1): FlatQue
 }
 
 /** Serializes only the answer-free local preview, suitable for boundary tests. */
-export function serializeFlatQuestionPublicPreview(source: FlatQuestionSourceV1): string {
+export function serializeFlatQuestionPublicPreview(source: FlatQuestionSourceV2): string {
   return JSON.stringify(flatQuestionPublicPreview(source));
 }

@@ -207,10 +207,31 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         .expect("student membership save");
     let reference = publish_fixture(&store, context, tenant, instructor).await;
 
+    let omitted_timing = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/courses/{course}/assignments"))
+                .header("cookie", &instructor_cookie)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "title": "Missing timing choice", "problems": [reference], "policies": policies(),
+                    })
+                    .to_string(),
+                ))
+                .expect("omitted timing request"),
+        )
+        .await
+        .expect("omitted timing response");
+    assert_eq!(omitted_timing.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
     let assignment_request = CreateAssignmentRequest {
         title: "Peptide bond mastery".to_string(),
         problems: vec![reference],
         policies: policies(),
+        assignment_timing: question_model::AssignmentRunTiming::default(),
     };
     let created_assignment = app
         .clone()
@@ -246,6 +267,58 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         "the stable assignment item must retain exact IDs rather than copy a question"
     );
     assert!(created_assignment["items"][0]["id"].is_string());
+    assert_eq!(
+        created_assignment["assignmentTiming"]["timeLimitSeconds"],
+        serde_json::Value::Null,
+        "an explicit Untimed choice remains untimed in editor responses"
+    );
+
+    let invalid_timing = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri(format!("/api/courses/{course}/assignments/{assignment}"))
+                .header("cookie", &instructor_cookie)
+                .header(IF_MATCH, &assignment_etag)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "title": "invalid timing", "problems": [reference], "policies": policies(),
+                        "assignmentTiming": null,
+                    })
+                    .to_string(),
+                ))
+                .expect("invalid timing request"),
+        )
+        .await
+        .expect("invalid timing response");
+    assert_eq!(invalid_timing.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    let omitted_update_timing = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri(format!("/api/courses/{course}/assignments/{assignment}"))
+                .header("cookie", &instructor_cookie)
+                .header(IF_MATCH, &assignment_etag)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "title": "missing timing choice", "problems": [reference], "policies": policies(),
+                    })
+                    .to_string(),
+                ))
+                .expect("omitted update timing request"),
+        )
+        .await
+        .expect("omitted update timing response");
+    assert_eq!(
+        omitted_update_timing.status(),
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "instructor updates must state a timing choice instead of preserving a hidden prior value"
+    );
 
     for request in [
         Request::builder()
@@ -325,6 +398,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                         "title": "Peptide bond mastery revised",
                         "problems": [reference],
                         "policies": policies(),
+                        "assignmentTiming": { "timeLimitSeconds": 900 },
                     })
                     .to_string(),
                 ))
@@ -333,8 +407,40 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         .await
         .expect("assignment update response");
     assert_eq!(updated.status(), StatusCode::OK);
-    let updated_etag = updated.headers().get(ETAG).expect("updated ETag");
-    assert_ne!(updated_etag.to_str().expect("ASCII ETag"), assignment_etag);
+    let updated_etag = updated
+        .headers()
+        .get(ETAG)
+        .expect("updated ETag")
+        .to_str()
+        .expect("ASCII ETag")
+        .to_string();
+    assert_ne!(updated_etag, assignment_etag);
+    let updated = response_json(updated).await;
+    assert_eq!(updated["assignmentTiming"]["timeLimitSeconds"], 900);
+
+    let editor_get = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/assignments/{assignment}"))
+                .header("cookie", &instructor_cookie)
+                .body(Body::empty())
+                .expect("editor GET request"),
+        )
+        .await
+        .expect("editor GET response");
+    assert_eq!(editor_get.status(), StatusCode::OK);
+    assert_eq!(
+        editor_get
+            .headers()
+            .get(ETAG)
+            .expect("GET ETag")
+            .to_str()
+            .expect("ASCII GET ETag"),
+        updated_etag
+    );
+    let editor_get = response_json(editor_get).await;
+    assert_eq!(editor_get["assignmentTiming"]["timeLimitSeconds"], 900);
 
     let stale = app
         .clone()
@@ -348,6 +454,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                 .body(Body::from(
                     serde_json::json!({
                         "title": "stale overwrite", "problems": [reference], "policies": policies(),
+                        "assignmentTiming": { "timeLimitSeconds": 900 },
                     })
                     .to_string(),
                 ))
@@ -393,6 +500,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::json!({
                         "title": "Administrator revised", "problems": [reference], "policies": policies(),
+                        "assignmentTiming": { "timeLimitSeconds": 900 },
                     }).to_string()))
                     .expect("administrator update request"),
             )
@@ -427,6 +535,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::json!({
                         "title": "must not move course", "problems": [reference], "policies": policies(),
+                        "assignmentTiming": { "timeLimitSeconds": 900 },
                     }).to_string()))
                     .expect("wrong-course update request"),
             )

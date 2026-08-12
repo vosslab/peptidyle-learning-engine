@@ -1,0 +1,24 @@
+/* copyable_problem_id.css - small shared human-identity control. */
+
+.copyable-problem-id {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+}
+
+.copyable-problem-id code {
+  font-size: 0.95rem;
+  font-weight: 760;
+  user-select: all;
+}
+
+.copyable-problem-id .quiet-action {
+  min-height: 2.25rem;
+  padding: 0.3rem 0.65rem;
+}
+
+.copyable-problem-id-status {
+  color: var(--ple-muted);
+  font-size: 0.85rem;
+}

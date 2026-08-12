@@ -16,6 +16,12 @@ uuid.workspace = true
 # Enabled by the `s3` feature so the memory backend needs no AWS types. Select
 # the modern HTTP 1.x client explicitly: the SDK's default feature set also
 # enables its legacy Rustls 0.21 client and its vulnerable rustls-webpki line.
+#
+# TODO(RUSTSEC-2026-0253): upgrade after the current `aws-sdk-s3` release accepts
+# `lru >=0.18.2`. The SDK currently requires `lru ^0.16.3`; its only cache key
+# is an internal `String` wrapper in the S3 Express identity cache and it does
+# not call the advisory's `LruCache::pop()` API. Do not suppress the advisory:
+# keep it visible until an upstream SDK release removes the transitive version.
 base64 = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 aws-sdk-s3 = { version = ">=1.141.0", default-features = false, features = [

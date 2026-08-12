@@ -9,6 +9,12 @@ reconstruction. J2 is accepted separately in
 [wp_w2_retry_until_correct.md](wp_w2_retry_until_correct.md). This workstream claims only J1; it
 does not accept later learner journeys, scoring verification, or answer-key access.
 
+## Supersession note
+
+The dated record below mentions `PLAYWRIGHT_NO_COPY_PROMPT=1`. It was an unsupported hidden custom
+flag and has been removed. Privacy now relies on Playwright's default-off trace, screenshot, and
+video recording plus private explicit inputs; this note does not add live acceptance evidence.
+
 ## Scope
 
 - `tests/playwright/ui_walkthrough_keyboard_j1.spec.ts` signs in through the rendered local form,

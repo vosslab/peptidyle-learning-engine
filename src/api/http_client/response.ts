@@ -1,6 +1,7 @@
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { AssignmentRun } from "../../../generated/api/AssignmentRun";
 import type { CatalogProblemDetail } from "../../../generated/api/CatalogProblemDetail";
+import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
 import type { CatalogSearchPage } from "../../../generated/api/CatalogSearchPage";
 import type { CatalogSearchQuery } from "../../../generated/api/CatalogSearchQuery";
 import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
@@ -22,7 +23,7 @@ import type {
   RunSummaryResponse,
   WorkspaceDraftDetail,
 } from "../contracts";
-import { catalogSearchPath } from "../catalog_query";
+import { catalogProblemReferencePath, catalogSearchPath } from "../catalog_query";
 import {
   decodeAssignmentPage,
   decodeAssignmentRun,
@@ -30,6 +31,7 @@ import {
   decodeAttemptPage,
   decodeCatalogPage,
   decodeCatalogProblemDetail,
+  decodeCatalogProblemSummary,
   decodeCatalogSearchPage,
   decodeCourseAppearance,
   decodeCoursePage,
@@ -237,6 +239,7 @@ export function createResponseClient(
   | "getWorkspacePublicationDiff"
   | "listProblems"
   | "searchCatalog"
+  | "resolveCatalogProblem"
   | "getCatalogProblemDetail"
   | "getProblemVersion"
   | "listTaxonomy"
@@ -279,6 +282,12 @@ export function createResponseClient(
       ),
     searchCatalog: (query: CatalogSearchQuery): Promise<CatalogSearchPage> =>
       requestJson(fetchImplementation, basePath, catalogSearchPath(query), decodeCatalogSearchPage),
+    resolveCatalogProblem: (displayReference: string): Promise<CatalogProblemSummary> => {
+      const path = catalogProblemReferencePath(displayReference);
+      return requestJson(fetchImplementation, basePath, path, (value, decoderPath) =>
+        decodeCatalogProblemSummary(value, decoderPath, true),
+      );
+    },
     getCatalogProblemDetail: (problemId, versionId) =>
       catalogProblemDetail(fetchImplementation, basePath, problemId, versionId),
     getProblemVersion: (problemId, versionId) =>

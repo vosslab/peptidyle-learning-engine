@@ -18,8 +18,6 @@ pub use roster::{
     CourseInvitationDelivery, CourseInvitationDeliveryError, CourseInvitationIssuer,
     CourseInvitationSecret, UnavailableCourseInvitationDelivery,
 };
-pub(crate) use roster::{LocalDevelopmentRosterDirectory, LocalDevelopmentRosterIdentity};
-pub(crate) use routing::router_with_invitations_and_local_development;
 pub use routing::{router, router_with_invitations};
 
 #[cfg(test)]

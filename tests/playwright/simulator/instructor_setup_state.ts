@@ -46,11 +46,12 @@ export type InstructorSetupFragment =
       readonly elapsedMs: number;
       readonly courseId: string;
       readonly assignmentId: string;
-      readonly problemId: string;
-      readonly versionId: string;
+      /** Four visible P-n-vn locators prove the canonical Chapter 1 selection. */
+      readonly selectedDisplayIds: readonly [string, string, string, string];
       readonly visibleOutcomeCodes: readonly [
         "visible_assignment_created",
         "visible_catalog_problem_selected",
+        "visible_four_question_chapter_one_selection",
         "visible_mastery_policy",
       ];
       readonly diagnostics: readonly [];
@@ -66,7 +67,12 @@ const EXPECTED_JOURNEYS: readonly InstructorJourney[] = ["J11", "J12", "J13"];
 const EXPECTED_CODES = {
   J11: ["visible_course_created", "visible_course_opened"],
   J12: ["visible_local_student_active"],
-  J13: ["visible_assignment_created", "visible_catalog_problem_selected", "visible_mastery_policy"],
+  J13: [
+    "visible_assignment_created",
+    "visible_catalog_problem_selected",
+    "visible_four_question_chapter_one_selection",
+    "visible_mastery_policy",
+  ],
 } as const;
 
 let beforeChildOpenForTest: (() => void) | undefined;
@@ -226,7 +232,7 @@ function validFragment(value: unknown): value is InstructorSetupFragment {
     "visibleOutcomeCodes",
     "diagnostics",
   ];
-  const j13Keys = ["assignmentId", "problemId", "versionId"];
+  const j13Keys = ["assignmentId", "selectedDisplayIds"];
   const hasKnownKeys =
     hasExactEnumerableStringKeys(record, commonKeys) ||
     hasExactEnumerableStringKeys(record, [...commonKeys, ...j13Keys]);
@@ -253,10 +259,20 @@ function validFragment(value: unknown): value is InstructorSetupFragment {
   if (journey === "J13")
     return (
       UUID.test(String(record["assignmentId"])) &&
-      UUID.test(String(record["problemId"])) &&
-      UUID.test(String(record["versionId"]))
+      validSelectedDisplayIds(record["selectedDisplayIds"])
     );
   return journey === "J11" || journey === "J12";
+}
+
+function validSelectedDisplayIds(
+  value: unknown,
+): value is readonly [string, string, string, string] {
+  return (
+    Array.isArray(value) &&
+    value.length === 4 &&
+    value.every((id) => typeof id === "string" && /^P-[1-9][0-9]*-v[1-9][0-9]*$/u.test(id)) &&
+    new Set(value).size === 4
+  );
 }
 
 function hasExactEnumerableStringKeys(

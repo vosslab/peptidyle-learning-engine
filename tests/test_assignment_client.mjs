@@ -18,6 +18,10 @@ import {
 import { createMockApiClient } from "../src/api/mock/client.ts";
 
 const assignment = publishedProblemFixture.assignment;
+const assignmentEditor = {
+  ...assignment,
+  assignmentTiming: { timeLimitSeconds: null },
+};
 const assignmentProblems = assignment.items
   .filter((item) => item.deliveryState === "active")
   .sort((left, right) => left.position - right.position)
@@ -26,6 +30,7 @@ const input = {
   title: assignment.title,
   problems: assignmentProblems,
   policies: assignment.policies,
+  assignmentTiming: { timeLimitSeconds: null },
 };
 
 function jsonResponse(value, status = 200, headers = {}) {
@@ -36,7 +41,7 @@ function jsonResponse(value, status = 200, headers = {}) {
 }
 
 test("assignment editor decoder accepts only the stable editable projection", () => {
-  const detail = decodeAssignmentEditorDetail(assignment);
+  const detail = decodeAssignmentEditorDetail(assignmentEditor);
   assert.equal(detail.id, assignment.id);
   assert.equal(detail.courseId, assignment.courseId);
   assert.deepEqual(detail.problems, assignmentProblems);
@@ -52,7 +57,7 @@ test("assignment editor decoder accepts only the stable editable projection", ()
     "feedback",
   ]) {
     assert.throws(
-      () => decodeAssignmentEditorDetail({ ...assignment, [forbidden]: "server-only" }),
+      () => decodeAssignmentEditorDetail({ ...assignmentEditor, [forbidden]: "server-only" }),
       DecodeError,
     );
     assert.throws(
@@ -112,6 +117,13 @@ test("assignment editor decoder accepts only the stable editable projection", ()
         continuedPractice: { kind: "capped", maxAdditionalRuns: 2, forged: true },
       },
     },
+    Object.fromEntries(
+      Object.entries(input).filter(([field]) => field !== "assignmentTiming"),
+    ),
+    { ...input, assignmentTiming: null },
+    { ...input, assignmentTiming: { timeLimitSeconds: 0 } },
+    { ...input, assignmentTiming: { timeLimitSeconds: 2_147_483_648 } },
+    { ...input, assignmentTiming: { timeLimitSeconds: null, forged: true } },
   ];
   for (const hostileInput of nestedUnknownInputs) {
     assert.throws(() => decodeAssignmentEditorInput(hostileInput), DecodeError);
@@ -121,7 +133,7 @@ test("assignment editor decoder accepts only the stable editable projection", ()
 test("assignment HTTP transport preserves the exact revisioned create/read/save boundary", async () => {
   const requests = [];
   let revision = 1;
-  let current = structuredClone(assignment);
+  let current = structuredClone(assignmentEditor);
   const client = createHttpApiClient({
     fetch: async (url, init) => {
       const request = new Request(new URL(String(url), "https://ple.example"), init);
@@ -135,6 +147,7 @@ test("assignment HTTP transport preserves the exact revisioned create/read/save 
           id: "0198e000-0000-7000-8000-000000000060",
           title: body.title,
           policies: body.policies,
+          assignmentTiming: body.assignmentTiming,
         };
         revision = 1;
         return jsonResponse(current, 201, { etag: '"1"' });
@@ -143,7 +156,12 @@ test("assignment HTTP transport preserves the exact revisioned create/read/save 
         assert.equal(path, `/api/courses/${current.courseId}/assignments/${current.id}`);
         assert.equal(request.headers.get("if-match"), `"${revision}"`);
         const body = JSON.parse(await request.text());
-        current = { ...current, title: body.title, policies: body.policies };
+        current = {
+          ...current,
+          title: body.title,
+          policies: body.policies,
+          assignmentTiming: body.assignmentTiming,
+        };
         revision += 1;
         return jsonResponse(current, 200, { etag: `"${revision}"` });
       }
@@ -176,15 +194,15 @@ test("revisioned assignment responses must match the requested identity before t
   const cases = [
     {
       call: (client) => client.getAssignmentEditor(assignment.id),
-      response: { ...assignment, id: wrongAssignment },
+      response: { ...assignmentEditor, id: wrongAssignment },
     },
     {
       call: (client) => client.createAssignment(assignment.courseId, input),
-      response: { ...assignment, courseId: wrongCourse },
+      response: { ...assignmentEditor, courseId: wrongCourse },
     },
     {
       call: (client) => client.saveAssignment(assignment.courseId, assignment.id, input, '"1"'),
-      response: { ...assignment, id: wrongAssignment, courseId: wrongCourse },
+      response: { ...assignmentEditor, id: wrongAssignment, courseId: wrongCourse },
     },
   ];
   for (const identityCase of cases) {
@@ -221,7 +239,9 @@ test("assignment HTTP transport distinguishes validation and stale-revision fail
     AssignmentConflictError,
   );
 
-  const hostileEtagClient = createHttpApiClient({ fetch: async () => jsonResponse(assignment) });
+  const hostileEtagClient = createHttpApiClient({
+    fetch: async () => jsonResponse(assignmentEditor),
+  });
   await assert.rejects(hostileEtagClient.getAssignmentEditor(assignment.id), ApiProtocolError);
 });
 

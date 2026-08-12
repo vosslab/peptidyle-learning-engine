@@ -76,7 +76,7 @@ class V2ReportContractTests(unittest.TestCase):
 			runner.journey_state_file = state
 			with mock.patch.object(walkthrough.shutil, "which", return_value="/bin/echo"):
 				with self.assertRaisesRegex(walkthrough.RunnerError, "renderer failed"):
-					runner.collect_visible_outcomes({})
+					runner.collect_visible_outcomes()
 
 
 if __name__ == "__main__":

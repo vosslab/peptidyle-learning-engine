@@ -39,7 +39,7 @@ import {
   type FlatQuestionRepository,
 } from "./flat_question_repository";
 import type { FlatQuestionRead } from "./flat_question_client";
-import type { FlatQuestionSourceV1 } from "./flat_question_source";
+import type { FlatQuestionSourceV2 } from "./flat_question_source";
 
 export interface FlatQuestionEditorPageProps {
   readonly workspace: WorkspaceId;
@@ -76,7 +76,7 @@ function authorSafeMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function sourceFrom(state: FlatQuestionEditorState): FlatQuestionSourceV1 | null {
+function sourceFrom(state: FlatQuestionEditorState): FlatQuestionSourceV2 | null {
   if (state.kind === "conflict" || state.kind === "reloading") return state.localSource;
   if (state.kind === "error") return state.source;
   if (state.kind === "loading" || state.kind === "published") return null;
@@ -91,19 +91,21 @@ function publishedReference(state: FlatQuestionEditorState): string | null {
   return state.kind === "published" ? state.reference : null;
 }
 
-function fieldErrors(source: FlatQuestionSourceV1 | null): Readonly<Record<string, string>> {
+function fieldErrors(source: FlatQuestionSourceV2 | null): Readonly<Record<string, string>> {
   if (source === null) return {};
   const validation = validateFlatQuestionSource(source);
   return Object.fromEntries(validation.issues.map((issue) => [issue.field, issue.message]));
 }
 
-function answerCheck(source: FlatQuestionSourceV1): {
+function answerCheck(source: FlatQuestionSourceV2): {
   readonly correctChoiceId: string;
   readonly correctChoiceText: string;
   readonly correctFeedback: string | null;
   readonly incorrectFeedback: string | null;
 } | null {
-  const correct = source.choices.find((choice) => choice.id === source.correctChoice);
+  const correct = source.response.choices.find(
+    (choice) => choice.id === source.response.correctChoice,
+  );
   if (correct === undefined) return null;
   return {
     correctChoiceId: correct.id,
@@ -205,7 +207,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
     setState(reduceFlatQuestionEditor(state(), { kind: "loaded", source: props.initial.source }));
   });
 
-  function applyEdit(next: FlatQuestionSourceV1): void {
+  function applyEdit(next: FlatQuestionSourceV2): void {
     if (isLocked()) return;
     cancelPendingReview();
     setShowInstructorCheck(false);
@@ -378,10 +380,10 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
   function moveChoice(choiceId: string, direction: "up" | "down"): void {
     const current = source();
     if (current === null) return;
-    const index = current.choices.findIndex((choice) => choice.id === choiceId);
+    const index = current.response.choices.findIndex((choice) => choice.id === choiceId);
     const other = direction === "up" ? index - 1 : index + 1;
-    if (index < 0 || other < 0 || other >= current.choices.length) return;
-    const ids = current.choices.map((choice) => choice.id);
+    if (index < 0 || other < 0 || other >= current.response.choices.length) return;
+    const ids = current.response.choices.map((choice) => choice.id);
     const displaced = ids[other];
     if (displaced === undefined) return;
     ids[other] = choiceId;
@@ -454,8 +456,8 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
                 />
               </label>
               <FlatChoiceList
-                choices={current().choices}
-                correctChoice={current().correctChoice}
+                choices={current().response.choices}
+                correctChoice={current().response.correctChoice}
                 fieldErrors={errors()}
                 disabled={isLocked()}
                 onChoiceChange={(id, patch) => {

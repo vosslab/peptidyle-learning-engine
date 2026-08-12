@@ -426,7 +426,7 @@ async fn local_development_activation_is_manager_scoped_alias_only_and_idempoten
     let reference = publish_fixture(&store, context, tenant, instructor).await;
     let assignment = AssignmentId::from_uuid(id(1_155));
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,
@@ -448,7 +448,7 @@ async fn local_development_activation_is_manager_scoped_alias_only_and_idempoten
         .await
         .expect("assignment fixture");
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: AssignmentId::from_uuid(id(1_158)),
@@ -754,7 +754,7 @@ async fn manual_grade_export_contains_only_course_roster_identity_and_selected_s
         .expect("course fixture");
     let reference = publish_fixture(&store, context, tenant, instructor).await;
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,

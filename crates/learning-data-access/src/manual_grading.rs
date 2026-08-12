@@ -1,12 +1,11 @@
 //! Server-only Store contract for response-bearing manual evaluation.
 
 use async_trait::async_trait;
+use bigdecimal::{BigDecimal, ToPrimitive};
 use objects::Sha256Digest;
 use question_model::{
     ActivityTimestamp, QuestionAttemptId, ScoringGeneration, StudentResponse, TenantId, UserId,
 };
-use rust_decimal::Decimal;
-use rust_decimal::prelude::ToPrimitive;
 use std::str::FromStr;
 use uuid::Uuid;
 
@@ -80,33 +79,36 @@ impl EvaluationRevision {
 /// Exact normalized credit for the PostgreSQL `NUMERIC(16, 12)` boundary.
 #[derive(Clone, PartialEq)]
 pub struct ManualCredit {
-    value: Decimal,
+    value: BigDecimal,
     canonical_decimal: String,
 }
 
 impl ManualCredit {
-    pub fn new(value: Decimal) -> Result<Self, StoreError> {
-        if value.scale() > 12 || !(Decimal::from(-1_000)..=Decimal::from(1_000)).contains(&value) {
+    pub fn new(value: BigDecimal) -> Result<Self, StoreError> {
+        if value.fractional_digit_count() > 12
+            || !(BigDecimal::from(-1_000)..=BigDecimal::from(1_000)).contains(&value)
+        {
             return Err(StoreError::InvalidRecord(
                 "manual credit must have at most 12 fractional digits and be between -1000 and 1000"
                     .to_string(),
             ));
         }
-        let value = value.normalize();
+        let value = value.normalized();
+        let canonical_decimal = value.to_plain_string();
         Ok(Self {
             value,
-            canonical_decimal: value.to_string(),
+            canonical_decimal,
         })
     }
 
     pub fn parse(value: &str) -> Result<Self, StoreError> {
-        Decimal::from_str(value)
+        BigDecimal::from_str(value)
             .map_err(|_| StoreError::InvalidRecord("manual credit must be a decimal".to_string()))
             .and_then(Self::new)
     }
 
-    pub fn as_decimal(&self) -> Decimal {
-        self.value
+    pub fn as_decimal(&self) -> &BigDecimal {
+        &self.value
     }
 
     pub(crate) fn try_as_f64(&self) -> Result<f64, StoreError> {
@@ -220,12 +222,26 @@ mod tests {
     use super::ManualCredit;
 
     #[test]
-    fn manual_credit_parses_and_canonicalizes_decimal_input() {
+    fn manual_credit_canonical_form_is_plain_and_minimal() {
         let negative_zero = ManualCredit::parse("-0.000").expect("negative zero is valid");
         assert_eq!(negative_zero.as_canonical_decimal(), "0");
+
         let trimmed = ManualCredit::parse("1.230000000000").expect("bounded decimal is valid");
         assert_eq!(trimmed.as_canonical_decimal(), "1.23");
-        assert_eq!(trimmed.as_decimal().to_string(), "1.23");
+
+        let small = ManualCredit::parse("0.0000001").expect("small decimal is valid");
+        assert_eq!(small.as_canonical_decimal(), "0.0000001");
+    }
+
+    #[test]
+    fn manual_credit_preserves_twelve_fractional_digits_and_projects_to_f64() {
+        let boundary =
+            ManualCredit::parse("0.123456789012").expect("twelve fractional digits are valid");
+        assert_eq!(boundary.as_canonical_decimal(), "0.123456789012");
+        assert_eq!(
+            boundary.try_as_f64().expect("bounded credit projects"),
+            0.123456789012_f64
+        );
     }
 
     #[test]

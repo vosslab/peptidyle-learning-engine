@@ -1,8 +1,8 @@
 /**
  * Opt-in documentation screenshot capture for the real UI walkthrough.
  *
- * The launcher owns PLE_DOCS_SCREENSHOT_DIR. Ordinary Playwright tests do not
- * set it, so this module leaves their behavior and artifacts unchanged.
+ * The explicit private walkthrough input owns the optional directory. Ordinary
+ * Playwright tests pass no directory, so their artifacts remain unchanged.
  */
 
 import { chmod, lstat } from "node:fs/promises";
@@ -10,7 +10,6 @@ import path from "node:path";
 
 import type { Locator, Page } from "@playwright/test";
 
-const CAPTURE_DIRECTORY_ENVIRONMENT = "PLE_DOCS_SCREENSHOT_DIR";
 const CAPTURE_DIRECTORY_PARENT = "/private/tmp";
 const CAPTURE_DIRECTORY_PREFIX = "ple-docs-screenshots.";
 
@@ -20,7 +19,7 @@ export const documentationScreenshotNames = [
   "instructor_problem_catalog.png",
   "instructor_assignment_settings.png",
   "instructor_assignment_created.png",
-  "peptide_bond_mastery_overview.png",
+  "genetics_chapter_one_overview.png",
   "student_assignment_list.png",
   "student_timed_problem.png",
   "student_fresh_practice.png",
@@ -30,14 +29,8 @@ export const documentationScreenshotNames = [
 
 export type DocumentationScreenshotName = (typeof documentationScreenshotNames)[number];
 
-function documentationScreenshotDirectory(): string | undefined {
-  const directory = process.env[CAPTURE_DIRECTORY_ENVIRONMENT];
-  if (directory === undefined || directory === "") return undefined;
-  return directory;
-}
-
-export function documentationScreenshotsEnabled(): boolean {
-  return documentationScreenshotDirectory() !== undefined;
+export function documentationScreenshotsEnabled(screenshotDirectory?: string): boolean {
+  return screenshotDirectory !== undefined;
 }
 
 async function validateCaptureDirectory(directory: string): Promise<void> {
@@ -86,9 +79,9 @@ export async function captureDocumentationScreenshot(
   screenshotName: DocumentationScreenshotName,
   anchor?: Locator,
   cropTopPixels?: number,
+  screenshotDirectory?: string,
 ): Promise<void> {
-  const directory = documentationScreenshotDirectory();
-  if (directory === undefined) return;
+  if (screenshotDirectory === undefined) return;
   if (!documentationScreenshotNames.includes(screenshotName)) {
     throw new Error("documentation screenshot name is not approved");
   }
@@ -100,8 +93,8 @@ export async function captureDocumentationScreenshot(
       "documentation screenshot crop must be a whole number below the viewport height",
     );
   }
-  await validateCaptureDirectory(directory);
-  const filePath = path.join(directory, screenshotName);
+  await validateCaptureDirectory(screenshotDirectory);
+  const filePath = path.join(screenshotDirectory, screenshotName);
   await validateScreenshotPath(filePath);
   const viewportHeight = 960 - (cropTopPixels ?? 0);
   const anchorMargin = cropTopPixels === undefined ? 72 : 0;

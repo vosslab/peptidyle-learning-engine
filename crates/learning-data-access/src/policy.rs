@@ -179,15 +179,23 @@ pub(crate) fn validate_assignment_policy_exception(
             "an assignment policy exception must override at least one field".to_string(),
         ));
     }
-    for (label, value) in [
-        ("exception time limit", exception.time_limit_seconds),
-        ("exception attempt limit", exception.attempt_limit),
-    ] {
-        if value == Some(AssignmentExceptionLimit::Value(0)) {
-            return Err(StoreError::InvalidRecord(format!(
-                "{label} must be greater than zero"
-            )));
-        }
+    if exception.time_limit_seconds == Some(AssignmentExceptionLimit::Value(0)) {
+        return Err(StoreError::InvalidRecord(
+            "exception time limit must be greater than zero".to_string(),
+        ));
+    }
+    if exception.time_limit_seconds.is_some_and(|limit| {
+		matches!(limit, AssignmentExceptionLimit::Value(value) if value > question_model::MAX_ASSIGNMENT_TIME_LIMIT_SECONDS)
+	}) {
+		return Err(StoreError::InvalidRecord(format!(
+			"exception time limit must not exceed {} seconds",
+			question_model::MAX_ASSIGNMENT_TIME_LIMIT_SECONDS
+		)));
+	}
+    if exception.attempt_limit == Some(AssignmentExceptionLimit::Value(0)) {
+        return Err(StoreError::InvalidRecord(
+            "exception attempt limit must be greater than zero".to_string(),
+        ));
     }
     if let (
         Some(AssignmentExceptionTimestamp::At(available_at)),

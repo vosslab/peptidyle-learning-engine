@@ -107,6 +107,62 @@ def _dependency_tables(manifest: dict[str, object]) -> list[dict[str, object]]:
 
 
 #============================================
+def _all_dependency_tables(
+	manifest: dict[str, object],
+) -> list[tuple[str, dict[str, object]]]:
+	"""Collect every manifest dependency table whose version policy we own."""
+	tables = []
+	workspace = manifest.get("workspace")
+	if isinstance(workspace, dict):
+		dependencies = workspace.get("dependencies")
+		if isinstance(dependencies, dict):
+			tables.append(("workspace.dependencies", dependencies))
+
+	for section_name in ("dependencies", "dev-dependencies", "build-dependencies"):
+		section = manifest.get(section_name)
+		if isinstance(section, dict):
+			tables.append((section_name, section))
+
+	targets = manifest.get("target")
+	if isinstance(targets, dict):
+		for target_name, target in targets.items():
+			if not isinstance(target_name, str) or not isinstance(target, dict):
+				continue
+			for section_name in ("dependencies", "dev-dependencies", "build-dependencies"):
+				section = target.get(section_name)
+				if isinstance(section, dict):
+					tables.append((f"target.{target_name}.{section_name}", section))
+	return tables
+
+
+#============================================
+def _tracked_cargo_manifests() -> list[pathlib.Path]:
+	"""Return the tracked Cargo manifests rather than whatever happens to be untracked."""
+	return [
+		REPO_ROOT / relative_path
+		for relative_path in file_utils.list_tracked_files(REPO_ROOT)
+		if pathlib.PurePosixPath(relative_path).name == "Cargo.toml"
+	]
+
+
+#============================================
+def _registry_version_requirement(specification: object) -> str | None:
+	"""Return a registry dependency's version requirement, or None for nonregistry sources."""
+	if isinstance(specification, str):
+		return specification
+	if not isinstance(specification, dict):
+		return None
+	if (
+		specification.get("workspace") is True
+		or isinstance(specification.get("path"), str)
+		or isinstance(specification.get("git"), str)
+	):
+		return None
+	version = specification.get("version")
+	return version if isinstance(version, str) else ""
+
+
+#============================================
 def _local_dependencies(
 	manifest: dict[str, object],
 	members: dict[str, dict[str, object]],
@@ -200,3 +256,35 @@ def test_resolved_webpki_includes_all_three_security_fixes() -> None:
 	"""Reject the legacy rustls-webpki line reported by GitHub security alerts."""
 	versions = _locked_versions("rustls-webpki")
 	assert versions and min(map(_numeric_version, versions)) >= (0, 103, 13)
+
+
+#============================================
+def test_nonregistry_dependency_sources_are_exempt_from_registry_version_policy() -> None:
+	"""Keep local and Git source handling separate from registry requirements."""
+	specifications = (
+		{"workspace": True},
+		{"path": "../local-package", "version": "26.8.0"},
+		{"git": "https://example.invalid/project.git", "version": "26.8.0"},
+	)
+	assert all(_registry_version_requirement(specification) is None for specification in specifications)
+
+
+#============================================
+def test_registry_dependencies_use_explicit_open_minimum_versions() -> None:
+	"""Keep registry requirements open for security fixes without hiding their floor."""
+	minimum_version = re.compile(r"^>=\d+\.\d+\.\d+$")
+	violations = []
+	for manifest_path in _tracked_cargo_manifests():
+		manifest = _read_toml(manifest_path)
+		for table_name, dependencies in _all_dependency_tables(manifest):
+			for dependency_name, specification in dependencies.items():
+				version = _registry_version_requirement(specification)
+				if version is None:
+					continue
+				if not minimum_version.fullmatch(version):
+					relative_path = manifest_path.relative_to(REPO_ROOT)
+					violations.append(
+						f"{relative_path}: [{table_name}] {dependency_name} must use exactly "
+						f"one open-minimum registry requirement >=x.y.z, found {version!r}"
+					)
+	assert not violations, "\n".join(violations)

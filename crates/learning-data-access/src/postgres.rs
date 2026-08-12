@@ -29,16 +29,17 @@ use question_model::{
     ActivityTimestamp, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId, AssignmentItem,
     AssignmentItemId, AssignmentPolicyExceptionId, AssignmentRun, AssignmentRunItem,
     AssignmentScoringMode, AssignmentSelectionCandidate, AssignmentSelectionGroup,
-    AssignmentSelectionGroupId, AttemptResult, AttemptStatus, BackendCapabilities,
-    CatalogCapabilityFacet, CatalogLicenseFacet, CatalogLifecycle, CatalogProblemSummary,
-    CatalogSearchQuery, CatalogTaxonomyFacet, CourseGroupId, CourseId, CourseMembership,
-    CourseMembershipRole, CourseRole, CourseSummary, EnrollmentId, EnrollmentStatus,
-    LateSubmissionPolicy, PointValue, PresentationBindingV1, PresentationDigestV1,
-    PresentationNonceV1, ProblemId, ProblemPublicId, ProblemVersionNumber, ProblemVersionRef,
-    PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionMetadata,
-    QuestionStatisticsDisclosure, QuestionStatisticsView, RunId, RunMode, ScoringGeneration,
-    ScoringStatus, SelectionOrdering, StudentAssignmentSummary, StudentId, StudentResponse,
-    TenantId, UserId, VersionId, WorkspaceDraftSummary, WorkspaceId, WorkspaceImportId,
+    AssignmentSelectionGroupId, AssignmentTimingPolicy, AttemptResult, AttemptStatus,
+    BackendCapabilities, CatalogCapabilityFacet, CatalogLicenseFacet, CatalogLifecycle,
+    CatalogProblemSummary, CatalogSearchQuery, CatalogTaxonomyFacet, CourseGroupId, CourseId,
+    CourseMembership, CourseMembershipRole, CourseRole, CourseSummary, EnrollmentId,
+    EnrollmentStatus, LateSubmissionPolicy, PointValue, PresentationBindingV1,
+    PresentationDigestV1, PresentationNonceV1, ProblemId, ProblemPublicId, ProblemVersionNumber,
+    ProblemVersionRef, PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend,
+    QuestionMetadata, QuestionStatisticsDisclosure, QuestionStatisticsView, RunId, RunMode,
+    ScoringGeneration, ScoringStatus, SelectionOrdering, StudentAssignmentSummary, StudentId,
+    StudentResponse, TenantId, UserId, VersionId, WorkspaceDraftSummary, WorkspaceId,
+    WorkspaceImportId,
 };
 #[cfg(feature = "postgres")]
 use question_model::{FeedbackContent, envelope::ContentBlock};
@@ -66,7 +67,7 @@ use crate::statistics::derive_statistics_contributions;
 #[cfg(feature = "postgres")]
 use crate::{
     ActivityTransition, AssetDeliveryRecord, AssetDeliveryScope, AssignmentDefinitionDisposition,
-    AssignmentPolicyExceptionTarget, AssignmentRecord, AssignmentRevision, AssignmentUpdate,
+    AssignmentEditorUpdate, AssignmentPolicyExceptionTarget, AssignmentRecord, AssignmentRevision,
     AttemptFeedbackRecord, AttemptSupportAction, AttemptSupportActionId, AttemptSupportRecord,
     ClearAttemptCommand, CourseGroupRecord, CourseGroupRevision, CourseListScope, CourseRecord,
     CourseRecordsAccessStore, CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState,

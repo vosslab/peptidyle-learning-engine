@@ -30,9 +30,10 @@ import {
   CourseAppearanceFileError,
   WorkspaceConflictError,
 } from "../http_client";
-import { catalogSearchPath } from "../catalog_query";
+import { catalogProblemReferencePath, catalogSearchPath } from "../catalog_query";
 import {
   decodeCatalogProblemDetail,
+  decodeCatalogProblemSummary,
   decodeCatalogSearchPage,
   decodeCourseAppearance,
   decodeCourseBannerCandidateReceipt,
@@ -99,7 +100,7 @@ async function decodeMockCatalogResponse<T>(
 ): Promise<T> {
   const response = await responsePromise;
   if (!response.ok) {
-    throw new Error(`Mock API request ${path} failed with status ${response.status}`);
+    throw new ApiRequestError(response.status, path);
   }
   const body = await response.text();
   let value: unknown;
@@ -471,6 +472,12 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
     searchCatalog: (query): Promise<CatalogSearchPage> => {
       const path = catalogSearchPath(query);
       return decodeMockCatalogResponse(mockFetch(path), path, decodeCatalogSearchPage);
+    },
+    resolveCatalogProblem: (displayReference) => {
+      const path = catalogProblemReferencePath(displayReference);
+      return decodeMockCatalogResponse(mockFetch(path), path, (value, decoderPath) =>
+        decodeCatalogProblemSummary(value, decoderPath, true),
+      );
     },
     getCatalogProblemDetail: (
       problemId: ProblemId,

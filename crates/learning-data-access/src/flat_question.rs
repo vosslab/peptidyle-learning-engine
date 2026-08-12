@@ -368,7 +368,7 @@ mod tests {
 
     use crate::StoreError;
 
-    const FIXTURE: &str = r#"{"format":"pleFlatQuestion","version":1,"kind":"singleChoice","title":"Favorite color","prompt":"What is my favorite color?","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"blue","points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"license":{"kind":"cc0"},"language":"en-US"}"#;
+    const FIXTURE: &str = r#"{"format":"pleFlatQuestion","version":2,"title":"Favorite color","prompt":"What is my favorite color?","response":{"kind":"singleChoice","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"blue"},"points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"license":{"kind":"cc0"},"language":"en-US"}"#;
 
     fn private() -> grading::flat_question::FlatQuestionPrivate {
         adapter_native::flat_question::FlatQuestionDocument::parse(FIXTURE.as_bytes())
@@ -392,7 +392,7 @@ mod tests {
             workspace: workspace(),
             prompt: vec![],
             source: DraftQuestionSource::Native {
-                family: "flat_single_choice_v1".to_string(),
+                family: "flat_single_choice_v2".to_string(),
             },
             response: ResponseDefinition::ExternalTool {},
             grading: GradingDefinition::AllOrNothing { points: 1.0 },
@@ -468,7 +468,7 @@ mod tests {
             tenant(),
             workspace(),
             WorkspaceDraftRevision::INITIAL,
-            "flat_single_choice_v1".to_string(),
+            "flat_single_choice_v2".to_string(),
             record,
             "a".repeat(64),
             "b".repeat(64),
@@ -502,7 +502,7 @@ mod tests {
                 tenant(),
                 workspace(),
                 WorkspaceDraftRevision::INITIAL,
-                "flat_single_choice_v1".to_string(),
+                "flat_single_choice_v2".to_string(),
                 record,
                 "a".repeat(64),
                 "b".repeat(64),

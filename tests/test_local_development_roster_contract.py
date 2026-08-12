@@ -8,14 +8,15 @@ import file_utils
 
 
 REPO_ROOT = pathlib.Path(file_utils.get_repo_root())
-MIGRATION = REPO_ROOT / "schemas/migrations/2026080913_local_development_roster.sql"
+MIGRATION = REPO_ROOT / "schemas/migrations/2026080909_passwordless_identity.sql"
 
 
 #============================================
 def test_local_development_roster_rows_have_no_email_or_canonical_roster_key() -> None:
 	"""Keep the pilot-only roster source structurally distinct from invitations."""
 	migration = MIGRATION.read_text()
-	assert "source IN ('invitation', 'local_development', 'legacy')" in migration
+	assert "source IN ('invitation', 'local_development')" in migration
+	assert "'legacy'" not in migration
 	assert "source = 'local_development'" in migration
 	for column in (
 		"roster_email_normalized IS NULL",
@@ -23,4 +24,3 @@ def test_local_development_roster_rows_have_no_email_or_canonical_roster_key() -
 		"roster_id IS NULL",
 	):
 		assert column in migration
-	assert "canonical account" in migration

@@ -86,7 +86,7 @@ where
         .await
         .expect("run fixture course");
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,

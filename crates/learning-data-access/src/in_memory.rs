@@ -79,8 +79,8 @@ use crate::statistics::{StatisticsContribution, derive_statistics_contributions}
 use crate::{
     AccountRecord, AccountSessionRecord, AccountSessionTokenHash, ActivityTransition,
     AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssignmentDefinitionDisposition,
-    AssignmentPolicyException, AssignmentPolicyExceptionTarget, AssignmentRecord,
-    AssignmentRevision, AssignmentUpdate, AttemptSupportAction, AttemptSupportActionId,
+    AssignmentEditorUpdate, AssignmentPolicyException, AssignmentPolicyExceptionTarget,
+    AssignmentRecord, AssignmentRevision, AttemptSupportAction, AttemptSupportActionId,
     AttemptSupportRecord, AuthenticationRateLimitKey, AuthenticationRateLimitScope,
     CatalogSourceStore, CatalogStore, CatalogTransition, ClearAttemptCommand,
     CourseEnrollmentPolicy, CourseGroupRecord, CourseGroupRevision, CourseInvitationId,

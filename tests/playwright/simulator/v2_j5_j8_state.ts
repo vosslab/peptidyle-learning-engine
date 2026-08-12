@@ -23,7 +23,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const CODES = {
   J11: ["visible_course_created", "visible_course_opened"],
   J12: ["visible_local_student_active"],
-  J13: ["visible_assignment_created", "visible_catalog_problem_selected", "visible_mastery_policy"],
+  J13: [
+    "visible_assignment_created",
+    "visible_catalog_problem_selected",
+    "visible_four_question_chapter_one_selection",
+    "visible_mastery_policy",
+  ],
   J1: ["visible_feedback", "visible_response", "visible_retry", "visible_submit"],
   J2: ["visible_completion", "visible_feedback", "visible_fresh_practice", "visible_submit"],
   J3: ["visible_controls_cleared", "visible_leave", "visible_resume", "visible_start"],
@@ -42,8 +47,7 @@ interface V2Fragment {
   readonly elapsedMs: number;
   readonly courseId: string;
   readonly assignmentId?: string;
-  readonly problemId?: string;
-  readonly versionId?: string;
+  readonly selectedDisplayIds?: readonly [string, string, string, string];
   readonly visibleOutcomeCodes: readonly string[];
   readonly diagnostics: readonly [];
 }
@@ -269,15 +273,8 @@ function parseFragment(
   }
   if (typeof assignmentId !== "string" || !UUID.test(assignmentId)) return undefined;
   if (journey === "J13") {
-    const problemId = own(record, "problemId");
-    const versionId = own(record, "versionId");
-    if (
-      typeof problemId !== "string" ||
-      !UUID.test(problemId) ||
-      typeof versionId !== "string" ||
-      !UUID.test(versionId)
-    )
-      return undefined;
+    const selectedDisplayIds = own(record, "selectedDisplayIds");
+    if (!validSelectedDisplayIds(selectedDisplayIds)) return undefined;
     return {
       schemaVersion: 2,
       journey,
@@ -285,8 +282,7 @@ function parseFragment(
       elapsedMs,
       courseId,
       assignmentId,
-      problemId,
-      versionId,
+      selectedDisplayIds,
       visibleOutcomeCodes: CODES[journey],
       diagnostics: [],
     };
@@ -321,17 +317,21 @@ function writeAppend(descriptor: number, values: readonly unknown[]): void {
 function keysFor(journey: PrefixJourney | "J5"): readonly string[] {
   const base = ["schemaVersion", "journey", "status", "elapsedMs", "courseId"];
   if (journey === "J13")
-    return [
-      ...base,
-      "assignmentId",
-      "problemId",
-      "versionId",
-      "visibleOutcomeCodes",
-      "diagnostics",
-    ];
+    return [...base, "assignmentId", "selectedDisplayIds", "visibleOutcomeCodes", "diagnostics"];
   if (journey === "J11" || journey === "J12")
     return [...base, "visibleOutcomeCodes", "diagnostics"];
   return [...base, "assignmentId", "visibleOutcomeCodes", "diagnostics"];
+}
+
+function validSelectedDisplayIds(
+  value: unknown,
+): value is readonly [string, string, string, string] {
+  return (
+    Array.isArray(value) &&
+    value.length === 4 &&
+    value.every((id) => typeof id === "string" && /^P-[1-9][0-9]*-v[1-9][0-9]*$/u.test(id)) &&
+    new Set(value).size === 4
+  );
 }
 
 function isExactDataObject(value: unknown, expected: readonly string[]): value is object {

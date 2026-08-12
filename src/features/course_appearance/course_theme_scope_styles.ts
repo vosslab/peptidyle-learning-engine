@@ -2,24 +2,23 @@
 
 export const COURSE_THEME_SCOPE_STYLES = `
 .course-theme-scope {
-  min-height: calc(100vh - 14rem);
-  padding: clamp(1rem, 3vw, 2rem);
-  border-radius: 1.2rem;
+  padding: clamp(0.75rem, 2vw, 1.25rem);
+  border-radius: var(--ple-radius-surface, 0.625rem);
   background:
     linear-gradient(
         90deg,
         var(--ple-theme-secondary) 0 68%,
         var(--ple-theme-accent) 68% 100%
       )
-      top / 100% 0.5rem no-repeat,
+      top / 100% 0.375rem no-repeat,
     var(--ple-surface);
   color: var(--ple-ink);
 }
 
 @media (max-width: 30rem) {
   .course-theme-scope {
-    padding: 1rem 0.75rem;
-    border-radius: 0.85rem;
+    padding: 0.75rem 0.5rem;
+    border-radius: var(--ple-radius-group, 0.5rem);
   }
 }
 

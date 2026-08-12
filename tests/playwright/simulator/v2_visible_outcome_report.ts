@@ -9,7 +9,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const JOURNEY_CODES = {
   J11: ["visible_course_created", "visible_course_opened"],
   J12: ["visible_local_student_active"],
-  J13: ["visible_assignment_created", "visible_catalog_problem_selected", "visible_mastery_policy"],
+  J13: [
+    "visible_assignment_created",
+    "visible_catalog_problem_selected",
+    "visible_four_question_chapter_one_selection",
+    "visible_mastery_policy",
+  ],
   J1: ["visible_feedback", "visible_response", "visible_retry", "visible_submit"],
   J2: ["visible_completion", "visible_feedback", "visible_fresh_practice", "visible_submit"],
   J3: ["visible_controls_cleared", "visible_leave", "visible_resume", "visible_start"],
@@ -38,8 +43,7 @@ export interface V2JourneyFragment {
   readonly elapsedMs: number;
   readonly courseId: string;
   readonly assignmentId?: string;
-  readonly problemId?: string;
-  readonly versionId?: string;
+  readonly selectedDisplayIds?: readonly [string, string, string, string];
   readonly visibleOutcomeCodes: readonly V2VisibleOutcomeCode[];
   readonly diagnostics: readonly [];
 }
@@ -72,7 +76,7 @@ interface PublicV2Report {
   readonly masterSeed: number;
   readonly stage: "complete";
   readonly elapsedMs: number;
-  readonly arrangements: readonly [{ readonly label: "api-retry-corpus-publication" }];
+  readonly arrangements: readonly [{ readonly label: "launcher-chapter-one-genetics" }];
   readonly journeys: readonly PublicJourneyRow[];
 }
 
@@ -167,7 +171,7 @@ export function renderV2VisibleOutcomeReport(
     masterSeed,
     stage: "complete",
     elapsedMs,
-    arrangements: [{ label: "api-retry-corpus-publication" }],
+    arrangements: [{ label: "launcher-chapter-one-genetics" }],
     journeys,
   };
   const rendered = JSON.stringify(report) + "\n";
@@ -196,11 +200,9 @@ function parseFragment(value: unknown, journey: V2Journey): V2JourneyFragment | 
 
   if (journey === "J13") {
     const assignmentId = ownValue(value, "assignmentId");
-    const problemId = ownValue(value, "problemId");
-    const versionId = ownValue(value, "versionId");
-    if (!validUuid(assignmentId) || !validUuid(problemId) || !validUuid(versionId))
-      return undefined;
-    return createFragment(journey, elapsedMs, courseId, assignmentId, problemId, versionId);
+    const selectedDisplayIds = ownValue(value, "selectedDisplayIds");
+    if (!validUuid(assignmentId) || !validSelectedDisplayIds(selectedDisplayIds)) return undefined;
+    return createFragment(journey, elapsedMs, courseId, assignmentId, selectedDisplayIds);
   }
   if (journey === "J11" || journey === "J12") return createFragment(journey, elapsedMs, courseId);
   const assignmentId = ownValue(value, "assignmentId");
@@ -213,8 +215,7 @@ function createFragment(
   elapsedMs: number,
   courseId: string,
   assignmentId?: string,
-  problemId?: string,
-  versionId?: string,
+  selectedDisplayIds?: readonly [string, string, string, string],
 ): V2JourneyFragment {
   const base = {
     schemaVersion: 2 as const,
@@ -225,13 +226,8 @@ function createFragment(
     visibleOutcomeCodes: JOURNEY_CODES[journey],
     diagnostics: [] as const,
   };
-  if (
-    journey === "J13" &&
-    assignmentId !== undefined &&
-    problemId !== undefined &&
-    versionId !== undefined
-  ) {
-    return { ...base, assignmentId, problemId, versionId };
+  if (journey === "J13" && assignmentId !== undefined && selectedDisplayIds !== undefined) {
+    return { ...base, assignmentId, selectedDisplayIds };
   }
   if (assignmentId !== undefined) return { ...base, assignmentId };
   return base;
@@ -240,17 +236,21 @@ function createFragment(
 function keysForJourney(journey: V2Journey): readonly string[] {
   const base = ["schemaVersion", "journey", "status", "elapsedMs", "courseId"];
   if (journey === "J13")
-    return [
-      ...base,
-      "assignmentId",
-      "problemId",
-      "versionId",
-      "visibleOutcomeCodes",
-      "diagnostics",
-    ];
+    return [...base, "assignmentId", "selectedDisplayIds", "visibleOutcomeCodes", "diagnostics"];
   if (journey === "J11" || journey === "J12")
     return [...base, "visibleOutcomeCodes", "diagnostics"];
   return [...base, "assignmentId", "visibleOutcomeCodes", "diagnostics"];
+}
+
+function validSelectedDisplayIds(
+  value: unknown,
+): value is readonly [string, string, string, string] {
+  return (
+    Array.isArray(value) &&
+    value.length === 4 &&
+    value.every((id) => typeof id === "string" && /^P-[1-9][0-9]*-v[1-9][0-9]*$/u.test(id)) &&
+    new Set(value).size === 4
+  );
 }
 
 function matchesPublicBindings(fragments: readonly V2JourneyFragment[]): boolean {

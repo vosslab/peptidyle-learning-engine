@@ -75,7 +75,7 @@ pub(super) async fn exercise_scoring_generation(
     let mut items = assignment.items;
     items[0].points_possible = PointValue::from_whole(2);
     let changed = store
-        .replace_assignment(
+        .replace_assignment_preserving_timing(
             context,
             ids.course,
             ids.assignment,
@@ -125,7 +125,7 @@ pub(super) async fn exercise_scoring_generation(
     let mut superseding_items = changed.record.items.clone();
     superseding_items[0].points_possible = PointValue::from_whole(3);
     let superseding = store
-        .replace_assignment(
+        .replace_assignment_preserving_timing(
             context,
             ids.course,
             ids.assignment,
@@ -735,7 +735,7 @@ pub(super) async fn recalculate_seed_item(
     items[0].points_possible = points;
     items[0].scoring_mode = mode;
     let changed = store
-        .replace_assignment(
+        .replace_assignment_preserving_timing(
             context,
             ids.course,
             ids.assignment,

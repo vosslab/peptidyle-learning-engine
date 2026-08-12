@@ -51,12 +51,10 @@ const CANVAS_ITEM: &str =
     include_str!("../../adapters/qti/tests/fixtures/profiles/canvas_positive_item.xml");
 const EXISTING_SOURCE: &str = r#"{
   "format":"pleFlatQuestion",
-  "version":1,
-  "kind":"singleChoice",
+  "version":2,
   "title":"Existing author draft",
   "prompt":"Which draft existed before the import?",
-  "choices":[{"id":"first","text":"First"},{"id":"second","text":"Second"}],
-  "correctChoice":"first",
+  "response":{"kind":"singleChoice","choices":[{"id":"first","text":"First"},{"id":"second","text":"Second"}],"correctChoice":"first"},
   "feedback":{},
   "points":1.0,
   "attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},

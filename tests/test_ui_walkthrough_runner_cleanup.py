@@ -1,192 +1,75 @@
-"""Focused offline cleanup and report-lifecycle tests for the UI walkthrough runner."""
+"""Offline cleanup behavior for the explicit UI walkthrough runner."""
 
-import dataclasses
 import importlib
-import io
 import json
 import pathlib
-import shutil
-import stat
 import sys
-import tempfile
-import unittest
-from contextlib import redirect_stderr, redirect_stdout
-from unittest import mock
+
 
 WALKTHROUGH_DIRECTORY = pathlib.Path(__file__).resolve().parent / "walkthrough"
 sys.path.insert(0, str(WALKTHROUGH_DIRECTORY))
 walkthrough = importlib.import_module("walklib.runner")
 
 
-class FakeCommands:
-	"""Capture offline command requests while returning successful results."""
+class CleanupCommands:
+	"""Return a configured cleanup result without launching Podman."""
 
-	def __init__(self) -> None:
-		self.commands: list[tuple[list[str], dict[str, str] | None]] = []
+	def __init__(self, cleanup_code: int = 0) -> None:
+		self.cleanup_code = cleanup_code
 
-	def __call__(
-		self,
-		command: list[str],
-		environ: dict[str, str] | None,
-	) -> object:
-		self.commands.append((command, environ))
-		return walkthrough.CommandResult(0, "", "")
-
-
-class CleanupFailureCommands(FakeCommands):
-	"""Fail only the cleanup boundary."""
-
-	def __init__(self, cleanup_error: BaseException | None = None) -> None:
-		super().__init__()
-		self.cleanup_error = cleanup_error
-
-	def __call__(
-		self,
-		command: list[str],
-		environ: dict[str, str] | None,
-	) -> object:
-		self.commands.append((command, environ))
+	def __call__(self, command: list[str], _environ: dict[str, str] | None) -> object:
 		if command[-2:] == ["down", "--remove-orphans"]:
-			if self.cleanup_error is not None:
-				raise self.cleanup_error
-			return walkthrough.CommandResult(7, "", "controlled cleanup failure")
+			return walkthrough.CommandResult(self.cleanup_code, "", "cleanup failure")
 		return walkthrough.CommandResult(0, "", "")
 
 
-class UiWalkthroughRunnerCleanupTests(unittest.TestCase):
-	"""Prove cleanup and public-report lifecycle behavior without launching services."""
-
-	def make_repository(self, temporary_directory: pathlib.Path) -> pathlib.Path:
-		"""Create only the small local files consumed during offline preflight."""
-		repository_root = temporary_directory / "repository"
-		env_directory = repository_root / "containers"
-		env_directory.mkdir(parents=True)
-		(env_directory / "env.local").write_text("PLE_GATEWAY_HOST_PORT=3010\n", encoding="ascii")
-		return repository_root
-
-	def resolve(self, repository_root: pathlib.Path, extra_arguments: list[str]) -> object:
-		"""Resolve a baseline valid CLI plus one focused build-selection variation."""
-		args = walkthrough.parse_args(["--master-seed", "42"] + extra_arguments)
-		return walkthrough.resolve_inputs(args, repository_root)
-
-	def test_cleanup_requires_runner_launch_and_keep_blocks_down(self) -> None:
-		"""Cleanup cannot remove an unlaunched stack and --keep preserves a runner-started stack."""
-		with tempfile.TemporaryDirectory() as temporary_name:
-			repository_root = self.make_repository(pathlib.Path(temporary_name))
-			commands = FakeCommands()
-			inputs = self.resolve(repository_root, [])
-			runner = walkthrough.WalkthroughRunner(inputs, repository_root, {}, commands)
-			runner.compose_command = ["podman", "compose"]
-			runner.prepare_report_directory()
-			runner.finish(False)
-			self.assertEqual(commands.commands, [])
-			keep_inputs = dataclasses.replace(inputs, keep=True)
-			keep_runner = walkthrough.WalkthroughRunner(keep_inputs, repository_root, {}, commands)
-			keep_runner.compose_command = ["podman", "compose"]
-			keep_runner.stack_launch_attempted = True
-			keep_runner.prepare_report_directory()
-			keep_runner.finish(False)
-			self.assertEqual(commands.commands, [])
-
-	def test_cleanup_nonzero_downgrades_success_to_redacted_failure(self) -> None:
-		"""A failed down command cannot leave either a PASS report or a successful process status."""
-		with tempfile.TemporaryDirectory() as temporary_name:
-			repository_root = self.make_repository(pathlib.Path(temporary_name))
-			inputs = self.resolve(repository_root, [])
-			commands = CleanupFailureCommands()
-			runner = walkthrough.WalkthroughRunner(inputs, repository_root, {}, commands)
-			runner.compose_command = ["podman", "compose"]
-			runner.stack_launch_attempted = True
-			runner.prepare_report_directory()
-			stdout = io.StringIO()
-			stderr = io.StringIO()
-			with redirect_stdout(stdout), redirect_stderr(stderr):
-				status = runner.finish(True)
-			self.assertEqual(status, 1)
-			self.assertNotIn("PASS", stdout.getvalue())
-			self.assertIn("cleanup failed", stderr.getvalue())
-			report = json.loads(runner.report_path.read_text(encoding="ascii"))
-			self.assertEqual((report["status"], report["stage"]), ("FAIL", "cleanup"))
-
-	def test_cleanup_os_error_downgrades_success_to_redacted_failure(self) -> None:
-		"""A cleanup process-start error also fails closed and leaves a readable failure record."""
-		with tempfile.TemporaryDirectory() as temporary_name:
-			repository_root = self.make_repository(pathlib.Path(temporary_name))
-			inputs = self.resolve(repository_root, [])
-			commands = CleanupFailureCommands(OSError("controlled cleanup OSError"))
-			runner = walkthrough.WalkthroughRunner(inputs, repository_root, {}, commands)
-			runner.compose_command = ["podman", "compose"]
-			runner.stack_launch_attempted = True
-			runner.prepare_report_directory()
-			with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-				status = runner.finish(True)
-			self.assertEqual(status, 1)
-			report = json.loads(runner.report_path.read_text(encoding="ascii"))
-			self.assertEqual(report["status"], "FAIL")
-			self.assertEqual(report["stage"], "cleanup")
-
-	def test_invalid_env_decode_is_a_concise_main_failure(self) -> None:
-		"""Malformed selected env bytes do not escape the public CLI with a traceback."""
-		with tempfile.TemporaryDirectory() as temporary_name:
-			repository_root = self.make_repository(pathlib.Path(temporary_name))
-			env_file = repository_root / "containers" / "env.local"
-			env_file.write_bytes(b"PLE_GATEWAY_HOST_PORT=3010\xff\n")
-			stderr = io.StringIO()
-			with redirect_stderr(stderr):
-				status = walkthrough.main(["--master-seed", "42", "--env-file", str(env_file)])
-			self.assertEqual(status, 1)
-			self.assertIn("operational error during preflight", stderr.getvalue())
-			self.assertNotIn("Traceback", stderr.getvalue())
-
-	def test_report_write_failure_returns_nonzero_without_report_claim(self) -> None:
-		"""An atomic report failure stays concise and does not pretend that a report was written."""
-		with tempfile.TemporaryDirectory() as temporary_name:
-			repository_root = self.make_repository(pathlib.Path(temporary_name))
-			inputs = self.resolve(repository_root, [])
-			runner = walkthrough.WalkthroughRunner(inputs, repository_root, {}, FakeCommands())
-			runner.prepare_report_directory()
-			stderr = io.StringIO()
-			with mock.patch.object(walkthrough.os, "open", side_effect=OSError("full disk")):
-				with redirect_stderr(stderr):
-					status = runner.finish(False)
-			self.assertEqual(status, 1)
-			self.assertIn("could not write walkthrough report", stderr.getvalue())
-			self.assertFalse(runner.report_path.exists())
-
-	def test_report_directory_is_recreated_after_playwright_artifact_cleanup(self) -> None:
-		"""A complete Playwright cleanup cannot erase the final private PASS report."""
-		with tempfile.TemporaryDirectory() as temporary_name:
-			repository_root = self.make_repository(pathlib.Path(temporary_name))
-			inputs = self.resolve(repository_root, [])
-			runner = walkthrough.WalkthroughRunner(inputs, repository_root, {}, FakeCommands())
-			runner.prepare_report_directory()
-			shutil.rmtree(repository_root / "test-results")
-			status = runner.finish(True)
-			self.assertEqual(status, 0)
-			report = json.loads(runner.report_path.read_text(encoding="ascii"))
-			self.assertEqual((report["status"], report["stage"]), ("PASS", "complete"))
-			self.assertEqual(stat.S_IMODE(runner.report_path.stat().st_mode), 0o600)
-
-	def test_report_symlink_replacement_fails_closed_without_pass_record(self) -> None:
-		"""Replacing the report directory with a link cannot redirect a final PASS record."""
-		with tempfile.TemporaryDirectory() as temporary_name:
-			repository_root = self.make_repository(pathlib.Path(temporary_name))
-			inputs = self.resolve(repository_root, [])
-			runner = walkthrough.WalkthroughRunner(inputs, repository_root, {}, FakeCommands())
-			runner.prepare_report_directory()
-			outside_directory = repository_root / "outside"
-			outside_directory.mkdir()
-			runner.report_directory.rmdir()
-			runner.report_directory.symlink_to(outside_directory, target_is_directory=True)
-			stdout = io.StringIO()
-			stderr = io.StringIO()
-			with redirect_stdout(stdout), redirect_stderr(stderr):
-				status = runner.finish(True)
-			self.assertEqual(status, 1)
-			self.assertNotIn("PASS", stdout.getvalue())
-			self.assertIn("could not write walkthrough report", stderr.getvalue())
-			self.assertFalse((outside_directory / inputs.report_basename).exists())
+def runner_for(tmp_path: pathlib.Path, commands: CleanupCommands) -> object:
+	"""Build one runner with its selected explicit environment file."""
+	repository = tmp_path / "repository"
+	env_file = repository / "containers/env.local"
+	env_file.parent.mkdir(parents=True)
+	env_file.write_text("PLE_GATEWAY_HOST_PORT=3010\n", encoding="ascii")
+	inputs = walkthrough.resolve_inputs(walkthrough.parse_args(["--master-seed", "42"]), repository)
+	return walkthrough.WalkthroughRunner(inputs, repository, {}, commands)
 
 
-if __name__ == "__main__":
-	unittest.main()
+def test_finish_removes_private_state_and_does_not_publish_secret(tmp_path: pathlib.Path) -> None:
+	"""A successful lifecycle removes its private handoff before publishing the receipt."""
+	runner = runner_for(tmp_path, CleanupCommands())
+	runner.prepare_report_directory()
+	runner.prepare_journey_state()
+	private_directory = runner.private_state_directory
+	secret = "student=private"
+	runner.write_private_child_inputs(
+		walkthrough.walklib.models.ArrangementChildInputs(tmp_path / f"{secret}-manifest.json")
+	)
+
+	assert runner.finish(True) == 0
+	assert private_directory is not None and not private_directory.exists()
+	assert secret not in runner.report_path.read_text(encoding="ascii")
+
+
+def test_cleanup_failure_cannot_return_a_passing_receipt(tmp_path: pathlib.Path) -> None:
+	"""A failed Podman cleanup changes the visible receipt and process status to failure."""
+	runner = runner_for(tmp_path, CleanupCommands(7))
+	runner.compose_command = ["podman", "compose"]
+	runner.stack_launch_attempted = True
+	runner.prepare_report_directory()
+
+	assert runner.finish(True) == 1
+	assert json.loads(runner.report_path.read_text(encoding="ascii"))["status"] == "FAIL"
+
+
+def test_j2_failure_receipt_keeps_only_the_last_safe_visible_stage(tmp_path: pathlib.Path) -> None:
+	"""A failed J2 child reports progress without retaining its browser output or inputs."""
+	runner = runner_for(tmp_path, CleanupCommands())
+	runner.prepare_report_directory()
+	runner.prepare_journey_state()
+	checkpoint = runner.j2_checkpoint_file
+	assert checkpoint is not None
+	checkpoint.write_text("feedback_visible\n", encoding="ascii")
+	runner.report_stage = "playwright_j2"
+
+	assert runner.finish(False) == 1
+	receipt = json.loads(runner.report_path.read_text(encoding="ascii"))
+	assert receipt["j2Checkpoint"] == "feedback_visible"

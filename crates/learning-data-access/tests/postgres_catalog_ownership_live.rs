@@ -14,8 +14,9 @@ use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy
 use question_model::taxonomy::{License, Tag};
 use question_model::{
     BackendCapabilities, Capability, CatalogLifecycle, DraftQuestionDefinition,
-    DraftQuestionSource, GradingDefinition, ProblemId, ProblemVersionRef, PublicationScope,
-    QuestionMetadata, QuestionSource, ResponseDefinition, TenantId, UserId, VersionId, WorkspaceId,
+    DraftQuestionSource, GradingDefinition, ProblemDisplayRef, ProblemId, ProblemVersionRef,
+    PublicationScope, QuestionMetadata, QuestionSource, ResponseDefinition, TenantId, UserId,
+    VersionId, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -79,6 +80,28 @@ fn publication(
         },
         publisher,
         scope: PublicationScope::Public,
+        source_artifact: None,
+        qti_promotion: None,
+        flat_question_promotion: None,
+        capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
+    }
+}
+
+fn institution_publication(
+    draft: DraftRecord,
+    revision: learning_data_access::WorkspaceDraftRevision,
+    reference: ProblemVersionRef,
+    publisher: UserId,
+) -> PublishDraftCommand {
+    PublishDraftCommand {
+        expected_draft: draft,
+        expected_revision: revision,
+        publication: reference,
+        published_source: QuestionSource::Native {
+            family: "molar_mass".to_string(),
+        },
+        publisher,
+        scope: PublicationScope::Institution,
         source_artifact: None,
         qti_promotion: None,
         flat_question_promotion: None,
@@ -302,4 +325,60 @@ async fn postgres_public_catalog_writes_require_owner_tenant() {
         archived.lifecycle,
         CatalogLifecycle::Archived { .. }
     ));
+}
+
+#[tokio::test]
+#[ignore = "requires the disposable PostgreSQL acceptance database"]
+async fn postgres_catalog_resolver_hides_foreign_institution_exact_reference() {
+    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
+        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
+    let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    verify_application_schema(&pool)
+        .await
+        .expect("live PostgreSQL schema compatibility");
+    let store = PostgresStore::new(pool);
+    let owner_tenant = TenantId::from_uuid(id());
+    let foreign_tenant = TenantId::from_uuid(id());
+    let owner_context = TenantContext::from_authenticated_session(owner_tenant);
+    let foreign_context = TenantContext::from_authenticated_session(foreign_tenant);
+    let publisher = UserId::from_uuid(id());
+    let reference = ProblemVersionRef {
+        problem: ProblemId::from_uuid(id()),
+        version: VersionId::from_uuid(id()),
+    };
+    let owner_draft = draft(owner_tenant, WorkspaceId::from_uuid(id()), None);
+    let saved_owner = store
+        .upsert_draft(owner_context, publisher, None, owner_draft.clone())
+        .await
+        .expect("save institution-only draft");
+    let published = store
+        .publish_draft(
+            owner_context,
+            publisher,
+            institution_publication(owner_draft, saved_owner.revision, reference, publisher),
+        )
+        .await
+        .expect("publish institution-only problem");
+    let display_reference = ProblemDisplayRef {
+        problem: published.public_id,
+        version: Some(published.version_number),
+    };
+
+    assert_eq!(
+        store
+            .resolve_catalog_problem(owner_context, display_reference)
+            .await
+            .expect("owner exact human ID lookup should run")
+            .map(|record| (record.problem, record.version)),
+        Some((reference.problem, reference.version)),
+        "the exact P-n-vn reference resolves the published immutable version"
+    );
+    assert_eq!(
+        store
+            .resolve_catalog_problem(foreign_context, display_reference)
+            .await
+            .expect("foreign exact human ID lookup should run"),
+        None,
+        "a foreign tenant must not discover institution-only content through P-n-vn"
+    );
 }

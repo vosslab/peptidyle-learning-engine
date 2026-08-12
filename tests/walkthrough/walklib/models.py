@@ -20,6 +20,33 @@ class RunnerInputs:
 	force_build: bool
 	instructor_setup_only: bool
 	student_repeat_only: bool
+	screenshot_directory: pathlib.Path | None = None
+
+
+@dataclasses.dataclass(frozen=True)
+class ArrangementChildInputs:
+	"""Minimal private handoff for the manifest-only Node arrangement child."""
+
+	chapter_one_manifest_file: pathlib.Path
+
+
+@dataclasses.dataclass(frozen=True)
+class WalkthroughChildInputs:
+	"""Versioned private values passed explicitly to fixed walkthrough children."""
+
+	stage: str
+	base_url: str
+	master_seed: int
+	credential_file: pathlib.Path
+	journey_state_file: pathlib.Path | None = None
+	learner_alias_file: pathlib.Path | None = None
+	instructor_setup_checkpoint_file: pathlib.Path | None = None
+	j1_checkpoint_file: pathlib.Path | None = None
+	j2_checkpoint_file: pathlib.Path | None = None
+	catalog_display_ids: tuple[str, str, str, str] | None = None
+	course_id: str | None = None
+	mastery_assignment_id: str | None = None
+	screenshot_directory: pathlib.Path | None = None
 
 
 @dataclasses.dataclass(frozen=True)

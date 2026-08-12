@@ -293,17 +293,35 @@ pub trait Store:
         CourseStore::get_course_group_impl(self, context, group).await
     }
 
-    /// Delegates to the focused [`CourseAssignmentStore`] capability.
-    async fn create_assignment(
+    /// Creates a non-editor assignment with the internal explicit Untimed
+    /// policy. This method is not used by the browser editor contract.
+    async fn create_untimed_assignment(
         &self,
         context: TenantContext,
         assignment: AssignmentRecord,
     ) -> Result<StoredAssignment, StoreError> {
-        CourseAssignmentStore::create_assignment_impl(self, context, assignment).await
+        CourseAssignmentStore::create_untimed_assignment_impl(self, context, assignment).await
     }
 
-    /// Delegates to the focused [`CourseAssignmentStore`] capability.
-    async fn replace_assignment(
+    /// Atomically creates an assignment and its editor-owned run timing.
+    async fn create_assignment_with_timing(
+        &self,
+        context: TenantContext,
+        assignment: AssignmentRecord,
+        assignment_timing: question_model::AssignmentRunTiming,
+    ) -> Result<StoredAssignment, StoreError> {
+        CourseAssignmentStore::create_assignment_with_timing_impl(
+            self,
+            context,
+            assignment,
+            assignment_timing,
+        )
+        .await
+    }
+
+    /// Replaces non-timing fields while retaining the stored timer in internal
+    /// workflows that do not own timing.
+    async fn replace_assignment_preserving_timing(
         &self,
         context: TenantContext,
         course: CourseId,
@@ -311,7 +329,27 @@ pub trait Store:
         expected_revision: AssignmentRevision,
         update: AssignmentUpdate,
     ) -> Result<StoredAssignment, StoreError> {
-        CourseAssignmentStore::replace_assignment_impl(
+        CourseAssignmentStore::replace_assignment_preserving_timing_impl(
+            self,
+            context,
+            course,
+            assignment,
+            expected_revision,
+            update,
+        )
+        .await
+    }
+
+    /// Atomically replaces an assignment definition and its run timing.
+    async fn replace_assignment_with_timing(
+        &self,
+        context: TenantContext,
+        course: CourseId,
+        assignment: AssignmentId,
+        expected_revision: AssignmentRevision,
+        update: AssignmentEditorUpdate,
+    ) -> Result<StoredAssignment, StoreError> {
+        CourseAssignmentStore::replace_assignment_with_timing_impl(
             self,
             context,
             course,

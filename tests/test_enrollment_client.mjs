@@ -112,6 +112,32 @@ test("passwordless and roster decoders reject authority and secret fields", () =
   );
 });
 
+test("roster decoder rejects retired member provenance", () => {
+  assert.throws(
+    () =>
+      decodeCourseRosterPage({
+        members: [
+          {
+            memberId: "0198e000-0000-7000-8000-000000000602",
+            displayName: "Student",
+            rosterEmail: null,
+            rosterId: null,
+            source: "legacy",
+            role: "student",
+            status: "active",
+          },
+        ],
+        pendingInvitations: [],
+        allowedEmailDomains: [],
+        signupPosture: "invitationOnly",
+        localDevelopmentRoster: false,
+        nextCursor: null,
+        rosterRevision: 4,
+      }),
+    /response/u,
+  );
+});
+
 test("local-development roster enrollment stays capability-gated and alias-only", async () => {
   const requests = [];
   const client = createHttpApiClient({

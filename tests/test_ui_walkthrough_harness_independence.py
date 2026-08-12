@@ -9,7 +9,15 @@ SIMULATOR_DIRECTORY = REPOSITORY_ROOT / "tests" / "playwright" / "simulator"
 E2E_DIRECTORY = REPOSITORY_ROOT / "tests" / "e2e"
 KEYBOARD_JOURNEY_GLOB = "ui_walkthrough_keyboard_j*.spec.ts"
 PLATFORM_JOURNEYS = {f"ui_walkthrough_keyboard_j{number}.spec.ts" for number in range(1, 6)}
-ALLOWED_PLATFORM_KEYS = {"Tab", "Shift+Tab", "Space", "Enter"}
+STUDENT_PLATFORM_KEYS = {"Tab", "Shift+Tab", "Space", "Enter"}
+INSTRUCTOR_PLATFORM_KEYS = STUDENT_PLATFORM_KEYS | {"ControlOrMeta+V"}
+
+
+def allowed_platform_keys(path: pathlib.Path) -> set[str]:
+	"""Return the visible keyboard contract for one role-specific journey."""
+	if path.name == "ui_walkthrough_instructor_setup.spec.ts":
+		return INSTRUCTOR_PLATFORM_KEYS
+	return STUDENT_PLATFORM_KEYS
 
 
 def sources_under(directory: pathlib.Path, suffixes: tuple[str, ...]) -> list[pathlib.Path]:
@@ -45,7 +53,7 @@ def harness_sources(repository_root: pathlib.Path) -> list[pathlib.Path]:
 	)
 	paths.extend((repository_root / "tests" / "playwright").glob(KEYBOARD_JOURNEY_GLOB))
 	paths.append(repository_root / "tests" / "playwright" / "ui_walkthrough_instructor_setup.spec.ts")
-	paths.append(repository_root / "tests" / "playwright" / "ui_walkthrough_live_config.ts")
+	paths.append(repository_root / "tests" / "playwright" / "ui_walkthrough_config_factory.ts")
 	return sorted({path for path in paths if path.is_file()})
 
 
@@ -77,7 +85,7 @@ def residual_member_violations(path: pathlib.Path, source: str) -> list[str]:
 	remaining = remaining.replace("page.goto(\"/\")", "")
 	remaining = remaining.replace("page.goto('/')", "")
 	remaining = remaining.replace("page.goto(`/`)", "")
-	for key in ALLOWED_PLATFORM_KEYS:
+	for key in allowed_platform_keys(path):
 		remaining = remaining.replace(f'page.keyboard.press("{key}")', "")
 		remaining = remaining.replace(f"page.keyboard.press('{key}')", "")
 		remaining = remaining.replace(f"page.keyboard.press(`{key}`)", "")
@@ -93,13 +101,13 @@ def residual_member_violations(path: pathlib.Path, source: str) -> list[str]:
 	return []
 
 
-def has_unapproved_keyboard_press(source: str) -> bool:
+def has_unapproved_keyboard_press(source: str, allowed_keys: set[str]) -> bool:
 	"""Require journey key events to spell one platform-contract key literally."""
 	for match in re.finditer(r"keyboard\.press\s*\(\s*([^)]*)\)", source):
 		argument = match.group(1).strip()
 		if len(argument) < 2 or argument[0] not in "\"'`" or argument[-1] != argument[0]:
 			return True
-		if argument[1:-1] not in ALLOWED_PLATFORM_KEYS:
+		if argument[1:-1] not in allowed_keys:
 			return True
 	return False
 
@@ -130,7 +138,7 @@ def keyboard_violations(path: pathlib.Path, source: str, platform_path: bool) ->
 	):
 		violations.append("converts-hidden-failure-to-pass")
 	if platform_path:
-		if has_unapproved_keyboard_press(source):
+		if has_unapproved_keyboard_press(source, allowed_platform_keys(path)):
 			violations.append("uses-unapproved-platform-key")
 		if has_nonroot_goto(source):
 			violations.append("uses-nonroot-direct-navigation")
@@ -149,7 +157,7 @@ def scan_source(path: pathlib.Path, source: str) -> list[str]:
 	name = path.name
 	if name.startswith("ui_walkthrough_keyboard_j") or name == "ui_walkthrough_instructor_setup.spec.ts":
 		violations.extend(keyboard_violations(path, source, name in PLATFORM_JOURNEYS or name == "ui_walkthrough_instructor_setup.spec.ts"))
-	if name == "keyboard_walkthrough.ts" and has_unapproved_keyboard_press(source):
+	if name == "keyboard_walkthrough.ts" and has_unapproved_keyboard_press(source, STUDENT_PLATFORM_KEYS):
 		violations.append("uses-unapproved-platform-key")
 	return [f"{path.as_posix()}: {violation}" for violation in violations]
 
@@ -240,6 +248,21 @@ await page.evaluate(() => localStorage.getItem("private"));
 		"uses-body-text-assertion",
 		"uses-residual-browser-control-member",
 	} <= {item.rsplit(": ", 1)[1] for item in violations}
+
+
+def test_scanner_allows_clipboard_paste_only_for_visible_instructor_copy_workflow() -> None:
+	"""The instructor may paste a copied public ID; learner controls remain platform-native."""
+	source = 'await page.keyboard.press("ControlOrMeta+V");'
+	instructor_violations = scan_source(
+		pathlib.Path("tests/playwright/ui_walkthrough_instructor_setup.spec.ts"), source
+	)
+	student_violations = scan_source(
+		pathlib.Path("tests/playwright/ui_walkthrough_keyboard_j1.spec.ts"), source
+	)
+	assert instructor_violations == []
+	assert "uses-unapproved-platform-key" in {
+		item.rsplit(": ", 1)[1] for item in student_violations
+	}
 
 
 def test_scanner_rejects_residual_members_aliases_and_body_text() -> None:

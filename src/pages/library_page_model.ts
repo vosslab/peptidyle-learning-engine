@@ -2,6 +2,8 @@
 
 /** A browser-safe, immutable catalog identity. */
 export interface CatalogBrowseRow {
+  /** Copy/paste identity used by instructors; UUID fields remain routing-only. */
+  readonly displayId: string;
   readonly problemId: string;
   readonly versionId: string;
   readonly title: string;
@@ -100,6 +102,7 @@ function decodeRow(value: unknown, path: string): CatalogBrowseRow {
     !isRecord(value) ||
     !hasExactKeys(value, [
       "capabilities",
+      "displayId",
       "license",
       "problemId",
       "summary",
@@ -111,6 +114,7 @@ function decodeRow(value: unknown, path: string): CatalogBrowseRow {
     throw new Error(`${path} has an unexpected shape`);
   }
   return {
+    displayId: boundedText(value["displayId"], `${path}.displayId`),
     problemId: boundedText(value["problemId"], `${path}.problemId`),
     versionId: boundedText(value["versionId"], `${path}.versionId`),
     title: boundedText(value["title"], `${path}.title`),
@@ -384,6 +388,7 @@ export function createSyntheticCatalogRepository(
       const items = Array.from({ length: end - start }, (_, offset) => {
         const number = start + offset + 1;
         return {
+          displayId: `P-${number}-v1`,
           problemId: `problem-${number}`,
           versionId: `version-${number}`,
           title: `Synthetic problem ${number}`,

@@ -131,12 +131,12 @@ fn asset_record(
 }
 
 const FLAT_SOURCE: &str = r#"{
-        "format":"pleFlatQuestion","version":1,"kind":"singleChoice",
+        "format":"pleFlatQuestion","version":2,
         "title":"Favorite color","prompt":"What is my favorite color?",
-        "choices":[
+        "response":{"kind":"singleChoice","choices":[
             {"id":"red","text":"Red","feedback":"Red feedback."},
             {"id":"blue","text":"Blue","feedback":"Blue feedback."}
-        ],"correctChoice":"blue",
+        ],"correctChoice":"blue"},
         "feedback":{"correct":"Correct feedback.","incorrect":"Incorrect feedback."},
         "points":10.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},
         "timingPolicy":{"kind":"untimed"},"license":{"kind":"cc0"},"language":"en-US"
@@ -255,7 +255,7 @@ async fn published_flat_fixture() -> (
                 expected_revision: staged.workspace_revision,
                 publication: reference,
                 published_source: QuestionSource::Native {
-                    family: adapter_native::flat_question::FLAT_SINGLE_CHOICE_FAMILY.to_string(),
+                    family: adapter_native::flat_question::FLAT_SINGLE_CHOICE_V2_FAMILY.to_string(),
                 },
                 source_artifact: Some(artifact),
                 qti_promotion: None,
@@ -275,7 +275,7 @@ async fn published_flat_fixture() -> (
         reference.problem,
         reference.version,
         QuestionSource::Native {
-            family: adapter_native::flat_question::FLAT_SINGLE_CHOICE_FAMILY.to_string(),
+            family: adapter_native::flat_question::FLAT_SINGLE_CHOICE_V2_FAMILY.to_string(),
         },
     );
     let backend = NativeBackend::with_flat_grader(
@@ -348,7 +348,7 @@ async fn flat_run_fixture() -> (Router, String, AssignmentId) {
         .await
         .expect("retry fixture course saves");
     store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,

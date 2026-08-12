@@ -43,7 +43,7 @@ async fn memory_assignment_timing_edits_and_auto_submit_are_generation_fenced() 
     .await;
     let assignment = AssignmentId::from_uuid(uuid(95_020));
     let initial = store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: assignment,
@@ -404,7 +404,7 @@ async fn memory_assignment_timing_edits_and_auto_submit_are_generation_fenced() 
 
     let limited_assignment = AssignmentId::from_uuid(uuid(95_030));
     let limited = store
-        .create_assignment(
+        .create_untimed_assignment(
             context,
             AssignmentRecord {
                 id: limited_assignment,
@@ -518,4 +518,151 @@ async fn memory_assignment_timing_edits_and_auto_submit_are_generation_fenced() 
             .await,
         Err(StoreError::InvalidRecord(_))
     ));
+}
+
+#[tokio::test]
+async fn editor_assignment_timing_replaces_with_one_revision_and_preserves_access_policy() {
+    let store = MemoryStore::default();
+    let tenant = TenantId::from_uuid(uuid(96_000));
+    let context = TenantContext::from_authenticated_session(tenant);
+    let instructor = UserId::from_uuid(uuid(96_001));
+    let course = CourseId::from_uuid(uuid(96_002));
+    store
+        .upsert_course(
+            context,
+            CourseRecord {
+                id: course,
+                tenant,
+                title: "Editor timing course".to_string(),
+                members: vec![CourseMembership {
+                    user: instructor,
+                    role: CourseMembershipRole::Instructor,
+                }],
+            },
+        )
+        .await
+        .expect("course");
+    let reference = publish_assignment_version(
+        &store,
+        context,
+        tenant,
+        instructor,
+        96_010,
+        PublicationScope::Public,
+    )
+    .await;
+    let assignment = AssignmentId::from_uuid(uuid(96_020));
+    let created = store
+        .create_assignment_with_timing(
+            context,
+            AssignmentRecord {
+                id: assignment,
+                tenant,
+                course_id: course,
+                title: "Mastery".to_string(),
+                items: fixed_items(vec![reference]),
+                selection_groups: Vec::new(),
+                policies: policies(),
+            },
+            question_model::AssignmentRunTiming {
+                time_limit_seconds: Some(900),
+            },
+        )
+        .await
+        .expect("timed create");
+    assert_eq!(created.revision.value(), 1);
+    assert_eq!(created.assignment_timing.time_limit_seconds, Some(900));
+
+    let scheduled = store
+        .update_assignment_timing(
+            context,
+            UpdateAssignmentTimingCommand {
+                actor: instructor,
+                course,
+                assignment,
+                expected_revision: created.revision,
+                policy: AssignmentTimingPolicy {
+                    visible: false,
+                    available_at: Some(ActivityTimestamp::from_unix_millis(10_000)),
+                    due_at: Some(ActivityTimestamp::from_unix_millis(20_000)),
+                    closes_at: Some(ActivityTimestamp::from_unix_millis(30_000)),
+                    late_submission: LateSubmissionPolicy::MarkLate,
+                    time_limit_seconds: Some(900),
+                    attempt_limit: Some(2),
+                    deadline_behavior: question_model::AssignmentDeadlineBehavior::AutoSubmit,
+                },
+            },
+        )
+        .await
+        .expect("schedule setup");
+    let replacement = store
+        .replace_assignment_with_timing(
+            context,
+            course,
+            assignment,
+            scheduled.revision,
+            learning_data_access::AssignmentEditorUpdate {
+                assignment: learning_data_access::AssignmentUpdate {
+                    title: "Retimed mastery".to_string(),
+                    items: fixed_items(vec![reference]),
+                    selection_groups: Vec::new(),
+                    policies: policies(),
+                },
+                assignment_timing: question_model::AssignmentRunTiming {
+                    time_limit_seconds: Some(1_200),
+                },
+            },
+        )
+        .await
+        .expect("atomic replacement");
+    assert_eq!(replacement.revision.value(), scheduled.revision.value() + 1);
+    assert_eq!(
+        replacement.assignment_timing.time_limit_seconds,
+        Some(1_200)
+    );
+    let policy = store
+        .get_assignment_timing(context, assignment)
+        .await
+        .expect("timing read")
+        .expect("timing exists");
+    assert_eq!(policy.revision, replacement.revision);
+    assert_eq!(policy.policy.time_limit_seconds, Some(1_200));
+    assert!(!policy.policy.visible);
+    assert_eq!(
+        policy.policy.available_at,
+        Some(ActivityTimestamp::from_unix_millis(10_000))
+    );
+    assert_eq!(
+        policy.policy.due_at,
+        Some(ActivityTimestamp::from_unix_millis(20_000))
+    );
+    assert_eq!(
+        policy.policy.closes_at,
+        Some(ActivityTimestamp::from_unix_millis(30_000))
+    );
+    assert_eq!(
+        policy.policy.late_submission,
+        LateSubmissionPolicy::MarkLate
+    );
+    assert_eq!(policy.policy.attempt_limit, Some(2));
+    assert_eq!(
+        store
+            .replace_assignment_with_timing(
+                context,
+                course,
+                assignment,
+                scheduled.revision,
+                learning_data_access::AssignmentEditorUpdate {
+                    assignment: learning_data_access::AssignmentUpdate {
+                        title: "conflict".to_string(),
+                        items: fixed_items(vec![reference]),
+                        selection_groups: Vec::new(),
+                        policies: policies(),
+                    },
+                    assignment_timing: question_model::AssignmentRunTiming::default(),
+                },
+            )
+            .await,
+        Err(StoreError::Conflict)
+    );
 }

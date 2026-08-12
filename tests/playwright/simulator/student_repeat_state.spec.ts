@@ -51,11 +51,13 @@ function setupPrefix(): InstructorSetupPrefix {
       elapsedMs: 3,
       courseId,
       assignmentId,
+      selectedDisplayIds: ["P-11-v1", "P-12-v1", "P-13-v1", "P-14-v1"],
       problemId,
       versionId,
       visibleOutcomeCodes: [
         "visible_assignment_created",
         "visible_catalog_problem_selected",
+        "visible_four_question_chapter_one_selection",
         "visible_mastery_policy",
       ],
       diagnostics: [],

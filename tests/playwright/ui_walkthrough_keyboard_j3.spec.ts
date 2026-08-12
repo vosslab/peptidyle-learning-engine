@@ -1,35 +1,34 @@
 // ui_walkthrough_keyboard_j3.spec.ts - J3 visible recovery through the platform keyboard path.
 // Selector contract: src/pages/assignment_overview_page.tsx and src/pages/run_page.tsx.
 
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
-import { configuredUiWalkthroughInputs } from "../../playwright.config";
+import { expect, test } from "./ui_walkthrough_fixture";
 
 import { tabTo, tabToTargetThroughVisiblePagination } from "./simulator/keyboard_walkthrough";
+import {
+  choosePlausibleVisibleResponse,
+  expectVisibleResponseControlsCleared,
+} from "./simulator/chapter_question_responses";
 import {
   appendStudentRepeatState,
   passedStudentRepeatFragment,
 } from "./simulator/student_repeat_state";
-import { studentCredentialFromValidatedFile } from "./ui_walkthrough_live_config";
+import {
+  credentialFromValidatedFile,
+  type UiWalkthroughInputs,
+} from "./ui_walkthrough_config_factory";
 
 test.describe.configure({ mode: "serial" });
 
-test.skip(
-  configuredUiWalkthroughInputs === undefined,
-  "requires the explicit UI walkthrough live-stack invocation",
-);
 test.setTimeout(90_000);
 
-async function signInAndOpenMastery(page: Page): Promise<void> {
-  const inputs = configuredUiWalkthroughInputs;
-  if (inputs === undefined)
-    throw new Error("the declaration-time live walkthrough skip did not apply");
-
+async function signInAndOpenMastery(page: Page, inputs: UiWalkthroughInputs): Promise<void> {
   await page.goto("/");
   const credentialInput = page.getByLabel("Local development credential");
   await tabTo(page, credentialInput);
   await expect(credentialInput).toBeFocused();
-  await credentialInput.fill(studentCredentialFromValidatedFile(inputs.credentialFile));
+  await credentialInput.fill(credentialFromValidatedFile(inputs.credentialFile, "student"));
 
   const signIn = page.getByRole("button", { name: "Sign in locally" });
   await tabTo(page, signIn);
@@ -81,29 +80,21 @@ async function resumeActiveSecondMastery(page: Page): Promise<void> {
   await expect(start).toBeFocused();
   await page.keyboard.press("Space");
   await expect(page.locator("[data-route-surface=runAttempt]")).toBeVisible({ timeout: 30_000 });
-  const radios = page.locator('input[type="radio"]:visible');
-  await expect(radios).toHaveCount(2, { timeout: 30_000 });
-  await expect(radios.nth(0)).not.toBeChecked();
-  await expect(radios.nth(1)).not.toBeChecked();
+  await expectVisibleResponseControlsCleared(page);
 }
 
 test("J3 resumes the active second Mastery run, proves cleared controls, and resumes it by keyboard", async ({
   page,
+  uiWalkthroughInputs,
 }) => {
-  const inputs = configuredUiWalkthroughInputs;
-  if (inputs === undefined)
-    throw new Error("the declaration-time live walkthrough skip did not apply");
+  test.skip(uiWalkthroughInputs === undefined, "requires the explicit UI walkthrough config");
+  if (uiWalkthroughInputs === undefined) return;
+  const inputs = uiWalkthroughInputs;
   const startedAt = performance.now();
-  await signInAndOpenMastery(page);
+  await signInAndOpenMastery(page, inputs);
   await resumeActiveSecondMastery(page);
-  const radios = page.locator('input[type="radio"]:visible');
-  await expect(radios).toHaveCount(2);
-  await expect(radios.nth(0)).not.toBeChecked();
-  await expect(radios.nth(1)).not.toBeChecked();
-  await tabTo(page, radios.nth(0));
-  await expect(radios.nth(0)).toBeFocused();
-  await page.keyboard.press("Space");
-  await expect(radios.nth(0)).toBeChecked();
+  await expectVisibleResponseControlsCleared(page);
+  await choosePlausibleVisibleResponse(page);
 
   const returnToAssignment = page.getByRole("button", { name: "Return to assignment" });
   await tabTo(page, returnToAssignment);
@@ -120,9 +111,7 @@ test("J3 resumes the active second Mastery run, proves cleared controls, and res
   await expect(resume).toBeFocused();
   await page.keyboard.press("Space");
   await expect(page.locator("[data-route-surface=runAttempt]")).toBeVisible({ timeout: 15_000 });
-  await expect(radios).toHaveCount(2);
-  await expect(radios.nth(0)).not.toBeChecked();
-  await expect(radios.nth(1)).not.toBeChecked();
+  await expectVisibleResponseControlsCleared(page);
   appendStudentRepeatState(
     inputs.journeyStateFile,
     passedStudentRepeatFragment(

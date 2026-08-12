@@ -16,6 +16,7 @@ import { basename, dirname } from "node:path";
 const CHECKPOINT_FILE = "instructor-setup-checkpoint.txt";
 
 export const INSTRUCTOR_SETUP_CHECKPOINTS = [
+  "browser_ready",
   "login_visible",
   "signed_in",
   "course_created",

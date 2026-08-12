@@ -31,13 +31,12 @@ test.beforeAll(async () => {
         const publicCalls = [];
         let revision = 1;
         let source = {
-          format: "pleFlatQuestion", version: 1, kind: "singleChoice",
+          format: "pleFlatQuestion", version: 2,
           title: "Favorite color", prompt: "What is my favorite color?",
-          choices: [
+          response: { kind: "singleChoice", choices: [
             { id: "blue", text: "Blue", feedback: null },
             { id: "red", text: "Red", feedback: null },
-          ],
-          correctChoice: "blue", feedback: { correct: null, incorrect: null }, points: 1,
+          ], correctChoice: "blue" }, feedback: { correct: null, incorrect: null }, points: 1,
           attemptPolicy: { maxAttempts: null, feedback: "immediateFull" },
           timingPolicy: { kind: "untimed" }, tags: ["example"], taxonomy: [],
           license: { kind: "ccBySa" }, language: "en-US",
@@ -53,9 +52,9 @@ test.beforeAll(async () => {
         });
         const compiled = (candidate, published = false) => ({
           ...(published ? { problem, version } : {}), workspace,
-          source: { backend: "native", family: "flat_single_choice_v1" },
+          source: { backend: "native", family: "flat_single_choice_v2" },
           prompt: [{ kind: "text", markdown: candidate.prompt }],
-          response: { kind: "multipleChoice", choices: candidate.choices.map((choice) => ({
+          response: { kind: "multipleChoice", choices: candidate.response.choices.map((choice) => ({
             id: choice.id, body: [{ kind: "text", markdown: choice.text }],
           })), selection: { kind: "exactlyOne" } },
           attemptPolicy: candidate.attemptPolicy, timingPolicy: candidate.timingPolicy,
@@ -110,7 +109,7 @@ test.beforeAll(async () => {
               draftRevision: revision, revision: '"' + revision + '"', baseline: "firstPublication", prior: null,
               previous: null, changed: ["title"], current: {
                 sourceBackend: "native", title: source.title, prompt: { blocks: ["text"] },
-                response: { kind: "multipleChoice", optionCount: source.choices.length },
+                response: { kind: "multipleChoice", optionCount: source.response.choices.length },
                 attemptPolicy: source.attemptPolicy, timingPolicy: source.timingPolicy,
                 randomization: { kind: "static" }, metadata: { tags: source.tags, taxonomy: source.taxonomy,
                   license: source.license, language: source.language },
@@ -217,7 +216,10 @@ test("instructor authors, resolves a stale draft, and publishes only the reviewe
   await page.evaluate("window.__flatQuestionFixture.releaseSave()");
   await expect(page.getByRole("button", { name: "Check instructor answer" })).toBeEnabled();
   expect(
-    await fixtureValue<string>(page, "window.__flatQuestionFixture.source().choices[2].text"),
+    await fixtureValue<string>(
+      page,
+      "window.__flatQuestionFixture.source().response.choices[2].text",
+    ),
   ).toBe("Yellow");
 
   await page.evaluate("window.__flatQuestionFixture.mount()");
