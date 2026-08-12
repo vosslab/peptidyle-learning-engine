@@ -97,6 +97,9 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 
 ## Teaching and product priorities
 
+- Use human-readable problem titles and copyable `P-<number>-v<version>` identities in instructor
+  workflows and documentation. Keep problem/version UUIDs as internal routing and persistence
+  identifiers rather than asking people to recognize or assign them.
 - The product supports learning through repeated algorithmic practice. A first
   completion or a 100 percent score must not end continued practice when policy
   permits another run.
@@ -134,6 +137,10 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   published corpus, and then observes the student's scored work.
 - Make the student take, submit, complete, and repeat that assignment through visible controls.
   The complete student assignment path must satisfy the keyboard accessibility contract above.
+- Include one representative four-question Chapter 1 assignment in the canonical walkthrough.
+  Keep the complete Genetics-plus-Biochemistry eight-question learner sweep as a separate release
+  gate so the walkthrough remains focused without substituting a synthetic one-question story for
+  release content.
 - Keep the public pilot guides visually complete. Show the instructor's course, roster, published
   problem selection, and assignment settings. Show the student's assignment list, live timed
   problem, score, and visible option to start another practice run.
@@ -163,7 +170,7 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Stable semantic choice, blank, prompt, item, and region IDs own answer meaning inside PLE; display
   labels such as A, B, and C do not. An import adapter derives those IDs deterministically when an
   external source uses text or position instead of authored identifiers.
-- PLE QTI-JSON must support, at a minimum, multiple choice (MC), multiple answer
+- PLE flat-question JSON must support, at a minimum, multiple choice (MC), multiple answer
   (MA), fill-in-the-blank (FIB), multiple fill-in-the-blank (MULTI-FIB),
   numerical entry (NUM), matching (MATCH), ordered list (ORDER), and image hot
   spot (HOTSPOT) questions.
@@ -204,9 +211,10 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Populate a Chapter 1 assignment for genetics and a Chapter 1 assignment for
   biochemistry from the biology-problems-website content.
 - Use a combination of first-class algorithmic WeBWorK questions and
-  second-class static PLE QTI-JSON questions.
+  second-class static PLE flat-JSON questions. QTI remains an import/export adapter rather than the
+  internal source format.
 - Four questions per chapter is enough for the first release: one WeBWorK MC,
-  one WeBWorK MATCH, one static PLE QTI-JSON MC, and one static PLE QTI-JSON
+  one WeBWorK MATCH, one static PLE flat-JSON MC, and one static PLE flat-JSON
   MATCH.
 - Use the existing PGML versions of the Chapter 1 questions where they are
   available.

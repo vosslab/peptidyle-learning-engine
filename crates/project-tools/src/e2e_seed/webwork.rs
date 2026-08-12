@@ -83,7 +83,7 @@ pub(super) async fn seed_webwork_pilot(arguments: &SeedArguments) -> Result<Mani
         },
     };
     ensure_webwork_pilot_assignment(&store, context, assignment).await?;
-    ensure_webwork_pilot_enrollment(
+    let enrollment = ensure_webwork_pilot_enrollment(
         &store,
         context,
         AssignmentEnrollment {
@@ -100,7 +100,7 @@ pub(super) async fn seed_webwork_pilot(arguments: &SeedArguments) -> Result<Mani
     .await?;
     Ok(Manifest {
         assignment_id: ids.assignment,
-        enrollment_id: ids.enrollment,
+        enrollment_id: enrollment.id,
         problem_id: ids.problem,
         version_id: ids.version,
     })
@@ -418,7 +418,7 @@ pub(super) async fn ensure_webwork_pilot_enrollment<S>(
     store: &S,
     context: TenantContext,
     expected: AssignmentEnrollment,
-) -> Result<()>
+) -> Result<AssignmentEnrollment>
 where
     S: Store,
 {
@@ -427,24 +427,16 @@ where
         .await
         .context("reading deterministic WebWork pilot enrollment")?
     {
-        Some(actual) if webwork_pilot_enrollment_identity_matches(&actual, &expected) => Ok(()),
+        Some(actual) if webwork_pilot_enrollment_identity_matches(&actual, &expected) => Ok(actual),
         Some(_) => bail!("existing WebWork pilot enrollment differs from the deterministic seed"),
         None => match store.create_enrollment(context, expected.clone()).await {
-            Ok(()) => Ok(()),
+            Ok(()) => store
+                .get_enrollment(context, expected.id)
+                .await
+                .context("reloading created WebWork pilot enrollment")?
+                .ok_or_else(|| anyhow::anyhow!("created WebWork pilot enrollment disappeared")),
             Err(StoreError::AlreadyExists) => {
-                let actual = store
-                    .get_enrollment(context, expected.id)
-                    .await
-                    .context("reading concurrently created WebWork pilot enrollment")?
-                    .ok_or_else(|| {
-                        anyhow::anyhow!("WebWork pilot enrollment disappeared after conflict")
-                    })?;
-                if !webwork_pilot_enrollment_identity_matches(&actual, &expected) {
-                    bail!(
-                        "concurrently created WebWork pilot enrollment differs from the deterministic seed"
-                    );
-                }
-                Ok(())
+                find_assignment_enrollment(store, context, expected.assignment, expected.user).await
             }
             Err(error) => Err(error).context("creating WebWork pilot E2E enrollment"),
         },
@@ -459,5 +451,50 @@ pub(super) fn webwork_pilot_enrollment_identity_matches(
         && actual.tenant == expected.tenant
         && actual.assignment == expected.assignment
         && actual.user == expected.user
-        && actual.student == expected.student
+}
+
+async fn find_assignment_enrollment<S>(
+    store: &S,
+    context: TenantContext,
+    assignment: AssignmentId,
+    user: UserId,
+) -> Result<AssignmentEnrollment>
+where
+    S: Store,
+{
+    let course = store
+        .get_assignment(context, assignment)
+        .await
+        .context("reading pilot assignment after enrollment conflict")?
+        .context("pilot assignment disappeared after enrollment conflict")?
+        .course_id;
+    let page_size = PageSize::new(PageSize::MAX).expect("maximum page size is valid");
+    let mut request = PageRequest::first(page_size);
+    loop {
+        let page = store
+            .list_gradebook_rows(context, course, request)
+            .await
+            .context("reading pilot gradebook after enrollment conflict")?;
+        for row in page.items {
+            if row.assignment_id != assignment {
+                continue;
+            }
+            let actual = store
+                .get_enrollment(context, row.enrollment_id)
+                .await
+                .context("reading roster-created pilot enrollment")?
+                .context("roster-created pilot enrollment disappeared")?;
+            if actual.tenant == context.tenant_id()
+                && actual.assignment == assignment
+                && actual.user == user
+            {
+                return Ok(actual);
+            }
+        }
+        let Some(cursor) = page.next_cursor else {
+            break;
+        };
+        request = PageRequest::after(cursor, page_size);
+    }
+    bail!("an existing assignment enrollment could not be resolved for the pilot student")
 }

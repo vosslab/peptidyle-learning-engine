@@ -259,6 +259,26 @@ The WP-QTI-12 independent review and documentation close-out is complete:
 
 ## Recent owner-requested support work
 
+- The 2026-08-11 Human Guidance reconciliation slice is complete. The assignment editor resolves catalog
+  titles and displays copyable `P-...-v...` identities plus backend labels rather than presenting UUID
+  tuples as problem numbers. The Chapter 1 source corpus now contains the owner-specified eight
+  reviewed questions: one WeBWorK MC, WeBWorK MATCH, PLE flat MC, and PLE flat MATCH in each of
+  Genetics and Biochemistry. `cargo tools pilot-content` proves the source/compiler contract, and
+  `bash tests/e2e/e2e_chapter_one_pilot.sh` now passes the real PostgreSQL/MinIO publication path,
+  exact idempotent rerun, four-native/four-WeBWorK assignment split, roster-derived enrollments, and
+  eight distinct human display IDs. Direct renderer probes pass MC and matching grading, including
+  partial credit. The normal launcher now publishes the same two assignments. The exact built PLE
+  browser gate completes all eight questions through visible keyboard controls, verifies feedback
+  and fresh practice for both chapters, and consults no answer key. That gate caught and repaired
+  the adapter's obsolete 64 KiB private-JWT limit: the reviewed PG state is now admitted within the
+  already enforced 1 MiB renderer-response boundary. It also exposed reviewed PGML choice labels
+  containing a narrowly styled color span; the adapter now projects that exact reviewed shape to
+  plain text while continuing to refuse arbitrary or hostile label markup. The matching path now
+  projects the current renderer's direct selects, mixed plain/color labels, and exact empty
+  compatibility controls without widening arbitrary markup. Both tracked matching sources now
+  provide numeric partial-credit thresholds instead of string-formatted JSON scores. The canonical
+  walkthrough also runs the Genetics four-question chapter as representative release-content
+  evidence.
 - The current PLE-owned student browser flow and all implemented response families passed a focused
   no-mouse audit. The primary route uses Tab, Shift+Tab, Space, explicit submission, and native link
   activation; Arrow, digit, Enter-to-submit, and Escape extensions have separately classified
@@ -323,6 +343,11 @@ are clean; and three independent reviewers reported no P0/P1/P2.
   handling; native `target="_self"` fragment links enter named
   `tabindex="-1"` regions, then Tab reaches visible actions. The route
   lifecycle guard prevents delayed course A responses from changing course B.
+- The default canonical walkthrough now also requires two owner-requested human-guidance checks
+  without widening the public schema-v2 report: J13 verifies a human-readable `P-...-v...` catalog
+  identity plus backend label rather than UUID text, and a separate browser phase completes the
+  exact four-question Genetics Chapter 1 assignment. The complete two-chapter eight-question sweep
+  remains the isolated release oracle.
 - The corrected charter in M8-M11 is accepted for its bounded local pilot.
   Focused product and Store/PostgreSQL reviews cover its visible course form,
   local-only active roster seam, and visible new-assignment entry path. This

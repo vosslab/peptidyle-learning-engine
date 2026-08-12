@@ -1,0 +1,43 @@
+{
+  "format": "pleFlatQuestion",
+  "version": 2,
+  "title": "Biochemistry Chapter 1: Functional group matching",
+  "prompt": "Match each description to the biochemical functional group it best describes.",
+  "response": {
+    "kind": "matching",
+    "prompts": [
+      { "id": "cooh", "text": "Written as -COOH in its protonated form" },
+      { "id": "hydrocarbon", "text": "A hydrocarbon group written as -CH3" },
+      { "id": "carbon-oxygen-double-bond", "text": "Contains a carbon-oxygen double bond (C=O)" },
+      {
+        "id": "protein-cross-link",
+        "text": "Can form a covalent cross-link that stabilizes protein structure"
+      }
+    ],
+    "choices": [
+      { "id": "carboxyl", "text": "Carboxyl" },
+      { "id": "methyl", "text": "Methyl" },
+      { "id": "carbonyl", "text": "Carbonyl" },
+      { "id": "sulfhydryl", "text": "Sulfhydryl" }
+    ],
+    "matches": [
+      { "prompt": "cooh", "choice": "carboxyl" },
+      { "prompt": "hydrocarbon", "choice": "methyl" },
+      { "prompt": "carbon-oxygen-double-bond", "choice": "carbonyl" },
+      { "prompt": "protein-cross-link", "choice": "sulfhydryl" }
+    ]
+  },
+  "feedback": {
+    "correct": "Correct. The formulas and biochemical roles identify all four functional groups.",
+    "incorrect": "Compare each group's characteristic atoms with its biochemical role."
+  },
+  "points": 4.0,
+  "attemptPolicy": { "maxAttempts": null, "feedback": "immediateFull" },
+  "timingPolicy": { "kind": "untimed" },
+  "tags": ["biochemistry", "functional-groups", "chapter-1", "matching"],
+  "taxonomy": [
+    { "scheme": "Peptidyle", "code": "BIOCHEMISTRY.CHAPTER_1", "label": "Biochemistry Chapter 1" }
+  ],
+  "license": { "kind": "ccBy" },
+  "language": "en-US"
+}

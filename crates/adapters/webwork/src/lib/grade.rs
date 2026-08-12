@@ -2,12 +2,12 @@
 
 use grading::GradeOutcome;
 use question_model::generation::Seed;
-use question_model::{QuestionDefinition, StudentResponse};
+use question_model::{Capability, QuestionDefinition, StudentResponse};
 
 use super::{WebworkAdapterError, WebworkSource};
 use crate::renderer_contract::{GradeRequest, WebworkRenderer, WebworkReplayMappingV1};
 
-/// Delegates an all-or-nothing response to the isolated renderer.
+/// Delegates a student response under the exact source's accepted grading policy.
 pub(super) async fn grade<R: WebworkRenderer>(
     renderer: &R,
     question: &QuestionDefinition,
@@ -26,9 +26,20 @@ pub(super) async fn grade<R: WebworkRenderer>(
             (points, false)
         }
         question_model::GradingDefinition::PartialCredit { points }
-            if points.is_finite() && points >= 0.0 =>
+            if points.is_finite()
+                && points >= 0.0
+                && crate::reviewed_webwork_source_capabilities(
+                    &question.source,
+                    &source.artifact.sha256,
+                )?
+                .supports(Capability::PartialCredit) =>
         {
             (points, true)
+        }
+        question_model::GradingDefinition::PartialCredit { .. } => {
+            return Err(WebworkAdapterError::InvalidRendererEnvelope(
+                "WeBWorK partial credit requires an accepted source profile".to_string(),
+            ));
         }
         question_model::GradingDefinition::Ungraded => return Ok(GradeOutcome::Ungraded),
         _ => {

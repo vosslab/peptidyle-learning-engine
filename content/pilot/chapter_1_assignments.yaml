@@ -1,0 +1,111 @@
+version: 1
+source_project:
+  repository: https://github.com/vosslab/biology-problems-website
+  revision: 11f9ff635bd20d8fa334c360a8cba86bb0ab6527
+  author: Neil R. Voss
+  institution: Roosevelt University
+  content_license: CC-BY-4.0
+  pgml_code_license: LGPL-3.0-or-later
+
+chapters:
+  - slug: genetics-chapter-1
+    course: Genetics
+    course_title: Genetics Fall 2026 pilot
+    chapter: 1
+    assignment_title: Genetics Chapter 1 Practice
+    questions:
+      - slug: genetics-disorders-webwork-mc
+        title: "Genetic disorders: Which one?"
+        backend: webwork
+        family: multipleChoice
+        points: 1
+        source: sources/genetics/genetic_disorders-which_one.pgml
+        source_sha256: 810fc1ed93a5ed60ec79e94aa86ded3caebe2bdf8627fb71d6fecd7c6b4f062c
+        upstream_sha256: 4edab7a28f18559ae54273d64a87facaeaf76dc957bf1707f4673a1b1cf3b8a3
+        changes:
+          - Replaced apostrophe escapes with PG-translator-safe q literals.
+      - slug: genetics-disorders-webwork-matching
+        title: "Genetic disorders: Matching"
+        backend: webwork
+        family: matching
+        points: 4
+        source: sources/genetics/genetic_disorders-matching.pgml
+        source_sha256: ae59425dce95bbffe0992aa5e072cd01370b736ef958685e409004d7580d2718
+        upstream_sha256: 343af2709f98f12a0520168db24566ee9740f6eda51d9eebe267d40ad1797382
+        changes:
+          - Replaced apostrophe escapes with PG-translator-safe q literals.
+          - Removed a parserUtils macro load unavailable and unused in the shipped renderer.
+          - Kept partial-credit scores numeric in the renderer JSON contract.
+      - slug: genetics-disorders-flat-mc
+        title: "Genetics Chapter 1: Phenylalanine metabolism"
+        backend: pleFlat
+        family: multipleChoice
+        points: 1
+        source: sources/genetics/bbq-WOMC-genetic_disorders-questions.txt
+        source_sha256: d1555789992c6249b22d34c9852546209b1fa4989465500aa46d09106c3cd9a6
+        source_item: 8894_6964
+        payload: flat/genetics-disorders-mc.json
+        payload_sha256: 76c8a6a19ca22052462ecafc8d55a02e89730b51bc29fb842d5e950c29e1e415
+      - slug: genetics-disorders-flat-matching
+        title: "Genetics Chapter 1: Genetic disorder matching"
+        backend: pleFlat
+        family: matching
+        points: 4
+        source: sources/genetics/bbq-MATCH-genetic_disorders-questions.txt
+        source_sha256: 10f25986c8faa47a449a71cf299eb99d15c51ecb1986c431e6cbb6f74f1823ed
+        source_item: ce62_fc20
+        payload: flat/genetics-disorders-matching.json
+        payload_sha256: 346675cacf48c0f29f31989d3a0c7623fd3f5c4112f5e05c2a2ba13f4c83f365
+
+  - slug: biochemistry-chapter-1
+    course: Biochemistry
+    course_title: Biochemistry Fall 2026 pilot
+    chapter: 1
+    assignment_title: Biochemistry Chapter 1 Practice
+    questions:
+      - slug: biochemistry-functional-groups-webwork-mc
+        title: "Biochemical functional groups: Which one?"
+        backend: webwork
+        family: multipleChoice
+        points: 1
+        source: sources/biochemistry/biochemical_functional_groups-which_one.pgml
+        source_sha256: 7e27357885fc8d71410bf42431105a515bdc75a776359a2d02013813e362b5fa
+        upstream_sha256: aa6d2f28eb3b75a508ffc6232906899fc73f92d93e280513579ffa1269c8b115
+        changes:
+          - Corrected Hydroxl to Hydroxyl.
+          - Reworded two descriptions for scientific and student-facing clarity.
+          - Corrected the source description grammar.
+      - slug: biochemistry-functional-groups-webwork-matching
+        title: "Biochemical functional groups: Matching"
+        backend: webwork
+        family: matching
+        points: 4
+        source: sources/biochemistry/biochemical_functional_groups-matching.pgml
+        source_sha256: 42c52281516511410623e56a315ed74f687f412a24c6ca1d028ffbe3eab12f17
+        upstream_sha256: 732e85d656a1c403004c4153291c51af11eb9986153e463b799d05a0600abba3
+        changes:
+          - Corrected Hydroxl to Hydroxyl.
+          - Reworded two descriptions for scientific and student-facing clarity.
+          - Removed wording that incorrectly implied seven displayed matches.
+          - Removed a parserUtils macro load unavailable and unused in the shipped renderer.
+          - Kept partial-credit scores numeric in the renderer JSON contract.
+      - slug: biochemistry-functional-groups-flat-mc
+        title: "Biochemistry Chapter 1: Charged functional groups"
+        backend: pleFlat
+        family: multipleChoice
+        points: 1
+        source: sources/biochemistry/bbq-WOMC-biochemical_functional_groups-questions.txt
+        source_sha256: 12f176f64fb223f75ef699f51a688cd7029242a8cd61e9cf7f38e25e8ea8792c
+        source_item: 1138_f177
+        payload: flat/biochemistry-functional-groups-mc.json
+        payload_sha256: 4585436343b7f07f956e5da4b2d3318d5477825797ccb19d51d402db33d52e50
+      - slug: biochemistry-functional-groups-flat-matching
+        title: "Biochemistry Chapter 1: Functional group matching"
+        backend: pleFlat
+        family: matching
+        points: 4
+        source: sources/biochemistry/bbq-MATCH-biochemical_functional_groups-questions.txt
+        source_sha256: 331a5e806e4a5dd751640eaf22f8911e3870cbbf8b4019da79632ad77f391e44
+        source_item: c4c1_c919
+        payload: flat/biochemistry-functional-groups-matching.json
+        payload_sha256: cac6e73652d892d93e19c0760d9b17ec5d50565c69006a141ad3d5d1531bf132

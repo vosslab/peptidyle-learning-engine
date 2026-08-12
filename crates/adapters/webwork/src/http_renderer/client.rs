@@ -42,6 +42,9 @@ const JSON_MEDIA_TYPE: &str = "application/json";
 const DEFAULT_MAX_RESPONSE_BYTES: usize = 1_048_576;
 const MAX_PG_SOURCE_BYTES: usize = 262_144;
 const MAX_PG_PATH_BYTES: usize = 1_024;
+// Reviewed PG questions legitimately produce answer-state JWTs above 64 KiB.
+// No token can exceed the client's already bounded default response body.
+const MAX_PRIVATE_JWT_BYTES: usize = DEFAULT_MAX_RESPONSE_BYTES;
 const MAX_RADIO_CHOICES: usize = 32;
 const MAX_RADIO_FIELD_BYTES: usize = 128;
 const MAX_RADIO_VALUE_BYTES: usize = 512;
@@ -707,7 +710,7 @@ fn validate_and_discard_jwt(jwt: &Map<String, Value>) -> Result<BTreeSet<String>
             .and_then(Value::as_str)
             .filter(|value| {
                 !value.is_empty()
-                    && value.len() <= 65_536
+                    && value.len() <= MAX_PRIVATE_JWT_BYTES
                     && value.bytes().all(|byte| {
                         byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.')
                     })

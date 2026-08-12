@@ -1,0 +1,476 @@
+## DESCRIPTION
+## Select the biochemical functional group that corresponds to the given description.
+## ENDDESCRIPTION
+## KEYWORDS('seven biochemical functional groups','descriptions','which one','multiple choice')
+## DBsubject('Biochemistry')
+## DBchapter('')
+## DBsection('')
+## Date('2026-07-12')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserRadioButtons.pl',
+    'PGcourse.pl',
+);
+
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+
+#==========================================================
+# QUESTION DATA
+#==========================================================
+
+# All questions data
+@questions_data = (
+  {
+    'item_name' => '<strong>Compound name: Alcohol</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+  },
+  {
+    'item_name' => '<strong>&mdash;OH</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+  },
+  {
+    'item_name' => '<strong>Very common in sugars (e.g., glucose)</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+  },
+  {
+    'item_name' => '<strong>Glucose and other sugars contain many of these chemical functional groups</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+  },
+  {
+    'item_name' => '<strong>Compound name: Ketone or aldehyde</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+  },
+  {
+    'item_name' => '<strong>&gt;C=O</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+    ],
+    'correct' => '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+  },
+  {
+    'item_name' => '<strong>Ketones in sugars (ketoses) and aldehydes (aldoses)</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+    ],
+    'correct' => '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+  },
+  {
+    'item_name' => '<strong>Compound name: Organic acid, such as acetic acid</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+  },
+  {
+    'item_name' => '<strong>&mdash;COOH</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+  },
+  {
+    'item_name' => '<strong>&mdash;COO<sup>&ndash;</sup></strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+  },
+  {
+    'item_name' => '<strong>The chemical functional group at end of fatty acids</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+  },
+  {
+    'item_name' => '<strong>Located at the C-terminus of polypeptide chains</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+      '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+  },
+  {
+    'item_name' => '<strong>Responsible for the "acid" part of the term amino acid</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+  },
+  {
+    'item_name' => '<strong>Compound name: Amine</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Amino</span>',
+  },
+  {
+    'item_name' => '<strong>&mdash;NH<sub>2</sub></strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+      '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Amino</span>',
+  },
+  {
+    'item_name' => '<strong>&mdash;NH<sub>3</sub><sup>+</sup></strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Amino</span>',
+  },
+  {
+    'item_name' => '<strong>Can carry a positive charge under biological conditions</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+      '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Amino</span>',
+  },
+  {
+    'item_name' => '<strong>Located at the N-terminus of polypeptide chains</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Amino</span>',
+  },
+  {
+    'item_name' => '<strong>Compound name: Thiol</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+  },
+  {
+    'item_name' => '<strong>Can form a covalent cross-link that helps stabilize protein structure</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+    ],
+    'correct' => '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+  },
+  {
+    'item_name' => '<strong>&mdash;SH</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+  },
+  {
+    'item_name' => '<strong>An organophosphorus compound</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+  },
+  {
+    'item_name' => '<strong>&mdash;PO<sub>4</sub><sup>3&ndash;</sup></strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+  },
+  {
+    'item_name' => '<strong>&mdash;HPO<sub>4</sub><sup>2&ndash;</sup></strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+  },
+  {
+    'item_name' => '<strong>&mdash;H<sub>2</sub>PO<sub>4</sub><sup>&ndash;</sup></strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+    ],
+    'correct' => '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+  },
+  {
+    'item_name' => '<strong>Found in ATP and DNA</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+  },
+  {
+    'item_name' => '<strong>Involved in energy transfer in molecules like ATP</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+    ],
+    'correct' => '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+  },
+  {
+    'item_name' => '<strong>Forms the backbone of DNA</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+    ],
+    'correct' => '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+  },
+  {
+    'item_name' => '<strong>Compound name: Hydrocarbon</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+  },
+  {
+    'item_name' => '<strong>&mdash;CH<sub>3</sub></strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+  },
+  {
+    'item_name' => '<strong>Only one of the seven chemical functional group that is hydrophobic</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+      '<span style="color: #003fff; font-weight:700;">Amino</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+  },
+  {
+    'item_name' => '<strong>Contributes to the nonpolar nature of fatty acid chains</strong>',
+    'plural_choice' => 'seven biochemical functional groups',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+      '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+      '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+      '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+  },
+);
+
+#==========================================================
+# SELECT RANDOM QUESTION
+#==========================================================
+
+my $local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+
+$question_idx = $local_random->random(0, scalar(@questions_data) - 1, 1);
+$q = $questions_data[$question_idx];
+
+$item_name = $q->{'item_name'};
+$plural_choice = $q->{'plural_choice'};
+$singular_item = $q->{'singular_item'};
+@choices = @{ $q->{'choices'} };
+$correct = $q->{'correct'};
+
+#==========================================================
+# SHUFFLE CHOICES (SEED-STABLE)
+#==========================================================
+
+my @choice_indices = (0 .. $#choices);
+my @choice_shuffled = ();
+while (@choice_indices) {
+  my $pick = $local_random->random(0, $#choice_indices, 1);
+  push @choice_shuffled, splice(@choice_indices, $pick, 1);
+}
+@choices = @choices[@choice_shuffled];
+
+#==========================================================
+# BUILD RADIO BUTTONS
+#==========================================================
+
+$rb = RadioButtons(
+  [@choices],
+  $correct,
+  labels        => 'ABC',
+  displayLabels => 1,
+  randomize     => 0,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+#==========================================================
+# PGML
+#==========================================================
+
+BEGIN_PGML
+
+Which one of the following [$plural_choice]* corresponds to the [$singular_item]* [$item_name]*?
+
+[_]{$rb}
+
+END_PGML
+
+BEGIN_PGML_SOLUTION
+
+The correct answer is: [$correct]*
+
+END_PGML_SOLUTION
+
+ENDDOCUMENT();

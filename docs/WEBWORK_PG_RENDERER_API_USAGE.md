@@ -8,11 +8,11 @@ browser calls PLE and never contacts the renderer.
 
 The similar names describe different layers:
 
-| Project | Responsibility | PLE use |
-| --- | --- | --- |
-| [WeBWorK PG](https://github.com/openwebwork/pg) | PG/PGML language, seeded execution, rendering, answer evaluators, and grading. | Engine used by the renderer. |
-| [webwork-pg-renderer](https://github.com/vosslab/webwork-pg-renderer) | Small HTTP service around WeBWorK PG render and grade operations. | Required private runtime service. |
-| [WeBWorK2](https://github.com/openwebwork/webwork2) | Complete homework application with users, courses, sets, attempts, and persistence. | Reference and prior art only; not a PLE runtime service. |
+| Project                                                               | Responsibility                                                                      | PLE use                                                  |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| [WeBWorK PG](https://github.com/openwebwork/pg)                       | PG/PGML language, seeded execution, rendering, answer evaluators, and grading.      | Engine used by the renderer.                             |
+| [webwork-pg-renderer](https://github.com/vosslab/webwork-pg-renderer) | Small HTTP service around WeBWorK PG render and grade operations.                   | Required private runtime service.                        |
+| [WeBWorK2](https://github.com/openwebwork/webwork2)                   | Complete homework application with users, courses, sets, attempts, and persistence. | Reference and prior art only; not a PLE runtime service. |
 
 PLE owns courses, assignments, enrollment, attempts, feedback, scores, and
 retention. The runtime is:
@@ -31,15 +31,15 @@ renderer image through its published API.
 
 ## Accepted scope
 
-The accepted live path is one licensed, user-authored immutable PGML question
-with one standard `RadioButtons` group. PLE renders it, projects it into an
-answer-free multiple-choice envelope, grades correct and incorrect selections,
-and keeps the upstream radio field and value private.
+The accepted live release path is four licensed, user-authored immutable PGML sources: one
+`RadioButtons` and one matching question for each of Genetics and Biochemistry Chapter 1. PLE
+projects them into answer-free multiple-choice or matching envelopes, grades correct, incorrect,
+and partial-credit responses as appropriate, and keeps all upstream controls and values private.
+Matching partial credit is admitted only for the reviewed path-and-source-digest pairs.
 
-Recorded adapter tests also exercise strict typed parsing for matching. That is
-implementation evidence, not a claim of broad live PG compatibility. Matching
-and other PG controls require an owner-controlled source example plus the same
-PLE E2E and browser-boundary evidence before they are advertised as supported.
+This is not a claim of broad live PG compatibility. Other PG controls, source revisions, and Open
+Problem Library items require their own reviewed source examples and the same PLE E2E and
+browser-boundary evidence before they are advertised as supported.
 
 ## Deployment boundary
 
@@ -80,18 +80,18 @@ authenticated attempt. The browser cannot select any of them.
 
 The fixed render form contains:
 
-| Field | Server-owned value |
-| --- | --- |
-| `_format` | `json` |
-| `problemSource` | Base64 of the immutable PG/PGML source bytes. |
-| `sourceFilePath` | Bounded diagnostic source path. It is not a renderer filesystem path selected by the browser. |
-| `problemSeed` | Attempt seed. |
-| `outputFormat` | `default` for the standalone service. |
-| `displayMode` | `MathJax`. |
-| `isInstructor` | `0`. |
-| `showSummary`, `showHints`, `showSolutions` | `0`. |
-| `hidePreviewButton`, `hideCheckAnswersButton`, `hideAttemptsTable`, `hideMessages` | `1`. |
-| `showCorrectAnswersButton`, `showFooter` | `0`. |
+| Field                                                                              | Server-owned value                                                                            |
+| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `_format`                                                                          | `json`                                                                                        |
+| `problemSource`                                                                    | Base64 of the immutable PG/PGML source bytes.                                                 |
+| `sourceFilePath`                                                                   | Bounded diagnostic source path. It is not a renderer filesystem path selected by the browser. |
+| `problemSeed`                                                                      | Attempt seed.                                                                                 |
+| `outputFormat`                                                                     | `default` for the standalone service.                                                         |
+| `displayMode`                                                                      | `MathJax`.                                                                                    |
+| `isInstructor`                                                                     | `0`.                                                                                          |
+| `showSummary`, `showHints`, `showSolutions`                                        | `0`.                                                                                          |
+| `hidePreviewButton`, `hideCheckAnswersButton`, `hideAttemptsTable`, `hideMessages` | `1`.                                                                                          |
+| `showCorrectAnswersButton`, `showFooter`                                           | `0`.                                                                                          |
 
 For grading, PLE reconstructs the same source and seed and adds only
 `submitAnswers=1` plus the server-held upstream field/value that corresponds to
@@ -194,9 +194,10 @@ source source_me.sh && python3 -m pytest -q \
 tests/e2e/e2e_webwork_render_rpc.sh
 ```
 
-The E2E performs real container render/grade/cache/outage recovery and runs the
-live Playwright boundary journey. It passed on 2026-08-10 for the licensed PGML
-`RadioButtons` pilot.
+The original renderer E2E passed on 2026-08-10 for the licensed PGML `RadioButtons` pilot. The
+Chapter 1 release gate subsequently passed all four reviewed PGML sources, including both matching
+questions and matching partial credit, through the real renderer, PLE grading, and built-browser
+learner path on 2026-08-11.
 
 That evidence supports this bounded path. It does not imply every Open Problem
 Library item or PG macro is compatible. New families require behavior-focused

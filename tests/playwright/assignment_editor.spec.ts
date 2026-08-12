@@ -17,6 +17,7 @@ const appearance = { theme: "grass", revision: "1", banner: null } as const;
 const secondCatalogProblem = {
   ...publishedProblemFixture.catalogProblem,
   problem: "0198e000-0000-7000-8000-000000000097",
+  publicId: publishedProblemFixture.catalogProblem.publicId + 1,
   version: "0198e000-0000-7000-8000-000000000096",
   metadata: {
     ...publishedProblemFixture.catalogProblem.metadata,
@@ -259,6 +260,16 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
         etag: assignmentReads > 1 ? '"8"' : '"7"',
       });
     }
+    if (
+      path ===
+      `/api/problems/${publishedProblemFixture.catalogProblem.problem}/versions/${publishedProblemFixture.catalogProblem.version}/detail`
+    ) {
+      return await json(route, {
+        summary: publishedProblemFixture.catalogProblem,
+        prompt: [],
+        statistics: "unavailable",
+      });
+    }
     if (path === "/api/problems/search") {
       return await json(route, {
         items: [publishedProblemFixture.catalogProblem, secondCatalogProblem],
@@ -319,6 +330,12 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
   await expect(title).toBeVisible();
   await expect(title).toBeFocused();
   await expect(page.getByRole("button", { name: "Save assignment" })).toBeVisible();
+  const selectedProblems = page.locator(".assignment-editor-list");
+  await expect(selectedProblems).toContainText(
+    `P-${publishedProblemFixture.catalogProblem.publicId}-v${publishedProblemFixture.catalogProblem.versionNumber}`,
+  );
+  await expect(selectedProblems).not.toContainText(publishedProblemFixture.catalogProblem.problem);
+  await expect(selectedProblems).not.toContainText(publishedProblemFixture.catalogProblem.version);
 
   await page.getByLabel("Search published problems").fill("peptide");
   await page.getByRole("button", { name: "Search catalog" }).click();

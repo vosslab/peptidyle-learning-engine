@@ -18,6 +18,12 @@ The resulting browser session is HttpOnly; the bearer value is not stored in bro
 This local-file session exercises seeded course work, not passwordless account creation,
 invitation claim, email sign-in, or passkey enrollment.
 
+The normal local launch publishes the reviewed Genetics Chapter 1 and Biochemistry Chapter 1
+assignments. Each has exactly four questions in the documented order: WeBWorK MC, WeBWorK MATCH,
+PLE flat MC, and PLE flat MATCH. The answer-free seed manifest is written with mode 0600 to
+`containers/local-chapter-one-pilot.json`; its `displayId` values use instructor-readable
+`P-...-v1` identities while UUIDs remain internal routing fields.
+
 For a headless run or a quick restart with a known-current browser bundle:
 
 ```bash
@@ -56,14 +62,19 @@ mode 0600. It is opt-in E2E evidence, not a baseline command.
 The corrected local no-email pilot is accepted. A manager run and an
 independent same-seed `--build` replay each visibly create a fresh course,
 activate the configured local student, construct a corpus-backed Mastery
-assignment, and then run J1/J2/J3/J4/J5/J8. The student completes and repeats
-through keyboard platform controls; the instructor visibly sees Best `100%`,
-Latest `100%`, Completed `2`, and two completed run-history entries. The
+assignment, verify its human-readable `P-...-v...` catalog identity and backend label, and then run
+J1/J2/J3/J4/J5/J8. The default walkthrough also completes the exact four-question Genetics Chapter
+1 assignment through keyboard controls. The student completes and repeats the focused Mastery
+assignment through keyboard platform controls; the instructor visibly sees Best `100%`, Latest
+`100%`, Completed `2`, and two completed run-history entries. The
 schema-v2 report contains only the ordered J11/J12/J13/J1/J2/J3/J4/J5/J8 PASS
-rows and the `api-retry-corpus-publication` arrangement label. The cursor
+rows and the `api-retry-corpus-publication` arrangement label; the representative Chapter 1 phase
+is a required browser gate rather than a new serialized journey row. The cursor
 session keeps opaque cursors and retries/deduplicates/fails closed without
-direct routes or API shortcuts. Email, canonical onboarding, J6/J7,
-all-family, multi-learner, and release acceptance remain outside this pilot.
+direct routes or API shortcuts. Email, canonical onboarding, J6/J7, all eight response families,
+multi-learner, and complete two-chapter release acceptance remain outside this
+walkthrough. Run `bash tests/e2e/e2e_chapter_one_browser.sh` for the complete Genetics and
+Biochemistry eight-question learner gate.
 
 ## Configuration preflight
 
@@ -83,7 +94,8 @@ and satisfy the launcher contract.
 ## Standalone WeBWorK PG renderer
 
 The normal launcher starts PLE with the private external PG renderer, waits for its semantic
-render-and-grade probe, seeds the bounded pilot, and then starts the application. The browser
+render-and-grade probe, publishes the exact two-assignment Chapter 1 pilot, and then starts the
+application. The browser
 communicates with PLE only; it does not receive renderer credentials, source, or upstream state.
 The renderer image must already be available locally under `PLE_WEBWORK_RENDERER_IMAGE` (normally
 `localhost/pg-renderer:latest`), having been built or obtained from the separate
@@ -155,5 +167,5 @@ and `docs/CONTAINER_PORT_MAPPING.md` for host and private port mappings.
 
 - Complete account-provider composition, then verify the selected provider's real email delivery
   before asking learners to use canonical passwordless sign-in.
-- Broader PG/PGML compatibility, including MATCH, requires source and live evidence beyond the
-  accepted bounded radio-button path.
+- PG/PGML compatibility beyond the four reviewed Chapter 1 MC/MATCH sources requires its own source
+  and live evidence.

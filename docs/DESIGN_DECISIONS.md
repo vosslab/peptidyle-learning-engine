@@ -332,16 +332,17 @@ result translation.
 **Why.** Upstream systems use their own fields, sessions, HTML, and credentials. Those are neither
 stable browser contracts nor safe learner authority.
 
-**Consequence.** The accepted WeBWorK path is one licensed user-authored PGML radio question via the
-private external standalone `/render-api`; browser data is a PLE-native response. Raw source, hidden fields,
-sessions, provider values, and renderer output do not cross the PLE browser boundary.
+**Consequence.** The accepted WeBWorK path is the four reviewed Chapter 1 PGML sources, comprising
+one radio and one matching question per chapter, via the private external standalone `/render-api`;
+browser data is a PLE-native response. Raw source, hidden fields, sessions, provider values, and
+renderer output do not cross the PLE browser boundary.
 
 **Owner.** [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md),
 [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md), and MOD-ADP-WW in
 [CONTRACTS.md](CONTRACTS.md#storage-and-adapter-contracts).
 
-**Planned closure.** WeBWorK matching and broader problem compatibility require their own accepted
-projection and live evidence; they are not inferred from the RC3 radio path.
+**Planned closure.** Broader problem compatibility and any unreviewed matching source require their
+own accepted projection and live evidence; they are not inferred from the Chapter 1 profile.
 
 ### Tests prove behavior at the right layer
 

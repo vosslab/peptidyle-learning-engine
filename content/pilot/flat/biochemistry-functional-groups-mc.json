@@ -1,0 +1,29 @@
+{
+  "format": "pleFlatQuestion",
+  "version": 2,
+  "title": "Biochemistry Chapter 1: Charged functional groups",
+  "prompt": "Which biochemical functional group can carry a positive charge under biological conditions?",
+  "response": {
+    "kind": "singleChoice",
+    "choices": [
+      { "id": "amino", "text": "Amino" },
+      { "id": "carboxyl", "text": "Carboxyl" },
+      { "id": "methyl", "text": "Methyl" },
+      { "id": "sulfhydryl", "text": "Sulfhydryl" }
+    ],
+    "correctChoice": "amino"
+  },
+  "feedback": {
+    "correct": "Correct. An amino group can accept a proton and become positively charged.",
+    "incorrect": "Consider which functional group can accept a proton under biological conditions."
+  },
+  "points": 1.0,
+  "attemptPolicy": { "maxAttempts": null, "feedback": "immediateFull" },
+  "timingPolicy": { "kind": "untimed" },
+  "tags": ["biochemistry", "functional-groups", "chapter-1"],
+  "taxonomy": [
+    { "scheme": "Peptidyle", "code": "BIOCHEMISTRY.CHAPTER_1", "label": "Biochemistry Chapter 1" }
+  ],
+  "license": { "kind": "ccBy" },
+  "language": "en-US"
+}

@@ -63,18 +63,18 @@ answer keys or make authoritative grading or timing decisions.
 
 ## Major components
 
-| Component | Location | Responsibility |
-| --- | --- | --- |
-| Question model | [crates/question_model/](../crates/question_model/) | Question taxonomy, identifiers, capabilities, browser-safe presentation values, and response schemas. |
-| Domain | [crates/domain/](../crates/domain/) | Run state, policy evaluation, seeded generation rules, timing inputs, and validation without a database or wall clock. |
-| Grading | [crates/grading/](../crates/grading/) | Answer-bearing checkers and correctness decisions; server-side only. |
-| Native adapter | [crates/adapters/native/](../crates/adapters/native/) | First-party generated questions and static flat-question compilation. |
-| External adapters | [crates/adapters/](../crates/adapters/) | Bounded QTI, H5P, iMathAS, and WeBWorK boundaries with declared capabilities. |
-| Learning data access | [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts plus in-memory and PostgreSQL implementations, migrations, RLS context, and conformance coverage. |
-| Object storage | [crates/objects/](../crates/objects/) | Typed immutable object records and S3-compatible backends. |
-| Server | [crates/server/](../crates/server/) | Axum routes, authentication, authorization, adapter selection, worker composition, and browser DTOs. |
-| Browser and WebAssembly | [src/](../src/) and [crates/wasm/](../crates/wasm/) | SolidJS interaction layer and an answer-free browser bridge to shared domain logic. |
-| Export and project tools | [crates/export/](../crates/export/) and [crates/project-tools/](../crates/project-tools/) | Print/export generation and repository-only code generation, migration, fixture, and seed commands. |
+| Component                | Location                                                                                  | Responsibility                                                                                                                |
+| ------------------------ | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Question model           | [crates/question_model/](../crates/question_model/)                                       | Question taxonomy, identifiers, capabilities, browser-safe presentation values, and response schemas.                         |
+| Domain                   | [crates/domain/](../crates/domain/)                                                       | Run state, policy evaluation, seeded generation rules, timing inputs, and validation without a database or wall clock.        |
+| Grading                  | [crates/grading/](../crates/grading/)                                                     | Answer-bearing checkers and correctness decisions; server-side only.                                                          |
+| Native adapter           | [crates/adapters/native/](../crates/adapters/native/)                                     | First-party generated questions and static flat-question compilation.                                                         |
+| External adapters        | [crates/adapters/](../crates/adapters/)                                                   | Bounded QTI, H5P, iMathAS, and WeBWorK boundaries with declared capabilities.                                                 |
+| Learning data access     | [crates/learning-data-access/](../crates/learning-data-access/)                           | Store contracts plus in-memory and PostgreSQL implementations, migrations, RLS context, and conformance coverage.             |
+| Object storage           | [crates/objects/](../crates/objects/)                                                     | Typed immutable object records and S3-compatible backends.                                                                    |
+| Server                   | [crates/server/](../crates/server/)                                                       | Axum routes, authentication, authorization, adapter selection, worker composition, and browser DTOs.                          |
+| Browser and WebAssembly  | [src/](../src/) and [crates/wasm/](../crates/wasm/)                                       | SolidJS interaction layer and an answer-free browser bridge to shared domain logic.                                           |
+| Export and project tools | [crates/export/](../crates/export/) and [crates/project-tools/](../crates/project-tools/) | Print/export generation and repository-only code generation, migration, fixture, pilot-content validation, and seed commands. |
 
 Each Cargo crate declares its permitted dependencies explicitly. In particular,
 `crates/domain/` depends only on the question model, and the server is the
@@ -121,6 +121,13 @@ and grade engine, not a second assignment platform. The adapter accepts only
 reviewed upstream response shapes, projects browser-safe HTML, and keeps source
 and grading calls on the server. [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md)
 documents the integration.
+
+The reviewed first-release content is a repository-owned input to those same production
+boundaries, not a browser fixture. `cargo tools pilot-content` validates its human-readable
+two-chapter manifest and source/compiler contracts. The host-only `e2e-seed --chapter-one-pilot`
+command publishes immutable PGML and flat source objects, protected flat grading material,
+catalog versions, courses, four-item assignments, and roster-derived enrollments. Its JSON output
+uses `P-...-v1` as the display identity and retains UUIDs only for machine routing.
 
 The three WeBWorK reference trees have distinct purposes:
 
@@ -205,12 +212,13 @@ startup, rebuild, health, and shutdown.
 - [tests/playwright/](../tests/playwright/) exercises built browser behavior and
   accessibility over HTTP.
 - [tests/e2e/](../tests/e2e/) holds slower disposable PostgreSQL, replica,
-  WebAssembly, and local-stack evidence.
+  WebAssembly, local-stack, and exact Chapter 1 publication evidence.
 - [tests/walkthrough/](../tests/walkthrough/) owns the teaching-loop runner,
   fixed child processes, and importable `walklib/` configuration, contracts,
   subprocess, and lifecycle behavior. The historical E2E paths are thin
-  compatibility launchers. Browser journeys remain independently readable
-  under `tests/playwright/`.
+  compatibility launchers. Its default run also invokes the representative Genetics Chapter 1
+  browser phase while retaining the accepted public report schema. Browser journeys remain
+  independently readable under `tests/playwright/`.
 - Learning data-access capabilities use a contract, an in-memory implementation,
   a PostgreSQL implementation, and conformance coverage where both backends
   should agree.

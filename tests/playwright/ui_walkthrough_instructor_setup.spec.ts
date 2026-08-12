@@ -184,6 +184,7 @@ test("J11/J12/J13 instructor visibly prepares a local Mastery assignment and han
     await catalogReference.getAttribute("data-problem-id"),
     await catalogReference.getAttribute("data-version-id"),
   );
+  await expect(catalogReference).toHaveText(/^P-[1-9][0-9]*-v[1-9][0-9]* · PLE native$/u);
   const addVersion = catalogRow.getByRole("button", { name: "Add published version", exact: true });
   await tabTo(page, addVersion);
   await expect(addVersion).toBeFocused();

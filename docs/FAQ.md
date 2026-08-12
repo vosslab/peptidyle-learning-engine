@@ -9,8 +9,8 @@ authoritative contracts for readers who need implementation detail.
 No. PLE gives instructors one learning and assignment model while adapters
 bring different question sources into it. Native flat-question JSON supports
 multiple choice, multiple answer, fill-in-the-blank, multiple blanks, numerical
-entry, matching, ordering, and image hotspots. The current external WeBWorK
-path supports one reviewed radio-choice PGML contract; QTI, H5P, and iMathAS
+entry, matching, ordering, and image hotspots. The current external WeBWorK path supports the four
+reviewed Chapter 1 MC/MATCH PGML sources; QTI, H5P, and iMathAS
 each have their own documented runtime boundary. See
 [QUESTION_MODEL.md](QUESTION_MODEL.md) and
 [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md).
@@ -68,13 +68,15 @@ would be an external adapter, not the internal source model. See
 
 ## Can a student browser contact WeBWorK?
 
-No. PLE is the sole WeBWorK client. The optional renderer profile is private;
-the browser continues to call PLE through its same-origin gateway. The current
-integration is limited to one server-rendered PGML `RadioButtons` path, with
-the Rust client, local profile, and bounded live acceptance completed. Native
-questions and the normal local stack do not require it. Broader OPL
-compatibility and WeBWorK matching remain future work rather than implied by
-that narrow acceptance. See
+No. PLE is the sole WeBWorK client. The renderer is private; the browser continues to call PLE
+through its same-origin gateway. Native-only test paths can omit it, but the supported normal local
+launcher requires the private renderer image because it publishes the reviewed Chapter 1 WeBWorK
+questions. The current
+integration is limited to the four reviewed Genetics and Biochemistry Chapter 1 PGML sources: two
+multiple-choice and two matching questions, with matching partial credit bound to each exact source
+digest. Broader OPL
+compatibility and unreviewed PG controls remain future work rather than being implied by that narrow
+acceptance. See
 [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md) and
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
 

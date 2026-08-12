@@ -1,0 +1,307 @@
+## DESCRIPTION
+## Match each of the following genetic disorders with their corresponding descriptions.
+## ENDDESCRIPTION
+## KEYWORDS('genetic disorders','descriptions')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-07-12')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserPopUp.pl',
+    'PGgraders.pl',
+    'PGcourse.pl'
+);
+our @ALPHABET = ('A' .. 'Z');
+
+# ================================
+# Full matching data
+# ================================
+%match_data = (
+  'Achondroplasia' => [
+    'impairs the growth of bone in the limbs and causes abnormal growth in the spine and skull',
+  ],
+  'Beta-Thalassemia' => [
+    'reduced hemoglobin proteins that result in variable outcomes including severe anemia',
+  ],
+  'Cystic fibrosis' => [
+    'a faulty protein that affects the cells, tissues, and the glands that make mucus and sweat',
+    'autosomal recessive <span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> affecting most critically the lungs',
+  ],
+  'Duchenne muscular dystrophy' => [
+    '<span style="color: #d40000; font-weight:700;">disorder</span> that affects the muscles, leading to muscle wasting that gets worse over time',
+  ],
+  'Fragile X syndrome' => [
+    'a <span style="color: #b74300; font-weight:700;">genetic</span> condition involving changes in part of the X <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+  ],
+  'Galactosemia' => [
+    q{<span style="color: #935d00; font-weight:700;">metabolic</span> <span style="color: #d40000; font-weight:700;">disorder</span> that affects an individual's ability to metabolize the sugar galactose properly},
+  ],
+  'Hemophilia' => [
+    'an inherited bleeding <span style="color: #d40000; font-weight:700;">disorder</span> in which the blood does NOT clot properly',
+  ],
+  q{Huntington's disease} => [
+    '<span style="color: #d40000; font-weight:700;">disorder</span> that causes the progressive breakdown (degeneration) of nerve cells in the brain',
+  ],
+  'Maple syrup urine disease' => [
+    '<span style="color: #935d00; font-weight:700;">metabolic</span> <span style="color: #d40000; font-weight:700;">disorder</span> affecting branched-chain amino acids',
+    q{gets its name from the distinctive sweet odor of affected infants' urine},
+  ],
+  'Marfan syndrome' => [
+    'multi-systemic <span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> that affects the connective tissue',
+    'individuals with the condition tend to be tall and thin, with long arms, legs, fingers, and toes',
+  ],
+  'Phenylketonuria' => [
+    'inherited <span style="color: #d40000; font-weight:700;">disorder</span> that causes an amino acid called phenylalanine to build up in the body',
+    q{<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #935d00; font-weight:700;">metabolic</span> <span style="color: #d40000; font-weight:700;">disorder</span> that increases the body's levels of phenylalanine},
+    'inherited <span style="color: #d40000; font-weight:700;">disorder</span> of metabolism that causes an increase in the blood of a chemical known as phenylalanine',
+  ],
+  'Sickle-cell anemia' => [
+    'affects your red blood cells, turning them from round flexible discs into stiff and sticky, long, and rigid cells',
+  ],
+  'Tay-Sachs disease' => [
+    'a <span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> that results in the destruction of nerve cells in the brain and spinal cord',
+    'people with the <span style="color: #d40000; font-weight:700;">disorder</span> do NOT have enough of an enzyme called beta-hexosaminidase',
+  ],
+  'Angelman syndrome' => [
+    'caused by duplications of the UBE3A gene located on <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15',
+    '<span style="color: #d40000; font-weight:700;">disorder</span> that is due to a extra piece (duplication) of a specific gene on <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15',
+  ],
+  'Prader-Willi syndrome' => [
+    'a <span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> caused by a loss of function of specific genes on <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15',
+    '<span style="color: #d40000; font-weight:700;">disorder</span> that is due to a missing piece (deletion) of a specific part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15',
+  ],
+  'Cri du chat syndrome' => [
+    'usually include a high-pitched cat-like cry, mental disability, delayed development, distinctive facial features, widely-spaced eyes',
+    '<span style="color: #d40000; font-weight:700;">disorder</span> that is due to a missing piece (deletion) of a specific part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 5',
+    '<span style="color: #d40000; font-weight:700;">disorder</span> caused when a small part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 5 is missing',
+  ],
+  'DiGeorge syndrome' => [
+    '<span style="color: #d40000; font-weight:700;">disorder</span> caused when a small part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 22 is missing',
+    '<span style="color: #d40000; font-weight:700;">disorder</span> that is due to a missing piece (deletion) of a specific part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 22',
+  ],
+  'Down syndrome' => [
+    '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> caused by the presence of all or part of a third copy of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 21',
+    'chromosomal abnormality characterized by the presence of an extra copy of <span style="color: #b74300; font-weight:700;">genetic</span> material on the 21st <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+    'a chromosomal abnormality, in which the cells of the body contain extra <span style="color: #b74300; font-weight:700;">genetic</span> material from <span style="color: #6c6c00; font-weight:700;">chromosome</span> 21',
+    'result of a random error that causes a person to be born with an extra <span style="color: #6c6c00; font-weight:700;">chromosome</span> 21',
+  ],
+  'Edwards syndrome' => [
+    'chromosomal abnormality characterized by the presence of an extra copy of <span style="color: #b74300; font-weight:700;">genetic</span> material on the 18th <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+    '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> caused by the presence of all or part of a third copy of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 18',
+    'a chromosomal abnormality, in which the cells of the body contain extra <span style="color: #b74300; font-weight:700;">genetic</span> material from <span style="color: #6c6c00; font-weight:700;">chromosome</span> 18',
+    'result of a random error that causes a person to be born with an extra <span style="color: #6c6c00; font-weight:700;">chromosome</span> 18',
+  ],
+  'Klinefelter syndrome' => [
+    'result of a random error that causes a male to be born with an extra X <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+    'also known as 47,XXY, is a syndrome where a male has an additional copy of the X <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+  ],
+  'Patau syndrome' => [
+    'a chromosomal abnormality, in which the cells of the body contain extra <span style="color: #b74300; font-weight:700;">genetic</span> material from <span style="color: #6c6c00; font-weight:700;">chromosome</span> 13',
+    'chromosomal abnormality characterized by the presence of an extra copy of <span style="color: #b74300; font-weight:700;">genetic</span> material on the 13th <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+    '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> caused by the presence of all or part of a third copy of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 13',
+    'result of a random error that causes a person to be born with an extra <span style="color: #6c6c00; font-weight:700;">chromosome</span> 13',
+  ],
+  'Philadelphia chromosome' => [
+    'cancerous chromosomal abnormality that is manifested as a shortened version of human <span style="color: #6c6c00; font-weight:700;">chromosome</span> 22',
+    'forms when <span style="color: #6c6c00; font-weight:700;">chromosome</span> 9 and <span style="color: #6c6c00; font-weight:700;">chromosome</span> 22 break and exchange portions of their <span style="color: #b74300; font-weight:700;">genetic</span> material',
+  ],
+  'Triple X syndrome' => [
+    'also known as 47,XXX, is a <span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> that results in a female that has three X <span style="color: #6c6c00; font-weight:700;">chromosome</span>s',
+    'a <span style="color: #b74300; font-weight:700;">genetic</span> condition in females which there are three copies of the X <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+  ],
+  'Turner syndrome' => [
+    'a condition that affects only females, results when one of their X <span style="color: #6c6c00; font-weight:700;">chromosome</span>s is missing or partially missing',
+    'also known as monosomy X, includes a number of typical physical features observed such as webbed neck',
+  ],
+  'WAGR syndrome' => [
+    '<span style="color: #b74300; font-weight:700;">genetic</span> condition caused by a deletion of a group of genes located on <span style="color: #6c6c00; font-weight:700;">chromosome</span> number 11',
+    '<span style="color: #d40000; font-weight:700;">disorder</span> caused when a small part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 11 is missing',
+    '<span style="color: #d40000; font-weight:700;">disorder</span> that is due to a missing piece (deletion) of a specific part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 11',
+  ],
+  'Wolf-Hirschhorn syndrome' => [
+    'caused by a deletion within HSA band on the short arm of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 4',
+    '<span style="color: #b74300; font-weight:700;">genetic</span> condition caused by a deletion of a group of genes located on <span style="color: #6c6c00; font-weight:700;">chromosome</span> number 4',
+    '<span style="color: #d40000; font-weight:700;">disorder</span> caused when a small part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 4 is missing',
+    '<span style="color: #d40000; font-weight:700;">disorder</span> that is due to a missing piece (deletion) of a specific part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 4',
+  ],
+);
+
+# -------------------------------
+# Select N random keys
+# -------------------------------
+my $n = 4;
+@all_keys = PGsort(sub { $_[0] lt $_[1] }, keys %match_data);
+my $local_seed = (defined($problemSeed) && $problemSeed ne '') ? $problemSeed : 1;
+my $local_random = new PGrandom($local_seed);
+
+my @indices = (0 .. $#all_keys);
+my @shuffled = ();
+while (@indices) {
+  my $pick = $local_random->random(0, $#indices, 1);
+  push @shuffled, splice(@indices, $pick, 1);
+}
+my @selected_keys = @all_keys[@shuffled[0..$n-1]];
+
+# -------------------------------
+# Build question/answer pairs
+# -------------------------------
+# Each entry: [prompt, choice]
+@q_and_a = ();
+foreach my $key (@selected_keys) {
+  my $values_ref = $match_data{$key};
+  my $i = $local_random->random(0, $#$values_ref, 1);
+  my $value = $values_ref->[$i];
+  push @q_and_a, [ $value, $key ];
+}
+
+# -------------------------------
+# Randomize the questions
+# -------------------------------
+my @q_indices = (0 .. $#q_and_a);
+my @q_shuffled = ();
+while (@q_indices) {
+  my $pick = $local_random->random(0, $#q_indices, 1);
+  push @q_shuffled, $q_and_a[splice(@q_indices, $pick, 1)];
+}
+@q_and_a = @q_shuffled;
+
+# -------------------------------
+# Sort the choices alphabetically
+# -------------------------------
+@answers = ();
+push(@answers, (map { $_->[1] } @q_and_a));
+@answers_sorted = PGsort(sub { $_[0] lt $_[1] }, @answers);
+
+# -------------------------------
+# HTML-safe answer labels
+# -------------------------------
+%answer_html = (
+  'Achondroplasia' => 'Achondroplasia',
+  'Beta-Thalassemia' => 'Beta-Thalassemia',
+  'Cystic fibrosis' => 'Cystic fibrosis',
+  'Duchenne muscular dystrophy' => 'Duchenne muscular dystrophy',
+  'Fragile X syndrome' => 'Fragile X syndrome',
+  'Galactosemia' => 'Galactosemia',
+  'Hemophilia' => 'Hemophilia',
+  q{Huntington's disease} => q{Huntington's disease},
+  'Maple syrup urine disease' => 'Maple syrup urine disease',
+  'Marfan syndrome' => 'Marfan syndrome',
+  'Phenylketonuria' => 'Phenylketonuria',
+  'Sickle-cell anemia' => 'Sickle-cell anemia',
+  'Tay-Sachs disease' => 'Tay-Sachs disease',
+  'Angelman syndrome' => 'Angelman syndrome',
+  'Prader-Willi syndrome' => 'Prader-Willi syndrome',
+  'Cri du chat syndrome' => 'Cri du chat syndrome',
+  'DiGeorge syndrome' => 'DiGeorge syndrome',
+  'Down syndrome' => 'Down syndrome',
+  'Edwards syndrome' => 'Edwards syndrome',
+  'Klinefelter syndrome' => 'Klinefelter syndrome',
+  'Patau syndrome' => 'Patau syndrome',
+  'Philadelphia chromosome' => 'Philadelphia <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+  'Triple X syndrome' => 'Triple X syndrome',
+  'Turner syndrome' => 'Turner syndrome',
+  'WAGR syndrome' => 'WAGR syndrome',
+  'Wolf-Hirschhorn syndrome' => 'Wolf-Hirschhorn syndrome',
+);
+
+@answers_sorted_html = map { $answer_html{$_} || $_ } @answers_sorted;
+
+# -------------------------------
+# Create answer index lookup
+# -------------------------------
+our %answer_index;
+for (my $i = 0; $i <= $#answers_sorted; $i++) {
+  $answer_index{$answers_sorted[$i]} = $i;
+}
+
+# -------------------------------
+# PopUp/DropDown compatibility
+# -------------------------------
+sub make_popup {
+  return defined &DropDown ? DropDown(@_) : PopUp(@_);
+}
+
+# -------------------------------
+# Create popup objects (blank default)
+# -------------------------------
+my @answer_letters = @ALPHABET[0 .. $#answers_sorted];
+my @answer_letters_with_blank = ('', @answer_letters);
+@answer_dropdowns =
+  map { make_popup([ @answer_letters_with_blank ], $answer_index{$q_and_a[$_][1]} + 1 ) }
+  0 .. $#q_and_a;
+
+# -------------------------------
+# Render the question
+# -------------------------------
+HEADER_TEXT(<<END_STYLE);
+<style>
+.pgml-bold { font-weight: 700; }
+.two-column {
+    display: flex;
+	flex-wrap: wrap;
+	gap: 2rem;
+	align-items: center;
+	justify-content: space-evenly;
+}
+</style>
+END_STYLE
+
+$question_text = 'Match each of the following genetic disorders with their corresponding descriptions.';
+$note_text = 'Note: Each choice will be used exactly once.';
+
+BEGIN_PGML
+[$question_text]*
+[$note_text]*
+
+[@ MODES(HTML => '<div class="two-column"><div>') @]*
+[@ join(
+    "\n\n",
+    map {
+        '[_]{$answer_dropdowns[' . $_ . ']} '
+            . '*' . ($_ + 1) . '.* '
+            . '[$q_and_a[' . $_ . '][0]]*'
+    } 0 .. $#q_and_a
+) @]**
+[@ MODES(HTML => '</div><div class="right-col">') @]*
+[@ join(
+    "\n\n",
+    map {
+        chr(65 + $_) . '\\.' . ' ' . '[$answers_sorted_html[' . $_ . ']]*'
+    } 0 .. $#answers_sorted
+) @]**
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+# -------------------------------
+# Dynamic Partial Credit Based on $n
+# -------------------------------
+$showPartialCorrectAnswers = 0;
+my @thresholds;
+my @scores;
+for (my $i = 1; $i <= $n; $i++) {
+  push @thresholds, $i;
+  push @scores, $i / $n;
+}
+
+install_problem_grader(~~&custom_problem_grader_fluid);
+$ENV{grader_numright} = [@thresholds];
+$ENV{grader_scores}   = [@scores];
+$ENV{grader_message} = 'You can earn partial credit.';
+
+# -------------------------------
+# Solution
+# -------------------------------
+$answer_list = join(', ', map { ($_ + 1) . '-' . $ALPHABET[$answer_index{$q_and_a[$_][1]}] } 0 .. $#q_and_a);
+BEGIN_PGML_SOLUTION
+The correct answers are: [$answer_list].
+END_PGML_SOLUTION
+
+ENDDOCUMENT();

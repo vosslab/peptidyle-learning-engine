@@ -276,6 +276,9 @@ async function signInAsDeterministicStudent(page: Page, inputs: LiveWebworkInput
 }
 
 async function openWebworkAssignment(page: Page, inputs: LiveWebworkInputs): Promise<void> {
+  if (inputs.assignmentId === undefined) {
+    throw new Error("the focused WeBWorK journey requires PLE_WEBWORK_LIVE_ASSIGNMENT_ID");
+  }
   const course = page.locator(".course-card").filter({
     has: page.getByRole("heading", { name: WEBWORK_COURSE_TITLE }),
   });

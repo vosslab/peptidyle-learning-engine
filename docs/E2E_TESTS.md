@@ -125,14 +125,18 @@ The corrected schema-v2 local no-email pilot is accepted: manager and
 independent `--build` runs each passed J11/J12/J13/J1/J2/J3/J4/J5/J8 with the
 private report modes and no-volume cleanup above. They visibly create a fresh
 course, activate the configured local student, create the corpus-backed
-Mastery assignment, complete two keyboard-driven student runs, and confirm
-Best `100%`, Latest `100%`, Completed `2`, and two completed history entries.
+Mastery assignment, verify the instructor-facing problem number and backend label, complete the
+representative four-question Genetics Chapter 1 assignment, complete two keyboard-driven focused
+student runs, and confirm Best `100%`, Latest `100%`, Completed `2`, and two completed history
+entries. The Chapter 1 phase is a required browser phase rather than a new public report row.
 Native `target="_self"` pagination links land in named `tabindex="-1"`
 regions, then Tab reaches visible load, retry, or reload controls. The cursor
 session keeps opaque cursors, retries the exact failed cursor, deduplicates
-rows, and fails closed on protocol errors. Email/canonical onboarding, J6/J7,
-all-family, multi-learner, and release acceptance are not walkthrough rows or
-prerequisites.
+rows, and fails closed on protocol errors. Email/canonical onboarding, J6/J7, all eight response
+families, multi-learner, and complete two-chapter release acceptance are not walkthrough rows or
+prerequisites. The separate `bash tests/e2e/e2e_chapter_one_browser.sh` oracle completes both exact
+Chapter 1 assignments. That release oracle always runs `./build.sh` and intentionally exposes no
+skip-build switch; the walkthrough's general `--skip-build` policy does not apply to it.
 
 ## Related docs
 

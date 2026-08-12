@@ -16,10 +16,12 @@ import {
 } from "../api/http_client";
 import {
   addCatalogReference,
+  assignmentProblemLabel,
   assignmentInput,
   capabilityLabel,
   createMasteryAssignmentDraft,
   moveCatalogReference,
+  questionBackendLabel,
   removeCatalogReference,
   sameReference,
   violationMatchesReference,
@@ -96,6 +98,7 @@ export interface AssignmentEditorPageProps {
 export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Element {
   const [state, setState] = createSignal<EditorState>({ kind: "loading" });
   const [catalog, setCatalog] = createSignal<CatalogState>({ kind: "idle", rows: [] });
+  const [knownProblems, setKnownProblems] = createSignal<ReadonlyArray<AssignmentCatalogRow>>([]);
   const [searchText, setSearchText] = createSignal("");
   const [saving, setSaving] = createSignal(false);
   const [saveMessage, setSaveMessage] = createSignal("");
@@ -133,8 +136,23 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
     setViolations([]);
   }
 
+  function rememberProblems(rows: ReadonlyArray<AssignmentCatalogRow>): void {
+    setKnownProblems((previous) => {
+      const remembered = [...previous];
+      for (const row of rows) {
+        const index = remembered.findIndex((candidate) =>
+          sameReference(candidate.reference, row.reference),
+        );
+        if (index < 0) remembered.push(row);
+        else remembered[index] = row;
+      }
+      return remembered;
+    });
+  }
+
   async function load(): Promise<void> {
     if (props.mode.kind === "create") {
+      setKnownProblems([]);
       setState({ kind: "ready", draft: createMasteryAssignmentDraft(props.courseId) });
       setSaveMessage("Choose a title and published problem versions.");
       setConflict(false);
@@ -156,6 +174,17 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
       ) {
         throw new Error("The assignment editor received an unrelated record.");
       }
+      const described = await props.repository.describePublished(detail.problems);
+      if (
+        described.length !== detail.problems.length ||
+        described.some((row, index) => {
+          const reference = detail.problems[index];
+          return reference === undefined || !sameReference(row.reference, reference);
+        })
+      ) {
+        throw new Error("The assignment editor received unrelated published problem details.");
+      }
+      setKnownProblems(described);
       setState({ kind: "ready", draft: editorDraft(detail) });
       setSaveMessage("Assignment loaded.");
       queueMicrotask(() => titleInput?.focus());
@@ -169,6 +198,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
     setCatalog({ kind: "loading", rows: previous });
     try {
       const rows = await props.repository.searchPublished(searchText());
+      rememberProblems(rows);
       setCatalog({ kind: "ready", rows });
     } catch {
       setCatalog({ kind: "error", rows: previous });
@@ -260,8 +290,11 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
   }
 
   function titleFor(reference: ProblemVersionRef): string {
-    const row = catalog().rows.find((candidate) => sameReference(candidate.reference, reference));
-    return row?.title ?? `Published version ${reference.version}`;
+    return problemFor(reference)?.title ?? "Published problem";
+  }
+
+  function problemFor(reference: ProblemVersionRef): AssignmentCatalogRow | undefined {
+    return knownProblems().find((candidate) => sameReference(candidate.reference, reference));
   }
 
   onMount(() => void load());
@@ -392,7 +425,16 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                             data-problem-id={reference.problem}
                             data-version-id={reference.version}
                           >
-                            {reference.problem} / {reference.version}
+                            <Show
+                              when={problemFor(reference)}
+                              fallback="Published problem details unavailable"
+                            >
+                              {(row) =>
+                                `${assignmentProblemLabel(row())} · ${questionBackendLabel(
+                                  row().backend,
+                                )}`
+                              }
+                            </Show>
                           </p>
                           <Show
                             when={violations().some((violation) =>
@@ -616,7 +658,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                           data-problem-id={row.reference.problem}
                           data-version-id={row.reference.version}
                         >
-                          {row.reference.problem} / {row.reference.version}
+                          {assignmentProblemLabel(row)} · {questionBackendLabel(row.backend)}
                         </p>
                         <button
                           class="quiet-action"

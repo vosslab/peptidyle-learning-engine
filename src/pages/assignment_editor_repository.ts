@@ -1,8 +1,10 @@
 // assignment_editor_repository.ts - narrow browser adapter for immutable assignment references.
 
 import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery";
+import type { CatalogProblemSummary } from "../../generated/api/CatalogProblemSummary";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { AssignmentId } from "../../generated/api/AssignmentId";
+import type { ProblemVersionRef } from "../../generated/api/ProblemVersionRef";
 import type { AssignmentEditorDetail, AssignmentEditorInput } from "../api/contracts";
 import type { ApiClient } from "../api/client";
 import type { AssignmentCatalogRow } from "./assignment_editor_model";
@@ -20,6 +22,20 @@ export interface AssignmentEditorRepository {
     revision: string,
   ) => Promise<AssignmentEditorDetail>;
   readonly searchPublished: (text: string) => Promise<ReadonlyArray<AssignmentCatalogRow>>;
+  /** Resolves safe display metadata for immutable references already on an assignment. */
+  readonly describePublished: (
+    references: ReadonlyArray<ProblemVersionRef>,
+  ) => Promise<ReadonlyArray<AssignmentCatalogRow>>;
+}
+
+function catalogRow(item: CatalogProblemSummary): AssignmentCatalogRow {
+  return {
+    reference: { problem: item.problem, version: item.version },
+    publicId: item.publicId,
+    versionNumber: item.versionNumber,
+    title: item.metadata.title,
+    backend: item.backend,
+  };
 }
 
 function catalogQuery(text: string): CatalogSearchQuery {
@@ -43,10 +59,14 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
       await client.saveAssignment(course, assignment, input, revision),
     searchPublished: async (text): Promise<ReadonlyArray<AssignmentCatalogRow>> => {
       const page = await client.searchCatalog(catalogQuery(text));
-      return page.items.map((item) => ({
-        reference: { problem: item.problem, version: item.version },
-        title: item.metadata.title,
-      }));
+      return page.items.map(catalogRow);
     },
+    describePublished: async (references) =>
+      await Promise.all(
+        references.map(async (reference) => {
+          const detail = await client.getCatalogProblemDetail(reference.problem, reference.version);
+          return catalogRow(detail.summary);
+        }),
+      ),
   };
 }

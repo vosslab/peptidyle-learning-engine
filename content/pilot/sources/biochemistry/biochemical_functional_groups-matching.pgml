@@ -1,0 +1,227 @@
+## DESCRIPTION
+## Match each description with its corresponding biochemical functional group.
+## ENDDESCRIPTION
+## KEYWORDS('seven biochemical functional groups','descriptions')
+## DBsubject('Biochemistry')
+## DBchapter('')
+## DBsection('')
+## Date('2026-07-12')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserPopUp.pl',
+    'PGgraders.pl',
+    'PGcourse.pl'
+);
+our @ALPHABET = ('A' .. 'Z');
+
+# ================================
+# Full matching data
+# ================================
+%match_data = (
+  'Hydroxyl' => [
+    'Compound name: Alcohol',
+    '&mdash;OH',
+    'Very common in sugars (e.g., glucose)',
+    'Glucose and other sugars contain many of these chemical functional groups',
+  ],
+  'Carbonyl' => [
+    'Compound name: Ketone or aldehyde',
+    '&gt;C=O',
+    'Ketones in sugars (ketoses) and aldehydes (aldoses)',
+  ],
+  'Carboxyl' => [
+    'Compound name: Organic acid, such as acetic acid',
+    '&mdash;COOH',
+    '&mdash;COO<sup>&ndash;</sup>',
+    'The chemical functional group at end of fatty acids',
+    'Located at the C-terminus of polypeptide chains',
+    'Responsible for the "acid" part of the term amino acid',
+  ],
+  'Amino' => [
+    'Compound name: Amine',
+    '&mdash;NH<sub>2</sub>',
+    '&mdash;NH<sub>3</sub><sup>+</sup>',
+    'Can carry a positive charge under biological conditions',
+    'Located at the N-terminus of polypeptide chains',
+  ],
+  'Sulfhydryl' => [
+    'Compound name: Thiol',
+    'Can form a covalent cross-link that helps stabilize protein structure',
+    '&mdash;SH',
+  ],
+  'Phosphate' => [
+    'An organophosphorus compound',
+    '&mdash;PO<sub>4</sub><sup>3&ndash;</sup>',
+    '&mdash;HPO<sub>4</sub><sup>2&ndash;</sup>',
+    '&mdash;H<sub>2</sub>PO<sub>4</sub><sup>&ndash;</sup>',
+    'Found in ATP and DNA',
+    'Involved in energy transfer in molecules like ATP',
+    'Forms the backbone of DNA',
+  ],
+  'Methyl' => [
+    'Compound name: Hydrocarbon',
+    '&mdash;CH<sub>3</sub>',
+    'Only one of the seven chemical functional group that is hydrophobic',
+    'Contributes to the nonpolar nature of fatty acid chains',
+  ],
+);
+
+# -------------------------------
+# Select N random keys
+# -------------------------------
+my $n = 4;
+@all_keys = PGsort(sub { $_[0] lt $_[1] }, keys %match_data);
+my $local_seed = (defined($problemSeed) && $problemSeed ne '') ? $problemSeed : 1;
+my $local_random = new PGrandom($local_seed);
+
+my @indices = (0 .. $#all_keys);
+my @shuffled = ();
+while (@indices) {
+  my $pick = $local_random->random(0, $#indices, 1);
+  push @shuffled, splice(@indices, $pick, 1);
+}
+my @selected_keys = @all_keys[@shuffled[0..$n-1]];
+
+# -------------------------------
+# Build question/answer pairs
+# -------------------------------
+# Each entry: [prompt, choice]
+@q_and_a = ();
+foreach my $key (@selected_keys) {
+  my $values_ref = $match_data{$key};
+  my $i = $local_random->random(0, $#$values_ref, 1);
+  my $value = $values_ref->[$i];
+  push @q_and_a, [ $value, $key ];
+}
+
+# -------------------------------
+# Randomize the questions
+# -------------------------------
+my @q_indices = (0 .. $#q_and_a);
+my @q_shuffled = ();
+while (@q_indices) {
+  my $pick = $local_random->random(0, $#q_indices, 1);
+  push @q_shuffled, $q_and_a[splice(@q_indices, $pick, 1)];
+}
+@q_and_a = @q_shuffled;
+
+# -------------------------------
+# Sort the choices alphabetically
+# -------------------------------
+@answers = ();
+push(@answers, (map { $_->[1] } @q_and_a));
+@answers_sorted = PGsort(sub { $_[0] lt $_[1] }, @answers);
+
+# -------------------------------
+# HTML-safe answer labels
+# -------------------------------
+%answer_html = (
+  'Hydroxyl' => '<span style="color: #d40000; font-weight:700;">Hydroxyl</span>',
+  'Carbonyl' => '<span style="color: #00775f; font-weight:700;">Carbonyl</span>',
+  'Carboxyl' => '<span style="color: #a719db; font-weight:700;">Carboxyl</span>',
+  'Amino' => '<span style="color: #003fff; font-weight:700;">Amino</span>',
+  'Sulfhydryl' => '<span style="color: #6c6c00; font-weight:700;">Sulfhydryl</span>',
+  'Phosphate' => '<span style="color: #935d00; font-weight:700;">Phosphate</span>',
+  'Methyl' => '<span style="color: #cc0066; font-weight:700;">Methyl</span>',
+);
+
+@answers_sorted_html = map { $answer_html{$_} || $_ } @answers_sorted;
+
+# -------------------------------
+# Create answer index lookup
+# -------------------------------
+our %answer_index;
+for (my $i = 0; $i <= $#answers_sorted; $i++) {
+  $answer_index{$answers_sorted[$i]} = $i;
+}
+
+# -------------------------------
+# PopUp/DropDown compatibility
+# -------------------------------
+sub make_popup {
+  return defined &DropDown ? DropDown(@_) : PopUp(@_);
+}
+
+# -------------------------------
+# Create popup objects (blank default)
+# -------------------------------
+my @answer_letters = @ALPHABET[0 .. $#answers_sorted];
+my @answer_letters_with_blank = ('', @answer_letters);
+@answer_dropdowns =
+  map { make_popup([ @answer_letters_with_blank ], $answer_index{$q_and_a[$_][1]} + 1 ) }
+  0 .. $#q_and_a;
+
+# -------------------------------
+# Render the question
+# -------------------------------
+HEADER_TEXT(<<END_STYLE);
+<style>
+.pgml-bold { font-weight: 700; }
+.two-column {
+    display: flex;
+	flex-wrap: wrap;
+	gap: 2rem;
+	align-items: center;
+	justify-content: space-evenly;
+}
+</style>
+END_STYLE
+
+$question_text = 'Match each description with its corresponding biochemical functional group.';
+$note_text = 'Note: Each choice will be used exactly once.';
+
+BEGIN_PGML
+[$question_text]*
+[$note_text]*
+
+[@ MODES(HTML => '<div class="two-column"><div>') @]*
+[@ join(
+    "\n\n",
+    map {
+        '[_]{$answer_dropdowns[' . $_ . ']} '
+            . '*' . ($_ + 1) . '.* '
+            . '[$q_and_a[' . $_ . '][0]]*'
+    } 0 .. $#q_and_a
+) @]**
+[@ MODES(HTML => '</div><div class="right-col">') @]*
+[@ join(
+    "\n\n",
+    map {
+        chr(65 + $_) . '\\.' . ' ' . '[$answers_sorted_html[' . $_ . ']]*'
+    } 0 .. $#answers_sorted
+) @]**
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+# -------------------------------
+# Dynamic Partial Credit Based on $n
+# -------------------------------
+$showPartialCorrectAnswers = 0;
+my @thresholds;
+my @scores;
+for (my $i = 1; $i <= $n; $i++) {
+  push @thresholds, $i;
+  push @scores, $i / $n;
+}
+
+install_problem_grader(~~&custom_problem_grader_fluid);
+$ENV{grader_numright} = [@thresholds];
+$ENV{grader_scores}   = [@scores];
+$ENV{grader_message} = 'You can earn partial credit.';
+
+# -------------------------------
+# Solution
+# -------------------------------
+$answer_list = join(', ', map { ($_ + 1) . '-' . $ALPHABET[$answer_index{$q_and_a[$_][1]}] } 0 .. $#q_and_a);
+BEGIN_PGML_SOLUTION
+The correct answers are: [$answer_list].
+END_PGML_SOLUTION
+
+ENDDOCUMENT();

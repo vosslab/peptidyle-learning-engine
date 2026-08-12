@@ -11,9 +11,9 @@ that AWS deployment has been accepted. The source contracts are
 
 The supported local topology runs one Caddy gateway, one or more stateless API
 replicas, one or more durable-worker replicas, one PostgreSQL 17 instance, one
-MinIO instance, and one private external stateless PG renderer. The renderer
-supports the accepted, deliberately bounded path: one licensed user-authored
-PGML `RadioButtons` fixture. It does not imply broad WeBWorK compatibility.
+MinIO instance, and one private external stateless PG renderer. The renderer supports the accepted,
+deliberately bounded four-source Chapter 1 PGML MC/MATCH profile. It does not imply broad WeBWorK
+compatibility.
 A local two-API-replica restart test exists and has been used as the behavioral
 proof that a learner can continue after the issuing API replica stops.
 
@@ -69,15 +69,15 @@ not browser routes. The complete local container policy is in
 
 ## Service and network matrix
 
-| Component                 | Implemented role                                              | Network or host exposure                                       | Shared durable state                   | Scale rule                                                 |
-| ------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------- |
-| `gateway`                 | Serves read-only `dist/`; proxies `/api`, `/api/*`, `/health` | Host `127.0.0.1:${PLE_GATEWAY_HOST_PORT}`; `gateway_api`       | None                                   | One local gateway; not an API session owner                |
-| `api`                     | Axum HTTP routes, auth, issue, grade, and asset authorization | `default`, `gateway_api`, and `renderer_private`; no host port | PostgreSQL, S3-compatible object store | `--scale api=N`; each replica uses identical configuration |
-| `worker`                  | Claims and completes bounded durable jobs                     | `default`; no host port                                        | PostgreSQL queue and object store      | `--scale worker=N`; each process claims one job at a time  |
-| `postgres`                | Shared tenant records, sessions, attempts, idempotency, jobs  | `default`; loopback 5432 by default                            | `ple_pgdata`                           | One local instance; no local HA claim                      |
-| `minio`                   | Shared S3-compatible object store                             | `default`; loopback 9000/9001 by default                       | `ple_miniodata`                        | One local instance; no local HA claim                      |
-| `createbuckets`           | Idempotently ensures the three required buckets exist         | `default`; no host port                                        | MinIO buckets                          | One-shot, not scaled                                       |
-| `webwork-renderer`        | Private standalone PG/PGML render and grade process           | `renderer_private`; no host port                               | None                                   | One normal service; no browser access                     |
+| Component          | Implemented role                                              | Network or host exposure                                       | Shared durable state                   | Scale rule                                                 |
+| ------------------ | ------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------- |
+| `gateway`          | Serves read-only `dist/`; proxies `/api`, `/api/*`, `/health` | Host `127.0.0.1:${PLE_GATEWAY_HOST_PORT}`; `gateway_api`       | None                                   | One local gateway; not an API session owner                |
+| `api`              | Axum HTTP routes, auth, issue, grade, and asset authorization | `default`, `gateway_api`, and `renderer_private`; no host port | PostgreSQL, S3-compatible object store | `--scale api=N`; each replica uses identical configuration |
+| `worker`           | Claims and completes bounded durable jobs                     | `default`; no host port                                        | PostgreSQL queue and object store      | `--scale worker=N`; each process claims one job at a time  |
+| `postgres`         | Shared tenant records, sessions, attempts, idempotency, jobs  | `default`; loopback 5432 by default                            | `ple_pgdata`                           | One local instance; no local HA claim                      |
+| `minio`            | Shared S3-compatible object store                             | `default`; loopback 9000/9001 by default                       | `ple_miniodata`                        | One local instance; no local HA claim                      |
+| `createbuckets`    | Idempotently ensures the three required buckets exist         | `default`; no host port                                        | MinIO buckets                          | One-shot, not scaled                                       |
+| `webwork-renderer` | Private standalone PG/PGML render and grade process           | `renderer_private`; no host port                               | None                                   | One normal service; no browser access                      |
 
 The named volumes preserve local data across normal `down`. Removing a volume
 is destructive and is intentionally outside routine stop commands.
@@ -172,22 +172,22 @@ Copy [containers/env.example](../containers/env.example) to the ignored
 bootstrap the default local file. The launcher creates generated local secrets
 and credentials with mode 0600; never commit or reuse them outside local work.
 
-| Inputs                                                                           | Owner                                      | All replicas require same value?          | Purpose                                              |
-| -------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------- | ---------------------------------------------------- |
-| `DATABASE_URL`                                                                   | Compose from PostgreSQL settings           | Yes for API and worker                    | Shared application database                          |
-| `PLE_GRADER_DATABASE_URL`                                                        | Compose/API only                           | Yes for API                               | Restricted answer-bearing reader                     |
-| `PLE_S3_ENDPOINT`, `PLE_S3_REGION`                                               | Compose                                    | Yes for API and worker                    | Shared S3-compatible endpoint                        |
-| `PLE_CONTENT_BUCKET`, `PLE_STUDENT_RECORDS_BUCKET`, `PLE_TEMP_PROCESSING_BUCKET` | Compose                                    | Yes for API and worker                    | Fixed policy-separated buckets                       |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`                                     | Ignored local env; deployment secret store | Yes for API and worker                    | Object-store credentials                             |
-| `PLE_PUBLIC_ASSET_BASE_URL`                                                      | Operator                                   | Yes for API                               | Safe public immutable asset base                     |
-| `PLE_BIND_ADDR`                                                                  | Compose/API                                | Yes except binding address                | API listen address; `0.0.0.0:3000` remains internal  |
+| Inputs                                                                           | Owner                                      | All replicas require same value?          | Purpose                                                              |
+| -------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------- | -------------------------------------------------------------------- |
+| `DATABASE_URL`                                                                   | Compose from PostgreSQL settings           | Yes for API and worker                    | Shared application database                                          |
+| `PLE_GRADER_DATABASE_URL`                                                        | Compose/API only                           | Yes for API                               | Restricted answer-bearing reader                                     |
+| `PLE_S3_ENDPOINT`, `PLE_S3_REGION`                                               | Compose                                    | Yes for API and worker                    | Shared S3-compatible endpoint                                        |
+| `PLE_CONTENT_BUCKET`, `PLE_STUDENT_RECORDS_BUCKET`, `PLE_TEMP_PROCESSING_BUCKET` | Compose                                    | Yes for API and worker                    | Fixed policy-separated buckets                                       |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`                                     | Ignored local env; deployment secret store | Yes for API and worker                    | Object-store credentials                                             |
+| `PLE_PUBLIC_ASSET_BASE_URL`                                                      | Operator                                   | Yes for API                               | Safe public immutable asset base                                     |
+| `PLE_BIND_ADDR`                                                                  | Compose/API                                | Yes except binding address                | API listen address; `0.0.0.0:3000` remains internal                  |
 | `PLE_AUTH_PROVIDER`, `PLE_LOCAL_AUTH_FILE`                                       | Local development only                     | Yes for API                               | Development-only tenant-session provider and hash-only identity file |
-| `PLE_WEBAUTHN_RP_ID`, `PLE_WEBAUTHN_ORIGIN`, `PLE_WEBAUTHN_RP_NAME`              | Operator                                   | Yes for API                               | PLE passkey relying-party identity                    |
-| `PLE_SMTP_*`, `PLE_PUBLIC_APP_BASE_URL`                                          | Operator, optional SMTP overlay            | Yes for API when delivery is enabled      | External-provider email authentication and invitation delivery |
-| `PLE_WORKER_*`                                                                   | Operator                                   | Yes for workers                           | Bounded worker lease, deadline, and polling controls |
-| `PLE_GATEWAY_HOST_PORT`                                                          | Local operator                             | Gateway only                              | Loopback browser entry port                          |
-| `PLE_*_IMAGE_SHA256`                                                             | Operator/launcher                          | Applicable services                       | Immutable local image manifests                      |
-| `PLE_WEBWORK_*`                                                                  | Opt-in profile operator                    | Yes for API and renderer where applicable | Private renderer identity, limits, and secrets       |
+| `PLE_WEBAUTHN_RP_ID`, `PLE_WEBAUTHN_ORIGIN`, `PLE_WEBAUTHN_RP_NAME`              | Operator                                   | Yes for API                               | PLE passkey relying-party identity                                   |
+| `PLE_SMTP_*`, `PLE_PUBLIC_APP_BASE_URL`                                          | Operator, optional SMTP overlay            | Yes for API when delivery is enabled      | External-provider email authentication and invitation delivery       |
+| `PLE_WORKER_*`                                                                   | Operator                                   | Yes for workers                           | Bounded worker lease, deadline, and polling controls                 |
+| `PLE_GATEWAY_HOST_PORT`                                                          | Local operator                             | Gateway only                              | Loopback browser entry port                                          |
+| `PLE_*_IMAGE_SHA256`                                                             | Operator/launcher                          | Applicable services                       | Immutable local image manifests                                      |
+| `PLE_WEBWORK_*`                                                                  | Opt-in profile operator                    | Yes for API and renderer where applicable | Private renderer identity, limits, and secrets                       |
 
 The API's `PLE_LOCAL_AUTH_FILE` is a read-only mount of hashes, not the adjacent
 local bearer credentials. It is a development-only tenant-session provider and
@@ -222,8 +222,9 @@ PLE_GATEWAY_HOST_PORT="$(awk -F= '$1 == "PLE_GATEWAY_HOST_PORT" { print $2 }' co
 curl --fail --silent --show-error "http://127.0.0.1:${PLE_GATEWAY_HOST_PORT}/health"
 ```
 
-The renderer stays in the base topology while API and worker replicas scale.
-Matching and broader problem compatibility require separate acceptance:
+The renderer stays in the base topology while API and worker replicas scale. The reviewed Chapter 1
+matching sources have live single-stack acceptance; broader PG compatibility and multi-replica
+matching behavior require separate evidence:
 
 ```bash
 podman compose -f containers/compose.yaml --env-file containers/env.local ps
@@ -247,16 +248,16 @@ planned-AWS port boundaries.
 
 ## Failure behavior
 
-| Failure                             | Implemented response                                                                                                 | Operator action                                                                                  |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| One API replica stops               | Caddy rediscovers/retries peers; shared session and attempt state permit continuation                                | Inspect logs, replace the replica, run the replica restart E2E before changing topology          |
-| API returns readiness `503`         | Caddy's active `/health` check removes it from rotation                                                              | Repair PostgreSQL/object-store access or schema compatibility; do not force traffic to it        |
-| PostgreSQL unavailable/incompatible | API readiness is `503`; workers refuse schema-incompatible draining                                                  | Restore database service and expected migration state; do not fabricate migration rows           |
-| Object store unavailable            | API readiness is `503`; object operations return a bounded unavailable result                                        | Restore endpoint, credentials, bucket, or network; preserve object checksum evidence             |
-| Worker crashes after claim          | Lease expires; another worker can reclaim according to bounded policy                                                | Inspect safe worker logs and queue depth; scale workers only after dependency health is restored |
-| Browser retries submission          | Durable idempotency returns the original authorized outcome rather than grading twice                                | Keep the same request identity and investigate repeated transport failure                        |
-| Renderer unavailable                | WeBWorK-backed work fails closed without losing PLE records                                             | Recreate the stateless renderer and rerun its semantic probe; keep its port private               |
-| Gateway fails                       | Browser origin is unavailable even though API replicas may be healthy                                                | Restart/repair gateway; do not publish API ports as an emergency browser bypass                  |
+| Failure                             | Implemented response                                                                  | Operator action                                                                                  |
+| ----------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| One API replica stops               | Caddy rediscovers/retries peers; shared session and attempt state permit continuation | Inspect logs, replace the replica, run the replica restart E2E before changing topology          |
+| API returns readiness `503`         | Caddy's active `/health` check removes it from rotation                               | Repair PostgreSQL/object-store access or schema compatibility; do not force traffic to it        |
+| PostgreSQL unavailable/incompatible | API readiness is `503`; workers refuse schema-incompatible draining                   | Restore database service and expected migration state; do not fabricate migration rows           |
+| Object store unavailable            | API readiness is `503`; object operations return a bounded unavailable result         | Restore endpoint, credentials, bucket, or network; preserve object checksum evidence             |
+| Worker crashes after claim          | Lease expires; another worker can reclaim according to bounded policy                 | Inspect safe worker logs and queue depth; scale workers only after dependency health is restored |
+| Browser retries submission          | Durable idempotency returns the original authorized outcome rather than grading twice | Keep the same request identity and investigate repeated transport failure                        |
+| Renderer unavailable                | WeBWorK-backed work fails closed without losing PLE records                           | Recreate the stateless renderer and rerun its semantic probe; keep its port private              |
+| Gateway fails                       | Browser origin is unavailable even though API replicas may be healthy                 | Restart/repair gateway; do not publish API ports as an emergency browser bypass                  |
 
 ## PG renderer isolation
 

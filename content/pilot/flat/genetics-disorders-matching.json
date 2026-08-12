@@ -1,0 +1,40 @@
+{
+  "format": "pleFlatQuestion",
+  "version": 2,
+  "title": "Genetics Chapter 1: Genetic disorder matching",
+  "prompt": "Match each description to the genetic disorder it best describes.",
+  "response": {
+    "kind": "matching",
+    "prompts": [
+      { "id": "three-x", "text": "A condition in females with three copies of the X chromosome" },
+      { "id": "bleeding", "text": "An inherited condition in which blood does not clot properly" },
+      { "id": "hemoglobin", "text": "Reduced hemoglobin production that can cause severe anemia" },
+      { "id": "hexosaminidase-a", "text": "A deficiency of the lysosomal enzyme hexosaminidase A" }
+    ],
+    "choices": [
+      { "id": "triple-x", "text": "Triple X syndrome" },
+      { "id": "hemophilia", "text": "Hemophilia" },
+      { "id": "beta-thalassemia", "text": "Beta thalassemia" },
+      { "id": "tay-sachs", "text": "Tay-Sachs disease" }
+    ],
+    "matches": [
+      { "prompt": "three-x", "choice": "triple-x" },
+      { "prompt": "bleeding", "choice": "hemophilia" },
+      { "prompt": "hemoglobin", "choice": "beta-thalassemia" },
+      { "prompt": "hexosaminidase-a", "choice": "tay-sachs" }
+    ]
+  },
+  "feedback": {
+    "correct": "Correct. Each disorder is paired with its defining chromosome, protein, or enzyme defect.",
+    "incorrect": "Review the chromosome, blood, hemoglobin, and lysosomal-enzyme clues."
+  },
+  "points": 4.0,
+  "attemptPolicy": { "maxAttempts": null, "feedback": "immediateFull" },
+  "timingPolicy": { "kind": "untimed" },
+  "tags": ["genetics", "genetic-disorders", "chapter-1", "matching"],
+  "taxonomy": [
+    { "scheme": "Peptidyle", "code": "GENETICS.CHAPTER_1", "label": "Genetics Chapter 1" }
+  ],
+  "license": { "kind": "ccBy" },
+  "language": "en-US"
+}

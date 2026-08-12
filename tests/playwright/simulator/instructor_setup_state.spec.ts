@@ -140,9 +140,9 @@ test("schema-v2 state rejects duplicate JSON, upper-case IDs, oversized files, a
 });
 
 test("schema-v2 parser rejects inherited, hidden, and symbol fields in a public handoff", () => {
-  const inherited = Object.create({ courseId });
-  Object.assign(inherited, j11());
-  delete inherited.courseId;
+  const inherited: Record<string, unknown> = { ...j11() };
+  delete inherited["courseId"];
+  Object.setPrototypeOf(inherited, { courseId });
   expect(parseInstructorSetupFragments([inherited, j12(), j13()])).toBeUndefined();
 
   const hidden = { ...j11() };

@@ -51,7 +51,7 @@ container build context, or runtime dependency.
 | [crates/export/](../crates/export/)                             | Print model plus PDF and DOCX writers.                                                                |
 | [crates/wasm/](../crates/wasm/)                                 | `wasm-bindgen` facade over answer-free domain behavior.                                               |
 | [crates/server/](../crates/server/)                             | Axum API, auth, course and run routes, worker, and dependency composition.                            |
-| [crates/project-tools/](../crates/project-tools/)               | Repository-only code generation, fixture, migration, and E2E seed commands.                           |
+| [crates/project-tools/](../crates/project-tools/)               | Repository-only code generation, fixture, pilot-content validation, migration, and E2E seed commands. |
 
 Cargo package directories use hyphens; Rust imports use underscores. For
 example, the directory `learning-data-access` is imported as
@@ -131,8 +131,14 @@ separate from generic route pages.
 
 ## Question sources and engines
 
-`content/` holds checked-in content, including the bounded PGML pilot used by
-the standalone renderer integration. The browser and PLE API never run source
+`content/` holds checked-in content. `content/pilot/chapter_1_assignments.yaml`
+owns the reviewed Genetics and Biochemistry Chapter 1 inventory;
+`content/pilot/sources/` retains licensed source evidence and
+`content/pilot/flat/` contains the four curated PLE flat v2 payloads. The
+earlier bounded PGML renderer fixture remains under `content/pilot/webwork/`.
+`crates/project-tools/src/pilot_content.rs` validates that source corpus, while
+`crates/project-tools/src/e2e_seed/chapter_one.rs` publishes its exact two-by-four matrix through
+the production PostgreSQL and object-store contracts. The browser and PLE API never run source
 from `OTHER_REPOS/`.
 
 The WeBWorK reference material is deliberately divided:

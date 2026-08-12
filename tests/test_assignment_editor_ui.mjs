@@ -6,9 +6,11 @@ import test from "node:test";
 import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
 import {
   addCatalogReference,
+  assignmentProblemLabel,
   assignmentInput,
   createMasteryAssignmentDraft,
   moveCatalogReference,
+  questionBackendLabel,
   removeCatalogReference,
 } from "../src/pages/assignment_editor_model.ts";
 import { createAssignmentEditorRepository } from "../src/pages/assignment_editor_repository.ts";
@@ -32,7 +34,10 @@ function draft() {
 test("assignment editor retains ordered immutable tuples and emits only editable input", () => {
   const row = {
     reference,
+    publicId: publishedProblemFixture.catalogProblem.publicId,
+    versionNumber: publishedProblemFixture.catalogProblem.versionNumber,
     title: "Peptide bond resonance and planarity",
+    backend: publishedProblemFixture.catalogProblem.backend,
   };
   const once = addCatalogReference(draft(), row);
   const twice = addCatalogReference(once, row);
@@ -54,6 +59,8 @@ test("assignment editor retains ordered immutable tuples and emits only editable
   assert.equal("workspace" in assignmentInput(twice), false);
   assert.equal("source" in assignmentInput(twice), false);
   assert.equal("capabilities" in assignmentInput(twice), false);
+  assert.equal(assignmentProblemLabel(row), "P-1-v1");
+  assert.equal(questionBackendLabel(row.backend), "PLE native");
 });
 
 test("new assignments start with the Fall-pilot Mastery policy and no private state", () => {
@@ -89,10 +96,18 @@ test("assignment editor repository creates a bounded catalog query and passes th
       calls.push({ query });
       return { items: [publishedProblemFixture.catalogProblem] };
     },
+    getCatalogProblemDetail: async (problem, version) => ({
+      summary: { ...publishedProblemFixture.catalogProblem, problem, version },
+      prompt: [],
+      statistics: "unavailable",
+    }),
   };
   const repository = createAssignmentEditorRepository(client);
   const rows = await repository.searchPublished(" peptide bond ");
   assert.deepEqual(rows[0].reference, reference);
+  assert.equal(rows[0].publicId, publishedProblemFixture.catalogProblem.publicId);
+  assert.equal(rows[0].versionNumber, publishedProblemFixture.catalogProblem.versionNumber);
+  assert.equal(rows[0].backend, publishedProblemFixture.catalogProblem.backend);
   assert.deepEqual(calls[0].query, {
     text: "peptide bond",
     taxonomy: [],
@@ -102,6 +117,9 @@ test("assignment editor repository creates a bounded catalog query and passes th
     cursor: null,
     pageSize: 20,
   });
+
+  const described = await repository.describePublished([reference]);
+  assert.deepEqual(described, rows);
 
   const input = assignmentInput({ ...draft(), problems: [reference] });
   await repository.create(publishedProblemFixture.course.id, input);

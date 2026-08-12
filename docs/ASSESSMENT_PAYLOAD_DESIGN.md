@@ -435,9 +435,10 @@ renderer request-count evidence remain WP-P4 acceptance work. The browser never 
 resubmits PG source, upstream field names, radio values, passwords, session keys, renderer URLs, or
 provider score objects.
 
-Current RC3 WeBWorK supports one `RadioButtons` group as a single-choice interaction with
-all-or-nothing grading. Matching and partial-credit WeBWorK interactions require their own accepted
-adapter contracts; the payload design does not pretend they already exist.
+The reviewed Chapter 1 WeBWorK profile supports its two `RadioButtons` sources and two matching
+sources. Matching partial credit is admitted only when both the source path and immutable source
+digest match the accepted evidence profile. Other WeBWorK interactions still require their own
+adapter contract and live evidence.
 
 ## ADAPT comparison
 

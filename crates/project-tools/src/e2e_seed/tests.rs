@@ -1,4 +1,5 @@
 use super::*;
+use question_model::Capability;
 
 #[test]
 fn help_has_no_secret_or_browser_seed_endpoint() {
@@ -132,6 +133,105 @@ fn webwork_pilot_storage_settings_are_opt_in_and_deterministic() {
     assert_eq!(storage.endpoint_url, "http://127.0.0.1:9000/");
     assert_eq!(storage.region, "us-east-1");
     assert_eq!(storage.content_bucket, "content");
+}
+
+#[test]
+fn chapter_one_seed_keeps_the_exact_two_by_four_teaching_matrix() {
+    let chapters = pilot_chapters().expect("the tracked pilot inventory is valid");
+    assert_eq!(chapters.len(), 2);
+    for chapter in chapters {
+        assert_eq!(chapter.questions.len(), 4);
+        assert!(matches!(
+            chapter.questions[0].kind,
+            PilotQuestionKind::WebworkMultipleChoice
+        ));
+        assert!(matches!(
+            chapter.questions[1].kind,
+            PilotQuestionKind::WebworkMatching
+        ));
+        assert!(matches!(
+            chapter.questions[2].kind,
+            PilotQuestionKind::FlatMultipleChoice
+        ));
+        assert!(matches!(
+            chapter.questions[3].kind,
+            PilotQuestionKind::FlatMatching
+        ));
+        for question in chapter.questions {
+            assert!(!question.slug.is_empty());
+            assert!(!question.title.is_empty());
+            assert!(!question.source.is_empty());
+        }
+    }
+}
+
+#[test]
+fn chapter_one_seed_sources_compile_and_use_evidence_bounded_capabilities() {
+    for chapter in pilot_chapters().expect("the tracked pilot inventory is valid") {
+        for question in chapter.questions {
+            match question.kind {
+                PilotQuestionKind::FlatMultipleChoice | PilotQuestionKind::FlatMatching => {
+                    let (draft, _) =
+                        adapter_native::flat_question::FlatQuestionDocument::parse(question.source)
+                            .expect("tracked flat pilot source parses")
+                            .compile(WorkspaceId::from_uuid(Uuid::from_u128(77)))
+                            .expect("tracked flat pilot source compiles")
+                            .into_parts();
+                    assert_eq!(
+                        matches!(draft.response, ResponseDefinition::Matching { .. }),
+                        matches!(question.kind, PilotQuestionKind::FlatMatching),
+                        "the flat source family must match its assigned teaching-matrix slot"
+                    );
+                }
+                PilotQuestionKind::WebworkMultipleChoice | PilotQuestionKind::WebworkMatching => {
+                    let source = QuestionSource::Webwork {
+                        pg_path: question.source_path.to_string(),
+                    };
+                    let capabilities = adapter_webwork::reviewed_webwork_source_capabilities(
+                        &source,
+                        &objects::Sha256Digest::compute(question.source).to_string(),
+                    )
+                    .expect("tracked PGML pilot source is registered");
+                    assert!(capabilities.supports(Capability::AlgorithmicGeneration));
+                    assert!(capabilities.supports(Capability::ServerGrading));
+                    assert_eq!(
+                        capabilities.supports(Capability::PartialCredit),
+                        matches!(question.kind, PilotQuestionKind::WebworkMatching)
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn chapter_one_seed_storage_flag_is_explicit_and_mutually_exclusive() {
+    let common = [
+        "--database-url",
+        "postgres://example",
+        "--tenant",
+        "00000000-0000-0000-0000-000000000001",
+        "--instructor",
+        "00000000-0000-0000-0000-000000000002",
+        "--student",
+        "00000000-0000-0000-0000-000000000003",
+        "--apply-migrations",
+        "--chapter-one-pilot",
+        "--s3-endpoint",
+        "http://127.0.0.1:9000",
+        "--s3-region",
+        "us-east-1",
+        "--content-bucket",
+        "content",
+    ]
+    .map(str::to_string);
+    let parsed = parse_arguments(&common).expect("complete Chapter 1 storage settings parse");
+    assert!(parsed.chapter_one_pilot.is_some());
+    assert!(parsed.webwork_pilot.is_none());
+
+    let mut conflicting = common.to_vec();
+    conflicting.push("--webwork-pilot".to_string());
+    assert!(parse_arguments(&conflicting).is_err());
 }
 
 #[test]

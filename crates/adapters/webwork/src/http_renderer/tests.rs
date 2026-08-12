@@ -2,6 +2,9 @@ use serde_json::json;
 
 use super::*;
 
+#[path = "tests/current_matching.rs"]
+mod current_matching;
+
 fn request() -> RenderRequest<'static> {
     RenderRequest {
         pg_source: b"DOCUMENT();",
@@ -219,7 +222,7 @@ fn recorded_upstream_radio_result_becomes_answer_free_multiple_choice() {
         r#"<p>Which molecule is water?</p><div class="radio-buttons-container" data-feedback-insert-element="1"><label><input type="radio" name="AnSwEr0001" value="0" id="AnSwEr0001"><strong>H<sub>2</sub>O</strong></label><div style="margin-bottom: 0.7em;"></div><label><input type="radio" name="AnSwEr0001" value="1" id="AnSwEr0001_1"><strong>CO<sub>2</sub></strong></label></div>"#,
     ));
     let parsed = parse_render_rpc(
-        value,
+        value.clone(),
         ExpectedEcho::from_request(&settings, request()),
         request(),
         &settings.base_uri,
@@ -256,12 +259,12 @@ fn standalone_pgml_radio_shape_becomes_answer_free_multiple_choice() {
         r#"<div class="PGML">
 Based on their molecular formula, which compound is most likely <span style="color:#997300;font-size:1.25em;font-weight:700;">hydrophobic</span>?
 <div style="margin-top:1em"></div>
-<label><input TYPE="RADIO" name="AnSwEr0001" id="AnSwEr0001" aria-label="answer 1 option 1 " value="B0"><strong>A</strong>. glucose, C<sub>6</sub>H<sub>12</sub>O<sub>6</sub></label><div style="margin-bottom: 0.7em;"></div><label><input TYPE="RADIO" name="AnSwEr0001" id="AnSwEr0001_1" aria-label="answer 1 option 2 " value="B1"><strong>B</strong>. benzene, C<sub>6</sub>H<sub>6</sub></label>
+<label><input TYPE="RADIO" name="AnSwEr0001" id="AnSwEr0001" aria-label="answer 1 option 1 " value="B0"><strong>A</strong>. glucose, C<sub>6</sub>H<sub>12</sub>O<sub>6</sub></label><div style="margin-bottom: 0.7em;"></div><label><input TYPE="RADIO" name="AnSwEr0001" id="AnSwEr0001_1" aria-label="answer 1 option 2 " value="B1"><strong>B</strong>. <span style="color: #6c6c00; font-weight:700;">benzene</span>, C<sub>6</sub>H<sub>6</sub></label>
 <div style="margin-top:1em"></div>
 </div>"#,
     ));
     let parsed = parse_render_rpc(
-        value,
+        value.clone(),
         ExpectedEcho::from_request(&settings, request()),
         request(),
         &settings.base_uri,
@@ -273,9 +276,35 @@ Based on their molecular formula, which compound is most likely <span style="col
     };
     assert_eq!(*selection, SelectionCardinality::ExactlyOne);
     assert_eq!(choices.len(), 2);
+    assert!(matches!(
+        &choices[1].body[0],
+        ContentBlock::Text { markdown } if markdown.contains("B. benzene")
+    ));
     assert!(parsed.html.contains("hydrophobic"));
     assert!(!parsed.html.contains("style="));
     assert!(!parsed.html.contains("AnSwEr0001"));
+
+    let hostile_label_style = value
+        .as_object()
+        .expect("recorded response object")
+        .get("renderedHTML")
+        .and_then(Value::as_str)
+        .expect("recorded HTML")
+        .replace(
+            "color: #6c6c00; font-weight:700;",
+            "background-image:url(https://attacker.example/)",
+        );
+    let mut hostile = response(&settings, "<p>placeholder</p>");
+    hostile.insert("renderedHTML".into(), Value::String(hostile_label_style));
+    assert!(
+        parse_render_rpc(
+            Value::Object(hostile),
+            ExpectedEcho::from_request(&settings, request()),
+            request(),
+            &settings.base_uri,
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -416,9 +445,16 @@ fn duplicate_unknown_and_off_origin_upstream_members_refuse() {
 
 #[test]
 fn oversized_or_malformed_renderer_session_token_refuses() {
+    let reviewed_pg_size = serde_json::from_value(json!({
+        "problem":"problem.payload.signature",
+        "session": format!("header.{}.signature", "x".repeat(84_000)),
+        "answer": format!("answer.{}.signature", "x".repeat(114_000))
+    }))
+    .expect("reviewed-PG-size JWT map");
+    assert!(validate_and_discard_jwt(&reviewed_pg_size).is_ok());
     let oversized = serde_json::from_value(json!({
         "problem":"problem.payload.signature",
-        "session": format!("header.{}.signature", "x".repeat(65_537)),
+        "session": format!("header.{}.signature", "x".repeat(MAX_PRIVATE_JWT_BYTES + 1)),
         "answer":"answer.payload.signature"
     }))
     .expect("oversized JWT map");

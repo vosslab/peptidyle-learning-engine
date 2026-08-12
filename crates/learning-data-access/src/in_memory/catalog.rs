@@ -34,12 +34,12 @@ impl CatalogStore for MemoryStore {
             command.flat_question_promotion.as_ref(),
         ) {
             (question_model::DraftQuestionSource::Native { family }, Some(promotion))
-                if family == "flat_single_choice_v1" =>
+                if grading::flat_question::is_flat_question_family(family) =>
             {
                 Some(promotion)
             }
             (question_model::DraftQuestionSource::Native { family }, None)
-                if family == "flat_single_choice_v1" =>
+                if grading::flat_question::is_flat_question_family(family) =>
             {
                 return Err(StoreError::InvalidRecord(
                     "flat-question publication requires dedicated committed staging evidence"
@@ -48,8 +48,7 @@ impl CatalogStore for MemoryStore {
             }
             (_, Some(_)) => {
                 return Err(StoreError::InvalidRecord(
-                    "flat-question promotion requires the flat_single_choice_v1 native family"
-                        .to_string(),
+                    "flat-question promotion requires a supported native flat family".to_string(),
                 ));
             }
             (_, None) => None,

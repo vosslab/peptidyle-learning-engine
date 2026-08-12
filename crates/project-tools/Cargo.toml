@@ -17,7 +17,9 @@ publish = false
 
 [dependencies]
 adapter_native.workspace = true
+adapter_webwork.workspace = true
 anyhow.workspace = true
+csv.workspace = true
 domain.workspace = true
 grading.workspace = true
 objects = { workspace = true, features = ["s3"] }
@@ -25,6 +27,7 @@ question_model.workspace = true
 learning-data-access = { workspace = true, features = ["postgres"] }
 serde.workspace = true
 serde_json.workspace = true
+serde_yaml_ng.workspace = true
 sha2.workspace = true
 syn.workspace = true
 tokio.workspace = true

@@ -23,7 +23,7 @@ use learning_data_access::{
 };
 use objects::{ObjectCategory, ObjectKey, ObjectStore, PutObject};
 use question_model::answer::SelectionCardinality;
-use question_model::capability::{BackendCapabilities, Capability};
+use question_model::capability::BackendCapabilities;
 use question_model::definition::{
     DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionMetadata,
     QuestionSource,
@@ -57,6 +57,10 @@ use native::*;
 mod webwork;
 use webwork::*;
 
+#[path = "e2e_seed/chapter_one.rs"]
+mod chapter_one;
+use chapter_one::*;
+
 #[path = "e2e_seed/timing.rs"]
 mod timing;
 use timing::*;
@@ -69,7 +73,7 @@ use scoring::*;
 mod records;
 use records::*;
 
-const USAGE: &str = "usage: cargo tools e2e-seed --database-url <URL> --tenant <UUID> (--instructor <UUID>|--user <UUID>) --student <UUID> --apply-migrations [--exercise-scoring] [--exercise-timing] [--webwork-pilot --s3-endpoint <URL> --s3-region <REGION> --content-bucket <BUCKET>]";
+const USAGE: &str = "usage: cargo tools e2e-seed --database-url <URL> --tenant <UUID> (--instructor <UUID>|--user <UUID>) --student <UUID> --apply-migrations [--exercise-scoring] [--exercise-timing] [(--webwork-pilot|--chapter-one-pilot) --s3-endpoint <URL> --s3-region <REGION> --content-bucket <BUCKET>]";
 const WEBWORK_PILOT_SOURCE_PATH: &str = "content/pilot/webwork/which_hydrophobic-simple.pgml";
 const WEBWORK_PILOT_SOURCE: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -107,13 +111,15 @@ struct SeedArguments {
     exercise_scoring: bool,
     exercise_timing: bool,
     webwork_pilot: Option<WebworkPilotStorage>,
+    chapter_one_pilot: Option<WebworkPilotStorage>,
 }
 
-/// Non-secret host-only connection parameters for the opt-in WebWork pilot.
+/// Non-secret host-only storage parameters for reviewed WeBWorK sources.
 ///
+/// Both the legacy walkthrough seed and the Chapter 1 corpus use this shape.
 /// Credentials remain in `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` so
 /// they never appear in command output or process arguments.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct WebworkPilotStorage {
     endpoint_url: String,
     region: String,
@@ -145,6 +151,7 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
     let mut exercise_scoring = false;
     let mut exercise_timing = false;
     let mut webwork_pilot = false;
+    let mut chapter_one_pilot = false;
     let mut s3_endpoint = None;
     let mut s3_region = None;
     let mut content_bucket = None;
@@ -168,6 +175,10 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
             webwork_pilot = true;
             continue;
         }
+        if flag == "--chapter-one-pilot" && !chapter_one_pilot {
+            chapter_one_pilot = true;
+            continue;
+        }
         let Some(value) = args.get(index) else {
             bail!("{flag} requires a value; {USAGE}");
         };
@@ -185,12 +196,18 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
             _ => bail!("unknown, duplicate, or misplaced argument {flag}; {USAGE}"),
         }
     }
-    let webwork_pilot = match (webwork_pilot, s3_endpoint, s3_region, content_bucket) {
+    if webwork_pilot && chapter_one_pilot {
+        bail!("--webwork-pilot and --chapter-one-pilot are mutually exclusive; {USAGE}");
+    }
+    let storage = match (
+        webwork_pilot || chapter_one_pilot,
+        s3_endpoint,
+        s3_region,
+        content_bucket,
+    ) {
         (false, None, None, None) => None,
         (false, _, _, _) => {
-            bail!(
-                "--s3-endpoint, --s3-region, and --content-bucket require --webwork-pilot; {USAGE}"
-            )
+            bail!("--s3-endpoint, --s3-region, and --content-bucket require a pilot flag; {USAGE}")
         }
         (true, Some(endpoint_url), Some(region), Some(content_bucket)) => {
             Some(WebworkPilotStorage {
@@ -200,9 +217,11 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
             })
         }
         (true, _, _, _) => bail!(
-            "--webwork-pilot requires --s3-endpoint, --s3-region, and --content-bucket; {USAGE}"
+            "the selected pilot requires --s3-endpoint, --s3-region, and --content-bucket; {USAGE}"
         ),
     };
+    let webwork_pilot = webwork_pilot.then(|| storage.clone().expect("pilot storage is complete"));
+    let chapter_one_pilot = chapter_one_pilot.then(|| storage.expect("pilot storage is complete"));
     let arguments = SeedArguments {
         database_url: database_url
             .ok_or_else(|| anyhow::anyhow!("--database-url is required; {USAGE}"))?,
@@ -214,6 +233,7 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
         exercise_scoring,
         exercise_timing,
         webwork_pilot,
+        chapter_one_pilot,
     };
     if arguments.instructor == arguments.student {
         bail!("--instructor and --student must identify different users for the E2E course");
@@ -251,11 +271,16 @@ fn parse_user(value: &str, name: &str) -> Result<UserId> {
     ))
 }
 
-async fn seed(arguments: SeedArguments) -> Result<Manifest> {
-    if arguments.webwork_pilot.is_some() {
-        return seed_webwork_pilot(&arguments).await;
+async fn seed(arguments: SeedArguments) -> Result<serde_json::Value> {
+    if arguments.chapter_one_pilot.is_some() {
+        return serde_json::to_value(seed_chapter_one_pilot(&arguments).await?)
+            .context("encoding Chapter 1 pilot manifest");
     }
-    seed_native(arguments).await
+    if arguments.webwork_pilot.is_some() {
+        return serde_json::to_value(seed_webwork_pilot(&arguments).await?)
+            .context("encoding WebWork pilot manifest");
+    }
+    serde_json::to_value(seed_native(arguments).await?).context("encoding native seed manifest")
 }
 
 #[cfg(test)]

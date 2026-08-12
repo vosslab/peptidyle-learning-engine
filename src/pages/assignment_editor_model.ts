@@ -2,11 +2,17 @@
 
 import type { ProblemVersionRef } from "../../generated/api/ProblemVersionRef";
 import type { Capability } from "../../generated/api/Capability";
+import type { ProblemPublicId } from "../../generated/api/ProblemPublicId";
+import type { ProblemVersionNumber } from "../../generated/api/ProblemVersionNumber";
+import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { AssignmentCapabilityViolation, AssignmentEditorInput } from "../api/contracts";
 
 export interface AssignmentCatalogRow {
   readonly reference: ProblemVersionRef;
+  readonly publicId: ProblemPublicId;
+  readonly versionNumber: ProblemVersionNumber;
   readonly title: string;
+  readonly backend: QuestionBackend;
 }
 
 export interface AssignmentEditorDraft extends AssignmentEditorInput {
@@ -105,4 +111,20 @@ export function capabilityLabel(capability: Capability): string {
     offlinePreview: "offline preview",
   };
   return labels[capability];
+}
+
+/** Copyable instructor-facing identity; UUID tuples remain transport-only. */
+export function assignmentProblemLabel(row: AssignmentCatalogRow): string {
+  return `P-${row.publicId}-v${row.versionNumber}`;
+}
+
+export function questionBackendLabel(backend: QuestionBackend): string {
+  const labels: Readonly<Record<QuestionBackend, string>> = {
+    native: "PLE native",
+    webwork: "WeBWorK",
+    qti: "QTI",
+    h5p: "H5P",
+    imathas: "iMathAS",
+  };
+  return labels[backend];
 }

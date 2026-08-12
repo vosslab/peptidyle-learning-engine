@@ -553,8 +553,8 @@ pub(crate) fn validate_source_artifact(
     Ok(())
 }
 
-/// Validates source artifacts for publication. The flat single-choice family
-/// is source-backed even though it uses the native adapter: its canonical
+/// Validates source artifacts for publication. The closed flat families are
+/// source-backed even though they use the native adapter: their canonical
 /// author source and private grading material must promote together. Other
 /// native families remain algorithmic and do not gain an artifact requirement.
 pub(crate) fn validate_source_artifact_for_publication(
@@ -567,8 +567,7 @@ pub(crate) fn validate_source_artifact_for_publication(
     if backend != QuestionBackend::Native {
         if has_flat_promotion {
             return Err(StoreError::InvalidRecord(
-                "flat-question promotion requires the flat_single_choice_v1 native family"
-                    .to_string(),
+                "flat-question promotion requires a supported native flat family".to_string(),
             ));
         }
         return validate_source_artifact(publication, source, artifact);
@@ -583,7 +582,7 @@ pub(crate) fn validate_source_artifact_for_publication(
             "native publication must not attach a source artifact".to_string(),
         )),
         (false, _, true) => Err(StoreError::InvalidRecord(
-            "flat-question promotion requires the flat_single_choice_v1 native family".to_string(),
+            "flat-question promotion requires a supported native flat family".to_string(),
         )),
         (true, None, false) => Err(StoreError::InvalidRecord(
             "flat-question publication requires a flat-question promotion".to_string(),

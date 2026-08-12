@@ -48,21 +48,7 @@ impl FlatQuestionStore for PostgresStore {
     ) -> Result<WorkspaceFlatQuestionSource, StoreError> {
         ensure_upsert_inputs(&command)?;
         ensure_tenant(context, command.draft.tenant)?;
-        let source_family = match &command.draft.question.source {
-            DraftQuestionSource::Native { family } if family == "flat_single_choice_v1" => {
-                family.clone()
-            }
-            DraftQuestionSource::Native { .. } => {
-                return Err(StoreError::InvalidRecord(
-                    "flat-question sources require the flat_single_choice_v1 family".to_string(),
-                ));
-            }
-            _ => {
-                return Err(StoreError::InvalidRecord(
-                    "flat-question sources require native draft source".to_string(),
-                ));
-            }
-        };
+        let source_family = flat_source_family(&command.draft.question.source)?;
         let (draft_payload, draft_checksum) = encode_payload(&command.draft)?;
         let mut transaction = self.begin_tenant(context).await?;
         let current: Option<i64> = sqlx::query(
@@ -284,6 +270,22 @@ pub(super) fn ensure_upsert_inputs(command: &UpsertFlatQuestionCommand) -> Resul
     crate::flat_question::validate_upsert_flat_question_command(command)
 }
 
+fn flat_source_family(source: &DraftQuestionSource) -> Result<String, StoreError> {
+    match source {
+        DraftQuestionSource::Native { family }
+            if grading::flat_question::is_flat_question_family(family) =>
+        {
+            Ok(family.clone())
+        }
+        DraftQuestionSource::Native { .. } => Err(StoreError::InvalidRecord(
+            "flat-question source family is unsupported".to_string(),
+        )),
+        _ => Err(StoreError::InvalidRecord(
+            "flat-question sources require native draft source".to_string(),
+        )),
+    }
+}
+
 pub(super) async fn stage_flat_question_grading(
     transaction: &mut Transaction<'_, Postgres>,
     source: &WorkspaceFlatQuestionSource,
@@ -438,6 +440,35 @@ mod tests {
                 .1;
         FlatQuestionGradingPayload::from_private(&private)
             .expect("compiled private material should persist")
+    }
+
+    #[test]
+    fn postgres_staging_accepts_every_closed_flat_family_and_rejects_other_native_sources() {
+        for family in [
+            grading::flat_question::FLAT_SINGLE_CHOICE_FAMILY,
+            grading::flat_question::FLAT_SINGLE_CHOICE_V2_FAMILY,
+            grading::flat_question::FLAT_MULTIPLE_ANSWER_FAMILY,
+            grading::flat_question::FLAT_FILL_IN_FAMILY,
+            grading::flat_question::FLAT_MULTI_FILL_IN_FAMILY,
+            grading::flat_question::FLAT_NUMERIC_FAMILY,
+            grading::flat_question::FLAT_MATCHING_FAMILY,
+            grading::flat_question::FLAT_ORDERING_FAMILY,
+            grading::flat_question::FLAT_HOTSPOT_FAMILY,
+        ] {
+            assert_eq!(
+                flat_source_family(&DraftQuestionSource::Native {
+                    family: family.to_string(),
+                })
+                .expect("closed flat family"),
+                family
+            );
+        }
+        assert!(
+            flat_source_family(&DraftQuestionSource::Native {
+                family: "unreviewed_native_family".to_string(),
+            })
+            .is_err()
+        );
     }
 
     #[test]

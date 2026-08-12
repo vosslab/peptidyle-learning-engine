@@ -46,8 +46,8 @@ pub(super) fn parse_matching_group(
     }
     let root = strict_tree(html, protected_html_values)?;
     let root_children = significant(&root.children);
-    let [Node::Element(pgml)] = root_children.as_slice() else {
-        return Err(bad("matching render must contain one PGML root"));
+    let Some((Node::Element(pgml), trailing)) = root_children.split_first() else {
+        return Err(bad("matching render must begin with one PGML root"));
     };
     require_attrs(pgml, &[("class", "PGML")])?;
 
@@ -85,6 +85,7 @@ pub(super) fn parse_matching_group(
 
     let (prompts, option_values) = parse_left(left)?;
     let choices = parse_right(right)?;
+    validate_trailing_inputs(trailing, &prompts)?;
     if prompts.len() != choices.len()
         || option_values.len() != choices.len()
         || choices
@@ -133,21 +134,35 @@ fn strict_tree(
                 let name = tag.name.to_string();
                 if !matches!(
                     name.as_str(),
-                    "div" | "select" | "option" | "strong" | "sub" | "sup" | "span"
-                ) || tag.self_closing
-                {
+                    "div" | "select" | "option" | "strong" | "b" | "sub" | "sup" | "span" | "input"
+                ) {
                     return Err(bad("matching render contains unsupported markup"));
                 }
                 match tag.kind {
                     TagKind::StartTag => {
-                        if stack.len() >= MAX_HTML_NESTING {
-                            return Err(bad("renderer markup exceeds nesting bound"));
-                        }
                         let attrs = tag
                             .attrs
                             .into_iter()
                             .map(|attr| (attr.name.local.to_string(), attr.value.to_string()))
                             .collect();
+                        if name == "input" {
+                            stack
+                                .last_mut()
+                                .ok_or_else(|| bad("renderer returned unbalanced matching markup"))?
+                                .children
+                                .push(Node::Element(Element {
+                                    name,
+                                    attrs,
+                                    children: Vec::new(),
+                                }));
+                            continue;
+                        }
+                        if tag.self_closing {
+                            return Err(bad("matching render contains unsupported markup"));
+                        }
+                        if stack.len() >= MAX_HTML_NESTING {
+                            return Err(bad("renderer markup exceeds nesting bound"));
+                        }
                         stack.push(Element {
                             name,
                             attrs,
@@ -189,10 +204,14 @@ fn parse_left(left: &Element) -> Result<(Vec<MatchingPrompt>, Vec<String>), Rend
     let mut index = 0;
     let mut fields = BTreeSet::new();
     while index < nodes.len() {
-        let Node::Element(wrapper) = nodes[index] else {
-            return Err(bad("matching prompt omitted its select wrapper"));
+        let Node::Element(control) = nodes[index] else {
+            return Err(bad("matching prompt omitted its select control"));
         };
-        let (field, options) = parse_select_wrapper(wrapper, prompts.len() + 1)?;
+        let (field, options) = if control.name == "select" {
+            parse_select(control, prompts.len() + 1)?
+        } else {
+            parse_select_wrapper(control, prompts.len() + 1)?
+        };
         if !fields.insert(field.clone()) {
             return Err(bad("matching render repeated an upstream field"));
         }
@@ -212,7 +231,7 @@ fn parse_left(left: &Element) -> Result<(Vec<MatchingPrompt>, Vec<String>), Rend
             return Err(bad("matching prompt omitted its visible ordinal"));
         };
         require_attrs(number, &[])?;
-        if number.name != "strong"
+        if !matches!(number.name.as_str(), "strong" | "b")
             || plain_text(number)?.trim() != format!("{}.", prompts.len() + 1)
         {
             return Err(bad("matching prompt ordinal is inconsistent"));
@@ -281,9 +300,21 @@ fn parse_select_wrapper(
     let [Node::Element(select)] = children.as_slice() else {
         return Err(bad("matching wrapper must contain one select"));
     };
+    parse_select(select, ordinal)
+}
+
+fn parse_select(
+    select: &Element,
+    ordinal: usize,
+) -> Result<(String, Vec<String>), RendererFailure> {
     if select.name != "select" {
-        return Err(bad("matching wrapper must contain one select"));
+        return Err(bad("matching prompt control is not a select"));
     }
+    let field = select
+        .attrs
+        .get("name")
+        .cloned()
+        .ok_or_else(|| bad("matching select lacks its field"))?;
     require_attrs(
         select,
         &[
@@ -294,24 +325,34 @@ fn parse_select_wrapper(
             ("size", "1"),
         ],
     )?;
+    validate_answer_field(&field)?;
     let options = significant(&select.children);
-    if options.len() < 4 || options.len() > MAX_MATCH_ITEMS + 2 {
+    if options.len() < 3 || options.len() > MAX_MATCH_ITEMS + 2 {
         return Err(bad(
             "matching select option count is outside the supported bound",
         ));
     }
     let first = option(options[0])?;
-    require_option_attrs(first, true, true, "")?;
-    if plain_text(first)?.trim() != "?" {
-        return Err(bad("matching select lacks the disabled placeholder"));
-    }
-    let blank = option(options[1])?;
-    require_option_attrs(blank, false, true, "")?;
-    if !plain_text(blank)?.trim().is_empty() {
+    let values_start = if first.attrs.contains_key("disabled") {
+        require_option_attrs(first, true, true, "")?;
+        if plain_text(first)?.trim() != "?" {
+            return Err(bad("matching select has a malformed disabled placeholder"));
+        }
+        let blank = option(options[1])?;
+        require_option_attrs(blank, false, true, "")?;
+        if !plain_text(blank)?.trim().is_empty() {
+            return Err(bad("matching select blank option is malformed"));
+        }
+        2
+    } else {
+        require_option_attrs(first, false, true, "")?;
+        1
+    };
+    if !plain_text(first)?.trim().is_empty() && values_start == 1 {
         return Err(bad("matching select blank option is malformed"));
     }
     let mut values = Vec::new();
-    for (offset, node) in options[2..].iter().enumerate() {
+    for (offset, node) in options[values_start..].iter().enumerate() {
         let option = option(node)?;
         let expected = char::from(
             b'A' + u8::try_from(offset)
@@ -332,29 +373,26 @@ fn parse_right(right: &Element) -> Result<Vec<MatchingChoice>, RendererFailure> 
     let mut choices = Vec::new();
     let mut index = 0;
     while index < nodes.len() {
-        let Node::Text(letter) = nodes[index] else {
-            return Err(bad("matching choice omitted its visible letter"));
-        };
         let expected = char::from(
             b'A' + u8::try_from(choices.len())
                 .map_err(|_| bad("matching choice count is outside the supported bound"))?,
         )
         .to_string();
-        if letter.trim() != format!("{expected}.") {
-            return Err(bad("matching choice letter is inconsistent"));
+        let mut visible = String::new();
+        while index < nodes.len() {
+            if matches!(nodes[index], Node::Element(element) if is_margin(element)) {
+                break;
+            }
+            append_plain_node(&mut visible, nodes[index])?;
+            index += 1;
         }
-        index += 1;
-        let Node::Element(label) = nodes
-            .get(index)
-            .copied()
-            .ok_or_else(|| bad("matching choice omitted its label"))?
-        else {
-            return Err(bad("matching choice omitted its label"));
-        };
-        if label.name != "span" || !valid_choice_style(label) {
-            return Err(bad("matching choice label markup is unsupported"));
-        }
-        let text = plain_text(label)?.trim().to_string();
+        let prefix = format!("{expected}.");
+        let text = visible
+            .trim()
+            .strip_prefix(&prefix)
+            .ok_or_else(|| bad("matching choice letter is inconsistent"))?
+            .trim()
+            .to_string();
         if text.is_empty() || text.chars().count() > MAX_RADIO_LABEL_CHARS {
             return Err(bad("matching choice is outside the supported bound"));
         }
@@ -362,7 +400,6 @@ fn parse_right(right: &Element) -> Result<Vec<MatchingChoice>, RendererFailure> 
             value: expected,
             label: text,
         });
-        index += 1;
         if index < nodes.len() {
             let Node::Element(separator) = nodes[index] else {
                 return Err(bad("matching choices require PG separators"));
@@ -380,6 +417,37 @@ fn parse_right(right: &Element) -> Result<Vec<MatchingChoice>, RendererFailure> 
         return Err(bad("matching render requires at least two choices"));
     }
     Ok(choices)
+}
+
+fn validate_trailing_inputs(
+    nodes: &[&Node],
+    prompts: &[MatchingPrompt],
+) -> Result<(), RendererFailure> {
+    if nodes.is_empty() {
+        return Ok(());
+    }
+    if nodes.len() != prompts.len() {
+        return Err(bad("matching render has unexpected trailing controls"));
+    }
+    for (node, prompt) in nodes.iter().zip(prompts) {
+        let Node::Element(input) = node else {
+            return Err(bad("matching render has unexpected trailing content"));
+        };
+        let field = format!("MaThQuIlL_{}", prompt.field);
+        require_attrs(
+            input,
+            &[
+                ("type", "hidden"),
+                ("name", &field),
+                ("id", &field),
+                ("value", ""),
+            ],
+        )?;
+        if input.name != "input" || !input.children.is_empty() {
+            return Err(bad("matching trailing control is malformed"));
+        }
+    }
+    Ok(())
 }
 
 fn option(node: &Node) -> Result<&Element, RendererFailure> {
@@ -477,8 +545,9 @@ fn append_plain_node(target: &mut String, node: &Node) -> Result<(), RendererFai
     match node {
         Node::Text(text) => push_matching_text(target, text),
         Node::Element(element)
-            if element.attrs.is_empty()
-                && matches!(element.name.as_str(), "sub" | "sup" | "strong") =>
+            if (element.attrs.is_empty()
+                && matches!(element.name.as_str(), "sub" | "sup" | "strong" | "b"))
+                || (element.name == "span" && valid_choice_style(element)) =>
         {
             for child in &element.children {
                 append_plain_node(target, child)?;

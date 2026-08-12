@@ -4,6 +4,27 @@
 
 ### Additions and New Features
 
+- Added the reviewed source-of-truth corpus for the first Chapter 1 release: Genetics and
+  Biochemistry each have one WeBWorK MC, one WeBWorK MATCH, one static PLE flat MC, and one static
+  PLE flat MATCH, for eight questions total. The human-readable manifest records titles, source
+  paths, upstream revision, license, selected Blackboard item codes, checksums, and explicit
+  Biochemistry wording corrections without using UUIDs as author-facing identities. The new
+  `cargo tools pilot-content` gate validates the exact four-per-chapter matrix, parses the selected
+  MC/MATCH source records, compiles all four flat v2 payloads into answer-free public and private
+  grading halves, and proves correct and wrong grading. The host-only Chapter 1 release seed now
+  publishes all eight immutable source/catalog records, protected static grading material, two
+  four-item assignments, and roster-derived learner enrollments through production PostgreSQL and
+  MinIO contracts. Its disposable E2E gate passes an exact rerun, verifies the persisted
+  four-native/four-WeBWorK split, and requires distinct `P-...-v1` display identities. Both reviewed
+  PGML shapes also pass direct live renderer grading, including matching partial credit. The exact
+  built-browser learner gate now completes all eight questions through visible keyboard controls,
+  sees feedback after every submission, and reaches fresh practice after each chapter without
+  consulting answer keys.
+- Added representative release content to the canonical walkthrough without replacing its accepted
+  report schema: the instructor catalog step now verifies the visible `P-...-v...` identity and
+  backend label with no UUID text, and a separate required phase completes all four Genetics Chapter
+  1 questions. The isolated eight-question gate remains the complete Genetics-plus-Biochemistry
+  release oracle.
 - Expanded the accepted real-stack documentation capture from three images to the complete eleven-stage
   instructor and student story: fake course, two-member fake roster, published problem, assignment
   policies, post-create assignment confirmation, assignment list and overview, timed problem, scored
@@ -47,6 +68,40 @@
 
 ### Fixes and Maintenance
 
+- Made the human-readable Chapter 1 manifest the publication seed's source of truth for course and
+  assignment display names, question titles, families, point values, and source paths. Validation
+  now rejects flat-payload title drift and unsupported point values before the seed publishes, and
+  the launcher/FAQ wording now accurately describes the private renderer used by the normal local
+  stack.
+- Replaced visible assignment-editor UUID tuples with the catalog's copyable human identity and
+  backend label, such as `P-1-v1` with `WeBWorK`. Existing assignments now resolve their immutable
+  catalog titles and display identities when loaded, while saved requests and walkthrough
+  selectors retain the exact internal references without presenting them as problem numbers.
+  Focused model, type, production-build, and seven-scenario rendered editor checks pass, including
+  reload, conflict recovery, keyboard assignment creation, and assertions that UUIDs are absent
+  from selected-question text.
+- Extended flat-question storage and publication admission from the legacy single-choice family to
+  the complete closed flat v1/v2 family registry. A real author route test and the disposable
+  PostgreSQL migration/RLS baseline now publish and grade v2 matching through the protected grading
+  boundary.
+- Corrected host seeding after the production roster path began creating opaque learner and
+  enrollment identities. Seed reruns now resolve and preserve the roster-created enrollment instead
+  of treating `UserId` as `StudentId` or assuming a deterministic enrollment UUID; the live Chapter
+  1 publication oracle caught and verifies this cross-capability behavior.
+- Raised the discarded private-renderer JWT token limit from the obsolete 64 KiB assumption to the
+  already enforced 1 MiB response-body boundary. The real Chapter 1 browser path exposed that
+  reviewed Genetics PG state legitimately produces larger private answer/session tokens; the tokens
+  remain server-only, format-validated, bounded, and absent from browser projections. The same path
+  exposed reviewed PGML choice labels containing a narrowly styled color span; the adapter now
+  projects that exact reviewed shape to plain text while continuing to refuse arbitrary or hostile
+  label markup. Matching projection now accepts the current renderer's exact direct-select,
+  mixed-label, and empty compatibility-control shape while retaining strict attribute and hostile
+  markup refusals. Both tracked matching PGML sources now emit numeric partial-credit scores rather
+  than string-formatted JSON values, so grading stays inside the renderer's numeric score contract.
+  Independent audit then bound partial-credit admission to each reviewed path plus immutable source
+  SHA-256, moved the flat-v2 grading-function widening into a new forward migration rather than
+  changing an applied migration, and expanded the live gate to prove visible instructor and student
+  sign-in plus the seeded catalog's human identity.
 - Rotated the complete 2026-08-09 changelog day into
   `docs/CHANGELOG-2026-08b.md`, retaining the two newest day blocks here.
 - Completed the independently accepted post-pilot WP-E2 runner refactor. The

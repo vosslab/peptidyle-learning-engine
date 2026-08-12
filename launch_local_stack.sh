@@ -21,6 +21,7 @@ LOCAL_IDENTITY_FILE="containers/local-identities.json"
 LOCAL_CREDENTIAL_FILE="containers/local-login.txt"
 LOCAL_DEMO_MANIFEST_FILE="containers/local-demo.json"
 LOCAL_WEBWORK_DEMO_MANIFEST_FILE="containers/local-webwork-demo.json"
+LOCAL_CHAPTER_ONE_MANIFEST_FILE="containers/local-chapter-one-pilot.json"
 LOCAL_INVITATION_SECRET_FILE="containers/.secrets/invitation_token_secret"
 LOCAL_WEBWORK_PROVENANCE_FILE="containers/.secrets/webwork_renderer_provenance"
 LOCAL_TENANT_ID="00000000-0000-0000-0000-000000000100"
@@ -513,7 +514,7 @@ if [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ]; then
 	# This host-only seed uses the production PostgreSQL and object-store
 	# contracts.  It is intentionally after renderer identity finalization so
 	# the API cannot be started with a pilot question for an unpinned renderer.
-	echo "==> Seeding the opt-in WebWork pilot course and immutable PGML source"
+	echo "==> Seeding the legacy walkthrough WeBWorK course and immutable PGML source"
 	minio_port="$(env_value PLE_MINIO_API_HOST_PORT)"
 	minio_port="${minio_port:-9000}"
 	AWS_ACCESS_KEY_ID="$(env_value MINIO_ROOT_USER)" \
@@ -528,6 +529,19 @@ if [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ]; then
 		--s3-region "us-east-1" \
 		--content-bucket "content" >"$LOCAL_WEBWORK_DEMO_MANIFEST_FILE"
 	chmod 600 "$LOCAL_WEBWORK_DEMO_MANIFEST_FILE"
+	echo "==> Publishing the Genetics and Biochemistry Chapter 1 pilot corpus"
+	AWS_ACCESS_KEY_ID="$(env_value MINIO_ROOT_USER)" \
+	AWS_SECRET_ACCESS_KEY="$(env_value MINIO_ROOT_PASSWORD)" \
+	cargo tools e2e-seed --chapter-one-pilot \
+		--database-url "$database_url" \
+		--apply-migrations \
+		--tenant "$LOCAL_TENANT_ID" \
+		--instructor "$LOCAL_INSTRUCTOR_ID" \
+		--student "$LOCAL_STUDENT_ID" \
+		--s3-endpoint "http://127.0.0.1:${minio_port}" \
+		--s3-region "us-east-1" \
+		--content-bucket "content" >"$LOCAL_CHAPTER_ONE_MANIFEST_FILE"
+	chmod 600 "$LOCAL_CHAPTER_ONE_MANIFEST_FILE"
 fi
 
 if [ "$WITH_SMTP" -eq 1 ]; then

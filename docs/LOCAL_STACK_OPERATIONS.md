@@ -30,16 +30,16 @@ macOS setup for the Podman virtual machine lives in
 
 ## Services
 
-| Service            | Image                                         | Purpose                                    | Local port                   |
-| ------------------ | --------------------------------------------- | ------------------------------------------ | ---------------------------- |
-| `gateway`          | pinned official Caddy derivative              | browser files plus same-origin API gateway | 127.0.0.1:8080               |
-| `api`              | built from `containers/Containerfile.api`     | axum API server                            | none                         |
-| `worker`           | built from `containers/Containerfile.api`     | family-filtered durable job draining       | none                         |
-| `postgres`         | digest-pinned official PostgreSQL 17          | shared content and tenant-owned records    | 127.0.0.1:5432               |
-| `minio`            | digest-pinned official MinIO                  | S3-compatible object storage               | 127.0.0.1:9000, console 9001 |
-| `createbuckets`    | digest-pinned official MinIO Client           | one-shot bucket creation, then exits       | none                         |
-| `identity-secret-init` | pinned official Alpine | one-shot invitation-secret permission setup | none |
-| `webwork-renderer` | external `webwork-pg-renderer` image | private stateless PG/PGML render and grade engine | none |
+| Service                | Image                                     | Purpose                                           | Local port                   |
+| ---------------------- | ----------------------------------------- | ------------------------------------------------- | ---------------------------- |
+| `gateway`              | pinned official Caddy derivative          | browser files plus same-origin API gateway        | 127.0.0.1:8080               |
+| `api`                  | built from `containers/Containerfile.api` | axum API server                                   | none                         |
+| `worker`               | built from `containers/Containerfile.api` | family-filtered durable job draining              | none                         |
+| `postgres`             | digest-pinned official PostgreSQL 17      | shared content and tenant-owned records           | 127.0.0.1:5432               |
+| `minio`                | digest-pinned official MinIO              | S3-compatible object storage                      | 127.0.0.1:9000, console 9001 |
+| `createbuckets`        | digest-pinned official MinIO Client       | one-shot bucket creation, then exits              | none                         |
+| `identity-secret-init` | pinned official Alpine                    | one-shot invitation-secret permission setup       | none                         |
+| `webwork-renderer`     | external `webwork-pg-renderer` image      | private stateless PG/PGML render and grade engine | none                         |
 
 Every published port binds to `127.0.0.1`, not `0.0.0.0`. The database holds
 educational records, so a development container must not be reachable from the
@@ -75,8 +75,8 @@ On its first default run, the launcher creates an ignored mode-0600
 invitation-issuer secrets, generates instructor and student bearer credentials,
 and mounts only their hashes into the API. It builds the host artifacts, starts
 PostgreSQL and MinIO, applies and verifies the embedded migrations, provisions the restricted
-`ple_grading_reader` login, seeds one small course/assignment/native-question
-scenario, verifies the external PG renderer, starts the API/worker/gateway,
+`ple_grading_reader` login, publishes the two Chapter 1 assignments with four native and four
+WeBWorK questions, verifies the external PG renderer, starts the API/worker/gateway,
 waits for semantic `/health`, and opens the browser. Named data volumes remain
 available for repeated testing. The default gateway port is `8080`. If its
 selected port is occupied during first-run bootstrap, the launcher records the
@@ -163,11 +163,11 @@ MinIO retain records in named volumes outside their writable container layers;
 normal `down` and rebuild operations preserve those volumes.
 
 The startup probe is not a substitute for PLE integration or browser testing.
-The explicit live E2E accepted on 2026-08-10 proves the bounded licensed PGML
-`RadioButtons` path through PLE, including correct/incorrect grading, cache
-behavior, renderer outage recovery, keyboard use, and protected-material
-non-disclosure. Matching and broader PG compatibility require their own source
-and live evidence.
+The explicit live E2E accepted on 2026-08-10 proves the original bounded licensed PGML
+`RadioButtons` path through PLE, including correct/incorrect grading, cache behavior, renderer outage
+recovery, keyboard use, and protected-material non-disclosure. The Chapter 1 release gate adds live
+evidence for the four reviewed PGML sources, including matching and partial credit. Broader PG
+compatibility still requires its own reviewed source and live evidence.
 
 The worker handles one job per bounded pass and concurrency comes from scaling
 the service. It claims only current scoring, course item analysis, attempt

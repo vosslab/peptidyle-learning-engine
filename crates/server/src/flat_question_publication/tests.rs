@@ -1,5 +1,7 @@
 #[path = "tests/imported_publication.rs"]
 mod imported_publication;
+#[path = "tests/v2_publication.rs"]
+mod v2_publication;
 
 use std::sync::Arc;
 

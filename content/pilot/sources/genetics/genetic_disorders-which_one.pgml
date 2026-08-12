@@ -1,0 +1,752 @@
+## DESCRIPTION
+## Select the genetic disorder that corresponds to the given description.
+## ENDDESCRIPTION
+## KEYWORDS('genetic disorders','descriptions','which one','multiple choice')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-07-12')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserRadioButtons.pl',
+    'PGcourse.pl',
+);
+
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+
+#==========================================================
+# QUESTION DATA
+#==========================================================
+
+# All questions data
+@questions_data = (
+  {
+    'item_name' => '<strong>impairs the growth of bone in the limbs and causes abnormal growth in the spine and skull</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Achondroplasia',
+      'Galactosemia',
+      'Marfan syndrome',
+      'Klinefelter syndrome',
+    ],
+    'correct' => 'Achondroplasia',
+  },
+  {
+    'item_name' => '<strong>reduced hemoglobin proteins that result in variable outcomes including severe anemia</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Achondroplasia',
+      'Beta-Thalassemia',
+      'Cystic fibrosis',
+      'Galactosemia',
+    ],
+    'correct' => 'Beta-Thalassemia',
+  },
+  {
+    'item_name' => '<strong>a faulty protein that affects the cells, tissues, and the glands that make mucus and sweat</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Cystic fibrosis',
+      q{Huntington's disease},
+      'Maple syrup urine disease',
+      'Turner syndrome',
+    ],
+    'correct' => 'Cystic fibrosis',
+  },
+  {
+    'item_name' => '<strong>autosomal recessive <span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> affecting most critically the lungs</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Beta-Thalassemia',
+      'Cystic fibrosis',
+      'Prader-Willi syndrome',
+      'Klinefelter syndrome',
+    ],
+    'correct' => 'Cystic fibrosis',
+  },
+  {
+    'item_name' => '<strong><span style="color: #d40000; font-weight:700;">disorder</span> that affects the muscles, leading to muscle wasting that gets worse over time</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Duchenne muscular dystrophy',
+      'Maple syrup urine disease',
+      'Phenylketonuria',
+      'Wolf-Hirschhorn syndrome',
+    ],
+    'correct' => 'Duchenne muscular dystrophy',
+  },
+  {
+    'item_name' => '<strong>a <span style="color: #b74300; font-weight:700;">genetic</span> condition involving changes in part of the X <span style="color: #6c6c00; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Fragile X syndrome',
+      'Cri du chat syndrome',
+      'Down syndrome',
+      'Philadelphia <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+    ],
+    'correct' => 'Fragile X syndrome',
+  },
+  {
+    'item_name' => q{<strong><span style="color: #935d00; font-weight:700;">metabolic</span> <span style="color: #d40000; font-weight:700;">disorder</span> that affects an individual's ability to metabolize the sugar galactose properly</strong>},
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Galactosemia',
+      'Marfan syndrome',
+      'Prader-Willi syndrome',
+      'Cri du chat syndrome',
+    ],
+    'correct' => 'Galactosemia',
+  },
+  {
+    'item_name' => '<strong>an inherited bleeding <span style="color: #d40000; font-weight:700;">disorder</span> in which the blood does NOT clot properly</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Achondroplasia',
+      'Hemophilia',
+      'Angelman syndrome',
+      'WAGR syndrome',
+    ],
+    'correct' => 'Hemophilia',
+  },
+  {
+    'item_name' => '<strong><span style="color: #d40000; font-weight:700;">disorder</span> that causes the progressive breakdown (degeneration) of nerve cells in the brain</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Achondroplasia',
+      q{Huntington's disease},
+      'Marfan syndrome',
+      'Wolf-Hirschhorn syndrome',
+    ],
+    'correct' => q{Huntington's disease},
+  },
+  {
+    'item_name' => '<strong><span style="color: #935d00; font-weight:700;">metabolic</span> <span style="color: #d40000; font-weight:700;">disorder</span> affecting branched-chain amino acids</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Maple syrup urine disease',
+      'Patau syndrome',
+      'Triple X syndrome',
+      'Wolf-Hirschhorn syndrome',
+    ],
+    'correct' => 'Maple syrup urine disease',
+  },
+  {
+    'item_name' => q{<strong>gets its name from the distinctive sweet odor of affected infants' urine</strong>},
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Maple syrup urine disease',
+      'Phenylketonuria',
+      'Sickle-cell anemia',
+      'DiGeorge syndrome',
+    ],
+    'correct' => 'Maple syrup urine disease',
+  },
+  {
+    'item_name' => '<strong>multi-systemic <span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> that affects the connective tissue</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Marfan syndrome',
+      'Prader-Willi syndrome',
+      'DiGeorge syndrome',
+      'WAGR syndrome',
+    ],
+    'correct' => 'Marfan syndrome',
+  },
+  {
+    'item_name' => '<strong>individuals with the condition tend to be tall and thin, with long arms, legs, fingers, and toes</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Marfan syndrome',
+      'Tay-Sachs disease',
+      'Philadelphia <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+      'WAGR syndrome',
+    ],
+    'correct' => 'Marfan syndrome',
+  },
+  {
+    'item_name' => '<strong>inherited <span style="color: #d40000; font-weight:700;">disorder</span> that causes an amino acid called phenylalanine to build up in the body</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Achondroplasia',
+      'Phenylketonuria',
+      'Philadelphia <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+      'Wolf-Hirschhorn syndrome',
+    ],
+    'correct' => 'Phenylketonuria',
+  },
+  {
+    'item_name' => q{<strong><span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #935d00; font-weight:700;">metabolic</span> <span style="color: #d40000; font-weight:700;">disorder</span> that increases the body's levels of phenylalanine</strong>},
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Cystic fibrosis',
+      'Phenylketonuria',
+      'WAGR syndrome',
+      'Wolf-Hirschhorn syndrome',
+    ],
+    'correct' => 'Phenylketonuria',
+  },
+  {
+    'item_name' => '<strong>inherited <span style="color: #d40000; font-weight:700;">disorder</span> of metabolism that causes an increase in the blood of a chemical known as phenylalanine</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Fragile X syndrome',
+      'Phenylketonuria',
+      'Prader-Willi syndrome',
+      'Turner syndrome',
+    ],
+    'correct' => 'Phenylketonuria',
+  },
+  {
+    'item_name' => '<strong>affects your red blood cells, turning them from round flexible discs into stiff and sticky, long, and rigid cells</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Sickle-cell anemia',
+      'Down syndrome',
+      'Philadelphia <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+      'Wolf-Hirschhorn syndrome',
+    ],
+    'correct' => 'Sickle-cell anemia',
+  },
+  {
+    'item_name' => '<strong>a <span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> that results in the destruction of nerve cells in the brain and spinal cord</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Cystic fibrosis',
+      'Fragile X syndrome',
+      'Tay-Sachs disease',
+      'Wolf-Hirschhorn syndrome',
+    ],
+    'correct' => 'Tay-Sachs disease',
+  },
+  {
+    'item_name' => '<strong>people with the <span style="color: #d40000; font-weight:700;">disorder</span> do NOT have enough of an enzyme called beta-hexosaminidase</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Cystic fibrosis',
+      'Fragile X syndrome',
+      'Sickle-cell anemia',
+      'Tay-Sachs disease',
+    ],
+    'correct' => 'Tay-Sachs disease',
+  },
+  {
+    'item_name' => '<strong>caused by duplications of the UBE3A gene located on <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Achondroplasia',
+      'Sickle-cell anemia',
+      'Angelman syndrome',
+      'Triple X syndrome',
+    ],
+    'correct' => 'Angelman syndrome',
+  },
+  {
+    'item_name' => '<strong><span style="color: #d40000; font-weight:700;">disorder</span> that is due to a extra piece (duplication) of a specific gene on <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Duchenne muscular dystrophy',
+      'Maple syrup urine disease',
+      'Marfan syndrome',
+      'Angelman syndrome',
+    ],
+    'correct' => 'Angelman syndrome',
+  },
+  {
+    'item_name' => '<strong>a <span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> caused by a loss of function of specific genes on <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Galactosemia',
+      'Phenylketonuria',
+      'Angelman syndrome',
+      'Prader-Willi syndrome',
+    ],
+    'correct' => 'Prader-Willi syndrome',
+  },
+  {
+    'item_name' => '<strong><span style="color: #d40000; font-weight:700;">disorder</span> that is due to a missing piece (deletion) of a specific part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 15</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Cystic fibrosis',
+      'Maple syrup urine disease',
+      'Prader-Willi syndrome',
+      'Cri du chat syndrome',
+    ],
+    'correct' => 'Prader-Willi syndrome',
+  },
+  {
+    'item_name' => '<strong>usually include a high-pitched cat-like cry, mental disability, delayed development, distinctive facial features, widely-spaced eyes</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Cystic fibrosis',
+      'Marfan syndrome',
+      'Angelman syndrome',
+      'Cri du chat syndrome',
+    ],
+    'correct' => 'Cri du chat syndrome',
+  },
+  {
+    'item_name' => '<strong><span style="color: #d40000; font-weight:700;">disorder</span> that is due to a missing piece (deletion) of a specific part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 5</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Cystic fibrosis',
+      'Cri du chat syndrome',
+      'Down syndrome',
+      'WAGR syndrome',
+    ],
+    'correct' => 'Cri du chat syndrome',
+  },
+  {
+    'item_name' => '<strong><span style="color: #d40000; font-weight:700;">disorder</span> caused when a small part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 5 is missing</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Phenylketonuria',
+      'Cri du chat syndrome',
+      'Klinefelter syndrome',
+      'Turner syndrome',
+    ],
+    'correct' => 'Cri du chat syndrome',
+  },
+  {
+    'item_name' => '<strong><span style="color: #d40000; font-weight:700;">disorder</span> caused when a small part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 22 is missing</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Phenylketonuria',
+      'Tay-Sachs disease',
+      'Prader-Willi syndrome',
+      'DiGeorge syndrome',
+    ],
+    'correct' => 'DiGeorge syndrome',
+  },
+  {
+    'item_name' => '<strong><span style="color: #d40000; font-weight:700;">disorder</span> that is due to a missing piece (deletion) of a specific part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 22</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Fragile X syndrome',
+      'Marfan syndrome',
+      'Cri du chat syndrome',
+      'DiGeorge syndrome',
+    ],
+    'correct' => 'DiGeorge syndrome',
+  },
+  {
+    'item_name' => '<strong><span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> caused by the presence of all or part of a third copy of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 21</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Galactosemia',
+      'DiGeorge syndrome',
+      'Down syndrome',
+      'Edwards syndrome',
+    ],
+    'correct' => 'Down syndrome',
+  },
+  {
+    'item_name' => '<strong>chromosomal abnormality characterized by the presence of an extra copy of <span style="color: #b74300; font-weight:700;">genetic</span> material on the 21st <span style="color: #6c6c00; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Duchenne muscular dystrophy',
+      'Tay-Sachs disease',
+      'Down syndrome',
+      'Triple X syndrome',
+    ],
+    'correct' => 'Down syndrome',
+  },
+  {
+    'item_name' => '<strong>a chromosomal abnormality, in which the cells of the body contain extra <span style="color: #b74300; font-weight:700;">genetic</span> material from <span style="color: #6c6c00; font-weight:700;">chromosome</span> 21</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Beta-Thalassemia',
+      'Galactosemia',
+      'Marfan syndrome',
+      'Down syndrome',
+    ],
+    'correct' => 'Down syndrome',
+  },
+  {
+    'item_name' => '<strong>result of a random error that causes a person to be born with an extra <span style="color: #6c6c00; font-weight:700;">chromosome</span> 21</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Achondroplasia',
+      'Hemophilia',
+      'Maple syrup urine disease',
+      'Down syndrome',
+    ],
+    'correct' => 'Down syndrome',
+  },
+  {
+    'item_name' => '<strong>chromosomal abnormality characterized by the presence of an extra copy of <span style="color: #b74300; font-weight:700;">genetic</span> material on the 18th <span style="color: #6c6c00; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Down syndrome',
+      'Edwards syndrome',
+      'Patau syndrome',
+      'Turner syndrome',
+    ],
+    'correct' => 'Edwards syndrome',
+  },
+  {
+    'item_name' => '<strong><span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> caused by the presence of all or part of a third copy of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 18</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Hemophilia',
+      'Sickle-cell anemia',
+      'Edwards syndrome',
+      'Patau syndrome',
+    ],
+    'correct' => 'Edwards syndrome',
+  },
+  {
+    'item_name' => '<strong>a chromosomal abnormality, in which the cells of the body contain extra <span style="color: #b74300; font-weight:700;">genetic</span> material from <span style="color: #6c6c00; font-weight:700;">chromosome</span> 18</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Achondroplasia',
+      'Edwards syndrome',
+      'Patau syndrome',
+      'Wolf-Hirschhorn syndrome',
+    ],
+    'correct' => 'Edwards syndrome',
+  },
+  {
+    'item_name' => '<strong>result of a random error that causes a person to be born with an extra <span style="color: #6c6c00; font-weight:700;">chromosome</span> 18</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Cri du chat syndrome',
+      'Edwards syndrome',
+      'Philadelphia <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+      'Wolf-Hirschhorn syndrome',
+    ],
+    'correct' => 'Edwards syndrome',
+  },
+  {
+    'item_name' => '<strong>result of a random error that causes a male to be born with an extra X <span style="color: #6c6c00; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Beta-Thalassemia',
+      'Maple syrup urine disease',
+      'Marfan syndrome',
+      'Klinefelter syndrome',
+    ],
+    'correct' => 'Klinefelter syndrome',
+  },
+  {
+    'item_name' => '<strong>also known as 47,XXY, is a syndrome where a male has an additional copy of the X <span style="color: #6c6c00; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      q{Huntington's disease},
+      'Marfan syndrome',
+      'Klinefelter syndrome',
+      'Triple X syndrome',
+    ],
+    'correct' => 'Klinefelter syndrome',
+  },
+  {
+    'item_name' => '<strong>a chromosomal abnormality, in which the cells of the body contain extra <span style="color: #b74300; font-weight:700;">genetic</span> material from <span style="color: #6c6c00; font-weight:700;">chromosome</span> 13</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Beta-Thalassemia',
+      'Maple syrup urine disease',
+      'Patau syndrome',
+      'Triple X syndrome',
+    ],
+    'correct' => 'Patau syndrome',
+  },
+  {
+    'item_name' => '<strong>chromosomal abnormality characterized by the presence of an extra copy of <span style="color: #b74300; font-weight:700;">genetic</span> material on the 13th <span style="color: #6c6c00; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Phenylketonuria',
+      'Prader-Willi syndrome',
+      'Patau syndrome',
+      'Turner syndrome',
+    ],
+    'correct' => 'Patau syndrome',
+  },
+  {
+    'item_name' => '<strong><span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> caused by the presence of all or part of a third copy of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 13</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Fragile X syndrome',
+      'Sickle-cell anemia',
+      'Tay-Sachs disease',
+      'Patau syndrome',
+    ],
+    'correct' => 'Patau syndrome',
+  },
+  {
+    'item_name' => '<strong>result of a random error that causes a person to be born with an extra <span style="color: #6c6c00; font-weight:700;">chromosome</span> 13</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Hemophilia',
+      'Klinefelter syndrome',
+      'Patau syndrome',
+      'Philadelphia <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+    ],
+    'correct' => 'Patau syndrome',
+  },
+  {
+    'item_name' => '<strong>cancerous chromosomal abnormality that is manifested as a shortened version of human <span style="color: #6c6c00; font-weight:700;">chromosome</span> 22</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Tay-Sachs disease',
+      'Down syndrome',
+      'Klinefelter syndrome',
+      'Philadelphia <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+    ],
+    'correct' => 'Philadelphia <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+  },
+  {
+    'item_name' => '<strong>forms when <span style="color: #6c6c00; font-weight:700;">chromosome</span> 9 and <span style="color: #6c6c00; font-weight:700;">chromosome</span> 22 break and exchange portions of their <span style="color: #b74300; font-weight:700;">genetic</span> material</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Duchenne muscular dystrophy',
+      'Angelman syndrome',
+      'Philadelphia <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+      'Triple X syndrome',
+    ],
+    'correct' => 'Philadelphia <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+  },
+  {
+    'item_name' => '<strong>also known as 47,XXX, is a <span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span> that results in a female that has three X <span style="color: #6c6c00; font-weight:700;">chromosome</span>s</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Phenylketonuria',
+      'Prader-Willi syndrome',
+      'Patau syndrome',
+      'Triple X syndrome',
+    ],
+    'correct' => 'Triple X syndrome',
+  },
+  {
+    'item_name' => '<strong>a <span style="color: #b74300; font-weight:700;">genetic</span> condition in females which there are three copies of the X <span style="color: #6c6c00; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Sickle-cell anemia',
+      'Angelman syndrome',
+      'Klinefelter syndrome',
+      'Triple X syndrome',
+    ],
+    'correct' => 'Triple X syndrome',
+  },
+  {
+    'item_name' => '<strong>a condition that affects only females, results when one of their X <span style="color: #6c6c00; font-weight:700;">chromosome</span>s is missing or partially missing</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Cystic fibrosis',
+      'Marfan syndrome',
+      'Tay-Sachs disease',
+      'Turner syndrome',
+    ],
+    'correct' => 'Turner syndrome',
+  },
+  {
+    'item_name' => '<strong>also known as monosomy X, includes a number of typical physical features observed such as webbed neck</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Down syndrome',
+      'Klinefelter syndrome',
+      'Triple X syndrome',
+      'Turner syndrome',
+    ],
+    'correct' => 'Turner syndrome',
+  },
+  {
+    'item_name' => '<strong><span style="color: #b74300; font-weight:700;">genetic</span> condition caused by a deletion of a group of genes located on <span style="color: #6c6c00; font-weight:700;">chromosome</span> number 11</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Cri du chat syndrome',
+      'DiGeorge syndrome',
+      'Edwards syndrome',
+      'WAGR syndrome',
+    ],
+    'correct' => 'WAGR syndrome',
+  },
+  {
+    'item_name' => '<strong><span style="color: #d40000; font-weight:700;">disorder</span> caused when a small part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 11 is missing</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Beta-Thalassemia',
+      'Fragile X syndrome',
+      'Maple syrup urine disease',
+      'WAGR syndrome',
+    ],
+    'correct' => 'WAGR syndrome',
+  },
+  {
+    'item_name' => '<strong><span style="color: #d40000; font-weight:700;">disorder</span> that is due to a missing piece (deletion) of a specific part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 11</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Prader-Willi syndrome',
+      'Down syndrome',
+      'Klinefelter syndrome',
+      'WAGR syndrome',
+    ],
+    'correct' => 'WAGR syndrome',
+  },
+  {
+    'item_name' => '<strong>caused by a deletion within HSA band on the short arm of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 4</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Achondroplasia',
+      'Klinefelter syndrome',
+      'Philadelphia <span style="color: #6c6c00; font-weight:700;">chromosome</span>',
+      'Wolf-Hirschhorn syndrome',
+    ],
+    'correct' => 'Wolf-Hirschhorn syndrome',
+  },
+  {
+    'item_name' => '<strong><span style="color: #b74300; font-weight:700;">genetic</span> condition caused by a deletion of a group of genes located on <span style="color: #6c6c00; font-weight:700;">chromosome</span> number 4</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Achondroplasia',
+      'Angelman syndrome',
+      'Cri du chat syndrome',
+      'Wolf-Hirschhorn syndrome',
+    ],
+    'correct' => 'Wolf-Hirschhorn syndrome',
+  },
+  {
+    'item_name' => '<strong><span style="color: #d40000; font-weight:700;">disorder</span> caused when a small part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 4 is missing</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Beta-Thalassemia',
+      'Phenylketonuria',
+      'Triple X syndrome',
+      'Wolf-Hirschhorn syndrome',
+    ],
+    'correct' => 'Wolf-Hirschhorn syndrome',
+  },
+  {
+    'item_name' => '<strong><span style="color: #d40000; font-weight:700;">disorder</span> that is due to a missing piece (deletion) of a specific part of <span style="color: #6c6c00; font-weight:700;">chromosome</span> 4</strong>',
+    'plural_choice' => '<span style="color: #b74300; font-weight:700;">genetic</span> <span style="color: #d40000; font-weight:700;">disorder</span>s',
+    'singular_item' => 'description',
+    'choices' => [
+      'Beta-Thalassemia',
+      'Phenylketonuria',
+      'Down syndrome',
+      'Wolf-Hirschhorn syndrome',
+    ],
+    'correct' => 'Wolf-Hirschhorn syndrome',
+  },
+);
+
+#==========================================================
+# SELECT RANDOM QUESTION
+#==========================================================
+
+my $local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+
+$question_idx = $local_random->random(0, scalar(@questions_data) - 1, 1);
+$q = $questions_data[$question_idx];
+
+$item_name = $q->{'item_name'};
+$plural_choice = $q->{'plural_choice'};
+$singular_item = $q->{'singular_item'};
+@choices = @{ $q->{'choices'} };
+$correct = $q->{'correct'};
+
+#==========================================================
+# SHUFFLE CHOICES (SEED-STABLE)
+#==========================================================
+
+my @choice_indices = (0 .. $#choices);
+my @choice_shuffled = ();
+while (@choice_indices) {
+  my $pick = $local_random->random(0, $#choice_indices, 1);
+  push @choice_shuffled, splice(@choice_indices, $pick, 1);
+}
+@choices = @choices[@choice_shuffled];
+
+#==========================================================
+# BUILD RADIO BUTTONS
+#==========================================================
+
+$rb = RadioButtons(
+  [@choices],
+  $correct,
+  labels        => 'ABC',
+  displayLabels => 1,
+  randomize     => 0,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+#==========================================================
+# PGML
+#==========================================================
+
+BEGIN_PGML
+
+Which one of the following [$plural_choice]* corresponds to the [$singular_item]* [$item_name]*?
+
+[_]{$rb}
+
+END_PGML
+
+BEGIN_PGML_SOLUTION
+
+The correct answer is: [$correct]*
+
+END_PGML_SOLUTION
+
+ENDDOCUMENT();

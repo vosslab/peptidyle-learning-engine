@@ -231,7 +231,9 @@ test("J2 resumes the visible retry and completes the first instructor-created Ma
   await expect(radios).toHaveCount(2, { timeout: 30_000 });
   await expect(radios.nth(0)).not.toBeChecked();
   await expect(radios.nth(1)).not.toBeChecked();
-  await expect(page.getByText("Practice run 2", { exact: true })).toBeVisible();
+  await expect(page.locator("[data-route-surface=runAttempt] .eyebrow")).toHaveText(
+    "Practice run 2",
+  );
   await tabTo(page, radios.nth(0));
   await expect(radios.nth(0)).toBeFocused();
   await captureDocumentationScreenshot(page, "student_retake_fresh_problem.png");

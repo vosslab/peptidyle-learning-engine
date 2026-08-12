@@ -228,14 +228,11 @@ pub(super) fn parse_single_radio_group(
                         && tag.attrs.is_empty()
                     {
                         // PG-2.17 emits direct BR separators between PGML labels.
-                    } else if matches!(name.as_str(), "strong" | "sub")
-                        && active_label.is_some()
-                        && tag.attrs.is_empty()
-                    {
-                        // PGML preserves emphasis and molecular-formula
-                        // subscripts inside choice labels. The browser-facing
-                        // choice is plain text, so only their text content is
-                        // retained; no renderer markup crosses this boundary.
+                    } else if active_label.is_some() && is_safe_plain_text_label_element(&tag) {
+                        // PGML preserves emphasis, molecular formulae, and its
+                        // reviewed color emphasis inside choice labels. The
+                        // browser-facing choice is plain text, so only text
+                        // content is retained; no renderer markup crosses.
                     } else if prompt_markup {
                         append_start_tag(&mut prompt_html, &tag);
                     } else if radio_container_depth.is_some() {
@@ -469,6 +466,24 @@ fn is_pg_radio_separator(tag: &Tag) -> bool {
                 attribute(tag, "style").as_deref(),
                 Some("margin-bottom: 0.7em;") | Some("margin-top:1em")
             ))
+}
+
+fn is_safe_plain_text_label_element(tag: &Tag) -> bool {
+    let name = tag.name.to_string();
+    if matches!(name.as_str(), "strong" | "sub" | "sup") {
+        return tag.attrs.is_empty();
+    }
+    name == "span"
+        && tag.attrs.len() == 1
+        && attribute(tag, "style").is_some_and(|style| {
+            let Some(color) = style
+                .strip_prefix("color: #")
+                .and_then(|value| value.strip_suffix("; font-weight:700;"))
+            else {
+                return false;
+            };
+            color.len() == 6 && color.bytes().all(|byte| byte.is_ascii_hexdigit())
+        })
 }
 
 fn is_safe_prompt_element(name: &str) -> bool {

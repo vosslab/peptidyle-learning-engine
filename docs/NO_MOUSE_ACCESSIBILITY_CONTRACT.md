@@ -273,10 +273,10 @@ prove the same Tab-and-Space path for multiple answer and ordering, then indepen
 arrows, native radio arrows, choice digits, Enter-to-submit, and Escape. Feedback and summary focus
 tests, the external-tool broker fixture, and the live WeBWorK browser gate are also implemented; the
 live gate exercises an extension path and does not replace the platform-key journey.
-Numeric, short-text, and unavailable-file behavior still rely partly on focused component/source
-evidence rather than a full route. MATCH, FIB, MULTI-FIB, and HOTSPOT are future WP-RC5 families and
-must satisfy this contract as part of their family acceptance rather than being deferred to a later
-generic accessibility pass.
+The Chapter 1 release gate now exercises static and WeBWorK MATCH through visible keyboard controls.
+Numeric, short-text, FIB, MULTI-FIB, HOTSPOT, and unavailable-file behavior still rely partly on
+focused component/source evidence rather than a full route and must satisfy this contract as part of
+their family acceptance rather than being deferred to a later generic accessibility pass.
 
 The remaining human boundary is deliberate. Before claiming accessibility for the local Fall pilot,
 run representative VoiceOver/Safari and NVDA/browser walkthroughs through the visible local sign-in,

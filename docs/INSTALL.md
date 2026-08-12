@@ -110,5 +110,5 @@ and [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md).
 
 - Complete account-provider composition, then verify the chosen external SMTP provider's sender
   approval and delivery behavior before using canonical email sign-in with real learners.
-- Broader PG/PGML compatibility, including MATCH, needs separate source and live evidence beyond
-  the accepted bounded radio-button path.
+- PG/PGML compatibility beyond the four reviewed Chapter 1 MC/MATCH sources needs its own source
+  and live evidence.

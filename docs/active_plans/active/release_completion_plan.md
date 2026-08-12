@@ -12,8 +12,15 @@ is present and awaits its independent closeout. WP-RC8's generic identity, passw
 roster routes and its repository-owned production composition are implemented. Production enters the
 provider-free PLE account graph; a live SMTP-backed email-authentication send through an
 operator-selected provider, optional-passkey and multi-replica evidence, and independent acceptance
-remain. The secure payload cutover
-and WP-RC5 authoring and pilot work remain dependency-ordered next work.
+remain. The remaining secure-payload closeout and WP-RC5 visual-authoring/all-family integration
+work remain dependency-ordered next work.
+
+**2026-08-11 bounded WP-RC5 status.** The source-of-truth Chapter 1 corpus, exact two-by-four
+MC/MATCH backend matrix, static flat v2 MC/MATCH publication, exact-source WeBWorK matching and
+partial-credit profile, normal local seeding, and built-browser eight-question learner sweep are
+complete. This does not accept WP-RC5 as a whole: complete visual authoring, all-family integrated
+Memory/PostgreSQL paths, hotspot/media acceptance, screen-reader checks, and independent package
+acceptance remain open.
 
 Completed packages remain accepted evidence; they are not reopened by this plan. A package below is
 complete only when its named production artifacts work, its behavior and security gates pass, its
@@ -349,11 +356,12 @@ reserved migration ordering below.
   `src/components/response_widget.tsx`; behavior tests beside each owner;
   `content/pilot/chapter_1_assignments.yaml` and copied, licensed source
   under `content/pilot/sources/`; `crates/project-tools/src/pilot_content.rs`;
-  `tests/e2e/e2e_pilot_content.sh`; `docs/PILOT_CONTENT.md`.
-- **WeBWorK MATCH files:** before accepting Chapter 1 content, extend
-  `crates/adapters/webwork/src/standalone_render_api.rs`, `renderer_contract.rs`, their contract tests,
-  server translation tests, and `tests/playwright/webwork_run.spec.ts` with a real matching render and
-  grade path.
+  `tests/e2e/e2e_chapter_one_pilot.sh`; `tests/e2e/e2e_chapter_one_browser.sh`;
+  `tests/playwright/chapter_one_run.spec.ts`; `docs/PILOT_CONTENT.md`.
+- **WeBWorK MATCH files:** the bounded Chapter 1 slice extends
+  `crates/adapters/webwork/src/http_renderer/`, `renderer_contract.rs`, their contract tests, server
+  translation, and `tests/playwright/chapter_one_run.spec.ts` with the reviewed matching render and
+  grade path. Additional source shapes remain part of broader WP-RC5 acceptance.
 - **Behavior:** complete visual author edit/preview, CAS save, full Memory/PostgreSQL publication,
   issue, feedback, summary, retention, and cleanup acceptance around the implemented eight-family
   source/runtime core. WP-RC5 also extracts and grades a typed WeBWorK MATCH projection through the

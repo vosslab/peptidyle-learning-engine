@@ -808,6 +808,18 @@ class WalkthroughRunner:
 			return
 		self.report_stage = "instructor_setup_handoff"
 		self.hand_off_instructor_setup(child_environment)
+		if self.inputs.env_file == self.repository_root / "containers" / "env.local":
+			self.report_stage = "playwright_chapter_one_genetics"
+			chapter_environment = self.playwright_child_environment(child_environment)
+			chapter_environment["PLE_CHAPTER_ONE_BROWSER_SCOPE"] = "genetics"
+			self.run_required(
+				[
+					"bash",
+					"run_playwright_tests.sh",
+					"tests/playwright/chapter_one_run.spec.ts",
+				],
+				chapter_environment,
+			)
 		if self.j1_checkpoint_file is None:
 			raise RunnerError("J1 checkpoint is unavailable")
 		child_environment["PLE_UI_WALKTHROUGH_J1_CHECKPOINT_FILE"] = str(self.j1_checkpoint_file)

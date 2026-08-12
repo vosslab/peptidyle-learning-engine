@@ -10,8 +10,6 @@ use crate::{DraftRecord, StoreError, TenantContext, WorkspaceDraftRevision};
 
 /// Canonical source media type for workspace and published flat-question objects.
 pub const FLAT_QUESTION_MEDIA_TYPE: &str = "application/vnd.peptidyle.flat-question+json";
-/// Only native question family supported by the flat-question persistence path.
-pub const FLAT_QUESTION_SOURCE_FAMILY: &str = "flat_single_choice_v1";
 /// Maximum accepted byte size for a flat-question payload record.
 pub const MAX_FLAT_QUESTION_PAYLOAD_BYTES: usize = 256 * 1024;
 
@@ -132,9 +130,9 @@ impl WorkspaceFlatQuestionSource {
                 "flat-question canonical checksum must match the source object".to_string(),
             ));
         }
-        if source_family != FLAT_QUESTION_SOURCE_FAMILY {
+        if !grading::flat_question::is_flat_question_family(&source_family) {
             return Err(StoreError::InvalidRecord(
-                "flat-question source family must be flat_single_choice_v1".to_string(),
+                "flat-question source family is unsupported".to_string(),
             ));
         }
         Ok(Self {

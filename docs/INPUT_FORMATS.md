@@ -5,11 +5,11 @@ boundaries. It is not a replacement for the authoritative schema, profile, or AP
 
 ## Supported authoring inputs
 
-| Input | Accepted surface | Boundary | Exact contract |
-| --- | --- | --- | --- |
-| PLE flat-question JSON | `application/vnd.peptidyle.flat-question+json` on the private flat-question source route | One v1 single-choice or v2 eight-family document, including answers and private feedback; at most 256 KiB | [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) |
-| Canvas QTI 1.2 ZIP | `application/zip` on the private QTI import route | At most 32 MiB; the original ZIP stays private while a worker creates an answer-free review report | [qti_profile_mapping_plan.md](active_plans/decisions/qti_profile_mapping_plan.md) |
-| Blackboard QTI 2.1 ZIP | `application/zip` on the private QTI import route | At most 32 MiB; the original ZIP stays private while a worker creates an answer-free review report | [qti_profile_mapping_plan.md](active_plans/decisions/qti_profile_mapping_plan.md) |
+| Input                  | Accepted surface                                                                         | Boundary                                                                                                  | Exact contract                                                                    |
+| ---------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| PLE flat-question JSON | `application/vnd.peptidyle.flat-question+json` on the private flat-question source route | One v1 single-choice or v2 eight-family document, including answers and private feedback; at most 256 KiB | [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md)                            |
+| Canvas QTI 1.2 ZIP     | `application/zip` on the private QTI import route                                        | At most 32 MiB; the original ZIP stays private while a worker creates an answer-free review report        | [qti_profile_mapping_plan.md](active_plans/decisions/qti_profile_mapping_plan.md) |
+| Blackboard QTI 2.1 ZIP | `application/zip` on the private QTI import route                                        | At most 32 MiB; the original ZIP stays private while a worker creates an answer-free review report        | [qti_profile_mapping_plan.md](active_plans/decisions/qti_profile_mapping_plan.md) |
 
 The PLE JSON source is a Peptidyle contract, not a QTI variant. Its exact fields, validation rules,
 canonicalization, source-to-public/private compilation boundary, and v1/v2 scope are in
@@ -20,11 +20,12 @@ accepted source is described separately in [QUESTION_MODEL.md](QUESTION_MODEL.md
 
 PLE can publish a private immutable PG or PGML source artifact for its configured external
 `webwork-pg-renderer`. This is an author-controlled source artifact, not a learner upload, a
-browser-accessible renderer file, or a general-purpose WebWork2 import route. The only
-live-accepted source shape is the licensed, user-authored PGML pilot with one `RadioButtons` group.
-Its projection, grading, source-artifact handling, and exact compatibility boundary are defined in
-[WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md). Broader PG controls and
-Open Problem Library compatibility require separate source examples and live acceptance evidence.
+browser-accessible renderer file, or a general-purpose WebWork2 import route. Live acceptance covers
+the four reviewed Chapter 1 PGML sources: one multiple-choice and one matching source for each of
+Genetics and Biochemistry. Their projection, grading, source-artifact handling, and exact
+compatibility boundary are defined in
+[WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md). Other PG controls, source
+revisions, and Open Problem Library compatibility require separate examples and live evidence.
 
 ## Roster CSV import
 

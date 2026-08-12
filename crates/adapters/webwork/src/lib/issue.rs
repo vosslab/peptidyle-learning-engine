@@ -137,6 +137,34 @@ impl std::fmt::Display for WebworkAdapterError {
 
 impl std::error::Error for WebworkAdapterError {}
 
+/// Returns the conservative capabilities common to arbitrary PG sources.
+pub fn webwork_source_capabilities(
+    source: &QuestionSource,
+) -> Result<BackendCapabilities, WebworkAdapterError> {
+    let QuestionSource::Webwork { .. } = source else {
+        return Err(WebworkAdapterError::UnsupportedSource);
+    };
+    Ok(BackendCapabilities::from_iter([
+        Capability::AlgorithmicGeneration,
+        Capability::ServerGrading,
+    ]))
+}
+
+/// Returns capabilities proven for an exact immutable PG source artifact.
+pub fn reviewed_webwork_source_capabilities(
+    source: &QuestionSource,
+    source_sha256: &str,
+) -> Result<BackendCapabilities, WebworkAdapterError> {
+    let QuestionSource::Webwork { pg_path } = source else {
+        return Err(WebworkAdapterError::UnsupportedSource);
+    };
+    let mut capabilities = vec![Capability::AlgorithmicGeneration, Capability::ServerGrading];
+    if crate::source_profile::supports_partial_credit(pg_path, source_sha256) {
+        capabilities.push(Capability::PartialCredit);
+    }
+    Ok(BackendCapabilities::from_iter(capabilities))
+}
+
 /// Question-agnostic WeBWorK adapter composed from an object store and a
 /// separately deployed renderer client.
 pub struct WebworkAdapter<S, R> {
@@ -159,19 +187,12 @@ where
         self.renderer.identity()
     }
 
-    /// Returns only capabilities this adapter can deliver for every PG source.
+    /// Returns the evidence-bounded capabilities of this exact PG source.
     pub fn capabilities(
         &self,
         source: &QuestionSource,
     ) -> Result<BackendCapabilities, WebworkAdapterError> {
-        if matches!(source, QuestionSource::Webwork { .. }) {
-            Ok(BackendCapabilities::from_iter([
-                Capability::AlgorithmicGeneration,
-                Capability::ServerGrading,
-            ]))
-        } else {
-            Err(WebworkAdapterError::UnsupportedSource)
-        }
+        webwork_source_capabilities(source)
     }
 
     /// Issues a browser-safe render, using the immutable `(version, seed)` cache first.

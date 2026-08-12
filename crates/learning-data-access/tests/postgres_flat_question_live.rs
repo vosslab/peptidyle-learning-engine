@@ -12,7 +12,7 @@ use learning_data_access::{
     UpsertFlatQuestionCommand,
 };
 use objects::{ObjectCategory, ObjectKey, ObjectRecord, Sha256Digest};
-use question_model::response::{ChoiceId, StudentResponse};
+use question_model::response::{ChoiceId, MatchPair, StudentResponse};
 use question_model::{
     ActivityTimestamp, BackendCapabilities, Capability, ObjectId, ProblemId, ProblemVersionRef,
     PublicationScope, QuestionBackend, QuestionSource, TenantId, UserId, VersionId, WorkspaceId,
@@ -23,6 +23,7 @@ use uuid::Uuid;
 const FLAT_MEDIA_TYPE: &str = "application/vnd.peptidyle.flat-question+json";
 const PRIVATE_FEEDBACK_MARKER: &str = "private feedback must remain grader-only";
 const FLAT_SOURCE: &str = r#"{"format":"pleFlatQuestion","version":1,"kind":"singleChoice","title":"Favorite color","prompt":"What is my favorite color?","choices":[{"id":"blue","text":"Blue","feedback":"Blue choice feedback"},{"id":"red","text":"Red","feedback":"Red choice feedback"}],"correctChoice":"blue","feedback":{"correct":"Correct feedback","incorrect":"private feedback must remain grader-only"},"points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"license":{"kind":"cc0"},"language":"en-US"}"#;
+const FLAT_MATCHING_V2_SOURCE: &str = r#"{"format":"pleFlatQuestion","version":2,"title":"Match inheritance terms","prompt":"Match each term to its description.","response":{"kind":"matching","prompts":[{"id":"p1","text":"Two different alleles"},{"id":"p2","text":"Two identical alleles"}],"choices":[{"id":"c1","text":"Heterozygous"},{"id":"c2","text":"Homozygous"}],"matches":[{"prompt":"p1","choice":"c1"},{"prompt":"p2","choice":"c2"}]},"feedback":{"correct":"Correct.","incorrect":"Review the allele pairs."},"points":2.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"license":{"kind":"cc0"},"language":"en-US"}"#;
 
 fn id() -> Uuid {
     let mut bytes = [0_u8; 16];
@@ -89,13 +90,15 @@ fn publication_command(
     artifact: PublishedSourceArtifact,
     owner: UserId,
 ) -> PublishDraftCommand {
+    let family = match &draft.question.source {
+        question_model::DraftQuestionSource::Native { family } => family.clone(),
+        _ => panic!("flat publication fixture must use a native family"),
+    };
     PublishDraftCommand {
         expected_draft: draft,
         expected_revision: revision,
         publication: reference,
-        published_source: QuestionSource::Native {
-            family: "flat_single_choice_v1".to_string(),
-        },
+        published_source: QuestionSource::Native { family },
         source_artifact: Some(artifact),
         qti_promotion: None,
         flat_question_promotion: Some(FlatQuestionPublicationPromotion {
@@ -442,6 +445,90 @@ async fn postgres_flat_question_publication_preserves_private_grading_boundary()
             .is_none(),
         "tenant-B cannot retrieve tenant-A institution-only private material"
     );
+
+    let matching_workspace = WorkspaceId::from_uuid(id());
+    let matching_document = adapter_native::flat_question::FlatQuestionDocument::parse(
+        FLAT_MATCHING_V2_SOURCE.as_bytes(),
+    )
+    .expect("v2 matching source parses");
+    let matching_source_bytes = matching_document
+        .canonical_bytes()
+        .expect("v2 matching source canonicalizes");
+    let (matching_question, matching_private) = matching_document
+        .compile(matching_workspace)
+        .expect("v2 matching source compiles")
+        .into_parts();
+    let matching_draft = DraftRecord {
+        tenant: tenant_a,
+        question: matching_question,
+        revises: None,
+        derived_from: None,
+    };
+    let matching_source = flat_source(tenant_a, matching_workspace, &matching_source_bytes);
+    let matching_grading = FlatQuestionGradingPayload::from_private(&matching_private)
+        .expect("v2 matching private material persists");
+    let matching_staged = store
+        .upsert_flat_question(
+            context_a,
+            owner,
+            UpsertFlatQuestionCommand {
+                expected_revision: None,
+                draft: matching_draft.clone(),
+                source: matching_source.clone(),
+                canonical_source_sha256: matching_source.sha256.to_string(),
+                public_binding_sha256: matching_grading.public_binding_sha256().to_string(),
+                grading: matching_grading,
+            },
+        )
+        .await
+        .expect("PostgreSQL stages v2 matching source and grading together");
+    let matching_reference = ProblemVersionRef {
+        problem: ProblemId::from_uuid(id()),
+        version: VersionId::from_uuid(id()),
+    };
+    let matching_published = store
+        .publish_draft(
+            context_a,
+            owner,
+            publication_command(
+                matching_draft,
+                matching_staged.workspace_revision,
+                matching_reference,
+                matching_staged,
+                published_artifact(matching_reference, &matching_source),
+                owner,
+            ),
+        )
+        .await
+        .expect("PostgreSQL publishes v2 matching through the grader capability");
+    let matching_private = grader
+        .flat_question_published_grading(context_a, matching_reference)
+        .await
+        .expect("v2 matching grader lookup")
+        .expect("v2 matching private material is available to the grader")
+        .decode_private()
+        .expect("v2 matching private material decodes");
+    let matching_outcome = matching_private
+        .evaluate(
+            &matching_published.question,
+            &StudentResponse::Matching {
+                matches: vec![
+                    MatchPair {
+                        prompt: ChoiceId::new("p1"),
+                        choice: ChoiceId::new("c1"),
+                    },
+                    MatchPair {
+                        prompt: ChoiceId::new("p2"),
+                        choice: ChoiceId::new("c2"),
+                    },
+                ],
+            },
+        )
+        .expect("v2 matching grades from protected PostgreSQL material");
+    let grading::GradeOutcome::Graded(matching_result) = matching_outcome.outcome else {
+        panic!("v2 matching must produce a numerical result");
+    };
+    assert!(matching_result.correct);
 
     let other_native =
         seed_non_flat_answer_key(&pool, tenant_a, "native", Some("other_native_v1")).await;

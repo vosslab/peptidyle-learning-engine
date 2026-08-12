@@ -15,6 +15,7 @@ containers/local-identities.json
 containers/local-login.txt
 containers/local-demo.json
 containers/local-webwork-demo.json
+containers/local-chapter-one-pilot.json
 containers/.secrets/
 .env
 # === PYTHON ===

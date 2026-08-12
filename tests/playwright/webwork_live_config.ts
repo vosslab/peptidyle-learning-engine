@@ -5,7 +5,8 @@ import { lstatSync, readFileSync } from "node:fs";
 export interface LiveWebworkInputs {
   readonly baseUrl: string;
   readonly studentCredential: string;
-  readonly assignmentId: string;
+  readonly credentialFile: string;
+  readonly assignmentId?: string;
 }
 
 export type Environment = Readonly<Record<string, string | undefined>>;
@@ -72,13 +73,15 @@ export function liveInputsFromEnvironment(
     throw new Error("PLE_WEBWORK_LIVE_BASE_URL must not contain credentials or a query string");
   }
 
-  const assignmentId = requiredEnvironmentValue(environment, "PLE_WEBWORK_LIVE_ASSIGNMENT_ID");
+  const assignmentId = environment["PLE_WEBWORK_LIVE_ASSIGNMENT_ID"]?.trim();
   if (
+    assignmentId !== undefined &&
+    assignmentId !== "" &&
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
       assignmentId,
     )
   ) {
-    throw new Error("PLE_WEBWORK_LIVE_ASSIGNMENT_ID must be a UUID");
+    throw new Error("PLE_WEBWORK_LIVE_ASSIGNMENT_ID must be a UUID when set");
   }
   const credentialPath = requiredEnvironmentValue(
     environment,
@@ -92,5 +95,10 @@ export function liveInputsFromEnvironment(
     throw new Error("live student credential file is unreadable or has unsafe metadata");
   }
   const studentCredential = localStudentCredential(credentialContents);
-  return { baseUrl: parsedBaseUrl.toString(), studentCredential, assignmentId };
+  return {
+    baseUrl: parsedBaseUrl.toString(),
+    studentCredential,
+    credentialFile: credentialPath,
+    ...(assignmentId === undefined || assignmentId === "" ? {} : { assignmentId }),
+  };
 }

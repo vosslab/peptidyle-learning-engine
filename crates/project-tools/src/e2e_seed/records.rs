@@ -12,11 +12,11 @@ pub(super) fn native_capabilities() -> Result<BackendCapabilities> {
         .context("resolving capabilities for the native E2E question family")
 }
 
-/// The shipped WebWork adapter declares these two capabilities for every PG
-/// source. This seed stays within that contract: it is algorithmic and grades
-/// only on the server; it does not claim partial credit or hints.
+/// Reads the production WeBWorK registry instead of maintaining a second
+/// capability declaration in the E2E bootstrap.
 pub(super) fn webwork_capabilities() -> BackendCapabilities {
-    BackendCapabilities::from_iter([Capability::AlgorithmicGeneration, Capability::ServerGrading])
+    adapter_webwork::webwork_source_capabilities(&webwork_pilot_published_source())
+        .expect("tracked pilot source uses the WeBWorK backend")
 }
 
 #[derive(Clone, Copy)]

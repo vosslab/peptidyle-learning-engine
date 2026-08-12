@@ -526,6 +526,72 @@ fn partial_credit_is_not_claimed_without_per_source_evidence() {
     );
 }
 
+#[test]
+fn reviewed_chapter_matching_sources_claim_partial_credit_without_widening_near_misses() {
+    for (pg_path, source_sha256) in [
+        (
+            "content/pilot/sources/genetics/genetic_disorders-matching.pgml",
+            "ae59425dce95bbffe0992aa5e072cd01370b736ef958685e409004d7580d2718",
+        ),
+        (
+            "content/pilot/sources/biochemistry/biochemical_functional_groups-matching.pgml",
+            "42c52281516511410623e56a315ed74f687f412a24c6ca1d028ffbe3eab12f17",
+        ),
+    ] {
+        let source = QuestionSource::Webwork {
+            pg_path: pg_path.to_string(),
+        };
+        let capabilities = reviewed_webwork_source_capabilities(&source, source_sha256)
+            .expect("reviewed WeBWorK source is supported");
+        assert!(capabilities.supports(Capability::PartialCredit));
+        assert!(
+            !webwork_source_capabilities(&source)
+                .expect("arbitrary PG retains conservative support")
+                .supports(Capability::PartialCredit)
+        );
+        assert!(
+            !reviewed_webwork_source_capabilities(&source, &"0".repeat(64))
+                .expect("same-path source with different bytes retains common support")
+                .supports(Capability::PartialCredit)
+        );
+    }
+    let near_miss = reviewed_webwork_source_capabilities(
+        &QuestionSource::Webwork {
+            pg_path: "content/pilot/sources/genetics/other-matching.pgml".to_string(),
+        },
+        "ae59425dce95bbffe0992aa5e072cd01370b736ef958685e409004d7580d2718",
+    )
+    .expect("unreviewed WeBWorK source retains common support");
+    assert!(!near_miss.supports(Capability::PartialCredit));
+}
+
+#[tokio::test]
+async fn unreviewed_source_refuses_partial_credit_before_renderer_grading() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let store = MemoryObjectStore::default();
+    let adapter = WebworkAdapter::new(store.clone(), recorded_renderer(calls));
+    let mut question = question_with_response(fixture_response());
+    question.grading = GradingDefinition::PartialCredit { points: 1.0 };
+    let source = source(&store, &question).await;
+    let error = adapter
+        .grade(
+            &question,
+            Seed::new(17),
+            &source,
+            &StudentResponse::MultipleChoice {
+                selected: vec![ChoiceId::new("water")],
+            },
+            &recorded_replay(),
+        )
+        .await
+        .expect_err("unreviewed partial-credit behavior must be refused");
+    assert!(matches!(
+        error,
+        WebworkAdapterError::InvalidRendererEnvelope(message)
+            if message.contains("accepted source profile")
+    ));
+}
+
 fn fixture_response() -> ResponseDefinition {
     ResponseDefinition::MultipleChoice {
         choices: vec![

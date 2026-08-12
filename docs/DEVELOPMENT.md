@@ -91,6 +91,12 @@ work-package record rather than the permanent fast suite unless it satisfies the
 [PYTEST_STYLE.md](PYTEST_STYLE.md#is-this-a-good-pytest). Record both the evidence run and any
 unrun live boundary in the handoff.
 
+For the first teaching corpus, run `cargo tools pilot-content` for the tracked source/compiler
+contract and `bash tests/e2e/e2e_chapter_one_pilot.sh` for the disposable PostgreSQL/MinIO
+publication, exact two-by-four assignment matrix, human display identity, and idempotent-rerun
+contract. Run `bash tests/e2e/e2e_chapter_one_browser.sh` for the complete eight-question
+keyboard-driven learner path through the built PLE browser and private renderer.
+
 ## Run local services
 
 Use the launcher when a work package needs the supported local PostgreSQL, MinIO, API, worker,

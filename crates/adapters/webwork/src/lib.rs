@@ -21,9 +21,14 @@ mod cache;
 mod grade;
 #[path = "lib/issue.rs"]
 mod issue;
+#[path = "lib/source_profile.rs"]
+mod source_profile;
 
 pub use crate::http_renderer::{
     HttpWebworkRenderer, HttpWebworkRendererConfig, RendererConfigError,
 };
 pub use artifact::WebworkSource;
-pub use issue::{WebworkAdapter, WebworkAdapterError, WebworkIssuedAttempt};
+pub use issue::{
+    WebworkAdapter, WebworkAdapterError, WebworkIssuedAttempt,
+    reviewed_webwork_source_capabilities, webwork_source_capabilities,
+};
