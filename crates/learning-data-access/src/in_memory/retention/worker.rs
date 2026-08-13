@@ -485,7 +485,9 @@ impl RetentionWorkerStore for MemoryStore {
                     .retain(|(tenant_id, predecessor), next| {
                         !(*tenant_id == tenant
                             && (attempt_ids.contains(predecessor)
-                                || next.as_ref().is_some_and(|next| attempt_ids.contains(next))))
+                                || next
+                                    .as_ref()
+                                    .is_some_and(|next| attempt_ids.contains(&next.id))))
                     });
                 state
                     .prefetched_questions

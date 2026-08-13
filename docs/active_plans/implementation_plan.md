@@ -33,8 +33,8 @@ design. Six requirements shape it:
 - **Demand is met by adding replicas**, making in-process state and process clocks design errors.
 - **Completion is not the end of activity.** The owner reports students voluntarily running a
   finished assignment 30 or more times to learn through algorithmic variation. This is the single
-  largest change: Peptidyle is a high-volume attempt-event system, not an assignment submission
-  system rather than an assignment submission system.
+  largest change: Peptidyle is a high-volume attempt-event system rather than an assignment
+  submission system.
 
 The intended outcome is ADAPT's surface and its best feature -- one published problem reusable by
 thousands of instructors without copying -- without its three structural weaknesses: unbounded
@@ -678,9 +678,9 @@ PostgreSQL 17 database exercised the real upload worker, mixed accepted/rejected
 conversion and publication, correct/incorrect grading, role denials, provenance, and exact cleanup.
 WP-QTI-12 independent review and documentation close-out are also complete: six separate passes
 reported no remaining P0/P1 issue after stale README and ownership-map findings were corrected and
-re-reviewed. PLE flat JSON v2 now implements MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT
-source/runtime semantics based on the reviewed QTI Package Maker item models, while exact v1 remains
-preserved. Remaining acceptance is recorded in
+re-reviewed. PLE flat JSON v2 now implements MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT
+source/runtime semantics based on the reviewed QTI Package Maker item models. Version 1 source is
+refused; version 2 is the sole native reader. Remaining acceptance is recorded in
 `docs/active_plans/active/flat_question_family_evolution_plan.md`; external QTI-JSONL is a separate
 future adapter concern. The course appearance package is accepted through WP-CA7/WP-RC1 and production-seam closure
 WP-RC2 is accepted; WP-RC3 shipped upstream WeBWorK is the current implementation package. The dependency order and exact
@@ -981,12 +981,15 @@ Perceived speed comes from three mechanisms, in order of contribution:
    student's answer echoed back, so the round trip is visible progress rather than a frozen UI. No
    correctness is implied or guessed before the server answers.
 
-Next-question prefetch uses a durable, key-free reservation rather than creating an early attempt.
-The reservation binds the current unresolved attempt, the first unattempted assignment position, the
-server-owned seed, parameter hash, and complete backend provenance. Submitting question N promotes
-that reservation into the one real N+1 attempt and timer, then records an immutable successor link in
-N's idempotent receipt. A replica can heal a committed-but-unlinked successor from the sole pending
-receipt, but it never scans newer run state to rewrite a replay.
+Next-question prefetch uses a durable, server-only reservation rather than creating an early attempt.
+Its browser projection is answer-free, but the reservation retains the issued private grading
+authority needed to avoid later catalog or renderer reconstruction. It binds the current unresolved
+attempt, the first unattempted assignment position, the server-owned seed, parameter hash, and
+complete backend provenance. Submitting question N promotes that reservation into the one real N+1
+attempt and timer, then records either an immutable
+`nextIssued` descriptor or durable `nextPending` state in N's idempotent receipt. Initial recovery
+can heal a committed-but-unlinked successor from the sole pending receipt, but replay never scans
+newer run state to rewrite a receipt.
 
 The browser keeps the prefetched envelope only in memory. It advances without another run-screen fetch
 only when the receipt's minimal `nextIssued` descriptor exactly matches predecessor, run, position,
@@ -1747,7 +1750,11 @@ There are no unresolved implementation or scope decisions in this plan. The form
 settled as follows and expanded into dispatchable packages in
 `docs/active_plans/active/release_completion_plan.md`:
 
-- MC is the accepted first family and MATCH is next.
+- The protected visual author editor now supports all eight version 2 families. MC, MA, FIB,
+  MULTI-FIB, NUM, MATCH, and ORDER provide their complete keyboard-first form controls. HOTSPOT
+  provides verified-image selection, immutable version-scoped publication, exact issue-time asset
+  binding, and the primary keyboard region-list workflow. Its integrated author-to-learner
+  object-lifecycle acceptance remains open in the flat-family plan.
 - New assignments default to `highest`; new practice runs use `newSeeds` while resumed attempts keep
   their issued seed.
 - Retention defaults are notify at 30 days, archive at 100 days, learner-record deletion at 365 days,

@@ -87,6 +87,21 @@ pub enum ObjectKey {
         /// Physical object-record identity.
         object: ObjectId,
     },
+    /// A logical asset authored directly for a private workspace question.
+    ///
+    /// This content-bucket object is intentionally distinct from
+    /// [`Self::WorkspaceAsset`]: it has no import provenance and is never a
+    /// catalog asset or direct-delivery candidate.
+    WorkspaceQuestionAsset {
+        /// Tenant which owns the private workspace.
+        tenant: TenantId,
+        /// Private authoring workspace.
+        workspace: WorkspaceId,
+        /// Logical asset referenced by a workspace question.
+        asset: AssetId,
+        /// Physical object-record identity.
+        object: ObjectId,
+    },
     /// An original source package for a published version.
     ProblemSource {
         /// Published problem identity.
@@ -180,6 +195,7 @@ impl ObjectKey {
             Self::WorkspaceSource { .. }
             | Self::WorkspaceQuestionSource { .. }
             | Self::WorkspaceAsset { .. }
+            | Self::WorkspaceQuestionAsset { .. }
             | Self::ProblemSource { .. }
             | Self::PublishedImportArchive { .. }
             | Self::ProblemAsset { .. }
@@ -214,6 +230,12 @@ impl ObjectKey {
             } => {
                 format!("workspaces/{tenant}/{workspace}/imports/{import}/assets/{asset}/{object}")
             }
+            Self::WorkspaceQuestionAsset {
+                tenant,
+                workspace,
+                asset,
+                object,
+            } => format!("workspaces/{tenant}/{workspace}/questions/assets/{asset}/{object}"),
             Self::ProblemSource {
                 problem,
                 version,
@@ -272,6 +294,7 @@ impl ObjectKey {
             Self::WorkspaceSource { object, .. }
             | Self::WorkspaceQuestionSource { object, .. }
             | Self::WorkspaceAsset { object, .. }
+            | Self::WorkspaceQuestionAsset { object, .. }
             | Self::ProblemSource { object, .. }
             | Self::PublishedImportArchive { object, .. }
             | Self::ProblemAsset { object, .. }
@@ -297,6 +320,7 @@ impl ObjectKey {
             Self::WorkspaceSource { .. } => ObjectCategory::Source,
             Self::WorkspaceQuestionSource { .. } => ObjectCategory::Source,
             Self::WorkspaceAsset { .. } => ObjectCategory::Asset,
+            Self::WorkspaceQuestionAsset { .. } => ObjectCategory::Asset,
             Self::ProblemSource { .. } => ObjectCategory::Source,
             Self::PublishedImportArchive { .. } => ObjectCategory::Source,
             Self::ProblemAsset { .. } => ObjectCategory::Asset,
@@ -318,6 +342,7 @@ impl ObjectKey {
             Self::WorkspaceSource { .. }
             | Self::WorkspaceQuestionSource { .. }
             | Self::WorkspaceAsset { .. }
+            | Self::WorkspaceQuestionAsset { .. }
             | Self::CourseBannerCandidate { .. }
             | Self::CourseBanner { .. }
             | Self::StudentRecord { .. }

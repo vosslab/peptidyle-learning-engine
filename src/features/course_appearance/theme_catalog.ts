@@ -153,7 +153,7 @@ export function courseThemeStyle(tokens: CourseThemeTokens): string {
     `--ple-theme-canvas: ${tokens.anchors.canvas}`,
     `--ple-theme-secondary: ${tokens.anchors.secondary}`,
     `--ple-theme-accent: ${tokens.anchors.accent}`,
-    `--ple-surface: ${tokens.anchors.canvas}`,
+    `--ple-surface: ${tokens.surface}`,
     `--ple-surface-soft: ${tokens.surfaceSoft}`,
     `--ple-card-surface: ${tokens.surface}`,
     `--ple-ink: ${tokens.ink}`,

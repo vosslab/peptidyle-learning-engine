@@ -30,16 +30,16 @@ macOS setup for the Podman virtual machine lives in
 
 ## Services
 
-| Service                | Image                                     | Purpose                                           | Local port                   |
-| ---------------------- | ----------------------------------------- | ------------------------------------------------- | ---------------------------- |
-| `gateway`              | pinned official Caddy derivative          | browser files plus same-origin API gateway        | 127.0.0.1:8080               |
-| `api`                  | built from `containers/Containerfile.api` | axum API server                                   | none                         |
-| `worker`               | built from `containers/Containerfile.api` | family-filtered durable job draining              | none                         |
-| `postgres`             | digest-pinned official PostgreSQL 17      | shared content and tenant-owned records           | 127.0.0.1:5432               |
-| `minio`                | digest-pinned official MinIO              | S3-compatible object storage                      | 127.0.0.1:9000, console 9001 |
-| `createbuckets`        | digest-pinned official MinIO Client       | one-shot bucket creation, then exits              | none                         |
-| `identity-secret-init` | pinned official Alpine                    | one-shot invitation-secret permission setup       | none                         |
-| `webwork-renderer`     | external `webwork-pg-renderer` image      | private stateless PG/PGML render and grade engine | none                         |
+| Service                | Image                                       | Purpose                                           | Local port                   |
+| ---------------------- | ------------------------------------------- | ------------------------------------------------- | ---------------------------- |
+| `gateway`              | pinned official Caddy derivative            | browser files plus same-origin API gateway        | 127.0.0.1:8080               |
+| `api`                  | shared locally built Rust application image | axum API server                                   | none                         |
+| `worker`               | API-owned shared Rust application image     | family-filtered durable job draining              | none                         |
+| `postgres`             | digest-pinned official PostgreSQL 17        | shared content and tenant-owned records           | 127.0.0.1:5432               |
+| `minio`                | digest-pinned official MinIO                | S3-compatible object storage                      | 127.0.0.1:9000, console 9001 |
+| `createbuckets`        | digest-pinned official MinIO Client         | one-shot bucket creation, then exits              | none                         |
+| `identity-secret-init` | pinned official Alpine                      | one-shot invitation-secret permission setup       | none                         |
+| `webwork-renderer`     | external `webwork-pg-renderer` image        | private stateless PG/PGML render and grade engine | none                         |
 
 Every published port binds to `127.0.0.1`, not `0.0.0.0`. The database holds
 educational records, so a development container must not be reachable from the
@@ -105,9 +105,11 @@ stack does not run or maintain a mail server.
 ## External SMTP provider
 
 SMTP is an opt-in connection to an operator-selected service, not another PLE
-container. Keep the normal stack unchanged until a provider account exists.
-When it does, copy `containers/env.example` to an operator-owned environment
-file and set:
+container. No provider is configured today. Fastmail is the intended future
+provider, but keep the normal stack and no-email teaching walkthrough unchanged
+until its account, authorized sender, and application credential exist. When it
+does, copy `containers/env.example` to an operator-owned environment file and
+set:
 
 - `PLE_SMTP_RELAY` to the provider hostname, without `smtp://` or `smtps://`;
 - `PLE_SMTP_PORT` and `PLE_SMTP_TLS_MODE` to either mandatory `starttls`
@@ -234,7 +236,7 @@ curl -s http://localhost:8080/health          # {"status":"ready"} once compatib
 podman compose -f containers/compose.yaml --env-file containers/env.local ps
 podman compose -f containers/compose.yaml --env-file containers/env.local \
   logs -f api worker webwork-renderer
-podman compose -f containers/compose.yaml --env-file containers/env.local build api worker
+podman compose -f containers/compose.yaml --env-file containers/env.local build api gateway
 podman compose -f containers/compose.yaml --env-file containers/env.local \
   up -d --scale api=2 --scale worker=2 api worker gateway
 podman compose -f containers/compose.yaml --env-file containers/env.local \
@@ -271,10 +273,15 @@ deliberate step rather than part of the normal stop command.
 
 ## Image shape
 
-`Containerfile.api` is a two-stage build. The first stage compiles the Cargo
-workspace with `--locked`, so the image cannot quietly resolve a different
-dependency set than `Cargo.lock` records. The second stage carries only the
-binary and `ca-certificates`, and runs as a non-root user.
+`Containerfile.api` is a two-stage build. The `api` Compose service is the
+single build owner of `localhost/peptidyle-learning-engine:local`; `worker`
+uses that exact image with its own command and runtime settings. The launcher
+builds the application image once, then builds the gateway, and only then
+starts API, worker, and gateway. This prevents duplicate concurrent Cargo
+builds from exhausting a constrained Podman machine. The first stage compiles
+the Cargo workspace with `--locked`, so the image cannot quietly resolve a
+different dependency set than `Cargo.lock` records. The second stage carries
+only the binary and `ca-certificates`, and runs as a non-root user.
 
 Manifests are copied before sources so dependency compilation caches
 separately from source edits.

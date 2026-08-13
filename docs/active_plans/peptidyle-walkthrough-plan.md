@@ -27,6 +27,13 @@ problem authoring itself is not part of this teaching-loop acceptance.
 This is the priority Fall 2026 pilot-readiness path, with an owner target of
 approximately August 25, 2026. Unrelated release breadth must not delay it.
 
+> **Accepted on 2026-08-12.** The M10/M11 executions remain historical evidence for the narrower
+> prior walkthrough baseline. Current acceptance comes from the rebuilt clean-stack no-email
+> teaching loop, visible four-ID J13 setup, timed keyboard take/repeat/gradebook story, separate
+> all-eight Chapter 1 sweep, refreshed eleven-image screenshot set, full disposable PostgreSQL
+> baseline, and independent review. Full HOTSPOT author-to-learner lifecycle acceptance remains
+> outside this walkthrough in WP-RC5.
+
 ## Objectives
 
 - Let the local instructor visibly create a new course through the application.
@@ -68,8 +75,10 @@ two-actor testing capability, not a weakened production identity path.
   supported authoring API as an explicitly named arrangement.
 - Add an instructor-visible course-creation surface backed by the existing
   authorized course-creation route.
-- Add a strictly local-development roster capability that activates only a
-  configured local learner and is absent from production composition.
+- Add a local-only visible roster adapter that resolves a configured learner
+  alias and invokes the sole canonical `UpsertCourseMember` operation. Local
+  identity configuration is composition metadata only; production composition
+  exposes neither this adapter nor its control.
 - Add an instructor-visible new-assignment route that searches the published
   problem corpus, selects immutable problem versions, configures policies, and
   creates the assignment.
@@ -226,7 +235,7 @@ remain path-only private inputs and never enter the handoff or report.
 - Depends on: M8, because the browser-versus-arrangement boundary is binding.
 - Deliverables: visible course creation, local active-roster addition, visible
   corpus-backed assignment creation, focused browser tests, and Store/backend
-  conformance for the local roster command.
+  conformance for canonical roster upsert.
 - Workstreams: WS-COURSE, WS-ROSTER, and WS-ASSIGN.
 - Entry criteria: the M8 exit criterion holds.
 - Exit criteria:
@@ -234,7 +243,8 @@ remain path-only private inputs and never enter the handoff or report.
   - The instructor can add the configured local student and see an active row.
   - The instructor can create the Mastery assignment from an immutable corpus
     version and see it in the course.
-  - Production composition exposes neither the local roster route nor control.
+  - Production composition exposes neither the local roster adapter route nor
+    control.
 - Parallel-plan ready: yes - max parallel doers: three. The three product
   owners share only generated/API contracts and merge after those contracts are
   agreed.
@@ -260,7 +270,8 @@ remain path-only private inputs and never enter the handoff or report.
   the keyboard platform path and J5 visibly confirmed Best `100%`, Latest
   `100%`, Completed `2`, and two history rows. It did not yet prove the
   strengthened four-reference copy/paste construction contract; WP-HG1 owns
-  the required rebuilt run and independent acceptance.
+  the required rebuilt run and independent acceptance. This is a narrower
+  baseline, not a current acceptance claim.
 - Parallel-plan ready: no; setup produces IDs consumed by serial learner and
   instructor children.
 
@@ -280,13 +291,14 @@ remain path-only private inputs and never enter the handoff or report.
   - Runner-owned no-volume cleanup leaves no containers or private state.
   - The final checklist and implementation status describe the walkthrough as
     accepted independently of production email work.
-- **Accepted 2026-08-11:** an independent second seed-42 `--build` replay
+- **Historical narrower-baseline evidence (2026-08-11):** an independent second seed-42 `--build` replay
   created a fresh instructor course and assignment and passed the same nine
   rows. Both reports were canonical redacted schema-v2 output in mode-0700
   directories with mode-0600 files; cleanup left no containers or private
   walkthrough state. Independent HCI, security, report-security, and final
-  walkthrough reviews accepted their boundaries; see the retained-live final
-  review recorded under `docs/active_plans/audits/`.
+  walkthrough reviews accepted their then-scoped boundaries; see the retained-live final
+  review recorded under `docs/active_plans/audits/`. That evidence does not close the
+  reopened WP-HG1 live acceptance checklist.
 - Parallel-plan ready: yes - max parallel doers: two. Evidence review and docs
   may proceed after the manager report stabilizes.
 
@@ -311,16 +323,18 @@ remain path-only private inputs and never enter the handoff or report.
 - Review boundary, when modifying the repository: browser client and course UI;
   no authorization weakening.
 
-### Workstream: WS-ROSTER local active membership
+### Workstream: WS-ROSTER canonical local active membership
 
 - Goal: add the configured local student without email.
 - Owner: Rust, PostgreSQL, and local-composition engineer.
 - Work packages: WP-I2.
-- Needs: local identity records, course manager authorization, Store enrollment
-  invariants.
+- Needs: local identity composition metadata, course manager authorization, and
+  canonical roster/enrollment invariants.
 - Provides: active roster membership and assignment reconciliation.
-- Review boundary, when modifying the repository: exact local composition only;
-  production route absence is mandatory.
+- Review boundary, when modifying the repository: exact local adapter
+  composition only; production route/control absence is mandatory. The adapter
+  resolves an alias, then calls the canonical upsert rather than owning a
+  roster source, provenance, Store command, or migration.
 
 ### Workstream: WS-ASSIGN corpus-backed assignment construction
 
@@ -397,32 +411,35 @@ remain path-only private inputs and never enter the handoff or report.
   keyboard tests, server authorization regression, and independent HCI review.
 - Obvious follow-ons: WP-I2 and WP-I4.
 
-### Work package: WP-I2 add local-development roster activation
+### Work package: WP-I2 add canonical local roster activation
 
 - Owner: Rust, PostgreSQL, and local-composition engineer.
-- Touch points: local identity composition, local-only route, Store capability
-  and Memory/PostgreSQL owners,
-  `schemas/migrations/2026080913_local_development_roster.sql`, roster browser
-  client/page, generated contracts, focused route/conformance/Playwright tests.
+- Touch points: local identity composition, local-only visible adapter route,
+  the canonical `UpsertCourseMember` Store capability and its Memory/PostgreSQL
+  owners, roster browser client/page, generated contracts, and focused
+  route/conformance/Playwright tests. No local-roster migration exists in the
+  current pre-production schema.
 - Depends on: WP-C0.
 - Acceptance criteria:
-  - The route is mounted only by exact local-development authentication
+  - The adapter route is mounted only by exact local-development authentication
     composition and is absent from production composition.
   - Every local identity record has one exact, bounded, unique ASCII alias. The
     request accepts only a configured learner alias; tenant, user, display name,
     and roles come from the server's local identity provider.
-  - The authenticated course manager can activate that learner atomically as a
-    student member, active roster row, and enrollment for existing assignments.
+  - The authenticated course manager can activate that learner through the
+    canonical upsert, atomically creating or reviving the student member,
+    active roster row, and enrollment for existing assignments.
   - Repeating the action is idempotent; foreign tenant, nonmanager, arbitrary
     user, instructor alias, unknown alias, and production requests fail closed.
   - The visible roster control uses no email field and confirms the active local
     learner row by keyboard.
-  - Persistence records the source honestly as local development rather than
-    pretending an invitation or canonical account occurred.
-  - The forward migration admits the closed `local_development` roster source
-    with nullable email and roster-ID fields. A narrow Store command and both
-    Memory/PostgreSQL implementations persist that source atomically; existing
-    `legacy` and `invitation` semantics remain unchanged.
+  - `learner_alias` remains local identity composition metadata only. The
+    canonical roster record has no local source or provenance field, and the
+    adapter creates no invitation, email identity, or account-acceptance event.
+  - Memory and PostgreSQL implement the same canonical `UpsertCourseMember`
+    transaction. The fresh pre-production schema owns that model directly;
+    there is no `2026080913_local_development_roster.sql` migration, duplicate
+    Store path, or retained compatibility shape.
 - Evidence or review, when useful: Memory/PostgreSQL conformance, forced-RLS
   live route gate, production-router absence test, and independent security
   review.
@@ -662,21 +679,21 @@ replaced by fixture-count or exact-source-string tests. The isolated
 PostgreSQL/MinIO two-chapter eight-question publication sweep is a separate
 release-content oracle and does not substitute for instructor construction.
 
-Repository Python commands use `source source_me.sh && python3 ...`. Browser
+Repository Python commands use `source source_me.sh && python ...`. Browser
 launches use the existing fixed shell front door. PostgreSQL evidence uses a
 disposable or launcher-owned test database without resetting the owner's
 retained walkthrough volumes.
 
 ## Migration and compatibility policy
 
-The local roster capability is additive and local-only.
-`2026080913_local_development_roster.sql` adds the explicit
-`local_development` source after the reserved 0910-0912 versions. It preserves
-nullable email and roster-ID fields for that source and does not overload
-`legacy` or `invitation`. WP-I2 adds the corresponding closed Store command,
-Memory/PostgreSQL implementations, and internal source representation. Existing
-invitation, passwordless, course, assignment, and gradebook contracts remain
-unchanged for production callers.
+The local roster adapter is a current local-composition capability, not a
+second roster model. It resolves `learner_alias` from the configured local
+identity directory and invokes the sole canonical `UpsertCourseMember`
+transaction. The roster row has no local source/provenance, and the current
+fresh schema has no `2026080913_local_development_roster.sql` migration or
+compatibility reader. Production composition omits the adapter and its control;
+its invitation, passwordless, course, assignment, and gradebook contracts stay
+independent of this local walkthrough aid.
 
 Report schema version 1 remains historical evidence for the accepted learner
 slice. The corrected charter uses version 2 rather than silently changing the
@@ -686,7 +703,7 @@ meaning of old report rows.
 
 | Risk                                         | Impact | Trigger                                           | Owner      | Mitigation                                                |
 | -------------------------------------------- | ------ | ------------------------------------------------- | ---------- | --------------------------------------------------------- |
-| Local enrollment leaks into production       | High   | Route/control appears without local auth          | WS-ROSTER  | Composition-only mount plus production absence tests      |
+| Local adapter leaks into production          | High   | Route/control appears without local auth          | WS-ROSTER  | Composition-only mount plus production absence tests      |
 | API setup masquerades as instructor coverage | High   | Course/assignment ID exists before browser action | WS-EVID    | Fixed stage order and arrangement allowlist               |
 | Pending invitation is called a roster member | High   | Student cannot open new course                    | WS-ROSTER  | Require active row and student browser access             |
 | Score proof is too weak                      | High   | Gradebook only opens history                      | WS-WALK    | Assert exact visible percent and completed count          |
@@ -701,8 +718,8 @@ meaning of old report rows.
 - [x] Active status and historical baseline/audits are marked superseded for
       the corrected charter.
 - [x] Visible instructor course creation passes focused review.
-- [x] Local-only active roster addition passes Memory/PostgreSQL, production
-      absence, security, and browser review.
+- [x] Local-only canonical roster addition has focused Memory/PostgreSQL,
+      production-absence, security, browser, and live empty-stack teaching-loop evidence.
 - [x] Visible corpus-backed assignment creation passes focused review.
 - [x] Fixed instructor setup emits only validated public IDs.
 - [x] Student completes two runs through the keyboard platform path.
@@ -728,7 +745,7 @@ meaning of old report rows.
 
 - Patch 1: WP-C0 corrected charter and status.
 - Patch 2: WP-I1 visible course creation.
-- Patch 3: WP-I2 local-development roster activation.
+- Patch 3: WP-I2 canonical local roster activation.
 - Patch 4: WP-I3 visible assignment construction.
 - Patch 5: WP-I4 protected instructor setup and public-ID handoff.
 - Patch 6: WP-S1 student keyboard take and repeat.
@@ -753,15 +770,13 @@ or child output.
   problem authoring is outside this charter.
 - J6/J7, J9/J10, all-family, and multi-learner outcomes do not gate or appear in
   the corrected walkthrough baseline.
-- Existing learner evidence is preserved. Overall corrected-walkthrough
-  acceptance remains open until the strengthened four-ID copy/paste and
-  explicit-input real-stack run, refreshed screenshots, and independent review
-  pass.
+- Existing learner evidence is preserved. The strengthened four-ID copy/paste path,
+  explicit-input real-stack run, refreshed screenshots, and independent review passed on
+  2026-08-12; broader release and integrated HOTSPOT acceptance remain separate.
 
 ## Open questions and decisions needed
 
 - Manager/subagent decision procedure: no execution-blocking decision remains;
-  WP-I2 owns the explicit `local_development` migration and closed alias/Store
-  contract above.
+  WP-I2 owns the local alias adapter and its canonical upsert contract above.
 - Non-blocking follow-up: retain the accepted closed-exam contrast as focused
   supplemental coverage, but do not include it in the corrected core report.

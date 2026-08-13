@@ -1,7 +1,9 @@
 use question_model::{AttemptStatus, AttemptTimerRecord, QuestionAttempt};
 
 use crate::{
-    IssueQuestionAttemptCommand, JobId, JobPayload, JobState, StoreError, TenantContext,
+    IssueQuestionAttemptCommand, JobId, JobPayload, JobState, ReceiptNextAttempt, StoreError,
+    TenantContext, issued_attempt_capability_from_issue, validate_issued_flat_grading,
+    validate_issued_presentation, validate_issued_webwork_grading, validate_issued_webwork_replay,
     webwork_replay_state_from_issue,
 };
 
@@ -55,8 +57,15 @@ pub(super) async fn issue_or_resume_question_attempt(
             || prefetched.assignment_position != command.assignment_position
             || prefetched.problem != command.problem
             || prefetched.question_version != command.question_version
+            || prefetched.presentation_capability != command.presentation_capability
             || Some(prefetched.presentation) != command.presentation
+            || Some(&prefetched.presentation_snapshot) != command.presentation_snapshot.as_ref()
+            || Some(&prefetched.grading_envelope) != command.grading_envelope.as_ref()
+            || prefetched.flat_grading != command.flat_grading
+            || prefetched.flat_grading_capability != command.flat_grading_capability
             || prefetched.webwork_replay != command.webwork_replay
+            || prefetched.webwork_grading != command.webwork_grading
+            || prefetched.webwork_grading_capability != command.webwork_grading_capability
             || state.prefetched_questions.get(&key) != Some(prefetched)
             || !state
                 .submissions
@@ -77,8 +86,47 @@ pub(super) async fn issue_or_resume_question_attempt(
         .max_by_key(|attempt| (attempt.timer.issued_at, attempt.id));
     if let Some(active) = unresolved.cloned() {
         if active.assignment_position == command.assignment_position {
+            if state
+                .attempt_presentation_capabilities
+                .get(&(tenant, active.id))
+                != Some(&command.presentation_capability)
+            {
+                return Err(StoreError::Conflict);
+            }
             if state.attempt_presentations.get(&(tenant, active.id))
                 != command.presentation.as_ref()
+            {
+                return Err(StoreError::Conflict);
+            }
+            if state
+                .attempt_presentation_snapshots
+                .get(&(tenant, active.id))
+                != command.presentation_snapshot.as_ref()
+            {
+                return Err(StoreError::Conflict);
+            }
+            if state.attempt_grading_envelopes.get(&(tenant, active.id))
+                != command.grading_envelope.as_ref()
+            {
+                return Err(StoreError::Conflict);
+            }
+            if state.attempt_flat_grading.get(&(tenant, active.id)) != command.flat_grading.as_ref()
+            {
+                return Err(StoreError::Conflict);
+            }
+            if state
+                .attempt_flat_grading_capabilities
+                .get(&(tenant, active.id))
+                != Some(&command.flat_grading_capability)
+            {
+                return Err(StoreError::Conflict);
+            }
+            if state.attempt_webwork_grading.get(&(tenant, active.id))
+                != command.webwork_grading.as_ref()
+                || state
+                    .attempt_webwork_grading_capabilities
+                    .get(&(tenant, active.id))
+                    != Some(&command.webwork_grading_capability)
             {
                 return Err(StoreError::Conflict);
             }
@@ -103,14 +151,15 @@ pub(super) async fn issue_or_resume_question_attempt(
                     return Err(StoreError::Conflict);
                 }
                 match state.submission_next_attempts.get(&(tenant, predecessor)) {
-                    Some(Some(existing)) if *existing != active.id => {
+                    Some(Some(existing)) if existing.id != active.id => {
                         return Err(StoreError::Conflict);
                     }
                     Some(None) => return Err(StoreError::Conflict),
                     _ => {
-                        state
-                            .submission_next_attempts
-                            .insert((tenant, predecessor), Some(active.id));
+                        state.submission_next_attempts.insert(
+                            (tenant, predecessor),
+                            Some(ReceiptNextAttempt::from_attempt(&active)),
+                        );
                     }
                 }
             }
@@ -157,12 +206,33 @@ pub(super) async fn issue_or_resume_question_attempt(
             command.provenance.clone(),
         ),
     };
+    let presentation_capability = prefetched
+        .map(|value| value.presentation_capability)
+        .unwrap_or(command.presentation_capability);
     let presentation = prefetched
         .map(|value| Some(value.presentation))
         .unwrap_or(command.presentation);
+    let presentation_snapshot = prefetched
+        .map(|value| Some(&value.presentation_snapshot))
+        .unwrap_or(command.presentation_snapshot.as_ref());
+    let grading_envelope = prefetched
+        .map(|value| Some(&value.grading_envelope))
+        .unwrap_or(command.grading_envelope.as_ref());
+    let flat_grading = prefetched
+        .and_then(|value| value.flat_grading.as_ref())
+        .or(command.flat_grading.as_ref());
+    let flat_grading_capability = prefetched
+        .map(|value| value.flat_grading_capability)
+        .unwrap_or(command.flat_grading_capability);
     let webwork_replay = prefetched
         .and_then(|value| value.webwork_replay.clone())
         .or(command.webwork_replay.clone());
+    let webwork_grading = prefetched
+        .and_then(|value| value.webwork_grading.as_ref())
+        .or(command.webwork_grading.as_ref());
+    let webwork_grading_capability = prefetched
+        .map(|value| value.webwork_grading_capability)
+        .unwrap_or(command.webwork_grading_capability);
     if parameter_hash.trim().is_empty() || provenance.rendered_question_sha256.trim().is_empty() {
         return Err(StoreError::InvalidRecord(
             "issued attempt hashes must not be empty".to_string(),
@@ -172,6 +242,24 @@ pub(super) async fn issue_or_resume_question_attempt(
         .published
         .get(&(command.problem, command.question_version))
         .ok_or(StoreError::NotFound)?;
+    let issued_feedback_disclosure = question.question.attempt_policy.feedback;
+    validate_issued_flat_grading(
+        &question.question,
+        presentation_capability,
+        flat_grading_capability,
+        flat_grading,
+    )?;
+    validate_issued_webwork_grading(
+        &question.question,
+        webwork_grading_capability,
+        webwork_grading,
+    )?;
+    validate_issued_webwork_replay(webwork_grading_capability, webwork_replay.as_ref())?;
+    let issued_capability = issued_attempt_capability_from_issue(
+        presentation_capability,
+        flat_grading_capability,
+        webwork_grading_capability,
+    )?;
     let authored_timer = issued_timer(
         state.authoritative_time,
         &run,
@@ -238,22 +326,35 @@ pub(super) async fn issue_or_resume_question_attempt(
         result: None,
         timer,
         provenance,
+        issued_capability,
     };
-    let webwork_replay = webwork_replay
-        .map(|mapping| {
-            let presentation = presentation.ok_or_else(|| {
-                StoreError::InvalidRecord("WeBWorK replay lacks a presentation binding".to_string())
-            })?;
-            webwork_replay_state_from_issue(
-                attempt.problem,
-                attempt.question_version,
-                attempt.seed,
-                &attempt.provenance,
-                presentation,
-                mapping,
-            )
-        })
-        .transpose()?;
+    // Validate the issued binding before any attempt, receipt, or run mutation.
+    // Later submission only copies this owned snapshot; it never reconstructs it.
+    let presentation_snapshot = validate_issued_presentation(
+        presentation_capability,
+        &attempt,
+        presentation,
+        presentation_snapshot,
+        grading_envelope,
+    )?;
+    let webwork_replay = if webwork_grading_capability.requires_contract() {
+        let mapping = webwork_replay.ok_or_else(|| {
+            StoreError::InvalidRecord("WeBWorK replay mapping is missing".to_string())
+        })?;
+        let presentation = presentation.ok_or_else(|| {
+            StoreError::InvalidRecord("WeBWorK replay lacks a presentation binding".to_string())
+        })?;
+        Some(webwork_replay_state_from_issue(
+            attempt.problem,
+            attempt.question_version,
+            attempt.seed,
+            &attempt.provenance,
+            presentation,
+            mapping,
+        )?)
+    } else {
+        None
+    };
     if let Some(prefetched) = prefetched {
         state.prefetched_questions.remove(&(
             tenant,
@@ -274,14 +375,15 @@ pub(super) async fn issue_or_resume_question_attempt(
             return Err(StoreError::Conflict);
         }
         match state.submission_next_attempts.get(&(tenant, predecessor)) {
-            Some(Some(existing)) if *existing != attempt.id => {
+            Some(Some(existing)) if existing.id != attempt.id => {
                 return Err(StoreError::Conflict);
             }
             Some(None) => return Err(StoreError::Conflict),
             _ => {
-                state
-                    .submission_next_attempts
-                    .insert((tenant, predecessor), Some(attempt.id));
+                state.submission_next_attempts.insert(
+                    (tenant, predecessor),
+                    Some(ReceiptNextAttempt::from_attempt(&attempt)),
+                );
             }
         }
     }
@@ -306,11 +408,43 @@ pub(super) async fn issue_or_resume_question_attempt(
         .attempt_timing_resolution
         .insert((tenant, attempt.id), resolved_assignment_timing);
     state.attempts.insert((tenant, attempt.id), attempt.clone());
+    state
+        .attempt_presentation_capabilities
+        .insert((tenant, attempt.id), presentation_capability);
+    state
+        .attempt_flat_grading_capabilities
+        .insert((tenant, attempt.id), flat_grading_capability);
+    state
+        .attempt_webwork_grading_capabilities
+        .insert((tenant, attempt.id), webwork_grading_capability);
     if let Some(presentation) = presentation {
         state
             .attempt_presentations
             .insert((tenant, attempt.id), presentation);
     }
+    if let Some(snapshot) = presentation_snapshot {
+        state
+            .attempt_presentation_snapshots
+            .insert((tenant, attempt.id), snapshot);
+    }
+    if let Some(grading_envelope) = grading_envelope {
+        state
+            .attempt_grading_envelopes
+            .insert((tenant, attempt.id), grading_envelope.clone());
+    }
+    if let Some(flat_grading) = flat_grading {
+        state
+            .attempt_flat_grading
+            .insert((tenant, attempt.id), flat_grading.clone());
+    }
+    if let Some(webwork_grading) = webwork_grading {
+        state
+            .attempt_webwork_grading
+            .insert((tenant, attempt.id), webwork_grading.clone());
+    }
+    state
+        .attempt_feedback_disclosures
+        .insert((tenant, attempt.id), issued_feedback_disclosure);
     if let Some(replay) = webwork_replay {
         state
             .webwork_grade_replay

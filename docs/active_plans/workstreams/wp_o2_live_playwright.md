@@ -3,9 +3,10 @@
 ## Current disposition
 
 The 2026-08-11 WP-O2 smoke acceptance is historical. It validates the prior
-real-gateway `/health` check, not the strengthened instructor copy/paste
-workflow or the refactored explicit child-input path. Current live acceptance
-remains part of [WP-HG1](../active/release_completion_plan.md#wp-hg1-close-the-human-guidance-operational-workflow-gaps).
+real-gateway `/health` check. The strengthened instructor copy/paste workflow,
+refactored explicit child-input path, and current live teaching acceptance
+passed on 2026-08-12 under
+[WP-HG1](../active/release_completion_plan.md#wp-hg1-close-the-human-guidance-operational-workflow-gaps).
 
 ## Current contract
 
@@ -41,12 +42,12 @@ Playwright configuration, keyboard-visible student and instructor interactions,
 and the J13 copy/paste contract. They are offline, deterministic behavior
 checks, not a substitute for the live stack.
 
-One-time WP-HG1 evidence remains pending: a rebuilt retained-stack canonical
-run through J13 and J1--J8 with the Podman WebWork renderer, clipboard
-permission, redacted report, refreshed public instructor screenshots, the
-separate eight-question publication oracle, and independent architecture,
-security, and HCI review. Do not call the current walkthrough accepted until
-that evidence is recorded.
+One-time WP-HG1 evidence passed: the rebuilt canonical run covered J13 and
+J1--J8 with the Podman WebWork renderer, clipboard permission, and a redacted
+report. The clean-stack screenshot capture produced and inspected the exact
+eleven public images; the separate all-eight Chapter 1 browser oracle passed;
+and independent architecture, security, and HCI reviews closed their settled
+boundaries. These remain recorded one-time evidence, not permanent networked tests.
 
 ## Separate onboarding follow-up
 

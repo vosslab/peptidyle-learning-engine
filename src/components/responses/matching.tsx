@@ -33,7 +33,9 @@ function initialMatches(props: WidgetBodyProps<MatchingDefinition>): ReadonlyArr
 }
 
 export function MatchingResponse(props: WidgetBodyProps<MatchingDefinition>): JSX.Element {
-  const [matches, setMatches] = createSignal<ReadonlyArray<MatchPair>>(initialMatches(props));
+  const initial = initialMatches(props);
+  const [matches, setMatches] = createSignal<ReadonlyArray<MatchPair>>(initial);
+  let firstChoice!: HTMLButtonElement;
   const response = (): StudentResponse => ({ kind: "matching", matches: [...matches()] });
   const controller = createSubmissionController(props, response());
 
@@ -69,7 +71,7 @@ export function MatchingResponse(props: WidgetBodyProps<MatchingDefinition>): JS
   ): void {
     if (!["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft"].includes(event.key)) return;
     event.preventDefault();
-    if (controller.pending() || choiceIsUsedByAnotherPrompt(prompt, choice)) return;
+    if (controller.locked() || choiceIsUsedByAnotherPrompt(prompt, choice)) return;
 
     const availableChoices = props.definition.choices.filter(
       (candidate) => !choiceIsUsedByAnotherPrompt(prompt, candidate.id),
@@ -92,6 +94,12 @@ export function MatchingResponse(props: WidgetBodyProps<MatchingDefinition>): JS
   function submit(): void {
     void controller.submit(response());
   }
+  function reset(): void {
+    const next = initial.map((pair) => ({ ...pair }));
+    setMatches(next);
+    void controller.reset({ kind: "matching", matches: next });
+    queueMicrotask(() => firstChoice.focus());
+  }
   return (
     <section
       class="response-widget"
@@ -103,7 +111,7 @@ export function MatchingResponse(props: WidgetBodyProps<MatchingDefinition>): JS
       <fieldset
         aria-describedby={`${props.attemptId}-matching-help ${props.attemptId}-format-status`}
         aria-invalid={controller.invalid()}
-        disabled={controller.pending()}
+        disabled={controller.locked()}
       >
         <legend>Match each prompt</legend>
         <p class="keyboard-hint" id={`${props.attemptId}-matching-help`}>
@@ -148,12 +156,19 @@ export function MatchingResponse(props: WidgetBodyProps<MatchingDefinition>): JS
                           role="radio"
                           data-choice-id={choice.id}
                           aria-checked={selected()}
-                          aria-disabled={unavailable() || controller.pending()}
-                          tabIndex={unavailable() || controller.pending() ? -1 : 0}
+                          ref={
+                            index() === 0 && choiceIndex() === 0
+                              ? (element): void => {
+                                  firstChoice = element;
+                                }
+                              : undefined
+                          }
+                          aria-disabled={unavailable() || controller.locked()}
+                          tabIndex={unavailable() || controller.locked() ? -1 : 0}
                           class="choice-card matching-choice-card"
                           classList={{ selected: selected(), unavailable: unavailable() }}
                           onClick={() => {
-                            if (!unavailable() && !controller.pending())
+                            if (!unavailable() && !controller.locked())
                               update(prompt.id, choice.id);
                           }}
                           onKeyDown={(event) => moveWithArrow(event, prompt.id, choice.id, index())}
@@ -180,8 +195,10 @@ export function MatchingResponse(props: WidgetBodyProps<MatchingDefinition>): JS
       </fieldset>
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
-        disabled={!controller.canSubmit() || controller.pending()}
+        disabled={!controller.canSubmit() || controller.locked()}
+        resetDisabled={controller.locked()}
         onSubmit={submit}
+        onReset={reset}
         onEscape={props.onEscape}
       />
     </section>

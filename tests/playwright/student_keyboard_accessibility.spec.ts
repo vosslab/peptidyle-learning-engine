@@ -190,10 +190,13 @@ test("platform contract uses Tab and Space for multiple-answer selection and sub
   const fixture = page.locator("#multiple-keyboard-fixture");
   const firstCheckbox = fixture.getByRole("checkbox").first();
   const submit = fixture.getByRole("button", { name: "Submit answer" });
+  const selectionCount = fixture.getByRole("status", { name: "Selection count" });
 
+  await expect(selectionCount).toHaveText("0 selected.");
   await tabTo(page, firstCheckbox);
   await page.keyboard.press("Space");
   await expect(firstCheckbox).toBeChecked();
+  await expect(selectionCount).toHaveText("1 selected.");
   await tabTo(page, submit);
   await page.keyboard.press("Space");
   await expect(fixture).toHaveAttribute("data-submitted", "true");
@@ -217,14 +220,38 @@ test("platform contract uses Tab and typing for every multi-blank field", async 
   await mountFixture(page);
   const fixture = page.locator("#multi-blank-keyboard-fixture");
   const fields = fixture.getByRole("textbox");
+  const blankCompletion = fixture.getByRole("status", { name: "Blank completion" });
+  await expect(blankCompletion).toHaveText("0 of 2 blanks completed.");
   await tabTo(page, fields.first());
   await page.keyboard.type("adenine");
+  await expect(blankCompletion).toHaveText("1 of 2 blanks completed.");
   await page.keyboard.press("Tab");
   await expect(fields.nth(1)).toBeFocused();
   await page.keyboard.type("cytosine");
+  await expect(blankCompletion).toHaveText("2 of 2 blanks completed.");
   await tabTo(page, fixture.getByRole("button", { name: "Submit answer" }));
   await page.keyboard.press("Space");
   await expect(fixture).toHaveAttribute("data-submitted", "true");
+});
+
+test("progress cues remain visible without horizontal overflow on the portrait target", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 800, height: 1_280 });
+  await mountFixture(page);
+
+  const multiple = page.locator("#multiple-keyboard-fixture");
+  await multiple.getByRole("checkbox").first().check();
+  await expect(multiple.getByRole("status", { name: "Selection count" })).toHaveText("1 selected.");
+
+  const blanks = page.locator("#multi-blank-keyboard-fixture");
+  await blanks.getByRole("textbox").first().fill("adenine");
+  await expect(blanks.getByRole("status", { name: "Blank completion" })).toHaveText(
+    "1 of 2 blanks completed.",
+  );
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
 });
 
 test("platform contract uses Tab, Shift+Tab, and Space for matching", async ({ page }) => {
@@ -327,11 +354,14 @@ test("native matching visibly tracks exclusive keyboard selections without expos
   });
 });
 
-test("matching remains keyboard-visible and horizontally usable across learner viewports", async ({
+test("matching remains keyboard-visible at the landscape and portrait targets", async ({
   page,
 }) => {
-  for (const width of [320, 480, 768, 1_920]) {
-    await page.setViewportSize({ width, height: 900 });
+  for (const viewport of [
+    { width: 1_280, height: 800 },
+    { width: 800, height: 1_280 },
+  ]) {
+    await page.setViewportSize(viewport);
     await mountFixture(page);
 
     const fixture = page.locator("#matching-keyboard-fixture");

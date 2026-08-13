@@ -91,6 +91,12 @@ export interface CourseRosterMember {
   readonly status: CourseRosterMemberStatus;
 }
 
+/** A local-auth-only learner choice. The alias remains an implementation value. */
+export interface LocalTeachingLearner {
+  readonly alias: string;
+  readonly displayName: string;
+}
+
 export interface PendingCourseInvitation {
   readonly invitationId: string;
   readonly email: string;
@@ -99,19 +105,37 @@ export interface PendingCourseInvitation {
   readonly expiresAt: number;
 }
 
-export interface CourseRosterPage {
+interface CourseRosterPageBase {
   readonly members: ReadonlyArray<CourseRosterMember>;
-  readonly pendingInvitations: ReadonlyArray<PendingCourseInvitation>;
-  readonly allowedEmailDomains: ReadonlyArray<AllowedEmailDomain>;
-  readonly signupPosture: CourseSignupPosture;
   readonly nextCursor: string | null;
   readonly rosterRevision: number;
 }
+
+/** Email enrollment is available only from a configured email-capable composition. */
+export interface EmailEnrollmentRosterPage extends CourseRosterPageBase {
+  readonly rosterMode: "emailEnrollment";
+  readonly pendingInvitations: ReadonlyArray<PendingCourseInvitation>;
+  readonly allowedEmailDomains: ReadonlyArray<AllowedEmailDomain>;
+  readonly signupPosture: CourseSignupPosture;
+}
+
+/** The no-email teaching composition exposes only configured local learner actions. */
+export interface LocalTeachingRosterPage extends CourseRosterPageBase {
+  readonly rosterMode: "localTeaching";
+  readonly localTeachingLearners: ReadonlyArray<LocalTeachingLearner>;
+}
+
+export type CourseRosterPage = EmailEnrollmentRosterPage | LocalTeachingRosterPage;
 
 export interface CourseInvitationAccepted {
   readonly invitation: PendingCourseInvitation;
   readonly redemptionPath: string;
   readonly emailDelivery: CourseInvitationEmailDelivery;
+}
+
+export interface LocalTeachingMemberAccepted {
+  readonly member: CourseRosterMember;
+  readonly rosterRevision: number;
 }
 
 export interface CourseEnrollmentPolicyResult {
@@ -179,6 +203,10 @@ export interface CourseRosterClient {
   readonly listPasskeys: () => Promise<ReadonlyArray<PasskeySummary>>;
   readonly revokePasskey: (passkeyId: string) => Promise<void>;
   readonly listCourseRoster: (courseId: CourseId, cursor?: string) => Promise<CourseRosterPage>;
+  readonly addLocalTeachingMember: (
+    courseId: CourseId,
+    learnerAlias: string,
+  ) => Promise<LocalTeachingMemberAccepted>;
   readonly inviteCourseMember: (
     courseId: CourseId,
     email: string,
@@ -417,6 +445,30 @@ function decodeRosterMember(value: unknown, path: string): CourseRosterMember {
   };
 }
 
+function decodeLocalTeachingLearner(value: unknown, path: string): LocalTeachingLearner {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["alias", "displayName"]);
+  return {
+    alias: decodeNonemptyString(field(record, "alias", path), `${path}.alias`),
+    displayName: decodeNonemptyString(field(record, "displayName", path), `${path}.displayName`),
+  };
+}
+
+export function decodeLocalTeachingMemberAccepted(
+  value: unknown,
+  path = "response",
+): LocalTeachingMemberAccepted {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["member", "rosterRevision"]);
+  return {
+    member: decodeRosterMember(field(record, "member", path), `${path}.member`),
+    rosterRevision: decodeRosterRevision(
+      field(record, "rosterRevision", path),
+      `${path}.rosterRevision`,
+    ),
+  };
+}
+
 function decodeInvitation(value: unknown, path: string): PendingCourseInvitation {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["invitationId", "email", "rosterId", "status", "expiresAt"]);
@@ -440,19 +492,43 @@ function decodeRosterRevision(value: unknown, path: string): number {
 
 export function decodeCourseRosterPage(value: unknown, path = "response"): CourseRosterPage {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "members",
-    "pendingInvitations",
-    "allowedEmailDomains",
-    "signupPosture",
-    "nextCursor",
-    "rosterRevision",
+  const baseFields = ["rosterMode", "members", "nextCursor", "rosterRevision"];
+  const rosterMode = decodeStringEnum(field(record, "rosterMode", path), `${path}.rosterMode`, [
+    "emailEnrollment",
+    "localTeaching",
   ]);
+  const allowedFields =
+    rosterMode === "localTeaching"
+      ? [...baseFields, "localTeachingLearners"]
+      : [...baseFields, "pendingInvitations", "allowedEmailDomains", "signupPosture"];
+  requireOnlyFields(record, path, allowedFields);
   const members = decodeArray(
     field(record, "members", path),
     `${path}.members`,
     decodeRosterMember,
   );
+  const nextCursor = decodeNullable(
+    field(record, "nextCursor", path),
+    `${path}.nextCursor`,
+    decodeCursor,
+  );
+  const rosterRevision = decodeRosterRevision(
+    field(record, "rosterRevision", path),
+    `${path}.rosterRevision`,
+  );
+  if (rosterMode === "localTeaching") {
+    return {
+      rosterMode: "localTeaching",
+      members,
+      nextCursor,
+      rosterRevision,
+      localTeachingLearners: decodeArray(
+        field(record, "localTeachingLearners", path),
+        `${path}.localTeachingLearners`,
+        decodeLocalTeachingLearner,
+      ),
+    };
+  }
   const pendingInvitations = decodeArray(
     field(record, "pendingInvitations", path),
     `${path}.pendingInvitations`,
@@ -462,7 +538,10 @@ export function decodeCourseRosterPage(value: unknown, path = "response"): Cours
     throw new DecodeError(path, "a roster page with at most 100 entries");
   }
   return {
+    rosterMode: "emailEnrollment",
     members,
+    nextCursor,
+    rosterRevision,
     pendingInvitations,
     allowedEmailDomains: decodeArray(
       field(record, "allowedEmailDomains", path),
@@ -473,15 +552,6 @@ export function decodeCourseRosterPage(value: unknown, path = "response"): Cours
       "invitationOnly",
       "permittedDomains",
     ]),
-    nextCursor: decodeNullable(
-      field(record, "nextCursor", path),
-      `${path}.nextCursor`,
-      decodeCursor,
-    ),
-    rosterRevision: decodeRosterRevision(
-      field(record, "rosterRevision", path),
-      `${path}.rosterRevision`,
-    ),
   };
 }
 

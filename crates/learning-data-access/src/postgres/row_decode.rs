@@ -513,8 +513,7 @@ pub(super) fn feedback_policy_from_summary_row(
     row: &PgRow,
 ) -> Result<FeedbackDisclosure, StoreError> {
     let value: String = row.try_get("feedback_policy").map_err(map_sqlx_error)?;
-    serde_json::from_value(Value::String(value))
-        .map_err(|_| StoreError::Unavailable("stored feedback policy is invalid".to_string()))
+    super::submission::parse_feedback_disclosure(&value)
 }
 
 #[cfg(feature = "postgres")]
@@ -556,4 +555,25 @@ pub(super) fn page_from_rows_with<T>(
         items: records.into_iter().map(|(_, record)| record).collect(),
         next_cursor,
     })
+}
+
+#[cfg(all(test, feature = "postgres"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stored_feedback_disclosure_names_round_trip_through_the_database_codec() {
+        for expected in [
+            FeedbackDisclosure::ImmediateFull,
+            FeedbackDisclosure::ImmediateCorrectness,
+            FeedbackDisclosure::Deferred,
+            FeedbackDisclosure::OnRelease,
+        ] {
+            let stored = super::super::submission::feedback_disclosure_name(expected);
+            assert_eq!(
+                super::super::submission::parse_feedback_disclosure(stored).unwrap(),
+                expected
+            );
+        }
+    }
 }

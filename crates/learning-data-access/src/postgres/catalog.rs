@@ -351,8 +351,13 @@ impl CatalogStore for PostgresStore {
                 .fetch_one(&mut *transaction)
                 .await
                 .map_err(map_sqlx_error)?;
+                let published_draft_question = command
+                    .flat_question_promotion
+                    .as_ref()
+                    .map(|promotion| promotion.published_question.clone())
+                    .unwrap_or_else(|| command.expected_draft.question.clone());
                 let question = QuestionDefinition::from_draft(
-                    command.expected_draft.question.clone(),
+                    published_draft_question,
                     publication.problem,
                     publication.version,
                     command.published_source.clone(),
@@ -423,6 +428,9 @@ impl CatalogStore for PostgresStore {
                     }
                 }
                 if let Some(promotion) = command.flat_question_promotion {
+                    for asset in &promotion.assets {
+                        insert_catalog_asset_delivery(&mut transaction, asset).await?;
+                    }
                     let (staged, source_payload_checksum) =
                         flat_source.expect("flat promotion has staged source evidence");
                     // Imported publication must take committed import and
@@ -449,7 +457,7 @@ impl CatalogStore for PostgresStore {
                     }
                     let promoted: bool = sqlx::query_scalar(
                         "SELECT ple_promote_flat_question_grading(\
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
                     )
                     .bind(context.tenant_id().as_uuid())
                     .bind(staged.workspace.as_uuid())
@@ -468,6 +476,12 @@ impl CatalogStore for PostgresStore {
                     .bind(staged.public_binding_sha256)
                     .bind(record.problem.as_uuid())
                     .bind(record.version.as_uuid())
+                    .bind(
+                        grading::flat_question::public_binding_sha256_for_draft(
+                            &promotion.published_question,
+                        )
+                        .map_err(|error| StoreError::InvalidRecord(error.to_string()))?,
+                    )
                     .fetch_one(&mut *transaction)
                     .await
                     .map_err(map_sqlx_error)?;

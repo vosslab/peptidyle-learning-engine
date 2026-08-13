@@ -27,8 +27,10 @@ placeholders.
 - Ask the instructor to confirm that the local learner is active in the course roster.
 - Open the course and assignment through their visible cards.
 
-This local pilot deliberately avoids email registration. Production student accounts and canonical
-onboarding are separate from the teaching-loop evidence shown here.
+This local pilot deliberately avoids email registration, invitation delivery, and activation.
+Production student accounts and canonical onboarding are separate from the teaching-loop evidence
+shown here. Fastmail is intended for a future external-email integration, but it is not configured
+or required for this pilot.
 
 ## Use the keyboard path
 

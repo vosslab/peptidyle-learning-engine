@@ -15,12 +15,12 @@ BUILD_ENABLED=1
 OPEN_BROWSER=1
 CHECK_ONLY=0
 WITH_SMTP=0
+CANONICAL_WALKTHROUGH=0
 TIMEOUT_SECONDS="${PLE_LAUNCH_TIMEOUT_SECONDS:-180}"
 LOCAL_ENV_FILE="containers/env.local"
 LOCAL_IDENTITY_FILE="containers/local-identities.json"
 LOCAL_CREDENTIAL_FILE="containers/local-login.txt"
 LOCAL_DEMO_MANIFEST_FILE="containers/local-demo.json"
-LOCAL_WEBWORK_DEMO_MANIFEST_FILE="containers/local-webwork-demo.json"
 LOCAL_CHAPTER_ONE_MANIFEST_FILE="containers/local-chapter-one-pilot.json"
 LOCAL_INVITATION_SECRET_FILE="containers/.secrets/invitation_token_secret"
 LOCAL_WEBWORK_PROVENANCE_FILE="containers/.secrets/webwork_renderer_provenance"
@@ -50,6 +50,8 @@ Options:
   --skip-build       Reuse an existing dist/ bundle and skip ./build.sh.
   --no-open          Start the stack without opening a browser.
   --with-smtp        Connect the API to an operator-selected external SMTP provider.
+  --canonical-walkthrough
+                    Run the repository-owned disposable teaching walkthrough only.
   --check            Validate tools and Compose configuration without changing state.
   --env-file PATH    Use a different Compose environment file.
   -h, --help         Show this help.
@@ -76,6 +78,9 @@ while [ "$#" -gt 0 ]; do
 			;;
 		--with-smtp)
 			WITH_SMTP=1
+			;;
+		--canonical-walkthrough)
+			CANONICAL_WALKTHROUGH=1
 			;;
 		--check)
 			CHECK_ONLY=1
@@ -183,6 +188,7 @@ first_available_gateway_port() {
 ensure_default_gateway_port() {
 	configured_gateway_port="$(effective_gateway_port)"
 	if lsof -nP -iTCP:"$configured_gateway_port" -sTCP:LISTEN >/dev/null 2>&1; then
+		[ "$CANONICAL_WALKTHROUGH" -eq 0 ] || die "canonical walkthrough gateway port ${configured_gateway_port} is occupied"
 		gateway_container_is_running && return 0
 		available_gateway_port="$(first_available_gateway_port)"
 		write_env_value PLE_GATEWAY_HOST_PORT "$available_gateway_port"
@@ -220,6 +226,16 @@ local_credential_record() {
 
 source "$REPO_ROOT/containers/local_identity_bootstrap.sh"
 ENV_FILE="$(normalize_default_local_env_file "$ENV_FILE")"
+
+if [ "$CANONICAL_WALKTHROUGH" -eq 1 ]; then
+	LOCAL_RUNTIME_DIRECTORY="$(dirname "$ENV_FILE")"
+	LOCAL_IDENTITY_FILE="$LOCAL_RUNTIME_DIRECTORY/local-identities.json"
+	LOCAL_CREDENTIAL_FILE="$LOCAL_RUNTIME_DIRECTORY/local-login.txt"
+	LOCAL_DEMO_MANIFEST_FILE="$LOCAL_RUNTIME_DIRECTORY/local-demo.json"
+	LOCAL_CHAPTER_ONE_MANIFEST_FILE="$LOCAL_RUNTIME_DIRECTORY/local-chapter-one-pilot.json"
+	LOCAL_INVITATION_SECRET_FILE="$LOCAL_RUNTIME_DIRECTORY/.secrets/invitation_token_secret"
+	LOCAL_WEBWORK_PROVENANCE_FILE="$LOCAL_RUNTIME_DIRECTORY/.secrets/webwork_renderer_provenance"
+fi
 
 validate_invitation_secret_file() {
 	secret_path="$1"
@@ -308,7 +324,7 @@ bootstrap_default_local_configuration() {
 	configure_local_webauthn_origin
 }
 
-if [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ] && [ "$CHECK_ONLY" -eq 0 ]; then
+if { [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ] || [ "$CANONICAL_WALKTHROUGH" -eq 1 ]; } && [ "$CHECK_ONLY" -eq 0 ]; then
 	bootstrap_default_local_configuration
 fi
 [ -r "$ENV_FILE" ] || die "$ENV_FILE is missing or unreadable; run without --check once to bootstrap containers/env.local"
@@ -377,8 +393,10 @@ done
 for required_setting in PLE_POSTGRES_IMAGE_SHA256 PLE_MINIO_IMAGE_SHA256 PLE_MINIO_MC_IMAGE_SHA256 PLE_GATEWAY_IMAGE_SHA256 PLE_SECRET_INIT_IMAGE_SHA256; do
 	require_sha256_env_value "$required_setting"
 done
-[ -r "$(env_value PLE_INVITATION_TOKEN_SECRET_HOST_FILE)" ] || die "invitation issuer secret file is missing or unreadable"
-validate_invitation_secret_file "$(env_value PLE_INVITATION_TOKEN_SECRET_HOST_FILE)"
+if [ "$CANONICAL_WALKTHROUGH" -eq 0 ] || [ "$CHECK_ONLY" -eq 0 ]; then
+	[ -r "$(env_value PLE_INVITATION_TOKEN_SECRET_HOST_FILE)" ] || die "invitation issuer secret file is missing or unreadable"
+	validate_invitation_secret_file "$(env_value PLE_INVITATION_TOKEN_SECRET_HOST_FILE)"
+fi
 
 if [ "$WITH_SMTP" -eq 1 ]; then
 	for required_setting in PLE_SMTP_RELAY PLE_SMTP_PORT PLE_SMTP_TLS_MODE PLE_SMTP_USERNAME PLE_SMTP_PASSWORD_HOST_FILE PLE_SMTP_FROM PLE_PUBLIC_APP_BASE_URL; do
@@ -481,7 +499,7 @@ database_url="postgres://${postgres_user}:${postgres_password}@127.0.0.1:${postg
 echo "==> Applying and verifying database migrations"
 PLE_MIGRATION_DATABASE_URL="$database_url" cargo tools database migrate
 
-if [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ]; then
+if [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ] || [ "$CANONICAL_WALKTHROUGH" -eq 1 ]; then
 	demo_course_exists="$(compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_database" -Atc "SELECT EXISTS (SELECT 1 FROM course WHERE tenant_id = '$LOCAL_TENANT_ID' AND title = 'PLE replica E2E course');")"
 	if [ "$demo_course_exists" = "f" ]; then
 		echo "==> Seeding one local course, assignment, and native question"
@@ -526,25 +544,12 @@ until podman exec -i "$renderer_container_id" bash -s -- --exercise <containers/
 	fi
 	sleep 2
 done
-if [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ]; then
+if [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ] || [ "$CANONICAL_WALKTHROUGH" -eq 1 ]; then
 	# This host-only seed uses the production PostgreSQL and object-store
-	# contracts.  It is intentionally after renderer identity finalization so
-	# the API cannot be started with a pilot question for an unpinned renderer.
-	echo "==> Seeding the legacy walkthrough WeBWorK course and immutable PGML source"
+	# contracts. It is intentionally after renderer identity finalization so the
+	# canonical teaching corpus cannot be published for an unpinned renderer.
 	minio_port="$(env_value PLE_MINIO_API_HOST_PORT)"
 	minio_port="${minio_port:-9000}"
-	AWS_ACCESS_KEY_ID="$(env_value MINIO_ROOT_USER)" \
-	AWS_SECRET_ACCESS_KEY="$(env_value MINIO_ROOT_PASSWORD)" \
-	cargo tools e2e-seed --webwork-pilot \
-		--database-url "$database_url" \
-		--apply-migrations \
-		--tenant "$LOCAL_TENANT_ID" \
-		--instructor "$LOCAL_INSTRUCTOR_ID" \
-		--student "$LOCAL_STUDENT_ID" \
-		--s3-endpoint "http://127.0.0.1:${minio_port}" \
-		--s3-region "us-east-1" \
-		--content-bucket "content" >"$LOCAL_WEBWORK_DEMO_MANIFEST_FILE"
-	chmod 600 "$LOCAL_WEBWORK_DEMO_MANIFEST_FILE"
 	echo "==> Publishing the Genetics and Biochemistry Chapter 1 pilot corpus"
 	AWS_ACCESS_KEY_ID="$(env_value MINIO_ROOT_USER)" \
 	AWS_SECRET_ACCESS_KEY="$(env_value MINIO_ROOT_PASSWORD)" \
@@ -566,7 +571,7 @@ if [ "$WITH_SMTP" -eq 1 ]; then
 	compose up -d smtp-secret-init
 fi
 
-echo "==> Building images and starting API, worker, and browser gateway"
+echo "==> Building the shared application image and browser gateway"
 services=(api worker gateway)
 # Refresh the API-owned runtime copy on every launch so a rotated invitation
 # issuer secret cannot leave a stale value in the named runtime volume.
@@ -576,7 +581,14 @@ compose up -d identity-secret-init
 # ID even after rebuilding the same local tag. Recreate only the stateless
 # application services so their running binaries always match this build;
 # PostgreSQL, MinIO, and their named volumes remain untouched.
-compose up -d --build --force-recreate --no-deps "${services[@]}"
+# Build the Rust application once through its single Compose owner before any
+# stateless service starts. `worker` deliberately has no build declaration: it
+# must consume the same image tag as `api`. Keeping build and start separate
+# is portable across `podman compose` and standalone `podman-compose`, and a
+# failed build stops the launcher before it can start a stale image.
+compose build api gateway
+echo "==> Starting API, worker, and browser gateway from the built images"
+compose up -d --force-recreate --no-deps "${services[@]}"
 
 gateway_port="$(effective_gateway_port)"
 
@@ -594,7 +606,7 @@ while ! curl --fail --silent --show-error --max-time 2 --output /dev/null "${bas
 done
 
 echo "Local stack is ready: ${base_url}/"
-if [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ]; then
+if [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ] || [ "$CANONICAL_WALKTHROUGH" -eq 1 ]; then
 	echo "Local sign-in credentials: $LOCAL_CREDENTIAL_FILE"
 fi
 stop_command=("${COMPOSE_COMMAND[@]}" -f containers/compose.yaml)

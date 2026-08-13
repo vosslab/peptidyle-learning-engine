@@ -1,9 +1,9 @@
 // question_renderer_styles.ts - layout rules owned by the question renderer.
 
 export const QUESTION_RENDERER_STYLES = `
-  .question-renderer { display: grid; gap: clamp(0.75rem, 1.5vw, 1.25rem); min-width: 0; }
+  .question-renderer { display: grid; gap: clamp(0.5rem, 1vw, 0.75rem); min-width: 0; }
   .question-renderer__status { margin: 0; color: #344054; }
-  .question-renderer__prompt { display: grid; gap: 0.75rem; min-width: 0; }
+  .question-renderer__prompt { display: grid; gap: 0.5rem; min-width: 0; }
   .question-renderer__block { margin: 0; min-width: 0; overflow-wrap: anywhere; }
   .question-renderer__figure { display: grid; gap: 0.5rem; margin: 0; }
   .question-renderer__image { display: block; max-width: 100%; height: auto; }
@@ -13,14 +13,14 @@ export const QUESTION_RENDERER_STYLES = `
   .question-renderer table { width: 100%; border-collapse: collapse; }
   .question-renderer th, .question-renderer td { padding: 0.625rem; border: 1px solid #98a2b3; text-align: left; vertical-align: top; }
   .question-renderer__error { display: grid; gap: 0.5rem; padding: 0.75rem; border-left: 4px solid #b42318; background: #fef3f2; }
-  .question-renderer__retry { min-height: 56px; justify-self: start; padding: 0.75rem 1rem; }
+  .question-renderer__retry { min-height: var(--ple-response-min-height, 44px); justify-self: start; padding: 0.35rem 0.65rem; }
   @media (max-width: 480px) {
-    .question-renderer { gap: 1rem; }
+    .question-renderer { gap: 0.5rem; }
     .question-renderer th, .question-renderer td { min-width: 9rem; }
   }
   @media (min-width: 768px) {
-    .question-renderer { gap: 1rem; }
-    .question-renderer__prompt { gap: 0.875rem; }
+    .question-renderer { gap: 0.75rem; }
+    .question-renderer__prompt { gap: 0.625rem; }
   }
   @media (min-width: 1920px) {
     .question-renderer { max-width: 90rem; }

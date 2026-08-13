@@ -1,12 +1,68 @@
 use async_trait::async_trait;
 use objects::Sha256Digest;
-use question_model::{ImplementationVersion, ObjectId, SourceArtifact};
+use question_model::{ImplementationVersion, ObjectId, QuestionEnvelope, SourceArtifact};
+use sqlx::types::Uuid;
+use sqlx::{Postgres, Row, Transaction};
 
 use super::*;
-use crate::{WebworkGradeReplayStateV1, WebworkReplayMappingV1};
+use crate::{
+    ReceiptNextAttempt, ReceiptPresentationSnapshot, WebworkGradeReplayStateV1,
+    WebworkReplayMappingV1,
+};
 
-mod attempt_issuance;
+pub(super) mod attempt_issuance;
 pub(super) use attempt_issuance::add_seconds;
+
+/// Accepts a concurrent successor-link write only when it retained the exact
+/// durable descriptor this transaction produced. The id alone is not enough:
+/// it would let a mismatched or checksum-invalid public successor replace the
+/// receipt that replay is required to serve.
+pub(super) async fn require_exact_submission_successor(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    predecessor: QuestionAttemptId,
+    expected: Option<&ReceiptNextAttempt>,
+) -> Result<(), StoreError> {
+    let row = sqlx::query(
+        "SELECT next_attempt_id, next_payload AS payload, next_payload_sha256 AS payload_sha256 \
+         FROM submission_next_attempt WHERE tenant_id = $1 AND predecessor_attempt_id = $2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(predecessor.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?
+    .ok_or_else(|| {
+        StoreError::Unavailable(
+            "concurrent successor receipt disappeared before verification".to_string(),
+        )
+    })?;
+    let stored_id: Option<Uuid> = row.try_get("next_attempt_id").map_err(map_sqlx_error)?;
+    match (expected, stored_id) {
+        (None, None) => {
+            let payload: Option<serde_json::Value> =
+                row.try_get("payload").map_err(map_sqlx_error)?;
+            let checksum: Option<String> = row.try_get("payload_sha256").map_err(map_sqlx_error)?;
+            if payload.is_some() || checksum.is_some() {
+                return Err(StoreError::Unavailable(
+                    "terminal successor receipt carries an unexpected descriptor".to_string(),
+                ));
+            }
+            Ok(())
+        }
+        (Some(expected), Some(stored_id)) if stored_id == expected.id.as_uuid() => {
+            let stored: ReceiptNextAttempt = decode_payload_row(&row)?;
+            if &stored == expected {
+                Ok(())
+            } else {
+                Err(StoreError::Unavailable(
+                    "successor receipt does not match the immutable descriptor".to_string(),
+                ))
+            }
+        }
+        _ => Err(StoreError::Conflict),
+    }
+}
 
 #[async_trait]
 impl crate::RunStore for PostgresStore {
@@ -92,6 +148,164 @@ impl crate::RunStore for PostgresStore {
             .map(decode_presentation_binding_row)
             .transpose()
             .map(Option::flatten)
+    }
+    async fn get_attempt_presentation_snapshot_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<ReceiptPresentationSnapshot>, StoreError> {
+        let mut transaction = self.begin_tenant(context).await?;
+        require_attempt_owner(&mut transaction, context.tenant_id(), attempt, actor).await?;
+        let row = sqlx::query(
+            "SELECT payload, payload_sha256, presentation_descriptor_version, presentation_nonce, \
+                    presentation_digest, presentation_capability, presentation_payload, \
+                    presentation_payload_sha256, grading_envelope_payload, \
+                    grading_envelope_payload_sha256, flat_grading_required, flat_grading_payload, \
+                    flat_grading_payload_sha256, webwork_grading_required, \
+                    webwork_grading_payload, webwork_grading_payload_sha256 \
+             FROM question_attempt WHERE tenant_id = $1 AND attempt_id = $2",
+        )
+        .bind(context.tenant_id().as_uuid())
+        .bind(attempt.as_uuid())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
+        let capability = attempt_issuance::presentation_capability_from_row(&row)?;
+        let issued_attempt: QuestionAttempt = decode_payload_row(&row)?;
+        let binding = decode_presentation_binding_row(&row)?;
+        let snapshot = attempt_issuance::decode_attempt_presentation_snapshot(&row, capability)?;
+        let grading_envelope = attempt_issuance::decode_attempt_grading_envelope(&row, capability)?;
+        let snapshot = crate::validate_issued_presentation(
+            capability,
+            &issued_attempt,
+            binding,
+            snapshot.as_ref(),
+            grading_envelope.as_ref(),
+        )?;
+        attempt_issuance::validate_attempt_flat_grading(&row, &issued_attempt)?;
+        attempt_issuance::validate_attempt_webwork_grading(&row, &issued_attempt)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(snapshot)
+    }
+    async fn get_attempt_grading_envelope_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<QuestionEnvelope>, StoreError> {
+        let mut transaction = self.begin_tenant(context).await?;
+        require_attempt_owner(&mut transaction, context.tenant_id(), attempt, actor).await?;
+        let row = sqlx::query(
+            "SELECT payload, payload_sha256, presentation_descriptor_version, presentation_nonce, \
+                    presentation_digest, presentation_capability, presentation_payload, \
+                    presentation_payload_sha256, grading_envelope_payload, \
+                    grading_envelope_payload_sha256, flat_grading_required, flat_grading_payload, \
+                    flat_grading_payload_sha256, webwork_grading_required, \
+                    webwork_grading_payload, webwork_grading_payload_sha256 \
+             FROM question_attempt WHERE tenant_id = $1 AND attempt_id = $2",
+        )
+        .bind(context.tenant_id().as_uuid())
+        .bind(attempt.as_uuid())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
+        let capability = attempt_issuance::presentation_capability_from_row(&row)?;
+        let issued_attempt: QuestionAttempt = decode_payload_row(&row)?;
+        let binding = decode_presentation_binding_row(&row)?;
+        let snapshot = attempt_issuance::decode_attempt_presentation_snapshot(&row, capability)?;
+        let grading_envelope = attempt_issuance::decode_attempt_grading_envelope(&row, capability)?;
+        crate::validate_issued_presentation(
+            capability,
+            &issued_attempt,
+            binding,
+            snapshot.as_ref(),
+            grading_envelope.as_ref(),
+        )?;
+        attempt_issuance::validate_attempt_flat_grading(&row, &issued_attempt)?;
+        attempt_issuance::validate_attempt_webwork_grading(&row, &issued_attempt)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(grading_envelope)
+    }
+    async fn get_attempt_flat_grading_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<crate::IssuedFlatGradingContract>, StoreError> {
+        let mut transaction = self.begin_tenant(context).await?;
+        require_attempt_owner(&mut transaction, context.tenant_id(), attempt, actor).await?;
+        let row = sqlx::query(
+            "SELECT payload, payload_sha256, presentation_descriptor_version, presentation_nonce, \
+                    presentation_digest, presentation_capability, presentation_payload, \
+                    presentation_payload_sha256, grading_envelope_payload, \
+                    grading_envelope_payload_sha256, flat_grading_required, flat_grading_payload, \
+                    flat_grading_payload_sha256 \
+             FROM question_attempt WHERE tenant_id = $1 AND attempt_id = $2",
+        )
+        .bind(context.tenant_id().as_uuid())
+        .bind(attempt.as_uuid())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
+        let capability = attempt_issuance::presentation_capability_from_row(&row)?;
+        let issued_attempt: QuestionAttempt = decode_payload_row(&row)?;
+        let binding = decode_presentation_binding_row(&row)?;
+        let snapshot = attempt_issuance::decode_attempt_presentation_snapshot(&row, capability)?;
+        let grading_envelope = attempt_issuance::decode_attempt_grading_envelope(&row, capability)?;
+        crate::validate_issued_presentation(
+            capability,
+            &issued_attempt,
+            binding,
+            snapshot.as_ref(),
+            grading_envelope.as_ref(),
+        )?;
+        let contract = attempt_issuance::validate_attempt_flat_grading(&row, &issued_attempt)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(contract)
+    }
+    async fn get_attempt_webwork_grading_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<crate::IssuedWebworkGradingContract>, StoreError> {
+        let mut transaction = self.begin_tenant(context).await?;
+        require_attempt_owner(&mut transaction, context.tenant_id(), attempt, actor).await?;
+        let row = sqlx::query(
+            "SELECT payload, payload_sha256, presentation_descriptor_version, presentation_nonce, \
+                    presentation_digest, presentation_capability, presentation_payload, \
+                    presentation_payload_sha256, grading_envelope_payload, \
+                    grading_envelope_payload_sha256, flat_grading_required, flat_grading_payload, \
+                    flat_grading_payload_sha256, webwork_grading_required, \
+                    webwork_grading_payload, webwork_grading_payload_sha256 \
+             FROM question_attempt WHERE tenant_id = $1 AND attempt_id = $2",
+        )
+        .bind(context.tenant_id().as_uuid())
+        .bind(attempt.as_uuid())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
+        let capability = attempt_issuance::presentation_capability_from_row(&row)?;
+        let issued_attempt: QuestionAttempt = decode_payload_row(&row)?;
+        let binding = decode_presentation_binding_row(&row)?;
+        let snapshot = attempt_issuance::decode_attempt_presentation_snapshot(&row, capability)?;
+        let grading_envelope = attempt_issuance::decode_attempt_grading_envelope(&row, capability)?;
+        crate::validate_issued_presentation(
+            capability,
+            &issued_attempt,
+            binding,
+            snapshot.as_ref(),
+            grading_envelope.as_ref(),
+        )?;
+        attempt_issuance::validate_attempt_flat_grading(&row, &issued_attempt)?;
+        let contract = attempt_issuance::validate_attempt_webwork_grading(&row, &issued_attempt)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(contract)
     }
     async fn get_webwork_grade_replay_state_impl(
         &self,
@@ -276,13 +490,33 @@ impl crate::RunStore for PostgresStore {
         if !submitted {
             return Err(StoreError::Conflict);
         }
-        let next: Option<Option<Uuid>> = sqlx::query_scalar("SELECT next_attempt_id FROM submission_next_attempt WHERE tenant_id = $1 AND predecessor_attempt_id = $2")
-            .bind(context.tenant_id().as_uuid()).bind(predecessor.as_uuid()).fetch_optional(&mut *transaction).await.map_err(map_sqlx_error)?;
+        let next = sqlx::query(
+            "SELECT next_attempt_id, next_payload AS payload, next_payload_sha256 AS payload_sha256 \
+             FROM submission_next_attempt WHERE tenant_id = $1 AND predecessor_attempt_id = $2",
+        )
+        .bind(context.tenant_id().as_uuid())
+        .bind(predecessor.as_uuid())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(match next {
             None => SubmissionNextAttempt::Pending,
-            Some(None) => SubmissionNextAttempt::None,
-            Some(Some(id)) => SubmissionNextAttempt::Issued(QuestionAttemptId::from_uuid(id)),
+            Some(row) => match row
+                .try_get::<Option<Uuid>, _>("next_attempt_id")
+                .map_err(map_sqlx_error)?
+            {
+                None => SubmissionNextAttempt::None,
+                Some(id) => {
+                    let next: ReceiptNextAttempt = decode_payload_row(&row)?;
+                    if next.id != QuestionAttemptId::from_uuid(id) {
+                        return Err(StoreError::Unavailable(
+                            "successor receipt disagrees with its immutable link".to_string(),
+                        ));
+                    }
+                    SubmissionNextAttempt::Issued(next)
+                }
+            },
         })
     }
     async fn pending_submission_for_run_impl(
@@ -326,22 +560,43 @@ impl crate::RunStore for PostgresStore {
         // Successor receipts are immutable. The primary key serializes
         // concurrent finalizers without requiring an UPDATE grant solely for
         // SELECT FOR UPDATE; a losing insert accepts only the exact receipt.
-        let inserted = match next {
+        let (inserted, expected) = match next {
             Some(next) => {
-                sqlx::query("INSERT INTO submission_next_attempt (tenant_id, predecessor_attempt_id, next_attempt_id, next_attempt_occurred_at) SELECT $1, $2, $3, next_attempt.occurred_at FROM question_attempt next_attempt JOIN question_attempt predecessor_attempt ON predecessor_attempt.tenant_id = next_attempt.tenant_id AND predecessor_attempt.run_id = next_attempt.run_id WHERE next_attempt.tenant_id = $1 AND next_attempt.attempt_id = $3 AND predecessor_attempt.attempt_id = $2 ON CONFLICT (tenant_id, predecessor_attempt_id) DO NOTHING")
-                    .bind(context.tenant_id().as_uuid()).bind(predecessor.as_uuid()).bind(next.as_uuid()).execute(&mut *transaction).await.map_err(map_sqlx_error)?
+                let row = sqlx::query(
+                    "SELECT payload, payload_sha256, attempt_status AS current_attempt_status, \
+                            floor(extract(epoch FROM submitted_at) * 1000)::bigint AS current_submitted_at, \
+                            NULL::bigint AS current_deadline_at \
+                     FROM question_attempt WHERE tenant_id = $1 AND attempt_id = $2",
+                )
+                .bind(context.tenant_id().as_uuid())
+                .bind(next.as_uuid())
+                .fetch_optional(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?
+                .ok_or(StoreError::NotFound)?;
+                let next_attempt = decode_current_attempt_row(&row)?;
+                let receipt_next = ReceiptNextAttempt::from_attempt(&next_attempt);
+                let (payload, payload_sha256) = encode_payload(&receipt_next)?;
+                let inserted = sqlx::query("INSERT INTO submission_next_attempt (tenant_id, predecessor_attempt_id, next_attempt_id, next_attempt_occurred_at, next_payload, next_payload_sha256) SELECT $1, $2, $3, next_attempt.occurred_at, $4, $5 FROM question_attempt next_attempt JOIN question_attempt predecessor_attempt ON predecessor_attempt.tenant_id = next_attempt.tenant_id AND predecessor_attempt.run_id = next_attempt.run_id WHERE next_attempt.tenant_id = $1 AND next_attempt.attempt_id = $3 AND predecessor_attempt.attempt_id = $2 ON CONFLICT (tenant_id, predecessor_attempt_id) DO NOTHING")
+                    .bind(context.tenant_id().as_uuid()).bind(predecessor.as_uuid()).bind(next.as_uuid()).bind(payload).bind(payload_sha256).execute(&mut *transaction).await.map_err(map_sqlx_error)?
+                ;
+                (inserted, Some(receipt_next))
             }
             None => {
-                sqlx::query("INSERT INTO submission_next_attempt (tenant_id, predecessor_attempt_id, next_attempt_id, next_attempt_occurred_at) VALUES ($1, $2, NULL, NULL) ON CONFLICT (tenant_id, predecessor_attempt_id) DO NOTHING")
+                let inserted = sqlx::query("INSERT INTO submission_next_attempt (tenant_id, predecessor_attempt_id, next_attempt_id, next_attempt_occurred_at) VALUES ($1, $2, NULL, NULL) ON CONFLICT (tenant_id, predecessor_attempt_id) DO NOTHING")
                 .bind(context.tenant_id().as_uuid()).bind(predecessor.as_uuid()).execute(&mut *transaction).await.map_err(map_sqlx_error)?
+                ;
+                (inserted, None)
             }
         };
         if inserted.rows_affected() == 0 {
-            let existing: Option<Option<Uuid>> = sqlx::query_scalar("SELECT next_attempt_id FROM submission_next_attempt WHERE tenant_id = $1 AND predecessor_attempt_id = $2")
-                .bind(context.tenant_id().as_uuid()).bind(predecessor.as_uuid()).fetch_optional(&mut *transaction).await.map_err(map_sqlx_error)?;
-            if existing != Some(next.map(|value| value.as_uuid())) {
-                return Err(StoreError::Conflict);
-            }
+            require_exact_submission_successor(
+                &mut transaction,
+                context.tenant_id(),
+                predecessor,
+                expected.as_ref(),
+            )
+            .await?;
         }
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(())
@@ -426,6 +681,23 @@ impl crate::RunStore for PostgresStore {
             attempt,
             response,
             idempotency_key,
+        )
+        .await?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(record)
+    }
+    async fn submission_record_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<SubmissionRecord>, StoreError> {
+        let mut transaction = self.begin_tenant(context).await?;
+        require_attempt_owner(&mut transaction, context.tenant_id(), attempt, actor).await?;
+        let record = super::submission::load_submission_record(
+            &mut transaction,
+            context.tenant_id(),
+            attempt,
         )
         .await?;
         transaction.commit().await.map_err(map_sqlx_error)?;

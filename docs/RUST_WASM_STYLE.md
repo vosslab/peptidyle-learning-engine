@@ -21,10 +21,10 @@ Choose the target for the host that runs the module:
   model call for WASI Preview 2. Confirm the runtime, component tooling, interfaces,
   and capability model together before choosing it.
 
-Follow the private-workspace direct-registry-dependency form from
-[RUST_STYLE.md](RUST_STYLE.md#16-toolchain-and-dependencies): `version = "*"`.
-Confirm the current `wasm-bindgen`, `wasm-pack`, target, and runtime guidance before
-selecting features or commands.
+Follow the repository dependency policy from
+[RUST_STYLE.md](RUST_STYLE.md#16-toolchain-and-dependencies). Confirm the current
+`wasm-bindgen`, `wasm-pack`, target, and runtime guidance before selecting features
+or commands.
 
 ## Build a portable Rust core
 

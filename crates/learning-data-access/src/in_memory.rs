@@ -17,6 +17,7 @@ mod external_tool;
 mod feedback;
 mod flat_import_provenance;
 mod flat_question;
+mod flat_question_assets;
 mod item_analysis;
 mod manual_grade_export;
 mod qti;
@@ -55,7 +56,7 @@ use domain::scoring::project_summary;
 use domain::statistics::CollapsedQuestionObservation;
 use domain::statistics::QuestionStatisticsAggregate;
 use domain::timing::{TimerEvaluation, TimerVerdict, timer_verdict};
-use question_model::run_policy::TimingPolicy;
+use question_model::run_policy::{FeedbackDisclosure, TimingPolicy};
 use question_model::taxonomy::TaxonomyTerm;
 use question_model::{
     ActivityTimestamp, AssignmentEnrollment, AssignmentId, AssignmentPolicyExceptionId,
@@ -66,9 +67,9 @@ use question_model::{
     CatalogTaxonomyFacet, CourseGroupId, CourseId, CourseRole, CourseSummary, EnrollmentId,
     EnrollmentStatus, MAX_CATALOG_TAXONOMY_FACETS, PresentationBindingV1, ProblemId,
     ProblemPublicId, ProblemVersionNumber, ProblemVersionRef, PublicationScope, QuestionAttempt,
-    QuestionAttemptId, QuestionStatisticsDisclosure, RunId, RunMode, ScoringGeneration,
-    ScoringStatus, StatisticsDisclosurePolicy, StudentAssignmentSummary, StudentId,
-    StudentResponse, TenantId, UserId, VersionId, WorkspaceId, WorkspaceImportId,
+    QuestionAttemptId, QuestionEnvelope, QuestionStatisticsDisclosure, RunId, RunMode,
+    ScoringGeneration, ScoringStatus, StatisticsDisclosurePolicy, StudentAssignmentSummary,
+    StudentId, StudentResponse, TenantId, UserId, VersionId, WorkspaceId, WorkspaceImportId,
 };
 
 use crate::gradebook_cursor::GradebookCursor;
@@ -269,6 +270,10 @@ struct State {
     published: BTreeMap<(ProblemId, VersionId), PublishedProblemRecord>,
     source_artifacts: BTreeMap<(ProblemId, VersionId), PublishedSourceArtifact>,
     flat_question_sources: BTreeMap<(TenantId, WorkspaceId), WorkspaceFlatQuestionSource>,
+    workspace_flat_question_assets: BTreeMap<
+        (TenantId, WorkspaceId, question_model::AssetId),
+        crate::WorkspaceFlatQuestionAsset,
+    >,
     workspace_flat_question_grading: BTreeMap<(TenantId, WorkspaceId), FlatQuestionGradingPayload>,
     published_flat_question_grading: BTreeMap<(ProblemId, VersionId), FlatQuestionGradingPayload>,
     workspace_flat_import_origins: flat_import_provenance::WorkspaceFlatImportOrigins,
@@ -328,7 +333,20 @@ struct State {
     runs: BTreeMap<(TenantId, RunId), AssignmentRun>,
     run_items: BTreeMap<(TenantId, RunId), Vec<AssignmentRunItem>>,
     attempts: BTreeMap<(TenantId, QuestionAttemptId), QuestionAttempt>,
+    attempt_presentation_capabilities:
+        BTreeMap<(TenantId, QuestionAttemptId), crate::PresentationCapability>,
     attempt_presentations: BTreeMap<(TenantId, QuestionAttemptId), PresentationBindingV1>,
+    attempt_presentation_snapshots:
+        BTreeMap<(TenantId, QuestionAttemptId), crate::ReceiptPresentationSnapshot>,
+    attempt_grading_envelopes: BTreeMap<(TenantId, QuestionAttemptId), QuestionEnvelope>,
+    attempt_flat_grading_capabilities:
+        BTreeMap<(TenantId, QuestionAttemptId), crate::FlatGradingCapability>,
+    attempt_flat_grading: BTreeMap<(TenantId, QuestionAttemptId), crate::IssuedFlatGradingContract>,
+    attempt_webwork_grading_capabilities:
+        BTreeMap<(TenantId, QuestionAttemptId), crate::WebworkGradingCapability>,
+    attempt_webwork_grading:
+        BTreeMap<(TenantId, QuestionAttemptId), crate::IssuedWebworkGradingContract>,
+    attempt_feedback_disclosures: BTreeMap<(TenantId, QuestionAttemptId), FeedbackDisclosure>,
     webwork_grade_replay: BTreeMap<(TenantId, QuestionAttemptId), WebworkGradeReplayStateV1>,
     attempt_timing: BTreeMap<(TenantId, QuestionAttemptId), MemoryAttemptTiming>,
     attempt_timing_resolution:
@@ -340,7 +358,8 @@ struct State {
         BTreeMap<(TenantId, crate::ManualGradeActionId), manual_grading::MemoryManualGradeReceipt>,
     prefetched_questions: BTreeMap<(TenantId, RunId, QuestionAttemptId, u32), PrefetchedQuestion>,
     submissions: BTreeMap<(TenantId, QuestionAttemptId), StoredSubmission>,
-    submission_next_attempts: BTreeMap<(TenantId, QuestionAttemptId), Option<QuestionAttemptId>>,
+    submission_next_attempts:
+        BTreeMap<(TenantId, QuestionAttemptId), Option<crate::ReceiptNextAttempt>>,
     feedback_releases: BTreeMap<(TenantId, QuestionAttemptId), FeedbackReleaseRecord>,
     question_statistics: BTreeMap<(ProblemId, VersionId), QuestionStatisticsAggregate>,
     question_statistics_receipts:

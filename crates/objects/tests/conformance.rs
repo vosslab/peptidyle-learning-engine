@@ -198,10 +198,17 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         asset: AssetId::from_uuid(id(11)),
         object: ObjectId::from_uuid(id(12)),
     };
+    let workspace_question_asset = ObjectKey::WorkspaceQuestionAsset {
+        tenant: TenantId::from_uuid(id(7)),
+        workspace: WorkspaceId::from_uuid(id(8)),
+        asset: AssetId::from_uuid(id(16)),
+        object: ObjectId::from_uuid(id(17)),
+    };
     for key in [
         workspace_source.clone(),
         workspace_question_source.clone(),
         workspace_asset.clone(),
+        workspace_question_asset.clone(),
     ] {
         let record = store
             .put(PutObject {
@@ -296,6 +303,10 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .delete(&workspace_asset)
         .await
         .expect("workspace asset cleanup");
+    store
+        .delete(&workspace_question_asset)
+        .await
+        .expect("workspace question asset cleanup");
 }
 
 #[test]
@@ -337,6 +348,27 @@ fn workspace_question_source_key_has_stable_workspace_path_and_is_private_source
     assert_eq!(source.category(), ObjectCategory::Source);
     assert_eq!(source.version_id(), None);
     assert!(!source.path().contains("imports"));
+}
+
+#[test]
+fn workspace_question_asset_key_is_private_content_without_import_or_version() {
+    let asset = ObjectKey::WorkspaceQuestionAsset {
+        tenant: TenantId::from_uuid(id(33)),
+        workspace: WorkspaceId::from_uuid(id(34)),
+        asset: AssetId::from_uuid(id(35)),
+        object: ObjectId::from_uuid(id(36)),
+    };
+    assert_eq!(
+        asset.path(),
+        "workspaces/00000000-0000-0000-0000-000000000021/00000000-0000-0000-0000-000000000022/questions/assets/00000000-0000-0000-0000-000000000023/00000000-0000-0000-0000-000000000024"
+    );
+    assert_eq!(asset.bucket(), Bucket::Content);
+    assert_eq!(asset.category(), ObjectCategory::Asset);
+    assert_eq!(asset.object_id(), ObjectId::from_uuid(id(36)));
+    assert_eq!(asset.version_id(), None);
+    assert!(!asset.may_issue_signed_url());
+    assert!(!asset.path().contains("imports"));
+    assert!(!asset.path().contains("versions"));
 }
 
 #[tokio::test]

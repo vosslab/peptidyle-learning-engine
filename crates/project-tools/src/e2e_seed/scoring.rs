@@ -1,6 +1,58 @@
 //! Host-only E2E seed scoring capability.
 
 use super::*;
+use question_model::envelope::QuestionEnvelope;
+use question_model::generation::Seed;
+use question_model::presentation::{
+    NonceSourceV1, PresentationBuildError, build_presentation_v1_with_nonce_source,
+};
+
+/// Fixed nonce source for the deterministic disposable database acceptance seed.
+///
+/// The seed's issue command and its submission receipt must describe the same
+/// public presentation. Production issuance uses operating-system randomness;
+/// this fixture uses a stable nonce so its immutable binding can be asserted.
+struct SeedNonce([u8; 16]);
+
+impl NonceSourceV1 for SeedNonce {
+    fn next_nonce(&mut self) -> Result<[u8; 16], PresentationBuildError> {
+        Ok(self.0)
+    }
+}
+
+fn issued_scoring_presentation(
+    ids: SeedIds,
+    seed: u64,
+) -> Result<(
+    PresentationBindingV1,
+    learning_data_access::ReceiptPresentationSnapshot,
+    QuestionEnvelope,
+)> {
+    let definition = native_draft(ids.workspace);
+    let envelope = QuestionEnvelope {
+        version: ids.version,
+        seed: Seed::new(seed),
+        title: definition.metadata.title,
+        prompt: definition.prompt,
+        response: definition.response,
+    };
+    let nonce_byte = u8::try_from(seed).context("seed fixture nonce exceeds one byte")?;
+    let mut nonce = SeedNonce([nonce_byte; 16]);
+    let presentation = build_presentation_v1_with_nonce_source(&envelope, &[], &mut nonce)
+        .map_err(|error| anyhow::anyhow!("building E2E receipt presentation: {error}"))?;
+    let binding = PresentationBindingV1::new(
+        presentation.envelope.presentation_nonce,
+        presentation.digest,
+    );
+    Ok((
+        binding,
+        learning_data_access::ReceiptPresentationSnapshot {
+            envelope: presentation.envelope,
+            asset_bindings: presentation.asset_bindings,
+        },
+        envelope,
+    ))
+}
 
 pub(super) async fn exercise_scoring_generation(
     store: &learning_data_access::postgres::PostgresStore,
@@ -10,6 +62,8 @@ pub(super) async fn exercise_scoring_generation(
     ids: SeedIds,
     assignment: AssignmentRecord,
 ) -> Result<()> {
+    let (presentation_binding, presentation, grading_envelope) =
+        issued_scoring_presentation(ids, 17)?;
     let run = store
         .start_or_resume_run(context, student, ids.assignment, ids.run)
         .await
@@ -29,7 +83,15 @@ pub(super) async fn exercise_scoring_generation(
                 problem: ids.problem,
                 question_version: ids.version,
                 seed: 17,
-                presentation: Some(presentation_binding(17)),
+                presentation_capability: PresentationCapability::EnvelopeV1,
+                presentation: Some(presentation_binding),
+                presentation_snapshot: Some(presentation.clone()),
+                grading_envelope: Some(grading_envelope),
+                flat_grading: None,
+                flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
+                webwork_grading: None,
+                webwork_grading_capability:
+                    learning_data_access::WebworkGradingCapability::NotApplicable,
                 webwork_replay: None,
                 parameter_hash: "database-scoring-parameters".to_string(),
                 provenance: AttemptProvenance {
@@ -192,6 +254,8 @@ pub(super) async fn exercise_scoring_generation(
         .start_or_resume_run(context, student, ids.assignment, ids.concurrent_run)
         .await
         .context("starting a run during database scoring acceptance")?;
+    let (concurrent_presentation_binding, concurrent_presentation, concurrent_grading_envelope) =
+        issued_scoring_presentation(ids, 18)?;
     let concurrent_attempt = store
         .issue_or_resume_question_attempt(
             context,
@@ -203,7 +267,15 @@ pub(super) async fn exercise_scoring_generation(
                 problem: ids.problem,
                 question_version: ids.version,
                 seed: 18,
-                presentation: Some(presentation_binding(18)),
+                presentation_capability: PresentationCapability::EnvelopeV1,
+                presentation: Some(concurrent_presentation_binding),
+                presentation_snapshot: Some(concurrent_presentation.clone()),
+                grading_envelope: Some(concurrent_grading_envelope),
+                flat_grading: None,
+                flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
+                webwork_grading: None,
+                webwork_grading_capability:
+                    learning_data_access::WebworkGradingCapability::NotApplicable,
                 webwork_replay: None,
                 parameter_hash: "database-scoring-concurrent-parameters".to_string(),
                 provenance: AttemptProvenance {
@@ -319,6 +391,8 @@ pub(super) async fn exercise_attempt_support(
     student: UserId,
     ids: SeedIds,
 ) -> Result<()> {
+    let (presentation_binding, presentation, grading_envelope) =
+        issued_scoring_presentation(ids, 20)?;
     let run = store
         .start_or_resume_run(context, student, ids.assignment, ids.support_run)
         .await
@@ -349,7 +423,15 @@ pub(super) async fn exercise_attempt_support(
                 problem: ids.problem,
                 question_version: ids.version,
                 seed: 20,
-                presentation: Some(presentation_binding(20)),
+                presentation_capability: PresentationCapability::EnvelopeV1,
+                presentation: Some(presentation_binding),
+                presentation_snapshot: Some(presentation.clone()),
+                grading_envelope: Some(grading_envelope),
+                flat_grading: None,
+                flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
+                webwork_grading: None,
+                webwork_grading_capability:
+                    learning_data_access::WebworkGradingCapability::NotApplicable,
                 webwork_replay: None,
                 parameter_hash: "database-attempt-support-parameters".to_string(),
                 provenance: provenance.clone(),
@@ -445,6 +527,8 @@ pub(super) async fn exercise_attempt_support(
         )
         .await
         .context("clearing force-submitted database attempt")?;
+    let (replacement_presentation_binding, replacement_presentation, replacement_grading_envelope) =
+        issued_scoring_presentation(ids, 21)?;
     let replacement = store
         .issue_or_resume_question_attempt(
             context,
@@ -456,7 +540,15 @@ pub(super) async fn exercise_attempt_support(
                 problem: ids.problem,
                 question_version: ids.version,
                 seed: 21,
-                presentation: Some(presentation_binding(21)),
+                presentation_capability: PresentationCapability::EnvelopeV1,
+                presentation: Some(replacement_presentation_binding),
+                presentation_snapshot: Some(replacement_presentation.clone()),
+                grading_envelope: Some(replacement_grading_envelope),
+                flat_grading: None,
+                flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
+                webwork_grading: None,
+                webwork_grading_capability:
+                    learning_data_access::WebworkGradingCapability::NotApplicable,
                 webwork_replay: None,
                 parameter_hash: "database-attempt-support-replacement".to_string(),
                 provenance,
@@ -581,6 +673,8 @@ pub(super) async fn exercise_delete_and_regrade(
     student: UserId,
     ids: SeedIds,
 ) -> Result<()> {
+    let (presentation_binding, presentation, grading_envelope) =
+        issued_scoring_presentation(ids, 19)?;
     let run = store
         .start_or_resume_run(context, student, ids.assignment, ids.retirement_run)
         .await
@@ -596,7 +690,15 @@ pub(super) async fn exercise_delete_and_regrade(
                 problem: ids.problem,
                 question_version: ids.version,
                 seed: 19,
-                presentation: Some(presentation_binding(19)),
+                presentation_capability: PresentationCapability::EnvelopeV1,
+                presentation: Some(presentation_binding),
+                presentation_snapshot: Some(presentation.clone()),
+                grading_envelope: Some(grading_envelope),
+                flat_grading: None,
+                flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
+                webwork_grading: None,
+                webwork_grading_capability:
+                    learning_data_access::WebworkGradingCapability::NotApplicable,
                 webwork_replay: None,
                 parameter_hash: "database-delete-and-regrade-parameters".to_string(),
                 provenance: AttemptProvenance {

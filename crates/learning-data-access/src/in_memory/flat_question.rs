@@ -260,6 +260,7 @@ mod tests {
                 created_at: question_model::ActivityTimestamp::from_unix_millis(1),
             },
         };
+        let published_question = draft.question.clone();
         PublishDraftCommand {
             expected_draft: draft,
             expected_revision: staged.workspace_revision,
@@ -272,6 +273,8 @@ mod tests {
             flat_question_promotion: Some(crate::FlatQuestionPublicationPromotion {
                 source: staged,
                 import_origin: None,
+                published_question,
+                assets: Vec::new(),
             }),
             publisher: actor(),
             scope: PublicationScope::Public,

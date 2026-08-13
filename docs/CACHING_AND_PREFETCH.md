@@ -75,12 +75,11 @@ a public asset URL by the asset route.
 
 ### Native questions
 
-Native questions generate and reproduce their answer-free envelope directly
-from the immutable definition, server-held bindings, and seed. They do not
-currently maintain a separate object-store render cache. Their safe reuse is
-deterministic recomputation, verified against stored parameter and provenance
-evidence. This is usually cheaper than introducing a second persistence layer
-for a native flat question.
+Native questions generate an answer-free envelope at issue time. A
+presentation-bearing attempt retains that exact public snapshot and matching
+server-only grading envelope; submit and submitted reads validate those
+persisted artifacts rather than recomputing a renderer output. Native families
+without an envelope remain explicitly `NotApplicable`.
 
 ### WeBWorK
 
@@ -91,23 +90,24 @@ non-sensitive `ple.webwork.cache` `renderer_call` or `cache_hit` witness.
 The raw PG source, renderer password, upstream URL, hidden fields, field/value
 mapping, raw RPC response, and grading result are excluded.
 
-There are two different WeBWorK reuse cases:
+There are two different issue-time or envelope-less WeBWorK reuse cases:
 
-1. `reproduce` reads the safe cache and does not need a renderer call because
-   the existing attempt already owns its private replay mapping.
+1. `reproduce` reads the safe cache and does not need a renderer call when an
+   explicit active, envelope-less workflow needs it. It is not a submission,
+   receipt-replay, or submitted-attempt delivery path.
 2. A current `issue` cache hit rereads the safe cache but also re-renders once
    to capture and verify a fresh private replay mapping for the newly issued
    attempt. It compares the reproduced safe output to the immutable cached
    output before accepting the mapping.
 
 The second call remains necessary for each newly issued attempt because the
-shared cache deliberately excludes private replay material. PLE now persists
-the bounded, validated mapping under the tenant attempt, so normal grading
-reproduces the safe cache without a renderer call and then makes one private
-grade RPC. WP-P4 still owns disposable PostgreSQL/private-renderer proof and a
-validated self-heal write for legacy attempts whose replay row is missing. Do
-not place replay mappings in the public render cache; they are server-only
-grading material.
+shared cache deliberately excludes private replay material. PLE persists the
+bounded, validated mapping under the tenant attempt, along with the exact
+public snapshot and server-only grading envelope. Normal grading reads those
+attempt-bound artifacts and makes one private grade RPC; it neither rerenders
+nor repairs missing replay state. Missing or mismatched state fails question-
+locally and closed. Do not place replay mappings in the public render cache;
+they are server-only grading material.
 
 ### iMathAS
 
@@ -133,15 +133,23 @@ unattempted assignment position, chooses a fresh seed, issues the backend
 projection, creates a presentation binding, and persists a key-free
 reservation. The reservation binds tenant, learner, run, predecessor,
 position, published reference, seed, parameter hash, complete backend
-provenance, and presentation binding. An identical request is idempotent; a
-conflicting request cannot rewrite its immutable variation.
+provenance, explicit presentation capability, presentation binding, exact
+answer-free public snapshot, and matching server-only grading envelope. An
+identical request is idempotent; a conflicting request cannot rewrite its
+immutable variation.
+
+Native-flat and WeBWorK reservations additionally retain their typed,
+checksummed first-grade contracts. Flat carries its private definition;
+WeBWorK carries its private definition and replay mapping. Promotion refuses a
+missing or mismatched required contract, so submit never consults a current
+catalog, grader, or renderer to recreate it.
 
 No `QuestionAttemptId`, response, grade, or timer exists for a reservation.
-Only successful submission of the predecessor atomically promotes the exact
-reservation into the next attempt and records an immutable `nextIssued` link
-in the predecessor receipt. An idempotent submission replay returns that
-stored link; it must not scan later run state and invent a different successor.
-A bounded owner-scoped pending lookup may heal the one committed-but-unlinked
+Only successful submission of the predecessor promotes the exact reservation
+into the next attempt and records either an immutable `nextIssued` descriptor
+or durable `nextPending` receipt state. An idempotent submission replay returns
+that stored state; it must not scan later run state and invent a different
+successor. Initial recovery alone may heal the one committed-but-unlinked
 predecessor caused by an interrupted process.
 
 The client accepts a speculative envelope only when the committed receipt and
@@ -183,7 +191,7 @@ The following outcomes are intentional safety behavior:
 | Active predecessor already answered or run completed | Reject prefetch; do not start a successor |
 | Conflicting duplicate reservation | Preserve the first reservation and reject rewrite |
 | Cache schema, checksum, source, version, seed, title, or renderer mismatch | Refuse the entry; re-render only where the adapter contract permits |
-| WeBWorK replay state missing | Use only the bounded validated self-heal described by WP-P4; otherwise fail question-locally |
+| WeBWorK replay state missing | Refuse question-locally; receipt-era attempts have no rerender or self-heal compatibility path |
 | Prefetch descriptor differs from receipt | Drop browser memory and use the ordinary run-screen route |
 | Renderer or provider outage | Do not substitute a new question or guess a grade; surface the backend-local failure |
 | Protected asset delivery | Authorize and audit every request; do not place the signed URL in a reusable cache |

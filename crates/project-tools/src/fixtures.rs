@@ -495,6 +495,7 @@ fn question_attempt(
             submitted_at: completed.then(|| timestamp(issued_at + 100)),
         },
         provenance: issued.provenance,
+        issued_capability: question_model::IssuedAttemptCapabilityV1::FlatPresentation,
     })
 }
 

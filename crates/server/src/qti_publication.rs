@@ -532,6 +532,8 @@ where
             assets.push(AssetDeliveryRecord {
                 id: AssetDeliveryId::from_asset(*asset),
                 object: record,
+                intrinsic_width: None,
+                intrinsic_height: None,
                 scope: AssetDeliveryScope::Catalog {
                     asset: *asset,
                     reference: publication,

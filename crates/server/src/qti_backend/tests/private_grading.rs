@@ -199,6 +199,10 @@ async fn choice_image_checksum_misbinding_refuses_before_private_grading() {
         bindings: vec![CatalogAssetBinding {
             asset,
             object: replacement_object,
+            rendition_checksum: Sha256Digest::compute(b"replacement asset"),
+            media_type: "image/png".to_string(),
+            intrinsic_width: None,
+            intrinsic_height: None,
         }],
     });
     let grader_calls = Arc::new(AtomicUsize::new(0));

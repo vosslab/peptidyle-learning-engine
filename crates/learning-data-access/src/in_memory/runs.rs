@@ -1,8 +1,15 @@
 use async_trait::async_trait;
 
 use super::*;
+use crate::{ReceiptNextAttempt, ReceiptPresentationSnapshot};
 
 mod attempt_issuance;
+mod issued_contracts;
+
+pub(super) use issued_contracts::{
+    load_issued_flat_grading, load_issued_presentation, load_issued_webwork_grading,
+    load_submission_record,
+};
 
 #[async_trait]
 impl crate::RunStore for MemoryStore {
@@ -162,6 +169,104 @@ impl crate::RunStore for MemoryStore {
             return Err(StoreError::Forbidden);
         }
         Ok(state.attempt_presentations.get(&(tenant, attempt)).copied())
+    }
+
+    async fn get_attempt_presentation_snapshot_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<ReceiptPresentationSnapshot>, StoreError> {
+        let state = self.read_state()?;
+        let tenant = context.tenant_id();
+        let record = state
+            .attempts
+            .get(&(tenant, attempt))
+            .ok_or(StoreError::NotFound)?;
+        let run = state
+            .runs
+            .get(&(tenant, record.run))
+            .ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
+        if enrollment.user != actor {
+            return Err(StoreError::Forbidden);
+        }
+        load_issued_presentation(&state, tenant, record)
+    }
+
+    async fn get_attempt_grading_envelope_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<QuestionEnvelope>, StoreError> {
+        let state = self.read_state()?;
+        let tenant = context.tenant_id();
+        let record = state
+            .attempts
+            .get(&(tenant, attempt))
+            .ok_or(StoreError::NotFound)?;
+        let run = state
+            .runs
+            .get(&(tenant, record.run))
+            .ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
+        if enrollment.user != actor {
+            return Err(StoreError::Forbidden);
+        }
+        load_issued_presentation(&state, tenant, record)?;
+        Ok(state
+            .attempt_grading_envelopes
+            .get(&(tenant, attempt))
+            .cloned())
+    }
+
+    async fn get_attempt_flat_grading_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<crate::IssuedFlatGradingContract>, StoreError> {
+        let state = self.read_state()?;
+        let tenant = context.tenant_id();
+        let record = state
+            .attempts
+            .get(&(tenant, attempt))
+            .ok_or(StoreError::NotFound)?;
+        let run = state
+            .runs
+            .get(&(tenant, record.run))
+            .ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
+        if enrollment.user != actor {
+            return Err(StoreError::Forbidden);
+        }
+        load_issued_presentation(&state, tenant, record)?;
+        load_issued_flat_grading(&state, tenant, record)
+    }
+
+    async fn get_attempt_webwork_grading_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<crate::IssuedWebworkGradingContract>, StoreError> {
+        let state = self.read_state()?;
+        let tenant = context.tenant_id();
+        let record = state
+            .attempts
+            .get(&(tenant, attempt))
+            .ok_or(StoreError::NotFound)?;
+        let run = state
+            .runs
+            .get(&(tenant, record.run))
+            .ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
+        if enrollment.user != actor {
+            return Err(StoreError::Forbidden);
+        }
+        load_issued_presentation(&state, tenant, record)?;
+        load_issued_webwork_grading(&state, tenant, record)
     }
 
     async fn get_webwork_grade_replay_state_impl(
@@ -327,7 +432,7 @@ impl crate::RunStore for MemoryStore {
             {
                 None => SubmissionNextAttempt::Pending,
                 Some(None) => SubmissionNextAttempt::None,
-                Some(Some(next)) => SubmissionNextAttempt::Issued(*next),
+                Some(Some(next)) => SubmissionNextAttempt::Issued(next.clone()),
             },
         )
     }
@@ -395,7 +500,7 @@ impl crate::RunStore for MemoryStore {
         if !state.submissions.contains_key(&(tenant, predecessor)) {
             return Err(StoreError::Conflict);
         }
-        if let Some(next) = next {
+        let next = if let Some(next) = next {
             let next_attempt = state
                 .attempts
                 .get(&(tenant, next))
@@ -403,7 +508,10 @@ impl crate::RunStore for MemoryStore {
             if next_attempt.run != attempt.run {
                 return Err(StoreError::Conflict);
             }
-        }
+            Some(ReceiptNextAttempt::from_attempt(next_attempt))
+        } else {
+            None
+        };
         match state.submission_next_attempts.get(&(tenant, predecessor)) {
             Some(existing) if *existing != next => Err(StoreError::Conflict),
             _ => {
@@ -475,7 +583,29 @@ impl crate::RunStore for MemoryStore {
         if &stored.key != idempotency_key || &stored.response != response {
             return Err(StoreError::Conflict);
         }
-        Ok(Some(stored.record.clone()))
+        load_submission_record(&state, tenant, attempt)
+    }
+    async fn submission_record_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt_id: QuestionAttemptId,
+    ) -> Result<Option<SubmissionRecord>, StoreError> {
+        let state = self.read_state()?;
+        let tenant = context.tenant_id();
+        let attempt = state
+            .attempts
+            .get(&(tenant, attempt_id))
+            .ok_or(StoreError::NotFound)?;
+        let run = state
+            .runs
+            .get(&(tenant, attempt.run))
+            .ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
+        let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
+        require_course_records_accessible(&state, tenant, assignment.course_id)?;
+        require_attempt_owner(&state, tenant, attempt, actor)?;
+        load_submission_record(&state, tenant, attempt)
     }
     async fn submit_question_attempt_impl(
         &self,
@@ -541,9 +671,15 @@ pub(super) fn submit_question_attempt_locked(
         .cloned()
         .ok_or(StoreError::NotFound)?;
     require_attempt_owner(state, tenant, &base, command.actor)?;
-    if let Some(stored) = state.submissions.get(&(tenant, command.attempt)) {
-        return if stored.key == command.idempotency_key && stored.response == command.response {
-            Ok(stored.record.clone())
+    if let Some(matches_request) = state
+        .submissions
+        .get(&(tenant, command.attempt))
+        .map(|stored| stored.key == command.idempotency_key && stored.response == command.response)
+    {
+        return if matches_request {
+            load_submission_record(state, tenant, &base)?.ok_or_else(|| {
+                StoreError::Unavailable("submission receipt disappeared during replay".to_string())
+            })
         } else {
             Err(StoreError::Conflict)
         };
@@ -551,6 +687,9 @@ pub(super) fn submit_question_attempt_locked(
     if projected_attempt(state, tenant, &base).status != AttemptStatus::InProgress {
         return Err(StoreError::Conflict);
     }
+    // Validate the issuance-time snapshot before any receipt, attempt, or run
+    // mutation. A submission only copies this owned value; it never rebuilds.
+    let presentation = load_issued_presentation(state, tenant, &base)?;
     let feedback = private_feedback_record(command.feedback.clone())?;
     let mut run = state
         .runs
@@ -562,12 +701,12 @@ pub(super) fn submit_question_attempt_locked(
     }
     let mut enrollment = enrollment_record(state, tenant, run.enrollment)?;
     let assignment = assignment_record(state, tenant, enrollment.assignment)?;
-    let authored_policy = state
-        .published
-        .get(&(base.problem, base.question_version))
-        .ok_or(StoreError::NotFound)?
-        .question
-        .timing_policy;
+    let feedback_disclosure = *state
+        .attempt_feedback_disclosures
+        .get(&(tenant, command.attempt))
+        .ok_or_else(|| {
+            StoreError::Unavailable("issued feedback disclosure is missing".to_string())
+        })?;
     crate::validate_attempt_result(command.result)?;
     let submitted_at = state.authoritative_time;
     let mut submitted = projected_attempt(state, tenant, &base);
@@ -575,18 +714,16 @@ pub(super) fn submit_question_attempt_locked(
     submitted.status = AttemptStatus::Submitted;
     submitted.result = Some(command.result);
     submitted.timer.submitted_at = Some(submitted_at);
-    let effective_policy =
-        state
-            .attempt_timing
-            .get(&(tenant, command.attempt))
-            .map_or(authored_policy, |timing| {
-                timing
-                    .effective_deadline
-                    .map_or(TimingPolicy::Untimed, |_| TimingPolicy::PerQuestion {
-                        seconds: 1,
-                        grace_seconds: timing.effective_grace_seconds,
-                    })
-            });
+    let timing = state
+        .attempt_timing
+        .get(&(tenant, command.attempt))
+        .ok_or_else(|| StoreError::Unavailable("issued timing authority is missing".to_string()))?;
+    let effective_policy = timing
+        .effective_deadline
+        .map_or(TimingPolicy::Untimed, |_| TimingPolicy::PerQuestion {
+            seconds: 1,
+            grace_seconds: timing.effective_grace_seconds,
+        });
     let verdict = timer_verdict(&TimerEvaluation {
         policy: effective_policy,
         timer: submitted.timer,
@@ -689,6 +826,8 @@ pub(super) fn submit_question_attempt_locked(
         run: run.clone(),
         summary: next.clone(),
         feedback,
+        presentation,
+        feedback_disclosure,
     };
     state.submissions.insert(
         (tenant, command.attempt),

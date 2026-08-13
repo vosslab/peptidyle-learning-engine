@@ -149,6 +149,7 @@ pub trait CatalogSourceStore: Send + Sync {
 #[async_trait]
 pub trait Store:
     StatisticsStore
+    + AssetStore
     + AuthoringStore
     + CourseStore
     + CourseAssignmentStore
@@ -523,6 +524,46 @@ pub trait Store:
         RunStore::get_attempt_presentation_binding_impl(self, context, actor, attempt).await
     }
 
+    /// Delegates to the focused [`RunStore`] capability.
+    async fn get_attempt_presentation_snapshot(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<ReceiptPresentationSnapshot>, StoreError> {
+        RunStore::get_attempt_presentation_snapshot_impl(self, context, actor, attempt).await
+    }
+
+    /// Delegates to the focused [`RunStore`] capability.
+    async fn get_attempt_grading_envelope(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<question_model::QuestionEnvelope>, StoreError> {
+        RunStore::get_attempt_grading_envelope_impl(self, context, actor, attempt).await
+    }
+
+    /// Delegates to the focused [`RunStore`] capability.
+    async fn get_attempt_flat_grading(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<crate::IssuedFlatGradingContract>, StoreError> {
+        RunStore::get_attempt_flat_grading_impl(self, context, actor, attempt).await
+    }
+
+    /// Delegates to the focused [`RunStore`] capability.
+    async fn get_attempt_webwork_grading(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<crate::IssuedWebworkGradingContract>, StoreError> {
+        RunStore::get_attempt_webwork_grading_impl(self, context, actor, attempt).await
+    }
+
     /// Reads the private answer-free WeBWorK replay state for one owned attempt.
     async fn get_webwork_grade_replay_state(
         &self,
@@ -615,6 +656,20 @@ pub trait Store:
     ) -> Result<Option<SubmissionRecord>, StoreError> {
         RunStore::replay_submission_impl(self, context, actor, attempt, response, idempotency_key)
             .await
+    }
+
+    /// Reads an owned immutable submission receipt without retry credentials.
+    ///
+    /// A missing receipt means the attempt has not submitted. A corrupt or
+    /// incomplete receipt is unavailable authority, never a request to rebuild
+    /// from current catalog state.
+    async fn submission_record(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<SubmissionRecord>, StoreError> {
+        RunStore::submission_record_impl(self, context, actor, attempt).await
     }
 
     /// Delegates to the focused [`RunStore`] capability.
@@ -724,6 +779,7 @@ pub trait Store:
 #[async_trait]
 impl<T> Store for T where
     T: StatisticsStore
+        + AssetStore
         + AuthoringStore
         + CourseStore
         + CourseAssignmentStore

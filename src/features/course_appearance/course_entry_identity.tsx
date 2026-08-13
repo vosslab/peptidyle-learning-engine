@@ -11,11 +11,11 @@ const COURSE_ENTRY_IDENTITY_STYLES = `
   display: grid;
   gap: var(--ple-space-2, 0.5rem);
   min-width: 0;
-  margin-bottom: var(--ple-space-5, 1.5rem);
+  margin-bottom: var(--ple-space-4, 1rem);
 }
 
 .course-entry-identity h1 {
-  max-width: 24ch;
+  max-width: 32ch;
 }
 
 .course-entry-banner {

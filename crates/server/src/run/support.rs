@@ -9,11 +9,14 @@ pub(super) use axum::http::{HeaderMap, StatusCode};
 pub(super) use axum::response::{IntoResponse, Response};
 pub(super) use learning_data_access::{
     CatalogStore, CourseAppearanceStore, Cursor, IssueQuestionAttemptCommand, ManualGradingStore,
-    PageRequest, PageSize, PaginationError, SessionStore, Store, StoreError,
-    SubmissionIdempotencyKey, SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext,
+    PageRequest, PageSize, PaginationError, PresentationCapability, ReceiptNextAttempt,
+    ReceiptPresentationSnapshot, SessionStore, Store, StoreError, SubmissionIdempotencyKey,
+    SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext,
 };
 pub(super) use question_model::generation::Seed;
-pub(super) use question_model::presentation::{PresentationV1, build_presentation_v1};
+pub(super) use question_model::presentation::{
+    AssetBindingV1, PresentationV1, build_presentation_v1,
+};
 pub(super) use question_model::run_policy::FeedbackDisclosure;
 pub(super) use question_model::{
     AssignmentEnrollment, AssignmentRun, AttemptResult, CourseAppearance, CourseRole,
@@ -76,6 +79,9 @@ pub(super) struct SubmissionReceipt {
     pub(super) attempt: QuestionAttempt,
     pub(super) feedback: Option<DisclosedFeedback>,
     pub(super) next_issued: Option<NextIssuedAttempt>,
+    /// The durable receipt exists, but a successor has not yet been issued or
+    /// delivered. The learner keeps feedback rather than retrying the answer.
+    pub(super) next_pending: bool,
 }
 
 /// Browser-safe identity binding for a just-issued next attempt.

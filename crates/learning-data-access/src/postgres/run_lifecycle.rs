@@ -377,6 +377,12 @@ pub(super) async fn apply_question_attempt(
             "question attempt must match an immutable run item".to_string(),
         ));
     }
+    let feedback_disclosure =
+        load_published_record(transaction, attempt.problem, attempt.question_version)
+            .await?
+            .question
+            .attempt_policy
+            .feedback;
     let previous = load_summary_for_update(transaction, tenant, enrollment.id).await?;
     let transition = ActivityTransition::RecordQuestionAttempt {
         attempt: Box::new(attempt.clone()),
@@ -395,8 +401,8 @@ pub(super) async fn apply_question_attempt(
     sqlx::query(
         "INSERT INTO question_attempt \
          (tenant_id, attempt_id, run_id, problem_id, version_id, assignment_position, \
-          occurred_at, payload, payload_sha256) \
-         VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7::double precision / 1000.0), $8, $9)",
+          occurred_at, payload, payload_sha256, issued_feedback_disclosure) \
+         VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7::double precision / 1000.0), $8, $9, $10)",
     )
     .bind(tenant.as_uuid())
     .bind(attempt.id.as_uuid())
@@ -407,6 +413,9 @@ pub(super) async fn apply_question_attempt(
     .bind(occurred_at)
     .bind(payload)
     .bind(checksum)
+    .bind(super::submission::feedback_disclosure_name(
+        feedback_disclosure,
+    ))
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;

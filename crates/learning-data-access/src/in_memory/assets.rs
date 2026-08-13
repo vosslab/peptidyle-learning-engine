@@ -91,6 +91,10 @@ impl AssetStore for MemoryStore {
                 } if asset_reference == reference => Some(CatalogAssetBinding {
                     asset,
                     object: record.object.id,
+                    rendition_checksum: record.object.sha256,
+                    media_type: record.object.media_type.clone(),
+                    intrinsic_width: record.intrinsic_width,
+                    intrinsic_height: record.intrinsic_height,
                 }),
                 AssetDeliveryScope::Catalog { .. }
                 | AssetDeliveryScope::StudentRecord { .. }

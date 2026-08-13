@@ -48,8 +48,9 @@ pub use crate::activity::{
     ActivityTimestamp, AssignmentEnrollment, AssignmentId, AssignmentItemId,
     AssignmentPolicyExceptionId, AssignmentRun, AssignmentRunItem, AssignmentSelectionGroupId,
     AttemptProvenance, AttemptResult, AttemptStatus, AttemptTimerRecord, CourseGroupId, CourseId,
-    EnrollmentId, EnrollmentStatus, ImplementationVersion, QuestionAttempt, QuestionAttemptId,
-    RunId, RunMode, SourceArtifact, StudentAssignmentSummary, StudentId, TenantId,
+    EnrollmentId, EnrollmentStatus, ImplementationVersion, IssuedAttemptCapabilityV1,
+    QuestionAttempt, QuestionAttemptId, RunId, RunMode, SourceArtifact, StudentAssignmentSummary,
+    StudentId, TenantId,
 };
 pub use crate::assignment::{
     AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentItem, AssignmentRunTiming,

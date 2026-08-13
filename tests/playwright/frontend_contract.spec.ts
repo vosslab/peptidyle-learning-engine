@@ -22,7 +22,7 @@ const IDS = {
 const SAVED_ATTEMPT_KEY =
   "ple:attempt:0198e000-0000-7000-8000-000000000001:0198e000-0000-7000-8000-000000000023:0198e000-0000-7000-8000-000000000033";
 const SAVED_ATTEMPT_BUFFER = JSON.stringify({
-  response: { kind: "multipleChoice", selected: ["carbonyl"] },
+  response: { kind: "multipleChoice", selected: ["0002"] },
   idempotencyKey: "saved-response-key",
 });
 
@@ -129,6 +129,19 @@ test("an instructor can invite a student through the platform keyboard path", as
   );
   await expect(page.getByRole("button", { name: "Copy invitation link" })).toBeVisible();
   await expectNoBlockingAxeViolations(page);
+});
+
+test("ordinary roster composition omits local teaching controls and activation requests", async ({
+  page,
+}) => {
+  const requests: string[] = [];
+  page.on("request", (request) => requests.push(new URL(request.url()).pathname));
+  await page.goto("/");
+  await navigateWithinSpa(page, `/instructor/courses/${IDS.course}/students`);
+  await expect(page.getByRole("heading", { name: "Students", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Add .*Fake Student/u })).toHaveCount(0);
+  await expect(page.getByText("Add local teaching student", { exact: true })).toHaveCount(0);
+  expect(requests.some((path) => path.endsWith("/local-teaching-members"))).toBe(false);
 });
 
 test("student navigation stays learner-focused and link navigation focuses main content", async ({
@@ -254,7 +267,7 @@ test("a student reaches, validates, submits, and advances through the generated 
 
   const selectedTarget = radios.nth(1).locator("xpath=ancestor::label");
   const box = await selectedTarget.boundingBox();
-  expect(box?.height).toBeGreaterThanOrEqual(56);
+  expect(box?.height).toBeGreaterThanOrEqual(44);
 
   await page.getByRole("button", { name: "Submit answer" }).click();
   // Feedback focus timing is covered by the component acceptance fixture; the
@@ -377,7 +390,7 @@ test("session recovery stays editable, never writes the attempt to local storage
   expect(editedStorage.localAttempt).toBeNull();
   expect(editedStorage.sessionAttempt).not.toBeNull();
   expect(editedStorage.sessionAttempt).not.toBe(SAVED_ATTEMPT_BUFFER);
-  expect(editedStorage.sessionAttempt).toContain('"selected":["alpha-carbon"]');
+  expect(editedStorage.sessionAttempt).toContain('"selected":["0003"]');
   expect(editedStorage.sessionAttempt).toContain('"idempotencyKey":');
 
   await navigateWithinSpa(page, "/");

@@ -122,6 +122,10 @@ bash tests/e2e/e2e_chapter_one_pilot.sh
 bash tests/e2e/e2e_chapter_one_browser.sh
 ```
 
+The renderer acceptance script creates its licensed one-question WebWork fixture explicitly after
+the canonical launcher is ready. Its answer-free manifest is private temporary test state; the
+normal launcher and canonical teaching walkthrough publish only the reviewed Chapter 1 corpus.
+
 The renderer gate exercises render, grade, cache, outage recovery, and browser non-disclosure. The
 Chapter 1 publication gate publishes the exact two-by-four release matrix into isolated PostgreSQL
 and MinIO, then proves an exact rerun. The Chapter 1 browser gate completes those eight questions

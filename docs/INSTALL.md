@@ -77,9 +77,12 @@ The generated values in `containers/local-login.txt` are a local development con
 create a tenant-scoped `ple_session` for the seeded instructor or student and keep its bearer
 value out of browser storage after sign-in. They do not create a PLE account or
 `ple_account_session`, so they cannot claim an invitation, bootstrap a passkey, or prove the
-canonical email-authentication journey. The current startup root still composes only local-file
-development identity, so canonical PLE account sign-in remains unavailable even when SMTP delivery
-is configured. See the [current status report](active_plans/reports/project_status_report_2026-08-10.md).
+canonical email-authentication journey. Canonical account/session composition is available to a
+production environment, but no SMTP provider or email-activation path is configured today. The
+local teaching walkthrough deliberately uses local identities and does not require email, a
+mailbox, invitation delivery, or canonical-account acceptance. Fastmail is the intended future
+external provider; do not claim canonical email sign-in works until its operator credentials,
+authorized sender, live delivery, and browser sign-in have been verified.
 
 ## Custom environment files
 
@@ -91,15 +94,16 @@ operator-managed credentials and secret values out of tracked files; see
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for the complete contract
 and `docs/CONTAINER_PORT_MAPPING.md` for loopback port use.
 
-An external SMTP account is optional delivery preparation for the local stack. PLE uses the
-established Rust `lettre` client to connect to an operator-selected provider; it does not install,
-operate, or maintain a mail server. When a provider is available, `--with-smtp` validates its
-hostname, encrypted submission mode, authorized sender, public HTTPS origin, and an absolute
-mode-0600 provider-token file as described in
-[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md#external-smtp-provider). This prepares and
-validates external delivery only: canonical PLE email sign-in remains unavailable until the
-account-provider composition task replaces local-file development identity. Copy-link invitations
-remain available without the overlay.
+An external SMTP account is an optional production connection. PLE uses the established Rust
+`lettre` client to connect to an operator-selected provider; it does not install, operate, or
+maintain a mail server. No provider is configured today; Fastmail is the intended future provider.
+After an operator account, authorized sender, and application credential exist, `--with-smtp`
+validates its hostname, encrypted submission mode, public HTTPS origin, and an absolute mode-0600
+provider-token file as described in
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md#external-smtp-provider). The production
+composition can then use the canonical account/session route graph, but live email delivery and
+browser sign-in still need their own acceptance evidence. Copy-link invitations remain available
+without the overlay.
 
 The launcher creates the renderer's local JWT secrets, records the selected OCI image identity,
 and probes real render and grade behavior before PLE starts. The renderer has no MariaDB, course
@@ -108,7 +112,8 @@ and [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md).
 
 ## Known gaps
 
-- Complete account-provider composition, then verify the chosen external SMTP provider's sender
-  approval and delivery behavior before using canonical email sign-in with real learners.
+- Configure the selected external provider, then verify its sender approval, live delivery, and
+  browser sign-in before using canonical email sign-in with real learners. This does not block the
+  deliberately no-email local teaching walkthrough.
 - PG/PGML compatibility beyond the four reviewed Chapter 1 MC/MATCH sources needs its own source
   and live evidence.

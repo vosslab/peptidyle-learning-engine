@@ -13,6 +13,9 @@ UINT32_MAX = 4_294_967_295
 SAFE_REPORT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.json$")
 SCREENSHOT_DIRECTORY_PARENT = pathlib.Path("/private/tmp")
 SCREENSHOT_DIRECTORY_PREFIX = "ple-docs-screenshots."
+COMPOSE_PROJECT_PREFIX = "ple-ui-walkthrough-"
+COMPOSE_PROJECT_TOKEN_LENGTH = 16
+SAFE_COMPOSE_PROJECT_NAME = re.compile(r"^ple-ui-walkthrough-[0-9a-f]{16}$")
 
 
 #============================================
@@ -236,17 +239,50 @@ def effective_gateway_port(
 
 
 #============================================
-def validate_compose_project_name(
+def effective_stack_ports(inputs: walklib.models.RunnerInputs) -> tuple[int, ...]:
+	"""Return the fixed host ports whose availability makes the clean stack exclusive."""
+	settings = (
+		("PLE_POSTGRES_HOST_PORT", 5432),
+		("PLE_MINIO_API_HOST_PORT", 9000),
+		("PLE_MINIO_CONSOLE_HOST_PORT", 9001),
+		("PLE_GATEWAY_HOST_PORT", 8080),
+	)
+	ports: list[int] = []
+	for setting_name, default_port in settings:
+		value = env_value(inputs.env_file, setting_name)
+		port_text = value or str(default_port)
+		if not re.fullmatch(r"[0-9]+", port_text):
+			raise walklib.models.RunnerError(f"{setting_name} must be an unquoted integer")
+		port = int(port_text)
+		if port < 1 or port > 65_535:
+			raise walklib.models.RunnerError(f"{setting_name} must be between 1 and 65535")
+		ports.append(port)
+	return tuple(dict.fromkeys(ports))
+
+
+#============================================
+def reject_external_compose_project_name(
 	inputs: walklib.models.RunnerInputs,
 	environ: dict[str, str],
 ) -> None:
-	"""Refuse project-name overrides that would make cleanup ownership ambiguous."""
+	"""Refuse external project choices because the runner owns a fresh disposable project."""
 	configured_name = env_value(inputs.env_file, "COMPOSE_PROJECT_NAME")
-	effective_name = environ.get("COMPOSE_PROJECT_NAME", "") or configured_name
-	if effective_name and effective_name != "containers":
+	inherited_name = environ.get("COMPOSE_PROJECT_NAME", "")
+	if inherited_name or configured_name:
 		raise walklib.models.RunnerError(
-			"COMPOSE_PROJECT_NAME must be unset, empty, or exactly containers"
+			"COMPOSE_PROJECT_NAME must be unset; the walkthrough creates its own disposable project"
 		)
+
+
+#============================================
+def create_disposable_compose_project_name(token: str) -> str:
+	"""Build the runner-owned Compose name from one already-random bounded token."""
+	if not re.fullmatch(rf"[0-9a-f]{{{COMPOSE_PROJECT_TOKEN_LENGTH}}}", token):
+		raise walklib.models.RunnerError("walkthrough Compose project token is invalid")
+	project_name = f"{COMPOSE_PROJECT_PREFIX}{token}"
+	if not SAFE_COMPOSE_PROJECT_NAME.fullmatch(project_name):
+		raise walklib.models.RunnerError("walkthrough Compose project name is invalid")
+	return project_name
 
 
 #============================================

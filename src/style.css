@@ -18,13 +18,13 @@
   --ple-space-2: 0.5rem;
   --ple-space-3: 0.75rem;
   --ple-space-4: 1rem;
-  --ple-space-5: 1.5rem;
-  --ple-space-6: 2rem;
-  --ple-radius-control: 0.375rem;
-  --ple-radius-group: 0.5rem;
-  --ple-radius-surface: 0.625rem;
-  --ple-control-min-height: 3rem;
-  --ple-response-min-height: 3.5rem;
+  --ple-space-5: 1.25rem;
+  --ple-space-6: 1.75rem;
+  --ple-radius-control: 0.25rem;
+  --ple-radius-group: 0.25rem;
+  --ple-radius-surface: 0.375rem;
+  --ple-control-min-height: 2.25rem;
+  --ple-response-min-height: 2.75rem;
   --ple-shadow: none;
   --ple-shadow-raised: 0 4px 12px rgb(23 32 51 / 10%);
   font-family:
@@ -84,7 +84,7 @@ a {
   left: 0.75rem;
   z-index: 20;
   min-height: var(--ple-control-min-height);
-  padding: 0.65rem 0.9rem;
+  padding: 0.3rem 0.65rem;
   transform: translateY(-150%);
   border-radius: var(--ple-radius-control);
   background: var(--ple-ink);
@@ -101,8 +101,8 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: var(--ple-space-5);
-  min-height: 4.25rem;
-  padding: 0.4rem max(1rem, calc((100vw - 72rem) / 2));
+  min-height: 3rem;
+  padding: 0.25rem max(1rem, calc((100vw - 72rem) / 2));
   border-bottom: 1px solid var(--ple-border);
   background: rgb(255 255 255 / 94%);
 }
@@ -121,8 +121,8 @@ a {
 
 .brand-mark {
   display: grid;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2rem;
+  height: 2rem;
   place-items: center;
   border-radius: var(--ple-radius-group) var(--ple-radius-group) var(--ple-radius-group) 0.2rem;
   background: var(--ple-accent);
@@ -139,7 +139,7 @@ nav {
 nav a {
   display: inline-grid;
   min-height: var(--ple-control-min-height);
-  padding: 0 0.8rem;
+  padding: 0 0.5rem;
   place-items: center;
   border-radius: var(--ple-radius-control);
   color: var(--ple-muted);
@@ -154,7 +154,7 @@ nav a.active {
 }
 
 .degraded-banner {
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   border-bottom: 2px solid var(--ple-focus);
   background: color-mix(in srgb, #7a4b00 9%, white);
   color: var(--ple-ink);
@@ -166,7 +166,7 @@ nav a.active {
   width: min(100% - 2rem, 72rem);
   min-height: calc(100vh - 8.25rem);
   margin: 0 auto;
-  padding: clamp(1.5rem, 3vw, 2.5rem) 0;
+  padding: clamp(1rem, 2vw, 1.5rem) 0;
 }
 
 .page {
@@ -199,27 +199,26 @@ h2 {
 h1 {
   max-width: 18ch;
   margin: 0;
-  font-size: clamp(1.9rem, 4vw, 3rem);
+  font-size: clamp(1.8rem, 3.5vw, 2.65rem);
 }
 
 h2 {
-  font-size: 1.45rem;
+  font-size: 1.35rem;
 }
 
 .page-lede {
   max-width: 65ch;
-  margin: 0.75rem 0 1.25rem;
+  margin: 0.5rem 0 1rem;
   color: var(--ple-muted);
   font-size: 1.12rem;
 }
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
-  gap: var(--ple-space-3);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
 }
 
-.course-card,
 .question-card,
 .route-error {
   border: 1px solid var(--ple-border);
@@ -229,18 +228,45 @@ h2 {
 }
 
 .course-card {
-  display: flex;
+  display: grid;
+  grid-template-areas:
+    "kicker action"
+    "title action"
+    "summary action";
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--ple-space-5);
+  align-items: center;
   min-height: 0;
-  padding: var(--ple-space-4);
-  flex-direction: column;
+  padding: var(--ple-space-3) 0;
+  border: 0;
+  border-top: 1px solid var(--ple-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.card-grid > .course-card:last-child {
+  border-bottom: 1px solid var(--ple-border);
+}
+
+.course-card .card-kicker {
+  grid-area: kicker;
 }
 
 .course-card h2 {
-  margin: 0.1rem 0 var(--ple-space-2);
+  grid-area: title;
+  margin: 0;
 }
 
 .course-card p:not(.card-kicker) {
+  grid-area: summary;
+  margin: var(--ple-space-1) 0 0;
   color: var(--ple-muted);
+}
+
+.course-card .primary-link {
+  grid-area: action;
+  align-self: center;
+  margin-top: 0;
 }
 
 .primary-link,
@@ -251,7 +277,7 @@ h2 {
   align-items: center;
   justify-content: center;
   min-height: var(--ple-control-min-height);
-  padding: 0.6rem 1rem;
+  padding: 0.3rem 0.65rem;
   border-radius: var(--ple-radius-control);
   font-weight: 780;
   text-align: center;
@@ -266,7 +292,7 @@ h2 {
 }
 
 .primary-link {
-  margin-top: var(--ple-space-3);
+  margin-top: var(--ple-space-2);
   align-self: flex-start;
 }
 
@@ -295,7 +321,7 @@ h2 {
 
 .wide-action {
   min-width: min(100%, 21rem);
-  margin-top: var(--ple-space-3);
+  margin-top: var(--ple-space-2);
 }
 
 .assignment-facts {
@@ -303,14 +329,14 @@ h2 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1px;
   overflow: hidden;
-  margin: 1.25rem 0;
+  margin: 0.75rem 0;
   border: 1px solid var(--ple-border);
   border-radius: var(--ple-radius-group);
   background: var(--ple-border);
 }
 
 .assignment-facts div {
-  padding: 0.875rem;
+  padding: 0.65rem 0.75rem;
   background: var(--ple-card-surface);
 }
 
@@ -322,7 +348,7 @@ h2 {
 }
 
 .assignment-facts dd {
-  margin: 0.45rem 0 0;
+  margin: 0.2rem 0 0;
   font-weight: 660;
 }
 
@@ -347,7 +373,7 @@ h2 {
 
 .gradebook-table th,
 .gradebook-table td {
-  padding: 0.75rem;
+  padding: 0.5rem 0.6rem;
   border-bottom: 1px solid var(--ple-border);
   vertical-align: top;
 }
@@ -381,7 +407,7 @@ h2 {
 }
 
 .gradebook-history-row section {
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
 }
 
 .gradebook-history-row p {
@@ -394,7 +420,7 @@ h2 {
 }
 
 .gradebook-empty {
-  padding: 1rem;
+  padding: 0.75rem;
   border: 1px solid var(--ple-border);
   border-radius: var(--ple-radius-surface);
   background: var(--ple-card-surface);
@@ -423,17 +449,17 @@ h2 {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--ple-space-4);
-  margin-bottom: var(--ple-space-4);
+  gap: var(--ple-space-3);
+  margin-bottom: var(--ple-space-3);
 }
 
 .run-header h1 {
-  font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+  font-size: clamp(1.65rem, 3vw, 2.25rem);
 }
 
 .calm-status {
   display: inline-flex;
-  min-height: 2.5rem;
+  min-height: var(--ple-control-min-height);
   padding: 0.35rem 0.65rem;
   align-items: center;
   border: 2px solid var(--ple-success);
@@ -445,8 +471,10 @@ h2 {
 .question-card {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(20rem, 1.1fr);
-  gap: clamp(1rem, 3vw, 1.75rem);
-  padding: clamp(1rem, 2.5vw, 1.5rem);
+  gap: clamp(0.75rem, 2vw, 1.25rem);
+  padding: var(--ple-space-3) 0;
+  border-inline: 0;
+  border-radius: 0;
 }
 
 .attempt-response {
@@ -456,9 +484,10 @@ h2 {
 .attempt-feedback,
 .attempt-recovery,
 .attempt-summary {
-  padding: clamp(0.875rem, 2vw, 1.25rem);
-  border: 2px solid var(--ple-success);
-  border-radius: var(--ple-radius-surface);
+  padding: 0.75rem;
+  border: 0;
+  border-left: 4px solid var(--ple-success);
+  border-radius: 0;
   background: color-mix(in srgb, #176b3a 7%, white);
 }
 
@@ -471,8 +500,8 @@ h2 {
 .attempt-summary .primary-action,
 .attempt-recovery .primary-action,
 .attempt-recovery .quiet-action {
-  width: 100%;
-  margin-top: 0.75rem;
+  width: auto;
+  margin-top: 0.5rem;
 }
 
 .attempt-recovery {
@@ -483,7 +512,7 @@ h2 {
 
 .saved-notice {
   margin: 0 0 1rem;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   border-left: 4px solid var(--ple-accent);
   background: var(--ple-surface-soft);
   color: var(--ple-accent-strong);
@@ -520,7 +549,7 @@ h2 {
 .loading-state,
 .empty-state,
 .route-error {
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
 }
 
 .inline-error {
@@ -543,8 +572,8 @@ h2 {
 .local-sign-in {
   display: grid;
   max-width: 36rem;
-  margin: 1.5rem 0;
-  gap: 0.65rem;
+  margin: 0.75rem 0;
+  gap: 0.4rem;
 }
 
 .local-sign-in label {
@@ -566,7 +595,7 @@ h2 {
 .action-row {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--ple-space-2);
+  gap: var(--ple-space-1);
 }
 
 .auth-page,
@@ -583,11 +612,12 @@ h2 {
 
 .auth-panel,
 .roster-section {
-  padding: clamp(0.875rem, 2vw, 1.25rem);
-  border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-surface);
-  background: var(--ple-card-surface);
-  box-shadow: var(--ple-shadow);
+  padding: 0.75rem 0 0;
+  border: 0;
+  border-top: 1px solid var(--ple-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .auth-panel h2,
@@ -615,7 +645,7 @@ h2 {
 .roster-section textarea {
   width: 100%;
   min-height: var(--ple-control-min-height);
-  padding: 0.5rem 0.65rem;
+  padding: 0.3rem 0.5rem;
   border: 2px solid var(--ple-border);
   border-radius: var(--ple-radius-control);
   background: var(--ple-surface);
@@ -659,7 +689,7 @@ h2 {
 .course-management-nav {
   width: fit-content;
   max-width: 100%;
-  margin: 0 0 var(--ple-space-5);
+  margin: 0 0 var(--ple-space-4);
   padding: 0;
   border: 0;
   border-bottom: 1px solid var(--ple-border);
@@ -668,7 +698,7 @@ h2 {
 }
 
 .roster-section {
-  margin-top: var(--ple-space-4);
+  margin-top: var(--ple-space-3);
 }
 
 .roster-table-wrap {
@@ -684,7 +714,7 @@ h2 {
 
 .roster-table th,
 .roster-table td {
-  padding: 0.65rem 0.75rem;
+  padding: 0.45rem 0.55rem;
   border-bottom: 1px solid var(--ple-border);
   vertical-align: top;
 }
@@ -708,12 +738,12 @@ h2 {
 .roster-import-preview .primary-action,
 .roster-section > .primary-action {
   justify-self: start;
-  margin-top: var(--ple-space-3);
+  margin-top: var(--ple-space-2);
 }
 
 .site-footer {
-  min-height: 4rem;
-  padding: 0.75rem;
+  min-height: 3rem;
+  padding: 0.5rem;
   border-top: 1px solid var(--ple-border);
   color: var(--ple-muted);
   text-align: center;
@@ -757,13 +787,27 @@ h2 {
 
   nav a {
     min-width: 0;
-    padding-inline: 0.65rem;
+    padding-inline: 0.4rem;
     flex: 1;
   }
 
   .assignment-facts,
   .question-card {
     grid-template-columns: 1fr;
+  }
+
+  .course-card {
+    grid-template-areas:
+      "kicker"
+      "title"
+      "summary"
+      "action";
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .course-card .primary-link {
+    justify-self: start;
+    margin-top: var(--ple-space-1);
   }
 
   .gradebook-table-wrap {
@@ -846,18 +890,22 @@ h2 {
   }
 
   .site-header nav {
+    display: grid;
     width: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    column-gap: 0.25rem;
   }
 
   .site-header nav a {
-    flex: 1 1 0;
     min-width: 0;
-    padding-inline: 0.5rem;
+    padding-inline: 0.15rem;
+    font-size: 0.78rem;
+    letter-spacing: -0.01em;
   }
 
   .shell {
     width: min(100% - 1rem, 72rem);
-    padding-top: 2rem;
+    padding-top: 1rem;
   }
 
   .site-header {
@@ -865,7 +913,7 @@ h2 {
   }
 
   .question-card {
-    padding: 1rem;
+    padding: 0.75rem 0;
   }
 
   .choice-card {

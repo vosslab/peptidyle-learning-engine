@@ -5,7 +5,14 @@ import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js
 import { useParams } from "@solidjs/router";
 
 import type { AssignmentSummary } from "../api/contracts";
-import type { AllowedEmailDomain, CourseRosterPage, RosterImportPreview } from "../api/enrollment";
+import type {
+  AllowedEmailDomain,
+  CourseRosterPage,
+  EmailEnrollmentRosterPage,
+  LocalTeachingRosterPage,
+  RosterImportPreview,
+} from "../api/enrollment";
+import { ApiRequestError } from "../api/http_client/error";
 import { newIdempotencyKey, readyRosterRows } from "../api/http_client/enrollment";
 import { useApiRuntime } from "../api/runtime";
 
@@ -26,6 +33,14 @@ interface LatestInvitationLink {
 
 function rosterError(state: RosterState): string {
   return state.kind === "error" ? state.message : "";
+}
+
+function emailEnrollmentRoster(roster: CourseRosterPage): EmailEnrollmentRosterPage | null {
+  return roster.rosterMode === "emailEnrollment" ? roster : null;
+}
+
+function localTeachingRoster(roster: CourseRosterPage): LocalTeachingRosterPage | null {
+  return roster.rosterMode === "localTeaching" ? roster : null;
 }
 
 function importStatusLabel(status: RosterImportPreview["rows"][number]["status"]): string {
@@ -79,6 +94,7 @@ export function CourseRosterPage(): JSX.Element {
   const [state, setState] = createSignal<RosterState>({ kind: "loading" });
   const [email, setEmail] = createSignal("");
   const [rosterId, setRosterId] = createSignal("");
+  const [activatedMemberId, setActivatedMemberId] = createSignal<string | null>(null);
   const [policyDomains, setPolicyDomains] = createSignal("");
   const [signupPosture, setSignupPosture] = createSignal<"invitationOnly" | "permittedDomains">(
     "invitationOnly",
@@ -115,13 +131,18 @@ export function CourseRosterPage(): JSX.Element {
         runtime.client.listAssignments(courseId),
       ]);
       setState({ kind: "ready", roster, assignments: assignments.items });
-      setPolicyDomains(policyLines(roster.allowedEmailDomains));
-      setSignupPosture(roster.signupPosture);
+      const emailRoster = emailEnrollmentRoster(roster);
+      if (emailRoster !== null) {
+        setPolicyDomains(policyLines(emailRoster.allowedEmailDomains));
+        setSignupPosture(emailRoster.signupPosture);
+      }
       if (selectedAssignment().length === 0 && assignments.items[0] !== undefined) {
         setSelectedAssignment(assignments.items[0].id);
       }
       setAnnouncement(
-        `Roster loaded with ${roster.members.length} member${roster.members.length === 1 ? "" : "s"} and ${roster.pendingInvitations.length} pending invitation${roster.pendingInvitations.length === 1 ? "" : "s"}.`,
+        emailRoster === null
+          ? `Roster loaded with ${roster.members.length} active local member${roster.members.length === 1 ? "" : "s"}.`
+          : `Roster loaded with ${roster.members.length} member${roster.members.length === 1 ? "" : "s"} and ${emailRoster.pendingInvitations.length} pending invitation${emailRoster.pendingInvitations.length === 1 ? "" : "s"}.`,
       );
     } catch {
       setState({ kind: "error", message: "The course roster could not load." });
@@ -188,17 +209,53 @@ export function CourseRosterPage(): JSX.Element {
         await load();
         return;
       }
-      const roster = {
-        ...next,
-        members: [...current.roster.members, ...next.members],
-        pendingInvitations: [...current.roster.pendingInvitations, ...next.pendingInvitations],
-      };
+      if (next.rosterMode !== current.roster.rosterMode) {
+        setError(
+          "The roster capabilities changed while loading. The current roster was refreshed.",
+        );
+        await load();
+        return;
+      }
+      const roster =
+        next.rosterMode === "localTeaching" && current.roster.rosterMode === "localTeaching"
+          ? { ...next, members: [...current.roster.members, ...next.members] }
+          : next.rosterMode === "emailEnrollment" && current.roster.rosterMode === "emailEnrollment"
+            ? {
+                ...next,
+                members: [...current.roster.members, ...next.members],
+                pendingInvitations: [
+                  ...current.roster.pendingInvitations,
+                  ...next.pendingInvitations,
+                ],
+              }
+            : next;
       setState({ ...current, roster });
       setAnnouncement(
-        `Loaded ${next.members.length + next.pendingInvitations.length} more roster entries.`,
+        `Loaded ${next.members.length + (next.rosterMode === "emailEnrollment" ? next.pendingInvitations.length : 0)} more roster entries.`,
       );
     } catch {
       setError("More roster entries could not be loaded. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addLocalTeachingMember(learnerAlias: string): Promise<void> {
+    const current = ready();
+    if (courseId === undefined || current === null) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const accepted = await runtime.client.addLocalTeachingMember(courseId, learnerAlias);
+      setActivatedMemberId(accepted.member.memberId);
+      await load();
+      setAnnouncement(`${accepted.member.displayName} is now an active student in this course.`);
+    } catch (caught) {
+      setError(
+        caught instanceof ApiRequestError && caught.status === 404
+          ? "That local teaching student is no longer available. Choose another student and try again."
+          : "The local teaching roster is unavailable. Try again when it is ready.",
+      );
     } finally {
       setBusy(false);
     }
@@ -356,8 +413,7 @@ export function CourseRosterPage(): JSX.Element {
       <p class="eyebrow">Course management</p>
       <h1>Students</h1>
       <p class="page-lede">
-        Invite learners, review pending addresses, import a roster, and export grades by the
-        course-scoped institutional ID.
+        Review active students, add configured local learners when available, and export grades.
       </p>
       <A class="quiet-link" href={`/courses/${courseId ?? ""}`}>
         Back to course
@@ -392,75 +448,105 @@ export function CourseRosterPage(): JSX.Element {
         {(current) => (
           <>
             <div class="roster-workflow-grid">
-              <form class="auth-panel auth-form" onSubmit={(event) => void invite(event)}>
-                <h2>Invite one student</h2>
-                <label for="roster-email">Institutional email</label>
-                <input
-                  id="roster-email"
-                  type="email"
-                  autocomplete="off"
-                  maxlength={320}
-                  required
-                  value={email()}
-                  onInput={(event) => setEmail(event.currentTarget.value)}
-                />
-                <label for="roster-id">Institutional student ID</label>
-                <input
-                  id="roster-id"
-                  inputmode="text"
-                  maxlength={64}
-                  pattern="[A-Za-z0-9._-]+"
-                  required
-                  value={rosterId()}
-                  onInput={(event) => setRosterId(event.currentTarget.value)}
-                />
-                <p class="field-help">
-                  This ID is course-scoped and used for manual LMS grade matching, never sign-in.
-                </p>
-                <p class="field-help">
-                  PLE shows a one-time link after creation. You can share it through your LMS even
-                  when course-invitation email is unavailable.
-                </p>
-                <button class="primary-action" type="submit" disabled={busy()}>
-                  Create invitation
-                </button>
-              </form>
+              <Show when={localTeachingRoster(current().roster)?.localTeachingLearners}>
+                {(learners) => (
+                  <section class="auth-panel auth-form" aria-labelledby="local-teaching-heading">
+                    <h2>Add local teaching student</h2>
+                    <p id="local-teaching-heading" class="field-help">
+                      Add a configured local student without email or account onboarding.
+                    </p>
+                    <div class="local-teaching-choices" aria-describedby="local-teaching-heading">
+                      <For each={learners()}>
+                        {(learner) => (
+                          <button
+                            class="quiet-action"
+                            type="button"
+                            disabled={busy()}
+                            onClick={() => void addLocalTeachingMember(learner.alias)}
+                          >
+                            Add {learner.displayName}
+                          </button>
+                        )}
+                      </For>
+                    </div>
+                  </section>
+                )}
+              </Show>
+              <Show when={emailEnrollmentRoster(current().roster)}>
+                <>
+                  <form class="auth-panel auth-form" onSubmit={(event) => void invite(event)}>
+                    <h2>Invite one student</h2>
+                    <label for="roster-email">Institutional email</label>
+                    <input
+                      id="roster-email"
+                      type="email"
+                      autocomplete="off"
+                      maxlength={320}
+                      required
+                      value={email()}
+                      onInput={(event) => setEmail(event.currentTarget.value)}
+                    />
+                    <label for="roster-id">Institutional student ID</label>
+                    <input
+                      id="roster-id"
+                      inputmode="text"
+                      maxlength={64}
+                      pattern="[A-Za-z0-9._-]+"
+                      required
+                      value={rosterId()}
+                      onInput={(event) => setRosterId(event.currentTarget.value)}
+                    />
+                    <p class="field-help">
+                      This ID is course-scoped and used for manual LMS grade matching, never
+                      sign-in.
+                    </p>
+                    <p class="field-help">
+                      PLE shows a one-time link after creation. You can share it through your LMS
+                      even when course-invitation email is unavailable.
+                    </p>
+                    <button class="primary-action" type="submit" disabled={busy()}>
+                      Create invitation
+                    </button>
+                  </form>
 
-              <form class="auth-panel auth-form" onSubmit={(event) => void savePolicy(event)}>
-                <h2>Enrollment policy</h2>
-                <label for="signup-posture">How learners may join</label>
-                <select
-                  id="signup-posture"
-                  value={signupPosture()}
-                  onChange={(event) =>
-                    setSignupPosture(
-                      event.currentTarget.value === "permittedDomains"
-                        ? "permittedDomains"
-                        : "invitationOnly",
-                    )
-                  }
-                >
-                  <option value="invitationOnly">Invitation only</option>
-                  <option value="permittedDomains">Invitations and permitted domains</option>
-                </select>
-                <label for="permitted-domains">Permitted email domains</label>
-                <textarea
-                  id="permitted-domains"
-                  rows={4}
-                  value={policyDomains()}
-                  onInput={(event) => setPolicyDomains(event.currentTarget.value)}
-                  aria-describedby="permitted-domains-help"
-                />
-                <p id="permitted-domains-help" class="field-help">
-                  One exact domain per line. Prefix with *. only when subdomains are intentional.
-                </p>
-                <button class="quiet-action" type="submit" disabled={busy()}>
-                  Save enrollment policy
-                </button>
-              </form>
+                  <form class="auth-panel auth-form" onSubmit={(event) => void savePolicy(event)}>
+                    <h2>Enrollment policy</h2>
+                    <label for="signup-posture">How learners may join</label>
+                    <select
+                      id="signup-posture"
+                      value={signupPosture()}
+                      onChange={(event) =>
+                        setSignupPosture(
+                          event.currentTarget.value === "permittedDomains"
+                            ? "permittedDomains"
+                            : "invitationOnly",
+                        )
+                      }
+                    >
+                      <option value="invitationOnly">Invitation only</option>
+                      <option value="permittedDomains">Invitations and permitted domains</option>
+                    </select>
+                    <label for="permitted-domains">Permitted email domains</label>
+                    <textarea
+                      id="permitted-domains"
+                      rows={4}
+                      value={policyDomains()}
+                      onInput={(event) => setPolicyDomains(event.currentTarget.value)}
+                      aria-describedby="permitted-domains-help"
+                    />
+                    <p id="permitted-domains-help" class="field-help">
+                      One exact domain per line. Prefix with *. only when subdomains are
+                      intentional.
+                    </p>
+                    <button class="quiet-action" type="submit" disabled={busy()}>
+                      Save enrollment policy
+                    </button>
+                  </form>
+                </>
+              </Show>
             </div>
 
-            <Show when={latestInvitationLink()}>
+            <Show when={emailEnrollmentRoster(current().roster) !== null && latestInvitationLink()}>
               {(invitation) => (
                 <section
                   class="roster-section auth-panel auth-form"
@@ -498,67 +584,73 @@ export function CourseRosterPage(): JSX.Element {
               )}
             </Show>
 
-            <section class="roster-section" aria-labelledby="pending-invitations-heading">
-              <h2 id="pending-invitations-heading">Pending invitations</h2>
-              <Show
-                when={current().roster.pendingInvitations.length > 0}
-                fallback={<p class="empty-state">No invitations are waiting.</p>}
-              >
-                <div class="roster-table-wrap">
-                  <table class="roster-table">
-                    <thead>
-                      <tr>
-                        <th scope="col">Email</th>
-                        <th scope="col">Roster ID</th>
-                        <th scope="col">Expires</th>
-                        <th scope="col">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <For each={current().roster.pendingInvitations}>
-                        {(invitation) => (
+            <Show when={emailEnrollmentRoster(current().roster)}>
+              {(emailRoster) => (
+                <section class="roster-section" aria-labelledby="pending-invitations-heading">
+                  <h2 id="pending-invitations-heading">Pending invitations</h2>
+                  <Show
+                    when={emailRoster().pendingInvitations.length > 0}
+                    fallback={<p class="empty-state">No invitations are waiting.</p>}
+                  >
+                    <div class="roster-table-wrap">
+                      <table class="roster-table">
+                        <thead>
                           <tr>
-                            <td>{invitation.email}</td>
-                            <td>
-                              <code>{invitation.rosterId}</code>
-                            </td>
-                            <td>
-                              {new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
-                                new Date(invitation.expiresAt),
-                              )}
-                            </td>
-                            <td>
-                              <button
-                                class="quiet-action"
-                                type="button"
-                                disabled={busy()}
-                                onClick={() => void revokeInvitation(invitation.invitationId)}
-                              >
-                                Cancel invitation
-                              </button>
-                            </td>
+                            <th scope="col">Email</th>
+                            <th scope="col">Roster ID</th>
+                            <th scope="col">Expires</th>
+                            <th scope="col">Action</th>
                           </tr>
-                        )}
-                      </For>
-                    </tbody>
-                  </table>
-                </div>
-              </Show>
-            </section>
+                        </thead>
+                        <tbody>
+                          <For each={emailRoster().pendingInvitations}>
+                            {(invitation) => (
+                              <tr>
+                                <td>{invitation.email}</td>
+                                <td>
+                                  <code>{invitation.rosterId}</code>
+                                </td>
+                                <td>
+                                  {new Intl.DateTimeFormat(undefined, {
+                                    dateStyle: "medium",
+                                  }).format(new Date(invitation.expiresAt))}
+                                </td>
+                                <td>
+                                  <button
+                                    class="quiet-action"
+                                    type="button"
+                                    disabled={busy()}
+                                    onClick={() => void revokeInvitation(invitation.invitationId)}
+                                  >
+                                    Cancel invitation
+                                  </button>
+                                </td>
+                              </tr>
+                            )}
+                          </For>
+                        </tbody>
+                      </table>
+                    </div>
+                  </Show>
+                </section>
+              )}
+            </Show>
 
             <section class="roster-section" aria-labelledby="course-members-heading">
               <h2 id="course-members-heading">Course members</h2>
               <Show
                 when={current().roster.members.length > 0}
-                fallback={<p class="empty-state">No students have claimed an invitation yet.</p>}
+                fallback={<p class="empty-state">No active students are enrolled yet.</p>}
               >
                 <div class="roster-table-wrap">
                   <table class="roster-table">
                     <thead>
                       <tr>
                         <th scope="col">Student</th>
-                        <th scope="col">Email</th>
-                        <th scope="col">Roster ID</th>
+                        <Show when={emailEnrollmentRoster(current().roster) !== null}>
+                          <th scope="col">Email</th>
+                          <th scope="col">Roster ID</th>
+                        </Show>
                         <th scope="col">Status</th>
                         <th scope="col">Action</th>
                       </tr>
@@ -566,16 +658,32 @@ export function CourseRosterPage(): JSX.Element {
                     <tbody>
                       <For each={current().roster.members}>
                         {(member) => (
-                          <tr>
+                          <tr
+                            // Every roster row remains programmatically focusable, but none is a
+                            // Tab stop.  The activation marker only selects the one new row to
+                            // announce and focus; clearing it must not remove focusability from
+                            // the focused element.
+                            tabindex={-1}
+                            ref={(element) => {
+                              if (member.memberId === activatedMemberId()) {
+                                queueMicrotask(() => {
+                                  element.focus();
+                                  setActivatedMemberId(null);
+                                });
+                              }
+                            }}
+                          >
                             <th scope="row">{member.displayName}</th>
-                            <td>
-                              {member.rosterEmail ?? "Not provided"}
-                            </td>
-                            <td>
-                              {member.rosterId === null ? "Not provided" : (
-                                <code>{member.rosterId}</code>
-                              )}
-                            </td>
+                            <Show when={emailEnrollmentRoster(current().roster) !== null}>
+                              <td>{member.rosterEmail ?? "Not provided"}</td>
+                              <td>
+                                {member.rosterId === null ? (
+                                  "Not provided"
+                                ) : (
+                                  <code>{member.rosterId}</code>
+                                )}
+                              </td>
+                            </Show>
                             <td>{member.status}</td>
                             <td>
                               <Show
@@ -611,105 +719,109 @@ export function CourseRosterPage(): JSX.Element {
               </Show>
             </section>
 
-            <section class="roster-section auth-panel" aria-labelledby="roster-import-heading">
-              <h2 id="roster-import-heading">Import a CSV roster</h2>
-              <p>
-                Use exactly two columns: <code>email,roster_id</code>. PLE discards the raw file
-                after bounded parsing.
-              </p>
-              <form class="auth-form" onSubmit={(event) => void previewImport(event)}>
-                <label for="roster-file">Roster CSV</label>
-                <input
-                  id="roster-file"
-                  type="file"
-                  accept=".csv,text/csv"
-                  required
-                  onChange={(event) => setSelectedFile(event.currentTarget.files?.[0] ?? null)}
-                />
-                <button
-                  class="quiet-action"
-                  type="submit"
-                  disabled={busy() || selectedFile() === null}
-                >
-                  Preview roster
-                </button>
-              </form>
-              <Show when={preview()}>
-                {(report) => (
-                  <div class="roster-import-preview">
-                    <h3>Review before inviting</h3>
-                    <div class="roster-table-wrap">
-                      <table class="roster-table">
-                        <thead>
-                          <tr>
-                            <th scope="col">Invite</th>
-                            <th scope="col">CSV row</th>
-                            <th scope="col">Email</th>
-                            <th scope="col">Roster ID</th>
-                            <th scope="col">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <For each={report().rows}>
-                            {(row) => (
-                              <tr>
-                                <td>
-                                  <input
-                                    type="checkbox"
-                                    aria-label={`Invite CSV row ${row.rowNumber}`}
-                                    checked={selectedRows().has(row.rowNumber)}
-                                    disabled={row.status !== "readyToInvite" || busy()}
-                                    onChange={() => toggleRow(row.rowNumber)}
-                                  />
-                                </td>
-                                <td>{row.rowNumber}</td>
-                                <td>{row.email ?? "Not retained"}</td>
-                                <td>{row.rosterId ?? "Not retained"}</td>
-                                <td>{importStatusLabel(row.status)}</td>
-                              </tr>
-                            )}
-                          </For>
-                        </tbody>
-                      </table>
+            <Show when={emailEnrollmentRoster(current().roster)}>
+              <section class="roster-section auth-panel" aria-labelledby="roster-import-heading">
+                <h2 id="roster-import-heading">Import a CSV roster</h2>
+                <p>
+                  Use exactly two columns: <code>email,roster_id</code>. PLE discards the raw file
+                  after bounded parsing.
+                </p>
+                <form class="auth-form" onSubmit={(event) => void previewImport(event)}>
+                  <label for="roster-file">Roster CSV</label>
+                  <input
+                    id="roster-file"
+                    type="file"
+                    accept=".csv,text/csv"
+                    required
+                    onChange={(event) => setSelectedFile(event.currentTarget.files?.[0] ?? null)}
+                  />
+                  <button
+                    class="quiet-action"
+                    type="submit"
+                    disabled={busy() || selectedFile() === null}
+                  >
+                    Preview roster
+                  </button>
+                </form>
+                <Show when={preview()}>
+                  {(report) => (
+                    <div class="roster-import-preview">
+                      <h3>Review before inviting</h3>
+                      <div class="roster-table-wrap">
+                        <table class="roster-table">
+                          <thead>
+                            <tr>
+                              <th scope="col">Invite</th>
+                              <th scope="col">CSV row</th>
+                              <th scope="col">Email</th>
+                              <th scope="col">Roster ID</th>
+                              <th scope="col">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <For each={report().rows}>
+                              {(row) => (
+                                <tr>
+                                  <td>
+                                    <input
+                                      type="checkbox"
+                                      aria-label={`Invite CSV row ${row.rowNumber}`}
+                                      checked={selectedRows().has(row.rowNumber)}
+                                      disabled={row.status !== "readyToInvite" || busy()}
+                                      onChange={() => toggleRow(row.rowNumber)}
+                                    />
+                                  </td>
+                                  <td>{row.rowNumber}</td>
+                                  <td>{row.email ?? "Not retained"}</td>
+                                  <td>{row.rosterId ?? "Not retained"}</td>
+                                  <td>{importStatusLabel(row.status)}</td>
+                                </tr>
+                              )}
+                            </For>
+                          </tbody>
+                        </table>
+                      </div>
+                      <button
+                        class="primary-action"
+                        type="button"
+                        disabled={busy() || selectedRows().size === 0}
+                        onClick={() => void commitImport()}
+                      >
+                        Send selected invitations
+                      </button>
                     </div>
-                    <button
-                      class="primary-action"
-                      type="button"
-                      disabled={busy() || selectedRows().size === 0}
-                      onClick={() => void commitImport()}
-                    >
-                      Send selected invitations
-                    </button>
-                  </div>
-                )}
-              </Show>
-            </section>
+                  )}
+                </Show>
+              </section>
+            </Show>
 
-            <section class="roster-section auth-panel" aria-labelledby="grade-export-heading">
-              <h2 id="grade-export-heading">Manual LMS grade export</h2>
-              <p>
-                The download contains only course roster ID, roster email, display name, and the
-                selected score for one assignment.
-              </p>
-              <label for="grade-export-assignment">Assignment</label>
-              <select
-                id="grade-export-assignment"
-                value={selectedAssignment()}
-                onChange={(event) => setSelectedAssignment(event.currentTarget.value)}
-              >
-                <For each={current().assignments}>
-                  {(assignment) => <option value={assignment.id}>{assignment.title}</option>}
-                </For>
-              </select>
-              <button
-                class="primary-action"
-                type="button"
-                disabled={busy() || selectedAssignment().length === 0}
-                onClick={() => void exportGrades()}
-              >
-                Download grade CSV
-              </button>
-            </section>
+            <Show when={emailEnrollmentRoster(current().roster)}>
+              <section class="roster-section auth-panel" aria-labelledby="grade-export-heading">
+                <h2 id="grade-export-heading">Manual LMS grade export</h2>
+                <p>
+                  The download contains only course roster ID, roster email, display name, and the
+                  selected score for one assignment.
+                </p>
+                <label for="grade-export-assignment">Assignment</label>
+                <select
+                  id="grade-export-assignment"
+                  value={selectedAssignment()}
+                  onChange={(event) => setSelectedAssignment(event.currentTarget.value)}
+                >
+                  <For each={current().assignments}>
+                    {(assignment) => <option value={assignment.id}>{assignment.title}</option>}
+                  </For>
+                </select>
+                <button
+                  class="primary-action"
+                  type="button"
+                  disabled={busy() || selectedAssignment().length === 0}
+                  onClick={() => void exportGrades()}
+                >
+                  Download grade CSV
+                </button>
+              </section>
+            </Show>
           </>
         )}
       </Show>

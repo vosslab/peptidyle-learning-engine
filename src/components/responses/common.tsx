@@ -21,6 +21,7 @@ type WidgetPhase =
   | { readonly kind: "idle" }
   | { readonly kind: "validating" }
   | { readonly kind: "ready" }
+  | { readonly kind: "restored" }
   | { readonly kind: "invalid"; readonly message: string }
   | { readonly kind: "submitting" }
   | { readonly kind: "submitted" }
@@ -28,7 +29,8 @@ type WidgetPhase =
 
 export interface ResponseWidgetBaseProps {
   readonly attemptId: string;
-  readonly validator: WasmFacade;
+  /** Response controls require only the key-free local format validation capability. */
+  readonly validator: Pick<WasmFacade, "validateResponseFormat">;
   readonly onSubmit: (response: StudentResponse) => Promise<void>;
   readonly onEscape: () => void;
   readonly onResponseChange?: (response: StudentResponse, validation: ResponseFormatReport) => void;
@@ -51,8 +53,12 @@ export interface SubmissionController {
   readonly phase: () => WidgetPhase;
   readonly invalid: () => boolean;
   readonly pending: () => boolean;
+  readonly locked: () => boolean;
   readonly canSubmit: () => boolean;
+  readonly canReset: () => boolean;
   readonly validate: (response: StudentResponse) => Promise<void>;
+  /** Restore an unsubmitted response and invalidate any older format check. */
+  readonly reset: (response: StudentResponse) => Promise<void>;
   readonly submit: (response: StudentResponse) => Promise<void>;
 }
 
@@ -113,7 +119,7 @@ function reportMessage(report: ResponseFormatReport): string {
 
 /** Browser-only format check: deliberately has no submit or grading dependency. */
 export async function validateResponseLocally(
-  validator: WasmFacade,
+  validator: Pick<WasmFacade, "validateResponseFormat">,
   definition: ResponseDefinition,
   response: StudentResponse,
 ): Promise<ResponseFormatReport> {
@@ -133,6 +139,8 @@ function phaseMessage(phase: WidgetPhase): string {
       return "Checking response format...";
     case "ready":
       return "Response format is ready to submit.";
+    case "restored":
+      return "Response restored. Check it, then submit when you are ready.";
     case "invalid":
     case "failed":
       return phase.message;
@@ -153,7 +161,7 @@ export function createSubmissionController(
   let submissionRequest = 0;
 
   async function validate(response: StudentResponse): Promise<void> {
-    if (phase().kind === "submitting") return;
+    if (phase().kind === "submitting" || phase().kind === "submitted") return;
     validationRequest += 1;
     const request = validationRequest;
     setPhase({ kind: "validating" });
@@ -174,6 +182,7 @@ export function createSubmissionController(
   }
 
   async function submit(response: StudentResponse): Promise<void> {
+    if (phase().kind === "submitting" || phase().kind === "submitted") return;
     if (phase().kind !== "ready") {
       await validate(response);
       if (phase().kind !== "ready") return;
@@ -194,13 +203,42 @@ export function createSubmissionController(
     }
   }
 
-  if (initialResponse !== undefined) void validate(initialResponse);
+  async function reset(response: StudentResponse): Promise<void> {
+    if (phase().kind === "submitting" || phase().kind === "submitted") return;
+    // A restored response supersedes every earlier asynchronous format report.
+    validationRequest += 1;
+    const request = validationRequest;
+    setPhase({ kind: "validating" });
+    try {
+      const report = await validateResponseLocally(props.validator, props.definition, response);
+      if (request !== validationRequest || phase().kind === "submitting") return;
+      props.onResponseChange?.(response, report);
+      setPhase(
+        report.violations.length === 0
+          ? { kind: "restored" }
+          : { kind: "invalid", message: reportMessage(report) },
+      );
+    } catch (error: unknown) {
+      if (request !== validationRequest || phase().kind === "submitting") return;
+      const message = error instanceof Error ? error.message : "format validation was unavailable";
+      setPhase({ kind: "failed", message: `Cannot check this response yet: ${message}.` });
+    }
+  }
+
+  // A fresh issued control starts neutral. Only a genuinely restored learner
+  // response should surface format readiness or an error before interaction.
+  if (props.initialResponse !== undefined && initialResponse !== undefined) {
+    void validate(initialResponse);
+  }
   return {
     phase,
     invalid: () => phase().kind === "invalid" || phase().kind === "failed",
     pending: () => phase().kind === "submitting",
-    canSubmit: () => phase().kind === "ready",
+    locked: () => phase().kind === "submitting" || phase().kind === "submitted",
+    canSubmit: () => phase().kind === "ready" || phase().kind === "restored",
+    canReset: () => phase().kind !== "submitting" && phase().kind !== "submitted",
     validate,
+    reset,
     submit,
   };
 }
@@ -217,6 +255,7 @@ export function Status(props: {
         error: props.controller.invalid(),
         ready:
           props.controller.phase().kind === "ready" ||
+          props.controller.phase().kind === "restored" ||
           props.controller.phase().kind === "submitted",
       }}
       role="status"
@@ -230,11 +269,14 @@ export function Status(props: {
 
 export function Actions(props: {
   readonly disabled: boolean;
+  readonly resetDisabled?: boolean;
   readonly onSubmit: () => void;
+  readonly onReset?: () => void;
+  readonly resetLabel?: "Clear response" | "Reset order";
   readonly onEscape: () => void;
 }): JSX.Element {
   return (
-    <>
+    <div class="response-actions">
       <button
         class="primary-action"
         type="button"
@@ -243,9 +285,19 @@ export function Actions(props: {
       >
         Submit answer
       </button>
+      {props.onReset === undefined ? null : (
+        <button
+          class="quiet-action"
+          type="button"
+          disabled={props.resetDisabled ?? props.disabled}
+          onClick={props.onReset}
+        >
+          {props.resetLabel ?? "Clear response"}
+        </button>
+      )}
       <button class="quiet-action" type="button" onClick={props.onEscape}>
         Return to assignment <span aria-hidden="true">(Esc)</span>
       </button>
-    </>
+    </div>
   );
 }

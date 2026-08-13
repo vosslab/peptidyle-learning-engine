@@ -10,11 +10,11 @@ use learning_data_access::{
 use serde::{Deserialize, Serialize};
 
 use super::assignments::{create_assignment, get_assignment, update_assignment};
-use super::queries::{create_course, get_course, list_assignments, list_courses, list_gradebook};
-use super::roster::{
+use super::invitation_capability::{
     CourseInvitationDelivery, CourseInvitationIssuer, UnavailableCourseInvitationDelivery,
-    roster_router,
 };
+use super::queries::{create_course, get_course, list_assignments, list_courses, list_gradebook};
+use super::roster::{LocalTeachingRosterDirectory, roster_router};
 
 pub(super) const DEFAULT_PAGE_SIZE: u16 = 50;
 const MAX_COURSE_BODY_BYTES: usize = 64 * 1_024;
@@ -30,10 +30,11 @@ where
         + SessionStore
         + 'static,
 {
-    router_with_invitations(
+    router_with_invitations_and_local_teaching(
         store,
         CourseInvitationIssuer::unavailable(),
         Arc::new(UnavailableCourseInvitationDelivery),
+        None,
     )
 }
 
@@ -44,6 +45,27 @@ pub fn router_with_invitations<S>(
     store: Arc<S>,
     issuer: CourseInvitationIssuer,
     delivery: Arc<dyn CourseInvitationDelivery>,
+) -> Router
+where
+    S: Store
+        + CatalogStore
+        + CourseRecordsAccessStore
+        + CourseRosterStore
+        + ManualGradeExportStore
+        + SessionStore
+        + 'static,
+{
+    router_with_invitations_and_local_teaching(store, issuer, delivery, None)
+}
+
+/// Builds the local-teaching course router with a server-owned learner directory.
+/// Production composition always passes `None`, so this route cannot be mounted
+/// outside the paired local authentication mode.
+pub(crate) fn router_with_invitations_and_local_teaching<S>(
+    store: Arc<S>,
+    issuer: CourseInvitationIssuer,
+    delivery: Arc<dyn CourseInvitationDelivery>,
+    local_teaching_roster: Option<Arc<LocalTeachingRosterDirectory>>,
 ) -> Router
 where
     S: Store
@@ -74,7 +96,12 @@ where
         .with_state(CourseRouteState {
             store: Arc::clone(&store),
         });
-    course_routes.merge(roster_router(store, issuer, delivery))
+    course_routes.merge(roster_router(
+        store,
+        issuer,
+        delivery,
+        local_teaching_roster,
+    ))
 }
 
 pub(super) struct CourseRouteState<S> {

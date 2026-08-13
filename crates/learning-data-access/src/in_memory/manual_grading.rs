@@ -99,9 +99,15 @@ fn submit_pending_manual_question_attempt_locked(
         .cloned()
         .ok_or(StoreError::NotFound)?;
     require_attempt_owner(state, tenant, &base, command.actor)?;
-    if let Some(stored) = state.submissions.get(&(tenant, command.attempt)) {
-        return if stored.key == command.idempotency_key && stored.response == command.response {
-            Ok(stored.record.clone())
+    if let Some(matches_request) = state
+        .submissions
+        .get(&(tenant, command.attempt))
+        .map(|stored| stored.key == command.idempotency_key && stored.response == command.response)
+    {
+        return if matches_request {
+            super::runs::load_submission_record(state, tenant, &base)?.ok_or_else(|| {
+                StoreError::Unavailable("submission receipt disappeared during replay".to_string())
+            })
         } else {
             Err(StoreError::Conflict)
         };
@@ -109,6 +115,9 @@ fn submit_pending_manual_question_attempt_locked(
     if projected_attempt(state, tenant, &base).status != AttemptStatus::InProgress {
         return Err(StoreError::Conflict);
     }
+    // Validate the issued snapshot before any receipt, attempt, or run
+    // mutation. The pending-grade receipt copies it without reconstruction.
+    let presentation = super::runs::load_issued_presentation(state, tenant, &base)?;
     let run = state
         .runs
         .get(&(tenant, base.run))
@@ -120,12 +129,17 @@ fn submit_pending_manual_question_attempt_locked(
     let enrollment = enrollment_record(state, tenant, run.enrollment)?;
     let assignment = assignment_record(state, tenant, enrollment.assignment)?;
     require_course_records_accessible(state, tenant, assignment.course_id)?;
-    let authored_policy = state
+    let published = state
         .published
         .get(&(base.problem, base.question_version))
-        .ok_or(StoreError::NotFound)?
-        .question
-        .timing_policy;
+        .ok_or(StoreError::NotFound)?;
+    let authored_policy = published.question.timing_policy;
+    let feedback_disclosure = *state
+        .attempt_feedback_disclosures
+        .get(&(tenant, command.attempt))
+        .ok_or_else(|| {
+            StoreError::Unavailable("issued feedback disclosure is missing".to_string())
+        })?;
     let submitted_at = state.authoritative_time;
     let mut submitted = projected_attempt(state, tenant, &base);
     submitted.response = Some(command.response.clone());
@@ -169,6 +183,8 @@ fn submit_pending_manual_question_attempt_locked(
         run: run.clone(),
         summary: summary.clone(),
         feedback: private_feedback_record(FeedbackContent::default())?,
+        presentation,
+        feedback_disclosure,
     };
     state.submissions.insert(
         (tenant, command.attempt),

@@ -12,7 +12,7 @@ use crate::auth::{
     PasswordlessEmailSecret,
 };
 
-use super::roster::{
+use super::invitation_capability::{
     CourseInvitationDelivery, CourseInvitationDeliveryError, CourseInvitationSecret,
 };
 

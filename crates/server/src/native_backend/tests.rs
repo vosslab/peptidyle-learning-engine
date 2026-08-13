@@ -126,6 +126,8 @@ fn asset_record(
             provenance: "native bridge test".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
         },
+        intrinsic_width: None,
+        intrinsic_height: None,
         scope: AssetDeliveryScope::Catalog { asset, reference },
     }
 }
@@ -246,6 +248,7 @@ async fn published_flat_fixture() -> (
             created_at: ActivityTimestamp::from_unix_millis(1_001),
         },
     };
+    let published_question = draft.question.clone();
     store
         .publish_draft(
             context,
@@ -262,6 +265,8 @@ async fn published_flat_fixture() -> (
                 flat_question_promotion: Some(FlatQuestionPublicationPromotion {
                     source: staged,
                     import_origin: None,
+                    published_question,
+                    assets: Vec::new(),
                 }),
                 publisher: owner,
                 scope: question_model::PublicationScope::Institution,
@@ -305,6 +310,7 @@ async fn published_flat_fixture() -> (
             submitted_at: None,
         },
         provenance: issued.provenance,
+        issued_capability: question_model::IssuedAttemptCapabilityV1::FlatPresentation,
     };
     (
         backend,
@@ -479,6 +485,38 @@ async fn active_attempt_id(app: &Router, run: &str, cookie: &str) -> String {
         .expect("an active retry attempt is issued")
 }
 
+async fn rendered_choice_id(app: &Router, attempt: &str, cookie: &str, label: &str) -> ChoiceId {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/attempts/{attempt}/question"))
+                .header("cookie", cookie)
+                .body(Body::empty())
+                .expect("rendered choice request"),
+        )
+        .await
+        .expect("rendered choice response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let envelope = response_json(response).await;
+    let expected_body = serde_json::json!([{
+        "kind": "text",
+        "markdown": label,
+    }]);
+    let identifier = envelope
+        .pointer("/response/choices")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|choices| {
+            choices.iter().find_map(|choice| {
+                (choice.get("body") == Some(&expected_body))
+                    .then(|| choice.get("id").and_then(serde_json::Value::as_str))
+                    .flatten()
+            })
+        })
+        .expect("visible choice has a rendered ID");
+    ChoiceId::new(identifier)
+}
+
 #[tokio::test]
 async fn native_bridge_reproduces_only_with_exact_memory_catalog_assets() {
     let store = Arc::new(MemoryStore::default());
@@ -563,6 +601,7 @@ async fn native_bridge_reproduces_only_with_exact_memory_catalog_assets() {
             submitted_at: None,
         },
         provenance: issued.provenance,
+        issued_capability: question_model::IssuedAttemptCapabilityV1::PresentationEnvelope,
     };
     let envelope = backend
         .reproduce(context, reference, &published, &attempt)
@@ -649,7 +688,18 @@ async fn flat_question_grades_from_isolated_memory_grader_and_keeps_issue_answer
         .expect("private grader grades the incorrect choice");
     assert!(matches!(wrong, GradeOutcome::Graded(result) if !result.correct));
 
-    let disposition = backend
+    let issued_flat_grading = backend
+        .issue(context, reference, &question, attempt.seed)
+        .await
+        .expect("issue retains flat grading authority")
+        .flat_grading
+        .expect("flat family requires an issued private grading contract");
+
+    let receipt_backend = NativeBackend::new(
+        Arc::new(adapter_native::NativeAdapter::new()),
+        Arc::clone(&_store),
+    );
+    let disposition = receipt_backend
         .submit(RunSubmission {
             context,
             actor: UserId::from_uuid(uuid(111)),
@@ -658,10 +708,13 @@ async fn flat_question_grades_from_isolated_memory_grader_and_keeps_issue_answer
             reference,
             question: &question,
             attempt: &attempt,
+            issued_grading_envelope: Some(&envelope),
+            issued_flat_grading: Some(&issued_flat_grading),
+            issued_webwork_grading: None,
             response: &wrong_response,
         })
         .await
-        .expect("flat submission prepares trusted feedback");
+        .expect("issued contract grades without a current flat-question grader");
     let SubmissionDisposition::Grade(receipt) = disposition else {
         panic!("flat question should return a numerical receipt");
     };
@@ -697,6 +750,8 @@ async fn flat_run_route_retries_wrong_first_source_choice_then_completes_correct
         .expect("run has a public id")
         .to_string();
     let first_attempt = active_attempt_id(&app, &run_id, &cookie).await;
+    let first_wrong = rendered_choice_id(&app, &first_attempt, &cookie, "Red").await;
+    assert_ne!(first_wrong, ChoiceId::new("red"));
 
     let wrong = app
         .clone()
@@ -706,7 +761,7 @@ async fn flat_run_route_retries_wrong_first_source_choice_then_completes_correct
             "flat-route-wrong-first",
             serde_json::json!({
                 "response": StudentResponse::MultipleChoice {
-                    selected: vec![ChoiceId::new("red")],
+                    selected: vec![first_wrong],
                 }
             }),
         ))
@@ -735,6 +790,8 @@ async fn flat_run_route_retries_wrong_first_source_choice_then_completes_correct
         Some(&serde_json::json!(second_attempt)),
         "wrong attempt receives a successor under unlimited AllCorrect policy"
     );
+    let second_correct = rendered_choice_id(&app, &second_attempt, &cookie, "Blue").await;
+    assert_ne!(second_correct, ChoiceId::new("blue"));
 
     let correct = app
         .clone()
@@ -744,7 +801,7 @@ async fn flat_run_route_retries_wrong_first_source_choice_then_completes_correct
             "flat-route-correct-second",
             serde_json::json!({
                 "response": StudentResponse::MultipleChoice {
-                    selected: vec![ChoiceId::new("blue")],
+                    selected: vec![second_correct],
                 }
             }),
         ))

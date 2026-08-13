@@ -25,10 +25,14 @@ pub mod export;
 pub mod export_worker;
 /// Policy-redacted server feedback projections; persistence and routes consume it later.
 pub mod feedback;
+/// Author-only registration of immutable native flat-question image assets.
+pub mod flat_question_assets;
 /// Dedicated authoring and immutable publication routes for PLE flat questions.
 pub mod flat_question_publication;
 /// Readiness reporting for the container health check.
 pub mod health;
+/// Server-owned verification of original instructional images used by native hotspots.
+pub(crate) mod hotspot_image;
 /// Server-only durable iMathAS broker bridge.  It is intentionally not wired
 /// into the production backend registry until its same-origin launch profile
 /// is configured.

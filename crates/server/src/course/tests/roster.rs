@@ -3,7 +3,9 @@ use std::sync::Mutex;
 use super::fixtures::{id, issued_cookie_for_tenant, policies, publish_fixture};
 use crate::course::{
     CourseInvitationDelivery, CourseInvitationDeliveryError, CourseInvitationIssuer,
-    CourseInvitationSecret, UnavailableCourseInvitationDelivery, router_with_invitations,
+    CourseInvitationSecret, LocalTeachingRosterDirectory, LocalTeachingRosterIdentity,
+    UnavailableCourseInvitationDelivery, router_with_invitations,
+    router_with_invitations_and_local_teaching,
 };
 use async_trait::async_trait;
 use axum::body::{Body, to_bytes};
@@ -22,6 +24,226 @@ use tower::ServiceExt;
 #[derive(Default)]
 struct CapturingInvitationDelivery {
     deliveries: Mutex<Vec<(String, String)>>,
+}
+
+#[tokio::test]
+async fn local_teaching_roster_uses_alias_resolution_and_canonical_member_upsert() {
+    let store = std::sync::Arc::new(learning_data_access::in_memory::MemoryStore::default());
+    let tenant = TenantId::from_uuid(id(1_150));
+    let instructor = UserId::from_uuid(id(1_151));
+    let mary = UserId::from_uuid(id(1_152));
+    let jack = UserId::from_uuid(id(1_153));
+    let course = CourseId::from_uuid(id(1_154));
+    let context = TenantContext::from_authenticated_session(tenant);
+    store
+        .upsert_course(
+            context,
+            CourseRecord {
+                id: course,
+                tenant,
+                title: "Genetics local teaching".to_string(),
+                members: vec![CourseMembership {
+                    user: instructor,
+                    role: CourseMembershipRole::Instructor,
+                }],
+            },
+        )
+        .await
+        .expect("course fixture");
+    let instructor_cookie =
+        issued_cookie_for_tenant(&store, tenant, vec![UserRole::Instructor], instructor).await;
+    let directory = LocalTeachingRosterDirectory::new([
+        (
+            "mary".to_string(),
+            LocalTeachingRosterIdentity {
+                tenant,
+                user: mary,
+                display_name: "Mary Fake Student".to_string(),
+                roles: vec![UserRole::Student],
+            },
+        ),
+        (
+            "jack".to_string(),
+            LocalTeachingRosterIdentity {
+                tenant,
+                user: jack,
+                display_name: "Jack Fake Student".to_string(),
+                roles: vec![UserRole::Student],
+            },
+        ),
+        (
+            "instructor".to_string(),
+            LocalTeachingRosterIdentity {
+                tenant,
+                user: instructor,
+                display_name: "Dr. Fake Professor".to_string(),
+                roles: vec![UserRole::Instructor],
+            },
+        ),
+    ])
+    .expect("unique local student aliases");
+    let app = router_with_invitations_and_local_teaching(
+        std::sync::Arc::clone(&store),
+        CourseInvitationIssuer::unavailable(),
+        std::sync::Arc::new(UnavailableCourseInvitationDelivery),
+        Some(std::sync::Arc::new(directory)),
+    );
+
+    let roster = app
+        .clone()
+        .oneshot(request(
+            "GET",
+            format!("/api/courses/{course}/roster"),
+            &instructor_cookie,
+            None,
+        ))
+        .await
+        .expect("local roster response");
+    let roster = json(roster).await;
+    assert_eq!(roster["rosterMode"], "localTeaching");
+    assert!(roster.get("pendingInvitations").is_none());
+    assert!(roster.get("allowedEmailDomains").is_none());
+    assert!(roster.get("signupPosture").is_none());
+    assert_eq!(
+        roster["localTeachingLearners"],
+        serde_json::json!([
+            {"alias": "jack", "displayName": "Jack Fake Student"},
+            {"alias": "mary", "displayName": "Mary Fake Student"}
+        ])
+    );
+
+    let rejected_instructor_alias = app
+        .clone()
+        .oneshot(request(
+            "POST",
+            format!("/api/courses/{course}/local-teaching-members"),
+            &instructor_cookie,
+            Some(serde_json::json!({"learnerAlias": "instructor"})),
+        ))
+        .await
+        .expect("instructor alias response");
+    assert_eq!(rejected_instructor_alias.status(), StatusCode::NOT_FOUND);
+
+    let unknown_alias = app
+        .clone()
+        .oneshot(request(
+            "POST",
+            format!("/api/courses/{course}/local-teaching-members"),
+            &instructor_cookie,
+            Some(serde_json::json!({"learnerAlias": "unknown"})),
+        ))
+        .await
+        .expect("unknown alias response");
+    assert_eq!(unknown_alias.status(), StatusCode::NOT_FOUND);
+
+    let malformed_request = app
+        .clone()
+        .oneshot(request(
+            "POST",
+            format!("/api/courses/{course}/local-teaching-members"),
+            &instructor_cookie,
+            Some(serde_json::json!({"learnerAlias": "mary", "userId": mary.as_uuid()})),
+        ))
+        .await
+        .expect("malformed local teaching request response");
+    assert_eq!(malformed_request.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    let nonmanager_cookie =
+        issued_cookie_for_tenant(&store, tenant, vec![UserRole::Student], jack).await;
+    let nonmanager = app
+        .clone()
+        .oneshot(request(
+            "POST",
+            format!("/api/courses/{course}/local-teaching-members"),
+            &nonmanager_cookie,
+            Some(serde_json::json!({"learnerAlias": "mary"})),
+        ))
+        .await
+        .expect("nonmanager response");
+    assert_eq!(nonmanager.status(), StatusCode::NOT_FOUND);
+
+    let foreign_cookie = issued_cookie_for_tenant(
+        &store,
+        TenantId::from_uuid(id(1_155)),
+        vec![UserRole::Instructor],
+        UserId::from_uuid(id(1_156)),
+    )
+    .await;
+    let foreign = app
+        .clone()
+        .oneshot(request(
+            "POST",
+            format!("/api/courses/{course}/local-teaching-members"),
+            &foreign_cookie,
+            Some(serde_json::json!({"learnerAlias": "mary"})),
+        ))
+        .await
+        .expect("foreign tenant response");
+    assert_eq!(foreign.status(), StatusCode::NOT_FOUND);
+
+    let first = app
+        .clone()
+        .oneshot(request(
+            "POST",
+            format!("/api/courses/{course}/local-teaching-members"),
+            &instructor_cookie,
+            Some(serde_json::json!({"learnerAlias": "mary"})),
+        ))
+        .await
+        .expect("Mary activation response");
+    assert_eq!(first.status(), StatusCode::OK);
+    let first = json(first).await;
+    assert_eq!(first["member"]["displayName"], "Mary Fake Student");
+    assert_eq!(first["member"]["status"], "active");
+    assert!(first["member"].get("source").is_none());
+    assert!(first["member"].get("userId").is_none());
+
+    let repeated = app
+        .clone()
+        .oneshot(request(
+            "POST",
+            format!("/api/courses/{course}/local-teaching-members"),
+            &instructor_cookie,
+            Some(serde_json::json!({"learnerAlias": "mary"})),
+        ))
+        .await
+        .expect("repeated Mary activation response");
+    assert_eq!(repeated.status(), StatusCode::OK);
+    let repeated = json(repeated).await;
+    assert_eq!(repeated["member"], first["member"]);
+
+    for unavailable_route in [
+        format!("/api/courses/{course}/invitations"),
+        format!("/api/courses/{course}/enrollment-policy"),
+        format!("/api/courses/{course}/roster-imports/preview"),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(request(
+                "POST",
+                unavailable_route,
+                &instructor_cookie,
+                Some(serde_json::json!({})),
+            ))
+            .await
+            .expect("local unavailable route response");
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    let production_shape = router_with_invitations(
+        store,
+        CourseInvitationIssuer::unavailable(),
+        std::sync::Arc::new(UnavailableCourseInvitationDelivery),
+    )
+    .oneshot(request(
+        "POST",
+        format!("/api/courses/{course}/local-teaching-members"),
+        &instructor_cookie,
+        Some(serde_json::json!({"learnerAlias": "mary"})),
+    ))
+    .await
+    .expect("normal roster route response");
+    assert_eq!(production_shape.status(), StatusCode::NOT_FOUND);
 }
 
 #[async_trait]
@@ -130,6 +352,7 @@ async fn roster_http_is_manager_scoped_secret_free_and_idempotent() {
     assert_eq!(initial.status(), StatusCode::OK);
     assert_eq!(initial.headers()["etag"], "\"1\"");
     let initial = json(initial).await;
+    assert_eq!(initial["rosterMode"], "emailEnrollment");
     assert_eq!(initial["members"], serde_json::json!([]));
     assert_eq!(initial["pendingInvitations"], serde_json::json!([]));
 

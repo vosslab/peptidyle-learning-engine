@@ -1,7 +1,7 @@
 //! PostgreSQL immutable asset registration and protected delivery.
 
 use async_trait::async_trait;
-use question_model::{AssetId, CourseId, ObjectId, ProblemVersionRef, UserId};
+use question_model::{CourseId, ProblemVersionRef, UserId};
 use sqlx::Row;
 use sqlx::postgres::PgRow;
 use sqlx::types::Uuid;
@@ -127,7 +127,7 @@ impl AssetStore for PostgresStore {
     ) -> Result<Vec<CatalogAssetBinding>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         let rows = sqlx::query(
-            "SELECT asset_id, object_id FROM asset_delivery \
+            "SELECT asset_id, object_id, payload, payload_sha256 FROM asset_delivery \
              WHERE delivery_kind = 'catalog' \
                AND problem_id = $1 AND version_id = $2 \
              ORDER BY asset_id ASC",
@@ -139,11 +139,36 @@ impl AssetStore for PostgresStore {
         .map_err(map_sqlx_error)?;
         let bindings = rows
             .iter()
-            .map(|row| CatalogAssetBinding {
-                asset: AssetId::from_uuid(row.get::<Uuid, _>("asset_id")),
-                object: ObjectId::from_uuid(row.get::<Uuid, _>("object_id")),
+            .map(|row| {
+                let record = decode_asset_delivery_row(row)?;
+                let AssetDeliveryScope::Catalog {
+                    asset,
+                    reference: stored_reference,
+                } = record.scope
+                else {
+                    return Err(StoreError::Unavailable(
+                        "catalog asset query returned a non-catalog delivery".to_string(),
+                    ));
+                };
+                if stored_reference != reference
+                    || asset.as_uuid() != row.get::<Uuid, _>("asset_id")
+                    || record.object.id.as_uuid() != row.get::<Uuid, _>("object_id")
+                {
+                    return Err(StoreError::Unavailable(
+                        "catalog asset delivery metadata disagrees with its index columns"
+                            .to_string(),
+                    ));
+                }
+                Ok(CatalogAssetBinding {
+                    asset,
+                    object: record.object.id,
+                    rendition_checksum: record.object.sha256,
+                    media_type: record.object.media_type,
+                    intrinsic_width: record.intrinsic_width,
+                    intrinsic_height: record.intrinsic_height,
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>, StoreError>>()?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(bindings)
     }

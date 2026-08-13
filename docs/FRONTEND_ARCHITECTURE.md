@@ -39,7 +39,7 @@ recoverable failure. Continued practice remains available after completion.
 | -------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------- |
 | `/`                                                            | Course list for signed-in role             | Course summaries                              |
 | `/sign-in`                                                     | Passwordless account entry                 | Uniform email start or usernameless passkey   |
-| `/auth/email/complete`                                         | Canonical email sign-in completion          | One-time browser-bound fragment secret        |
+| `/auth/email/complete`                                         | Canonical email sign-in completion         | One-time browser-bound fragment secret        |
 | `/auth/account/email/complete`                                 | Verified account-email replacement         | Current account session plus one-time secret  |
 | `/course-invitations/redeem`                                   | Learner invitation claim                   | Account session plus one-time invitation      |
 | `/account/security`                                            | Passkey and account-email management       | Account-owned credential projections only     |
@@ -54,7 +54,7 @@ recoverable failure. Continued practice remains available after completion.
 | `/instructor/courses/:courseId/assignments/:assignmentId/edit` | Assignment policy editor                   | Assignment and capability validation          |
 | `/instructor/courses/:courseId/gradebook`                      | Summary-row gradebook                      | Student assignment summaries only             |
 | `/instructor/courses/:courseId/appearance`                     | Course theme and entry banner settings     | Revisioned safe appearance projection         |
-| `/instructor/courses/:courseId/students`                       | Roster, invitations, import, grade export  | Revisioned manager-only roster projection      |
+| `/instructor/courses/:courseId/students`                       | Roster, invitations, import, grade export  | Revisioned manager-only roster projection     |
 
 `src/routes.ts` is the executable copy of this table. It also provides a
 catch-all not-found route, which is infrastructure rather than a product
@@ -300,7 +300,7 @@ Error messages name the failed operation and the next action. A generic
 ## Accessibility baseline
 
 The reference widget and every later response widget must meet these testable
-conditions:
+conditions on student routes:
 
 - semantic fieldset, legend, labels, and a nonempty accessible name;
 - a primary platform path where Tab and Shift+Tab move focus, Space selects or
@@ -315,11 +315,23 @@ conditions:
   primary no-mouse HOTSPOT path;
 - validation changes announced through a polite live region;
 - `aria-invalid` paired with visible explanatory text;
-- at least 56 by 56 CSS pixels for primary response targets;
+- compact primary response targets at least 44 CSS pixels tall;
 - visible focus indicator with at least 3:1 non-text contrast;
 - text contrast at the repository house target of 5.5:1;
 - correct and incorrect states combine text and iconography with color; and
-- usable responsive layout at 320, 480, 768, and 1920 CSS pixels.
+- a genuinely responsive student layout: best at the canonical 1280 by 800 laptop window, fully
+  usable at the representative 800 by 1280 portrait target, and compatible with a narrow-phone CSS
+  viewport without horizontal overflow or inaccessible controls.
+
+Instructor routes are laptop/desktop-first. Their canonical acceptance canvas is 1280 by 800 CSS
+pixels, where information density and the complete workflow take precedence over preserving the
+same composition on a phone. Narrow instructor views may reorganize locally when necessary, but do
+not compromise the canonical instructor layout to make every authoring or administration surface
+equally elegant at 320 pixels.
+
+Responsive layout belongs to CSS Grid and Flexbox with complementary media and container queries.
+SolidJS owns state only when a responsive interaction, such as an actually-needed disclosure menu,
+requires it. Do not add a layout or menu dependency solely to replace these browser capabilities.
 
 The primary action is "Submit answer." It remains visually dominant but calm.
 Correctness and teaching feedback are absent until the server response permits
@@ -346,12 +358,12 @@ The evidence below names what each lane proves. Mock routes and dynamically
 mounted fixtures are useful focused evidence, but neither is a live WebWork
 acceptance claim.
 
-| Evidence lane                          | Current evidence                                                                                                | What it proves                                                                                                                                                                                 | Boundary                                                                                                   | Status                                  |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| Built mock route tests                 | `tests/playwright/frontend_contract.spec.ts` and the student keyboard audit                                     | The compiled mock-backed application resolves product routes and completes the reference course-to-answer journey with Tab, Shift+Tab, Space, explicit submission, and native link activation. | It does not exercise the live API, private renderer, or upstream WebWork.                                  | Complete for the primary platform path. |
-| Dynamically mounted component fixtures | `tests/playwright/student_keyboard_accessibility.spec.ts` and `tests/playwright/external_tool_response.spec.ts` | Production Solid response components isolate Arrow, digit, Enter-to-submit, Escape, and broker interactions so shortcut failures are classified separately.                                    | The fixture bundle is injected into a mock page, not mounted through a complete built route or live stack. | Complete for named widget extensions.   |
+| Evidence lane                          | Current evidence                                                                                                | What it proves                                                                                                                                                                                            | Boundary                                                                                                   | Status                                  |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| Built mock route tests                 | `tests/playwright/frontend_contract.spec.ts` and the student keyboard audit                                     | The compiled mock-backed application resolves product routes and completes the reference course-to-answer journey with Tab, Shift+Tab, Space, explicit submission, and native link activation.            | It does not exercise the live API, private renderer, or upstream WebWork.                                  | Complete for the primary platform path. |
+| Dynamically mounted component fixtures | `tests/playwright/student_keyboard_accessibility.spec.ts` and `tests/playwright/external_tool_response.spec.ts` | Production Solid response components isolate Arrow, digit, Enter-to-submit, Escape, and broker interactions so shortcut failures are classified separately.                                               | The fixture bundle is injected into a mock page, not mounted through a complete built route or live stack. | Complete for named widget extensions.   |
 | Source and contract evidence           | `src/wasm/index.ts`, `src/wasm/context.tsx`, `src/main.tsx`, and `tests/test_frontend_contract.mjs`             | The five-operation facade has one shared loader, typed fallbacks for three operations, unavailable-only preview and presentation-verification fallbacks, and no correctness field in mock format reports. | Source and mock-contract checks cannot prove a generated module or a deployed server behaved this way.     | Complete as implementation evidence.    |
-| Required live WebWork gate             | `tests/playwright/webwork_run.spec.ts` through `tests/e2e/e2e_webwork_render_rpc.sh`                            | The private live stack proves the browser calls PLE only, remains answer-free, supports keyboard completion, and receives correct/incorrect outcomes through PLE.                              | It requires explicit private stack and credential inputs; the ordinary mock suite still skips it.          | Passed on 2026-08-10.                   |
+| Required live WebWork gate             | `tests/playwright/webwork_run.spec.ts` through `tests/e2e/e2e_webwork_render_rpc.sh`                            | The private live stack proves the browser calls PLE only, remains answer-free, supports keyboard completion, and receives correct/incorrect outcomes through PLE.                                         | It requires explicit private stack and credential inputs; the ordinary mock suite still skips it.          | Passed on 2026-08-10.                   |
 
 - Node tests freeze the route map, mock/client behavior, and absence of
   answer-bearing generated names.

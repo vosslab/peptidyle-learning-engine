@@ -11,6 +11,7 @@ import {
   prefetchedFixtureAttempt,
 } from "../src/api/mock/handlers.ts";
 import { createMockApiClient } from "../src/api/mock/client.ts";
+import { decodeIssuedPresentationEnvelope } from "../src/api/decoders.ts";
 
 test("mock handlers cover every planned API route group exactly once", () => {
   const actual = mockApiHandlers.map((handler) => handler.group).toSorted();
@@ -86,7 +87,7 @@ test("mock history preserves fresh seeds and full attempt provenance", async () 
   assert.equal(attempt.parameterHash.length, 64);
 });
 
-test("issued-question route returns a generated key-free variant bound to its attempt", async () => {
+test("issued-question route returns a strict public presentation bound to its attempt", async () => {
   const mockFetch = createMockFetch();
   const attemptResponse = await mockFetch(
     "/api/runs/0198e000-0000-7000-8000-000000000023/attempts",
@@ -94,7 +95,7 @@ test("issued-question route returns a generated key-free variant bound to its at
   const attempts = await attemptResponse.json();
   const attempt = attempts.items[0];
   const response = await mockFetch(`/api/attempts/${attempt.id}/question`);
-  const envelope = await response.json();
+  const envelope = decodeIssuedPresentationEnvelope(await response.json());
   assert.equal(response.status, 200);
   assert.equal(envelope.version, attempt.questionVersion);
   assert.equal(envelope.seed, attempt.seed);
@@ -277,27 +278,6 @@ test("external-tool mock child handler rejects malformed keys and every non-mark
     },
   );
   assert.equal(ordinaryAttempt.status, 404);
-});
-
-test("issued-question mock projects only the rendered envelope fields", async () => {
-  const mockFetch = createMockFetch();
-  const response = await mockFetch("/api/attempts/0198e000-0000-7000-8000-000000000030/question");
-  const envelope = await response.json();
-  assert.deepEqual(Object.keys(envelope).toSorted(), [
-    "prompt",
-    "response",
-    "seed",
-    "title",
-    "version",
-  ]);
-  assert.deepEqual(Object.keys(envelope.prompt[0]).toSorted(), ["kind", "markdown"]);
-  assert.deepEqual(Object.keys(envelope.response).toSorted(), ["choices", "kind", "selection"]);
-  assert.deepEqual(Object.keys(envelope.response.choices[0]).toSorted(), ["body", "id"]);
-  assert.deepEqual(Object.keys(envelope.response.choices[0].body[0]).toSorted(), [
-    "kind",
-    "markdown",
-  ]);
-  assert.deepEqual(Object.keys(envelope.response.selection).toSorted(), ["kind"]);
 });
 
 test("submission fixtures model disclosure at the server boundary without private fields", async () => {

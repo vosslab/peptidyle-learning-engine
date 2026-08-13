@@ -18,6 +18,7 @@ export function NumericResponse(props: WidgetBodyProps<NumericDefinition>): JSX.
   const restored = props.initialResponse?.value;
   const initialValue = restored === undefined ? "" : String(restored);
   const [value, setValue] = createSignal(initialValue);
+  let control!: HTMLInputElement;
   const controller = createSubmissionController(props, numericResponseFromInput(initialValue));
   const response = (): StudentResponse => numericResponseFromInput(value());
   function update(next: string): void {
@@ -26,6 +27,11 @@ export function NumericResponse(props: WidgetBodyProps<NumericDefinition>): JSX.
   }
   function submit(): void {
     void controller.submit(response());
+  }
+  function reset(): void {
+    setValue(initialValue);
+    void controller.reset(numericResponseFromInput(initialValue));
+    queueMicrotask(() => control.focus());
   }
   return (
     <section
@@ -44,15 +50,18 @@ export function NumericResponse(props: WidgetBodyProps<NumericDefinition>): JSX.
         type="number"
         inputmode="decimal"
         value={value()}
+        ref={(element) => (control = element)}
         aria-describedby={`${props.attemptId}-format-status`}
         aria-invalid={controller.invalid()}
-        disabled={controller.pending()}
+        disabled={controller.locked()}
         onInput={(event) => update(event.currentTarget.value)}
       />
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
-        disabled={!controller.canSubmit() || controller.pending()}
+        disabled={!controller.canSubmit() || controller.locked()}
+        resetDisabled={controller.locked()}
         onSubmit={submit}
+        onReset={reset}
         onEscape={props.onEscape}
       />
     </section>

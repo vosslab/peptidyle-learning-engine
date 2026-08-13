@@ -743,6 +743,7 @@ mod assignment_selection_tests {
                     },
                     rendered_question_sha256: format!("selected-render-{index}"),
                 },
+                issued_capability: question_model::IssuedAttemptCapabilityV1::NotApplicable,
             })
             .collect::<Vec<_>>();
         let questions = current_run_questions(

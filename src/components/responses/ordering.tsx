@@ -37,6 +37,7 @@ export function OrderingResponse(props: WidgetBodyProps<OrderingDefinition>): JS
   const initialOrder =
     props.initialResponse?.order ?? props.definition.items.map((item) => item.id);
   const [order, setOrder] = createSignal<ReadonlyArray<ChoiceId>>(initialOrder);
+  let firstMoveControl!: HTMLButtonElement;
   const [movementAnnouncement, setMovementAnnouncement] = createSignal("");
   const controller = createSubmissionController(props, {
     kind: "ordering",
@@ -86,6 +87,13 @@ export function OrderingResponse(props: WidgetBodyProps<OrderingDefinition>): JS
   function submit(): void {
     void controller.submit(response());
   }
+  function reset(): void {
+    const next = [...initialOrder];
+    setOrder(next);
+    setMovementAnnouncement("Order restored.");
+    void controller.reset({ kind: "ordering", order: next });
+    queueMicrotask(() => firstMoveControl.focus());
+  }
   return (
     <section
       class="response-widget"
@@ -97,7 +105,7 @@ export function OrderingResponse(props: WidgetBodyProps<OrderingDefinition>): JS
       <fieldset
         aria-describedby={`${props.attemptId}-order-help ${props.attemptId}-order-movement ${props.attemptId}-format-status`}
         aria-invalid={controller.invalid()}
-        disabled={controller.pending()}
+        disabled={controller.locked()}
       >
         <legend>Put the items in order</legend>
         <p class="keyboard-hint" id={`${props.attemptId}-order-help`}>
@@ -126,7 +134,7 @@ export function OrderingResponse(props: WidgetBodyProps<OrderingDefinition>): JS
                     class="order-action"
                     type="button"
                     data-order-direction="earlier"
-                    disabled={index() === 0 || controller.pending()}
+                    disabled={index() === 0 || controller.locked()}
                     onClick={() => moveOrderItem(id, index(), index() - 1, "earlier")}
                     onKeyDown={(event) => handleOrderArrow(event, id, index())}
                     aria-label={`Move item ${index() + 1} earlier`}
@@ -137,7 +145,14 @@ export function OrderingResponse(props: WidgetBodyProps<OrderingDefinition>): JS
                     class="order-action"
                     type="button"
                     data-order-direction="later"
-                    disabled={index() === order().length - 1 || controller.pending()}
+                    ref={
+                      index() === 0
+                        ? (element): void => {
+                            firstMoveControl = element;
+                          }
+                        : undefined
+                    }
+                    disabled={index() === order().length - 1 || controller.locked()}
                     onClick={() => moveOrderItem(id, index(), index() + 1, "later")}
                     onKeyDown={(event) => handleOrderArrow(event, id, index())}
                     aria-label={`Move item ${index() + 1} later`}
@@ -152,8 +167,11 @@ export function OrderingResponse(props: WidgetBodyProps<OrderingDefinition>): JS
       </fieldset>
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
-        disabled={!controller.canSubmit() || controller.pending()}
+        disabled={!controller.canSubmit() || controller.locked()}
+        resetDisabled={controller.locked()}
         onSubmit={submit}
+        onReset={reset}
+        resetLabel="Reset order"
         onEscape={props.onEscape}
       />
     </section>

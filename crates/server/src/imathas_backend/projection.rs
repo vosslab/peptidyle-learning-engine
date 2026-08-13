@@ -46,6 +46,11 @@ where
             parameter_hash: issued.parameter_hash,
             provenance: issued.provenance,
             webwork_replay: None,
+            flat_grading: None,
+            flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
+            webwork_grading: None,
+            webwork_grading_capability:
+                learning_data_access::WebworkGradingCapability::NotApplicable,
         })
     }
 

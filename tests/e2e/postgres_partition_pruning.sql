@@ -111,7 +111,11 @@ INSERT INTO public.question_attempt (
     attempt_status,
     submitted_at,
     assignment_position,
-    course_id
+    course_id,
+    presentation_capability,
+    flat_grading_required,
+    webwork_grading_required,
+    issued_feedback_disclosure
 )
 SELECT
     'f1000000-0000-4000-8000-000000000002'::uuid,
@@ -125,7 +129,11 @@ SELECT
     'submitted',
     occurred_at + interval '1 minute',
     0,
-    'f1000000-0000-4000-8000-000000000006'::uuid
+    'f1000000-0000-4000-8000-000000000006'::uuid,
+    'not_applicable',
+    false,
+    false,
+    'deferred'
 FROM generate_series(1, 260000) AS series(generated)
 CROSS JOIN LATERAL (
     SELECT date '2026-08-01'

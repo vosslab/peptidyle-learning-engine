@@ -205,13 +205,19 @@ that preserves shared catalog content and anonymous aggregates.
 The implemented local PostgreSQL baseline is the six ordered SQLx migrations
 `2026080801` through `2026080806`: principals, catalog/authoring,
 courses/assignments, activity/feedback, operations/analytics, and retention.
-Two applied forward migrations follow it:
+Checked-in pre-production forward migrations follow it; their release
+acceptance remains separately tracked:
 
 - `2026080907_course_appearance.sql` adds tenant- and course-bound appearance
   state and delivery authorization.
-- `2026080908_secure_question_grading_payloads.sql` binds issued presentations
-  to a descriptor version, nonce, and digest; version-tags submission
-  idempotency; and adds the bounded WeBWorK replay-state record.
+- `2026080908_secure_question_grading_payloads.sql` adds descriptor version,
+  nonce, and digest primitives; version-tags submission idempotency; and adds
+  the bounded WeBWorK replay-state record. `0916`, `0917`, and `0919` complete
+  the receipt presentation, explicit capability/successor, and server-only
+  issued grading-envelope contract; `0918` retains exact flat-question asset
+  descriptors. `0921` and `0922` add the required checksummed first-grade
+  flat and WeBWorK contracts, respectively, so a later submission cannot
+  fall back to a current catalog, grader, or renderer.
 
 The application embeds the migrations, uses the SQLx ledger for compatibility
 checks, and keeps startup read-only. Project tooling owns administrative

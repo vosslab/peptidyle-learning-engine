@@ -1,3 +1,4 @@
+use super::run_receipts::receipt_presentation;
 use super::*;
 
 pub(super) async fn exercise_attempt_support<S>(store: &S, fixture: &RunApiFixture)
@@ -39,7 +40,7 @@ where
             context,
             publisher,
             PublishDraftCommand {
-                expected_draft: draft,
+                expected_draft: draft.clone(),
                 expected_revision: saved.revision,
                 publication: reference,
                 published_source: QuestionSource::Webwork {
@@ -58,6 +59,17 @@ where
         )
         .await
         .expect("WeBWorK replay contract publication");
+    let support_webwork_grading = learning_data_access::IssuedWebworkGradingContract::new(
+        question_model::QuestionDefinition::from_draft(
+            draft.question.clone(),
+            problem,
+            version,
+            QuestionSource::Webwork {
+                pg_path: "Library/PLE/replay-contract.pg".to_string(),
+            },
+        ),
+    )
+    .expect("published WebWork fixture has an immutable grading definition");
     let support_assignment = AssignmentId::from_uuid(uuid(89_972 + fixture_offset));
     let support_enrollment = EnrollmentId::from_uuid(uuid(89_973 + fixture_offset));
     let support_run_id = RunId::from_uuid(uuid(89_974 + fixture_offset));
@@ -99,7 +111,7 @@ where
         .start_or_resume_run(context, student_user, support_assignment, support_run_id)
         .await
         .expect("attempt support run");
-    let support_presentation = presentation_binding(1);
+    let (support_presentation, support_snapshot) = receipt_presentation(version, 999, 1);
     let support_replay = WebworkReplayMappingV1::SingleChoice {
         items: vec![
             WebworkReplayControlV1 {
@@ -120,25 +132,56 @@ where
         sha256: artifact.object.sha256.to_string(),
     });
     support_provenance.renderer = Some(implementation("webwork-renderer"));
+    let support_issue = IssueQuestionAttemptCommand {
+        actor: student_user,
+        attempt: QuestionAttemptId::from_uuid(uuid(89_976 + fixture_offset)),
+        run: support_run.id,
+        assignment_position: 0,
+        problem,
+        question_version: version,
+        seed: 999,
+        presentation_capability: PresentationCapability::EnvelopeV1,
+        presentation: Some(support_presentation),
+        presentation_snapshot: Some(support_snapshot),
+        grading_envelope: Some(grading_envelope(version, 999)),
+        flat_grading: None,
+        flat_grading_capability: FlatGradingCapability::NotApplicable,
+        webwork_grading: Some(support_webwork_grading.clone()),
+        webwork_grading_capability: WebworkGradingCapability::Required,
+        parameter_hash: "force-submit-active".to_string(),
+        provenance: support_provenance.clone(),
+        webwork_replay: Some(support_replay.clone()),
+        prefetched: None,
+        predecessor_submission: None,
+    };
+    assert!(matches!(
+        store
+            .issue_or_resume_question_attempt(
+                context,
+                IssueQuestionAttemptCommand {
+                    attempt: QuestionAttemptId::from_uuid(uuid(89_979 + fixture_offset)),
+                    webwork_replay: None,
+                    ..support_issue.clone()
+                },
+            )
+            .await,
+        Err(StoreError::InvalidRecord(_))
+    ));
+    assert!(
+        store
+            .list_question_attempts(
+                context,
+                support_run.id,
+                PageRequest::first(PageSize::new(10).expect("valid page size")),
+            )
+            .await
+            .expect("missing replay leaves the run readable")
+            .items
+            .is_empty(),
+        "missing required WeBWorK replay state must not create an attempt"
+    );
     let support_attempt = store
-        .issue_or_resume_question_attempt(
-            context,
-            IssueQuestionAttemptCommand {
-                actor: student_user,
-                attempt: QuestionAttemptId::from_uuid(uuid(89_976 + fixture_offset)),
-                run: support_run.id,
-                assignment_position: 0,
-                problem,
-                question_version: version,
-                seed: 999,
-                presentation: Some(support_presentation),
-                parameter_hash: "force-submit-active".to_string(),
-                provenance: support_provenance.clone(),
-                webwork_replay: Some(support_replay.clone()),
-                prefetched: None,
-                predecessor_submission: None,
-            },
-        )
+        .issue_or_resume_question_attempt(context, support_issue)
         .await
         .expect("attempt support question");
     let stored_replay = store
@@ -355,6 +398,7 @@ where
         "the instructor retains raw evidence access after clear"
     );
 
+    let (replacement_presentation, replacement_snapshot) = receipt_presentation(version, 1_000, 2);
     let replacement_attempt = store
         .issue_or_resume_question_attempt(
             context,
@@ -366,7 +410,14 @@ where
                 problem,
                 question_version: version,
                 seed: 1_000,
-                presentation: Some(presentation_binding(2)),
+                presentation_capability: PresentationCapability::EnvelopeV1,
+                presentation: Some(replacement_presentation),
+                presentation_snapshot: Some(replacement_snapshot),
+                grading_envelope: Some(grading_envelope(version, 1_000)),
+                flat_grading: None,
+                flat_grading_capability: FlatGradingCapability::NotApplicable,
+                webwork_grading: Some(support_webwork_grading.clone()),
+                webwork_grading_capability: WebworkGradingCapability::Required,
                 parameter_hash: "replacement-after-clear".to_string(),
                 provenance: support_provenance.clone(),
                 webwork_replay: Some(support_replay.clone()),
@@ -451,6 +502,7 @@ where
         Ok(cleared_scored),
         "a clear retry neither advances the generation nor queues duplicate work"
     );
+    let (post_clear_presentation, post_clear_snapshot) = receipt_presentation(version, 1_001, 3);
     let post_clear_replacement = store
         .issue_or_resume_question_attempt(
             context,
@@ -462,7 +514,14 @@ where
                 problem,
                 question_version: version,
                 seed: 1_001,
-                presentation: Some(presentation_binding(3)),
+                presentation_capability: PresentationCapability::EnvelopeV1,
+                presentation: Some(post_clear_presentation),
+                presentation_snapshot: Some(post_clear_snapshot),
+                grading_envelope: Some(grading_envelope(version, 1_001)),
+                flat_grading: None,
+                flat_grading_capability: FlatGradingCapability::NotApplicable,
+                webwork_grading: Some(support_webwork_grading),
+                webwork_grading_capability: WebworkGradingCapability::Required,
                 parameter_hash: "replacement-after-scored-clear".to_string(),
                 provenance: support_provenance,
                 webwork_replay: Some(support_replay),

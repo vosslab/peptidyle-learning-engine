@@ -38,12 +38,13 @@ impl crate::FeedbackStore for PostgresStore {
         if !has_feedback {
             return Err(StoreError::NotFound);
         }
-        let question =
-            load_published_record(&mut transaction, attempt.problem, attempt.question_version)
-                .await?;
-        if question.question.attempt_policy.feedback
-            != question_model::run_policy::FeedbackDisclosure::OnRelease
-        {
+        let disclosure = super::submission::load_issued_feedback_disclosure(
+            &mut transaction,
+            tenant,
+            command.attempt,
+        )
+        .await?;
+        if disclosure != question_model::run_policy::FeedbackDisclosure::OnRelease {
             return Err(StoreError::InvalidRecord(
                 "feedback release requires an on-release question policy".to_string(),
             ));
@@ -188,9 +189,9 @@ impl crate::FeedbackStore for PostgresStore {
         .ok_or(StoreError::NotFound)?;
         let summary: StudentAssignmentSummary = decode_payload_row(&summary_row)?;
 
-        // This is deliberately the sole bounded outcome query. It joins the
-        // immutable question policy and private feedback/release rows so the
-        // caller never performs one lookup per outcome.
+        // This is deliberately the sole bounded outcome query. It reads each
+        // attempt's issuance-persisted disclosure and private feedback/release
+        // rows so a later catalog edit cannot rewrite historical feedback.
         let rows = sqlx::query(
             "SELECT COALESCE(si.payload, qa.payload) AS attempt_payload, \
                     COALESCE(si.payload_sha256, qa.payload_sha256) AS attempt_sha256, \
@@ -202,7 +203,7 @@ impl crate::FeedbackStore for PostgresStore {
                         AS current_submitted_at, \
                     floor(extract(epoch FROM timing.effective_deadline) * 1000)::bigint \
                         AS current_deadline_at, \
-                    pvp.payload #>> '{question,attemptPolicy,feedback}' AS feedback_policy, \
+                    qa.issued_feedback_disclosure AS feedback_policy, \
                     af.hint, af.correct_response, af.rationale, af.content_sha256, \
                     fr.released_by, floor(extract(epoch FROM fr.released_at) * 1000)::bigint AS released_at \
              FROM question_attempt AS qa \
@@ -221,8 +222,6 @@ impl crate::FeedbackStore for PostgresStore {
              LEFT JOIN assignment_selection_candidate AS sc \
                ON sc.tenant_id = ri.tenant_id AND sc.assignment_id = $6 \
               AND sc.candidate_id = ri.assignment_item_id \
-             JOIN problem_version_payload AS pvp \
-               ON pvp.problem_id = qa.problem_id AND pvp.version_id = qa.version_id \
              LEFT JOIN attempt_feedback AS af \
                ON af.tenant_id = qa.tenant_id AND af.attempt_id = qa.attempt_id \
              LEFT JOIN feedback_release AS fr \

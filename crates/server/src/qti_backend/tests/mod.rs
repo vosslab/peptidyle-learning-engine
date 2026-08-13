@@ -333,6 +333,7 @@ fn attempt(fixture: &Fixture, issued: IssuedAttemptMetadata) -> QuestionAttempt 
             submitted_at: None,
         },
         provenance: issued.provenance,
+        issued_capability: question_model::IssuedAttemptCapabilityV1::PresentationEnvelope,
     }
 }
 

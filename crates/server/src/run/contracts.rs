@@ -6,13 +6,20 @@
 
 use async_trait::async_trait;
 use grading::GradeOutcome;
-use learning_data_access::{SubmissionIdempotencyKey, SubmissionRecord, TenantContext};
+use learning_data_access::{
+    FlatGradingCapability, IssuedFlatGradingContract, IssuedWebworkGradingContract,
+    SubmissionIdempotencyKey, SubmissionRecord, TenantContext, WebworkGradingCapability,
+};
 use question_model::{
     AttemptProvenance, AttemptResult, FeedbackContent, ProblemVersionRef, QuestionAttempt,
     QuestionDefinition, QuestionEnvelope, StudentResponse,
 };
 
-/// Key-free metadata produced while a trusted adapter issues one instance.
+/// Server-only metadata produced while a trusted adapter issues one instance.
+///
+/// The rendered envelope and provenance are answer-free, but native flat
+/// questions also carry the protected grading contract that must never enter
+/// a browser DTO or a public cache.
 #[derive(Clone, PartialEq)]
 pub struct IssuedAttemptMetadata {
     /// The key-free rendered envelope prepared by the trusted backend.
@@ -30,6 +37,16 @@ pub struct IssuedAttemptMetadata {
     /// The run issuance path converts these to presentation-scoped rendered
     /// IDs before persistence. This value has no serialization surface.
     pub webwork_replay: Option<adapter_webwork::renderer_contract::WebworkReplayMappingV1>,
+    /// Server-only flat-question definition/key pair frozen at issue. It is
+    /// absent for every other backend family.
+    pub flat_grading: Option<IssuedFlatGradingContract>,
+    /// Immutable obligation for private flat grading. Receipt readers never
+    /// infer it from whether the private payload happens to be present.
+    pub flat_grading_capability: FlatGradingCapability,
+    /// Server-only WebWork definition frozen at issue for first grading.
+    pub webwork_grading: Option<IssuedWebworkGradingContract>,
+    /// Explicit obligation for the frozen WebWork definition.
+    pub webwork_grading_capability: WebworkGradingCapability,
 }
 
 impl std::fmt::Debug for IssuedAttemptMetadata {
@@ -42,6 +59,19 @@ impl std::fmt::Debug for IssuedAttemptMetadata {
             .field(
                 "webwork_replay",
                 &self.webwork_replay.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field(
+                "flat_grading",
+                &self.flat_grading.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field("flat_grading_capability", &self.flat_grading_capability)
+            .field(
+                "webwork_grading",
+                &self.webwork_grading.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field(
+                "webwork_grading_capability",
+                &self.webwork_grading_capability,
             )
             .finish()
     }
@@ -106,6 +136,16 @@ pub struct RunSubmission<'a> {
     pub reference: ProblemVersionRef,
     pub question: &'a QuestionDefinition,
     pub attempt: &'a QuestionAttempt,
+    /// Server-only answer-free envelope frozen with this issued attempt.
+    /// Presentation-bearing families use it to translate public rendered IDs
+    /// before grading without consulting a mutable renderer or catalog view.
+    pub issued_grading_envelope: Option<&'a QuestionEnvelope>,
+    /// Private flat-question definition/key pair retained with the attempt.
+    /// This is the sole flat first-grade authority after issue.
+    pub issued_flat_grading: Option<&'a IssuedFlatGradingContract>,
+    /// Immutable WebWork definition retained with the attempt. It supplies
+    /// the first-grade source path and policy without a current catalog read.
+    pub issued_webwork_grading: Option<&'a IssuedWebworkGradingContract>,
     pub response: &'a StudentResponse,
 }
 
@@ -121,11 +161,11 @@ pub trait RunBackend: Send + Sync {
         seed: u64,
     ) -> Result<IssuedAttemptMetadata, RunBackendError>;
 
-    /// Rebuilds the exact key-free envelope that was issued for an attempt.
+    /// Rebuilds a key-free envelope for an envelope-less active family.
     ///
-    /// The backend verifies the persisted seed, parameter hash, provenance,
-    /// and immutable version before this browser-facing representation leaves
-    /// the server.
+    /// Presentation-bearing attempt GET and submission format validation read
+    /// their owned issuance snapshot instead. Implementations must therefore
+    /// never reintroduce this mutable reconstruction on a receipt path.
     async fn reproduce(
         &self,
         context: TenantContext,

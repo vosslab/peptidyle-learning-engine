@@ -117,9 +117,7 @@ test("assignment editor decoder accepts only the stable editable projection", ()
         continuedPractice: { kind: "capped", maxAdditionalRuns: 2, forged: true },
       },
     },
-    Object.fromEntries(
-      Object.entries(input).filter(([field]) => field !== "assignmentTiming"),
-    ),
+    Object.fromEntries(Object.entries(input).filter(([field]) => field !== "assignmentTiming")),
     { ...input, assignmentTiming: null },
     { ...input, assignmentTiming: { timeLimitSeconds: 0 } },
     { ...input, assignmentTiming: { timeLimitSeconds: 2_147_483_648 } },

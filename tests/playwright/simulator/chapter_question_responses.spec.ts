@@ -10,8 +10,44 @@ import {
   expectVisibleResponseControlsCleared,
   submitVisibleResponseCandidate,
 } from "./chapter_question_responses";
+import { geneticsDiagnosisFromVisibleDescription } from "./genetics_chapter_one_responses";
 
 let nativeMatchingFixtureScript = "";
+
+test("reviewed Genetics descriptions resolve from visible biology clues", () => {
+  const cases = [
+    ["impairs the growth of bone in the limbs", "Achondroplasia"],
+    ["reduced hemoglobin proteins causing severe anemia", "Beta-Thalassemia"],
+    ["glands that make mucus and sweat", "Cystic fibrosis"],
+    ["muscle wasting that gets worse over time", "Duchenne muscular dystrophy"],
+    ["changes in part of the X chromosome", "Fragile X syndrome"],
+    ["metabolize the sugar galactose", "Galactosemia"],
+    ["blood does not clot properly", "Hemophilia"],
+    ["progressive breakdown (degeneration) of nerve cells", "Huntington's disease"],
+    ["branched-chain amino acids", "Maple syrup urine disease"],
+    ["affects the connective tissue", "Marfan syndrome"],
+    ["impaired phenylalanine metabolism", "Phenylketonuria"],
+    ["stiff and sticky, long, and rigid cells", "Sickle-cell anemia"],
+    ["deficiency of the lysosomal enzyme hexosaminidase A", "Tay-Sachs disease"],
+    ["duplications of the UBE3A gene", "Angelman syndrome"],
+    ["loss of function of specific genes on chromosome 15", "Prader-Willi syndrome"],
+    ["high-pitched cat-like cry", "Cri du chat syndrome"],
+    ["chromosome 22 is missing", "DiGeorge syndrome"],
+    ["extra chromosome 21", "Down syndrome"],
+    ["third copy of chromosome 18", "Edwards syndrome"],
+    ["47,XXY", "Klinefelter syndrome"],
+    ["material from chromosome 13", "Patau syndrome"],
+    ["chromosome 9 and chromosome 22 break and exchange portions", "Philadelphia chromosome"],
+    ["47,XXX", "Triple X syndrome"],
+    ["monosomy X with a webbed neck", "Turner syndrome"],
+    ["chromosome number 11", "WAGR syndrome"],
+    ["short arm of chromosome 4", "Wolf-Hirschhorn syndrome"],
+  ] as const;
+
+  for (const [description, diagnosis] of cases) {
+    expect(geneticsDiagnosisFromVisibleDescription(description)).toBe(diagnosis);
+  }
+});
 
 test.beforeAll(async () => {
   const result = await build({
@@ -62,7 +98,7 @@ function matchingGroup(values: readonly string[]): string {
   const controls = values
     .map(
       (value) =>
-        `<button type="button" role="radio" data-choice-id="${value}" aria-checked="false" aria-disabled="false" tabindex="0" onclick="this.setAttribute('aria-checked', 'true')">Visible option</button>`,
+        `<button type="button" role="radio" data-choice-id="${value}" aria-checked="false" aria-disabled="false" tabindex="0" onclick="this.setAttribute('aria-checked', 'true')">Visible ${value}</button>`,
     )
     .join("");
   return `<section class="matching-group" role="group" aria-label="Visible prompt"><div role="radiogroup" aria-label="Visible prompt">${controls}</div></section>`;
@@ -70,6 +106,30 @@ function matchingGroup(values: readonly string[]): string {
 
 function shuffledMatchingMarkup(): string {
   return `<main>${matchingGroup(["choice-01", "choice-02", "choice-03"])}${matchingGroup(["choice-02", "choice-01", "choice-03"])}${matchingGroup(["choice-03", "choice-01", "choice-02"])}</main>`;
+}
+
+function semanticMatchingGroup(
+  prompt: string,
+  choices: ReadonlyArray<{ readonly id: string; readonly text: string }>,
+): string {
+  const controls = choices
+    .map(
+      ({ id, text }) =>
+        `<button type="button" role="radio" data-choice-id="${id}" aria-checked="false" aria-disabled="false" tabindex="0" onclick="this.setAttribute('aria-checked', 'true')"><span class="matching-choice-content"><span>${text}</span></span></button>`,
+    )
+    .join("");
+  return `<section class="matching-group" role="group" aria-label="${prompt}"><p>${prompt}</p>${controls}</section>`;
+}
+
+async function expectSemanticCandidateZero(page: import("@playwright/test").Page): Promise<void> {
+  const alpha = page.locator(".matching-group").filter({
+    has: page.getByText("Alpha prompt", { exact: true }),
+  });
+  const beta = page.locator(".matching-group").filter({
+    has: page.getByText("Beta prompt", { exact: true }),
+  });
+  await expect(alpha.getByRole("radio", { name: "Cat" })).toHaveAttribute("aria-checked", "true");
+  await expect(beta.getByRole("radio", { name: "Dog" })).toHaveAttribute("aria-checked", "true");
 }
 
 test("matching candidates use opaque identities when every prompt shuffles visible choices", async ({
@@ -106,6 +166,34 @@ test("matching candidates use opaque identities when every prompt shuffles visib
     "aria-checked",
     "true",
   );
+});
+
+test("matching candidate ordinals retain visible meaning across fresh rendered IDs", async ({
+  page,
+}) => {
+  await page.setContent(
+    `<main>${semanticMatchingGroup("Beta prompt", [
+      { id: "old-dog", text: "Dog" },
+      { id: "old-cat", text: "Cat" },
+    ])}${semanticMatchingGroup("Alpha prompt", [
+      { id: "old-cat", text: "Cat" },
+      { id: "old-dog", text: "Dog" },
+    ])}</main>`,
+  );
+  await expect(chooseVisibleResponseCandidate(page, 0)).resolves.toBe("matching");
+  await expectSemanticCandidateZero(page);
+
+  await page.setContent(
+    `<main>${semanticMatchingGroup("Alpha prompt", [
+      { id: "new-dog", text: "Dog" },
+      { id: "new-cat", text: "Cat" },
+    ])}${semanticMatchingGroup("Beta prompt", [
+      { id: "new-cat", text: "Cat" },
+      { id: "new-dog", text: "Dog" },
+    ])}</main>`,
+  );
+  await expect(chooseVisibleResponseCandidate(page, 0)).resolves.toBe("matching");
+  await expectSemanticCandidateZero(page);
 });
 
 test("native four-prompt matching makes candidate one ready through Tab and Space", async ({
@@ -177,10 +265,11 @@ test("response progress distinguishes a complete selection from visible feedback
   const stages: string[] = [];
   await expect(page.getByRole("button", { name: "Submit answer" })).toBeVisible();
 
-  await submitVisibleResponseCandidate(page, 0, {
+  await submitVisibleResponseCandidate(page, 1, {
     responseSelected: () => stages.push("response_selected"),
     feedbackVisible: () => stages.push("feedback_visible"),
   });
 
+  await expect(page.locator('input[type="radio"]').nth(1)).toBeChecked();
   expect(stages).toEqual(["response_selected", "feedback_visible"]);
 });

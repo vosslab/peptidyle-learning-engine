@@ -176,6 +176,8 @@ impl ExportJobStore for PostgresStore {
             let delivery = AssetDeliveryRecord {
                 id: AssetDeliveryId::from_object(artifact.object.id),
                 object: artifact.object.clone(),
+                intrinsic_width: None,
+                intrinsic_height: None,
                 scope: AssetDeliveryScope::StudentRecord {
                     tenant: context.tenant_id(),
                     course,

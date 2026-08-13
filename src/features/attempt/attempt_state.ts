@@ -64,6 +64,8 @@ export interface SubmissionAcknowledgement {
   readonly attemptId: QuestionAttemptId;
   /** Immutable server-selected successor, if the submission has one. */
   readonly nextIssued: SubmissionReceipt["nextIssued"];
+  /** Receipt state that keeps feedback visible while successor issuance recovers. */
+  readonly nextPending: SubmissionReceipt["nextPending"];
 }
 
 interface StateBase {
@@ -75,7 +77,7 @@ interface StateBase {
   readonly rendererFailure: string | null;
   /** Non-blocking notice that this response cannot survive a browser refresh. */
   readonly storageWarning: string | null;
-  /** The prefetched, key-free envelope for the current issued attempt when available. */
+  /** The prefetched, answer-free browser envelope for the current issued attempt. */
   readonly envelope: QuestionEnvelope | null;
 }
 
@@ -292,9 +294,7 @@ function responsesEqual(left: StudentResponse, right: StudentResponse): boolean 
 }
 
 function feedbackFor(receipt: SubmissionReceipt): Feedback {
-  // The decoder makes `undefined` impossible over HTTP; retain the neutral
-  // fallback for an untyped test/mock caller rather than inventing a grade.
-  return receipt.feedback === null || receipt.feedback === undefined
+  return receipt.feedback === null
     ? { kind: "awaiting", feedback: null }
     : { kind: "released", feedback: receipt.feedback };
 }
@@ -516,6 +516,7 @@ export function createAttemptStateMachine(
         accepted: true as const,
         attemptId: receipt.attempt.id,
         nextIssued: receipt.nextIssued,
+        nextPending: receipt.nextPending,
       };
       const state = {
         ...base({ response, feedback }),

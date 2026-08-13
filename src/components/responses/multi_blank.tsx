@@ -18,13 +18,17 @@ export function MultiBlankResponse(props: WidgetBodyProps<MultiBlankDefinition>)
   const restored = new Map(
     props.initialResponse?.answers.map((answer) => [answer.slot, answer.text]),
   );
-  const [answers, setAnswers] = createSignal(
-    props.definition.blanks.map((blank) => ({
-      slot: blank.id,
-      text: restored.get(blank.id) ?? "",
-    })),
-  );
+  const initialAnswers = props.definition.blanks.map((blank) => ({
+    slot: blank.id,
+    text: restored.get(blank.id) ?? "",
+  }));
+  const [answers, setAnswers] = createSignal(initialAnswers);
+  let firstBlank!: HTMLInputElement;
   const response = (): StudentResponse => ({ kind: "multiBlank", answers: [...answers()] });
+  // Completion is a local progress cue only.
+  // It deliberately does not normalize or grade text.
+  const completedBlankCount = (): number =>
+    answers().filter((answer) => answer.text.length > 0).length;
   const controller = createSubmissionController(props, response());
   function update(slot: string, text: string): void {
     const next = answers().map((answer) => (answer.slot === slot ? { ...answer, text } : answer));
@@ -33,6 +37,12 @@ export function MultiBlankResponse(props: WidgetBodyProps<MultiBlankDefinition>)
   }
   function submit(): void {
     void controller.submit(response());
+  }
+  function reset(): void {
+    const next = initialAnswers.map((answer) => ({ ...answer }));
+    setAnswers(next);
+    void controller.reset({ kind: "multiBlank", answers: next });
+    queueMicrotask(() => firstBlank.focus());
   }
   return (
     <section
@@ -45,12 +55,20 @@ export function MultiBlankResponse(props: WidgetBodyProps<MultiBlankDefinition>)
       <fieldset
         aria-describedby={`${props.attemptId}-multi-blank-help ${props.attemptId}-format-status`}
         aria-invalid={controller.invalid()}
-        disabled={controller.pending()}
+        disabled={controller.locked()}
       >
         <legend>Complete each blank</legend>
         <p class="keyboard-hint" id={`${props.attemptId}-multi-blank-help`}>
           Use Tab and Shift+Tab to move between blanks. Type each response, then use the Submit
           answer button. Enter is an optional submit shortcut.
+        </p>
+        <p
+          class="completion-progress"
+          role="status"
+          aria-label="Blank completion"
+          aria-live="polite"
+        >
+          {completedBlankCount()} of {props.definition.blanks.length} blanks completed.
         </p>
         <div class="response-fields">
           <For each={props.definition.blanks}>
@@ -63,6 +81,13 @@ export function MultiBlankResponse(props: WidgetBodyProps<MultiBlankDefinition>)
                   type="text"
                   maxlength={blank.maxLength}
                   value={answers().find((answer) => answer.slot === blank.id)?.text ?? ""}
+                  ref={
+                    index() === 0
+                      ? (element): void => {
+                          firstBlank = element;
+                        }
+                      : undefined
+                  }
                   onInput={(event) => update(blank.id, event.currentTarget.value)}
                 />
               </label>
@@ -72,8 +97,10 @@ export function MultiBlankResponse(props: WidgetBodyProps<MultiBlankDefinition>)
       </fieldset>
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
-        disabled={!controller.canSubmit() || controller.pending()}
+        disabled={!controller.canSubmit() || controller.locked()}
+        resetDisabled={controller.locked()}
         onSubmit={submit}
+        onReset={reset}
         onEscape={props.onEscape}
       />
     </section>

@@ -52,6 +52,8 @@ mod external_tool;
 mod flat_import_provenance;
 #[path = "conformance/flat_question.rs"]
 mod flat_question;
+#[path = "conformance/flat_question_assets.rs"]
+mod flat_question_assets;
 #[path = "conformance/item_analysis.rs"]
 mod item_analysis;
 #[path = "conformance/jobs.rs"]
@@ -92,15 +94,15 @@ use learning_data_access::{
     AttemptSupportAction, AttemptSupportActionId, CatalogSourceStore, CatalogStore,
     CatalogTransition, ClearAttemptCommand, CourseGroupRecord, CourseListScope, CourseRecord,
     Cursor, DeleteAndRegradeAssignmentItemCommand, DeleteAssignmentPolicyExceptionCommand,
-    DraftRecord, EvaluationRevision, ForceSubmitAttemptCommand, IssueQuestionAttemptCommand,
-    ManualCredit, ManualGradeActionId, ManualGradingStore, PageRequest, PageSize,
-    PrefetchedQuestion, PublishDraftCommand, PublishedSourceArtifact, PublishedVersionRef,
-    PutCourseGroupCommand, ReleaseAttemptFeedbackCommand, ReservePrefetchedQuestionCommand,
-    SessionLifetime, SessionStore, SessionSubject, SessionTokenHash,
-    SetAssignmentPolicyExceptionCommand, SetManualGradeCommand, Store, StoreError,
-    SubmissionIdempotencyKey, SubmitPendingManualQuestionAttemptCommand,
+    DraftRecord, EvaluationRevision, FlatGradingCapability, ForceSubmitAttemptCommand,
+    IssueQuestionAttemptCommand, ManualCredit, ManualGradeActionId, ManualGradingStore,
+    PageRequest, PageSize, PrefetchedQuestion, PresentationCapability, PublishDraftCommand,
+    PublishedSourceArtifact, PublishedVersionRef, PutCourseGroupCommand,
+    ReleaseAttemptFeedbackCommand, ReservePrefetchedQuestionCommand, SessionLifetime, SessionStore,
+    SessionSubject, SessionTokenHash, SetAssignmentPolicyExceptionCommand, SetManualGradeCommand,
+    Store, StoreError, SubmissionIdempotencyKey, SubmitPendingManualQuestionAttemptCommand,
     SubmitQuestionAttemptCommand, TenantContext, UpdateAssignmentTimingCommand,
-    WebworkReplayControlV1, WebworkReplayMappingV1,
+    WebworkGradingCapability, WebworkReplayControlV1, WebworkReplayMappingV1,
 };
 use learning_data_access::{
     BeginExternalToolGradeCommand, CommitVerifiedExternalToolSubmissionCommand,
@@ -139,24 +141,16 @@ use question_model::{
     ContinuedPractice, CourseGroupId, CourseId, CourseMembership, CourseMembershipRole, CourseRole,
     DraftQuestionDefinition, DraftQuestionSource, EnrollmentId, FeedbackContent,
     GeneratorReference, GradePolicy, GradingDefinition, ImplementationVersion,
-    LateSubmissionPolicy, ObjectId, PointValue, PresentationBindingV1, PresentationDigestV1,
-    PresentationNonceV1, ProblemId, ProblemVersionRef, PublicationScope, QuestionAttempt,
-    QuestionAttemptId, QuestionBackend, QuestionMetadata, QuestionSource, RenderedItemIdV1,
-    ResponseDefinition, RunId, RunMode, RunPolicies, SourceArtifact, StudentId, TenantId, UserId,
-    UserRole, VariationPolicy, VersionId, WorkspaceId, WorkspaceImportId,
+    LateSubmissionPolicy, ObjectId, PointValue, ProblemId, ProblemVersionRef, PublicationScope,
+    QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionMetadata, QuestionSource,
+    RenderedItemIdV1, ResponseDefinition, RunId, RunMode, RunPolicies, SourceArtifact, StudentId,
+    TenantId, UserId, UserRole, VariationPolicy, VersionId, WorkspaceId, WorkspaceImportId,
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 use uuid::Uuid;
 
 fn uuid(value: u128) -> Uuid {
     Uuid::from_u128(value)
-}
-
-fn presentation_binding(marker: u8) -> PresentationBindingV1 {
-    PresentationBindingV1::new(
-        PresentationNonceV1::from_bytes([marker; 16]),
-        PresentationDigestV1::compute(&[marker]),
-    )
 }
 
 fn fixed_items(references: Vec<ProblemVersionRef>) -> Vec<AssignmentItem> {

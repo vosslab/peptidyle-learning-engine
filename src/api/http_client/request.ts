@@ -480,6 +480,8 @@ export function createRequestClient(
           receipt.nextIssued.id === receipt.attempt.id)
       )
         throw new ApiProtocolError("Submission receipt next attempt is not bound to its response");
+      if (receipt.nextPending && receipt.nextIssued !== null)
+        throw new ApiProtocolError("Submission receipt cannot issue and defer the same successor");
       return receipt;
     },
     releaseAttemptFeedback: (attemptId): Promise<FeedbackReleaseResponse> =>

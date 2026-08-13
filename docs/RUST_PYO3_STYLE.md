@@ -36,7 +36,7 @@ For an extension module, use `cdylib` so Python can load the shared library. Add
 crate-type = ["cdylib", "rlib"]
 ```
 
-Apply the private-workspace `version = "*"` dependency form from
+Apply the repository dependency policy from
 [RUST_STYLE.md](RUST_STYLE.md#16-toolchain-and-dependencies). Keep `pyo3`,
 `pyo3-build-config`, and `pyo3-ffi` on the current stable release whenever they are
 direct dependencies in the same project.

@@ -198,22 +198,31 @@ transition occurs.
 The server first validates response structure against the issued public schema,
 then invokes the selected trusted backend. All answer normalization,
 correctness, component credit, partial-credit computation, and score selection
-stay server-side. The browser never submits a `kind`, score, component weight,
-answer key, or correctness assertion for ordinary grading.
+stay server-side. The browser never submits a score, component weight, answer
+key, or correctness assertion for ordinary grading. The current tagged
+`StudentResponse` route accepts `kind`, but derives and validates the
+expected family from the issued attempt; it is not submission authority.
 
 The response, grading result, score event, attempt transition, run completion,
 enrollment pointers, summary projection, successor receipt, and idempotency
-receipt commit atomically. A process retry can therefore replay a receipt, not
-re-grade an answer or calculate a later summary from changed run state.
+receipt commit atomically. The first receipt copies the issued, answer-free
+`PresentationEnvelopeV1` and exact public `AssetBindingV1` snapshot. A process
+retry or a submitted-attempt `GET` therefore reads the receipt, not a newer
+catalog/backend render or run state, and cannot re-grade an answer or calculate
+a later summary.
 
 ### 11. Return a policy-projected receipt
 
 The learner receives only accepted status, committed attempt identity,
-policy-permitted correctness and points, sanitized feedback, and an optional
-minimal descriptor of the now-issued successor. Withheld feedback remains
-withheld even though the result is persisted. An instructor or gradebook view
-reads the summary projection and lazily paged history rather than recomputing a
-grade by scanning all attempts.
+policy-permitted correctness and points, sanitized feedback, and either an
+immutable `nextIssued` descriptor or `nextPending`. The Store derives feedback
+disclosure from the policy captured with the issued attempt; the request cannot
+choose it. `nextPending` means the grade receipt succeeded but successor
+delivery has not; recovery may finish that single pending delivery, while a
+replay never resubmits or consults changed catalog/backend state. Withheld
+feedback remains withheld even though the result is persisted. An instructor or
+gradebook view reads the summary projection and lazily paged history rather
+than recomputing a grade by scanning all attempts.
 
 The attempt state machine, feedback policy, timer rule, and summary projection
 are detailed in [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md). The narrow current and
@@ -228,9 +237,9 @@ the same source format.
 
 | Family | Publication authority | Render authority | Grade authority | Important recovery rule |
 | --- | --- | --- | --- | --- |
-| Native flat | PLE compiles author source into public definition and server-only key | PLE public renderer | PLE native grader | Reproduce from immutable version and stored seed |
+| Native flat | PLE compiles author source into public definition and server-only key | PLE public renderer | PLE native grader | First grade uses the issued checksummed snapshot, private envelope, and flat grading contract; it never reloads a current catalog/grader view |
 | QTI | PLE stages, reports, reviews, and promotes a supported profile atomically | PLE's opted-in published runtime or converted native definition | Server-only `PostgresGraderStore` when enabled | Reparse the checksum-pinned archive; refuse unsupported profile features |
-| WeBWorK | PLE copies licensed PG/PGML source and provenance into immutable storage | Private external `/render-api`, then PLE sanitizes and projects | Private external renderer through PLE | Re-render exact source and seed; never trust a browser upstream field |
+| WeBWorK | PLE copies licensed PG/PGML source and provenance into immutable storage | Private external `/render-api`, then PLE sanitizes and projects | Private external renderer through PLE | First grade loads the issued presentation, mapping, WebWork grading contract, and immutable source provenance; submitted reads never rerender |
 | External tool | PLE publishes an answer-free marker plus trusted broker configuration | Provider launch/session is server-mediated | Provider or broker under a separate trusted exchange | Generic attempt records carry no provider token, raw answer, or provider score |
 
 Native flat questions use PLE's public `QuestionDefinition` plus separate

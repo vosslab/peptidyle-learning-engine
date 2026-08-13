@@ -109,6 +109,7 @@ test.beforeAll(async () => {
                 attempt: { ...attempt, response: { kind: "multipleChoice", selected: ["carbonyl"] } },
                 feedback: { correctness: true },
                 nextIssued: null,
+                nextPending: false,
               });
             }
             if (request.method === "GET" && path === "/api/runs/" + runId) {

@@ -16,6 +16,7 @@ import {
 export function ShortTextResponse(props: WidgetBodyProps<ShortTextDefinition>): JSX.Element {
   const initialText = props.initialResponse?.text ?? "";
   const [text, setText] = createSignal(initialText);
+  let control!: HTMLTextAreaElement;
   const controller = createSubmissionController(props, { kind: "shortText", text: initialText });
   const characterCount = (): number => [...text()].length;
   const response = (): StudentResponse => ({ kind: "shortText", text: text() });
@@ -25,6 +26,11 @@ export function ShortTextResponse(props: WidgetBodyProps<ShortTextDefinition>): 
   }
   function submit(): void {
     void controller.submit(response());
+  }
+  function reset(): void {
+    setText(initialText);
+    void controller.reset({ kind: "shortText", text: initialText });
+    queueMicrotask(() => control.focus());
   }
   return (
     <section
@@ -42,16 +48,19 @@ export function ShortTextResponse(props: WidgetBodyProps<ShortTextDefinition>): 
         id={`${props.attemptId}-short-text`}
         class="response-control"
         value={text()}
+        ref={(element) => (control = element)}
         maxlength={props.definition.maxLength}
         aria-describedby={`${props.attemptId}-short-text-help ${props.attemptId}-format-status`}
         aria-invalid={controller.invalid()}
-        disabled={controller.pending()}
+        disabled={controller.locked()}
         onInput={(event) => update(event.currentTarget.value)}
       />
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
-        disabled={!controller.canSubmit() || controller.pending()}
+        disabled={!controller.canSubmit() || controller.locked()}
+        resetDisabled={controller.locked()}
         onSubmit={submit}
+        onReset={reset}
         onEscape={props.onEscape}
       />
     </section>

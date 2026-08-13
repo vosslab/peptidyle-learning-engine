@@ -81,3 +81,13 @@ def parse_arrangement_output(stdout: str) -> tuple[list[dict[str, object]], list
 			checked[key] = identifier
 		validated.append(checked)
 	return validated, None
+
+
+#============================================
+def parse_runner_arrangement_output(stdout: str) -> tuple[list[dict[str, object]], list[str] | None]:
+	"""Return runner-ready arrangements and human-readable catalog IDs."""
+	arrangements, catalog_questions = parse_arrangement_output(stdout)
+	if catalog_questions is None:
+		return arrangements, None
+	display_ids = [question["displayId"] for question in catalog_questions]
+	return arrangements, display_ids

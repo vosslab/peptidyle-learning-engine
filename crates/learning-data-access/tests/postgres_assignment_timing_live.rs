@@ -5,8 +5,9 @@
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     AssignmentEditorUpdate, AssignmentRecord, AuthoritativeTimeStore, CatalogStore, CourseRecord,
-    DraftRecord, IssueQuestionAttemptCommand, PublishDraftCommand, Store, StoreError,
-    TenantContext, UpdateAssignmentTimingCommand,
+    CourseRosterStore, DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
+    PresentationCapability, PublishDraftCommand, Store, StoreError, TenantContext,
+    UpdateAssignmentTimingCommand, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -21,10 +22,9 @@ use question_model::{
     AssignmentItem, AssignmentItemId, AssignmentRunTiming, AssignmentScoringMode,
     AssignmentTimingPolicy, AttemptProvenance, BackendCapabilities, Capability, CourseId,
     CourseMembership, CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource,
-    GradingDefinition, ImplementationVersion, LateSubmissionPolicy, PointValue,
-    PresentationBindingV1, PresentationDigestV1, PresentationNonceV1, ProblemId, ProblemVersionRef,
-    PublicationScope, QuestionAttemptId, QuestionMetadata, QuestionSource, ResponseDefinition,
-    RunId, TenantId, UserId, VersionId, WorkspaceId,
+    GradingDefinition, ImplementationVersion, LateSubmissionPolicy, PointValue, ProblemId,
+    ProblemVersionRef, PublicationScope, QuestionAttemptId, QuestionMetadata, QuestionSource,
+    ResponseDefinition, RunId, TenantId, UserId, VersionId, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -66,13 +66,6 @@ fn editor_update(title: &str, items: Vec<AssignmentItem>, seconds: u32) -> Assig
             time_limit_seconds: Some(seconds),
         },
     }
-}
-
-fn presentation_binding() -> PresentationBindingV1 {
-    PresentationBindingV1::new(
-        PresentationNonceV1::from_bytes([7; 16]),
-        PresentationDigestV1::compute(&[7]),
-    )
 }
 
 fn provenance() -> AttemptProvenance {
@@ -185,16 +178,10 @@ async fn postgres_assignment_editor_timing_is_atomic_and_reschedules_active_work
                 id: course,
                 tenant,
                 title: "Live assignment timing course".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+                members: vec![CourseMembership {
+                    user: instructor,
+                    role: CourseMembershipRole::Instructor,
+                }],
             },
         )
         .await
@@ -221,6 +208,18 @@ async fn postgres_assignment_editor_timing_is_atomic_and_reschedules_active_work
         .expect("create definition and timer together");
     assert_eq!(created.revision.value(), 1);
     assert_eq!(created.assignment_timing.time_limit_seconds, Some(900));
+    store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "Live timing student".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("canonical roster upsert derives the timed assignment enrollment");
 
     let now = store
         .authoritative_time(context)
@@ -266,7 +265,15 @@ async fn postgres_assignment_editor_timing_is_atomic_and_reschedules_active_work
                 problem: reference.problem,
                 question_version: reference.version,
                 seed: 1,
-                presentation: Some(presentation_binding()),
+                presentation_capability: PresentationCapability::NotApplicable,
+                presentation: None,
+                presentation_snapshot: None,
+                grading_envelope: None,
+                flat_grading: None,
+                flat_grading_capability: FlatGradingCapability::NotApplicable,
+                webwork_grading: None,
+                webwork_grading_capability:
+                    learning_data_access::WebworkGradingCapability::NotApplicable,
                 parameter_hash: "postgres-timing-live-parameters".to_string(),
                 provenance: provenance(),
                 webwork_replay: None,

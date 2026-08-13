@@ -511,6 +511,8 @@ mod tests {
         let public = AssetDeliveryRecord {
             id: AssetDeliveryId::from_asset(public_asset),
             object: public_object,
+            intrinsic_width: None,
+            intrinsic_height: None,
             scope: AssetDeliveryScope::Catalog {
                 asset: public_asset,
                 reference: ProblemVersionRef {
@@ -541,6 +543,8 @@ mod tests {
         let institution = AssetDeliveryRecord {
             id: AssetDeliveryId::from_asset(institution_asset),
             object: institution_object,
+            intrinsic_width: None,
+            intrinsic_height: None,
             scope: AssetDeliveryScope::Catalog {
                 asset: institution_asset,
                 reference: ProblemVersionRef {
@@ -568,6 +572,8 @@ mod tests {
         let student_record = AssetDeliveryRecord {
             id: AssetDeliveryId::from_object(student_object_id),
             object: student_object,
+            intrinsic_width: None,
+            intrinsic_height: None,
             scope: AssetDeliveryScope::StudentRecord {
                 tenant,
                 course,

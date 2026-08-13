@@ -1,18 +1,25 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
+use axum::body::{Body, to_bytes};
+use axum::http::{Request, StatusCode};
 use learning_data_access::{
-    AssignmentRecord, CourseRecord, IssueQuestionAttemptCommand, Store, TenantContext,
+    AssignmentRecord, CourseRecord, IssueQuestionAttemptCommand, SessionLifetime, SessionSubject,
+    Store, TenantContext,
 };
 use question_model::response::{ChoiceId, StudentResponse};
 use question_model::{
     AssignmentDeliveryState, AssignmentEnrollment, AssignmentId, AssignmentItem, AssignmentItemId,
     AssignmentScoringMode, CompletionRequirement, ContinuedPractice, CourseId, CourseMembership,
     CourseMembershipRole, EnrollmentId, GradePolicy, PointValue, QuestionAttempt,
-    QuestionAttemptId, RunId, RunPolicies, StudentId, UserId, VariationPolicy,
+    QuestionAttemptId, RunId, RunPolicies, StudentId, UserId, UserRole, VariationPolicy,
 };
+use tower::ServiceExt;
 
 use super::*;
+use crate::composite_backend::CompositeBackend;
+use crate::native_backend::NativeBackend;
 
 #[test]
 fn replay_persistence_rekeys_durable_choices_to_rendered_ids() {
@@ -59,6 +66,7 @@ async fn persist_attempt(
         RecordedRenderer,
     >,
     context: TenantContext,
+    question: &question_model::QuestionDefinition,
     issued: &adapter_webwork::WebworkIssuedAttempt,
 ) -> (UserId, QuestionAttempt) {
     let tenant = context.tenant_id();
@@ -157,10 +165,24 @@ async fn persist_attempt(
                 problem: reference().problem,
                 question_version: reference().version,
                 seed: issued.envelope.seed.value(),
+                presentation_capability: learning_data_access::PresentationCapability::EnvelopeV1,
                 presentation: Some(question_model::PresentationBindingV1::new(
                     presentation.envelope.presentation_nonce,
                     presentation.digest,
                 )),
+                presentation_snapshot: Some(learning_data_access::ReceiptPresentationSnapshot {
+                    envelope: presentation.envelope.clone(),
+                    asset_bindings: presentation.asset_bindings.clone(),
+                }),
+                grading_envelope: Some(issued.envelope.clone()),
+                flat_grading: None,
+                flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
+                webwork_grading: Some(
+                    learning_data_access::IssuedWebworkGradingContract::new(question.clone())
+                        .expect("fixture WebWork definition is valid"),
+                ),
+                webwork_grading_capability:
+                    learning_data_access::WebworkGradingCapability::Required,
                 parameter_hash: issued.parameter_hash.clone(),
                 provenance: issued.provenance.clone(),
                 webwork_replay: Some(replay),
@@ -175,15 +197,18 @@ async fn persist_attempt(
 
 #[tokio::test]
 async fn persisted_replay_grades_with_one_private_rpc_and_no_rerender() {
-    let (backend, context, question, renders, grades, _unavailable) = fixture().await;
+    let (backend, context, question, renders, grades, unavailable) = fixture().await;
     let issued = backend
         .issue(context, reference(), &question, 99)
         .await
         .expect("issues with private replay");
-    let (actor, attempt) = persist_attempt(&backend, context, &issued).await;
+    let (actor, attempt) = persist_attempt(&backend, context, &question, &issued).await;
     let response = StudentResponse::MultipleChoice {
         selected: vec![ChoiceId::new("water")],
     };
+    let grading_contract =
+        learning_data_access::IssuedWebworkGradingContract::new(question.clone())
+            .expect("fixture WebWork definition is valid");
 
     assert!(matches!(
         backend
@@ -191,8 +216,8 @@ async fn persisted_replay_grades_with_one_private_rpc_and_no_rerender() {
                 context,
                 UserId::from_uuid(id(28)),
                 reference(),
-                &question,
                 &attempt,
+                &grading_contract,
                 &response,
             )
             .await,
@@ -200,8 +225,17 @@ async fn persisted_replay_grades_with_one_private_rpc_and_no_rerender() {
     ));
     assert_eq!(grades.load(Ordering::SeqCst), 0);
 
+    unavailable.store(true, Ordering::SeqCst);
+
     let outcome = backend
-        .grade(context, actor, reference(), &question, &attempt, &response)
+        .grade(
+            context,
+            actor,
+            reference(),
+            &attempt,
+            &grading_contract,
+            &response,
+        )
         .await
         .expect("persisted replay grades");
     assert!(matches!(
@@ -212,7 +246,11 @@ async fn persisted_replay_grades_with_one_private_rpc_and_no_rerender() {
             points_possible: 1.0,
         })
     ));
-    assert_eq!(renders.load(Ordering::SeqCst), 1, "grade uses safe cache");
+    assert_eq!(
+        renders.load(Ordering::SeqCst),
+        1,
+        "only issuance renders; an unavailable renderer cannot block receipt-bound grading"
+    );
     assert_eq!(grades.load(Ordering::SeqCst), 1, "one private grade RPC");
 }
 
@@ -223,7 +261,7 @@ async fn persisted_attempt_refuses_renderer_identity_drift_before_grade_rpc() {
         .issue(context, reference(), &question, 99)
         .await
         .expect("renderer A issues the attempt");
-    let (actor, attempt) = persist_attempt(&backend, context, &issued).await;
+    let (actor, attempt) = persist_attempt(&backend, context, &question, &issued).await;
     let before = backend
         .sources
         .get_question_attempt(context, attempt.id)
@@ -252,12 +290,22 @@ async fn persisted_attempt_refuses_renderer_identity_drift_before_grade_rpc() {
     let response = StudentResponse::MultipleChoice {
         selected: vec![ChoiceId::new("water")],
     };
+    let grading_contract =
+        learning_data_access::IssuedWebworkGradingContract::new(question.clone())
+            .expect("fixture WebWork definition is valid");
 
     assert!(matches!(
         drift_backend
-            .grade(context, actor, reference(), &question, &attempt, &response)
+            .grade(
+                context,
+                actor,
+                reference(),
+                &attempt,
+                &grading_contract,
+                &response,
+            )
             .await,
-        Err(RunBackendError::Invalid(_))
+        Err(RunBackendError::Unavailable(_))
     ));
     assert_eq!(drift_renders.load(Ordering::SeqCst), 0);
     assert_eq!(drift_grades.load(Ordering::SeqCst), 0);
@@ -268,4 +316,135 @@ async fn persisted_attempt_refuses_renderer_identity_drift_before_grade_rpc() {
         .expect("attempt reread")
         .expect("attempt remains");
     assert_eq!(after, before, "identity drift leaves the attempt unchanged");
+}
+
+#[tokio::test]
+async fn http_submit_translates_rendered_webwork_choice_without_rerendering() {
+    let (webwork, context, question, renders, grades, unavailable) = fixture().await;
+    let issued = webwork
+        .issue(context, reference(), &question, 99)
+        .await
+        .expect("issue a stored WebWork attempt");
+    let (actor, attempt) = persist_attempt(&webwork, context, &question, &issued).await;
+    let store = Arc::clone(&webwork.sources);
+    let session = crate::auth::issue_session(
+        store.as_ref(),
+        SessionSubject::new(
+            context.tenant_id(),
+            actor,
+            "Student",
+            vec![UserRole::Student],
+        )
+        .expect("student session subject"),
+        crate::auth::SessionConfig::new(
+            SessionLifetime::from_seconds(3_600).expect("session lifetime"),
+            crate::auth::CookieTransport::LocalHttp,
+        ),
+    )
+    .await
+    .expect("student session");
+    let cookie = session
+        .set_cookie
+        .split(';')
+        .next()
+        .expect("cookie pair")
+        .to_string();
+    let backend = Arc::new(CompositeBackend::new(
+        NativeBackend::new(
+            Arc::new(adapter_native::NativeAdapter::new()),
+            Arc::clone(&store),
+        ),
+        webwork,
+    ));
+    let app = crate::run::router(Arc::clone(&store), backend);
+
+    let issued_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/attempts/{}/question", attempt.id))
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .expect("issued question request"),
+        )
+        .await
+        .expect("issued question response");
+    assert_eq!(issued_response.status(), StatusCode::OK);
+    let issued_body = to_bytes(issued_response.into_body(), 256 * 1024)
+        .await
+        .expect("issued question body");
+    let issued_json: serde_json::Value = serde_json::from_slice(&issued_body).expect("issued JSON");
+    let rendered_choice = issued_json["response"]["choices"][0]["id"]
+        .as_str()
+        .expect("rendered choice ID")
+        .to_string();
+    assert_ne!(
+        rendered_choice, "water",
+        "the browser never receives the durable ID"
+    );
+
+    unavailable.store(true, Ordering::SeqCst);
+    let body = serde_json::json!({
+        "response": { "kind": "multipleChoice", "selected": [rendered_choice] },
+    });
+    let first_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/submissions/{}", attempt.id))
+                .header("cookie", &cookie)
+                .header("content-type", "application/json")
+                .header("idempotency-key", "webwork-public-choice")
+                .body(Body::from(body.to_string()))
+                .expect("first submission request"),
+        )
+        .await
+        .expect("first submission response");
+    assert_eq!(first_response.status(), StatusCode::OK);
+    let first_body = to_bytes(first_response.into_body(), 256 * 1024)
+        .await
+        .expect("first receipt body");
+    let first_json: serde_json::Value = serde_json::from_slice(&first_body).expect("first receipt");
+    assert_eq!(first_json["feedback"]["correctness"], true);
+    assert!(
+        first_json["attempt"]["result"].is_null(),
+        "immediate-correctness receipts do not expose points through the legacy attempt field"
+    );
+    assert_eq!(renders.load(Ordering::SeqCst), 1, "grade does not rerender");
+    assert_eq!(grades.load(Ordering::SeqCst), 1, "one private grade RPC");
+
+    let replay_response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/submissions/{}", attempt.id))
+                .header("cookie", &cookie)
+                .header("content-type", "application/json")
+                .header("idempotency-key", "webwork-public-choice")
+                .body(Body::from(body.to_string()))
+                .expect("replay submission request"),
+        )
+        .await
+        .expect("replay submission response");
+    assert_eq!(replay_response.status(), StatusCode::OK);
+    let replay_body = to_bytes(replay_response.into_body(), 256 * 1024)
+        .await
+        .expect("replay receipt body");
+    let replay_json: serde_json::Value =
+        serde_json::from_slice(&replay_body).expect("replay receipt");
+    assert_eq!(
+        replay_json, first_json,
+        "replay returns the durable receipt"
+    );
+    assert_eq!(
+        renders.load(Ordering::SeqCst),
+        1,
+        "replay does not rerender"
+    );
+    assert_eq!(
+        grades.load(Ordering::SeqCst),
+        1,
+        "replay does not grade again"
+    );
 }

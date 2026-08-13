@@ -9,7 +9,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use grading::GradeOutcome;
-use learning_data_access::{AssetStore, FlatQuestionGradingStore, StoreError, TenantContext};
+use learning_data_access::{
+    AssetStore, FlatGradingCapability, FlatQuestionGradingStore, IssuedFlatGradingContract,
+    StoreError, TenantContext,
+};
 use question_model::generation::Seed;
 use question_model::{
     BackendCapabilities, DraftQuestionSource, ProblemVersionRef, QuestionAttempt,
@@ -101,11 +104,42 @@ where
             .adapter
             .issue(question, Seed::new(seed), &bindings)
             .map_err(map_native_error)?;
+        let flat_grading = if is_flat_question(question) {
+            let grader = self.flat_grader.as_ref().ok_or_else(|| {
+                RunBackendError::Unavailable(
+                    "flat-question private grading is unavailable".to_string(),
+                )
+            })?;
+            let payload = grader
+                .flat_question_published_grading(context, reference)
+                .await
+                .map_err(map_store_error)?
+                .ok_or_else(|| {
+                    RunBackendError::Unavailable(
+                        "flat-question private grading is unavailable".to_string(),
+                    )
+                })?;
+            Some(
+                IssuedFlatGradingContract::new(question.clone(), payload)
+                    .map_err(map_store_error)?,
+            )
+        } else {
+            None
+        };
         Ok(IssuedAttemptMetadata {
             envelope: issued.envelope,
             parameter_hash: issued.parameter_hash,
             provenance: issued.provenance,
             webwork_replay: None,
+            flat_grading,
+            flat_grading_capability: if is_flat_question(question) {
+                FlatGradingCapability::Required
+            } else {
+                FlatGradingCapability::NotApplicable
+            },
+            webwork_grading: None,
+            webwork_grading_capability:
+                learning_data_access::WebworkGradingCapability::NotApplicable,
         })
     }
 
@@ -138,14 +172,13 @@ where
         response: &StudentResponse,
     ) -> Result<GradeOutcome, RunBackendError> {
         validate_attempt_reference(reference, question, attempt)?;
-        let bindings = self.asset_bindings(context, reference).await?;
         if is_flat_question(question) {
-            self.validate_flat_attempt(question, attempt, &bindings)?;
             return self
                 .flat_evaluate(context, reference, question, response)
                 .await
                 .map(|evaluation| evaluation.outcome);
         }
+        let bindings = self.asset_bindings(context, reference).await?;
         self.adapter
             .grade(
                 question,
@@ -167,19 +200,14 @@ where
             submission.question,
             submission.attempt,
         )?;
-        let bindings = self
-            .asset_bindings(submission.context, submission.reference)
-            .await?;
         if is_flat_question(submission.question) {
-            self.validate_flat_attempt(submission.question, submission.attempt, &bindings)?;
-            let evaluation = self
-                .flat_evaluate(
-                    submission.context,
-                    submission.reference,
-                    submission.question,
-                    submission.response,
+            let contract = submission.issued_flat_grading.ok_or_else(|| {
+                RunBackendError::Unavailable(
+                    "flat-question issued grading contract is unavailable".to_string(),
                 )
-                .await?;
+            })?;
+            validate_flat_grading_contract(submission.attempt, contract)?;
+            let evaluation = self.flat_evaluate_issued(contract, submission.response)?;
             return match evaluation.outcome {
                 grading::GradeOutcome::Graded(result) => {
                     Ok(SubmissionDisposition::Grade(GradeReceipt {
@@ -195,6 +223,9 @@ where
                 )),
             };
         }
+        let bindings = self
+            .asset_bindings(submission.context, submission.reference)
+            .await?;
         let (outcome, feedback) = self
             .adapter
             .grade_with_feedback(
@@ -247,28 +278,6 @@ where
             })
     }
 
-    /// Reuses the public native replay path to prove the stored attempt was
-    /// issued for this immutable question before the private capability is
-    /// consulted. Flat questions are static, but their adapter/version and
-    /// rendered-question provenance are still security-relevant.
-    fn validate_flat_attempt(
-        &self,
-        question: &QuestionDefinition,
-        attempt: &QuestionAttempt,
-        bindings: &[adapter_native::AssetObjectBinding],
-    ) -> Result<(), RunBackendError> {
-        self.adapter
-            .reproduce(
-                question,
-                Seed::new(attempt.seed),
-                &attempt.parameter_hash,
-                &attempt.provenance,
-                bindings,
-            )
-            .map(|_| ())
-            .map_err(map_native_error)
-    }
-
     async fn flat_evaluate(
         &self,
         context: TenantContext,
@@ -295,6 +304,39 @@ where
             RunBackendError::Invalid("flat-question private grading is invalid".to_string())
         })
     }
+
+    fn flat_evaluate_issued(
+        &self,
+        contract: &IssuedFlatGradingContract,
+        response: &StudentResponse,
+    ) -> Result<adapter_native::flat_question::FlatQuestionEvaluation, RunBackendError> {
+        let private = contract.grading().decode_private().map_err(|_| {
+            RunBackendError::Unavailable("flat-question issued grading is invalid".to_string())
+        })?;
+        private
+            .evaluate(contract.question(), response)
+            .map_err(|_| {
+                RunBackendError::Unavailable("flat-question issued grading is invalid".to_string())
+            })
+    }
+}
+
+/// Confirms that the issued flat definition belongs to the immutable attempt.
+/// The route separately validates the public snapshot; this check does not
+/// rebuild a presentation or invoke the mutable native adapter during first
+/// submission.
+fn validate_flat_grading_contract(
+    attempt: &QuestionAttempt,
+    contract: &IssuedFlatGradingContract,
+) -> Result<(), RunBackendError> {
+    if contract.question().version != attempt.question_version
+        || contract.question().problem != attempt.problem
+    {
+        return Err(RunBackendError::Unavailable(
+            "flat-question issued grading contract is invalid".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 fn is_flat_question(question: &QuestionDefinition) -> bool {

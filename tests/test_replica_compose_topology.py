@@ -58,6 +58,32 @@ def test_api_replicas_have_no_host_port_and_gateway_is_the_only_listener() -> No
 
 
 #============================================
+def test_api_is_the_single_shared_application_image_build_owner() -> None:
+	"""API builds once; worker runs that exact image without a second Cargo build."""
+	compose = COMPOSE_PATH.read_text()
+	api = _service_block(compose, "api")
+	worker = _service_block(compose, "worker")
+	shared_image = "${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}"
+
+	assert f"image: {shared_image}" in api
+	assert "build:\n      context: ..\n      dockerfile: containers/Containerfile.api" in api
+	assert f"image: {shared_image}" in worker
+	assert "build:" not in worker
+
+
+#============================================
+def test_launcher_builds_shared_application_before_starting_its_consumers() -> None:
+	"""A failed single app build cannot start API or worker with an old image."""
+	launcher = LAUNCHER_PATH.read_text()
+	build_command = "compose build api gateway"
+	start_command = 'compose up -d --force-recreate --no-deps "${services[@]}"'
+
+	assert launcher.count(build_command) == 1
+	assert launcher.index(build_command) < launcher.index(start_command)
+	assert "compose up -d --build --force-recreate --no-deps" not in launcher
+
+
+#============================================
 def test_gateway_uses_digest_pinned_dynamic_dns_without_private_credentials() -> None:
 	"""The hardened gateway dynamically discovers every API service address."""
 	compose = COMPOSE_PATH.read_text()

@@ -94,6 +94,7 @@ fn publication_command(
         question_model::DraftQuestionSource::Native { family } => family.clone(),
         _ => panic!("flat publication fixture must use a native family"),
     };
+    let published_question = draft.question.clone();
     PublishDraftCommand {
         expected_draft: draft,
         expected_revision: revision,
@@ -104,6 +105,8 @@ fn publication_command(
         flat_question_promotion: Some(FlatQuestionPublicationPromotion {
             source,
             import_origin: None,
+            published_question,
+            assets: Vec::new(),
         }),
         publisher: owner,
         scope: PublicationScope::Institution,

@@ -5,7 +5,7 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./ui_walkthrough_fixture";
 
 import { tabTo, tabToTargetThroughVisiblePagination } from "./simulator/keyboard_walkthrough";
-import { completeVisibleQuestionThroughFeedback } from "./simulator/chapter_question_responses";
+import { completeReviewedGeneticsQuestion } from "./simulator/genetics_chapter_one_responses";
 import { classifyPostStartSurface, type PostStartSurface } from "./simulator/post_start_surface";
 import {
   appendStudentRepeatState,
@@ -113,7 +113,7 @@ test("J4 completes the resumed second Mastery run through visible keyboard contr
   // J3 intentionally left this new run without submitting. Complete its rendered
   // questions through visible response controls and visible correctness feedback.
   for (let questionCount = 0; questionCount < 4; questionCount += 1) {
-    await completeVisibleQuestionThroughFeedback(page);
+    await completeReviewedGeneticsQuestion(page);
     const surface = await waitForNextMasterySurface(page);
     if (surface === "complete") break;
   }
@@ -136,6 +136,7 @@ test("J4 completes the resumed second Mastery run through visible keyboard contr
     page.locator(".attempt-summary"),
     72,
     inputs.screenshotDirectory,
+    "bottom",
   );
   const back = page.getByRole("button", { name: "Back to assignment" });
   await tabTo(page, back);

@@ -17,11 +17,13 @@ adapter, not for defining a new learner response family. The shared public contr
 - Deliver only an answer-free envelope: title, prompt blocks, response definition, immutable
   version, and seed. Do not put source bytes, credentials, upstream session state, correct answers,
   or private feedback in an envelope, browser cache, or browser request.
-- Accept an immutable, verified source artifact at issue and grade time. A browser request never
+- Accept an immutable, verified source artifact at issue time and retain the protected attempt
+  provenance required for grade. A browser request never
   chooses an endpoint, source path, source bytes, seed, provider profile, or renderer identity.
 - Record source object and checksum, adapter/grader/renderer implementation versions, parameter
-  hash, rendered-envelope hash, and bound assets in `AttemptProvenance`. Reissue and grade must
-  reject a record that no longer reproduces.
+  hash, rendered-envelope hash, and bound assets in `AttemptProvenance`. Presentation-bearing
+  attempts also persist a checksummed public snapshot and server-only grading envelope; missing or
+  mismatched state makes grade unavailable rather than reissuing.
 - Keep provider configuration, credentials, network policy, correlation state, and upstream
   verification inside the server composition and adapter boundary. The browser speaks only to the
   same-origin PLE API.
@@ -61,9 +63,12 @@ Use the following sequence for a question-agnostic adapter.
    in private grading storage, or retain an immutable source that only server-side grading can read.
 4. Implement `issue` with the trusted problem/version/source/seed inputs. It returns an answer-free
    `QuestionEnvelope`, a parameter hash, and complete `AttemptProvenance`.
-5. Implement `grade` at the server boundary. Re-resolve the immutable source and reproduce the
-   issued output before evaluating a `StudentResponse`; never trust browser-provided score,
-   correlation, source, seed, or upstream response fields.
+5. Implement `grade` at the server boundary. Validate the persisted issued snapshot, translate
+   public rendered IDs through the protected grading envelope, and use retained immutable source
+   provenance where a private grader needs it. A family that needs private first-grade material
+   persists a typed, checksummed issue-time contract and consumes that contract rather than a
+   current catalog definition, grader, or renderer. Never trust browser-provided score,
+   correlation, source, seed, or upstream response fields; do not rerender a receipt-era attempt.
 6. Register the backend through the server run boundary, where tenant authorization, attempt
    identity, idempotency, timer policy, and persistence remain PLE responsibilities.
 

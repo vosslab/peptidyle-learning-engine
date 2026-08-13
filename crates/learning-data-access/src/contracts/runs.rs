@@ -1,4 +1,6 @@
 use super::*;
+use question_model::QuestionEnvelope;
+use question_model::presentation::AssetBindingV1;
 
 /// One private upstream field/value pair for a rendered selectable item.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -159,6 +161,60 @@ impl std::fmt::Debug for WebworkGradeReplayStateV1 {
     }
 }
 
+/// Exact server-only definition used by a first WeBWorK grade.
+///
+/// The definition has no answer key, but it fixes the source path, grading
+/// policy, immutable problem/version identity, and capability profile without
+/// a current catalog read. The matching source bytes stay separately bound by
+/// [`WebworkGradeReplayStateV1::source_artifact`].
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub struct IssuedWebworkGradingContract {
+    question: question_model::QuestionDefinition,
+}
+
+impl IssuedWebworkGradingContract {
+    /// Retains one exact issued WebWork definition.
+    pub fn new(question: question_model::QuestionDefinition) -> Result<Self, StoreError> {
+        if !matches!(
+            question.source,
+            question_model::QuestionSource::Webwork { .. }
+        ) {
+            return Err(StoreError::InvalidRecord(
+                "WebWork grading contract requires a WebWork question".to_string(),
+            ));
+        }
+        Ok(Self { question })
+    }
+
+    /// The immutable definition consumed only by trusted grading code.
+    pub fn question(&self) -> &question_model::QuestionDefinition {
+        &self.question
+    }
+
+    pub(crate) fn validate_for_attempt(&self, attempt: &QuestionAttempt) -> Result<(), StoreError> {
+        if !matches!(
+            self.question.source,
+            question_model::QuestionSource::Webwork { .. }
+        ) || self.question.problem != attempt.problem
+            || self.question.version != attempt.question_version
+        {
+            return Err(StoreError::Unavailable(
+                "stored WebWork grading contract disagrees with its attempt".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl std::fmt::Debug for IssuedWebworkGradingContract {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("IssuedWebworkGradingContract")
+            .field("question", &"[SERVER-ONLY]")
+            .finish()
+    }
+}
+
 pub(crate) fn webwork_replay_state_from_issue(
     problem: ProblemId,
     version: VersionId,
@@ -249,7 +305,7 @@ impl SubmissionIdempotencyKey {
 }
 
 /// Server-owned data needed to issue or resume one question instance.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct IssueQuestionAttemptCommand {
     /// Authenticated enrollment owner.
     pub actor: UserId,
@@ -269,13 +325,41 @@ pub struct IssueQuestionAttemptCommand {
     pub parameter_hash: String,
     /// Adapter, generator, renderer, source, asset, and grading provenance.
     pub provenance: AttemptProvenance,
-    /// Exact answer-free presentation state for compact-payload families.
+    /// Immutable capability decided when this exact attempt was issued.
     ///
-    /// File upload and external-tool responses remain outside presentation v1
-    /// until their dedicated transfer or broker contracts ship.
+    /// It is stored separately from the binding so a missing binding can
+    /// never silently reclassify a presentation-bearing attempt as exempt.
+    pub presentation_capability: PresentationCapability,
+    /// Digest/nonce binding for the exact issued presentation.
     pub presentation: Option<PresentationBindingV1>,
+    /// Exact answer-free descriptor inputs used at issuance.
+    ///
+    /// This is persisted on the attempt before it can accept a response. The
+    /// first receipt copies it rather than reconstructing through mutable
+    /// catalog, renderer, or object metadata later.
+    pub presentation_snapshot: Option<ReceiptPresentationSnapshot>,
+    /// Exact server-only, answer-free envelope used to validate and translate
+    /// a response for private grading. Durable IDs stay out of the public
+    /// receipt snapshot, which exposes presentation-scoped IDs instead.
+    pub grading_envelope: Option<QuestionEnvelope>,
+    /// Private flat-question authority retained at issuance. It contains the
+    /// answer-free immutable definition plus private key material, and is
+    /// never reconstructed from a later catalog or grader lookup.
+    pub flat_grading: Option<crate::IssuedFlatGradingContract>,
+    /// Immutable family capability decided with the issued presentation.
+    ///
+    /// This is deliberately distinct from the nullable payload: a missing
+    /// payload must not turn a flat attempt into a non-flat compatibility
+    /// case during first submission or replay.
+    pub flat_grading_capability: FlatGradingCapability,
     /// Private answer-free upstream mapping, present only for WeBWorK.
     pub webwork_replay: Option<WebworkReplayMappingV1>,
+    /// Server-only immutable WebWork definition used for first-grade source
+    /// identity and point policy. It is never reread from a later catalog
+    /// version.
+    pub webwork_grading: Option<IssuedWebworkGradingContract>,
+    /// Immutable obligation for the WebWork grading contract.
+    pub webwork_grading_capability: WebworkGradingCapability,
     /// Server-owned candidate prepared while the preceding attempt was active.
     /// It is verified and consumed atomically with issuance; browser input can
     /// never create this internal command.
@@ -286,22 +370,163 @@ pub struct IssueQuestionAttemptCommand {
 }
 
 /// Immutable successor state for one committed submission.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SubmissionNextAttempt {
-    /// Finalization has not yet run (for crash healing of older writes).
+    /// The grade and receipt committed, but successor issuance has not yet
+    /// finalized. First delivery may try once; replay returns `nextPending`.
     Pending,
     /// This submission completed or exhausted the run without another attempt.
     None,
-    /// Exact next attempt issued from this submission.
-    Issued(QuestionAttemptId),
+    /// Exact, receipt-bound next attempt issued from this submission.
+    Issued(ReceiptNextAttempt),
 }
 
-/// Key-free, tenant-owned preparation for a possible next question.
+/// Immutable presentation obligation selected at issue time.
+///
+/// File-upload and external-tool attempts currently have no
+/// `PresentationEnvelopeV1`; every other attempt that issued one is
+/// `EnvelopeV1` and must retain its answer-free descriptor snapshot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PresentationCapability {
+    EnvelopeV1,
+    NotApplicable,
+}
+
+impl PresentationCapability {
+    #[cfg(feature = "postgres")]
+    pub(crate) fn requires_snapshot(self) -> bool {
+        matches!(self, Self::EnvelopeV1)
+    }
+}
+
+/// Immutable private-grading obligation selected at issue time.
+///
+/// `Required` is used exactly for native flat-question families. Every other
+/// family is explicitly `NotApplicable`; receipt readers never infer either
+/// state from the presence of the server-only payload.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FlatGradingCapability {
+    Required,
+    NotApplicable,
+}
+
+impl FlatGradingCapability {
+    pub(crate) fn requires_contract(self) -> bool {
+        matches!(self, Self::Required)
+    }
+}
+
+/// Immutable WebWork private-grading obligation selected at issue time.
+///
+/// The contract retains the exact published definition required by the
+/// renderer grade request. `Required` cannot be inferred from a nullable
+/// replay mapping or source lookup during first submission.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WebworkGradingCapability {
+    Required,
+    NotApplicable,
+}
+
+/// Derives the compact capability tag that is checksummed inside a
+/// `QuestionAttempt`. The separate protected columns must always agree with
+/// this immutable record before a receipt, first grade, or presentation read
+/// can proceed.
+pub(crate) fn issued_attempt_capability_from_issue(
+    presentation: PresentationCapability,
+    flat_grading: FlatGradingCapability,
+    webwork_grading: WebworkGradingCapability,
+) -> Result<question_model::IssuedAttemptCapabilityV1, StoreError> {
+    use question_model::IssuedAttemptCapabilityV1 as Capability;
+
+    match (presentation, flat_grading, webwork_grading) {
+        (
+            PresentationCapability::EnvelopeV1,
+            FlatGradingCapability::Required,
+            WebworkGradingCapability::NotApplicable,
+        ) => Ok(Capability::FlatPresentation),
+        (
+            PresentationCapability::EnvelopeV1,
+            FlatGradingCapability::NotApplicable,
+            WebworkGradingCapability::Required,
+        ) => Ok(Capability::WebworkPresentation),
+        (
+            PresentationCapability::EnvelopeV1,
+            FlatGradingCapability::NotApplicable,
+            WebworkGradingCapability::NotApplicable,
+        ) => Ok(Capability::PresentationEnvelope),
+        (
+            PresentationCapability::NotApplicable,
+            FlatGradingCapability::NotApplicable,
+            WebworkGradingCapability::NotApplicable,
+        ) => Ok(Capability::NotApplicable),
+        _ => Err(StoreError::InvalidRecord(
+            "issued presentation and grading capabilities disagree".to_string(),
+        )),
+    }
+}
+
+/// Refuses protected-column damage that would otherwise make a first grade or
+/// active GET infer an absent contract and consult mutable backend state.
+pub(crate) fn validate_attempt_issuance_capability(
+    attempt: &QuestionAttempt,
+    presentation: PresentationCapability,
+    flat_grading: FlatGradingCapability,
+    webwork_grading: WebworkGradingCapability,
+) -> Result<(), StoreError> {
+    let expected =
+        issued_attempt_capability_from_issue(presentation, flat_grading, webwork_grading)
+            .map_err(|error| StoreError::Unavailable(error.to_string()))?;
+    if attempt.issued_capability != expected {
+        return Err(StoreError::Unavailable(
+            "stored issuance capability disagrees with its checksummed attempt".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+impl WebworkGradingCapability {
+    pub(crate) fn requires_contract(self) -> bool {
+        matches!(self, Self::Required)
+    }
+}
+
+/// Browser-safe successor metadata frozen with the predecessor's durable
+/// receipt link. Reading a receipt never needs to query the mutable attempt.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReceiptNextAttempt {
+    pub id: QuestionAttemptId,
+    pub run: RunId,
+    pub question_version: VersionId,
+    pub seed: u64,
+    pub deadline: Option<ActivityTimestamp>,
+    pub assignment_position: u32,
+    pub rendered_question_sha256: String,
+}
+
+impl ReceiptNextAttempt {
+    pub(crate) fn from_attempt(attempt: &QuestionAttempt) -> Self {
+        Self {
+            id: attempt.id,
+            run: attempt.run,
+            question_version: attempt.question_version,
+            seed: attempt.seed,
+            deadline: attempt.timer.deadline,
+            assignment_position: attempt.assignment_position,
+            rendered_question_sha256: attempt.provenance.rendered_question_sha256.clone(),
+        }
+    }
+}
+
+/// Server-only, tenant-owned preparation for a possible next question.
 ///
 /// This intentionally has neither an attempt identity nor a timer. It cannot
 /// receive a response, grade, or summary transition; only matching post-submit
 /// issuance may consume it into a real [`QuestionAttempt`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrefetchedQuestion {
     pub tenant: TenantId,
@@ -313,13 +538,26 @@ pub struct PrefetchedQuestion {
     pub seed: u64,
     pub parameter_hash: String,
     pub provenance: AttemptProvenance,
+    pub presentation_capability: PresentationCapability,
     pub presentation: PresentationBindingV1,
+    pub presentation_snapshot: ReceiptPresentationSnapshot,
+    /// Exact server-only answer-free envelope promoted with this reservation.
+    pub grading_envelope: QuestionEnvelope,
+    /// Private flat-question authority promoted with this reservation when
+    /// the native family requires it.
+    pub flat_grading: Option<crate::IssuedFlatGradingContract>,
+    /// Immutable private-grading obligation promoted with this reservation.
+    pub flat_grading_capability: FlatGradingCapability,
     /// Private answer-free upstream mapping retained for atomic promotion.
     pub webwork_replay: Option<WebworkReplayMappingV1>,
+    /// Immutable WebWork first-grade definition promoted with the reservation.
+    pub webwork_grading: Option<IssuedWebworkGradingContract>,
+    /// Explicit WebWork first-grade obligation promoted with the reservation.
+    pub webwork_grading_capability: WebworkGradingCapability,
 }
 
 /// Trusted server request to create or resume a prefetch reservation.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ReservePrefetchedQuestionCommand {
     pub actor: UserId,
     pub reservation: PrefetchedQuestion,
@@ -343,6 +581,172 @@ pub struct SubmitQuestionAttemptCommand {
     pub feedback: FeedbackContent,
     /// Stable key reused by browser retries of this exact response.
     pub idempotency_key: SubmissionIdempotencyKey,
+}
+
+/// Validates the immutable issued-presentation tuple before an attempt is
+/// written. The same validation is repeated while loading a receipt so a
+/// corrupt persisted payload fails closed rather than becoming a new view.
+pub(crate) fn validate_issued_presentation(
+    capability: PresentationCapability,
+    attempt: &QuestionAttempt,
+    binding: Option<PresentationBindingV1>,
+    snapshot: Option<&ReceiptPresentationSnapshot>,
+    grading_envelope: Option<&QuestionEnvelope>,
+) -> Result<Option<ReceiptPresentationSnapshot>, StoreError> {
+    use question_model::IssuedAttemptCapabilityV1 as Capability;
+
+    let presentation_matches_attempt = matches!(
+        (attempt.issued_capability, capability),
+        (
+            Capability::PresentationEnvelope
+                | Capability::FlatPresentation
+                | Capability::WebworkPresentation,
+            PresentationCapability::EnvelopeV1,
+        ) | (
+            Capability::NotApplicable,
+            PresentationCapability::NotApplicable
+        )
+    );
+    if !presentation_matches_attempt {
+        return Err(StoreError::Unavailable(
+            "stored presentation capability disagrees with its checksummed attempt".to_string(),
+        ));
+    }
+    match (capability, binding, snapshot, grading_envelope) {
+        (PresentationCapability::NotApplicable, None, None, None) => Ok(None),
+        (PresentationCapability::NotApplicable, _, _, _) => Err(StoreError::InvalidRecord(
+            "a non-presentation attempt carries presentation state".to_string(),
+        )),
+        (
+            PresentationCapability::EnvelopeV1,
+            Some(binding),
+            Some(snapshot),
+            Some(grading_envelope),
+        ) => {
+            if snapshot.envelope.version != attempt.question_version
+                || snapshot.envelope.seed.value() != attempt.seed
+                || grading_envelope.version != attempt.question_version
+                || grading_envelope.seed.value() != attempt.seed
+            {
+                return Err(StoreError::InvalidRecord(
+                    "issued presentation does not match its attempt".to_string(),
+                ));
+            }
+            let rebuilt = question_model::presentation::reproduce_presentation_v1(
+                grading_envelope,
+                &snapshot.asset_bindings,
+                binding,
+            )
+            .map_err(|error| {
+                StoreError::InvalidRecord(format!("issued presentation is invalid: {error}"))
+            })?;
+            if rebuilt.envelope != snapshot.envelope || rebuilt.asset_bindings != snapshot.asset_bindings {
+                return Err(StoreError::InvalidRecord(
+                    "issued presentation does not match its private grading contract".to_string(),
+                ));
+            }
+            Ok(Some(snapshot.clone()))
+        }
+        (PresentationCapability::EnvelopeV1, _, _, _) => Err(StoreError::Unavailable(
+            "a presentation-bearing attempt lacks its immutable snapshot, binding, or grading contract"
+                .to_string(),
+        )),
+    }
+}
+
+/// Validates flat private grading authority while the exact published version
+/// is still available at issuance. Later first-submit code reads only this
+/// contract and its issued presentation tuple.
+pub(crate) fn validate_issued_flat_grading(
+    question: &question_model::QuestionDefinition,
+    capability: PresentationCapability,
+    flat_capability: FlatGradingCapability,
+    contract: Option<&crate::IssuedFlatGradingContract>,
+) -> Result<(), StoreError> {
+    let is_flat = matches!(
+        &question.source,
+        question_model::QuestionSource::Native { family }
+            if grading::flat_question::is_flat_question_family(family)
+    );
+    match (is_flat, capability, flat_capability, contract) {
+        (
+            true,
+            PresentationCapability::EnvelopeV1,
+            FlatGradingCapability::Required,
+            Some(contract),
+        ) if contract.question() == question => Ok(()),
+        (true, _, _, _) => Err(StoreError::InvalidRecord(
+            "flat-question issuance lacks its immutable private grading contract".to_string(),
+        )),
+        (false, _, FlatGradingCapability::NotApplicable, None) => Ok(()),
+        (false, _, _, _) => Err(StoreError::InvalidRecord(
+            "non-flat issuance carries private flat-question grading authority".to_string(),
+        )),
+    }
+}
+
+/// Validates the explicit first-grade WebWork authority while the exact
+/// published version is available at issuance. Later submission reads only
+/// this frozen contract and the attempt-bound source artifact.
+pub(crate) fn validate_issued_webwork_grading(
+    question: &question_model::QuestionDefinition,
+    capability: WebworkGradingCapability,
+    contract: Option<&IssuedWebworkGradingContract>,
+) -> Result<(), StoreError> {
+    let is_webwork = matches!(
+        question.source,
+        question_model::QuestionSource::Webwork { .. }
+    );
+    match (is_webwork, capability, contract) {
+        (true, WebworkGradingCapability::Required, Some(contract))
+            if contract.question() == question =>
+        {
+            Ok(())
+        }
+        (true, _, _) => Err(StoreError::InvalidRecord(
+            "WeBWorK issuance lacks its immutable private grading contract".to_string(),
+        )),
+        (false, WebworkGradingCapability::NotApplicable, None) => Ok(()),
+        (false, _, _) => Err(StoreError::InvalidRecord(
+            "non-WeBWorK issuance carries private WeBWorK grading authority".to_string(),
+        )),
+    }
+}
+
+/// Validates the replay controls required to translate a first WeBWorK
+/// submission without reopening the current source or renderer.
+///
+/// `validate_issued_webwork_grading` establishes which source family owns the
+/// contract. This companion check makes the required private control mapping
+/// equally explicit, rather than treating its nullable storage as a legacy
+/// recovery branch.
+pub(crate) fn validate_issued_webwork_replay(
+    capability: WebworkGradingCapability,
+    mapping: Option<&WebworkReplayMappingV1>,
+) -> Result<(), StoreError> {
+    match (capability, mapping) {
+        (WebworkGradingCapability::Required, Some(mapping)) => mapping.validate(),
+        (WebworkGradingCapability::Required, None) => Err(StoreError::InvalidRecord(
+            "WeBWorK issuance lacks its immutable replay mapping".to_string(),
+        )),
+        (WebworkGradingCapability::NotApplicable, None) => Ok(()),
+        (WebworkGradingCapability::NotApplicable, Some(_)) => Err(StoreError::InvalidRecord(
+            "non-WeBWorK issuance carries a replay mapping".to_string(),
+        )),
+    }
+}
+
+/// Exact answer-free descriptor inputs retained with one immutable receipt.
+///
+/// `PresentationEnvelopeV1` names visible content, but the descriptor also
+/// hashes the selected public asset renditions. Retaining both is therefore
+/// necessary to reproduce and validate any asset-backed response (including a
+/// hotspot) without consulting mutable catalog state.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReceiptPresentationSnapshot {
+    pub envelope: PresentationEnvelopeV1,
+    pub asset_bindings: Vec<AssetBindingV1>,
 }
 
 impl std::fmt::Debug for SubmitQuestionAttemptCommand {
@@ -449,6 +853,11 @@ pub struct SubmissionRecord {
     /// Private, immutable teaching content retained for policy-controlled
     /// disclosure. This is intentionally not browser-safe data.
     pub feedback: AttemptFeedbackRecord,
+    /// Answer-free envelope actually rendered for this receipt, when the
+    /// response family has a native presentation.
+    pub presentation: Option<ReceiptPresentationSnapshot>,
+    /// Immutable disclosure policy used for this receipt's feedback.
+    pub feedback_disclosure: FeedbackDisclosure,
 }
 
 impl std::fmt::Debug for SubmissionRecord {
@@ -458,6 +867,11 @@ impl std::fmt::Debug for SubmissionRecord {
             .field("run", &self.run)
             .field("summary", &self.summary)
             .field("feedback", &"[redacted]")
+            .field(
+                "presentation",
+                &self.presentation.as_ref().map(|_| "[answer-free]"),
+            )
+            .field("feedback_disclosure", &self.feedback_disclosure)
             .finish()
     }
 }

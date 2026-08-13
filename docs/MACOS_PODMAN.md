@@ -83,10 +83,10 @@ separate `webwork-pg-renderer` project; PLE records the selected local OCI ID.
 
 These references are not all runtime images. `postgres`, `minio`,
 `createbuckets`, and `identity-secret-init` run their specified external
-images. `api` and `worker` are built locally from
-`containers/Containerfile.api`; `gateway` is built locally from
-`containers/Containerfile.gateway` using the pinned Caddy build argument. The
-`webwork-renderer` is an existing external-project image. Its default
+images. `api` builds the shared local application image from
+`containers/Containerfile.api`, and `worker` consumes that exact image;
+`gateway` is built locally from `containers/Containerfile.gateway` using the
+pinned Caddy build argument. The `webwork-renderer` is an existing external-project image. Its default
 `localhost/pg-renderer:latest` name is a local build result from that sibling
 project, not a PLE-owned renderer build.
 

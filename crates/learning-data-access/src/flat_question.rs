@@ -1,12 +1,16 @@
 //! Flat-question staging types and flat-question-only persistence traits.
 
 use async_trait::async_trait;
+use base64::Engine as _;
 use objects::{ObjectCategory, ObjectKey, ObjectRecord, Sha256Digest};
-use question_model::{DraftQuestionSource, ProblemVersionRef, TenantId, WorkspaceId};
+use question_model::{
+    DraftQuestionDefinition, DraftQuestionSource, ProblemVersionRef, QuestionDefinition, TenantId,
+    WorkspaceId,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::FlatImportPublicationPromotion;
-use crate::{DraftRecord, StoreError, TenantContext, WorkspaceDraftRevision};
+use crate::{AssetDeliveryRecord, DraftRecord, StoreError, TenantContext, WorkspaceDraftRevision};
 
 /// Canonical source media type for workspace and published flat-question objects.
 pub const FLAT_QUESTION_MEDIA_TYPE: &str = "application/vnd.peptidyle.flat-question+json";
@@ -17,10 +21,32 @@ pub const MAX_FLAT_QUESTION_PAYLOAD_BYTES: usize = 256 * 1024;
 ///
 /// This payload remains private to grader paths and should not appear in browser
 /// payloads.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq)]
 pub struct FlatQuestionGradingPayload {
     bytes: Vec<u8>,
     public_binding_sha256: String,
+}
+
+impl Serialize for FlatQuestionGradingPayload {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&base64::engine::general_purpose::STANDARD.encode(&self.bytes))
+    }
+}
+
+impl<'de> Deserialize<'de> for FlatQuestionGradingPayload {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let encoded = String::deserialize(deserializer)?;
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(encoded.as_bytes())
+            .map_err(serde::de::Error::custom)?;
+        Self::from_canonical_bytes(bytes).map_err(serde::de::Error::custom)
+    }
 }
 
 impl FlatQuestionGradingPayload {
@@ -69,7 +95,7 @@ impl FlatQuestionGradingPayload {
     }
 
     /// Raw byte view for internal grader-store envelope code only.
-    #[cfg_attr(not(feature = "postgres"), allow(dead_code))]
+    #[cfg(feature = "postgres")]
     pub(crate) fn bytes(&self) -> &[u8] {
         &self.bytes
     }
@@ -77,6 +103,72 @@ impl FlatQuestionGradingPayload {
     /// Public payload checksum carried by the private grading material.
     pub fn public_binding_sha256(&self) -> &str {
         &self.public_binding_sha256
+    }
+
+    /// Verifies private grading material against one exact immutable published
+    /// definition without evaluating a learner response.
+    pub fn validate_for_question(&self, question: &QuestionDefinition) -> Result<(), StoreError> {
+        self.decode_private()?
+            .validate_for_question(question)
+            .map_err(flat_grading_error)
+    }
+
+    /// Rebinds trusted staged grading material to a server-prepared published
+    /// definition without exposing its answer-bearing bytes.
+    pub fn rebind_to_draft(&self, draft: &DraftQuestionDefinition) -> Result<Self, StoreError> {
+        let rebound = self
+            .decode_private()?
+            .rebind_to_draft(draft)
+            .map_err(flat_grading_error)?;
+        Self::from_private(&rebound)
+    }
+}
+
+/// Immutable server-only flat-question grading authority frozen at issuance.
+///
+/// The definition is answer-free, while `grading` is intentionally private.
+/// Keeping them together lets first submit verify the exact publication-era
+/// public binding without loading a later catalog revision or grader record.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub struct IssuedFlatGradingContract {
+    question: QuestionDefinition,
+    grading: FlatQuestionGradingPayload,
+}
+
+impl IssuedFlatGradingContract {
+    /// Creates a contract only when the private material binds to this exact
+    /// immutable published definition.
+    pub fn new(
+        question: QuestionDefinition,
+        grading: FlatQuestionGradingPayload,
+    ) -> Result<Self, StoreError> {
+        grading.validate_for_question(&question)?;
+        Ok(Self { question, grading })
+    }
+
+    /// The exact answer-free published definition retained for private grade.
+    pub fn question(&self) -> &QuestionDefinition {
+        &self.question
+    }
+
+    /// The private grader material. This is available only inside trusted
+    /// server/store capabilities and never serializes into a learner DTO.
+    pub fn grading(&self) -> &FlatQuestionGradingPayload {
+        &self.grading
+    }
+
+    pub(crate) fn validate(&self) -> Result<(), StoreError> {
+        self.grading.validate_for_question(&self.question)
+    }
+}
+
+impl std::fmt::Debug for IssuedFlatGradingContract {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("IssuedFlatGradingContract")
+            .field("question", &self.question)
+            .field("grading", &"[REDACTED]")
+            .finish()
     }
 }
 
@@ -221,7 +313,7 @@ pub(crate) fn validate_workspace_flat_source_record(
 /// The caller selects the exact locked source and optional import origin, but
 /// cannot supply grading material. Storage promotes only the current private
 /// grading value staged by the successful save or conversion.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq)]
 pub struct FlatQuestionPublicationPromotion {
     /// Exact workspace source metadata used to validate publication.
     pub source: WorkspaceFlatQuestionSource,
@@ -229,6 +321,14 @@ pub struct FlatQuestionPublicationPromotion {
     /// A manually authored flat question keeps this `None`; storage rejects an
     /// omitted selector when a trusted current origin exists.
     pub import_origin: Option<FlatImportPublicationPromotion>,
+    /// Browser-safe definition after publication-only asset identities have
+    /// been assigned. This differs from `source` only when a HOTSPOT surface
+    /// is retargeted from its private workspace asset to a fresh immutable
+    /// catalog asset for this exact version.
+    pub published_question: DraftQuestionDefinition,
+    /// Immutable image deliveries prepared by the protected server route.
+    /// Empty unless the exact staged source uses a HOTSPOT surface.
+    pub assets: Vec<AssetDeliveryRecord>,
 }
 
 impl std::fmt::Debug for FlatQuestionPublicationPromotion {
@@ -237,6 +337,8 @@ impl std::fmt::Debug for FlatQuestionPublicationPromotion {
             .debug_struct("FlatQuestionPublicationPromotion")
             .field("source", &self.source)
             .field("import_origin", &self.import_origin)
+            .field("published_question", &self.published_question)
+            .field("assets", &self.assets)
             .finish()
     }
 }

@@ -213,6 +213,8 @@ async fn exercise_flat_question_store(
     let promotion = FlatQuestionPublicationPromotion {
         source: staged.clone(),
         import_origin: None,
+        published_question: draft.question.clone(),
+        assets: Vec::new(),
     };
     let command = |promotion: FlatQuestionPublicationPromotion,
                    source_artifact: PublishedSourceArtifact,

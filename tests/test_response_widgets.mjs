@@ -99,6 +99,7 @@ test("initial controlled responses are checked before a learner edits them", asy
       {
         attemptId: "attempt-initial-order",
         definition: orderingDefinition,
+        initialResponse: initialOrder,
         validator: {
           mode: "wasm",
           validateResponseFormat: async (_definition, response) => {
@@ -126,6 +127,7 @@ test("initial controlled responses are checked before a learner edits them", asy
       {
         attemptId: "attempt-invalid-initial-order",
         definition: orderingDefinition,
+        initialResponse: { kind: "ordering", order: ["first", "first"] },
         validator: {
           mode: "wasm",
           validateResponseFormat: async () => ({
@@ -145,6 +147,33 @@ test("initial controlled responses are checked before a learner edits them", asy
   assert.equal(invalidController.phase().kind, "invalid");
   await invalidController.submit({ kind: "ordering", order: ["first", "first"] });
   assert.equal(invalidSubmitCalls, 0);
+});
+
+test("a fresh issued empty response stays neutral until the learner interacts", async () => {
+  let validationCalls = 0;
+  const controller = createRoot(() =>
+    createSubmissionController(
+      {
+        attemptId: "attempt-fresh-empty",
+        definition: numericDefinition,
+        validator: {
+          mode: "wasm",
+          validateResponseFormat: async () => {
+            validationCalls += 1;
+            return { violations: [{ kind: "numericNotFinite" }] };
+          },
+        },
+        onEscape: () => undefined,
+        onSubmit: async () => undefined,
+      },
+      { kind: "numeric", value: Number.NaN },
+    ),
+  );
+
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(validationCalls, 0);
+  assert.equal(controller.phase().kind, "idle");
+  assert.equal(controller.canSubmit(), false);
 });
 
 test("Escape returns from a widget descendant unless native handling already owns it", () => {
@@ -230,6 +259,43 @@ test("an in-flight submission locks the response and cannot issue a duplicate re
   await Promise.all([first, duplicate]);
   assert.equal(controller.pending(), false);
   assert.equal(submitCalls, 1);
+});
+
+test("reset replaces a stale format check with the restored local response without submitting", async () => {
+  let resolveFirst;
+  const firstValidation = new Promise((resolve) => {
+    resolveFirst = resolve;
+  });
+  const seen = [];
+  let submitCalls = 0;
+  const controller = createRoot(() =>
+    createSubmissionController({
+      attemptId: "attempt-reset",
+      definition: numericDefinition,
+      validator: {
+        mode: "wasm",
+        validateResponseFormat: async (_definition, response) => {
+          seen.push(response.value);
+          if (response.value === 9) return firstValidation;
+          return { violations: [] };
+        },
+      },
+      onEscape: () => undefined,
+      onSubmit: async () => {
+        submitCalls += 1;
+      },
+    }),
+  );
+
+  const stale = controller.validate({ kind: "numeric", value: 9 });
+  await controller.reset({ kind: "numeric", value: 3 });
+  resolveFirst({ violations: [{ kind: "numericNotFinite" }] });
+  await stale;
+
+  assert.deepEqual(seen, [9, 3]);
+  assert.equal(controller.phase().kind, "restored");
+  assert.equal(controller.canSubmit(), true);
+  assert.equal(submitCalls, 0);
 });
 
 test("external-tool readiness and route values admit only the narrow browser contract", () => {

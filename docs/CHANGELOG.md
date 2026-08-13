@@ -1,5 +1,68 @@
 # Changelog
 
+## 2026-08-12
+
+### Fixes and Maintenance
+
+- Accepted the bounded human-guidance workflow after rerunning its real boundaries rather than
+  relying on stale plan checkboxes. The clean-stack no-email teaching loop now covers visible
+  four-ID instructor copy/paste, the 15-minute run, keyboard completion, fresh practice, and the
+  two-run gradebook; the canonical eleven-image screenshot set was rebuilt and inspected; and the
+  exact Genetics-plus-Biochemistry eight-question browser sweep passed separately. The complete
+  disposable PostgreSQL baseline applied all 18 tracked migrations and passed its receipt,
+  corruption, roster, catalog, timing, RLS, role, QTI, and flat-grading oracles. The seed now treats
+  roster-owned student membership as canonical mutable course state while retaining exact
+  instructor/course identity, the catalog helper resolves the requested `P-n-v1` instead of
+  assuming v2, and the Chapter browser E2E removes only its exact generated gateway image tag.
+  Fastmail/email activation and full HOTSPOT author-to-learner object-lifecycle acceptance remain
+  explicit future boundaries rather than hidden gates.
+- Restored the fast TypeScript codebase gate without weakening its contracts. Prefetched successor
+  acceptance now has one typed receipt-binding policy that checks every descriptor available before
+  submission, with behavioral mismatch coverage instead of source-text matching. Mock issued
+  questions are validated through the production strict presentation decoder rather than a brittle
+  exact-key inventory, so the public nonce can evolve as part of its reviewed wire contract while
+  answer-bearing additions still fail closed. Walkthrough helpers now model synchronous work as
+  synchronous, and the repository's local lint policy explicitly recognizes Playwright's honest
+  zero-dependency fixture signature instead of inventing a browser dependency to satisfy lint.
+- Reduced Rust development storage after a measured broad-gate workload grew `target/` to 136 GB:
+  the shared dev profile now disables incremental compilation and retains line-table debug
+  information instead of full debugger data. Cargo tests inherit the same profile, filename/line
+  backtraces remain available, and documented environment overrides preserve an explicit full-debug
+  escape hatch without making the high-storage mode the repository default. After two live browser
+  builds plus workspace all-target check and strict Clippy, the retained cache measured 6.0 GB with
+  no incremental state; 20 GB is now the documented local investigation threshold.
+- Tightened the shared learner and instructor visual hierarchy so course pages read as compact
+  academic workspaces instead of nested padded cards. Course identity is now a narrow color rail on a
+  white reading surface; course and assignment entries use ruled scan rows; question, feedback,
+  roster, appearance, and authoring sections reserve bounded surfaces for actual controls and
+  teaching feedback. Learner response targets are a compact 44 pixels tall, ordinary controls are
+  36 pixels tall, and action groups wrap only when their labels no longer fit. The canonical design
+  and screenshot canvas is a 1280 by 800 laptop browser; 800 by 1280 covers the representative
+  student/tablet path, while one narrow-phone check remains a compatibility guard rather than the
+  product's density baseline. A newly issued response now starts with neutral completion guidance
+  rather than a red validation error before the learner interacts. The canonical eleven-image live
+  walkthrough capture was refreshed from the isolated local stack, including the previously missing
+  Genetics assignment overview, a visibly focused unanswered response, repeat-practice completion,
+  and the two-run instructor gradebook.
+- Removed the synthetic one-question WebWork course from normal and canonical local-stack seeding.
+  The launcher now publishes only the reviewed Genetics and Biochemistry Chapter 1 teaching corpus,
+  keeping its ordinary catalog, assignment lists, and screenshot evidence representative. The
+  renderer acceptance retains the licensed fixture behind its explicit E2E command and stores its
+  answer-free manifest only in that test's private temporary directory.
+- Expanded the protected flat-question authoring surface across all eight version 2 families while
+  keeping accepted answers and feedback out of the learner-equivalent preview. MC, MA, FIB,
+  MULTI-FIB, NUM, MATCH, and ORDER now provide family-specific keyboard-first controls; incomplete
+  numeric literals block save/review, and MATCH add/remove/reorder operations preserve semantic
+  identities. HOTSPOT now starts only from a server-verified image descriptor and provides labeled,
+  normalized region controls without exposing storage details. Its immutable publication,
+  issue-time asset binding, and real object-lifecycle acceptance remain open.
+- Restored the reviewed Cargo dependency-policy boundary: direct registry dependencies may use
+  `version = "*"` or an audited open `version = ">=LATEST"` minimum, while caret, exact, tilde,
+  and upper-bound requirements need a documented repository-specific exception. The durable rule
+  now lives in `HUMAN_GUIDANCE.md`; Rust, PyO3, and Wasm style guides point to it rather than
+  independently requiring wildcards. The manifest gate accepts both open forms. Existing wildcard
+  manifests and the reviewed `Cargo.lock` resolution are unchanged.
+
 ## 2026-08-11
 
 ### Additions and New Features

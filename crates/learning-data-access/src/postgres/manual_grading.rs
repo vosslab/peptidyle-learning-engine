@@ -93,6 +93,10 @@ async fn submit_pending_manual_question_attempt(
     if base.status != AttemptStatus::InProgress {
         return Err(StoreError::Conflict);
     }
+    // Validate the issuance-time snapshot before any receipt, attempt, or run
+    // mutation. The pending-grade receipt copies it without reconstruction.
+    let presentation =
+        super::submission::load_issued_presentation(transaction, tenant, &base).await?;
     let run = load_run_for_update(transaction, tenant, base.run).await?;
     if run.completed_at.is_some() || run.score.is_some() {
         return Err(StoreError::Conflict);
@@ -108,6 +112,9 @@ async fn submit_pending_manual_question_attempt(
     submitted.timer.submitted_at = Some(submitted_at);
     let question =
         load_published_record(transaction, submitted.problem, submitted.question_version).await?;
+    let feedback_disclosure =
+        super::submission::load_issued_feedback_disclosure(transaction, tenant, submitted.id)
+            .await?;
     let effective_grace: Option<i32> = sqlx::query_scalar(
         "SELECT effective_grace_seconds FROM attempt_timing_current \
          WHERE tenant_id = $1 AND attempt_id = $2",
@@ -219,10 +226,18 @@ async fn submit_pending_manual_question_attempt(
     store_summary(transaction, &next).await?;
     let (run_payload, run_checksum) = encode_payload(&run)?;
     let (summary_payload, summary_checksum) = encode_payload(&next)?;
+    let (presentation_payload, presentation_checksum) = presentation
+        .as_ref()
+        .map(encode_payload)
+        .transpose()?
+        .map_or((None, None), |(payload, checksum)| {
+            (Some(payload), Some(checksum))
+        });
     sqlx::query(
         "INSERT INTO submission_receipt_snapshot \
-         (tenant_id, attempt_id, run_payload, run_payload_sha256, summary_payload, summary_payload_sha256) \
-         VALUES ($1, $2, $3, $4, $5, $6)",
+         (tenant_id, attempt_id, run_payload, run_payload_sha256, summary_payload, summary_payload_sha256, \
+          presentation_payload, presentation_payload_sha256, presentation_required, feedback_disclosure) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
     )
     .bind(tenant.as_uuid())
     .bind(submitted.id.as_uuid())
@@ -230,6 +245,10 @@ async fn submit_pending_manual_question_attempt(
     .bind(run_checksum)
     .bind(summary_payload)
     .bind(summary_checksum)
+    .bind(presentation_payload)
+    .bind(presentation_checksum)
+    .bind(presentation.is_some())
+    .bind(super::submission::feedback_disclosure_name(feedback_disclosure))
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
@@ -238,6 +257,8 @@ async fn submit_pending_manual_question_attempt(
         run,
         summary: next,
         feedback,
+        presentation,
+        feedback_disclosure,
     })
 }
 

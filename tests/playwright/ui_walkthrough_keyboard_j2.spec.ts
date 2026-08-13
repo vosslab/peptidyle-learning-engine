@@ -5,10 +5,8 @@ import type { Page } from "@playwright/test";
 
 import { classifyPostStartSurface, type PostStartSurface } from "./simulator/post_start_surface";
 import { tabTo, tabToTargetThroughVisiblePagination } from "./simulator/keyboard_walkthrough";
-import {
-  completeVisibleQuestionThroughFeedback,
-  expectVisibleResponseControlsCleared,
-} from "./simulator/chapter_question_responses";
+import { expectVisibleResponseControlsCleared } from "./simulator/chapter_question_responses";
+import { completeReviewedGeneticsQuestion } from "./simulator/genetics_chapter_one_responses";
 import {
   appendStudentRepeatState,
   passedStudentRepeatFragment,
@@ -185,10 +183,10 @@ test("J2 resumes the active first run and completes the instructor-created Maste
   const startedAt = performance.now();
   await signInAndStartMastery(page, inputs);
 
-  // Each new rendered question begins with a plausible visible response. Any retry is
-  // driven only by the learner-visible Feedback heading, never by an answer key.
+  // J1 already proved the visible incorrect-feedback/retry transition. Complete the reviewed
+  // teaching content here from learner-visible biology prose and visible keyboard controls.
   for (let questionCount = 0; questionCount < 4; questionCount += 1) {
-    await completeVisibleQuestionThroughFeedback(page, 0, responseProgress(inputs));
+    await completeReviewedGeneticsQuestion(page, responseProgress(inputs));
     const surface = await waitForNextMasterySurface(page);
     if (surface === "complete") break;
   }

@@ -39,7 +39,6 @@ class WalkthroughChildInputs:
 	master_seed: int
 	credential_file: pathlib.Path
 	journey_state_file: pathlib.Path | None = None
-	learner_alias_file: pathlib.Path | None = None
 	instructor_setup_checkpoint_file: pathlib.Path | None = None
 	j1_checkpoint_file: pathlib.Path | None = None
 	j2_checkpoint_file: pathlib.Path | None = None

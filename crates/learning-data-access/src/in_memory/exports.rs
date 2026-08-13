@@ -171,6 +171,8 @@ impl ExportJobStore for MemoryStore {
             let delivery = crate::AssetDeliveryRecord {
                 id: crate::AssetDeliveryId::from_object(artifact.object.id),
                 object: artifact.object.clone(),
+                intrinsic_width: None,
+                intrinsic_height: None,
                 scope: crate::AssetDeliveryScope::StudentRecord {
                     tenant: context.tenant_id(),
                     course: stored.course,
@@ -189,6 +191,8 @@ impl ExportJobStore for MemoryStore {
                 crate::AssetDeliveryRecord {
                     id,
                     object: artifact.object.clone(),
+                    intrinsic_width: None,
+                    intrinsic_height: None,
                     scope: crate::AssetDeliveryScope::StudentRecord {
                         tenant: context.tenant_id(),
                         course: stored.course,

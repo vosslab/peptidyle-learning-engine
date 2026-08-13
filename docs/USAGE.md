@@ -25,12 +25,14 @@ MATCH, PLE flat MC, and PLE flat MATCH. The answer-free seed manifest is written
 immutable `P-...-v1` publication. The reviewed WeBWorK sources provide retry correctness without
 answer disclosure; UUIDs remain internal routing fields.
 
-When composing an assignment, copy the visible `P-<number>-v<version>` ID from the
-published problem library and paste it into **Add by question ID**. The editor accepts
-one or more exact IDs separated by commas or new lines and resolves each to that exact
-immutable published version. UUIDs are not an instructor input. A malformed,
-unavailable, unauthorized, or already-selected ID leaves both the pasted text and the
-assignment unchanged so the instructor can correct and retry it.
+When composing an assignment, copy each visible `P-<number>-v<version>` ID with **Copy ID** from
+the published problem library and paste all four Genetics Chapter 1 IDs into **Add by question ID**.
+The editor accepts exact IDs separated by commas or new lines and resolves each to that exact
+immutable published version. Confirm the selected list contains the WeBWorK MC, WeBWorK MATCH,
+PLE flat MC, and PLE flat MATCH versions, then keep **Timed** selected with **15** minutes per
+practice run before creating the assignment. UUIDs are not an instructor input. A malformed,
+unavailable, unauthorized, or already-selected ID leaves both the pasted text and the assignment
+unchanged so the instructor can correct and retry it.
 
 For a headless run or a quick restart with a known-current browser bundle:
 
@@ -76,13 +78,10 @@ input file by an explicit `--inputs` argument; this file is runner-owned,
 mode 0600 inside a mode-0700 directory, and is not an operator configuration
 file to edit or retain.
 
-The earlier local no-email pilot is retained historical evidence. The current
-human-guidance slice requires a rebuilt real-stack run that visibly copies and
-pastes all four Genetics `P-n-vn` references in J13 and uses the explicit child
-input boundary above before this walkthrough is again called accepted. That
-one-time acceptance run must still show the keyboard-focused J1/J2/J3/J4/J5/J8
-outcomes and refreshed fake-user screenshots. Email, canonical onboarding,
-J6/J7, all eight response families, multi-learner, and complete two-chapter
+The current human-guidance acceptance run visibly copies and pastes all four Genetics `P-n-vn`
+references in J13 and uses the explicit child-input boundary above. It also shows the
+keyboard-focused J1/J2/J3/J4/J5/J8 outcomes and refreshed fake-user screenshots. Email,
+canonical onboarding, J6/J7, all eight response families, multi-learner, and complete two-chapter
 release acceptance remain outside this walkthrough. Run
 `bash tests/e2e/e2e_chapter_one_browser.sh` for the separate complete Genetics
 and Biochemistry eight-question learner gate.
@@ -105,8 +104,8 @@ and satisfy the launcher contract.
 ## Standalone WeBWorK PG renderer
 
 The normal launcher starts PLE with the private external PG renderer, waits for its semantic
-render-and-grade probe, publishes the exact two-assignment Chapter 1 pilot, and then starts the
-application. The browser
+render-and-grade probe, publishes only the exact two-assignment Chapter 1 teaching corpus, and then
+starts the application. The browser
 communicates with PLE only; it does not receive renderer credentials, source, or upstream state.
 The renderer image must already be available locally under `PLE_WEBWORK_RENDERER_IMAGE` (normally
 `localhost/pg-renderer:latest`), having been built or obtained from the separate
@@ -143,7 +142,9 @@ flag. See the [current status report](active_plans/reports/project_status_report
 ./launch_local_stack.sh --env-file path/to/env.local --no-open
 ```
 
-To prepare and validate future external email delivery, fill the six `PLE_SMTP_*` fields and
+Fastmail is the intended future external email provider, but no SMTP or email-activation path is
+configured today. The local teaching walkthrough therefore remains deliberately no-email. After an
+operator account, authorized sender, and application credential exist, fill the six `PLE_SMTP_*` fields and
 `PLE_PUBLIC_APP_BASE_URL` in the custom environment as described in
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md#external-smtp-provider), then select the opt-in
 overlay explicitly:

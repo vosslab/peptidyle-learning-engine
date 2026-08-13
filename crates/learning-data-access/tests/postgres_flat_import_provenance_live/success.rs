@@ -193,6 +193,8 @@ async fn postgres_flat_import_conversion_edit_and_publication_are_atomic_and_pri
                 Some(FlatQuestionPublicationPromotion {
                     source: converted,
                     import_origin: Some(import_promotion.clone()),
+                    published_question: edited.draft.question.clone(),
+                    assets: Vec::new(),
                 }),
                 actor,
             ),
@@ -220,6 +222,8 @@ async fn postgres_flat_import_conversion_edit_and_publication_are_atomic_and_pri
                 Some(FlatQuestionPublicationPromotion {
                     source: edited_source,
                     import_origin: Some(import_promotion),
+                    published_question: edited.draft.question.clone(),
+                    assets: Vec::new(),
                 }),
                 actor,
             ),

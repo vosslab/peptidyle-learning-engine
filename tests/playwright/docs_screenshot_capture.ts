@@ -12,6 +12,7 @@ import type { Locator, Page } from "@playwright/test";
 
 const CAPTURE_DIRECTORY_PARENT = "/private/tmp";
 const CAPTURE_DIRECTORY_PREFIX = "ple-docs-screenshots.";
+const CANONICAL_VIEWPORT = { width: 1_280, height: 800 } as const;
 
 export const documentationScreenshotNames = [
   "instructor_course_overview.png",
@@ -80,6 +81,7 @@ export async function captureDocumentationScreenshot(
   anchor?: Locator,
   cropTopPixels?: number,
   screenshotDirectory?: string,
+  anchorAlignment: "top" | "bottom" = "top",
 ): Promise<void> {
   if (screenshotDirectory === undefined) return;
   if (!documentationScreenshotNames.includes(screenshotName)) {
@@ -87,7 +89,9 @@ export async function captureDocumentationScreenshot(
   }
   if (
     cropTopPixels !== undefined &&
-    (!Number.isInteger(cropTopPixels) || cropTopPixels < 0 || cropTopPixels >= 960)
+    (!Number.isInteger(cropTopPixels) ||
+      cropTopPixels < 0 ||
+      cropTopPixels >= CANONICAL_VIEWPORT.height)
   ) {
     throw new Error(
       "documentation screenshot crop must be a whole number below the viewport height",
@@ -96,15 +100,22 @@ export async function captureDocumentationScreenshot(
   await validateCaptureDirectory(screenshotDirectory);
   const filePath = path.join(screenshotDirectory, screenshotName);
   await validateScreenshotPath(filePath);
-  const viewportHeight = 960 - (cropTopPixels ?? 0);
+  const viewportHeight = CANONICAL_VIEWPORT.height - (cropTopPixels ?? 0);
   const anchorMargin = cropTopPixels === undefined ? 72 : 0;
-  await page.setViewportSize({ width: 1440, height: viewportHeight });
+  await page.setViewportSize({ width: CANONICAL_VIEWPORT.width, height: viewportHeight });
   if (anchor !== undefined) {
     await anchor.scrollIntoViewIfNeeded();
-    await anchor.evaluate((element, margin) => {
-      const top = element.getBoundingClientRect().top;
-      window.scrollBy(0, top - margin);
-    }, anchorMargin);
+    await anchor.evaluate(
+      (element, options) => {
+        const bounds = element.getBoundingClientRect();
+        const target =
+          options.alignment === "bottom"
+            ? bounds.bottom - window.innerHeight + options.margin
+            : bounds.top - options.margin;
+        window.scrollBy(0, target);
+      },
+      { alignment: anchorAlignment, margin: anchorMargin },
+    );
   }
   const devicePixelRatio = await page.evaluate(() => window.devicePixelRatio);
   if (devicePixelRatio !== 1) {

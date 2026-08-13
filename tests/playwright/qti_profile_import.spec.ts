@@ -351,7 +351,7 @@ async function openWorkspace(page: Page): Promise<void> {
     history.pushState({}, "", path);
     window.dispatchEvent(new PopStateEvent("popstate"));
   }, workspacePath);
-  await expect(page.getByRole("heading", { name: "Flat single-choice question" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Flat question", exact: true })).toBeVisible();
   await expect(page.getByLabel("Question title")).toHaveValue("Original private draft");
 }
 
@@ -439,7 +439,7 @@ test("an indeterminate retry reuses its import identity and real conversion refe
   const importedEditor = page.locator('[data-route-surface="flatQuestionEditor"]');
   await expect(importedEditor).not.toHaveAttribute("inert", "");
   await expect(importedTitle).toBeEditable();
-  await expect(page.getByRole("heading", { name: "Flat single-choice question" })).toBeFocused();
+  await expect(page.getByRole("heading", { name: "Flat question", exact: true })).toBeFocused();
 });
 
 test("all-rejected and unsupported reports keep a clear chooser recovery path", async ({
@@ -524,7 +524,7 @@ test("a committed conversion keeps the stale editor locked until explicit reload
   const importedEditor = page.locator('[data-route-surface="flatQuestionEditor"]');
   await expect(importedEditor).not.toHaveAttribute("inert", "");
   await expect(page.getByLabel("Question title")).toBeEditable();
-  await expect(page.getByRole("heading", { name: "Flat single-choice question" })).toBeFocused();
+  await expect(page.getByRole("heading", { name: "Flat question", exact: true })).toBeFocused();
   await expect(panel.getByRole("button", { name: "Reload converted draft" })).toHaveCount(0);
   expect(harness.conversionCount()).toBe(1);
 });
@@ -570,7 +570,7 @@ test("changed review, dirty edits, and stale displayed revisions refuse replacem
   expect(harness.conversionCount()).toBe(0);
 
   await page.getByRole("button", { name: "Save private draft" }).click();
-  const savedStatus = page.locator('[data-route-surface="flatQuestionEditor"]').getByRole("status");
+  const savedStatus = page.getByRole("status", { name: "Private draft status" });
   await expect(savedStatus).toHaveText("Private draft saved. It is not published.");
   await expect(convert).toBeEnabled();
   await convert.focus();

@@ -237,15 +237,15 @@ export async function authenticatedInstructorContextWithRequest<T extends Instru
   throw new Error("assignment-login");
 }
 
-async function arrange(): Promise<ArrangementOutput> {
+function arrange(): ArrangementOutput {
   const inputs = childInputsFromArguments(process.argv.slice(2), "arrangement");
   const manifest = readPrivateRegularFile(inputs.chapterOneManifestFile);
   return instructorSetupArrangementOutput(chapterOneGeneticsQuestions(manifest));
 }
 
-async function main(): Promise<void> {
+function main(): void {
   try {
-    const output = await arrange();
+    const output = arrange();
     const encoded = JSON.stringify(output);
     if (!/^[\x20-\x7e]+$/u.test(encoded) || encoded.length > 2048)
       throw new Error("arrangement-output");
@@ -256,4 +256,4 @@ async function main(): Promise<void> {
   }
 }
 
-void main();
+main();

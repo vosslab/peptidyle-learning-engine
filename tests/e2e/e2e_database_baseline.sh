@@ -244,6 +244,12 @@ PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --featu
 	postgres_catalog_resolver_hides_foreign_institution_exact_reference \
 	-- --ignored --exact --test-threads=1
 
+echo "database baseline E2E: catalog text and exact human ID search"
+PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_catalog_ownership_live \
+	postgres_catalog_search_finds_exact_human_version_reference \
+	-- --ignored --exact --test-threads=1
+
 echo "database baseline E2E: course appearance revision, role, and current-pointer policy"
 PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_course_appearance_live \
@@ -260,6 +266,12 @@ echo "database baseline E2E: immutable submission replay receipt"
 PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_submission_replay_live \
 	postgres_submission_replay_requires_its_immutable_receipt_snapshot \
+	-- --ignored --exact --test-threads=1
+
+echo "database baseline E2E: immutable private flat-question image registry"
+PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_flat_question_assets_live \
+	postgres_flat_question_asset_registry_is_immutable_private_and_checksum_bound \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: activity partition pruning and bounded gradebook summaries"

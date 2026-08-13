@@ -1,5 +1,9 @@
 import sys
 
+# PIP3 modules
+import pytest
+
+# local repo modules
 import file_utils
 
 # Insert the repo root onto sys.path so top-level modules import from any test
@@ -8,6 +12,19 @@ import file_utils
 _repo_root = file_utils.get_repo_root()
 if _repo_root not in sys.path:
 	sys.path.insert(0, _repo_root)
+
+
+#============================================
+def pytest_addoption(parser: pytest.Parser) -> None:
+	"""Register explicit opt-in repository hygiene checks."""
+	group = parser.getgroup("repository hygiene")
+	group.addoption(
+		"--check-optional-imports",
+		action="store_true",
+		default=False,
+		dest="check_optional_imports",
+		help="Enforce requirement declarations for imports guarded by ImportError.",
+	)
 
 
 # Exclude all opt-in end-to-end tiers from pytest collection. tests/playwright/

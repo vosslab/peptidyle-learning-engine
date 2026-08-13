@@ -519,6 +519,7 @@ where
                         grading: implementation("numeric"),
                         rendered_question_sha256: "render-sha256".to_string(),
                     },
+                    issued_capability: question_model::IssuedAttemptCapabilityV1::NotApplicable,
                 }),
             },
         )

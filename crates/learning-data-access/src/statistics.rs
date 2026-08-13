@@ -275,6 +275,7 @@ mod tests {
                 },
                 rendered_question_sha256: format!("rendered-{number}"),
             },
+            issued_capability: question_model::IssuedAttemptCapabilityV1::NotApplicable,
         }
     }
 

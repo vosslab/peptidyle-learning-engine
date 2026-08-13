@@ -9,6 +9,7 @@ import type { AttemptTimerRecord } from "../../../generated/api/AttemptTimerReco
 import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { GradebookSummaryRow } from "../../../generated/api/GradebookSummaryRow";
+import type { IssuedAttemptCapabilityV1 } from "../../../generated/api/IssuedAttemptCapabilityV1";
 import type { QuestionAttempt } from "../../../generated/api/QuestionAttempt";
 import type { SourceArtifact } from "../../../generated/api/SourceArtifact";
 import type { StudentAssignmentSummary } from "../../../generated/api/StudentAssignmentSummary";
@@ -61,15 +62,22 @@ import { decodeGeneratorReference, decodeSelectionCardinality } from "./question
 import {
   decodeAttemptResult,
   decodeDisclosedFeedback,
-  decodeQuestionEnvelope,
   decodeStudentResponse,
 } from "./question_delivery";
+import { decodeIssuedPresentationEnvelope } from "./presentation_delivery";
 import {
   decodeAssignmentSummary,
   decodeCatalogProblemSummary,
   decodeCourseRouteData,
   decodeCourseSummary,
 } from "./catalog_course";
+
+const ISSUED_ATTEMPT_CAPABILITIES = [
+  "presentationEnvelope",
+  "flatPresentation",
+  "webworkPresentation",
+  "notApplicable",
+] as const satisfies ReadonlyArray<IssuedAttemptCapabilityV1>;
 
 function decodeAttemptTimer(value: unknown, path: string): AttemptTimerRecord {
   const record = decodeRecord(value, path);
@@ -161,6 +169,7 @@ export function decodeQuestionAttempt(value: unknown, path = "response"): Questi
     "result",
     "timer",
     "provenance",
+    "issuedCapability",
   ]);
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
@@ -193,6 +202,11 @@ export function decodeQuestionAttempt(value: unknown, path = "response"): Questi
     result: decodeNullable(field(record, "result", path), `${path}.result`, decodeAttemptResult),
     timer: decodeAttemptTimer(field(record, "timer", path), `${path}.timer`),
     provenance: decodeAttemptProvenance(field(record, "provenance", path), `${path}.provenance`),
+    issuedCapability: decodeStringEnum(
+      field(record, "issuedCapability", path),
+      `${path}.issuedCapability`,
+      ISSUED_ATTEMPT_CAPABILITIES,
+    ),
   } satisfies QuestionAttempt;
   return decoded;
 }
@@ -490,7 +504,7 @@ export function decodeEnrollmentView(value: unknown, path = "response"): Enrollm
 
 export function decodeSubmissionReceipt(value: unknown, path = "response"): SubmissionReceipt {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["accepted", "attempt", "feedback", "nextIssued"]);
+  requireOnlyFields(record, path, ["accepted", "attempt", "feedback", "nextIssued", "nextPending"]);
   const decoded = {
     accepted: decodeTrue(field(record, "accepted", path), `${path}.accepted`),
     attempt: decodeQuestionAttempt(field(record, "attempt", path), `${path}.attempt`),
@@ -504,7 +518,14 @@ export function decodeSubmissionReceipt(value: unknown, path = "response"): Subm
       `${path}.nextIssued`,
       decodeNextIssuedAttempt,
     ),
+    nextPending: decodeBoolean(field(record, "nextPending", path), `${path}.nextPending`),
   } satisfies SubmissionReceipt;
+  if (decoded.nextPending && decoded.nextIssued !== null) {
+    throw new DecodeError(
+      path,
+      "a submission receipt with either an issued successor or a pending successor",
+    );
+  }
   return decoded;
 }
 
@@ -573,7 +594,7 @@ export function decodePrefetchedNextQuestion(
       field(record, "renderedQuestionSha256", path),
       `${path}.renderedQuestionSha256`,
     ),
-    envelope: decodeQuestionEnvelope(field(record, "envelope", path), `${path}.envelope`),
+    envelope: decodeIssuedPresentationEnvelope(field(record, "envelope", path), `${path}.envelope`),
   } satisfies PrefetchedNextQuestion;
   if (
     decoded.envelope.version !== decoded.questionVersion ||

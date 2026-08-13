@@ -52,7 +52,7 @@ function contrast(first: string, second: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-test("Grass scopes learner routes and is replaced across courses below the global shell", async ({
+test("course identity rails scope learner routes without tinting the reading surface", async ({
   page,
 }) => {
   await page.goto("/");
@@ -66,7 +66,10 @@ test("Grass scopes learner routes and is replaced across courses below the globa
   const scope = page.locator('[data-course-theme="grass"]');
   await expect(scope).toBeVisible();
   await expect(scope).toHaveAttribute("data-course-id", COURSE_ID);
-  await expect(scope).toHaveCSS("background-color", "rgb(189, 222, 177)");
+  await expect(scope).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  const grassRail = await scope.evaluate((element) => getComputedStyle(element).backgroundImage);
+  expect(grassRail).toContain("rgb(115, 193, 103)");
+  expect(grassRail).toContain("rgb(0, 136, 82)");
   await expect(page.locator(".course-entry-banner")).toHaveCount(0);
   await expect(header).toHaveCSS("color", globalHeader.color);
   await expect(header).toHaveCSS("background-color", globalHeader.background);
@@ -83,7 +86,12 @@ test("Grass scopes learner routes and is replaced across courses below the globa
   const oceanScope = page.locator('[data-course-theme="ocean"]');
   await expect(oceanScope).toBeVisible();
   await expect(oceanScope).toHaveAttribute("data-course-id", SECONDARY_COURSE_ID);
-  await expect(oceanScope).toHaveCSS("background-color", "rgb(221, 239, 245)");
+  await expect(oceanScope).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  const oceanRail = await oceanScope.evaluate(
+    (element) => getComputedStyle(element).backgroundImage,
+  );
+  expect(oceanRail).toContain("rgb(11, 108, 136)");
+  expect(oceanRail).toContain("rgb(18, 60, 105)");
   await expect(page.locator('[data-course-theme="grass"]')).toHaveCount(0);
 
   await navigateWithinSpa(page, "/library");

@@ -420,7 +420,8 @@
           "version": "1"
         },
         "renderedQuestionSha256": "4cddff550d3e53f980baab609ada99a57ca7854edbfd2426f2c8db7cd43a6c01"
-      }
+      },
+      "issuedCapability": "flatPresentation"
     },
     {
       "id": "0198e000-0000-7000-8000-000000000031",
@@ -468,7 +469,8 @@
           "version": "1"
         },
         "renderedQuestionSha256": "23a3ae175d3410dc23aa1ea3e923fb4dc2b734774fca9323d02ccb83fc80be68"
-      }
+      },
+      "issuedCapability": "flatPresentation"
     },
     {
       "id": "0198e000-0000-7000-8000-000000000032",
@@ -516,7 +518,8 @@
           "version": "1"
         },
         "renderedQuestionSha256": "2263b63aad876ef681e007114c7a8ae9a8cc9e458c33338704e999251938b21b"
-      }
+      },
+      "issuedCapability": "flatPresentation"
     },
     {
       "id": "0198e000-0000-7000-8000-000000000033",
@@ -555,7 +558,8 @@
           "version": "1"
         },
         "renderedQuestionSha256": "7e2bd04cd5fa748568b7f567b008501696771c3afb4df2f055241081d8cd1d54"
-      }
+      },
+      "issuedCapability": "flatPresentation"
     }
   ],
   "summary": {

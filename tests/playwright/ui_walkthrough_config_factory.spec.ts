@@ -8,7 +8,6 @@ import { expect, test } from "@playwright/test";
 
 import {
   createUiWalkthroughConfig,
-  learnerAliasFromValidatedFile,
   readUiWalkthroughInputs,
 } from "./ui_walkthrough_config_factory";
 
@@ -56,11 +55,9 @@ function privateInstructorInputFile(catalogDisplayIds: unknown): {
   const directory = mkdtempSync(join(tmpdir(), "ple-instructor-config-input-"));
   chmodSync(directory, 0o700);
   const credentialFile = join(directory, "credentials.txt");
-  const learnerAliasFile = join(directory, "learner-alias.txt");
   const journeyStateFile = join(directory, "journeys.json");
   const input = join(directory, "walkthrough-inputs.json");
   writeFileSync(credentialFile, CREDENTIALS, { encoding: "ascii", mode: 0o600 });
-  writeFileSync(learnerAliasFile, "student-local\n", { encoding: "ascii", mode: 0o600 });
   writeFileSync(journeyStateFile, "", { encoding: "ascii", mode: 0o600 });
   writeFileSync(
     input,
@@ -71,7 +68,6 @@ function privateInstructorInputFile(catalogDisplayIds: unknown): {
       masterSeed: 42,
       credentialFile,
       journeyStateFile,
-      learnerAliasFile,
       instructorSetupCheckpointFile: join(directory, "instructor-setup-checkpoint.txt"),
       catalogDisplayIds,
       screenshotDirectory: null,
@@ -131,7 +127,6 @@ test("instructor input retains only four human-readable catalog IDs", () => {
         masterSeed: 42,
         credentialFile: join(temporary.directory, "credentials.txt"),
         journeyStateFile: join(temporary.directory, "journeys.json"),
-        learnerAliasFile: join(temporary.directory, "learner-alias.txt"),
         instructorSetupCheckpointFile: join(temporary.directory, "instructor-setup-checkpoint.txt"),
         catalogDisplayIds: [
           {
@@ -148,30 +143,6 @@ test("instructor input retains only four human-readable catalog IDs", () => {
       { encoding: "ascii", mode: 0o600 },
     );
     expect(() => readUiWalkthroughInputs(temporary.input)).toThrow("catalog display ID is invalid");
-  } finally {
-    rmSync(temporary.directory, { recursive: true, force: true });
-  }
-});
-
-test("runner-written learner alias accepts its one trailing line feed", () => {
-  const temporary = privateInputFile({});
-  const aliasFile = join(temporary.directory, "learner-alias.txt");
-  try {
-    writeFileSync(aliasFile, "student-local\n", { encoding: "ascii", mode: 0o600 });
-    expect(learnerAliasFromValidatedFile(aliasFile)).toBe("student-local");
-  } finally {
-    rmSync(temporary.directory, { recursive: true, force: true });
-  }
-});
-
-test("learner alias rejects unsafe or multiline contents", () => {
-  const temporary = privateInputFile({});
-  const aliasFile = join(temporary.directory, "learner-alias.txt");
-  try {
-    writeFileSync(aliasFile, "student/local\n", { encoding: "ascii", mode: 0o600 });
-    expect(() => learnerAliasFromValidatedFile(aliasFile)).toThrow("unsafe metadata");
-    writeFileSync(aliasFile, "student-local\nsecond-line\n", { encoding: "ascii", mode: 0o600 });
-    expect(() => learnerAliasFromValidatedFile(aliasFile)).toThrow("unsafe metadata");
   } finally {
     rmSync(temporary.directory, { recursive: true, force: true });
   }

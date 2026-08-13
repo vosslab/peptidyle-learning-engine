@@ -172,6 +172,7 @@ fn composed_memory_router_with_legacy_login(legacy_login: bool) -> Router {
                 )
                 .expect("valid test WebAuthn configuration"),
             ),
+            None,
             health,
         )
     }
@@ -264,6 +265,7 @@ fn local_provider() -> LocalFileIdentityProvider {
             br#"{
                 "credentials": [{
                     "credential_sha256": "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd",
+                    "learner_alias": "student-local",
                     "tenant_id": "00000000-0000-0000-0000-000000000001",
                     "user_id": "00000000-0000-0000-0000-000000000002",
                     "display_name": "Local Student",
@@ -802,7 +804,7 @@ async fn local_provider_hashes_raw_bearer_bytes_not_base64url_spelling() {
         .collect::<String>();
     let encoded_provider = LocalFileIdentityProvider::from_json_bytes(
             format!(
-                r#"{{"credentials":[{{"credential_sha256":"{encoded_hash}","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Local Student","roles":["student"]}}]}}"#
+                r#"{{"credentials":[{{"credential_sha256":"{encoded_hash}","learner_alias":"student-local","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Local Student","roles":["student"]}}]}}"#
             )
             .as_bytes(),
         )
@@ -882,6 +884,8 @@ fn local_identity_file_rejects_invalid_records() {
             br#"{"credentials":[]}"#.as_slice(),
             br#"{"credentials":[{"credential_sha256":"ABCDEF","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Student","roles":["student"]}]}"#.as_slice(),
             br#"{"credentials":[{"credential_sha256":"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd","tenant_id":"00000000-0000-0000-0000-000000000000","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Student","roles":["student"]}]}"#.as_slice(),
+            br#"{"credentials":[{"credential_sha256":"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd","learner_alias":"not/an-alias","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Student","roles":["student"]}]}"#.as_slice(),
+            br#"{"credentials":[{"credential_sha256":"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd","learner_alias":"student-local","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Student","roles":["student"]},{"credential_sha256":"1111111111111111111111111111111111111111111111111111111111111111","learner_alias":"student-local","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000003","display_name":"Other Student","roles":["student"]}]}"#.as_slice(),
         ] {
             assert!(matches!(
                 LocalFileIdentityProvider::from_json_bytes(invalid),

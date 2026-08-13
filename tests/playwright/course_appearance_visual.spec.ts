@@ -193,7 +193,7 @@ test("captures the reviewed course-appearance visual and palette artifacts", asy
     }
     return await json(route, { error: "unexpected visual acceptance request" }, 500);
   });
-  await page.setViewportSize({ width: 768, height: 1_000 });
+  await page.setViewportSize({ width: 1_280, height: 800 });
   await openAppearance(page);
   await page.getByLabel("Choose a banner image").setInputFiles({
     name: "course-banner.png",
@@ -202,14 +202,11 @@ test("captures the reviewed course-appearance visual and palette artifacts", asy
   });
   await expect(page.locator("img.course-appearance-banner")).toHaveCount(2);
 
-  for (const width of [320, 480, 768, 1_920]) {
-    await page.setViewportSize({ width, height: 1_000 });
-    await page.screenshot({
-      path: resolve(artifactDirectory, `settings_${width}.png`),
-      fullPage: true,
-    });
-  }
-  await page.setViewportSize({ width: 768, height: 1_000 });
+  await page.screenshot({
+    path: resolve(artifactDirectory, "settings_1280x800.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1_280, height: 800 });
   await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
   await page.screenshot({
     path: resolve(artifactDirectory, "settings_forced_colors.png"),

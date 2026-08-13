@@ -79,10 +79,16 @@ impl CatalogStore for MemoryStore {
         }
         match state.drafts.get(&draft_key) {
             Some(stored) if stored == &command.expected_draft => {}
-            Some(_) => return Err(StoreError::Conflict),
+            Some(_) => {
+                #[cfg(test)]
+                eprintln!("flat memory publication stored draft mismatch");
+                return Err(StoreError::Conflict);
+            }
             None => return Err(StoreError::NotFound),
         }
         if state.draft_revisions.get(&draft_key).copied() != Some(command.expected_revision) {
+            #[cfg(test)]
+            eprintln!("flat memory publication revision mismatch");
             return Err(StoreError::Conflict);
         }
         let qti_grading = if let Some(promotion) = qti_promotion {
@@ -137,11 +143,12 @@ impl CatalogStore for MemoryStore {
                 .get(&draft_key)
                 .ok_or(StoreError::Conflict)?;
             crate::validate_flat_question_publication(context, &command, staged_source)?;
-            crate::publication_validation::validate_flat_question_publication_grading(
-                &command,
-                staged_source,
-                stored_grading,
-            )?;
+            let published_grading =
+                crate::publication_validation::validate_flat_question_publication_grading(
+                    &command,
+                    staged_source,
+                    stored_grading,
+                )?;
             let current_origin = state.workspace_flat_import_origins.get(&draft_key);
             let published_origin = match (current_origin, promotion.import_origin.as_ref()) {
                 (Some(current), Some(import_promotion))
@@ -156,11 +163,23 @@ impl CatalogStore for MemoryStore {
                 (None, None) => None,
                 _ => return Err(StoreError::Conflict),
             };
-            (Some(stored_grading.clone()), published_origin)
+            (Some(published_grading), published_origin)
         } else {
             (None, None)
         };
         let publication = command.publication;
+        if let Some(promotion) = flat_promotion {
+            for asset in &promotion.assets {
+                if state.asset_deliveries.contains_key(&asset.id)
+                    || state
+                        .asset_deliveries
+                        .values()
+                        .any(|existing| existing.object.id == asset.object.id)
+                {
+                    return Err(StoreError::AlreadyExists);
+                }
+            }
+        }
         if state
             .published
             .contains_key(&(publication.problem, publication.version))
@@ -244,8 +263,13 @@ impl CatalogStore for MemoryStore {
                 )
             };
 
+        let published_draft_question = command
+            .flat_question_promotion
+            .as_ref()
+            .map(|promotion| promotion.published_question.clone())
+            .unwrap_or_else(|| command.expected_draft.question.clone());
         let question = question_model::QuestionDefinition::from_draft(
-            command.expected_draft.question.clone(),
+            published_draft_question,
             publication.problem,
             publication.version,
             command.published_source.clone(),
@@ -285,6 +309,11 @@ impl CatalogStore for MemoryStore {
         if let Some(promotion) = command.qti_promotion {
             for asset in promotion.assets {
                 state.asset_deliveries.insert(asset.id, asset);
+            }
+        }
+        if let Some(promotion) = command.flat_question_promotion.as_ref() {
+            for asset in &promotion.assets {
+                state.asset_deliveries.insert(asset.id, asset.clone());
             }
         }
         if let Some((item_id, material)) = qti_grading {

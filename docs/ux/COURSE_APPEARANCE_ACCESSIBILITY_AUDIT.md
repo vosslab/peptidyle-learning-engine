@@ -4,8 +4,10 @@ Status: implementation and focused acceptance complete on 2026-08-09.
 
 This audit covers the PLE-owned instructor course-appearance workflow and the student course-entry
 projection. It combines a keyboard cognitive walkthrough, source inspection, built-browser tests,
-axe analysis, computed contrast, forced-colors and reduced-motion rendering, and visual review at
-320, 480, 768, and 1920 CSS pixels. It does not claim that an institutional identity provider,
+axe analysis, computed contrast, forced-colors and reduced-motion rendering. The original accepted
+run included 320, 480, 768, and 1920 CSS-pixel artifacts; current visual acceptance follows the
+repository's desktop-first policy and uses the canonical 1280 by 800 instructor canvas, with a
+separate narrow compatibility guard. It does not claim that an institutional identity provider,
 browser extension, assistive-technology combination, or third-party content is conformant.
 
 ## Task model
@@ -97,9 +99,9 @@ PLE_CAPTURE_COURSE_APPEARANCE_VISUALS=1 \
   npx playwright test tests/playwright/course_appearance_visual.spec.ts
 ```
 
-The generated review set is under `generated/ui/course_appearance/`: `theme_contact_sheet.png`,
-`settings_320.png`, `settings_480.png`, `settings_768.png`, `settings_1920.png`,
-`settings_forced_colors.png`, and `palette_metrics.json`. Generated evidence is intentionally
+The current generated review set is under `generated/ui/course_appearance/`:
+`theme_contact_sheet.png`, `settings_1280x800.png`, `settings_forced_colors.png`, and
+`palette_metrics.json`. Generated evidence is intentionally
 gitignored; the workstream handoff records exact hashes from the accepted run.
 
 ## Human-use boundary

@@ -26,17 +26,35 @@ function choiceKeyboardHint(definition: MultipleChoiceDefinition): string {
     : `Tab to each choice and press Space to toggle it. Shortcuts: use the Arrow keys to move focus or press 1-${count}.`;
 }
 
+function multipleAnswerProgress(
+  definition: MultipleChoiceDefinition,
+  count: number,
+): string | null {
+  switch (definition.selection.kind) {
+    case "exactlyOne":
+      return null;
+    case "exactly":
+      return `${count} selected. Select exactly ${definition.selection.count}.`;
+    case "atLeastOne":
+      return `${count} selected. Select at least 1.`;
+    case "anyNumber":
+      return `${count} selected.`;
+  }
+}
+
 /** Controlled multiple-choice widget. It validates shape only; grading stays server-only. */
 export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.Element {
   const restored = props.initialResponse?.selected ?? [];
   const [selected, setSelected] = createSignal<ReadonlyArray<ChoiceId>>(restored);
+  let firstChoice!: HTMLInputElement;
   const controller = createSubmissionController(props, {
     kind: "multipleChoice",
     selected: [...restored],
   });
   const response = (): StudentResponse => ({ kind: "multipleChoice", selected: [...selected()] });
+  const progress = (): string | null => multipleAnswerProgress(props.definition, selected().length);
   function choose(choice: ChoiceId): void {
-    if (controller.pending()) return;
+    if (controller.locked()) return;
     const next =
       props.definition.selection.kind === "exactlyOne"
         ? [choice]
@@ -48,6 +66,12 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
   }
   function submit(): void {
     void controller.submit(response());
+  }
+  function reset(): void {
+    const next = [...restored];
+    setSelected(next);
+    void controller.reset({ kind: "multipleChoice", selected: next });
+    queueMicrotask(() => firstChoice.focus());
   }
   function handleKeyDown(event: KeyboardEvent): void {
     const target = event.target;
@@ -71,7 +95,7 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
     ) {
       const index = Number(event.key) - 1;
       const choice = props.definition.choices[index];
-      if (choice !== undefined && !controller.pending()) {
+      if (choice !== undefined && !controller.locked()) {
         event.preventDefault();
         choose(choice.id);
         document.getElementById(`${props.attemptId}-choice-${index}`)?.focus();
@@ -85,10 +109,20 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
       <fieldset
         aria-describedby={`${props.attemptId}-format-status`}
         aria-invalid={controller.invalid()}
-        disabled={controller.pending()}
+        disabled={controller.locked()}
       >
         <legend>Choose your response</legend>
         <p class="keyboard-hint">{choiceKeyboardHint(props.definition)}</p>
+        {progress() === null ? null : (
+          <p
+            class="completion-progress"
+            role="status"
+            aria-label="Selection count"
+            aria-live="polite"
+          >
+            {progress()}
+          </p>
+        )}
         <div class="choice-list">
           <For each={props.definition.choices}>
             {(choice, index) => (
@@ -99,6 +133,13 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
                   name={`response-${props.attemptId}`}
                   value={choice.id}
                   checked={selected().includes(choice.id)}
+                  ref={
+                    index() === 0
+                      ? (element): void => {
+                          firstChoice = element;
+                        }
+                      : undefined
+                  }
                   onChange={() => choose(choice.id)}
                 />
                 <span class="choice-number" aria-hidden="true">
@@ -112,8 +153,10 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
       </fieldset>
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
-        disabled={!controller.canSubmit() || controller.pending()}
+        disabled={!controller.canSubmit() || controller.locked()}
+        resetDisabled={controller.locked()}
         onSubmit={submit}
+        onReset={reset}
         onEscape={props.onEscape}
       />
     </section>

@@ -11,12 +11,17 @@ KEYBOARD_JOURNEY_GLOB = "ui_walkthrough_keyboard_j*.spec.ts"
 PLATFORM_JOURNEYS = {f"ui_walkthrough_keyboard_j{number}.spec.ts" for number in range(1, 6)}
 STUDENT_PLATFORM_KEYS = {"Tab", "Shift+Tab", "Space", "Enter"}
 INSTRUCTOR_PLATFORM_KEYS = STUDENT_PLATFORM_KEYS | {"ControlOrMeta+V"}
+NATIVE_RADIO_HELPER_KEYS = STUDENT_PLATFORM_KEYS | {"ArrowDown"}
 
 
 def allowed_platform_keys(path: pathlib.Path) -> set[str]:
 	"""Return the visible keyboard contract for one role-specific journey."""
 	if path.name == "ui_walkthrough_instructor_setup.spec.ts":
 		return INSTRUCTOR_PLATFORM_KEYS
+	if path.name == "chapter_question_responses.ts":
+		# Native radios expose one Tab stop for the group; ArrowDown is their standard
+		# in-group navigation. Keep that behavior inside the audited response helper.
+		return NATIVE_RADIO_HELPER_KEYS
 	return STUDENT_PLATFORM_KEYS
 
 

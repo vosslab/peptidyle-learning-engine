@@ -1,5 +1,13 @@
 use super::*;
 
+#[path = "run_receipts/cross_run_finalization.rs"]
+mod cross_run_finalization;
+#[path = "run_receipts/fixtures.rs"]
+mod fixtures;
+#[path = "run_receipts/issued_snapshot_validation.rs"]
+mod issued_snapshot_validation;
+pub(super) use fixtures::{grading_envelope, receipt_next_attempt, receipt_presentation};
+
 pub(super) async fn exercise_run_api_receipts<S>(
     store: &S,
     feedback_disclosure: FeedbackDisclosure,
@@ -26,6 +34,8 @@ where
     let first_run = RunId::from_uuid(uuid(410));
     let ignored_resume_id = RunId::from_uuid(uuid(411));
     let attempt_id = QuestionAttemptId::from_uuid(uuid(412));
+    let (attempt_presentation_binding, attempt_presentation) =
+        receipt_presentation(version, 991, 7);
 
     let mut run_question = draft_question(workspace);
     // This fixture specifically proves receipt-time replay behavior: a later
@@ -138,7 +148,14 @@ where
         problem,
         question_version: version,
         seed: 991,
-        presentation: Some(presentation_binding(7)),
+        presentation_capability: PresentationCapability::EnvelopeV1,
+        presentation: Some(attempt_presentation_binding),
+        presentation_snapshot: Some(attempt_presentation.clone()),
+        grading_envelope: Some(grading_envelope(version, 991)),
+        flat_grading: None,
+        flat_grading_capability: FlatGradingCapability::NotApplicable,
+        webwork_grading: None,
+        webwork_grading_capability: learning_data_access::WebworkGradingCapability::NotApplicable,
         parameter_hash: "parameter-hash".to_string(),
         provenance: AttemptProvenance {
             adapter: implementation("native"),
@@ -181,7 +198,15 @@ where
                 problem,
                 question_version: version,
                 seed: 993,
-                presentation: Some(presentation_binding(8)),
+                presentation_capability: PresentationCapability::NotApplicable,
+                presentation: None,
+                presentation_snapshot: None,
+                grading_envelope: None,
+                flat_grading: None,
+                flat_grading_capability: FlatGradingCapability::NotApplicable,
+                webwork_grading: None,
+                webwork_grading_capability:
+                    learning_data_access::WebworkGradingCapability::NotApplicable,
                 parameter_hash: "second-parameter-hash".to_string(),
                 provenance: AttemptProvenance {
                     adapter: implementation("native"),
@@ -204,6 +229,8 @@ where
             if message == "another question attempt is already active in this run"
     ));
 
+    let (reservation_presentation_binding, second_presentation) =
+        receipt_presentation(version, 993, 9);
     let reservation = PrefetchedQuestion {
         tenant,
         run: run.id,
@@ -212,7 +239,14 @@ where
         problem,
         question_version: version,
         seed: 993,
-        presentation: presentation_binding(9),
+        presentation_capability: PresentationCapability::EnvelopeV1,
+        presentation: reservation_presentation_binding,
+        presentation_snapshot: second_presentation.clone(),
+        grading_envelope: grading_envelope(version, 993),
+        flat_grading: None,
+        flat_grading_capability: FlatGradingCapability::NotApplicable,
+        webwork_grading: None,
+        webwork_grading_capability: learning_data_access::WebworkGradingCapability::NotApplicable,
         parameter_hash: "prefetched-parameter-hash".to_string(),
         provenance: AttemptProvenance {
             adapter: implementation("native"),
@@ -397,6 +431,22 @@ where
         .expect("first receipt should replay");
     assert_eq!(replay.attempt, submitted.attempt);
     assert!(replay.feedback == submitted.feedback);
+    let receipt_read = store
+        .submission_record(context, student_user, attempt.id)
+        .await
+        .expect("owned receipt read");
+    assert_eq!(
+        receipt_read,
+        Some(submitted.clone()),
+        "receipt reads return the immutable committed record without retry credentials"
+    );
+    assert_eq!(
+        store
+            .submission_record(context, second_instructor, attempt.id)
+            .await,
+        Err(StoreError::NotFound),
+        "another course member cannot use a receipt read as an attempt-existence oracle"
+    );
     assert_eq!(
         replay.feedback.content().hint,
         Some(vec![ContentBlock::Text {
@@ -619,7 +669,14 @@ where
                 problem,
                 question_version: version,
                 seed: 0,
+                presentation_capability: reservation.presentation_capability,
                 presentation: Some(reservation.presentation),
+                presentation_snapshot: Some(reservation.presentation_snapshot.clone()),
+                grading_envelope: Some(reservation.grading_envelope.clone()),
+                flat_grading: reservation.flat_grading.clone(),
+                flat_grading_capability: reservation.flat_grading_capability,
+                webwork_grading: reservation.webwork_grading.clone(),
+                webwork_grading_capability: reservation.webwork_grading_capability,
                 parameter_hash: "ignored-by-prefetch".to_string(),
                 provenance: reservation.provenance.clone(),
                 webwork_replay: None,
@@ -636,7 +693,7 @@ where
             .submission_next_attempt(context, student_user, attempt.id)
             .await,
         Ok(learning_data_access::SubmissionNextAttempt::Issued(
-            second_attempt.id
+            receipt_next_attempt(&second_attempt)
         )),
         "promotion atomically fixes the predecessor receipt successor",
     );
@@ -672,7 +729,14 @@ where
                     problem,
                     question_version: version,
                     seed: 0,
+                    presentation_capability: reservation.presentation_capability,
                     presentation: Some(reservation.presentation),
+                    presentation_snapshot: Some(reservation.presentation_snapshot.clone()),
+                    grading_envelope: Some(reservation.grading_envelope.clone()),
+                    flat_grading: reservation.flat_grading.clone(),
+                    flat_grading_capability: reservation.flat_grading_capability,
+                    webwork_grading: reservation.webwork_grading.clone(),
+                    webwork_grading_capability: reservation.webwork_grading_capability,
                     parameter_hash: "ignored-by-prefetch".to_string(),
                     provenance: reservation.provenance.clone(),
                     webwork_replay: None,
@@ -721,146 +785,27 @@ where
         Err(StoreError::NotFound),
         "another course member cannot enumerate or finalize a student's pending receipt",
     );
-    let cross_run = store
-        .start_or_resume_run(
-            context,
+    cross_run_finalization::assert_cross_run_finalization_guards(
+        store,
+        context,
+        cross_run_finalization::CrossRunFinalizationFixture {
             student_user,
             assignment,
-            RunId::from_uuid(uuid(417)),
-        )
-        .await
-        .expect("a completed run permits a new run");
-    let cross_run_attempt = store
-        .issue_or_resume_question_attempt(
-            context,
-            IssueQuestionAttemptCommand {
-                actor: student_user,
-                attempt: QuestionAttemptId::from_uuid(uuid(418)),
-                run: cross_run.id,
-                assignment_position: 0,
-                problem,
-                question_version: version,
-                seed: 994,
-                presentation: Some(presentation_binding(10)),
-                parameter_hash: "cross-run-parameter-hash".to_string(),
-                provenance: reservation.provenance.clone(),
-                webwork_replay: None,
-                prefetched: None,
-                predecessor_submission: None,
-            },
-        )
-        .await
-        .expect("cross-run active attempt");
-    assert_eq!(
-        store
-            .finalize_submission_next_attempt(
-                context,
-                student_user,
-                second_attempt.id,
-                Some(cross_run_attempt.id),
-            )
-            .await,
-        Err(StoreError::Conflict),
-        "a receipt cannot link to an attempt from another run",
-    );
-    store
-        .submit_question_attempt(
-            context,
-            SubmitQuestionAttemptCommand {
-                actor: student_user,
-                attempt: cross_run_attempt.id,
-                response: response.clone(),
-                result: AttemptResult {
-                    correct: true,
-                    points_earned: 1.0,
-                    points_possible: 1.0,
-                },
-                feedback: FeedbackContent::default(),
-                idempotency_key: SubmissionIdempotencyKey::parse("submission-cross-run-1")
-                    .expect("valid cross-run key"),
-            },
-        )
-        .await
-        .expect("first deliberately unfinalized recovery fixture submission");
-    let cross_run_second = store
-        .issue_or_resume_question_attempt(
-            context,
-            IssueQuestionAttemptCommand {
-                actor: student_user,
-                attempt: QuestionAttemptId::from_uuid(uuid(419)),
-                run: cross_run.id,
-                assignment_position: 1,
-                problem,
-                question_version: version,
-                seed: 995,
-                presentation: Some(presentation_binding(11)),
-                parameter_hash: "cross-run-second-parameter-hash".to_string(),
-                provenance: reservation.provenance.clone(),
-                webwork_replay: None,
-                prefetched: None,
-                predecessor_submission: None,
-            },
-        )
-        .await
-        .expect("a recovery fixture can reproduce a second issue after a lost finalization");
-    store
-        .submit_question_attempt(
-            context,
-            SubmitQuestionAttemptCommand {
-                actor: student_user,
-                attempt: cross_run_second.id,
-                response: response.clone(),
-                result: AttemptResult {
-                    correct: true,
-                    points_earned: 1.0,
-                    points_possible: 1.0,
-                },
-                feedback: FeedbackContent::default(),
-                idempotency_key: SubmissionIdempotencyKey::parse("submission-cross-run-2")
-                    .expect("valid second cross-run key"),
-            },
-        )
-        .await
-        .expect("second deliberately unfinalized recovery fixture submission");
-    assert_eq!(
-        store
-            .pending_submission_for_run(context, student_user, cross_run.id)
-            .await,
-        Err(StoreError::Conflict),
-        "multiple unresolved receipt links are ambiguous and must never be guessed",
-    );
-    assert_eq!(
-        store
-            .finalize_submission_next_attempt(context, student_user, second_attempt.id, None)
-            .await,
-        Ok(()),
-        "a terminal submission records its explicit no-successor receipt state",
-    );
-    assert_eq!(
-        store
-            .finalize_submission_next_attempt(context, student_user, second_attempt.id, None)
-            .await,
-        Ok(()),
-        "the explicit no-successor receipt state is idempotent",
-    );
-    assert_eq!(
-        store
-            .finalize_submission_next_attempt(
-                context,
-                student_user,
-                second_attempt.id,
-                Some(attempt.id),
-            )
-            .await,
-        Err(StoreError::Conflict),
-        "a finalized no-successor receipt cannot later point at an attempt",
-    );
+            version,
+            problem,
+            second_attempt: &second_attempt,
+            response: &response,
+            reservation: &reservation,
+            first_attempt: &attempt,
+        },
+    )
+    .await;
     assert_eq!(
         store
             .submission_next_attempt(context, student_user, attempt.id)
             .await,
         Ok(learning_data_access::SubmissionNextAttempt::Issued(
-            second_attempt.id
+            receipt_next_attempt(&second_attempt)
         )),
         "the first receipt keeps its original successor after that successor is submitted",
     );

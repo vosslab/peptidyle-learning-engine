@@ -177,7 +177,8 @@ race safely; a losing finalizer must accept only the exact same stored result.
 
 `question_prefetch` is similarly bound to tenant, run, predecessor, and
 assignment position. It is valid only before the predecessor is submitted and
-only when its presentation binding agrees with its protected columns. A later
+only when its full issued tuple-capability, binding, public snapshot, and
+server-only grading envelope-agrees with its protected columns. A later
 attempt cannot reuse an old prefetch as a new attempt. The implementation is
 [runs.rs](../crates/learning-data-access/src/postgres/runs.rs), with matching
 Memory behavior in [runs.rs](../crates/learning-data-access/src/in_memory/runs.rs).

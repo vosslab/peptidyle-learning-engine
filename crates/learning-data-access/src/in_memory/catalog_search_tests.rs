@@ -108,6 +108,7 @@ fn statistics_attempt(
             },
             rendered_question_sha256: format!("statistics-render-{number}"),
         },
+        issued_capability: question_model::IssuedAttemptCapabilityV1::NotApplicable,
     }
 }
 
@@ -138,10 +139,54 @@ fn submit_statistics_attempt(
     };
     let mut state = store.write_state().expect("statistics fixture state");
     state.authoritative_time = ActivityTimestamp::from_unix_millis(submitted_at);
+    insert_statistics_issued_authority(&mut state, &attempt);
     state.attempts.insert((attempt.tenant, attempt.id), attempt);
     let record = submit_question_attempt_locked(&mut state, context, command.clone())
         .expect("statistics fixture submission");
     (record, command)
+}
+
+/// Statistics fixtures install only the authority a real issue transaction
+/// persists. Submission must therefore succeed even after the catalog record
+/// is unavailable; it has no permission to recover timing from current policy.
+fn insert_statistics_issued_authority(state: &mut State, attempt: &QuestionAttempt) {
+    let run = state
+        .runs
+        .get(&(attempt.tenant, attempt.run))
+        .expect("statistics attempt has a run");
+    let enrollment = state
+        .enrollments
+        .get(&(attempt.tenant, run.enrollment))
+        .expect("statistics run has an enrollment");
+    state.attempt_presentation_capabilities.insert(
+        (attempt.tenant, attempt.id),
+        crate::PresentationCapability::NotApplicable,
+    );
+    state.attempt_flat_grading_capabilities.insert(
+        (attempt.tenant, attempt.id),
+        crate::FlatGradingCapability::NotApplicable,
+    );
+    state.attempt_webwork_grading_capabilities.insert(
+        (attempt.tenant, attempt.id),
+        crate::WebworkGradingCapability::NotApplicable,
+    );
+    state.attempt_feedback_disclosures.insert(
+        (attempt.tenant, attempt.id),
+        FeedbackDisclosure::ImmediateCorrectness,
+    );
+    state.attempt_timing.insert(
+        (attempt.tenant, attempt.id),
+        MemoryAttemptTiming {
+            assignment: enrollment.assignment,
+            authored_deadline: None,
+            authored_grace_seconds: 0,
+            effective_deadline: None,
+            effective_grace_seconds: 0,
+            auto_submit_at: None,
+            generation: 1,
+            job: None,
+        },
+    );
 }
 
 #[test]
@@ -264,12 +309,40 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
         idempotency_key: SubmissionIdempotencyKey::parse("statistics-regressive-time")
             .expect("valid fixture idempotency key"),
     };
+    let missing_timing = statistics_attempt(72_098, tenant, assigned_run, a, 0, 1_000);
+    {
+        let mut state = store.write_state().expect("missing timing fixture state");
+        state.authoritative_time = ActivityTimestamp::from_unix_millis(1_500);
+        insert_statistics_issued_authority(&mut state, &missing_timing);
+        state.attempt_timing.remove(&(tenant, missing_timing.id));
+        state
+            .attempts
+            .insert((tenant, missing_timing.id), missing_timing.clone());
+        assert!(matches!(
+            submit_question_attempt_locked(
+                &mut state,
+                context,
+                SubmitQuestionAttemptCommand {
+                    attempt: missing_timing.id,
+                    idempotency_key: SubmissionIdempotencyKey::parse("statistics-missing-timing")
+                        .expect("valid missing-timing key"),
+                    ..regressive_command.clone()
+                },
+            ),
+            Err(StoreError::Unavailable(_))
+        ));
+        assert!(
+            !state.submissions.contains_key(&(tenant, missing_timing.id)),
+            "missing issued timing must fail before receipt mutation"
+        );
+    }
     {
         let mut state = store.write_state().expect("regressive statistics state");
         state.authoritative_time = ActivityTimestamp::from_unix_millis(1_500);
         state
             .attempts
             .insert((tenant, regressive.id), regressive.clone());
+        insert_statistics_issued_authority(&mut state, &regressive);
         assert!(matches!(
             submit_question_attempt_locked(&mut state, context, regressive_command),
             Err(StoreError::InvalidRecord(_))
@@ -284,6 +357,15 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
         assert!(state.question_statistics_receipts.is_empty());
     }
 
+    {
+        let mut state = store
+            .write_state()
+            .expect("withdrawn catalog fixture state");
+        state.published.clear();
+    }
+
+    // Every first submission below succeeds with only its issued timing and
+    // receipt authority. No current catalog policy remains to reconstruct.
     submit_statistics_attempt(
         &store,
         context,

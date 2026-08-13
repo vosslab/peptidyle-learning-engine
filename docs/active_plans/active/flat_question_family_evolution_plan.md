@@ -11,11 +11,12 @@ PLE flat-question JSON version 2 now implements the eight required runtime famil
 MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. It is the only native flat source reader.
 
 The implemented slice includes strict answer-bearing source parsing, public/private compilation,
-family registration, answer-free publication validation, browser decoding, key-free response
-validation, accessible learner controls, and isolated all-or-nothing server grading. It does not
-complete WP-RC5: the visual author editor currently exposes v2 single choice, the secure learner
-payload cutover remains a prerequisite, and all-family PostgreSQL/object-store acceptance, pilot
-content, hotspot pointer authoring, and independent family review remain open.
+family registration, answer-free publication validation, protected visual authoring for all eight
+families, browser decoding, key-free response validation, accessible learner controls, isolated
+all-or-nothing server grading, immutable HOTSPOT publication, and exact issue-time asset binding. It
+does not complete WP-RC5: the compact learner-payload cutover and all-family
+PostgreSQL/object-store author-to-learner acceptance, broader family content, HOTSPOT lifecycle E2E,
+and independent package review remain open.
 
 ## Source decision
 
@@ -46,8 +47,9 @@ question model         feedback, and binding
 - `crates/adapters/native/src/flat_question.rs` owns the stable v2-only facade.
 - `crates/adapters/native/src/flat_question/v2.rs` owns the closed version 2 source shapes and
   compiler.
-- Stores, SQL, HTTP, generated clients, Solid components, and grading consume PLE runtime types;
-  they do not parse source JSON independently.
+- Stores, learner/public HTTP, generated public clients, learner components, and grading consume PLE
+  runtime types. Only the authenticated author-role source editor mirrors the closed source union at
+  its protected no-store GET/PUT boundary.
 - Authored and published source remains private and answer-bearing. Public questions contain only
   render content, response shape, policies, metadata, and typed asset references.
 - Grader material binds the private key and feedback to the exact public question by SHA-256.
@@ -60,16 +62,16 @@ browser boundary without changing these durable source identities.
 
 ## Family contract
 
-| Family    | Implemented source/runtime contract                                                                                  | Remaining milestone work                                                                    |
-| --------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| MC        | Exactly one stable choice ID; v2 compiles to native radio choices                                                    | Extend the v2 visual author form                                                            |
-| MA        | Unique correct choice set; public checkboxes disclose no correct IDs or correct count                                | Add visual author form and full path acceptance                                             |
-| FIB       | One or more accepted strings, explicit match mode, bounded entry                                                     | Add visual author form and feedback presentation                                            |
-| MULTI-FIB | Stable blank IDs, labels, accepted strings, match modes, and per-blank bounds                                        | Add inline visual authoring and complete screen-reader review                               |
-| NUM       | Finite answer, exact/absolute/relative/significant-figures tolerance, optional unit                                  | Add visual author form and tolerance explanation text                                       |
-| MATCH     | Explicit prompt/choice IDs and one-to-one private pairing; native radio groups per prompt                            | Add visual author form and Chapter 1 source                                                 |
-| ORDER     | Stable item IDs and an exact private permutation; accessible move controls                                           | Add visual author form and full path acceptance                                             |
-| HOTSPOT   | Immutable asset/checksum, normalized nonoverlapping candidate regions, private correct set, and keyboard region list | Add secure media selection, pointer overlay authoring/interaction, and object lifecycle E2E |
+| Family    | Implemented source/runtime contract                                                                                                                                         | Remaining milestone work                                                                    |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| MC        | Exactly one stable choice ID; native radio choices and visual author controls                                                                                               | Complete persisted all-family acceptance                                                    |
+| MA        | Unique private correct choice set; public checkboxes and visual author controls disclose no correct IDs or count                                                            | Complete persisted all-family acceptance                                                    |
+| FIB       | Accepted strings, explicit match mode, bounded entry, and visual author controls                                                                                            | Complete persisted all-family acceptance                                                    |
+| MULTI-FIB | Stable blank IDs, labels, private answers, match modes, bounds, and visual author controls                                                                                  | Complete screen-reader and persisted all-family acceptance                                  |
+| NUM       | Finite answer, exact/absolute/relative/significant-figures tolerance, optional unit, and visual author controls                                                             | Complete persisted all-family acceptance                                                    |
+| MATCH     | Stable prompt/choice IDs, private one-to-one pairing, visual author controls, and native radio groups per prompt                                                            | Complete Chapter 1 and persisted all-family acceptance                                      |
+| ORDER     | Stable item IDs, exact private permutation, visual author controls, and accessible learner move controls                                                                    | Complete persisted all-family acceptance                                                    |
+| HOTSPOT   | Verified image selection, immutable version-scoped publication and issue binding, normalized labeled regions, private correct set, and keyboard author/learner region lists | Complete integrated lifecycle E2E, screen-reader evidence, and optional pointer enhancement |
 
 The family compiler currently uses all-or-nothing scoring. Partial-credit policy remains server-owned
 and requires a deliberate grading contract rather than browser-supplied component scores.
@@ -89,17 +91,21 @@ enhancement, not a replacement for the accessible path.
 
 1. Accept the atomic learner render/response boundary in
    [secure_question_grading_payload_plan.md](../decisions/secure_question_grading_payload_plan.md).
-2. Add family-specific instructor authoring controls without widening the closed source decoder.
+2. Accept the implemented family-specific instructor authoring controls without widening the closed
+   source decoder.
 3. Run one complete Memory/PostgreSQL/object-store author-to-learner path for every family, including
    correct, incorrect, retry, retention, cleanup, and tenant-refusal behavior.
 4. Add the exact Chapter 1 genetics and biochemistry content and the separate WeBWorK MATCH path.
-5. Complete keyboard, screen-reader, 320 px, zoom, and pointer/alternative HOTSPOT review.
+5. Complete keyboard and screen-reader review, canonical 1280 by 800 laptop evidence,
+   representative 800 by 1280 student/tablet evidence, one narrow-phone no-overflow guard, zoom,
+   and pointer/alternative HOTSPOT review. Do not make the phone guard dictate the instructor
+   authoring composition.
 6. Run the full repository and disposable integration gates, then obtain independent family and
    content reviews before accepting WP-RC5.
 
 ## Evidence required for acceptance
 
-- version 1 canonical compatibility remains unchanged;
+- version 1 source is refused; version 2 remains the sole native source contract;
 - every version 2 family has valid and meaningful invalid source fixtures;
 - public, generated, Wasm, cache, and learner payloads contain no accepted answer or private
   feedback;

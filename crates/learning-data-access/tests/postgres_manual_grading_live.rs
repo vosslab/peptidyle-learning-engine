@@ -3,11 +3,12 @@
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     AssignmentRecord, AssignmentScoringCommitOutcome, AssignmentScoringWorkerCommand,
-    AssignmentScoringWorkerStore, CatalogStore, CourseRecord, DraftRecord, EvaluationRevision,
-    IssueQuestionAttemptCommand, JobClaimFilter, JobLeaseDuration, JobPayload, JobStore,
-    ManualCredit, ManualGradeActionId, ManualGradingStore, PublishDraftCommand,
-    SetManualGradeCommand, Store, StoreError, SubmissionIdempotencyKey,
-    SubmitPendingManualQuestionAttemptCommand, SubmitQuestionAttemptCommand, TenantContext,
+    AssignmentScoringWorkerStore, CatalogStore, CourseRecord, CourseRosterStore, DraftRecord,
+    EvaluationRevision, FlatGradingCapability, IssueQuestionAttemptCommand, JobClaimFilter,
+    JobLeaseDuration, JobPayload, JobStore, ManualCredit, ManualGradeActionId, ManualGradingStore,
+    PresentationCapability, PublishDraftCommand, SetManualGradeCommand, Store, StoreError,
+    SubmissionIdempotencyKey, SubmitPendingManualQuestionAttemptCommand,
+    SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -22,10 +23,9 @@ use question_model::{
     AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentItemId, AssignmentScoringMode,
     AttemptProvenance, AttemptResult, AttemptStatus, BackendCapabilities, Capability, CourseId,
     CourseMembership, CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource,
-    FeedbackContent, GradingDefinition, ImplementationVersion, PointValue, PresentationBindingV1,
-    PresentationDigestV1, PresentationNonceV1, ProblemId, ProblemVersionRef, PublicationScope,
-    QuestionAttemptId, QuestionMetadata, QuestionSource, RunId, ScoringStatus, StudentResponse,
-    TenantId, UserId, VersionId, WorkspaceId,
+    FeedbackContent, GradingDefinition, ImplementationVersion, PointValue, ProblemId,
+    ProblemVersionRef, PublicationScope, QuestionAttemptId, QuestionMetadata, QuestionSource,
+    RunId, ScoringStatus, StudentResponse, TenantId, UserId, VersionId, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -40,13 +40,6 @@ fn implementation(name: &str) -> ImplementationVersion {
         id: name.to_string(),
         version: "1".to_string(),
     }
-}
-
-fn presentation_binding(marker: u8) -> PresentationBindingV1 {
-    PresentationBindingV1::new(
-        PresentationNonceV1::from_bytes([marker; 16]),
-        PresentationDigestV1::compute(&[marker]),
-    )
 }
 
 fn provenance(name: &str) -> AttemptProvenance {
@@ -172,7 +165,15 @@ async fn issue_attempt(
                 problem: reference.problem,
                 question_version: reference.version,
                 seed: u64::from(position) + 1,
-                presentation: Some(presentation_binding(position as u8)),
+                presentation_capability: PresentationCapability::NotApplicable,
+                presentation: None,
+                presentation_snapshot: None,
+                grading_envelope: None,
+                flat_grading: None,
+                flat_grading_capability: FlatGradingCapability::NotApplicable,
+                webwork_grading: None,
+                webwork_grading_capability:
+                    learning_data_access::WebworkGradingCapability::NotApplicable,
                 parameter_hash: format!("live-parameters-{position}"),
                 provenance: provenance(if position == 0 { "automatic" } else { "manual" }),
                 webwork_replay: None,
@@ -238,20 +239,10 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
                 id: course,
                 tenant,
                 title: "Live mixed grading course".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                    CourseMembership {
-                        user: other_student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+                members: vec![CourseMembership {
+                    user: instructor,
+                    role: CourseMembershipRole::Instructor,
+                }],
             },
         )
         .await
@@ -279,6 +270,23 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
         )
         .await
         .expect("create live mixed-grading assignment");
+    for (user, display_name) in [
+        (student, "Live grading student"),
+        (other_student, "Other live grading student"),
+    ] {
+        store
+            .upsert_course_member(
+                context,
+                UpsertCourseMember {
+                    course,
+                    user,
+                    display_name: display_name.to_string(),
+                    roster_contact: None,
+                },
+            )
+            .await
+            .expect("canonical roster upsert derives mixed-grading enrollment");
+    }
     let run = store
         .start_or_resume_run(context, student, assignment, RunId::from_uuid(fresh_uuid()))
         .await

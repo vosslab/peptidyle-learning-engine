@@ -72,6 +72,7 @@ test("submission receipts require an exact feedback field and reject hostile nes
     attempt: publishedProblemFixture.attempts[0],
     feedback: { correctness: true },
     nextIssued: null,
+    nextPending: false,
   };
   assert.deepEqual(decodeSubmissionReceipt(receipt), receipt);
   assert.throws(
@@ -106,6 +107,23 @@ test("submission receipts require an exact feedback field and reject hostile nes
   }
   const { feedback: _feedback, ...withoutFeedback } = receipt;
   assert.throws(() => decodeSubmissionReceipt(withoutFeedback), DecodeError);
+  assert.throws(
+    () =>
+      decodeSubmissionReceipt({
+        ...receipt,
+        nextIssued: {
+          id: "0198e000-0000-7000-8000-000000000035",
+          run: receipt.attempt.run,
+          questionVersion: receipt.attempt.questionVersion,
+          seed: receipt.attempt.seed,
+          deadline: null,
+          assignmentPosition: receipt.attempt.assignmentPosition + 1,
+          renderedQuestionSha256: "b".repeat(64),
+        },
+        nextPending: true,
+      }),
+    DecodeError,
+  );
 });
 
 test("disclosed feedback rejects private material and malformed blocks", () => {

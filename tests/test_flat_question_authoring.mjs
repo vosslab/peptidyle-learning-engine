@@ -201,14 +201,316 @@ test("defaults use stable semantic IDs and public preview cannot serialize answe
     ["choice_a", "choice_b"],
   );
   const preview = flatQuestionPublicPreview(source());
-  assert.deepEqual(preview.choices, [
-    { id: "blue", text: "Blue" },
-    { id: "red", text: "Red" },
-  ]);
+  assert.deepEqual(preview.response, {
+    kind: "multipleChoice",
+    choices: [
+      { id: "blue", body: [{ kind: "text", markdown: "Blue" }] },
+      { id: "red", body: [{ kind: "text", markdown: "Red" }] },
+    ],
+    selection: { kind: "exactlyOne" },
+  });
   const serialized = serializeFlatQuestionPublicPreview(source());
   assert.equal(serialized.includes("correctChoice"), false);
   assert.equal(serialized.includes("Correct choice."), false);
   assert.equal(serialized.includes("Exactly right."), false);
+});
+
+test("matching codec retains stable pairs while public preview excludes their answer map", () => {
+  const matching = {
+    ...source(),
+    response: {
+      kind: "matching",
+      prompts: [
+        { id: "gene", text: "Gene" },
+        { id: "allele", text: "Allele" },
+      ],
+      choices: [
+        { id: "dna_segment", text: "DNA segment" },
+        { id: "gene_variant", text: "Gene variant" },
+      ],
+      matches: [
+        { prompt: "gene", choice: "dna_segment" },
+        { prompt: "allele", choice: "gene_variant" },
+      ],
+    },
+  };
+  const decoded = decodeFlatQuestionSource(matching);
+  assert.equal(decoded.response.kind, "matching");
+  const preview = serializeFlatQuestionPublicPreview(decoded);
+  assert.equal(preview.includes('"matches"'), false);
+  assert.equal(preview.includes('"gene_variant"'), true);
+});
+
+test("matching codec refuses duplicate or incomplete pairings", () => {
+  const matching = {
+    ...source(),
+    response: {
+      kind: "matching",
+      prompts: [
+        { id: "one", text: "One" },
+        { id: "two", text: "Two" },
+      ],
+      choices: [
+        { id: "first", text: "First" },
+        { id: "second", text: "Second" },
+      ],
+      matches: [
+        { prompt: "one", choice: "first" },
+        { prompt: "two", choice: "first" },
+      ],
+    },
+  };
+  assert.throws(() => decodeFlatQuestionSource(matching));
+});
+
+test("all remaining v2 source families retain semantic IDs and publish answer-free response definitions", () => {
+  const cases = [
+    {
+      kind: "multipleAnswer",
+      response: {
+        kind: "multipleAnswer",
+        choices: [
+          { id: "kinase", text: "Kinase", feedback: "Private feedback" },
+          { id: "lipid", text: "Lipid", feedback: null },
+        ],
+        correctChoices: ["kinase"],
+      },
+      publicKind: "multipleChoice",
+      secret: "correctChoices",
+    },
+    {
+      kind: "fillIn",
+      response: {
+        kind: "fillIn",
+        answers: ["adenosine triphosphate"],
+        matchMode: "caseInsensitive",
+        maxLength: 80,
+      },
+      publicKind: "shortText",
+      secret: "adenosine triphosphate",
+    },
+    {
+      kind: "multiFillIn",
+      response: {
+        kind: "multiFillIn",
+        blanks: [
+          {
+            id: "energy_currency",
+            label: "Cellular energy currency",
+            answers: ["ATP"],
+            matchMode: "caseInsensitive",
+            maxLength: 12,
+          },
+        ],
+      },
+      publicKind: "multiBlank",
+      secret: "answers",
+    },
+    {
+      kind: "numeric",
+      response: {
+        kind: "numeric",
+        answer: 6.022,
+        tolerance: { kind: "relative", fraction: 0.01 },
+        unit: "mol^-1",
+      },
+      publicKind: "numeric",
+      secret: '"answer":6.022',
+    },
+    {
+      kind: "ordering",
+      response: {
+        kind: "ordering",
+        items: [
+          { id: "template", text: "Template binding" },
+          { id: "elongation", text: "Elongation" },
+          { id: "termination", text: "Termination" },
+        ],
+        correctOrder: ["template", "elongation", "termination"],
+      },
+      publicKind: "ordering",
+      secret: "correctOrder",
+    },
+    {
+      kind: "hotspot",
+      response: {
+        kind: "hotspot",
+        surface: {
+          asset: "00000000-0000-4000-8000-000000000042",
+          checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          description: "A chromosome map",
+        },
+        regions: [
+          { id: "centromere", label: "Centromere", x: 0, y: 0, width: 4_000, height: 4_000 },
+          { id: "telomere", label: "Telomere", x: 6_000, y: 6_000, width: 4_000, height: 4_000 },
+        ],
+        correctRegions: ["centromere"],
+      },
+      publicKind: "hotspot",
+      secret: "correctRegions",
+    },
+  ];
+
+  for (const item of cases) {
+    const decoded = decodeFlatQuestionSource({ ...source(), response: item.response });
+    assert.equal(decoded.response.kind, item.kind);
+    const publicResponse = flatQuestionPublicPreview(decoded).response;
+    assert.equal(publicResponse.kind, item.publicKind);
+    const serialized = serializeFlatQuestionPublicPreview(decoded);
+    assert.equal(serialized.includes(item.secret), false);
+  }
+  const numericWithoutUnit = decodeFlatQuestionSource({
+    ...source(),
+    response: { kind: "numeric", answer: 1, tolerance: { kind: "exact" } },
+  });
+  assert.equal(numericWithoutUnit.response.kind, "numeric");
+  if (numericWithoutUnit.response.kind !== "numeric") throw new Error("Expected numeric source.");
+  assert.equal(numericWithoutUnit.response.unit, null);
+});
+
+test("hotspot public preview does not disclose correct-region cardinality", () => {
+  const baseResponse = {
+    kind: "hotspot",
+    surface: {
+      asset: "00000000-0000-4000-8000-000000000042",
+      checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      description: "A chromosome map",
+    },
+    regions: [
+      { id: "centromere", label: "Centromere", x: 0, y: 0, width: 4_000, height: 4_000 },
+      { id: "telomere", label: "Telomere", x: 6_000, y: 6_000, width: 4_000, height: 4_000 },
+    ],
+  };
+  const oneCorrect = decodeFlatQuestionSource({
+    ...source(),
+    response: { ...baseResponse, correctRegions: ["centromere"] },
+  });
+  const twoCorrect = decodeFlatQuestionSource({
+    ...source(),
+    response: { ...baseResponse, correctRegions: ["centromere", "telomere"] },
+  });
+
+  const onePublic = flatQuestionPublicPreview(oneCorrect).response;
+  const twoPublic = flatQuestionPublicPreview(twoCorrect).response;
+  assert.deepEqual(onePublic, twoPublic);
+  assert.deepEqual(onePublic, {
+    kind: "hotspot",
+    surface: {
+      asset: "00000000-0000-4000-8000-000000000042",
+      checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+    description: "A chromosome map",
+    regions: [
+      {
+        id: "centromere",
+        label: [{ kind: "text", markdown: "Centromere" }],
+        x: 0,
+        y: 0,
+        width: 4_000,
+        height: 4_000,
+      },
+      {
+        id: "telomere",
+        label: [{ kind: "text", markdown: "Telomere" }],
+        x: 6_000,
+        y: 6_000,
+        width: 4_000,
+        height: 4_000,
+      },
+    ],
+    selection: { kind: "atLeastOne" },
+  });
+  assert.equal(serializeFlatQuestionPublicPreview(oneCorrect).includes("correctRegions"), false);
+  assert.equal(serializeFlatQuestionPublicPreview(twoCorrect).includes("correctRegions"), false);
+});
+
+test("remaining v2 source families reject invalid private contracts", () => {
+  assert.throws(() =>
+    decodeFlatQuestionSource({
+      ...source(),
+      response: {
+        kind: "multipleAnswer",
+        choices: source().response.choices,
+        correctChoices: ["blue", "blue"],
+      },
+    }),
+  );
+  assert.throws(() =>
+    decodeFlatQuestionSource({
+      ...source(),
+      response: { kind: "fillIn", answers: ["ATP", "ATP"], matchMode: "exact", maxLength: 4 },
+    }),
+  );
+  assert.throws(() =>
+    decodeFlatQuestionSource({
+      ...source(),
+      response: {
+        kind: "multiFillIn",
+        blanks: [
+          { id: "same", label: "One", answers: ["one"], matchMode: "exact", maxLength: 8 },
+          { id: "same", label: "Two", answers: ["two"], matchMode: "exact", maxLength: 8 },
+        ],
+      },
+    }),
+  );
+  assert.throws(() =>
+    decodeFlatQuestionSource({
+      ...source(),
+      response: {
+        kind: "numeric",
+        answer: 1,
+        tolerance: { kind: "significantFigures", digits: 0 },
+        unit: null,
+      },
+    }),
+  );
+  assert.throws(() =>
+    decodeFlatQuestionSource({
+      ...source(),
+      response: {
+        kind: "ordering",
+        items: [
+          { id: "first", text: "First" },
+          { id: "second", text: "Second" },
+          { id: "third", text: "Third" },
+        ],
+        correctOrder: ["first", "second", "second"],
+      },
+    }),
+  );
+  assert.throws(() =>
+    decodeFlatQuestionSource({
+      ...source(),
+      response: {
+        kind: "hotspot",
+        surface: {
+          asset: "not-an-asset",
+          checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          description: "Surface",
+        },
+        regions: [{ id: "bad", label: "Bad", x: 9_000, y: 0, width: 2_000, height: 1_000 }],
+        correctRegions: ["bad"],
+      },
+    }),
+  );
+  assert.throws(() =>
+    decodeFlatQuestionSource({
+      ...source(),
+      response: {
+        kind: "hotspot",
+        surface: {
+          asset: "00000000-0000-4000-8000-000000000042",
+          checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          description: "Surface",
+        },
+        regions: [
+          { id: "left", label: "Left", x: 0, y: 0, width: 4_000, height: 4_000 },
+          { id: "right", label: "Right", x: 3_000, y: 3_000, width: 4_000, height: 4_000 },
+        ],
+        correctRegions: ["left"],
+      },
+    }),
+  );
 });
 
 test("client sends exact protected paths, headers, body, and revisions", async () => {
@@ -333,6 +635,30 @@ test("client rejects save and publication DTOs that are not the exact flat nativ
     wrongPublication.publish(workspace, "institution", '"1"'),
     /flat_single_choice_v2/u,
   );
+});
+
+test("client accepts the exact native hotspot family for a strict hotspot source", async () => {
+  const hotspot = decodeFlatQuestionSource({
+    ...source(),
+    response: {
+      kind: "hotspot",
+      surface: {
+        asset: "00000000-0000-4000-8000-000000000042",
+        checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        description: "A chromosome map",
+      },
+      regions: [{ id: "centromere", label: "Centromere", x: 0, y: 0, width: 4_000, height: 4_000 }],
+      correctRegions: ["centromere"],
+    },
+  });
+  const client = createFlatQuestionClient({
+    fetch: async () =>
+      jsonResponse({
+        ...publicDefinition(),
+        source: { backend: "native", family: "flat_hotspot_v2" },
+      }),
+  });
+  await client.save(workspace, hotspot);
 });
 
 function deferred() {

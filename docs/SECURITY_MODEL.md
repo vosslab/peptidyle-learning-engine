@@ -26,7 +26,7 @@ target that has not yet crossed every HTTP, storage, and browser boundary.
 
 | Browser-safe surface                           | Server-only surface                |
 | ---------------------------------------------- | ---------------------------------- |
-| Input schema and browser-side response state    | `grading::AnswerKey`               |
+| Input schema and browser-side response state   | `grading::AnswerKey`               |
 | Parameter generation from a supplied seed      | Expected numeric values            |
 | Response-format validation                     | Correct choice IDs and ordering    |
 | Timer display and pure state transitions       | Accepted text and private rubrics  |
@@ -410,13 +410,17 @@ locks the run so only one unresolved question exists at a time. Server-owned
 database timestamps determine issue time, deadline, response arrival, and run
 completion.
 
-Next-question prefetch stores a tenant-owned, key-free reservation without an
-attempt ID, timer, response, grade, or answer. The Store binds it to the owned
-active predecessor and first unattempted assignment position. Only submission
-promotion creates the successor attempt and atomically records its immutable
-link in the predecessor's receipt. Replay reads that link instead of deriving a
-new successor from current run state; a bounded owner-scoped pending lookup may
-heal the sole committed-but-unlinked predecessor after a process failure.
+Next-question prefetch stores a tenant-owned, server-only reservation without an
+attempt ID, timer, response, grade, or public answer. Its browser projection is
+answer-free, while the reservation retains checksummed private grading authority
+for the exact issued question so first grade never reconstructs from current
+catalog or renderer state. The Store binds it to the owned active predecessor
+and first unattempted assignment position. Only submission promotion creates
+the successor attempt and records either its immutable `nextIssued` descriptor
+or durable `nextPending` state in the predecessor's receipt. Replay reads that
+state instead of deriving a new successor from
+current run state; initial owner-scoped recovery alone may heal the sole
+committed-but-unlinked predecessor after a process failure.
 
 The prefetch response contains only the safe envelope and an exact descriptor.
 Its rendered hash remains backend-owned because a backend such as WeBWorK may
@@ -427,12 +431,17 @@ warms at most 12 deduplicated same-origin logical asset routes, and advances
 from it only after an exact `nextIssued` receipt match. No prefetch envelope or
 descriptor enters `localStorage` or `sessionStorage`.
 
-The server repeats structural response validation before calling the injected
-grading backend. Submission persistence rejects malformed point values and
-atomically commits the response, grade event, run and enrollment transitions,
-and summary. The idempotency table is insert-only for the application role;
-an exact retry returns its first committed receipt, while a changed key or
-response conflicts.
+The server first validates browser-visible rendered IDs and response shape
+against the checksummed issued public snapshot, then translates those IDs and
+validates the result against the server-only grading envelope before calling
+the injected grader. Native and WeBWorK first grading additionally require
+their matching issued private grading contracts, so neither path reloads a
+current catalog definition or grader view. The idempotency table retains the
+original public learner response; the translated private response is grade-only. Submission persistence
+rejects malformed point values and atomically commits the response, grade
+event, run and enrollment transitions, and summary. The idempotency table is
+insert-only for the application role; an exact retry returns its first
+committed receipt, while a changed key or response conflicts.
 
 The current attempt DTO is answer-free but broader than the learner needs: it
 still carries version, seed, parameter hash, provenance, implementation IDs,

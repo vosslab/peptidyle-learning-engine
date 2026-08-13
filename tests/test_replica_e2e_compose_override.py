@@ -2,6 +2,7 @@
 
 # Standard Library
 import pathlib
+import re
 
 # Third Party
 import yaml
@@ -15,6 +16,7 @@ COMPOSE_PATH = REPO_ROOT / "containers" / "compose.yaml"
 OVERRIDE_PATH = REPO_ROOT / "tests" / "e2e" / "compose.replica-e2e.yaml"
 CONTAINERFILE_PATH = REPO_ROOT / "containers" / "Containerfile.api"
 ENV_EXAMPLE_PATH = REPO_ROOT / "containers" / "env.example"
+CHAPTER_BROWSER_PATH = REPO_ROOT / "tests" / "e2e" / "e2e_chapter_one_browser.sh"
 
 
 #============================================
@@ -63,6 +65,20 @@ def test_replica_override_selects_only_the_explicit_test_build_and_toggle() -> N
 
 
 #============================================
+def test_application_container_uses_immutable_multi_architecture_base_references() -> None:
+	"""Builder and runtime bases retain readable release tags plus immutable OCI indexes."""
+	containerfile = CONTAINERFILE_PATH.read_text()
+	base_references = re.findall(
+		r"^FROM (docker\.io/library/(?:rust|debian):[^@\s]+@sha256:[0-9a-f]{64}) AS ",
+		containerfile,
+		flags=re.MULTILINE,
+	)
+
+	assert len(base_references) == 2
+	assert all(":latest@" not in reference and ":stable" not in reference for reference in base_references)
+
+
+#============================================
 def test_override_does_not_relax_renderer_or_add_privileged_configuration() -> None:
 	"""The native E2E uses the production security boundary unchanged."""
 	override_text = OVERRIDE_PATH.read_text()
@@ -75,3 +91,14 @@ def test_override_does_not_relax_renderer_or_add_privileged_configuration() -> N
 		"PLE_LOCAL_AUTH_",
 	):
 		assert forbidden not in override_text, f"override must not contain {forbidden!r}"
+
+
+#============================================
+def test_chapter_browser_removes_only_its_generated_gateway_image() -> None:
+	"""The isolated browser oracle cannot accumulate per-run Compose image tags."""
+	script = CHAPTER_BROWSER_PATH.read_text()
+
+	assert 'readonly GATEWAY_IMAGE="localhost/${PROJECT_NAME}_gateway:latest"' in script
+	assert 'compose down --volumes --remove-orphans' in script
+	assert 'podman image rm "$GATEWAY_IMAGE"' in script
+	assert "podman image prune" not in script

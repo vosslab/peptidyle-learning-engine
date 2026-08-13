@@ -8,8 +8,9 @@
 # store -- nothing else.
 
 # ---------- stage 1: build ----------
-# Follow the same current stable channel as rust-toolchain.toml.
-FROM docker.io/library/rust:latest AS builder
+# Rust 1.97.1 on Debian Trixie. The official multi-architecture OCI index
+# includes both linux/amd64 and linux/arm64; refresh this tag and digest together.
+FROM docker.io/library/rust:1.97.1-trixie@sha256:3382bd20aa942806c533e9a73cd000474fb3ef173f71e684cc9b942675781769 AS builder
 
 WORKDIR /build
 
@@ -32,7 +33,9 @@ FROM builder AS production-builder
 RUN cargo build --release --locked --bin server_core
 
 # ---------- stage 2: runtime ----------
-FROM docker.io/library/debian:stable-slim AS runtime-base
+# Keep the runtime on the builder's Debian release and pin the official
+# multi-architecture OCI index (linux/amd64 and linux/arm64).
+FROM docker.io/library/debian:13.5-slim@sha256:28de0877c2189802884ccd20f15ee41c203573bd87bb6b883f5f46362d24c5c2 AS runtime-base
 
 # ca-certificates: TLS trust for S3 and PostgreSQL.
 RUN apt-get update \

@@ -23,6 +23,15 @@ version = "26.8.0"
 edition = "2024"
 rust-version = "1.97.1"
 
+# The 2026-08-12 storage audit measured 67 GiB of incremental state and another
+# 68 GiB of full-debug dependency artifacts after the repository's broad
+# all-target test matrix. Keep useful filename/line backtraces without making
+# the ordinary edit/test loop retain full debugger data or incremental object
+# graphs. Cargo's test profile inherits these dev settings.
+[profile.dev]
+debug = "line-tables-only"
+incremental = false
+
 [workspace.dependencies]
 # External crates shared across workspace members. A member opts in with
 # `<name>.workspace = true`; nothing is inherited implicitly.

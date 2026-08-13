@@ -6,12 +6,14 @@ import { Show, createResource, createSignal, type JSX } from "solid-js";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import { useApiRuntime } from "../api/runtime";
 import { useSessionBootstrap } from "../auth/session_context";
+import { useWasmFacade } from "../wasm/context";
 import {
   createFlatQuestionClient,
   FlatQuestionRequestError,
   type FlatQuestionRead,
 } from "../features/flat_question_authoring/flat_question_client";
 import { createDefaultFlatQuestionSource } from "../features/flat_question_authoring/flat_question_defaults";
+import { createFlatQuestionAssetClient } from "../features/flat_question_authoring/flat_question_asset_client";
 import { FlatQuestionEditorPage } from "../features/flat_question_authoring/flat_question_editor_page";
 import { createFlatQuestionRepository } from "../features/flat_question_authoring/flat_question_repository";
 import { createQtiProfileImportClient } from "../features/qti_profile_import/qti_profile_import_client";
@@ -68,10 +70,12 @@ export function WorkspaceListLivePage(): JSX.Element {
 /** `/workspace/:workspaceId`: requests exactly the private workspace selected by the route. */
 export function WorkspaceEditorLivePage(): JSX.Element {
   const runtime = useApiRuntime();
+  const wasm = useWasmFacade();
   const params = useParams();
   if (!mayAuthorWorkspace()) return <WorkspaceAuthoringDenied />;
   const workspace = currentWorkspace(params);
   const flatRepository = createFlatQuestionRepository(createFlatQuestionClient());
+  const flatQuestionAssetClient = createFlatQuestionAssetClient();
   const qtiClient = createQtiProfileImportClient();
   const [focusConvertedDraft, setFocusConvertedDraft] = createSignal(false);
   const [displayedDraft, setDisplayedDraft] = createSignal<QtiConversionDraftState | null>(null);
@@ -138,6 +142,8 @@ export function WorkspaceEditorLivePage(): JSX.Element {
               initial={initial}
               repository={flatRepository}
               api={runtime.client}
+              responseValidator={wasm}
+              assetClient={flatQuestionAssetClient}
               focusHeadingOnMount={focusConvertedDraft()}
               onHeadingFocusDelivered={() => setFocusConvertedDraft(false)}
               onDraftDisplayStateChange={setDisplayedDraft}

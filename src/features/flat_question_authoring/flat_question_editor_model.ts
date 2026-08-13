@@ -3,12 +3,18 @@ import { serializeFlatQuestionSource } from "./flat_question_codec";
 import type {
   FlatQuestionAttemptPolicy,
   FlatQuestionChoice,
+  FlatQuestionItem,
   FlatQuestionLicense,
   FlatQuestionOutcomeFeedback,
   FlatQuestionSourceV2,
   FlatQuestionTaxonomyTerm,
   FlatQuestionTimingPolicy,
 } from "./flat_question_source";
+
+const DEFAULT_CHOICES: ReadonlyArray<FlatQuestionChoice> = [
+  { id: "choice_a", text: "First choice", feedback: null },
+  { id: "choice_b", text: "Second choice", feedback: null },
+];
 
 export type FlatQuestionInstructorPreview = {
   readonly revision: string;
@@ -191,6 +197,9 @@ function replaceChoice(
   choiceId: string,
   replacement: FlatQuestionChoice,
 ): SourceEditResult {
+  if (source.response.kind !== "singleChoice") {
+    return refused(source, "Choose single choice before editing choices.");
+  }
   const index = source.response.choices.findIndex((choice) => choice.id === choiceId);
   if (index < 0) return refused(source, "That choice no longer exists.");
   const choices = source.response.choices.map((choice) =>
@@ -213,6 +222,178 @@ export function setFlatQuestionPrompt(
   return { ...source, prompt };
 }
 
+export function setMatchingItemText(
+  source: FlatQuestionSourceV2,
+  side: "prompts" | "choices",
+  itemId: string,
+  text: string,
+): SourceEditResult {
+  if (source.response.kind !== "matching")
+    return refused(source, "Choose matching before editing pairs.");
+  const items = source.response[side];
+  if (!items.some((item) => item.id === itemId))
+    return refused(source, "That matching item no longer exists.");
+  const nextItems = items.map((item) => (item.id === itemId ? { ...item, text } : item));
+  return changed({ ...source, response: { ...source.response, [side]: nextItems } });
+}
+
+export function setMatchingPair(
+  source: FlatQuestionSourceV2,
+  promptId: string,
+  choiceId: string,
+): SourceEditResult {
+  if (source.response.kind !== "matching")
+    return refused(source, "Choose matching before editing pairs.");
+  const promptKnown = source.response.prompts.some((item) => item.id === promptId);
+  const choiceKnown = source.response.choices.some((item) => item.id === choiceId);
+  if (!promptKnown || !choiceKnown)
+    return refused(source, "Pair an available prompt with an available choice.");
+  if (
+    source.response.matches.some((pair) => pair.prompt !== promptId && pair.choice === choiceId)
+  ) {
+    return refused(source, "Each matching choice is used once.");
+  }
+  const matches = source.response.matches.map((pair) =>
+    pair.prompt === promptId ? { prompt: promptId, choice: choiceId } : pair,
+  );
+  return changed({ ...source, response: { ...source.response, matches } });
+}
+
+const MINIMUM_MATCHING_PAIRS = 2;
+const MAXIMUM_MATCHING_PAIRS = 100;
+
+/** Adds one complete semantic pair so the private answer map stays total while the author edits. */
+export function addMatchingPair(source: FlatQuestionSourceV2): SourceEditResult {
+  if (source.response.kind !== "matching")
+    return refused(source, "Choose matching before adding pairs.");
+  if (source.response.prompts.length >= MAXIMUM_MATCHING_PAIRS) {
+    return refused(source, "A matching question can have at most 100 pairs.");
+  }
+  const promptId = nextMatchingId(source.response.prompts, "prompt");
+  const choiceId = nextMatchingId(source.response.choices, "choice");
+  const prompts = [...source.response.prompts, { id: promptId, text: "New prompt" }];
+  const choices = [...source.response.choices, { id: choiceId, text: "New choice" }];
+  const matches = [...source.response.matches, { prompt: promptId, choice: choiceId }];
+  return changed({ ...source, response: { ...source.response, prompts, choices, matches } });
+}
+
+/** Removes the prompt, its paired choice, and exactly their private relation as one atomic edit. */
+export function removeMatchingPair(
+  source: FlatQuestionSourceV2,
+  promptId: string,
+): SourceEditResult {
+  if (source.response.kind !== "matching")
+    return refused(source, "Choose matching before removing pairs.");
+  if (source.response.prompts.length <= MINIMUM_MATCHING_PAIRS) {
+    return refused(source, "A matching question needs at least two pairs.");
+  }
+  const pair = source.response.matches.find((candidate) => candidate.prompt === promptId);
+  if (pair === undefined)
+    return refused(source, "That matching prompt no longer has a paired choice.");
+  const prompts = source.response.prompts.filter((item) => item.id !== promptId);
+  const choices = source.response.choices.filter((item) => item.id !== pair.choice);
+  const matches = source.response.matches.filter((candidate) => candidate.prompt !== promptId);
+  return changed({ ...source, response: { ...source.response, prompts, choices, matches } });
+}
+
+/** Reordering changes only reading order; semantic IDs and the private pairing map are retained. */
+export function reorderMatchingItems(
+  source: FlatQuestionSourceV2,
+  side: "prompts" | "choices",
+  orderedIds: ReadonlyArray<string>,
+): SourceEditResult {
+  if (source.response.kind !== "matching")
+    return refused(source, "Choose matching before reordering pairs.");
+  const items = source.response[side];
+  if (orderedIds.length !== items.length || new Set(orderedIds).size !== orderedIds.length) {
+    return refused(source, "Use every matching item exactly once when reordering.");
+  }
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const reordered: FlatQuestionItem[] = [];
+  for (const id of orderedIds) {
+    const item = byId.get(id);
+    if (item === undefined)
+      return refused(source, "Use every matching item exactly once when reordering.");
+    reordered.push(item);
+  }
+  return changed({ ...source, response: { ...source.response, [side]: reordered } });
+}
+
+function nextMatchingId(
+  items: ReadonlyArray<FlatQuestionItem>,
+  prefix: "prompt" | "choice",
+): string {
+  let suffix = 1;
+  while (items.some((item) => item.id === `${prefix}_${suffix}`)) suffix += 1;
+  return `${prefix}_${suffix}`;
+}
+
+/**
+ * Converts ordinary text-response families to complete defaults. HOTSPOT intentionally has no
+ * synthetic default: its source begins only after the private image picker returns a descriptor.
+ */
+export function setFlatQuestionResponseKind(
+  source: FlatQuestionSourceV2,
+  kind: Exclude<FlatQuestionSourceV2["response"]["kind"], "hotspot">,
+): FlatQuestionSourceV2 {
+  if (source.response.kind === kind) return source;
+  return { ...source, response: defaultResponse(kind) };
+}
+
+function defaultResponse(
+  kind: Exclude<FlatQuestionSourceV2["response"]["kind"], "hotspot">,
+): FlatQuestionSourceV2["response"] {
+  switch (kind) {
+    case "singleChoice":
+      return { kind, choices: DEFAULT_CHOICES, correctChoice: "choice_a" };
+    case "multipleAnswer":
+      return { kind, choices: DEFAULT_CHOICES, correctChoices: ["choice_a"] };
+    case "fillIn":
+      return { kind, answers: ["Accepted answer"], matchMode: "caseInsensitive", maxLength: 256 };
+    case "multiFillIn":
+      return {
+        kind,
+        blanks: [
+          {
+            id: "blank_a",
+            label: "First blank",
+            answers: ["Accepted answer"],
+            matchMode: "caseInsensitive",
+            maxLength: 256,
+          },
+        ],
+      };
+    case "numeric":
+      return { kind, answer: 0, tolerance: { kind: "exact" }, unit: null };
+    case "matching":
+      return {
+        kind,
+        prompts: [
+          { id: "prompt_a", text: "First prompt" },
+          { id: "prompt_b", text: "Second prompt" },
+        ],
+        choices: [
+          { id: "choice_a", text: "First choice" },
+          { id: "choice_b", text: "Second choice" },
+        ],
+        matches: [
+          { prompt: "prompt_a", choice: "choice_a" },
+          { prompt: "prompt_b", choice: "choice_b" },
+        ],
+      };
+    case "ordering":
+      return {
+        kind,
+        items: [
+          { id: "item_a", text: "First item" },
+          { id: "item_b", text: "Second item" },
+          { id: "item_c", text: "Third item" },
+        ],
+        correctOrder: ["item_a", "item_b", "item_c"],
+      };
+  }
+}
+
 export function setFlatQuestionPoints(
   source: FlatQuestionSourceV2,
   points: number,
@@ -225,6 +406,9 @@ export function setChoiceText(
   choiceId: string,
   text: string,
 ): SourceEditResult {
+  if (source.response.kind !== "singleChoice") {
+    return refused(source, "Choose single choice before editing choices.");
+  }
   const current = source.response.choices.find((choice) => choice.id === choiceId);
   return current === undefined
     ? refused(source, "That choice no longer exists.")
@@ -236,6 +420,9 @@ export function setChoiceFeedback(
   choiceId: string,
   feedback: string | null,
 ): SourceEditResult {
+  if (source.response.kind !== "singleChoice") {
+    return refused(source, "Choose single choice before editing choices.");
+  }
   const current = source.response.choices.find((choice) => choice.id === choiceId);
   return current === undefined
     ? refused(source, "That choice no longer exists.")
@@ -243,6 +430,9 @@ export function setChoiceFeedback(
 }
 
 export function setCorrectChoice(source: FlatQuestionSourceV2, choiceId: string): SourceEditResult {
+  if (source.response.kind !== "singleChoice") {
+    return refused(source, "Choose single choice before setting its answer.");
+  }
   if (!source.response.choices.some((choice) => choice.id === choiceId)) {
     return refused(source, "Choose one of the listed answers.");
   }
@@ -250,6 +440,9 @@ export function setCorrectChoice(source: FlatQuestionSourceV2, choiceId: string)
 }
 
 export function addChoice(source: FlatQuestionSourceV2): SourceEditResult {
+  if (source.response.kind !== "singleChoice") {
+    return refused(source, "Choose single choice before adding choices.");
+  }
   if (source.response.choices.length >= 100)
     return refused(source, "A question can have at most 100 choices.");
   const id = nextChoiceId(source.response.choices);
@@ -259,6 +452,9 @@ export function addChoice(source: FlatQuestionSourceV2): SourceEditResult {
 }
 
 export function removeChoice(source: FlatQuestionSourceV2, choiceId: string): SourceEditResult {
+  if (source.response.kind !== "singleChoice") {
+    return refused(source, "Choose single choice before editing choices.");
+  }
   if (source.response.choices.length <= 2)
     return refused(source, "A single-choice question needs at least two choices.");
   const index = source.response.choices.findIndex((choice) => choice.id === choiceId);
@@ -275,6 +471,9 @@ export function reorderChoices(
   source: FlatQuestionSourceV2,
   orderedIds: ReadonlyArray<string>,
 ): SourceEditResult {
+  if (source.response.kind !== "singleChoice") {
+    return refused(source, "Choose single choice before reordering choices.");
+  }
   if (
     orderedIds.length !== source.response.choices.length ||
     new Set(orderedIds).size !== orderedIds.length
@@ -298,6 +497,9 @@ export function renameChoiceId(
   previousId: string,
   nextId: string,
 ): SourceEditResult {
+  if (source.response.kind !== "singleChoice") {
+    return refused(source, "Choose single choice before renaming choices.");
+  }
   if (!/^[a-z][a-z0-9_-]*$/u.test(nextId)) {
     return refused(source, "Choice IDs use lowercase letters, digits, underscores, and hyphens.");
   }

@@ -37,6 +37,25 @@ fixture projection, and Solid browser bundle in dependency order. Use `./build.s
 optimized host artifacts. `npm run build` and `npm run check` are aliases for the build and check
 scripts.
 
+PLE's measured development profile controls disk growth: ordinary dev and test builds disable
+incremental compilation and retain line-table debug information for useful filename/line
+backtraces without full variable/type debugger data. A deliberate debugging session may temporarily
+override those defaults with `CARGO_INCREMENTAL=1`, `CARGO_PROFILE_DEV_DEBUG=full`, or
+`CARGO_PROFILE_TEST_DEBUG=full`; do not make those high-storage settings the shared default.
+
+Cargo does not impose a byte ceiling on a workspace `target/` directory. Its retained dependency
+artifacts still accelerate repeat builds, so establish any repository ceiling from the measured
+size of a clean broad gate rather than treating zero cache as the goal. After two full local-stack
+browser builds, a workspace all-target check, and strict workspace Clippy on 2026-08-12, the reduced
+profile retained 6.0 GB total (`debug/deps` 4.2 GB and `debug/incremental` 0). Treat 20 GB as the local
+investigation threshold: stop adding build matrices, identify unexpected profiles/fingerprints, and
+decide explicitly whether the rebuildable target cache should be cleaned.
+
+Cargo artifacts are entirely rebuildable. Before reclaiming space, confirm no Cargo or `rustc`
+process is active, inspect the exact target with `cargo clean --dry-run`, and use `cargo clean` only
+when discarding the complete workspace build cache is intended. The command does not remove source,
+Git state, `node_modules`, or Podman data.
+
 The check gate is deliberately not a product build. It refreshes the ignored generated TypeScript
 projections, then runs TypeScript typechecks, ESLint, Prettier, Node tests, the focused WASM
 dependency-boundary check, Rust formatting, Clippy, and workspace tests. A missing Rust toolchain

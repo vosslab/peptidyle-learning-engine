@@ -272,6 +272,14 @@ pub(crate) fn validate_asset_delivery(record: &AssetDeliveryRecord) -> Result<()
             "object media type, license, and provenance must not be empty".to_string(),
         ));
     }
+    if record.intrinsic_width.is_some() != record.intrinsic_height.is_some()
+        || record.intrinsic_width == Some(0)
+        || record.intrinsic_height == Some(0)
+    {
+        return Err(StoreError::InvalidRecord(
+            "asset intrinsic dimensions must be a nonzero width and height pair".to_string(),
+        ));
+    }
     match (&record.scope, &record.object.key) {
         (
             AssetDeliveryScope::Catalog { asset, reference },

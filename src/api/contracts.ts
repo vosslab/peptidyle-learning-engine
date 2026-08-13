@@ -115,6 +115,8 @@ export interface SubmissionReceipt {
   /** Server-redacted teaching material, or an explicit policy withholding it. */
   readonly feedback: DisclosedFeedback | null;
   readonly nextIssued: NextIssuedAttempt | null;
+  /** The grade receipt is durable, but a successor has not been issued yet. */
+  readonly nextPending: boolean;
 }
 
 /** Safe binding for a newly active next attempt; no provenance or source leaks. */

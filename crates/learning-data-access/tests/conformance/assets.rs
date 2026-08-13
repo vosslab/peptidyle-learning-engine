@@ -117,6 +117,8 @@ where
             b"public",
             1_000,
         ),
+        intrinsic_width: None,
+        intrinsic_height: None,
         scope: AssetDeliveryScope::Catalog {
             asset: public_asset,
             reference: ProblemVersionRef {
@@ -139,6 +141,8 @@ where
             b"second public asset",
             1_000,
         ),
+        intrinsic_width: None,
+        intrinsic_height: None,
         scope: AssetDeliveryScope::Catalog {
             asset: second_public_asset,
             reference: ProblemVersionRef {
@@ -161,6 +165,8 @@ where
             b"institution",
             1_000,
         ),
+        intrinsic_width: None,
+        intrinsic_height: None,
         scope: AssetDeliveryScope::Catalog {
             asset: institution_asset,
             reference: ProblemVersionRef {
@@ -180,6 +186,8 @@ where
             b"student export",
             1_000,
         ),
+        intrinsic_width: None,
+        intrinsic_height: None,
         scope: AssetDeliveryScope::StudentRecord {
             tenant,
             course,
@@ -246,10 +254,18 @@ where
             learning_data_access::CatalogAssetBinding {
                 asset: public_asset,
                 object: public_object,
+                rendition_checksum: Sha256Digest::compute(b"public"),
+                media_type: "image/svg+xml".to_string(),
+                intrinsic_width: None,
+                intrinsic_height: None,
             },
             learning_data_access::CatalogAssetBinding {
                 asset: second_public_asset,
                 object: second_public_object,
+                rendition_checksum: Sha256Digest::compute(b"second public asset"),
+                media_type: "image/svg+xml".to_string(),
+                intrinsic_width: None,
+                intrinsic_height: None,
             },
         ],
         "the resolver must select only the exact published version"
@@ -270,6 +286,10 @@ where
         vec![learning_data_access::CatalogAssetBinding {
             asset: institution_asset,
             object: institution_object,
+            rendition_checksum: Sha256Digest::compute(b"institution"),
+            media_type: "image/svg+xml".to_string(),
+            intrinsic_width: None,
+            intrinsic_height: None,
         }],
         "student records and another catalog version must not leak into the result"
     );
@@ -336,6 +356,8 @@ where
             b"temporary",
             1_000,
         ),
+        intrinsic_width: None,
+        intrinsic_height: None,
         scope: AssetDeliveryScope::StudentRecord {
             tenant,
             course,

@@ -11,6 +11,12 @@ use question_model::{
 };
 use question_model::{DraftQuestionSource, QuestionSource};
 
+mod flat_question;
+
+pub(crate) use flat_question::{
+    validate_flat_question_publication, validate_flat_question_publication_grading,
+};
+
 /// Profile item identities and per-item result source identities are bounded
 /// in Unicode scalar values to match the QTI adapter's safe source-identifier
 /// contract. The optional package-level registry identifier intentionally has
@@ -597,115 +603,6 @@ pub(crate) fn validate_source_artifact_for_publication(
             validate_source_artifact_identity(publication, backend, artifact)
         }
     }
-}
-
-/// Validates a flat-question-specific promotion path before publication.
-pub(crate) fn validate_flat_question_publication(
-    context: TenantContext,
-    command: &PublishDraftCommand,
-    staged: &crate::WorkspaceFlatQuestionSource,
-) -> Result<(), StoreError> {
-    validate_source_artifact_for_publication(
-        command.publication,
-        &command.published_source,
-        command.source_artifact.as_ref(),
-        command.flat_question_promotion.is_some(),
-    )?;
-    let Some(promotion) = command.flat_question_promotion.as_ref() else {
-        return Err(StoreError::InvalidRecord(
-            "flat-question publication requires a flat-question promotion".to_string(),
-        ));
-    };
-    validate_flat_import_publication_promotion(
-        context,
-        command.publication,
-        promotion.import_origin.as_ref(),
-    )?;
-    grading::flat_question::validate_for_draft(&command.expected_draft.question).map_err(
-        |error| StoreError::InvalidRecord(format!("flat-question draft is invalid: {error}")),
-    )?;
-    match (
-        &command.expected_draft.question.source,
-        &command.published_source,
-    ) {
-        (
-            DraftQuestionSource::Native {
-                family: draft_family,
-            },
-            QuestionSource::Native {
-                family: published_family,
-            },
-        ) if draft_family == published_family
-            && grading::flat_question::is_flat_question_family(draft_family) => {}
-        _ => {
-            return Err(StoreError::InvalidRecord(
-                "flat-question promotion requires matching supported native flat sources"
-                    .to_string(),
-            ));
-        }
-    }
-    if staged.tenant != context.tenant_id()
-        || staged.workspace != command.expected_draft.question.workspace
-    {
-        return Err(StoreError::InvalidRecord(
-            "flat-question promotion is not staged for this tenant or workspace".to_string(),
-        ));
-    }
-    if staged.workspace_revision != command.expected_revision {
-        return Err(StoreError::Conflict);
-    }
-    if promotion.source != *staged {
-        return Err(StoreError::Conflict);
-    }
-    match &command.published_source {
-        QuestionSource::Native { family } => {
-            if family != &staged.source_family {
-                return Err(StoreError::InvalidRecord(
-                    "flat-question source family must match the staged draft family".to_string(),
-                ));
-            }
-        }
-        _ => {
-            return Err(StoreError::InvalidRecord(
-                "flat-question promotion requires native source data".to_string(),
-            ));
-        }
-    };
-    let artifact = command.source_artifact.as_ref().ok_or_else(|| {
-        StoreError::InvalidRecord("native promotion requires source artifact".to_string())
-    })?;
-    if staged.source_record.sha256 != artifact.object.sha256
-        || staged.source_record.size_bytes != artifact.object.size_bytes
-        || staged.source_record.media_type != artifact.object.media_type
-    {
-        return Err(StoreError::Conflict);
-    }
-    Ok(())
-}
-
-/// Validates the Memory backend's locked current grading payload without
-/// widening PostgreSQL application-role access to private grader bytes.
-/// PostgreSQL performs the equivalent stored-only binding and copy inside its
-/// grader-owned promotion capability.
-pub(crate) fn validate_flat_question_publication_grading(
-    command: &PublishDraftCommand,
-    staged: &crate::WorkspaceFlatQuestionSource,
-    stored_grading: &crate::FlatQuestionGradingPayload,
-) -> Result<(), StoreError> {
-    let private = stored_grading.decode_private()?;
-    private
-        .validate_for_draft(&command.expected_draft.question)
-        .map_err(|error| {
-            StoreError::InvalidRecord(format!(
-                "flat-question grading material does not match the staged draft: {error}"
-            ))
-        })?;
-    if stored_grading.public_binding_sha256() != staged.public_binding_sha256
-        || private.public_binding_sha256() != staged.public_binding_sha256
-    {
-        return Err(StoreError::Conflict);
-    }
-    Ok(())
 }
 
 /// Validates the state-independent half of optional imported lineage.

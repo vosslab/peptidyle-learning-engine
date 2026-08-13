@@ -163,6 +163,12 @@ def _registry_version_requirement(specification: object) -> str | None:
 
 
 #============================================
+def _is_open_latest_first_requirement(version: str) -> bool:
+	"""Accept the two direct-registry forms selected in HUMAN_GUIDANCE.md."""
+	return version == "*" or re.fullmatch(r">=\s*\d+(?:\.\d+){0,2}", version) is not None
+
+
+#============================================
 def _local_dependencies(
 	manifest: dict[str, object],
 	members: dict[str, dict[str, object]],
@@ -270,8 +276,15 @@ def test_nonregistry_dependency_sources_are_exempt_from_registry_version_policy(
 
 
 #============================================
-def test_registry_dependencies_use_manager_selected_wildcards() -> None:
-	"""Keep private-workspace registry requirements open to every current release."""
+def test_open_latest_first_policy_keeps_audited_minima_and_rejects_caret_pins() -> None:
+	"""Keep the security-floor form available without reopening caret constraints."""
+	assert _is_open_latest_first_requirement(">=0.29.0")
+	assert not _is_open_latest_first_requirement("^0.29.0")
+
+
+#============================================
+def test_registry_dependencies_use_open_latest_first_requirements() -> None:
+	"""Keep direct registry requirements open without silently restoring pins."""
 	violations = []
 	for manifest_path in _tracked_cargo_manifests():
 		manifest = _read_toml(manifest_path)
@@ -280,10 +293,11 @@ def test_registry_dependencies_use_manager_selected_wildcards() -> None:
 				version = _registry_version_requirement(specification)
 				if version is None:
 					continue
-				if version != "*":
+				if not _is_open_latest_first_requirement(version):
 					relative_path = manifest_path.relative_to(REPO_ROOT)
 					violations.append(
-						f"{relative_path}: [{table_name}] {dependency_name} must use exactly "
-						f"the manager-selected wildcard registry requirement '*', found {version!r}"
+						f"{relative_path}: [{table_name}] {dependency_name} must use '*' or an "
+						f"audited open minimum '>=LATEST'; document any repository-specific "
+						f"exception in HUMAN_GUIDANCE.md, found {version!r}"
 					)
 	assert not violations, "\n".join(violations)

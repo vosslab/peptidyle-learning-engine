@@ -12,6 +12,29 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Keep every source file below 1000 lines by moving complete capabilities into
   focused modules before a parent file becomes an implementation warehouse.
 
+## Device and viewport priorities
+
+- Design desktop-first around a canonical 1280 by 800 laptop browser window, and make the interface
+  look its best there. Instructors will usually work on laptops. A supported laptop browser may
+  occupy only part of a larger physical display; do not assume full-screen desktop use.
+- Treat an 800 by 1280 portrait browser as a representative secondary student/tablet target. Student
+  devices will be more variable than instructor devices, but that variability must not make the
+  canonical laptop interface padded, stacked, or visually compromised.
+- Keep ordinary narrow phones genuinely usable: prevent horizontal overflow, preserve accessible
+  controls and navigation, and reorganize individual components when available space requires it.
+  A phone layout may be less elegant and need not preserve the desktop information density or visual
+  composition. Do not redesign or stack the entire product merely to optimize for a
+  320-pixel-wide viewport; narrow-phone checks are compatibility guards, not the design canvas.
+- Adapt layout with CSS Grid and Flexbox plus complementary media and container queries. Use a small
+  accessible disclosure menu when the visible navigation actually runs out of space. SolidJS manages
+  interface state but does not replace CSS layout. Do not add an npm responsive-menu dependency
+  unless the current navigation has a demonstrated interaction need that native HTML and CSS cannot
+  meet cleanly.
+- Distinguish physical panel resolution from the browser's CSS-pixel viewport when recording
+  evidence. Center visual acceptance on the canonical 1280 by 800 laptop window, include the
+  representative 800 by 1280 student/tablet path, and keep one narrow-phone compatibility guard.
+  Do not expand the viewport matrix without a demonstrated product problem.
+
 ## Plan status
 
 - Treat `docs/active_plans/implementation_plan.md` as the source of truth for
@@ -174,6 +197,10 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   challenge, invitation-delivery proof, or canonical-account acceptance for this walkthrough.
 - Do not report missing email infrastructure as a walkthrough blocker. Canonical email identity and
   production onboarding remain separately owned release concerns.
+- No SMTP provider or email-activation path is configured today. Fastmail is the intended future
+  external provider, but that intent is not acceptance evidence: keep email-dependent controls and
+  claims unavailable until operator credentials, an authorized sender, live delivery, and browser
+  sign-in have each been verified.
 
 ## Flat question source
 
@@ -198,6 +225,18 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   model while retaining accepted answers and grading data that print-oriented writers omit. HOTSPOT
   is a bounded PLE extension because the reviewed item model does not define it. Do not retain a
   version 1 `singleChoice` reader, source bytes, or compatibility behavior.
+- Use QTI Package Maker's HTML self-test as the learner-interaction reference for those seven native
+  families. Preserve its useful task clarity: one compact question surface, an obvious submit action,
+  visible selected or entered state, exact per-part completion where a response has several parts,
+  plain-language outcome and progress feedback, a clear way to change or reset an unsubmitted
+  response, and an unmistakable completed state. Apply the same interaction vocabulary across
+  families so students learn one practice workflow rather than seven unrelated widgets.
+- Preserve PLE's stronger trust and accessibility boundaries while adapting that model. Grading and
+  answer keys remain server-only; feedback comes from the immutable submission receipt. Do not copy
+  the self-test's client-side grading data, exact result-string protocol, drag-only MATCH or ORDER
+  interactions, color-only feedback, or large padded card treatment. Native labeled controls,
+  Tab/Shift+Tab plus Enter or Space, visible text status, preserved input, and recoverable submission
+  errors are the primary path; pointer and arrow-key interactions are optional enhancements.
 - Treat a future external QTI-JSONL format as an adapter/interchange concern, not a prerequisite for
   native family support. Keep any accepted external interpretation in one versioned adapter and map
   it into PLE's answer-free public model plus grader-only private material; never spread external
@@ -220,8 +259,12 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   must neither construct nor read its canonical bytes.
 - The authenticated, author-role-only flat-question source `GET`/`PUT` route is
   the deliberately narrow browser exception for an instructor's own canonical
-  source. It must use `Cache-Control: no-store` and a strong ETag, expose no
-  signed object URL or checksum, and never broaden ordinary browser contracts.
+  source. It must use `Cache-Control: no-store` and a strong ETag and never
+  broaden ordinary browser contracts. An author-owned immutable asset picker may
+  return the server-verified content checksum required to bind that exact asset;
+  the browser may echo but never assert that value, and the server must re-resolve
+  it on every save and publication. Never expose signed object URLs, object keys,
+  buckets, paths, or storage-record identities.
   Learner/student preview, Wasm, public publication DTOs, and all non-author
   routes remain answer-free.
 
@@ -357,7 +400,7 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Invite students at a verified email address. The primary instructor handoff may
   be a one-time copyable invitation link shared through an existing trusted LMS;
   configured SMTP is an optional delivery channel, not an enrollment dependency.
-  Use an established Rust email library and an operator-selected SMTP provider for
+  Use an established Rust email library and the operator-selected external SMTP provider for
   email authentication and optional delivery. Do not build or maintain a PLE mail
   server, queue, templating engine, or deliverability system. A learner keeps one
   PLE account across courses and institutions; course membership limits each
@@ -409,8 +452,15 @@ and current [ICO guidance on strictly necessary storage/access](https://ico.org.
 
 - Focus on the latest versions of all code because many security bugs are being
   fixed.
-- Never pin versions. This private application workspace uses `version = "*"` for every
-  direct registry dependency; `Cargo.lock` records the reviewed exact resolution.
+- For each direct registry dependency, use either `version = "*"` or an audited
+  open minimum such as `version = ">=0.29.0"`, where the minimum is the latest
+  stable version reviewed at refresh time. Both forms leave newer releases
+  eligible; an open minimum also records the known-safe floor in the manifest.
+- Do not use caret, exact, tilde, or upper-bound requirements for direct registry
+  dependencies unless this file records a repository-specific exception with its
+  reason and removal condition. `Cargo.lock` remains the reviewed exact
+  resolution between refreshes; refresh it deliberately and review advisory
+  results before accepting the updated graph.
 
 ## Generated artifacts
 

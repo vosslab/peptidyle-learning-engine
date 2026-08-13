@@ -9,7 +9,7 @@ import {
   answerAndSubmitVisibleQuestion,
   continueFromVisibleFeedback,
 } from "./simulator/chapter_question_responses";
-import { currentCatalogResult } from "./simulator/instructor_catalog_binding";
+import { catalogResultByVersion } from "./simulator/instructor_catalog_binding";
 import { credentialFromValidatedFile } from "./ui_walkthrough_config_factory";
 
 test.describe.configure({ mode: "serial" });
@@ -130,7 +130,7 @@ async function completeChapter(page: Page, chapter: ChapterJourney): Promise<voi
 
   for (const [index, question] of chapter.questions.entries()) {
     await expect(page.getByRole("heading", { name: question.title })).toBeVisible();
-    await expect(await answerAndSubmitVisibleQuestion(page)).toBe(
+    expect(await answerAndSubmitVisibleQuestion(page)).toBe(
       question.matching ? "matching" : "multiple-choice",
     );
     await continueFromVisibleFeedback(page);
@@ -172,7 +172,7 @@ test.describe("private live Chapter 1 browser acceptance", () => {
     const searchCatalog = page.getByRole("button", { name: "Search catalog", exact: true });
     await tabTo(page, searchCatalog);
     await page.keyboard.press("Enter");
-    const catalogRow = await currentCatalogResult(page, title);
+    const catalogRow = await catalogResultByVersion(page, title, 1);
     const humanReference = catalogRow.locator("code");
     await expect(humanReference).toHaveText(/^P-[1-9][0-9]*-v1$/u);
     const displayId = await humanReference.innerText();

@@ -154,6 +154,8 @@ impl CourseAppearanceStore for MemoryStore {
                 let delivery = AssetDeliveryRecord {
                     id: AssetDeliveryId::from_course_banner(stored.banner),
                     object: promoted_object.clone(),
+                    intrinsic_width: None,
+                    intrinsic_height: None,
                     scope: AssetDeliveryScope::CourseBanner {
                         tenant: context.tenant_id(),
                         course,

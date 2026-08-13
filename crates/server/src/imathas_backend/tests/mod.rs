@@ -25,9 +25,8 @@ use question_model::{
     ActivityTimestamp, AssignmentEnrollment, AssignmentId, AttemptResult, BackendCapabilities,
     CompletionRequirement, ContinuedPractice, CourseId, CourseMembership, CourseMembershipRole,
     DraftQuestionDefinition, DraftQuestionSource, EnrollmentId, GradePolicy, GradingDefinition,
-    PresentationBindingV1, PresentationDigestV1, PresentationNonceV1, ProblemId, QuestionAttemptId,
-    QuestionMetadata, QuestionSource, RunId, RunPolicies, StudentId, StudentResponse, TenantId,
-    UserId, VersionId, WorkspaceId,
+    ProblemId, QuestionAttemptId, QuestionMetadata, QuestionSource, RunId, RunPolicies, StudentId,
+    StudentResponse, TenantId, UserId, VersionId, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -49,13 +48,6 @@ fn launch_state_aead_binds_each_issued_identity() {
 
 fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
-}
-
-fn presentation_binding(marker: u8) -> PresentationBindingV1 {
-    PresentationBindingV1::new(
-        PresentationNonceV1::from_bytes([marker; 16]),
-        PresentationDigestV1::compute(&[marker]),
-    )
 }
 
 type TestBackend = ImathasBackend<MemoryStore, MemoryObjectStore, RecordedImathasProvider>;
@@ -282,7 +274,17 @@ async fn fixture() -> Fixture {
                 problem,
                 question_version: version,
                 seed: 17,
-                presentation: Some(presentation_binding(17)),
+                // External-tool responses do not issue PresentationEnvelopeV1.
+                presentation_capability:
+                    learning_data_access::PresentationCapability::NotApplicable,
+                presentation: None,
+                presentation_snapshot: None,
+                grading_envelope: None,
+                flat_grading: None,
+                flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
+                webwork_grading: None,
+                webwork_grading_capability:
+                    learning_data_access::WebworkGradingCapability::NotApplicable,
                 parameter_hash: issued.parameter_hash,
                 provenance: issued.provenance,
                 webwork_replay: None,
@@ -316,6 +318,9 @@ fn submission<'a>(
         reference: fixture.reference,
         question: &fixture.question,
         attempt: &fixture.attempt,
+        issued_grading_envelope: None,
+        issued_flat_grading: None,
+        issued_webwork_grading: None,
         response,
     }
 }
@@ -366,6 +371,9 @@ async fn generic_submission_never_reaches_a_provider_without_launch_ownership() 
             reference: fixture.reference,
             question: &fixture.question,
             attempt: &parameter_tamper,
+            issued_grading_envelope: None,
+            issued_flat_grading: None,
+            issued_webwork_grading: None,
             response: &response,
         })
         .await;
@@ -408,6 +416,9 @@ async fn generic_submission_never_reaches_a_provider_without_launch_ownership() 
             reference: fixture.reference,
             question: &source_tamper,
             attempt: &fixture.attempt,
+            issued_grading_envelope: None,
+            issued_flat_grading: None,
+            issued_webwork_grading: None,
             response: &response,
         })
         .await;

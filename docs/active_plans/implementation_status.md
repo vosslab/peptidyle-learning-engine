@@ -320,6 +320,13 @@ are clean; and three independent reviewers reported no P0/P1/P2.
 
 ### Current walkthrough disposition
 
+> **WP-HG1 accepted on 2026-08-12.** The strengthened local instructor-to-student workflow,
+> issuance-owned receipt boundary, compact interface, screenshot set, and Chapter 1 content oracles
+> now have permanent and live evidence. Earlier M10/M11 runs remain useful historical evidence for
+> their narrower baseline; the current acceptance comes from the rebuilt clean-stack teaching loop,
+> the separate all-eight learner sweep, and the complete disposable PostgreSQL baseline. This does
+> not accept WP-RC5's remaining integrated HOTSPOT lifecycle or the broader release.
+
 - The repository owner corrected the binding walkthrough charter on
   2026-08-11. Overall acceptance requires visible instructor course creation,
   canonical roster membership/enrollment for the fictional learner, and
@@ -330,8 +337,7 @@ are clean; and three independent reviewers reported no P0/P1/P2.
   enrollment system. The current disposable seed uses the canonical
   `UpsertCourseMember` operation to create the no-contact roster member,
   membership, and enrollment records that the product uses. The rebuilt
-  empty-stack teaching-loop evidence remains required before this walkthrough
-  can be called accepted.
+  empty-stack teaching-loop evidence passed as part of the current acceptance.
 - The earlier M5 learner slice remains accepted evidence: visible native
   keyboard pagination traverses retained assignment and gradebook pages, and
   manager plus independent
@@ -357,21 +363,18 @@ are clean; and three independent reviewers reported no P0/P1/P2.
   creation. The complete two-chapter eight-question sweep remains the isolated release oracle.
 - The current runner refactor replaces inherited hidden Python walkthrough switches with documented
   arguments and one explicit schema-versioned private child-input boundary. Focused offline tests
-  cover its validation and environment isolation. Its rebuilt Podman/Playwright execution is still
-  required one-time acceptance evidence, alongside the strengthened J13 visible copy/paste run;
-  it is not yet a basis for restoring overall walkthrough acceptance.
+  cover its validation and environment isolation. The rebuilt Podman/Playwright execution passed
+  the strengthened J13 visible copy/paste path and supplied the one-time acceptance evidence.
 - The assignment editor now carries the course-owned whole-run timing policy
   through the revision-atomic `assignmentTiming.timeLimitSeconds` boundary. A
   new Mastery draft visibly defaults to 900 seconds; an explicit `null` remains
   an intentional untimed assignment, and immutable question versions remain
-  unchanged. WP-HG1.T permanent Store/API/browser behavior gates are accepted.
-  The real timed Podman walkthrough and refreshed visual evidence remain
-  one-time acceptance work, not a claim that the live teaching loop has passed.
+  unchanged. WP-HG1.T permanent Store/API/browser behavior gates, the real timed Podman
+  walkthrough, and the refreshed visual evidence are accepted.
 - The previous corrected-charter evidence in M8-M11 remains useful historical
   evidence for the bounded local pilot, but is superseded as acceptance evidence
-  by the strengthened human-reference contract. WP-HG1 must still record the
-  rebuilt live J13 copy/paste run, refreshed screenshots, and independent review
-  before this walkthrough is again called accepted. This vertical slice does not
+  by the strengthened human-reference contract. WP-HG1 now records the rebuilt live J13
+  copy/paste run, refreshed screenshots, and independent review. This vertical slice does not
   close RC4--RC12 or substitute the local-file authentication adapter for
   production account onboarding.
 - Post-acceptance WP-E2 is accepted. The unchanged compatibility entry points
@@ -387,6 +390,26 @@ are clean; and three independent reviewers reported no P0/P1/P2.
   remains separate release work and does not block this walkthrough. J6/J7,
   canonical onboarding, all-family, multi-learner, and working-codebase
   release acceptance are likewise outside this pilot and remain unaccepted.
+
+### Human-guidance reconciliation ledger
+
+The 2026-08-12 whole-file review distinguishes completed current-product guidance from later
+release activation. A row marked accepted records both implementation and its named evidence; it
+does not silently accept a future package.
+
+| Human-guidance area                                               | Current disposition                                           | Evidence or remaining owner                                                                                                                                                                                                                                                                      |
+| ----------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Device priorities and visual density                              | Accepted for the current instructor and learner surfaces      | Canonical 1280 by 800 clean-stack screenshots, 800 by 1280 student/tablet task coverage, one narrow-phone compatibility guard, and the compact-interface browser gates. CSS Grid/Flexbox plus media/container queries remain the default; no responsive-menu dependency was added.               |
+| Human-readable instructor identifiers                             | Accepted                                                      | The live instructor path copies and pastes the four exact Genetics `P-n-v1` references, while malformed/unavailable/unauthorized/duplicate recovery remains covered by permanent behavior tests.                                                                                                 |
+| Teaching loop, timing, repeat practice, and gradebook             | Accepted as WP-HG1                                            | The visible no-email J11/J12/J13/J1--J5/J8 path, 15-minute run, fresh second run, and two-run gradebook passed with redacted private evidence.                                                                                                                                                   |
+| Student keyboard interaction and native-family recovery           | Accepted for implemented surfaces                             | Platform Tab/Shift+Tab plus Enter/Space works through the live learner path; all eight native widgets have keyboard controls, answer-free progress, and unsubmitted reset/recovery behavior.                                                                                                     |
+| Native flat v2 authoring and runtime                              | Implemented; integrated package acceptance remains WP-RC4/RC5 | All eight closed v2 source families, protected visual editors, server-only grading, immutable HOTSPOT publication, and issue-time asset binding are implemented. Full all-family PostgreSQL/object-store author-to-learner lifecycle and screen-reader closeout remain open.                     |
+| First Chapter 1 content                                           | Accepted as the bounded content oracle                        | Deterministic Genetics and Biochemistry four-question assignments pass exact publication rerun, direct renderer grading, and the separate built-browser eight-question sweep.                                                                                                                    |
+| Issued presentation, grading authority, and receipt replay        | Accepted as WP-HG1                                            | Memory/HTTP/browser gates plus the live PostgreSQL receipt/corruption oracle prove first grade and replay use issuance-owned state rather than mutable current catalog or backend definitions. The later compact type-free learner wire remains WP-P1--WP-P6.                                    |
+| Wasm/browser trust boundary                                       | Accepted for current exports                                  | The native/Node/real-Chromium shared corpus passes; the shipped Wasm dependency closure remains exactly `wasm_bridge`, `domain`, and `question_model`, with no grading crate or answer key.                                                                                                      |
+| Course appearance, score precision, retention, and local recovery | Existing accepted or implemented boundaries remain valid      | Course appearance is accepted; Rust/TypeScript midpoint and display tests agree; 30/100/365-day retention is implemented; the local logical restore rehearsal remains local evidence only. Managed backup/PITR, deployment keys, and numerical recovery objectives remain WP-RC10 operator work. |
+| Modular ownership, tests, generated artifacts, and local storage  | Accepted for the current tree                                 | Every maintained source is below 1,000 lines; configuration choices are explicit; generated projections regenerate before checks; the broad gates pass; and the measured Rust dev profile retains line-table backtraces without incremental cache growth.                                        |
+| Authentication and email                                          | Deliberately non-gating and not activated                     | Local fictional identities own the pilot. No SMTP/email activation is configured; Fastmail is future operator intent. Production email delivery, passkey, multi-replica, and onboarding acceptance remain WP-RC8 and are not claimed here.                                                       |
 
 ### Current package order
 
@@ -430,15 +453,16 @@ The complete sequence is authoritative in
    educational-record transfer is a version 1 dependency.
 6. WP-RC4's PLE flat JSON v2 implementation now covers the eight source/runtime families and awaits
    independent closeout; external QTI-JSONL is no longer a prerequisite.
-7. WP-P1 through WP-P6 implement and accept the secure learner-payload boundary before WP-RC5
+7. WP-HG1 accepted the issuance-owned presentation, family grading, timing, and immutable receipt
+   boundary. WP-P1 through WP-P6 still own the compact public learner-payload cutover before WP-RC5
    acceptance. WP-P2 adds `2026080908_secure_question_grading_payloads.sql`; WP-RC5 then completes
    visual authoring, all-family Memory/PostgreSQL acceptance, and the two exact Chapter 1
    assignments, while WP-RC6 closes QTI export and H5P claims.
-   The current offline slice reproduces persisted presentations, stores WeBWorK replay controls by
-   rendered item ID, validates them against the owning attempt, grades normally with one private
-   RPC, and deletes replay state on successful or terminal submission. WP-P1 through WP-P6 remain
-   unaccepted until the compact public cutover, missing-row self-heal, live PostgreSQL/renderer
-   traces, browser recovery, measurements, and independent reviews pass.
+   The accepted issued state reproduces persisted presentations, stores WeBWorK replay controls by
+   rendered item ID, validates them against the owning attempt, grades with one private RPC, and
+   fails closed when required immutable state is missing or mismatched. WP-P1 through WP-P6 remain
+   unaccepted until their compact public cutover, browser recovery, measurements, and independent
+   reviews pass.
 8. After WP-RC8 migration 0909, WP-RC7 adds bounded inventory, object reconciliation,
    `2026080910_object_reconciliation.sql`, and the combined M2-M5 acceptance gate.
 9. WP-RC9 implements LTI Advantage with `2026080911_lti_advantage.sql`.
@@ -450,40 +474,42 @@ The complete sequence is authoritative in
 12. WP-RC12 runs working-codebase release acceptance and documentation closure after WP-ARCH1 and
     the secure upload packages.
 
-The accepted pre-data schema evolution is complete. SQLx owns the directory-backed migration ledger,
-and `2026080907_course_appearance.sql` is the first forward migration. Migrations
-`2026080908_secure_question_grading_payloads.sql` and `2026080909_passwordless_identity.sql` are
-present with package acceptance open. The release plan reserves
-`2026080910_object_reconciliation.sql`, `2026080911_lti_advantage.sql`, and
-`2026080912_secure_learner_uploads.sql`. The fresh pre-production identity schema already owns
-the canonical course-roster member model; no separate local-roster migration or provenance exists. Accepted
-filenames are not renamed or reordered.
+The pre-production schema ledger is forward-only; accepted filenames are not renamed or
+reordered. SQLx owns the directory-backed ledger, with
+`2026080907_course_appearance.sql` as its first forward migration. The active
+pre-production migrations `2026080916_submission_receipt_presentations.sql` through
+`2026080922_issued_webwork_grading_contracts.sql` implement issued presentation receipts,
+successor receipts, private workspace assets, private grading envelopes, HOTSPOT grading
+rebinding, and issued flat and WeBWorK grading contracts. The 2026-08-12 disposable PostgreSQL
+baseline applied the complete 18-migration ledger and passed the receipt, corruption, RLS, role,
+catalog, roster, timing, and current-grading oracles. Full HOTSPOT author-to-learner object-lifecycle
+acceptance remains owned by WP-RC5. The fresh pre-production
+identity schema already owns the canonical course-roster member model; no separate
+local-roster migration or provenance exists.
 
-### Immediate package: WP-RC8 production account-provider composition and acceptance closeout
+### Completed package: WP-HG1 issued-receipt and live teaching acceptance
 
-- Implemented: generic routes and components for opaque global accounts; canonical email
-  registration/sign-in and verified email replacement; discoverable WebAuthn and multiple passkeys;
-  invitation, roster, exact-domain, atomic membership/enrollment, bounded CSV, and manual no-store
-  grade-export contracts in [ENROLLMENT_DESIGN.md](../ENROLLMENT_DESIGN.md).
-- Completed repository code task: `production_router_from_env` composes the provider-free PLE
-  passwordless/account/session graph with an eight-hour `FirstPartyHttps` policy and explicit
-  `ReviewNotRequired`. It does not read local-authentication settings or mount
-  `/api/auth/login`; the explicit local launcher remains available only through the exact
-  development flag.
-- Remaining acceptance: canonical email authentication through the later
-  operator-selected provider with an optional passkey, multi-replica login/claim and export, and
-  independent security/HCI review. Email possession authenticates only the account already bound to
-  that email; it never transfers another account's `StudentId` or records.
-- Return to WP-RC4 closeout and the secure learner payload sequence after the primary multi-actor
-  instructor-to-learner path passes those acceptance gates.
+- The issuance-owned presentation and grading contract lets an issued attempt be
+  presented, submitted, replayed, and advanced without consulting mutable current catalog or
+  private grading state. HOTSPOT publication must retain server-owned asset identity and only
+  disclose its issued public presentation binding.
+- The complete migration chain through `2026080922` passed in a disposable PostgreSQL environment;
+  the corresponding learner path passed with the private Podman `webwork-pg-renderer`; and the
+  walkthrough retained only redacted evidence.
+- The rebuilt instructor-to-student sequence, required screenshot review, all-eight learner sweep,
+  and independent architecture, security, and HCI reviews passed. Remaining HOTSPOT integration is
+  explicitly WP-RC5 work rather than an unrecorded WP-HG1 condition.
+- WP-RC8's future email/provider and account-composition acceptance is separate. Email is not
+  configured and must not gate the local walkthrough; Fastmail remains future operator work.
 
 ### Following packages: WP-RC4 closeout and secure learner payload
 
 - WP-RC4 owner: native adapter/runtime owner plus an independent contract/security reviewer.
 - Implemented behavior: PLE flat JSON v2 strictly compiles MC, MA, FIB, MULTI-FIB, NUM, MATCH,
   ORDER, and HOTSPOT into answer-free public definitions and bound grader-only keys. Exact browser
-  decoders, key-free validation, learner controls, and all-or-nothing server grading cover the new
-  response shapes; version 1 single choice remains compatible.
+  decoders, key-free validation, learner controls, and all-or-nothing server grading cover the
+  response shapes. Native content uses the v2 reader only; no current v1 single-choice
+  compatibility claim remains.
 - Remaining RC4 acceptance: complete invalid-fixture review, secret-free projection scan, and
   independent contract/security verdict.
 - Next dependency: accept WP-P1 through WP-P6 before WP-RC5's visual authoring, integrated storage,

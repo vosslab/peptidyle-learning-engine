@@ -1,3 +1,5 @@
+#[path = "tests/hotspot_publication.rs"]
+mod hotspot_publication;
 #[path = "tests/imported_publication.rs"]
 mod imported_publication;
 #[path = "tests/v2_publication.rs"]
@@ -9,15 +11,16 @@ use axum::body::Body;
 use axum::http::{HeaderMap, Request, StatusCode};
 use learning_data_access::in_memory::{MemoryFlatQuestionGraderStore, MemoryStore};
 use learning_data_access::{
-    CatalogSourceStore, CatalogStore, CommitPreparedQtiImport, CommitPreparedQtiImportOutcome,
-    CreateQtiImportCommand, EnqueueJob, FlatImportChoiceMapPayload, FlatImportConversionVersion,
-    FlatImportIntegrityDigests, FlatImportProvenanceStore, FlatQuestionGradingPayload,
-    FlatQuestionGradingStore, FlatQuestionStore, JobClaimFilter, JobLeaseDuration, JobPayload,
-    JobStore, PersistedFlatImportProfile, QtiImportGradingPayload, QtiImportItem,
-    QtiImportItemRegistration, QtiImportItemResult, QtiImportItemStatus, QtiImportProfileSummary,
-    QtiImportRef, QtiImportRegistry, QtiImportStore, QtiProfileFlatConversionCommand,
-    QtiProfileImportEvidence, QtiUnsupportedFeature, SessionLifetime, SessionSubject, Store,
-    TenantContext, WorkspaceFlatImportOrigin,
+    AssetStore, CatalogSourceStore, CatalogStore, CommitPreparedQtiImport,
+    CommitPreparedQtiImportOutcome, CreateQtiImportCommand, DraftRecord, EnqueueJob,
+    FlatImportChoiceMapPayload, FlatImportConversionVersion, FlatImportIntegrityDigests,
+    FlatImportProvenanceStore, FlatQuestionGradingPayload, FlatQuestionGradingStore,
+    FlatQuestionStore, JobClaimFilter, JobLeaseDuration, JobPayload, JobStore,
+    PersistedFlatImportProfile, QtiImportGradingPayload, QtiImportItem, QtiImportItemRegistration,
+    QtiImportItemResult, QtiImportItemStatus, QtiImportProfileSummary, QtiImportRef,
+    QtiImportRegistry, QtiImportStore, QtiProfileFlatConversionCommand, QtiProfileImportEvidence,
+    QtiUnsupportedFeature, SessionLifetime, SessionSubject, Store, TenantContext,
+    UpsertFlatQuestionCommand, WorkspaceFlatImportOrigin, WorkspaceFlatQuestionAsset,
 };
 use objects::memory::MemoryObjectStore;
 use objects::{
@@ -25,7 +28,7 @@ use objects::{
     StoredObject, published_import_archive_object_id,
 };
 use question_model::{
-    ActivityTimestamp, ObjectId, ProblemId, ProblemVersionRef, TenantId, UserId, UserRole,
+    ActivityTimestamp, AssetId, ObjectId, ProblemId, ProblemVersionRef, TenantId, UserId, UserRole,
     VersionId, WorkspaceId, WorkspaceImportId,
 };
 use tower::ServiceExt;
@@ -270,6 +273,14 @@ async fn read_source_from_app(
 }
 
 async fn publish(fixture: &Fixture, revision: &str) -> (StatusCode, HeaderMap, Vec<u8>) {
+    publish_with_scope(fixture, revision, "institution").await
+}
+
+async fn publish_with_scope(
+    fixture: &Fixture,
+    revision: &str,
+    scope: &str,
+) -> (StatusCode, HeaderMap, Vec<u8>) {
     response_parts(
         fixture
             .app()
@@ -280,7 +291,7 @@ async fn publish(fixture: &Fixture, revision: &str) -> (StatusCode, HeaderMap, V
                     .header("cookie", &fixture.owner_cookie)
                     .header("if-match", revision)
                     .header("content-type", "application/json")
-                    .body(Body::from(r#"{"scope":"institution"}"#))
+                    .body(Body::from(format!(r#"{{"scope":"{scope}"}}"#)))
                     .expect("publish request"),
             )
             .await

@@ -169,6 +169,8 @@ mod flat_import_provenance;
 #[cfg(feature = "postgres")]
 mod flat_question;
 #[cfg(feature = "postgres")]
+mod flat_question_assets;
+#[cfg(feature = "postgres")]
 mod item_analysis;
 #[cfg(feature = "postgres")]
 mod jobs;

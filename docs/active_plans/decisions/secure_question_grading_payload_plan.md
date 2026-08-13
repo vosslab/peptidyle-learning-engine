@@ -105,9 +105,9 @@ A recorded two-choice WeBWorK contract fixture measured a 310-byte private rende
 private grade form, a 1,221-byte upstream JSON response, a 400-byte answer-free public envelope, and
 an 89-byte current browser submission. Real PG source is the meaningful transfer variable: PLE
 permits at most 256 KiB of raw source, whose base64 form is about 341 KiB before form escaping. The
-browser never sends that source. On a cache hit, a question GET makes no private renderer call;
-current grading performs a same-seed rerender plus the grade call. WP-P4 replaces that normal two-call
-grade path with bounded server-only replay state and one private grade call. WP-P6 records p50/p95
+browser never sends that source. On a cache hit, a question GET makes no private renderer call.
+Receipt-era grading uses persisted bounded server-only replay state, the issued public snapshot, and
+one private grade call; missing state fails closed rather than rerendering. WP-P6 records p50/p95
 stage times and representative sizes before making an optimization claim.
 
 ### Responsiveness priorities
@@ -116,7 +116,7 @@ stage times and representative sizes before making an optimization claim.
 | ---------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | Initial active render        | At least seven browser GETs in four dependent waves before asset bodies.               | One learner-screen GET; fetch independently cacheable asset bytes by logical asset URL.                        |
 | Native submit                | One small browser request; parsing and native grading are local to PLE.                | Keep one request; do not optimize away clear field names for single-digit byte savings.                        |
-| WeBWorK submit               | PLE performs a same-seed private rerender and then a private grade RPC.                | Persist bounded mapping at issue and make one normal grade RPC.                                                |
+| WeBWorK submit               | PLE validates issued snapshot/private mapping and makes one private grade RPC. | Missing or mismatched receipt-era state fails closed; never rerender to repair it. |
 | Immutable source/cache reads | WeBWorK source and safe render cache are server-side; materiality is not yet measured. | Instrument first; consider bounded immutable-object caching only if evidence warrants it.                      |
 | Images and other assets      | Binary media can dwarf JSON and requires independent decode/readiness.                 | Keep IDs/checksums in JSON, immutable HTTP caching, bounded one-question prefetch, and no base64 inline media. |
 | Result                       | Current receipt repeats a full attempt/provenance projection.                          | Return a compact policy-projected receipt and next descriptor.                                                 |
@@ -126,7 +126,7 @@ stage times and representative sizes before making an optimization claim.
 | Question                                                    | Decision                                                                                                                                            |
 | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Does render `kind` remain?                                  | Yes. Response-schema and content-block discriminants are required to choose safe browser components.                                                |
-| Does submission `kind` remain?                              | No. The RLS-visible attempt and reproduced response schema select the strict answer decoder.                                                        |
+| Does submission `kind` remain?                              | No. The RLS-visible attempt and issued public snapshot response schema select the strict answer decoder.                                             |
 | Are four-character CRC16 item IDs accepted?                 | Yes. They are attempt-presentation-scoped routing/consistency IDs, globally unique within one question presentation, with nonce retry on collision. |
 | Does CRC16 replace security or the full digest?             | No. Session, attempt ownership, lifecycle, RLS, idempotency, and SHA-256 descriptor binding remain authoritative.                                   |
 | Is smaller answer JSON the main latency target?             | No. The answer remains under roughly 100 bytes; run-screen request fan-out and private WeBWorK execution are material.                              |
@@ -421,28 +421,29 @@ is not used on the healthy path and is measured separately.
 ### Native and WeBWorK grading
 
 Native grading receives the typed internal response resolved from `QuestionAttemptId`; its answer
-key never crosses the learner boundary. WeBWorK issuance privately renders immutable source using
-server credentials, projects the answer-free envelope, verifies that projection, then persists a
-bounded replay record. Normal grade converts `RenderedItemIdV1` through that record and makes one
-private authenticated `render_rpc` grade call. Browser-to-PLE remains the compact PLE body above.
+key never crosses the learner boundary. At issue, it retains a checksummed private flat grading
+contract so first submit does not reload a current catalog/grader view. WeBWorK issuance privately
+renders immutable source using server credentials, projects the answer-free envelope, verifies that
+projection, then persists a bounded replay record and checksummed frozen WeBWorK definition. Normal
+grade converts `RenderedItemIdV1` through that record and makes one private authenticated
+`render_rpc` grade call without resolving current catalog source. Browser-to-PLE remains the compact
+PLE body above.
 
 `webwork_grade_replay_state` contains no source text, credentials, session key, correct answer, or
-raw upstream response. A missing record may perform one verified private rerender and recreate
-state only after every binding validates; a mismatch or second recovery refuses before grading.
-This is more private than ADAPT's browser-mediated JWT answer exchange while still allowing the
-renderer to receive the source and protected course credential it requires.
+raw upstream response. A missing or mismatched record is unavailable authority; receipt-era attempts
+have no rerender, self-heal, or compatibility reader. This is more private than ADAPT's browser-
+mediated JWT answer exchange while still allowing the renderer to receive immutable source
+provenance and the protected course credential it requires.
 
-The current HTTP adapter grades through two official `render_rpc` calls: a same-seed render recovers
-and validates the upstream radio field/value mapping, then a grade call resends source, seed, private
-course credentials, the selected upstream value, and `WWsubmit=1`. The public render cache stores
-only the answer-free envelope and sanitized markup, so it correctly cannot supply that private
-mapping. WP-P4 records the validated mapping at issuance and removes the first normal grade call.
-The official renderer remains stateless, so source and private credentials still cross the private
-PLE-to-WeBWorK boundary once per grade. A new opaque upstream render-handle service would be a
-different maintained protocol and is out of v1. V1 also does not add an in-process source-byte cache:
-one object-store read is acceptable for correctness, and no evidence currently shows it is a
-material stage. If WP-P6 later proves otherwise, that evidence owns a separate bounded cache package
-keyed and revalidated by immutable object ID/SHA.
+The receipt-era HTTP adapter makes one official `render_rpc` grade call with retained immutable
+source provenance, seed, private course credentials, the protected mapped value, and `WWsubmit=1`.
+The public render cache stores only the answer-free envelope and sanitized markup; the attempt-bound
+replay mapping is persisted separately at issuance. The official renderer remains stateless, so
+source and private credentials still cross the private PLE-to-WeBWorK boundary once per grade. A new
+opaque upstream render-handle service would be a different maintained protocol and is out of v1. V1
+also does not add an in-process source-byte cache: one object-store read is acceptable for
+correctness, and no evidence currently shows it is a material stage. If WP-P6 later proves otherwise,
+that evidence owns a separate bounded cache package keyed and revalidated by immutable object ID/SHA.
 
 ### Prefetch and caching (target state)
 
@@ -519,6 +520,37 @@ WP-RC8 identity/enrollment is the owner-prioritized next schema package after WP
 file. WP-RC7 schema work follows it; non-schema object inventory may proceed in parallel. Accepted
 prior migrations are never renamed.
 
+### Pre-production receipt correction
+
+The later receipt closeout replaces the provisional replay shape without a compatibility reader or
+backfill. `2026080916_submission_receipt_presentations.sql` stores the first-receipt answer-free
+`PresentationEnvelopeV1`, exact public `AssetBindingV1` snapshot, checksum, and Store-derived
+feedback disclosure. `2026080917_issued_presentations_and_successor_receipts.sql` requires every
+issued attempt to declare `EnvelopeV1` with its matching checksummed snapshot or `NotApplicable`
+with no presentation data, and persists a checksummed immutable `nextIssued` descriptor. A
+submitted `GET` or retry reads those records and fails closed on a missing or mismatched payload;
+`nextPending` recovery can finish only the sole pending predecessor and never resubmits.
+
+`2026080919_issued_private_grading_envelopes.sql` adds the matching checksummed server-only,
+answer-free envelope with durable response identifiers. First submission validates its public
+rendered IDs against the issued snapshot, translates them through this private envelope, and grades
+without reconstructing a mutable catalog/backend rendition. The private envelope is absent only for
+explicit `NotApplicable` families and never serializes into a receipt or learner response.
+
+`2026080921_issued_flat_grading_contracts.sql` and
+`2026080922_issued_webwork_grading_contracts.sql` complete the family-owned
+first-grade contract. Issued flat and WeBWorK attempts explicitly require
+their checksummed private definitions; WeBWorK additionally requires its
+attempt-bound replay mapping. Missing, malformed, or cross-wired required
+material is unavailable. The fresh pre-production ledger provides no fallback,
+backfill, or mutable catalog recovery path.
+
+This is a direct pre-production design correction: PLE has no production data, so it deliberately
+adds no old-record fallback, default, or migration backfill. Permanent tests cover deterministic
+Memory/Store/server/browser behavior. The disposable PostgreSQL checksum and missing-payload
+oracle is an ignored live gate, not a permanent fixture. Real HOTSPOT issue-time asset metadata is
+still a WP-RC5 dependency; this receipt contract does not claim that its issuance is complete.
+
 ## Milestone plan
 
 | Milestone | Workstreams  | Outcome                                          | Parallel-plan ready                                                        |
@@ -573,10 +605,11 @@ prior migrations are never renamed.
 - Depends on: WP-P1, WP-P2, and accepted WP-RC3.
 - Files: WebWork adapter/renderer contract, server backend, Store replay API, request-count tests,
   and private live test.
-- Behavior: persist issued mapping and make normal grade one private RPC; allow only one fully
-  validated rerender self-heal.
-- Success: normal, retry, self-heal, and mismatch traces prove request count and no private material
-  enters browser/cache/receipt/replay state.
+- Behavior: persist the issued mapping, public snapshot, server-only grading envelope, and frozen
+  WeBWorK definition; normal grade makes one private RPC and missing or mismatched state fails
+  closed without rerendering or resolving a current catalog definition.
+- Success: normal, retry, unavailable-state, and mismatch traces prove request count and no private
+  material enters browser/cache/receipt/replay state.
 - Validation: recorded upstream contract tests, private-container trace, state scans, and independent
   security review.
 

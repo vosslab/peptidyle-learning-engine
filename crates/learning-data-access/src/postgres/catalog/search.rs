@@ -62,36 +62,36 @@ pub(super) async fn search_catalog(
             // PostgreSQL's RLS visibility applies before these predicates; no
             // caller-provided tenant ID or payload join can widen the result.
             let rows = sqlx::query(
-                "SELECT document.problem_id::text || '/' || document.version_id::text AS stable_key, \\
-                        document.problem_id, document.public_id, document.version_id, \\
-                        document.version_number, document.backend, document.capabilities, \\
-                        document.metadata, document.publication_scope, document.lifecycle, \\
-                        document.lifecycle_reason, document.authors, document.previous_version_id, \\
-                        document.derived_from_problem_id, document.derived_from_version_id, \\
-                        floor(extract(epoch FROM document.published_at) * 1000)::bigint \\
-                            AS published_at_millis \\
-                 FROM catalog_search_view AS document \\
-                 WHERE document.lifecycle = 'published' \\
-                   AND ( \\
-                       ($9::bigint IS NOT NULL AND document.public_id = $9::bigint \\
-                           AND document.version_number = $10::integer) \\
-                       OR ($9::bigint IS NULL AND ($1::text IS NULL \\
-                           OR document.search_text @@ websearch_to_tsquery('simple', $1))) \\
-                   ) \\
-                   AND NOT EXISTS ( \\
-                       SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted \\
-                       WHERE NOT EXISTS ( \\
-                           SELECT 1 FROM jsonb_array_elements(document.taxonomy) AS stored \\
-                           WHERE stored->>'scheme' = wanted->>'scheme' \\
-                           AND stored->>'code' = wanted->>'code' \\
-                       ) \\
-                   ) \\
-                   AND document.capabilities @> $3::jsonb \\
-                   AND (jsonb_array_length($4::jsonb) = 0 OR document.license \\
-                        IN (SELECT jsonb_array_elements_text($4::jsonb))) \\
-                   AND ($5::smallint <> 1 OR document.statistics_available) \\
-                   AND ($5::smallint <> 2 OR NOT document.statistics_available) \\
-                   AND ($6::uuid IS NULL OR (document.problem_id, document.version_id) > ($6, $7)) \\
+                "SELECT document.problem_id::text || '/' || document.version_id::text AS stable_key, \
+                        document.problem_id, document.public_id, document.version_id, \
+                        document.version_number, document.backend, document.capabilities, \
+                        document.metadata, document.publication_scope, document.lifecycle, \
+                        document.lifecycle_reason, document.authors, document.previous_version_id, \
+                        document.derived_from_problem_id, document.derived_from_version_id, \
+                        floor(extract(epoch FROM document.published_at) * 1000)::bigint \
+                            AS published_at_millis \
+                 FROM catalog_search_view AS document \
+                 WHERE document.lifecycle = 'published' \
+                   AND ( \
+                       ($9::bigint IS NOT NULL AND document.public_id = $9::bigint \
+                           AND document.version_number = $10::integer) \
+                       OR ($9::bigint IS NULL AND ($1::text IS NULL \
+                           OR document.search_text @@ websearch_to_tsquery('simple', $1))) \
+                   ) \
+                   AND NOT EXISTS ( \
+                       SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted \
+                       WHERE NOT EXISTS ( \
+                           SELECT 1 FROM jsonb_array_elements(document.taxonomy) AS stored \
+                           WHERE stored->>'scheme' = wanted->>'scheme' \
+                           AND stored->>'code' = wanted->>'code' \
+                       ) \
+                   ) \
+                   AND document.capabilities @> $3::jsonb \
+                   AND (jsonb_array_length($4::jsonb) = 0 OR document.license \
+                        IN (SELECT jsonb_array_elements_text($4::jsonb))) \
+                   AND ($5::smallint <> 1 OR document.statistics_available) \
+                   AND ($5::smallint <> 2 OR NOT document.statistics_available) \
+                   AND ($6::uuid IS NULL OR (document.problem_id, document.version_id) > ($6, $7)) \
                  ORDER BY document.problem_id, document.version_id LIMIT $8",
             )
             .bind(text.clone())
@@ -109,28 +109,28 @@ pub(super) async fn search_catalog(
             .map_err(map_sqlx_error)?;
             let page_result = catalog_summary_page_from_rows(rows, page.size.get())?;
             let taxonomy_rows = sqlx::query(
-                "WITH filtered AS ( \\
-                     SELECT document.metadata FROM catalog_search_view AS document \\
-                     WHERE document.lifecycle = 'published' \\
-                       AND (($6::bigint IS NOT NULL AND document.public_id = $6::bigint \\
-                             AND document.version_number = $7::integer) \\
-                            OR ($6::bigint IS NULL AND ($1::text IS NULL OR document.search_text \\
-                             @@ websearch_to_tsquery('simple', $1)))) \\
-                       AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted \\
-                           WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements( \\
-                               document.taxonomy) AS stored \\
-                               WHERE stored->>'scheme' = wanted->>'scheme' AND stored->>'code' = wanted->>'code')) \\
-                       AND document.capabilities @> $3::jsonb \\
-                       AND (jsonb_array_length($4::jsonb) = 0 OR document.license \\
-                            IN (SELECT jsonb_array_elements_text($4::jsonb))) \\
-                       AND ($5::smallint <> 1 OR document.statistics_available) \\
-                       AND ($5::smallint <> 2 OR NOT document.statistics_available) \\
-                 ) SELECT jsonb_build_object('scheme', term->>'scheme', 'code', term->>'code', \\
-                             'label', min(term->>'label')) AS taxonomy_term, count(*)::bigint AS facet_count \\
-                   FROM filtered CROSS JOIN LATERAL jsonb_array_elements( \\
-                       CASE WHEN jsonb_typeof(metadata->'taxonomy') = 'array' \\
-                            THEN metadata->'taxonomy' ELSE '[]'::jsonb END) AS term \\
-                   GROUP BY term->>'scheme', term->>'code' \\
+                "WITH filtered AS ( \
+                     SELECT document.metadata FROM catalog_search_view AS document \
+                     WHERE document.lifecycle = 'published' \
+                       AND (($6::bigint IS NOT NULL AND document.public_id = $6::bigint \
+                             AND document.version_number = $7::integer) \
+                            OR ($6::bigint IS NULL AND ($1::text IS NULL OR document.search_text \
+                             @@ websearch_to_tsquery('simple', $1)))) \
+                       AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted \
+                           WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements( \
+                               document.taxonomy) AS stored \
+                               WHERE stored->>'scheme' = wanted->>'scheme' AND stored->>'code' = wanted->>'code')) \
+                       AND document.capabilities @> $3::jsonb \
+                       AND (jsonb_array_length($4::jsonb) = 0 OR document.license \
+                            IN (SELECT jsonb_array_elements_text($4::jsonb))) \
+                       AND ($5::smallint <> 1 OR document.statistics_available) \
+                       AND ($5::smallint <> 2 OR NOT document.statistics_available) \
+                 ) SELECT jsonb_build_object('scheme', term->>'scheme', 'code', term->>'code', \
+                             'label', min(term->>'label')) AS taxonomy_term, count(*)::bigint AS facet_count \
+                   FROM filtered CROSS JOIN LATERAL jsonb_array_elements( \
+                       CASE WHEN jsonb_typeof(metadata->'taxonomy') = 'array' \
+                            THEN metadata->'taxonomy' ELSE '[]'::jsonb END) AS term \
+                   GROUP BY term->>'scheme', term->>'code' \
                    ORDER BY count(*) DESC, term->>'scheme', term->>'code' LIMIT 64",
             )
             .bind(text.clone())
@@ -144,14 +144,14 @@ pub(super) async fn search_catalog(
             .await
             .map_err(map_sqlx_error)?;
             let capability_rows = sqlx::query(
-                "WITH filtered AS (SELECT document.capabilities FROM catalog_search_view AS document \\
-                   WHERE document.lifecycle = 'published' \\
-                   AND (($6::bigint IS NOT NULL AND document.public_id = $6::bigint AND document.version_number = $7::integer) \\
-                        OR ($6::bigint IS NULL AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1))) ) \\
-                   AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(document.taxonomy) AS stored WHERE stored->>'scheme' = wanted->>'scheme' AND stored->>'code' = wanted->>'code')) \\
-                   AND document.capabilities @> $3::jsonb AND (jsonb_array_length($4::jsonb) = 0 OR document.license IN (SELECT jsonb_array_elements_text($4::jsonb))) \\
-                   AND ($5::smallint <> 1 OR document.statistics_available) \\
-                   AND ($5::smallint <> 2 OR NOT document.statistics_available)) \\
+                "WITH filtered AS (SELECT document.capabilities FROM catalog_search_view AS document \
+                   WHERE document.lifecycle = 'published' \
+                   AND (($6::bigint IS NOT NULL AND document.public_id = $6::bigint AND document.version_number = $7::integer) \
+                        OR ($6::bigint IS NULL AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1))) ) \
+                   AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(document.taxonomy) AS stored WHERE stored->>'scheme' = wanted->>'scheme' AND stored->>'code' = wanted->>'code')) \
+                   AND document.capabilities @> $3::jsonb AND (jsonb_array_length($4::jsonb) = 0 OR document.license IN (SELECT jsonb_array_elements_text($4::jsonb))) \
+                   AND ($5::smallint <> 1 OR document.statistics_available) \
+                   AND ($5::smallint <> 2 OR NOT document.statistics_available)) \
                  SELECT capability, count(*)::bigint AS facet_count FROM filtered CROSS JOIN LATERAL jsonb_array_elements_text(capabilities) AS capability GROUP BY capability ORDER BY capability",
             )
             .bind(text.clone())
@@ -165,14 +165,14 @@ pub(super) async fn search_catalog(
             .await
             .map_err(map_sqlx_error)?;
             let license_rows = sqlx::query(
-                "WITH filtered AS (SELECT document.license FROM catalog_search_view AS document \\
-                   WHERE document.lifecycle = 'published' \\
-                   AND (($6::bigint IS NOT NULL AND document.public_id = $6::bigint AND document.version_number = $7::integer) \\
-                        OR ($6::bigint IS NULL AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1))) ) \\
-                   AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(document.taxonomy) AS stored WHERE stored->>'scheme' = wanted->>'scheme' AND stored->>'code' = wanted->>'code')) \\
-                   AND document.capabilities @> $3::jsonb AND (jsonb_array_length($4::jsonb) = 0 OR document.license IN (SELECT jsonb_array_elements_text($4::jsonb))) \\
-                   AND ($5::smallint <> 1 OR document.statistics_available) \\
-                   AND ($5::smallint <> 2 OR NOT document.statistics_available)) \\
+                "WITH filtered AS (SELECT document.license FROM catalog_search_view AS document \
+                   WHERE document.lifecycle = 'published' \
+                   AND (($6::bigint IS NOT NULL AND document.public_id = $6::bigint AND document.version_number = $7::integer) \
+                        OR ($6::bigint IS NULL AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1))) ) \
+                   AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(document.taxonomy) AS stored WHERE stored->>'scheme' = wanted->>'scheme' AND stored->>'code' = wanted->>'code')) \
+                   AND document.capabilities @> $3::jsonb AND (jsonb_array_length($4::jsonb) = 0 OR document.license IN (SELECT jsonb_array_elements_text($4::jsonb))) \
+                   AND ($5::smallint <> 1 OR document.statistics_available) \
+                   AND ($5::smallint <> 2 OR NOT document.statistics_available)) \
                  SELECT license, count(*)::bigint AS facet_count FROM filtered GROUP BY license ORDER BY license",
             )
             .bind(text.clone())
@@ -186,15 +186,15 @@ pub(super) async fn search_catalog(
             .await
             .map_err(map_sqlx_error)?;
             let statistics_facet = sqlx::query(
-                "SELECT count(*) FILTER (WHERE document.statistics_available)::bigint AS available, \\
-                        count(*) FILTER (WHERE NOT document.statistics_available)::bigint AS unavailable \\
-                 FROM catalog_search_view AS document \\
-                 WHERE document.lifecycle = 'published' \\
-                 AND (($6::bigint IS NOT NULL AND document.public_id = $6::bigint AND document.version_number = $7::integer) \\
-                      OR ($6::bigint IS NULL AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1))) ) \\
-                 AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(document.taxonomy) AS stored WHERE stored->>'scheme' = wanted->>'scheme' AND stored->>'code' = wanted->>'code')) \\
-                 AND document.capabilities @> $3::jsonb AND (jsonb_array_length($4::jsonb) = 0 OR document.license IN (SELECT jsonb_array_elements_text($4::jsonb))) \\
-                 AND ($5::smallint <> 1 OR document.statistics_available) \\
+                "SELECT count(*) FILTER (WHERE document.statistics_available)::bigint AS available, \
+                        count(*) FILTER (WHERE NOT document.statistics_available)::bigint AS unavailable \
+                 FROM catalog_search_view AS document \
+                 WHERE document.lifecycle = 'published' \
+                 AND (($6::bigint IS NOT NULL AND document.public_id = $6::bigint AND document.version_number = $7::integer) \
+                      OR ($6::bigint IS NULL AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1))) ) \
+                 AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(document.taxonomy) AS stored WHERE stored->>'scheme' = wanted->>'scheme' AND stored->>'code' = wanted->>'code')) \
+                 AND document.capabilities @> $3::jsonb AND (jsonb_array_length($4::jsonb) = 0 OR document.license IN (SELECT jsonb_array_elements_text($4::jsonb))) \
+                 AND ($5::smallint <> 1 OR document.statistics_available) \
                  AND ($5::smallint <> 2 OR NOT document.statistics_available)",
             )
             .bind(text)

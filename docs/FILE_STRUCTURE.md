@@ -163,7 +163,7 @@ schemas/
 containers/
 +- compose.yaml       Normal local services and private networks
 +- compose.smtp.yaml  Optional external SMTP-provider overlay
-+- Containerfile.api  API and worker image
++- Containerfile.api  Shared API and worker image, built once by API
 +- Containerfile.gateway Gateway image
 +- Caddyfile          Same-origin browser and API gateway rules
 +- env.example        Safe environment template

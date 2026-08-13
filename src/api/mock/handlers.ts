@@ -29,6 +29,7 @@ export interface MockApiHandler {
 
 export {
   issuedEnvelopeForAttempt,
+  issuedQuestionWireForAttempt,
   externalToolFixtureAttempt,
   mockAttemptById,
   mockExternalToolSubmissionReceipt,

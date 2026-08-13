@@ -13,7 +13,7 @@ use question_model::generation::RandomizationDefinition;
 use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
 use question_model::taxonomy::{License, Tag};
 use question_model::{
-    BackendCapabilities, Capability, CatalogLifecycle, DraftQuestionDefinition,
+    BackendCapabilities, Capability, CatalogLifecycle, CatalogSearchQuery, DraftQuestionDefinition,
     DraftQuestionSource, GradingDefinition, ProblemDisplayRef, ProblemId, ProblemVersionRef,
     PublicationScope, QuestionMetadata, QuestionSource, ResponseDefinition, TenantId, UserId,
     VersionId, WorkspaceId,
@@ -381,4 +381,69 @@ async fn postgres_catalog_resolver_hides_foreign_institution_exact_reference() {
         None,
         "a foreign tenant must not discover institution-only content through P-n-vn"
     );
+}
+
+#[tokio::test]
+#[ignore = "requires the disposable PostgreSQL acceptance database"]
+async fn postgres_catalog_search_finds_exact_human_version_reference() {
+    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
+        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
+    let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    verify_application_schema(&pool)
+        .await
+        .expect("live PostgreSQL schema compatibility");
+    let store = PostgresStore::new(pool);
+    let tenant = TenantId::from_uuid(id());
+    let context = TenantContext::from_authenticated_session(tenant);
+    let publisher = UserId::from_uuid(id());
+    let reference = ProblemVersionRef {
+        problem: ProblemId::from_uuid(id()),
+        version: VersionId::from_uuid(id()),
+    };
+    let source = draft(tenant, WorkspaceId::from_uuid(id()), None);
+    let saved = store
+        .upsert_draft(context, publisher, None, source.clone())
+        .await
+        .expect("save exact-search draft");
+    let published = store
+        .publish_draft(
+            context,
+            publisher,
+            publication(source, saved.revision, reference, publisher),
+        )
+        .await
+        .expect("publish exact-search problem");
+    let text_query = CatalogSearchQuery {
+        text: Some("molar".to_string()),
+        ..CatalogSearchQuery::default()
+    };
+    let text_page = store
+        .search_catalog(context, text_query)
+        .await
+        .expect("ordinary catalog text search must execute");
+    assert!(
+        text_page
+            .items
+            .iter()
+            .any(|item| item.problem == reference.problem && item.version == reference.version),
+        "ordinary text search must include the row published by this test"
+    );
+
+    let exact_query = CatalogSearchQuery {
+        text: Some(format!(
+            "P-{}-v{}",
+            published.public_id.value(),
+            published.version_number.value()
+        )),
+        ..CatalogSearchQuery::default()
+    };
+
+    let page = store
+        .search_catalog(context, exact_query)
+        .await
+        .expect("exact human catalog search must execute");
+
+    assert_eq!(page.items.len(), 1);
+    assert_eq!(page.items[0].problem, reference.problem);
+    assert_eq!(page.items[0].version, reference.version);
 }

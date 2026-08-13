@@ -361,7 +361,19 @@ pub(super) async fn contracted_route_fixture(
                 problem,
                 question_version: version,
                 seed: 17,
-                presentation: Some(presentation_binding(17)),
+                // iMathAS is an external-tool family, not a v1 presentation
+                // family; its receipt explicitly records that no envelope is
+                // required.
+                presentation_capability:
+                    learning_data_access::PresentationCapability::NotApplicable,
+                presentation: None,
+                presentation_snapshot: None,
+                grading_envelope: None,
+                flat_grading: None,
+                flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
+                webwork_grading: None,
+                webwork_grading_capability:
+                    learning_data_access::WebworkGradingCapability::NotApplicable,
                 parameter_hash: issued.parameter_hash,
                 provenance: issued.provenance,
                 webwork_replay: None,

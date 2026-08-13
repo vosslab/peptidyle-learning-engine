@@ -191,19 +191,16 @@ async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster(
     )
     .await
     .expect("the fixture publishes an assignment item through the catalog contract");
-    store
-        .upsert_course(
-            context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Disposable Chapter 1 Genetics".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
-            },
-        )
+    let expected_course = CourseRecord {
+        id: course,
+        tenant,
+        title: "Disposable Chapter 1 Genetics".to_string(),
+        members: vec![CourseMembership {
+            user: instructor,
+            role: CourseMembershipRole::Instructor,
+        }],
+    };
+    ensure_webwork_pilot_course(&store, context, expected_course.clone())
         .await
         .expect("the seed creates an instructor-owned course before roster activation");
     store
@@ -243,6 +240,9 @@ async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster(
     let second = upsert_chapter_one_student(&store, context, student, course, assignment)
         .await
         .expect("the canonical roster upsert is idempotent on rerun");
+    ensure_webwork_pilot_course(&store, context, expected_course)
+        .await
+        .expect("the course seed accepts student membership owned by the canonical roster");
     assert_eq!(first, second);
     assert_eq!(first.user, student);
     let claimed = store
@@ -274,6 +274,40 @@ async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster(
             .role_for(student),
         Some(question_model::CourseRole::Student)
     );
+}
+
+#[test]
+fn course_seed_identity_allows_only_roster_owned_additional_students() {
+    let tenant = TenantId::from_uuid(Uuid::from_u128(311));
+    let instructor = UserId::from_uuid(Uuid::from_u128(312));
+    let expected = CourseRecord {
+        id: CourseId::from_uuid(Uuid::from_u128(313)),
+        tenant,
+        title: "Genetics Chapter 1".to_string(),
+        members: vec![CourseMembership {
+            user: instructor,
+            role: CourseMembershipRole::Instructor,
+        }],
+    };
+    let mut roster_extended = expected.clone();
+    roster_extended.members.push(CourseMembership {
+        user: UserId::from_uuid(Uuid::from_u128(314)),
+        role: CourseMembershipRole::Student,
+    });
+    assert!(webwork_pilot_course_seed_matches(
+        &roster_extended,
+        &expected
+    ));
+
+    let mut unexpected_instructor = roster_extended;
+    unexpected_instructor.members.push(CourseMembership {
+        user: UserId::from_uuid(Uuid::from_u128(315)),
+        role: CourseMembershipRole::Instructor,
+    });
+    assert!(!webwork_pilot_course_seed_matches(
+        &unexpected_instructor,
+        &expected
+    ));
 }
 
 #[test]

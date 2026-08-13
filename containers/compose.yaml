@@ -113,6 +113,10 @@ services:
     restart: "no"
 
   api:
+    # `api` is the sole Compose build owner for the shared Rust application
+    # image. The worker consumes this exact local image below, which avoids
+    # concurrent duplicate Cargo builds on constrained Podman machines.
+    image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
     build:
       context: ..
       dockerfile: containers/Containerfile.api
@@ -172,9 +176,9 @@ services:
       - gateway_api
 
   worker:
-    build:
-      context: ..
-      dockerfile: containers/Containerfile.api
+    # Keep the worker's runtime configuration separate while consuming the
+    # single application image built by the `api` service.
+    image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
     command: ["--worker"]
     depends_on:
       postgres:

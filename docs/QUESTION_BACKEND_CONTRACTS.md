@@ -26,16 +26,16 @@ and [RELATED_PROJECTS.md](RELATED_PROJECTS.md) for ecosystem scope and compariso
 
 All installed backends enter the server through `crates/server/src/run/contracts.rs`.
 
-| Concern          | Common PLE rule                                                                                                                                                                                   |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Source authority | A published `QuestionDefinition` and immutable `ProblemVersionRef` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or provider.               |
-| Issuance         | `RunBackend::issue` receives trusted tenant context, published reference, definition, and server-owned seed. It returns a key-free envelope, parameter hash, and provenance.                      |
-| Reproduction     | `RunBackend::reproduce` rebuilds the issued public render from immutable source and stored attempt before delivery or grading.                                                                    |
-| Response         | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, provider correlation, source identity, renderer field, or answer key. |
-| Grade            | `RunBackend::grade` returns a server-side outcome. The common route owns policy-aware persistence; an external-tool backend may atomically commit a verified broker result.                       |
-| Provenance       | `AttemptProvenance` records adapter, optional renderer/generator, source artifact, bound assets, grader, and rendered-question SHA-256.                                                           |
-| Failure          | A backend reports `Unsupported`, `Invalid`, or `Unavailable`. An unavailable renderer or provider is not converted into a learner incorrect response.                                             |
-| Capabilities     | `BackendCapabilities` is a closed declaration. Publication validation refuses an assignment requiring a capability the selected backend did not declare.                                          |
+| Concern          | Common PLE rule                                                                                                                                                                                                  |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source authority | A published `QuestionDefinition` and immutable `ProblemVersionRef` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or provider.                              |
+| Issuance         | `RunBackend::issue` receives trusted tenant context, published reference, definition, and server-owned seed. It returns a key-free envelope, parameter hash, and provenance.                                     |
+| Reproduction     | `RunBackend::reproduce` is limited to issue-time work and explicit envelope-less active families. Presentation-bearing first submit and submitted delivery validate the owned snapshot/private envelope instead. |
+| Response         | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, provider correlation, source identity, renderer field, or answer key.                |
+| Grade            | `RunBackend::grade` returns a server-side outcome. The common route owns policy-aware persistence; an external-tool backend may atomically commit a verified broker result.                                      |
+| Provenance       | `AttemptProvenance` records adapter, optional renderer/generator, source artifact, bound assets, grader, and rendered-question SHA-256.                                                                          |
+| Failure          | A backend reports `Unsupported`, `Invalid`, or `Unavailable`. An unavailable renderer or provider is not converted into a learner incorrect response.                                                            |
+| Capabilities     | `BackendCapabilities` is a closed declaration. Publication validation refuses an assignment requiring a capability the selected backend did not declare.                                                         |
 
 The browser-safe `QuestionEnvelope` contains a public response shape and learner presentation, never
 an answer key. Its render `kind` selects the browser widget. The planned compact response wire drops
@@ -44,13 +44,13 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 
 ## Backend comparison
 
-| Backend              | Current authority                                                   | Browser response                                           | Server grading authority                            | Current scope                                                                                         |
-| -------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Native flat          | Immutable PLE flat source and private flat grading payload          | Typed PLE response                                         | Native adapter plus isolated flat grader            | All eight PLE flat JSON v2 families; visual author editor exposes v2 single choice                    |
-| QTI profile          | Immutable staged/published archive plus profile conversion evidence | Typed PLE response                                         | `QtiBackend` plus least-privilege `QtiGradingStore` | Canvas 1.2 and Blackboard 2.1 static single-choice profiles                                           |
-| WeBWorK              | Immutable licensed PGML source and private renderer                 | Opaque PLE choice or match IDs                             | Private external `/render-api`                      | Four reviewed Chapter 1 PGML sources: MC plus MATCH per chapter; exact-source matching partial credit |
-| iMathAS              | Immutable server snapshot and deployment-selected provider profile  | `ExternalTool` marker through protected same-origin routes | Server broker and verified provider result          | Explicitly configured contracted scored-embed provider only                                           |
-| External-tool broker | Tenant attempt, launch session, and protected exchange row          | `ExternalTool {}` marker plus HttpOnly launch proof        | Backend-owned atomic verified-result commit         | Shared mechanism used by the contracted iMathAS path                                                  |
+| Backend              | Current authority                                                   | Browser response                                           | Server grading authority                            | Current scope                                                                                                                            |
+| -------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Native flat          | Immutable PLE flat source and private flat grading payload          | Typed PLE response                                         | Native adapter plus isolated flat grader            | All eight PLE flat JSON v2 families; protected visual author editor; end-to-end all-family and hotspot lifecycle acceptance remains open |
+| QTI profile          | Immutable staged/published archive plus profile conversion evidence | Typed PLE response                                         | `QtiBackend` plus least-privilege `QtiGradingStore` | Canvas 1.2 and Blackboard 2.1 static single-choice profiles                                                                              |
+| WeBWorK              | Immutable licensed PGML source and private renderer                 | Opaque PLE choice or match IDs                             | Private external `/render-api`                      | Four reviewed Chapter 1 PGML sources: MC plus MATCH per chapter; exact-source matching partial credit                                    |
+| iMathAS              | Immutable server snapshot and deployment-selected provider profile  | `ExternalTool` marker through protected same-origin routes | Server broker and verified provider result          | Explicitly configured contracted scored-embed provider only                                                                              |
+| External-tool broker | Tenant attempt, launch session, and protected exchange row          | `ExternalTool {}` marker plus HttpOnly launch proof        | Backend-owned atomic verified-result commit         | Shared mechanism used by the contracted iMathAS path                                                                                     |
 
 ## Native flat questions
 
@@ -65,15 +65,19 @@ version, or a scoring decision.
 
 The current closed source contract supports multiple choice, multiple answer, fill-in-the-blank,
 multi-blank, numerical, matching, ordering, and hotspot questions. The native adapter dispatches by
-registered family rather than making the run model family-specific. The visual author editor exposes
-the deliberately smaller v2 single-choice authoring surface.
+registered family rather than making the run model family-specific. The protected visual author
+editor exposes all eight v2 families. Its instructor route is a convenience surface only: the server
+re-resolves source and asset bindings at save and publication, and the learner contract remains
+answer-free. Integrated author-to-publication-to-learner acceptance for every family, including the
+hotspot lifecycle, remains open.
 
 ### Grade, replay, and cache
 
 The server validates immutable reference, seed, parameter hash, rendered-question hash, and asset
-bindings before generic grading or isolated flat grading. Flat private material is retrieved only
-through `FlatQuestionGradingStore`; ordinary catalog and browser paths cannot read it. Provenance
-names the native adapter and grader, optional generator, bound objects, and rendered output hash.
+bindings before generic grading or isolated flat grading. First flat grade reads only the issued
+checksummed flat grading contract; ordinary catalog and browser paths cannot read that material or
+replace it with a current grader view. Provenance names the native adapter and grader, optional
+generator, bound objects, and rendered output hash.
 
 Native generation is deterministic for published version and seed. A shared cache may contain only
 answer-free generated output keyed by that identity. Tenant state, keys, submissions, and feedback
@@ -134,12 +138,13 @@ side. A learner submits PLE IDs to PLE, not upstream form fields.
 
 ### Grade, replay, cache, and failure
 
-For a newly issued attempt, PLE resolves immutable source, reconstructs and validates the private
-field/value mapping, converts its durable choice identities to presentation-scoped rendered IDs, and
-persists it under the tenant attempt boundary. Normal grade reloads that validated state, reproduces
-the safe cached envelope without a renderer call, maps the selected durable compatibility choice
-through the presentation binding, and makes one private grade request. The mapping never appears in
-an envelope, safe cache, receipt, log event, or browser response.
+For a newly issued attempt, PLE resolves immutable source, captures and validates the private
+field/value mapping, converts durable choice identities to presentation-scoped rendered IDs, and
+persists that mapping with the exact public snapshot, private grading envelope, and frozen WeBWorK
+definition. Normal grade reloads those validated artifacts, maps the learner's rendered ID through
+the private envelope, and makes one private grade request. It does not reconstruct an issuance
+render or resolve a current catalog definition. The mapping never
+appears in an envelope, safe cache, receipt, log event, or browser response.
 
 The shared immutable cache is keyed by version and seed. It holds only sanitized answer-free
 envelope/markup, source-artifact binding, renderer identity, and rendered-output checksum. A cache hit
@@ -229,7 +234,9 @@ proxy policy, replay/idempotency semantics, and a closed capability declaration.
 1. Define durable published and private draft source identity without secrets or mutable endpoints.
 2. Pin source bytes, checksum, license, provenance, implementation/profile facts, and assets at publication.
 3. Issue an answer-free envelope; keep keys, rubrics, mappings, credentials, correlation, and raw results server-only.
-4. Reproduce the exact version/seed render and compare complete provenance before retry, grade, or feedback release.
+4. At issue, capture the exact version/seed render, compare complete provenance, and persist its
+   answer-free public snapshot plus server-only grading envelope. Retry, submitted delivery, and
+   grade validate those artifacts rather than rerendering.
 5. Choose one grading authority: private PLE material, private renderer, or verified external result.
 6. Cache only immutable answer-free render output. Bind private replay state to tenant attempt, never shared cache.
 7. Declare only implemented capabilities, and make assignment validation refuse unsupported policy before issue.

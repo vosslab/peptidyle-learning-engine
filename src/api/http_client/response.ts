@@ -11,6 +11,7 @@ import type { GradebookSummaryRow } from "../../../generated/api/GradebookSummar
 import type { ProblemId } from "../../../generated/api/ProblemId";
 import type { QuestionAttempt } from "../../../generated/api/QuestionAttempt";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
+import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
 import type { RunId } from "../../../generated/api/RunId";
 import type { VersionId } from "../../../generated/api/VersionId";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
@@ -43,6 +44,7 @@ import {
   decodeQuestionAttempt,
   decodeQuestionDefinition,
   decodeQuestionEnvelope,
+  decodeIssuedPresentationEnvelope,
   decodeRunPage,
   decodeRunSummaryResponse,
   decodeStudentAssignmentSummary,
@@ -61,6 +63,24 @@ import {
 } from "./request";
 
 export const MAX_RESPONSE_CHARACTERS = 4 * 1_024 * 1_024;
+
+function issuedQuestionForAttempt(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  attempt: QuestionAttempt,
+): Promise<QuestionEnvelope> {
+  const decoder =
+    attempt.issuedCapability === "notApplicable"
+      ? decodeQuestionEnvelope
+      : decodeIssuedPresentationEnvelope;
+  return requestJson(
+    fetchImplementation,
+    basePath,
+    `/api/attempts/${encodedId(attempt.id)}/question`,
+    decoder,
+  );
+}
+
 export function requireNoStore(response: Response, path: string): void {
   const directives =
     response.headers
@@ -402,13 +422,15 @@ export function createResponseClient(
         `/api/attempts/${encodedId(attemptId)}`,
         decodeQuestionAttempt,
       ),
-    getIssuedQuestion: (attemptId) =>
-      requestJson(
+    getIssuedQuestion: async (attemptId): Promise<QuestionEnvelope> => {
+      const attempt = await requestJson(
         fetchImplementation,
         basePath,
-        `/api/attempts/${encodedId(attemptId)}/question`,
-        decodeQuestionEnvelope,
-      ),
+        `/api/attempts/${encodedId(attemptId)}`,
+        decodeQuestionAttempt,
+      );
+      return issuedQuestionForAttempt(fetchImplementation, basePath, attempt);
+    },
     getExternalToolLaunch: (attemptId) =>
       requestJson(
         fetchImplementation,
@@ -456,7 +478,7 @@ export function createResponseClient(
       const [summary, appearance, issuedQuestion] = await Promise.all([
         client.getCourse(assignment.courseId),
         client.getCourseAppearance(assignment.courseId),
-        client.getIssuedQuestion(attempt.id),
+        issuedQuestionForAttempt(fetchImplementation, basePath, attempt),
       ]);
       const screen: RunScreenData = {
         course: { summary, appearance },

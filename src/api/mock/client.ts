@@ -41,8 +41,11 @@ import {
   decodeAssignmentCapabilityViolations,
   decodeAssignmentEditorDetail,
   decodeAssignmentEditorInput,
+  decodeAssignmentSummary,
   decodeFeedbackReleaseResponse,
+  decodeIssuedPresentationEnvelope,
   decodePrefetchedNextQuestion,
+  decodeQuestionEnvelope,
   decodeRunSummaryResponse,
   decodeSubmissionReceipt,
 } from "../decoders";
@@ -68,7 +71,6 @@ import { validateResponseFormatInMock } from "./format_validation";
 import {
   createMockFetch,
   externalToolFixtureAttempt,
-  issuedEnvelopeForAttempt,
   mockCourseAppearance,
   secondaryMockCourse,
   mockAttemptById,
@@ -608,11 +610,10 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
       const suffix = cursor === undefined ? "" : `?cursor=${encodeURIComponent(cursor)}`;
       return expectSerialized(mockFetch(`/api/courses/${courseId}/assignments${suffix}`), expected);
     },
-    getAssignment: (assignmentId: AssignmentId) =>
-      expectSerialized(
-        mockFetch(`/api/assignments/${assignmentId}`),
-        publishedProblemFixture.assignment,
-      ),
+    getAssignment: (assignmentId: AssignmentId) => {
+      const path = `/api/assignments/${assignmentId}`;
+      return decodeMockCatalogResponse(mockFetch(path), path, decodeAssignmentSummary);
+    },
     getAssignmentEditor: (assignmentId: AssignmentId) =>
       requestMockAssignment(
         mockFetch(`/api/assignments/${assignmentId}`),
@@ -743,15 +744,16 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
       return expectSerialized(mockFetch(`/api/attempts/${attemptId}`), attempt);
     },
     getIssuedQuestion: (attemptId: QuestionAttemptId): Promise<QuestionEnvelope> => {
-      const attempt = publishedProblemFixture.attempts.find(
-        (candidate) => candidate.id === attemptId,
-      );
+      const attempt = mockAttemptById(attemptId);
       if (attempt === undefined) {
         return Promise.reject(new Error(`Fixture has no attempt ${attemptId}`));
       }
-      return expectSerialized(
+      return decodeMockCatalogResponse(
         mockFetch(`/api/attempts/${attemptId}/question`),
-        issuedEnvelopeForAttempt(attempt),
+        "issued question",
+        attempt.issuedCapability === "notApplicable"
+          ? decodeQuestionEnvelope
+          : decodeIssuedPresentationEnvelope,
       );
     },
     prefetchNextQuestion: (attemptId) =>
@@ -809,6 +811,7 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
         attempt,
         feedback: mockFeedbackForAttempt(attempt),
         nextIssued: null,
+        nextPending: false,
       };
       return expectSerialized(
         mockFetch(`/api/submissions/${attemptId}`, {

@@ -50,7 +50,7 @@ impl CourseRosterStore for PostgresStore {
                         member.user_id, member.student_id, member.display_name, \
                         member.roster_email_normalized AS normalized_email, \
                         member.roster_email_delivery AS delivery_email, member.roster_id, member.status, \
-                        member.status, NULL::uuid AS invited_by, NULL::uuid AS claimed_user_id, \
+                        NULL::uuid AS invited_by, NULL::uuid AS claimed_user_id, \
                         member.joined_at AS created_at, NULL::timestamptz AS expires_at, \
                         member.revoked_at \
                    FROM course_roster_member member \

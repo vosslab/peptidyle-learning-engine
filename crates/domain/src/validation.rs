@@ -7,6 +7,9 @@
 use std::collections::BTreeSet;
 
 use question_model::answer::SelectionCardinality;
+use question_model::presentation::{
+    PresentedBlankV1, PresentedChoiceV1, PresentedHotspotRegionV1, ResponseSchemaV1,
+};
 use question_model::response::{
     ChoiceId, HotspotRegion, ResponseDefinition, StudentResponse, TextEntrySlot,
 };
@@ -150,6 +153,258 @@ pub fn validate_response_format(
     }
 
     ResponseFormatReport { violations }
+}
+
+/// Validates a student response against the answer-free schema frozen with an
+/// issued presentation.
+///
+/// This is the server-side authority for a presentation-bearing attempt: it
+/// lets a first submission reject malformed input without asking a mutable
+/// catalog or renderer to rebuild the learner's already-issued widget. It
+/// checks only public shape, never answer material or correctness.
+pub fn validate_presentation_response_format(
+    schema: &ResponseSchemaV1,
+    response: &StudentResponse,
+) -> ResponseFormatReport {
+    let mut violations = Vec::new();
+
+    match (schema, response) {
+        (ResponseSchemaV1::Numerical { .. }, StudentResponse::Numeric { value }) => {
+            if !value.is_finite() {
+                violations.push(ResponseFormatViolation::NumericNotFinite);
+            }
+        }
+        (
+            ResponseSchemaV1::SingleChoice { choices },
+            StudentResponse::MultipleChoice { selected },
+        ) => {
+            validate_presented_selection(choices, 1, 1, selected, &mut violations);
+        }
+        (
+            ResponseSchemaV1::MultipleAnswer {
+                choices,
+                minimum,
+                maximum,
+            },
+            StudentResponse::MultipleChoice { selected },
+        ) => validate_presented_selection(choices, *minimum, *maximum, selected, &mut violations),
+        (ResponseSchemaV1::FillIn { max_characters }, StudentResponse::ShortText { text }) => {
+            validate_text_length(*max_characters, text, &mut violations);
+        }
+        (ResponseSchemaV1::MultiFillIn { blanks }, StudentResponse::MultiBlank { answers }) => {
+            validate_presented_multi_blank(blanks, answers, &mut violations);
+        }
+        (
+            ResponseSchemaV1::Matching {
+                prompts,
+                choices,
+                reuse_choices,
+            },
+            StudentResponse::Matching { matches },
+        ) => {
+            validate_presented_matching(prompts, choices, *reuse_choices, matches, &mut violations)
+        }
+        (ResponseSchemaV1::Ordering { items }, StudentResponse::Ordering { order }) => {
+            let expected: BTreeSet<ChoiceId> = items
+                .iter()
+                .map(|item| ChoiceId::new(item.id.as_str()))
+                .collect();
+            let actual: BTreeSet<ChoiceId> = order.iter().cloned().collect();
+            if expected.len() != items.len()
+                || actual.len() != order.len()
+                || order.len() != items.len()
+                || actual != expected
+            {
+                violations.push(ResponseFormatViolation::OrderingItemsMismatch);
+            }
+        }
+        (
+            ResponseSchemaV1::Hotspot {
+                surface,
+                minimum,
+                maximum,
+            },
+            StudentResponse::Hotspot { points },
+        ) => validate_presented_hotspot(
+            &surface.regions,
+            *minimum,
+            *maximum,
+            points,
+            &mut violations,
+        ),
+        _ => violations.push(ResponseFormatViolation::ResponseKindMismatch),
+    }
+
+    ResponseFormatReport { violations }
+}
+
+fn validate_presented_selection(
+    choices: &[PresentedChoiceV1],
+    minimum: u32,
+    maximum: u32,
+    selected: &[ChoiceId],
+    violations: &mut Vec<ResponseFormatViolation>,
+) {
+    let actual = count(selected.iter());
+    if actual < u64::from(minimum) || actual > u64::from(maximum) {
+        violations.push(ResponseFormatViolation::SelectionCount {
+            expected: selection_cardinality(minimum, maximum, choices.len()),
+            actual,
+        });
+    }
+    let available: BTreeSet<ChoiceId> = choices
+        .iter()
+        .map(|choice| ChoiceId::new(choice.id.as_str()))
+        .collect();
+    let mut observed = BTreeSet::new();
+    for choice in selected {
+        if !observed.insert(choice.clone()) {
+            violations.push(ResponseFormatViolation::DuplicateChoice {
+                choice: choice.clone(),
+            });
+        }
+        if !available.contains(choice) {
+            violations.push(ResponseFormatViolation::UnknownChoice {
+                choice: choice.clone(),
+            });
+        }
+    }
+}
+
+fn selection_cardinality(minimum: u32, maximum: u32, available: usize) -> SelectionCardinality {
+    let available = u32::try_from(available).expect("supported presentation choices fit u32");
+    match (minimum, maximum) {
+        (1, 1) => SelectionCardinality::ExactlyOne,
+        (minimum, maximum) if minimum == maximum => {
+            SelectionCardinality::Exactly { count: minimum }
+        }
+        (0, maximum) if maximum == available => SelectionCardinality::AnyNumber,
+        (1, maximum) if maximum == available => SelectionCardinality::AtLeastOne,
+        // Presentation construction only emits the four source cardinalities
+        // above. A checksum-valid but externally malformed schema is still
+        // rejected by the numeric bounds check; this fallback preserves the
+        // existing browser-safe violation shape without inventing a new wire
+        // contract solely for corrupt storage.
+        (minimum, _) => SelectionCardinality::Exactly { count: minimum },
+    }
+}
+
+fn validate_text_length(
+    max_length: u32,
+    text: &str,
+    violations: &mut Vec<ResponseFormatViolation>,
+) {
+    let actual_length = count(text.chars());
+    if actual_length > u64::from(max_length) {
+        violations.push(ResponseFormatViolation::TextTooLong {
+            max_length,
+            actual_length,
+        });
+    }
+}
+
+fn validate_presented_multi_blank(
+    blanks: &[PresentedBlankV1],
+    answers: &[question_model::response::TextEntryAnswer],
+    violations: &mut Vec<ResponseFormatViolation>,
+) {
+    let expected: BTreeSet<_> = blanks
+        .iter()
+        .map(|blank| ChoiceId::new(blank.id.as_str()))
+        .collect();
+    let actual: BTreeSet<_> = answers.iter().map(|answer| answer.slot.clone()).collect();
+    if expected.len() != blanks.len()
+        || actual.len() != answers.len()
+        || answers.len() != blanks.len()
+        || actual != expected
+    {
+        violations.push(ResponseFormatViolation::BlankSlotsMismatch);
+        return;
+    }
+    for answer in answers {
+        let blank = blanks
+            .iter()
+            .find(|blank| blank.id.as_str() == answer.slot.as_str())
+            .expect("validated blank slot set is exact");
+        validate_text_length(blank.max_characters, &answer.text, violations);
+    }
+}
+
+fn validate_presented_matching(
+    prompts: &[PresentedChoiceV1],
+    choices: &[PresentedChoiceV1],
+    reuse_choices: bool,
+    matches: &[question_model::response::MatchPair],
+    violations: &mut Vec<ResponseFormatViolation>,
+) {
+    let expected_prompts: BTreeSet<_> = prompts
+        .iter()
+        .map(|prompt| ChoiceId::new(prompt.id.as_str()))
+        .collect();
+    let actual_prompts: BTreeSet<_> = matches.iter().map(|pair| pair.prompt.clone()).collect();
+    if expected_prompts.len() != prompts.len()
+        || actual_prompts.len() != matches.len()
+        || matches.len() != prompts.len()
+        || actual_prompts != expected_prompts
+    {
+        violations.push(ResponseFormatViolation::MatchingPromptsMismatch);
+    }
+    let available_choices: BTreeSet<_> = choices
+        .iter()
+        .map(|choice| ChoiceId::new(choice.id.as_str()))
+        .collect();
+    let mut observed = BTreeSet::new();
+    for pair in matches {
+        if !available_choices.contains(&pair.choice) {
+            violations.push(ResponseFormatViolation::UnknownMatchChoice {
+                choice: pair.choice.clone(),
+            });
+        }
+        if !reuse_choices && !observed.insert(pair.choice.clone()) {
+            violations.push(ResponseFormatViolation::DuplicateMatchChoice {
+                choice: pair.choice.clone(),
+            });
+        }
+    }
+}
+
+fn validate_presented_hotspot(
+    regions: &[PresentedHotspotRegionV1],
+    minimum: u32,
+    maximum: u32,
+    points: &[question_model::response::HotspotPoint],
+    violations: &mut Vec<ResponseFormatViolation>,
+) {
+    let actual = count(points.iter());
+    if actual < u64::from(minimum) || actual > u64::from(maximum) {
+        violations.push(ResponseFormatViolation::SelectionCount {
+            expected: selection_cardinality(minimum, maximum, regions.len()),
+            actual,
+        });
+    }
+    for point in points {
+        if point.x > 10_000 || point.y > 10_000 {
+            violations.push(ResponseFormatViolation::HotspotPointOutOfBounds);
+            continue;
+        }
+        if regions
+            .iter()
+            .filter(|region| presented_region_contains(region, point.x, point.y))
+            .count()
+            != 1
+        {
+            violations.push(ResponseFormatViolation::HotspotPointOutsideRegion);
+        }
+    }
+}
+
+fn presented_region_contains(region: &PresentedHotspotRegionV1, x: u16, y: u16) -> bool {
+    let right = u32::from(region.x) + u32::from(region.width);
+    let bottom = u32::from(region.y) + u32::from(region.height);
+    u32::from(x) >= u32::from(region.x)
+        && u32::from(x) <= right
+        && u32::from(y) >= u32::from(region.y)
+        && u32::from(y) <= bottom
 }
 
 fn validate_multi_blank(

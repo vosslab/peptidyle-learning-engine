@@ -272,6 +272,59 @@ fn version_two_compiles_and_grades_all_eight_flat_families() {
 }
 
 #[test]
+fn hotspot_public_definition_does_not_reveal_correct_region_cardinality() {
+    let base = serde_json::json!({
+        "kind": "hotspot",
+        "surface": {
+            "asset":"00000000-0000-0000-0000-000000000123",
+            "checksum":"1111111111111111111111111111111111111111111111111111111111111111",
+            "description":"A labeled cell diagram"
+        },
+        "regions": [
+            {"id":"nucleus", "label":"Nucleus", "x":1000, "y":1000, "width":2000, "height":2000},
+            {"id":"membrane", "label":"Cell membrane", "x":6000, "y":6000, "width":2000, "height":2000}
+        ]
+    });
+    let mut one_correct = base.clone();
+    one_correct["correctRegions"] = serde_json::json!(["nucleus"]);
+    let mut two_correct = base;
+    two_correct["correctRegions"] = serde_json::json!(["nucleus", "membrane"]);
+    let workspace = WorkspaceId::from_uuid(Uuid::from_u128(41));
+    let (one_draft, _) = FlatQuestionDocument::parse(&v2_source(one_correct))
+        .expect("one-correct hotspot should parse")
+        .compile(workspace)
+        .expect("one-correct hotspot should compile")
+        .into_parts();
+    let (two_draft, _) = FlatQuestionDocument::parse(&v2_source(two_correct))
+        .expect("two-correct hotspot should parse")
+        .compile(workspace)
+        .expect("two-correct hotspot should compile")
+        .into_parts();
+
+    assert_eq!(one_draft.response, two_draft.response);
+    assert!(matches!(
+        one_draft.response,
+        question_model::response::ResponseDefinition::Hotspot {
+            selection: question_model::answer::SelectionCardinality::AtLeastOne,
+            ..
+        }
+    ));
+    assert!(
+        domain::validation::validate_response_format(
+            &one_draft.response,
+            &StudentResponse::Hotspot {
+                points: vec![HotspotPoint { x: 2000, y: 2000 }],
+            },
+        )
+        .is_valid()
+    );
+
+    let public_json = serde_json::to_string(&one_draft).expect("public draft should serialize");
+    assert!(!public_json.contains("correctRegions"));
+    assert!(!public_json.contains("correct_region"));
+}
+
+#[test]
 fn version_two_refuses_ambiguous_or_incomplete_private_bindings() {
     let invalid = [
         serde_json::json!({
@@ -453,10 +506,10 @@ fn malformed_or_ambiguous_sources_are_refused() {
 fn version_one_flat_source_is_refused_without_a_legacy_reader() {
     let version_one = FAVORITE_COLOR.replacen("\"version\": 2", "\"version\": 1", 1);
 
-    assert_eq!(
+    assert!(matches!(
         FlatQuestionDocument::parse(version_one.as_bytes()),
         Err(FlatQuestionError::UnsupportedVersion(1))
-    );
+    ));
 }
 
 #[test]

@@ -189,6 +189,19 @@ struct FlatHotspotRegion {
 }
 
 impl FlatQuestionV2 {
+    pub(super) fn with_hotspot_surface_asset(
+        &self,
+        asset: AssetId,
+    ) -> Result<Self, FlatQuestionError> {
+        let mut published = self.clone();
+        let FlatResponseV2::Hotspot { surface, .. } = &mut published.response else {
+            return invalid("flat-question source has no hotspot surface to retarget");
+        };
+        surface.asset = asset.to_string();
+        published.validate()?;
+        Ok(published)
+    }
+
     pub(super) fn imported_single_choice(
         title: String,
         prompt: String,
@@ -464,10 +477,10 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
                     surface: asset.clone(),
                     description: surface.description.clone(),
                     regions: regions.iter().map(compile_region).collect(),
-                    selection: SelectionCardinality::Exactly {
-                        count: u32::try_from(correct_regions.len())
-                            .expect("validated hotspot count fits u32"),
-                    },
+                    // Correct-region cardinality is private grading material.
+                    // The public format requires a nonempty selection without
+                    // disclosing how many regions the answer key contains.
+                    selection: SelectionCardinality::AtLeastOne,
                 },
                 AnswerKey::Hotspot {
                     correct: correct_regions.iter().map(ChoiceId::new).collect(),

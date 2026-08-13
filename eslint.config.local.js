@@ -40,4 +40,11 @@ export default [
       "generated/wasm-export-check/**",
     ],
   },
+  {
+    // Playwright discovers fixture dependencies from the first parameter's
+    // object pattern. These metadata-only fixtures deliberately depend on no
+    // browser fixture, so `{}` is the framework's honest zero-dependency form.
+    files: ["tests/playwright/ui_walkthrough_fixture.ts"],
+    rules: { "no-empty-pattern": "off" },
+  },
 ];

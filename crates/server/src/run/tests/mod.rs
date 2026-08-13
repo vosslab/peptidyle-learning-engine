@@ -7,10 +7,12 @@ mod imathas_support;
 mod manual_grading_http;
 mod prefetch;
 mod submission;
+mod support;
 use imathas_support::*;
+use support::*;
 
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use super::*;
 use axum::body::{Body, to_bytes};
@@ -38,21 +40,14 @@ use question_model::{
     ActivityTimestamp, BackendCapabilities, Capability, CatalogProblemSummary, CatalogSearchPage,
     CatalogSearchQuery, CourseId, CourseMembership, CourseMembershipRole, DraftQuestionDefinition,
     DraftQuestionSource, EnrollmentId, GradingDefinition, ImplementationVersion, ObjectId,
-    PresentationBindingV1, PresentationDigestV1, PresentationNonceV1, ProblemId, PublicationScope,
-    QuestionMetadata, QuestionSource, StudentId, TenantId, UserId, VersionId, WorkspaceId,
+    ProblemId, PublicationScope, QuestionMetadata, QuestionSource, StudentId, TenantId, UserId,
+    VersionId, WorkspaceId,
 };
 use tower::ServiceExt;
 use uuid::Uuid;
 
 use crate::imathas_backend::{ExternalToolSubmissionBackend, ImathasBackend};
 use crate::native_backend::NativeBackend;
-
-fn presentation_binding(marker: u8) -> PresentationBindingV1 {
-    PresentationBindingV1::new(
-        PresentationNonceV1::from_bytes([marker; 16]),
-        PresentationDigestV1::compute(&[marker]),
-    )
-}
 
 #[derive(Debug, Default)]
 struct NumericBackend {
@@ -61,6 +56,7 @@ struct NumericBackend {
     external_launch_calls: AtomicUsize,
     issued_seeds: std::sync::Mutex<Vec<u64>>,
     issued_response: std::sync::Mutex<Option<ResponseDefinition>>,
+    graded_responses: std::sync::Mutex<Vec<StudentResponse>>,
     external_tool_launch_ready: bool,
     manual_grading_required: bool,
 }
@@ -72,6 +68,14 @@ struct CountingNativeBackend {
 
 struct OpaqueRenderedHashBackend {
     inner: Arc<CountingNativeBackend>,
+}
+
+/// Fails the one successor-issuance operation after a first answer has been
+/// durably graded. This isolates the receipt-delivery recovery contract from
+/// grading itself.
+struct UnavailableSuccessorBackend {
+    inner: Arc<CountingNativeBackend>,
+    fail_next_issue: AtomicBool,
 }
 
 #[async_trait]
@@ -169,6 +173,56 @@ impl RunBackend for OpaqueRenderedHashBackend {
 }
 
 #[async_trait]
+impl RunBackend for UnavailableSuccessorBackend {
+    async fn issue(
+        &self,
+        context: TenantContext,
+        reference: ProblemVersionRef,
+        question: &QuestionDefinition,
+        seed: u64,
+    ) -> Result<IssuedAttemptMetadata, RunBackendError> {
+        if self.fail_next_issue.swap(false, Ordering::SeqCst) {
+            return Err(RunBackendError::Unavailable(
+                "test successor issuance outage".to_string(),
+            ));
+        }
+        self.inner.issue(context, reference, question, seed).await
+    }
+
+    async fn reproduce(
+        &self,
+        context: TenantContext,
+        reference: ProblemVersionRef,
+        question: &QuestionDefinition,
+        attempt: &QuestionAttempt,
+    ) -> Result<QuestionEnvelope, RunBackendError> {
+        self.inner
+            .reproduce(context, reference, question, attempt)
+            .await
+    }
+
+    async fn grade(
+        &self,
+        context: TenantContext,
+        reference: ProblemVersionRef,
+        question: &QuestionDefinition,
+        attempt: &QuestionAttempt,
+        response: &StudentResponse,
+    ) -> Result<GradeOutcome, RunBackendError> {
+        self.inner
+            .grade(context, reference, question, attempt, response)
+            .await
+    }
+
+    async fn submit(
+        &self,
+        submission: RunSubmission<'_>,
+    ) -> Result<SubmissionDisposition, RunBackendError> {
+        self.inner.submit(submission).await
+    }
+}
+
+#[async_trait]
 impl RunBackend for NumericBackend {
     async fn issue(
         &self,
@@ -203,6 +257,11 @@ impl RunBackend for NumericBackend {
                 rendered_question_sha256: format!("rendered-{seed:016x}"),
             },
             webwork_replay: None,
+            flat_grading: None,
+            flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
+            webwork_grading: None,
+            webwork_grading_capability:
+                learning_data_access::WebworkGradingCapability::NotApplicable,
         })
     }
 
@@ -264,6 +323,10 @@ impl RunBackend for NumericBackend {
         response: &StudentResponse,
     ) -> Result<GradeOutcome, RunBackendError> {
         self.grade_calls.fetch_add(1, Ordering::SeqCst);
+        self.graded_responses
+            .lock()
+            .expect("graded response record")
+            .push(response.clone());
         if self.manual_grading_required {
             return Ok(GradeOutcome::NeedsManualGrading);
         }
@@ -864,106 +927,4 @@ async fn native_feedback_fixture(
         outsider_cookie,
         assignment,
     )
-}
-
-async fn issued_cookie(store: &MemoryStore, user: UserId, name: &str) -> String {
-    issued_cookie_for(store, TenantId::from_uuid(id(1)), user, name).await
-}
-
-async fn issued_cookie_for(
-    store: &MemoryStore,
-    tenant: TenantId,
-    user: UserId,
-    name: &str,
-) -> String {
-    let subject =
-        SessionSubject::new(tenant, user, name, vec![UserRole::Student]).expect("session subject");
-    let issued = crate::auth::issue_session(
-        store,
-        subject,
-        crate::auth::SessionConfig::new(
-            SessionLifetime::from_seconds(3_600).expect("session lifetime"),
-            crate::auth::CookieTransport::LocalHttp,
-        ),
-    )
-    .await
-    .expect("session");
-    issued
-        .set_cookie
-        .split(';')
-        .next()
-        .expect("cookie pair")
-        .to_string()
-}
-
-async fn json(response: Response) -> serde_json::Value {
-    let bytes = to_bytes(response.into_body(), 256 * 1_024)
-        .await
-        .expect("response bytes");
-    serde_json::from_slice(&bytes).expect("JSON response")
-}
-
-fn post_json(path: &str, cookie: &str, body: serde_json::Value) -> Request<Body> {
-    Request::builder()
-        .method("POST")
-        .uri(path)
-        .header("cookie", cookie)
-        .header("content-type", "application/json")
-        .body(Body::from(body.to_string()))
-        .expect("request")
-}
-
-async fn active_attempt_for(
-    app: &Router,
-    assignment: AssignmentId,
-    cookie: &str,
-) -> QuestionAttempt {
-    let run_response = app
-        .clone()
-        .oneshot(post_json(
-            "/api/runs",
-            cookie,
-            serde_json::json!({ "assignmentId": assignment }),
-        ))
-        .await
-        .expect("start run response");
-    assert_eq!(run_response.status(), StatusCode::CREATED);
-    let run: AssignmentRun =
-        serde_json::from_value(json(run_response).await).expect("run contract");
-    let attempts_response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri(format!("/api/runs/{}/attempts", run.id))
-                .header("cookie", cookie)
-                .body(Body::empty())
-                .expect("attempt request"),
-        )
-        .await
-        .expect("attempt response");
-    assert_eq!(attempts_response.status(), StatusCode::OK);
-    let attempts: Page<QuestionAttempt> =
-        serde_json::from_value(json(attempts_response).await).expect("attempt page");
-    attempts.items.into_iter().next().expect("active attempt")
-}
-
-async fn next_active_attempt(app: &Router, run: RunId, cookie: &str) -> QuestionAttempt {
-    let response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri(format!("/api/runs/{run}/attempts"))
-                .header("cookie", cookie)
-                .body(Body::empty())
-                .expect("attempt list request"),
-        )
-        .await
-        .expect("attempt list response");
-    let attempts: Page<QuestionAttempt> =
-        serde_json::from_value(json(response).await).expect("attempt page");
-    attempts
-        .items
-        .into_iter()
-        .find(|attempt| attempt.response.is_none())
-        .expect("next active attempt")
 }

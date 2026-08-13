@@ -13,47 +13,13 @@ import {
   decodeQuestionAttempt,
   decodeQuestionDefinition,
   decodeQuestionEnvelope,
+  decodeIssuedPresentationEnvelope,
   decodeStudentResponse,
 } from "../src/api/decoders.ts";
 import { ApiProtocolError, ApiRequestError, createHttpApiClient } from "../src/api/http_client.ts";
-import { createMockFetch, issuedEnvelopeForAttempt } from "../src/api/mock/handlers.ts";
+import { createMockFetch, issuedQuestionWireForAttempt } from "../src/api/mock/handlers.ts";
 import { validateResponseFormatInMock } from "../src/api/mock/format_validation.ts";
-
-function jsonResponse(value, status = 200) {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8" },
-  });
-}
-
-function createFixtureFetch() {
-  const mockFetch = createMockFetch();
-  const requests = [];
-
-  async function fixtureFetch(input, init) {
-    const request = new Request(new URL(input.toString(), "https://client.example.test"), init);
-    requests.push(request.clone());
-    const url = new URL(request.url);
-    const path = url.pathname.replace(/^\/ple/, "");
-    if (path === "/api/validation/response-format") {
-      return jsonResponse({ violations: [] });
-    }
-    if (path === "/api/validation/timer") {
-      return jsonResponse("open");
-    }
-    if (path === "/api/validation/assignment-capabilities") {
-      return jsonResponse([]);
-    }
-    const body = request.method === "GET" ? undefined : await request.text();
-    return mockFetch(`${path}${url.search}`, {
-      method: request.method,
-      headers: request.headers,
-      body,
-    });
-  }
-
-  return { fixtureFetch, requests };
-}
+import { createFixtureFetch, jsonResponse } from "./http_client_test_support.mjs";
 
 test("question decoders reject published, grading, and provider-secret fields instead of dropping them", () => {
   const draft = publishedProblemFixture.draft;
@@ -121,6 +87,21 @@ test("external-tool response markers are exact and cannot carry browser provider
   }
 
   const attempt = structuredClone(publishedProblemFixture.attempts[0]);
+  assert.equal(decodeQuestionAttempt(attempt).issuedCapability, "flatPresentation");
+  delete attempt.issuedCapability;
+  assert.throws(
+    () => decodeQuestionAttempt(attempt),
+    DecodeError,
+    "attempts must retain their immutable issued capability",
+  );
+  attempt.issuedCapability = "flatPresentation";
+  attempt.issuedCapability = "legacyFallback";
+  assert.throws(
+    () => decodeQuestionAttempt(attempt),
+    DecodeError,
+    "attempt capabilities must reject unknown or legacy recovery values",
+  );
+  attempt.issuedCapability = "flatPresentation";
   attempt.response = { kind: "externalTool" };
   assert.deepEqual(decodeQuestionAttempt(attempt).response, { kind: "externalTool" });
   for (const forbidden of ["score", "correct", "result", "provider", "token", "launchUrl"]) {
@@ -212,6 +193,99 @@ test("new flat-family wire shapes are exact, answer-free, and coordinate-bounded
   );
 });
 
+test("issued presentation envelopes strictly project all learner families without private fields", () => {
+  const block = (markdown) => ({ kind: "text", markdown });
+  const choice = (id, label) => ({ id, body: [block(label)] });
+  const base = {
+    version: "0198e000-0000-7000-8000-000000000044",
+    seed: 4,
+    presentationNonce: "a".repeat(32),
+    title: "Issued learner presentation",
+    prompt: [block("Answer the question.")],
+  };
+  const cases = [
+    {
+      response: { kind: "singleChoice", choices: [choice("0001", "A"), choice("0002", "B")] },
+      expectedKind: "multipleChoice",
+    },
+    {
+      response: {
+        kind: "multipleAnswer",
+        choices: [choice("0003", "A"), choice("0004", "B")],
+        minimum: 1,
+        maximum: 2,
+      },
+      expectedKind: "multipleChoice",
+    },
+    { response: { kind: "fillIn", maxCharacters: 40 }, expectedKind: "shortText" },
+    {
+      response: {
+        kind: "multiFillIn",
+        blanks: [{ id: "0005", label: [block("Gene")], maxCharacters: 40 }],
+      },
+      expectedKind: "multiBlank",
+    },
+    {
+      response: { kind: "numerical", maxCharacters: 128, displayedUnit: "mol" },
+      expectedKind: "numeric",
+    },
+    {
+      response: {
+        kind: "matching",
+        prompts: [choice("0006", "DNA"), choice("0007", "RNA")],
+        choices: [choice("0008", "Deoxyribose"), choice("0009", "Ribose")],
+        reuseChoices: false,
+      },
+      expectedKind: "matching",
+    },
+    {
+      response: { kind: "ordering", items: [choice("000a", "First"), choice("000b", "Second")] },
+      expectedKind: "ordering",
+    },
+    {
+      response: {
+        kind: "hotspot",
+        surface: {
+          id: "000c",
+          asset: {
+            asset: "0198e000-0000-7000-8000-000000000045",
+            checksum: "b".repeat(64),
+          },
+          description: "A cell diagram",
+          regions: [
+            { label: [block("Nucleus")], x: 1000, y: 1000, width: 2000, height: 2000 },
+            { label: [block("Cytosol")], x: 6000, y: 6000, width: 2000, height: 2000 },
+          ],
+        },
+        minimum: 1,
+        maximum: 2,
+      },
+      expectedKind: "hotspot",
+    },
+  ];
+
+  for (const { response, expectedKind } of cases) {
+    assert.equal(
+      decodeIssuedPresentationEnvelope({ ...base, response }).response.kind,
+      expectedKind,
+    );
+    assert.throws(
+      () =>
+        decodeIssuedPresentationEnvelope({ ...base, response: { ...response, answer: "private" } }),
+      DecodeError,
+    );
+  }
+  assert.throws(
+    () =>
+      decodeIssuedPresentationEnvelope({
+        ...base,
+        presentationNonce: "A".repeat(32),
+        response: cases[0].response,
+      }),
+    DecodeError,
+  );
+});
+
 test("external-tool launch projection is exact and cannot redirect outside the origin", () => {
   const expected = {
     launchUrl: "/api/attempts/0198e000-0000-7000-8000-000000000030/external-tool/launch",
@@ -242,6 +316,7 @@ test("external-tool submissions use the protected child route and validate outbo
     },
     feedback: null,
     nextIssued: null,
+    nextPending: false,
   };
   const client = createHttpApiClient({
     fetch: async (input, init) => {
@@ -335,7 +410,7 @@ test("prefetch transport is a body-free same-origin POST and treats no successor
 test("prefetch transport rejects hostile descriptors before a page may cache them", async () => {
   const predecessor = publishedProblemFixture.attempts[0];
   assert.notEqual(predecessor, undefined, "fixture must include an attempt");
-  const envelope = issuedEnvelopeForAttempt(predecessor);
+  const envelope = issuedQuestionWireForAttempt(predecessor);
   const valid = {
     predecessor: predecessor.id,
     run: predecessor.run,
@@ -734,189 +809,6 @@ test("run-screen composition rejects an issued variant for another version or se
       (error) =>
         error instanceof ApiProtocolError &&
         error.message === "Run screen issued question does not match its attempt",
-    );
-  }
-});
-
-test("issued-question transport rejects a response that carries a server-only field", async () => {
-  const { fixtureFetch } = createFixtureFetch();
-  const client = createHttpApiClient({
-    fetch: async (input, init) => {
-      const response = await fixtureFetch(input, init);
-      if (input.toString().includes("/question")) {
-        const value = await response.json();
-        value.grading = { mode: "allOrNothing", points: 1 };
-        return jsonResponse(value);
-      }
-      return response;
-    },
-  });
-  await assert.rejects(
-    client.getIssuedQuestion(publishedProblemFixture.attempts.at(-1).id),
-    (error) =>
-      error instanceof DecodeError &&
-      error.message === "response.grading must be a field allowed by this response contract",
-  );
-});
-
-test("issued-question transport rejects answer material at every nested envelope record", async () => {
-  const hostileEnvelopes = [
-    {
-      name: "prompt text",
-      mutate: (envelope) => {
-        envelope.prompt[0].solution = "carbonyl";
-      },
-      path: "response.prompt[0].solution",
-    },
-    {
-      name: "math prompt",
-      mutate: (envelope) => {
-        envelope.prompt = [
-          {
-            kind: "math",
-            latex: "x",
-            description: "A variable.",
-            grading: { answer: "x" },
-          },
-        ];
-      },
-      path: "response.prompt[0].grading",
-    },
-    {
-      name: "code prompt",
-      mutate: (envelope) => {
-        envelope.prompt = [
-          { kind: "code", language: "text", source: "x", checker: "private-checker" },
-        ];
-      },
-      path: "response.prompt[0].checker",
-    },
-    {
-      name: "table prompt",
-      mutate: (envelope) => {
-        envelope.prompt = [
-          {
-            kind: "table",
-            headers: ["A"],
-            rows: [["x"]],
-            description: "A table.",
-            arbitrary: true,
-          },
-        ];
-      },
-      path: "response.prompt[0].arbitrary",
-    },
-    {
-      name: "image asset reference",
-      mutate: (envelope) => {
-        envelope.prompt = [
-          {
-            kind: "image",
-            asset: {
-              asset: "0198e000-0000-7000-8000-000000000010",
-              checksum: "0".repeat(64),
-              objectKey: "private/answer-key",
-            },
-            description: "A diagram.",
-          },
-        ];
-      },
-      path: "response.prompt[0].asset.objectKey",
-    },
-    {
-      name: "multiple-choice response",
-      mutate: (envelope) => {
-        envelope.response.correctChoiceId = "carbonyl";
-      },
-      path: "response.response.correctChoiceId",
-    },
-    {
-      name: "multiple-choice choice",
-      mutate: (envelope) => {
-        envelope.response.choices[0].answer = true;
-      },
-      path: "response.response.choices[0].answer",
-    },
-    {
-      name: "multiple-choice choice content",
-      mutate: (envelope) => {
-        envelope.response.choices[0].body[0].solution = "private";
-      },
-      path: "response.response.choices[0].body[0].solution",
-    },
-    {
-      name: "selection rule",
-      mutate: (envelope) => {
-        envelope.response.selection.grading = "allOrNothing";
-      },
-      path: "response.response.selection.grading",
-    },
-    {
-      name: "numeric response and tolerance",
-      mutate: (envelope) => {
-        envelope.response = {
-          kind: "numeric",
-          tolerance: { kind: "absolute", epsilon: 0.1, answer: 4 },
-          unit: null,
-        };
-      },
-      path: "response.response.tolerance.answer",
-    },
-    {
-      name: "short-text response",
-      mutate: (envelope) => {
-        envelope.response = {
-          kind: "shortText",
-          matchMode: "exact",
-          maxLength: 20,
-          checker: "private-checker",
-        };
-      },
-      path: "response.response.checker",
-    },
-    {
-      name: "ordering item",
-      mutate: (envelope) => {
-        envelope.response = {
-          kind: "ordering",
-          items: [{ id: "first", body: [], solution: 0 }],
-        };
-      },
-      path: "response.response.items[0].solution",
-    },
-    {
-      name: "file-upload response",
-      mutate: (envelope) => {
-        envelope.response = {
-          kind: "fileUpload",
-          maxBytes: 1,
-          acceptedExtensions: [".txt"],
-          arbitrary: "private",
-        };
-      },
-      path: "response.response.arbitrary",
-    },
-  ];
-
-  for (const hostile of hostileEnvelopes) {
-    const { fixtureFetch } = createFixtureFetch();
-    const client = createHttpApiClient({
-      fetch: async (input, init) => {
-        const response = await fixtureFetch(input, init);
-        if (input.toString().includes("/question")) {
-          const value = await response.json();
-          hostile.mutate(value);
-          return jsonResponse(value);
-        }
-        return response;
-      },
-    });
-    await assert.rejects(
-      client.getIssuedQuestion(publishedProblemFixture.attempts.at(-1).id),
-      (error) =>
-        error instanceof DecodeError &&
-        error.message === `${hostile.path} must be a field allowed by this response contract`,
-      hostile.name,
     );
   }
 });

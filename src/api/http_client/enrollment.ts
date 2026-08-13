@@ -8,6 +8,7 @@ import {
   decodeClaimedCourseInvitation,
   decodeCourseEnrollmentPolicyResult,
   decodeCourseInvitationAccepted,
+  decodeLocalTeachingMemberAccepted,
   decodeCourseRosterPage,
   decodeEmailAuthenticationAccepted,
   decodePasskeyAuthenticated,
@@ -274,6 +275,21 @@ export function createEnrollmentClient(
         }`,
         decodeCourseRosterPage,
       ),
+    addLocalTeachingMember: async (
+      courseId,
+      learnerAlias,
+    ): ReturnType<CourseRosterClient["addLocalTeachingMember"]> => {
+      const path = `/api/courses/${encodedId(courseId)}/local-teaching-members`;
+      const result = await rosterMutation(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeLocalTeachingMemberAccepted,
+        { method: "POST", body: { learnerAlias } },
+      );
+      verifyNumericEtag(result.response, result.body.rosterRevision, path);
+      return result.body;
+    },
     inviteCourseMember: async (
       courseId,
       email,

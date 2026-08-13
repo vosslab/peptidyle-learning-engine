@@ -184,32 +184,35 @@ redacted mapping from presentation-scoped rendered item IDs to upstream fields a
 mapping is tenant-owned, validated, RLS-protected, and never serialized to the
 browser or cache.
 
-The normal run route now threads that private mapping from
+Issued native-flat and WeBWorK attempts also retain checksummed, server-only
+first-grade contracts. A first grade validates its family-owned contract and
+fails unavailable if required material is absent or corrupt; it does not reread
+a current catalog definition, private flat grader, or renderer to repair an
+earlier issuance.
+
+The normal run route threads that private mapping from
 `WebworkIssuedAttempt` through `IssuedAttemptMetadata`, prefetch promotion, and
-attempt persistence. It translates durable adapter choice identities to
-rendered item IDs before storage, reloads and cross-checks the replay row
-against its owning attempt, reproduces the safe cached envelope without a
-renderer call, and performs one private grade RPC. Successful submission and
-terminal instructor action delete the replay row in the same Store transaction.
+attempt persistence. It stores a checksummed public presentation snapshot and
+matching server-only grading envelope, then translates browser-rendered IDs
+through that protected envelope before one private grade RPC. Submitted reads
+and retries cross-check those persisted artifacts against their owning attempt;
+they do not reproduce a safe envelope or call a renderer. Successful
+submission and terminal instructor action delete the replay row in the same
+Store transaction.
 
 This is an implemented offline slice, not acceptance of WP-P1 through WP-P6.
 The following remain planned integration and acceptance work:
 
-- submit the public presentation digest and fail closed before grading when it
-  disagrees with the stored attempt binding;
-- replace the current durable-choice compatibility response with rendered item
-  IDs at the public decoder;
-- persist a validated self-heal after the bounded legacy missing-row rerender;
 - prove the one-call path against disposable PostgreSQL and the private live renderer; and
 - expose `LearnerRunScreenV1` and its compact, type-free answer wire as the
   browser's authoritative active-attempt route.
 
 The approved integration sequence and acceptance criteria live in
 [`docs/active_plans/decisions/secure_question_grading_payload_plan.md`](active_plans/decisions/secure_question_grading_payload_plan.md).
-Until that cutover completes, current submission is still the legacy tagged
-`StudentResponse` body and does not carry a presentation digest. Server-side
-response-shape validation nevertheless uses the reproduced issued envelope,
-not an untrusted browser-selected question type.
+Until the compact learner wire cuts over, submission is still the tagged
+`StudentResponse` body. Server-side response-shape validation uses the
+checksummed issued snapshot and translates through its server-only grading
+envelope, not an untrusted browser-selected question type or mutable renderer.
 
 ## Prefetch and replay
 
@@ -241,17 +244,19 @@ cargo test -p domain --test test_determinism -- --nocapture
 # Presentation descriptor, nonce, collision, and public-rebuild rules.
 cargo test -p question_model presentation
 
-# Native and generated-Node execution of flat-v2 public response cases.
+# Native and generated-Node execution of the shared answer-free flat-v2 response corpus.
 cargo test -p wasm_bridge --test flat_v2_response_format_native
 ./pipeline/build_wasm.sh
 node tests/e2e/e2e_wasm_bridge.mjs
 
-# Browser execution of deterministic and flat-v2 public-response cases.
+# Browser execution of deterministic vectors and that same flat-v2 response corpus.
 ./devel/setup_wasm_tests.sh
 node tests/playwright/e2e_wasm_determinism.mjs
 ```
 
-These Wasm gates prove generated-parameter and key-free public-response parity,
+The fixed corpus is `crates/wasm/flat_v2_response_format_corpus.json`; native Rust,
+generated Node bindings, and browser Wasm consume it unchanged. These Wasm gates prove
+generated-parameter and key-free public-response parity,
 not end-to-end submission digest enforcement. Do not claim the planned compact
 payload or one-RPC WeBWorK grade behavior from these checks. Those require the
 payload-plan integration gates, Store conformance, private-renderer

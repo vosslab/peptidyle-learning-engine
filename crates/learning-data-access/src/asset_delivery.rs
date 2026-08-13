@@ -1,7 +1,7 @@
 //! Immutable asset registration and protected-delivery authorization.
 
 use async_trait::async_trait;
-use objects::{Bucket, ObjectRecord};
+use objects::{Bucket, ObjectRecord, Sha256Digest};
 use question_model::{
     ActivityTimestamp, AssetId, CourseBannerId, CourseId, ObjectId, ProblemVersionRef, TenantId,
     UserId,
@@ -99,6 +99,15 @@ pub struct AssetDeliveryRecord {
     pub id: AssetDeliveryId,
     /// Immutable metadata returned after object bytes were written.
     pub object: ObjectRecord,
+    /// Measured raster dimensions when this immutable rendition is an image.
+    ///
+    /// The values are registered with the exact delivery record rather than
+    /// inferred from object storage during issuance or receipt replay.
+    #[serde(default)]
+    pub intrinsic_width: Option<u32>,
+    /// Measured raster dimensions paired with [`Self::intrinsic_width`].
+    #[serde(default)]
+    pub intrinsic_height: Option<u32>,
     /// Visibility and ownership linkage checked on every protected request.
     pub scope: AssetDeliveryScope,
 }
@@ -108,12 +117,20 @@ pub struct AssetDeliveryRecord {
 /// This is an internal storage result used while reproducing a server-issued
 /// question attempt. It deliberately omits object metadata and delivery
 /// authorization because neither belongs in browser question delivery.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CatalogAssetBinding {
     /// Browser-safe logical asset referenced by immutable authored content.
     pub asset: AssetId,
     /// Exact immutable object selected when this version was published.
     pub object: ObjectId,
+    /// SHA-256 of the immutable rendition selected at publication.
+    pub rendition_checksum: Sha256Digest,
+    /// Media type registered for the immutable rendition.
+    pub media_type: String,
+    /// Measured raster width, present only for image deliveries.
+    pub intrinsic_width: Option<u32>,
+    /// Measured raster height, paired with [`Self::intrinsic_width`].
+    pub intrinsic_height: Option<u32>,
 }
 
 /// Audit payload appended before a protected signed URL is requested.

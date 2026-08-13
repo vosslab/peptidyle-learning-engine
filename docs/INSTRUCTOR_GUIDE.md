@@ -1,8 +1,9 @@
 # Instructor guide
 
-This guide follows the supported local no-email teaching loop: create a course, add the configured
-local student, build a Mastery assignment from the published problem corpus, and confirm learning in
-the gradebook. Start the local system first with [USAGE.md](USAGE.md).
+This guide follows the supported local no-email teaching loop: create a course, add a configured
+fictional student through a visible roster control, build a timed Mastery assignment from the
+published problem corpus, and confirm learning in the gradebook. Start the local system first with
+[USAGE.md](USAGE.md).
 
 All people and course records shown in these captures are simulated. The fixed labels
 `Dr. Fake Professor`, `Mary Fake Student`, and `Jack Fake Student` are intentionally unmistakable
@@ -27,8 +28,8 @@ placeholders.
 
 - Launch the normal local stack and open its loopback URL.
 - Use the instructor value from the ignored `containers/local-login.txt` file.
-- Keep the configured local learner alias available for the roster step.
-- Use local-development identity only for this pilot. It does not require or test email delivery.
+- Use local-development identity only for this pilot. It does not require, configure, or test email
+  delivery. Fastmail is a future provider decision, not a configured part of this teaching loop.
 
 ## Create a course
 
@@ -43,24 +44,34 @@ arrangement.
 ## Add the local student
 
 1. Open **Students** from the course navigation.
-2. Enter the configured local learner alias.
-3. Activate **Add active student**.
-4. Confirm the focused roster row reports **Local pilot** and **active**.
+2. Activate **Add Mary Fake Student**. The page also offers **Add Jack Fake Student** when a second
+   simulated learner is useful.
+3. Confirm that the focused roster row reports **active**.
 
-This narrow roster seam exists for local teaching pilots. Production enrollment and email identity
-remain separate work.
+These buttons resolve only the configured local fictional learners and add canonical course
+membership. They are intentionally not an alias-entry, invitation, or email-activation workflow.
+Production enrollment and email identity remain separate work.
 
 ## Build an assignment
 
 1. Return to the course and open **New assignment**.
 2. Enter the assignment title.
-3. Search the published problem corpus.
-4. Add the intended immutable published version.
-5. Confirm **All correct**, **Highest**, and **Unlimited** policies.
-6. Activate **Create assignment** and open the resulting course assignment.
+3. In **Published problem catalog**, find each of the four Genetics Chapter 1 questions. Confirm
+   its visible human-readable identity has the form `P-<number>-v<version>`, then use **Copy ID**.
+4. Paste all four copied IDs, one per line or comma-separated, into **Add by question ID** and
+   activate its add button. This is a multi-ID paste: do not substitute UUIDs or add questions one
+   at a time from a private tool.
+5. Confirm the selected list contains exactly those four immutable published versions: WeBWorK MC,
+   WeBWorK MATCH, PLE flat MC, and PLE flat MATCH.
+6. Confirm **All questions correct**, **Highest run score**, and **Allow unlimited practice**.
+7. In **Time limit for each practice run**, leave **Timed** selected and confirm **Minutes per
+   practice run** is `15`.
+8. Activate **Create assignment** and open the resulting course assignment.
 
-Only corpus publication is arranged outside the browser. Course creation, roster activation, and
-assignment construction use visible instructor controls.
+Only corpus publication is arranged outside the browser. Course creation, roster activation, ID
+copy/paste, exact-version selection, timing, and assignment construction use visible instructor
+controls. If an ID is malformed, unavailable, unauthorized, or already selected, the editor keeps
+the pasted text and selected questions unchanged so it can be corrected and tried again.
 
 ## Review learning
 

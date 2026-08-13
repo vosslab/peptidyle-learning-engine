@@ -33,13 +33,13 @@ impl crate::FeedbackStore for MemoryStore {
         if !state.submissions.contains_key(&(tenant, command.attempt)) {
             return Err(StoreError::NotFound);
         }
-        let question = state
-            .published
-            .get(&(attempt.problem, attempt.question_version))
-            .ok_or(StoreError::NotFound)?;
-        if question.question.attempt_policy.feedback
-            != question_model::run_policy::FeedbackDisclosure::OnRelease
-        {
+        let disclosure = *state
+            .attempt_feedback_disclosures
+            .get(&(tenant, command.attempt))
+            .ok_or_else(|| {
+                StoreError::Unavailable("issued feedback disclosure is missing".to_string())
+            })?;
+        if disclosure != question_model::run_policy::FeedbackDisclosure::OnRelease {
             return Err(StoreError::InvalidRecord(
                 "feedback release requires an on-release question policy".to_string(),
             ));
@@ -168,10 +168,12 @@ impl crate::FeedbackStore for MemoryStore {
                 .submissions
                 .get(&(tenant, attempt.id))
                 .map(|stored| &stored.record);
-            let published = state
-                .published
-                .get(&(attempt.problem, attempt.question_version))
-                .ok_or(StoreError::NotFound)?;
+            let feedback_policy = *state
+                .attempt_feedback_disclosures
+                .get(&(tenant, attempt.id))
+                .ok_or_else(|| {
+                    StoreError::Unavailable("issued feedback disclosure is missing".to_string())
+                })?;
             rows.push((
                 key,
                 RunSummaryOutcomeInput {
@@ -180,7 +182,7 @@ impl crate::FeedbackStore for MemoryStore {
                     submitted_at: current.timer.submitted_at,
                     response: current.response.clone(),
                     result: current.result,
-                    feedback_policy: published.question.attempt_policy.feedback,
+                    feedback_policy,
                     feedback: submitted.map(|record| record.feedback.clone()),
                     release: state.feedback_releases.get(&(tenant, current.id)).cloned(),
                 },

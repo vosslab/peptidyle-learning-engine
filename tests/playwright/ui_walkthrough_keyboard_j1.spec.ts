@@ -124,6 +124,9 @@ test("J1 student reaches visible feedback and the next question in the instructo
   if (documentationScreenshotsEnabled(inputs.screenshotDirectory)) {
     await expect(page.getByRole("timer")).not.toHaveText("Untimed");
   }
+  const firstResponse = page.locator('input[type="radio"]:visible').first();
+  await tabTo(page, firstResponse);
+  await expect(firstResponse).toBeFocused();
   await captureDocumentationScreenshot(
     page,
     "student_timed_problem.png",

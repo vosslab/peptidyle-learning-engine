@@ -1,8 +1,10 @@
 //! Native half of the flat-v2 public-response/Wasm-boundary parity gate.
 //!
-//! The inline corpus deliberately contains only compiled, answer-free response
+//! The shared corpus deliberately contains only compiled, answer-free response
 //! definitions. Parsing source documents or grading them here would pull the
 //! server-only flat adapter and answer keys into the browser boundary.
+
+use serde_json::Value;
 
 #[path = "flat_v2_response_corpus.rs"]
 mod flat_v2_response_corpus;

@@ -1,17 +1,23 @@
 // flat_question_editor_page.tsx - private instructor surface for flat-question authoring.
 
-import { For, Show, createEffect, createMemo, createSignal, onMount, type JSX } from "solid-js";
+import { For, Show, batch, createEffect, createSignal, onMount, type JSX } from "solid-js";
 
 import type { PublicationScope } from "../../../generated/api/PublicationScope";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import type { ApiClient } from "../../api/client";
+import type { WasmFacade } from "../../wasm/index";
 import { FlatChoiceList } from "./flat_choice_list";
 import { FlatFeedbackFields } from "./flat_feedback_fields";
+import { hotspotSourceFromAsset } from "./flat_hotspot_editor_model";
+import { FlatQuestionAdvancedResponseFields } from "./flat_question_advanced_response_fields";
 import {
   addChoice,
+  addMatchingPair,
   initialFlatQuestionEditorState,
   reduceFlatQuestionEditor,
   removeChoice,
+  removeMatchingPair,
+  reorderMatchingItems,
   reorderChoices,
   setAttemptPolicy,
   setChoiceFeedback,
@@ -21,16 +27,22 @@ import {
   setFlatQuestionPrompt,
   setFlatQuestionTitle,
   setLanguage,
+  setMatchingItemText,
+  setMatchingPair,
   setLicense,
   setOutcomeFeedback,
   setTags,
   setTaxonomy,
   setTimingPolicy,
+  setFlatQuestionResponseKind,
   validateFlatQuestionSource,
+  type FlatQuestionEditorAction,
   type FlatQuestionEditorState,
 } from "./flat_question_editor_model";
 import { FLAT_QUESTION_EDITOR_STYLES } from "./flat_question_editor_styles";
 import { FlatMetadataFields } from "./flat_metadata_fields";
+import { FlatMatchingEditor } from "./flat_matching_editor";
+import { parseNumericLiteral } from "./flat_numeric_model";
 import { FlatPolicyFields } from "./flat_policy_fields";
 import { flatQuestionPublicPreview } from "./flat_question_public_preview";
 import { FlatQuestionPreview } from "./flat_question_preview";
@@ -39,7 +51,12 @@ import {
   type FlatQuestionRepository,
 } from "./flat_question_repository";
 import type { FlatQuestionRead } from "./flat_question_client";
-import type { FlatQuestionSourceV2 } from "./flat_question_source";
+import type {
+  FlatQuestionAssetClient,
+  FlatQuestionAssetDescriptor,
+} from "./flat_question_asset_client";
+import type { FlatQuestionHotspotResponse, FlatQuestionSourceV2 } from "./flat_question_source";
+import type { FlatQuestionInstructorAnswerCheck } from "./flat_question_preview";
 
 export interface FlatQuestionEditorPageProps {
   readonly workspace: WorkspaceId;
@@ -47,6 +64,10 @@ export interface FlatQuestionEditorPageProps {
   readonly repository: FlatQuestionRepository;
   /** The ordinary browser client supplies only answer-free publication review data. */
   readonly api: Pick<ApiClient, "validateWorkspacePublication" | "getWorkspacePublicationDiff">;
+  /** Injected browser-safe validator keeps preview on the same learner ResponseWidget path. */
+  readonly responseValidator: Pick<WasmFacade, "validateResponseFormat">;
+  /** Protected image metadata client; absent only in a deliberately limited embedded fixture. */
+  readonly assetClient?: FlatQuestionAssetClient;
   /** Same-route QTI conversion may move focus into the newly replaced draft. */
   readonly focusHeadingOnMount?: boolean;
   /** Clears the route's one-shot focus request after the unlocked heading receives it. */
@@ -97,22 +118,241 @@ function fieldErrors(source: FlatQuestionSourceV2 | null): Readonly<Record<strin
   return Object.fromEntries(validation.issues.map((issue) => [issue.field, issue.message]));
 }
 
-function answerCheck(source: FlatQuestionSourceV2): {
-  readonly correctChoiceId: string;
-  readonly correctChoiceText: string;
-  readonly correctFeedback: string | null;
-  readonly incorrectFeedback: string | null;
-} | null {
-  const correct = source.response.choices.find(
-    (choice) => choice.id === source.response.correctChoice,
-  );
+function answerCheck(source: FlatQuestionSourceV2): FlatQuestionInstructorAnswerCheck | null {
+  const response = source.response;
+  if (response.kind === "multipleAnswer") {
+    const correctChoiceTexts = response.choices
+      .filter((choice) => response.correctChoices.includes(choice.id))
+      .map((choice) => choice.text);
+    return correctChoiceTexts.length === 0 ? null : { kind: "multipleAnswer", correctChoiceTexts };
+  }
+  if (response.kind === "fillIn") {
+    return { kind: "fillIn", answers: response.answers, matchMode: response.matchMode };
+  }
+  if (response.kind === "multiFillIn") {
+    return {
+      kind: "multiFillIn",
+      blanks: response.blanks.map((blank) => ({ label: blank.label, answers: blank.answers })),
+    };
+  }
+  if (response.kind === "numeric") {
+    return {
+      kind: "numeric",
+      answer: response.answer,
+      tolerance: response.tolerance,
+      unit: response.unit,
+    };
+  }
+  if (response.kind === "ordering") {
+    const items = response.correctOrder.map((id) => response.items.find((item) => item.id === id));
+    if (items.some((item) => item === undefined)) return null;
+    return {
+      kind: "ordering",
+      items: items.filter(
+        (item): item is { readonly id: string; readonly text: string } => item !== undefined,
+      ),
+    };
+  }
+  if (response.kind === "matching") {
+    const prompts = new Map(response.prompts.map((item) => [item.id, item.text]));
+    const choices = new Map(response.choices.map((item) => [item.id, item.text]));
+    const pairs = response.matches.map((pair) => {
+      const prompt = prompts.get(pair.prompt);
+      const choice = choices.get(pair.choice);
+      return prompt === undefined || choice === undefined ? null : ([prompt, choice] as const);
+    });
+    if (pairs.some((pair) => pair === null)) return null;
+    return {
+      kind: "matching",
+      pairs: pairs.filter((pair): pair is readonly [string, string] => pair !== null),
+    };
+  }
+  if (response.kind !== "singleChoice") return null;
+  const correct = response.choices.find((choice) => choice.id === response.correctChoice);
   if (correct === undefined) return null;
   return {
-    correctChoiceId: correct.id,
+    kind: "singleChoice",
     correctChoiceText: correct.text,
     correctFeedback: source.feedback.correct,
     incorrectFeedback: source.feedback.incorrect,
   };
+}
+
+function singleChoiceResponse(
+  source: FlatQuestionSourceV2,
+): Extract<FlatQuestionSourceV2["response"], { readonly kind: "singleChoice" }> | null {
+  return source.response.kind === "singleChoice" ? source.response : null;
+}
+
+function matchingResponse(
+  source: FlatQuestionSourceV2,
+): Extract<FlatQuestionSourceV2["response"], { readonly kind: "matching" }> | null {
+  return source.response.kind === "matching" ? source.response : null;
+}
+
+function isEditableResponseKind(
+  value: string,
+): value is Exclude<FlatQuestionSourceV2["response"]["kind"], "hotspot"> {
+  return (
+    value === "singleChoice" ||
+    value === "multipleAnswer" ||
+    value === "fillIn" ||
+    value === "multiFillIn" ||
+    value === "numeric" ||
+    value === "matching" ||
+    value === "ordering"
+  );
+}
+
+function FlatQuestionResponseFields(props: {
+  readonly source: () => FlatQuestionSourceV2;
+  readonly fieldErrors: Readonly<Record<string, string>>;
+  readonly disabled: boolean;
+  readonly numericAnswerLiteral: () => string;
+  readonly onNumericAnswerLiteralChange: (literal: string) => void;
+  readonly onEdit: (source: FlatQuestionSourceV2) => void;
+  readonly onMoveChoice: (choiceId: string, direction: "up" | "down") => void;
+  readonly onStatus: (message: string) => void;
+  readonly selectedKind: () => FlatQuestionSourceV2["response"]["kind"];
+  readonly hotspotResponse: () => FlatQuestionHotspotResponse | null;
+  readonly pendingHotspotDescription: () => string;
+  readonly assetClient: FlatQuestionAssetClient | undefined;
+  readonly workspace: WorkspaceId;
+  readonly onChooseHotspot: () => void;
+  readonly onSelectHotspotAsset: (asset: FlatQuestionAssetDescriptor) => void;
+  readonly onPendingHotspotDescriptionChange: (description: string) => void;
+  readonly onChooseOrdinaryFormat: () => void;
+}): JSX.Element {
+  const responseKind = props.selectedKind;
+  function chooseFormat(kind: Exclude<FlatQuestionSourceV2["response"]["kind"], "hotspot">): void {
+    props.onEdit(setFlatQuestionResponseKind(props.source(), kind));
+  }
+  return (
+    <>
+      <label class="flat-question-authoring__field">
+        <span>Question format</span>
+        <select
+          value={responseKind()}
+          disabled={props.disabled}
+          onChange={(event) => {
+            const kind = event.currentTarget.value;
+            if (isEditableResponseKind(kind)) {
+              props.onChooseOrdinaryFormat();
+              chooseFormat(kind);
+            } else if (kind === "hotspot") props.onChooseHotspot();
+          }}
+        >
+          <option value="singleChoice">Multiple choice (one answer)</option>
+          <option value="multipleAnswer">Multiple answer (select all)</option>
+          <option value="fillIn">Fill in the blank</option>
+          <option value="multiFillIn">Multiple fill in the blank</option>
+          <option value="numeric">Numerical entry</option>
+          <option value="matching">Matching pairs</option>
+          <option value="ordering">Ordered list</option>
+          <option value="hotspot">Image hotspot</option>
+        </select>
+        <span class="flat-question-authoring__help">
+          Choose the learner task first. Changing the format starts a valid private draft for that
+          format. Image hotspot starts with a verified image and learner-facing description.
+        </span>
+      </label>
+      <Show when={responseKind() === "singleChoice"}>
+        {(_isSingleChoice) => (
+          <FlatChoiceList
+            choices={singleChoiceResponse(props.source())?.choices ?? []}
+            correctChoice={singleChoiceResponse(props.source())?.correctChoice ?? ""}
+            fieldErrors={props.fieldErrors}
+            disabled={props.disabled}
+            onChoiceChange={(id, patch) => {
+              const next =
+                patch.text === undefined
+                  ? setChoiceFeedback(props.source(), id, patch.feedback ?? null)
+                  : setChoiceText(props.source(), id, patch.text);
+              if (next.changed) props.onEdit(next.source);
+            }}
+            onCorrectChoiceChange={(id) => {
+              const next = setCorrectChoice(props.source(), id);
+              if (next.changed) props.onEdit(next.source);
+            }}
+            onAddChoice={() => {
+              const next = addChoice(props.source());
+              if (next.changed) props.onEdit(next.source);
+            }}
+            onRemoveChoice={(id) => {
+              const next = removeChoice(props.source(), id);
+              if (next.changed) props.onEdit(next.source);
+            }}
+            onMoveChoice={props.onMoveChoice}
+          />
+        )}
+      </Show>
+      <Show when={responseKind() === "matching"}>
+        {(_isMatching) => (
+          <FlatMatchingEditor
+            prompts={matchingResponse(props.source())?.prompts ?? []}
+            choices={matchingResponse(props.source())?.choices ?? []}
+            matches={matchingResponse(props.source())?.matches ?? []}
+            fieldErrors={props.fieldErrors}
+            disabled={props.disabled}
+            onPromptTextChange={(id, text) => {
+              const next = setMatchingItemText(props.source(), "prompts", id, text);
+              if (next.changed) props.onEdit(next.source);
+            }}
+            onChoiceTextChange={(id, text) => {
+              const next = setMatchingItemText(props.source(), "choices", id, text);
+              if (next.changed) props.onEdit(next.source);
+            }}
+            onMatchChange={(prompt, choice) => {
+              const next = setMatchingPair(props.source(), prompt, choice);
+              if (next.changed) props.onEdit(next.source);
+            }}
+            onAddPair={() => {
+              const next = addMatchingPair(props.source());
+              if (next.changed) props.onEdit(next.source);
+            }}
+            onRemovePair={(prompt) => {
+              const next = removeMatchingPair(props.source(), prompt);
+              if (next.changed) props.onEdit(next.source);
+              else if (next.error !== null) props.onStatus(next.error);
+            }}
+            onMoveItem={(side, id, direction) => {
+              const response = matchingResponse(props.source());
+              if (response === null) return;
+              const items = response[side];
+              const index = items.findIndex((item) => item.id === id);
+              const other = direction === "earlier" ? index - 1 : index + 1;
+              if (index < 0 || other < 0 || other >= items.length) return;
+              const ordered = items.map((item) => item.id);
+              const displaced = ordered[other];
+              if (displaced === undefined) return;
+              ordered[other] = id;
+              ordered[index] = displaced;
+              const next = reorderMatchingItems(props.source(), side, ordered);
+              if (next.changed) props.onEdit(next.source);
+              else if (next.error !== null) props.onStatus(next.error);
+            }}
+            onStatus={props.onStatus}
+          />
+        )}
+      </Show>
+      <FlatQuestionAdvancedResponseFields
+        source={props.source}
+        fieldErrors={props.fieldErrors}
+        disabled={props.disabled}
+        numericAnswerLiteral={props.numericAnswerLiteral}
+        onNumericAnswerLiteralChange={props.onNumericAnswerLiteralChange}
+        onEdit={props.onEdit}
+        onStatus={props.onStatus}
+        selectedKind={responseKind}
+        hotspotResponse={props.hotspotResponse}
+        pendingHotspotDescription={props.pendingHotspotDescription}
+        assetClient={props.assetClient}
+        workspace={props.workspace}
+        onSelectHotspotAsset={props.onSelectHotspotAsset}
+        onPendingHotspotDescriptionChange={props.onPendingHotspotDescriptionChange}
+      />
+    </>
+  );
 }
 
 function isPublicationScope(value: string): value is PublicationScope {
@@ -140,8 +380,56 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
   let reviewRequestGeneration = 0;
   let headingFocusDelivered = false;
 
-  const source = createMemo(() => sourceFrom(state()));
-  const errors = createMemo(() => fieldErrors(source()));
+  // The draft accessor is the sole render-time source. Each reducer transition updates this
+  // projection together with workflow state, so a mounted response editor never captures a stale
+  // response-family branch.
+  const [source, setSource] = createSignal<FlatQuestionSourceV2 | null>(null);
+  // Numeric source values are numbers. This local literal is intentionally separate so partially
+  // typed values such as "6.02e" remain visible without replacing the last valid source value.
+  const [numericAnswerLiteral, setNumericAnswerLiteral] = createSignal("0");
+  // HOTSPOT remains local until a verified descriptor and a useful learner description can make
+  // a valid persisted source. This prevents a placeholder asset from entering a draft.
+  const [hotspotPending, setHotspotPending] = createSignal(false);
+  const [pendingHotspotAsset, setPendingHotspotAsset] =
+    createSignal<FlatQuestionAssetDescriptor | null>(null);
+  const [pendingHotspotDescription, setPendingHotspotDescription] = createSignal("");
+  let displayedResponseKind: FlatQuestionSourceV2["response"]["kind"] | null = null;
+  function currentSource(): FlatQuestionSourceV2 {
+    const draft = source();
+    if (draft === null) throw new Error("The private draft is unavailable.");
+    return draft;
+  }
+  const numericLiteralError = (): string | undefined => {
+    const current = source();
+    if (current?.response.kind !== "numeric") return undefined;
+    return parseNumericLiteral(numericAnswerLiteral()) === null
+      ? "Finish the numeric value, for example 6.02e23, before saving or reviewing publication."
+      : undefined;
+  };
+  const errors = (): Readonly<Record<string, string>> => {
+    const base = fieldErrors(source());
+    const numericError = numericLiteralError();
+    return numericError === undefined ? base : { ...base, "response.answer": numericError };
+  };
+  createEffect(() => {
+    const next = source();
+    const nextKind = next?.response.kind ?? null;
+    if (next?.response.kind === "numeric" && displayedResponseKind !== "numeric") {
+      setNumericAnswerLiteral(String(next.response.answer));
+    }
+    displayedResponseKind = nextKind;
+  });
+  function transition(action: FlatQuestionEditorAction): void {
+    const next = reduceFlatQuestionEditor(state(), action);
+    batch(() => {
+      setState(next);
+      setSource(sourceFrom(next));
+      const nextSource = sourceFrom(next);
+      if (action.kind !== "edit" && nextSource?.response.kind === "numeric") {
+        setNumericAnswerLiteral(String(nextSource.response.answer));
+      }
+    });
+  }
   const isBusy = (): boolean => {
     const current = state();
     return (
@@ -155,14 +443,21 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
     isBusy() || isConflict() || state().kind === "error" || props.replacementPending === true;
   const canSave = (): boolean => {
     const current = state();
-    return current.kind === "ready" && current.status === "dirty";
+    return (
+      current.kind === "ready" &&
+      current.status === "dirty" &&
+      numericLiteralError() === undefined &&
+      !hotspotPending()
+    );
   };
   const isSaved = (): boolean => {
     const current = state();
     return (
-      (current.kind === "ready" && current.status === "clean") ||
-      current.kind === "publishReview" ||
-      current.kind === "publishing"
+      ((current.kind === "ready" && current.status === "clean") ||
+        current.kind === "publishReview" ||
+        current.kind === "publishing") &&
+      numericLiteralError() === undefined &&
+      !hotspotPending()
     );
   };
 
@@ -204,7 +499,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
   }
 
   onMount(() => {
-    setState(reduceFlatQuestionEditor(state(), { kind: "loaded", source: props.initial.source }));
+    transition({ kind: "loaded", source: props.initial.source });
   });
 
   function applyEdit(next: FlatQuestionSourceV2): void {
@@ -213,69 +508,123 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
     setShowInstructorCheck(false);
     setReview(null);
     setStatus(null);
-    setState(reduceFlatQuestionEditor(state(), { kind: "edit", source: next }));
+    transition({ kind: "edit", source: next });
+  }
+
+  function selectHotspotFormat(): void {
+    if (isLocked()) return;
+    setHotspotPending(true);
+    setPendingHotspotAsset(null);
+    setPendingHotspotDescription("");
+    setShowInstructorCheck(false);
+    setReview(null);
+    setStatus("Choose a verified image and describe it before the hotspot draft can be saved.");
+  }
+
+  function selectOrdinaryFormat(): void {
+    setHotspotPending(false);
+    setPendingHotspotAsset(null);
+    setPendingHotspotDescription("");
+  }
+
+  function hotspotResponse(): FlatQuestionHotspotResponse | null {
+    const current = source();
+    return current?.response.kind === "hotspot" ? current.response : null;
+  }
+
+  function selectHotspotAsset(asset: FlatQuestionAssetDescriptor): void {
+    const current = source();
+    if (current === null || isLocked()) return;
+    setPendingHotspotAsset(asset);
+    const description = pendingHotspotDescription();
+    if (description.trim() === "") {
+      setStatus(
+        "Describe the image for learners, then the verified image will become this hotspot draft.",
+      );
+      return;
+    }
+    applyEdit(hotspotSourceFromAsset(current, asset, description));
+    setHotspotPending(false);
+    setStatus("Verified image selected. Define the labeled regions before saving.");
+  }
+
+  function updatePendingHotspotDescription(description: string): void {
+    setPendingHotspotDescription(description);
+    const asset = pendingHotspotAsset();
+    const current = source();
+    if (asset === null || current === null || description.trim() === "" || isLocked()) return;
+    applyEdit(hotspotSourceFromAsset(current, asset, description));
+    setHotspotPending(false);
+    setStatus("Verified image selected. Define the labeled regions before saving.");
+  }
+
+  function updateNumericAnswerLiteral(literal: string): void {
+    setNumericAnswerLiteral(literal);
+    const current = source();
+    if (current === null || current.response.kind !== "numeric") return;
+    const answer = parseNumericLiteral(literal);
+    if (answer === null) return;
+    applyEdit({ ...current, response: { ...current.response, answer } });
   }
 
   async function save(): Promise<void> {
     const current = source();
     if (current === null || !canSave() || isLocked()) return;
+    if (numericLiteralError() !== undefined) {
+      setStatus("Finish the numeric value before saving.");
+      return;
+    }
     const validation = validateFlatQuestionSource(current);
     if (!validation.valid) {
       setStatus("Correct the highlighted question details before saving.");
       return;
     }
     setStatus("Saving private draft...");
-    setState(reduceFlatQuestionEditor(state(), { kind: "saveStarted" }));
+    transition({ kind: "saveStarted" });
     try {
       const result = await props.repository.save(props.workspace, current);
       setLatestRevision(result.revision);
-      setState(reduceFlatQuestionEditor(state(), { kind: "saveSucceeded" }));
+      transition({ kind: "saveSucceeded" });
       setStatus("Private draft saved. It is not published.");
     } catch (error: unknown) {
       if (error instanceof FlatQuestionStaleConflictError) {
         setShowInstructorCheck(false);
-        setState(reduceFlatQuestionEditor(state(), { kind: "saveConflict" }));
+        transition({ kind: "saveConflict" });
         setStatus("A newer draft exists. Your local edits are still shown below.");
         return;
       }
-      setState(
-        reduceFlatQuestionEditor(state(), {
-          kind: "saveFailed",
-          message: authorSafeMessage(error, "The private draft could not be saved."),
-        }),
-      );
+      transition({
+        kind: "saveFailed",
+        message: authorSafeMessage(error, "The private draft could not be saved."),
+      });
     }
   }
 
   async function reload(): Promise<void> {
     if (!isConflict()) return;
-    setState(reduceFlatQuestionEditor(state(), { kind: "reloadStarted" }));
+    transition({ kind: "reloadStarted" });
     setStatus("Loading the newest private draft...");
     try {
       const newest = await props.repository.reload(props.workspace);
       setLatestRevision(newest.revision);
       setReview(null);
       setShowInstructorCheck(false);
-      setState(
-        reduceFlatQuestionEditor(state(), { kind: "reloadSucceeded", source: newest.source }),
-      );
+      transition({ kind: "reloadSucceeded", source: newest.source });
       setStatus("Loaded the newest saved draft. Review it before editing.");
       queueMicrotask(() => heading?.focus());
     } catch (error: unknown) {
       const message = authorSafeMessage(error, "The newest draft could not load.");
-      setState(
-        reduceFlatQuestionEditor(state(), {
-          kind: "reloadFailed",
-          message,
-        }),
-      );
+      transition({
+        kind: "reloadFailed",
+        message,
+      });
       setStatus(`${message} Your local edits are still shown below.`);
     }
   }
 
   function dismissError(): void {
     setStatus(null);
-    setState(reduceFlatQuestionEditor(state(), { kind: "dismissError" }));
+    transition({ kind: "dismissError" });
   }
 
   function inspectInstructorAnswer(): void {
@@ -329,12 +678,10 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
         changed: diff.changed,
       };
       setReview(nextReview);
-      setState(
-        reduceFlatQuestionEditor(state(), {
-          kind: "reviewOpened",
-          review: "Publication review is ready.",
-        }),
-      );
+      transition({
+        kind: "reviewOpened",
+        review: "Publication review is ready.",
+      });
       setStatus(null);
     } catch (error: unknown) {
       if (!reviewRequestIsCurrent(generation, revision)) return;
@@ -353,37 +700,34 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
       setStatus("Refresh the publication review before publishing.");
       return;
     }
-    setState(reduceFlatQuestionEditor(state(), { kind: "publishStarted" }));
+    transition({ kind: "publishStarted" });
     setStatus("Publishing immutable question version...");
     try {
       const result = await props.repository.publish(props.workspace, scope());
-      setState(
-        reduceFlatQuestionEditor(state(), {
-          kind: "publishSucceeded",
-          reference: `/library/${result.problem}/versions/${result.version}`,
-        }),
-      );
+      transition({
+        kind: "publishSucceeded",
+        reference: `/library/${result.problem}/versions/${result.version}`,
+      });
       setStatus("Published an immutable question version.");
     } catch (error: unknown) {
-      setState(
-        reduceFlatQuestionEditor(state(), {
-          kind: "publishFailed",
-          message: authorSafeMessage(
-            error,
-            "Publication could not finish. Your draft remains editable.",
-          ),
-        }),
-      );
+      transition({
+        kind: "publishFailed",
+        message: authorSafeMessage(
+          error,
+          "Publication could not finish. Your draft remains editable.",
+        ),
+      });
     }
   }
 
   function moveChoice(choiceId: string, direction: "up" | "down"): void {
     const current = source();
-    if (current === null) return;
-    const index = current.response.choices.findIndex((choice) => choice.id === choiceId);
+    if (current === null || current.response.kind !== "singleChoice") return;
+    const choices = current.response.choices;
+    const index = choices.findIndex((choice) => choice.id === choiceId);
     const other = direction === "up" ? index - 1 : index + 1;
-    if (index < 0 || other < 0 || other >= current.response.choices.length) return;
-    const ids = current.response.choices.map((choice) => choice.id);
+    if (index < 0 || other < 0 || other >= choices.length) return;
+    const ids = choices.map((choice) => choice.id);
     const displaced = ids[other];
     if (displaced === undefined) return;
     ids[other] = choiceId;
@@ -403,14 +747,20 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
       <header>
         <p class="eyebrow">Private instructor authoring</p>
         <h1 ref={(node) => (heading = node)} tabindex="-1">
-          Flat single-choice question
+          Flat question
         </h1>
         <p>
           Build a clear learner question, save it privately, then review and publish an immutable
           version when it is ready.
         </p>
       </header>
-      <Show when={status()}>{(message) => <p role="status">{message()}</p>}</Show>
+      <Show when={status()}>
+        {(message) => (
+          <p role="status" aria-label="Private draft status">
+            {message()}
+          </p>
+        )}
+      </Show>
       <Show when={errorMessage(state())}>
         {(message) => (
           <section class="flat-question-authoring__error" role="alert">
@@ -430,86 +780,90 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
         </section>
       </Show>
       <Show when={source()}>
-        {(current) => (
+        {(_draft) => (
           <div class="editor-grid">
             <section class="editor-panel">
               <label class="flat-question-authoring__field">
                 <span>Question title</span>
                 <input
-                  value={current().title}
+                  value={currentSource().title}
                   disabled={isLocked()}
                   aria-invalid={errors()["title"] !== undefined}
                   onInput={(event) =>
-                    applyEdit(setFlatQuestionTitle(current(), event.currentTarget.value))
+                    applyEdit(setFlatQuestionTitle(currentSource(), event.currentTarget.value))
                   }
                 />
               </label>
               <label class="flat-question-authoring__field">
                 <span>Learner-facing prompt</span>
                 <textarea
-                  value={current().prompt}
+                  value={currentSource().prompt}
                   disabled={isLocked()}
                   aria-invalid={errors()["prompt"] !== undefined}
                   onInput={(event) =>
-                    applyEdit(setFlatQuestionPrompt(current(), event.currentTarget.value))
+                    applyEdit(setFlatQuestionPrompt(currentSource(), event.currentTarget.value))
                   }
                 />
               </label>
-              <FlatChoiceList
-                choices={current().response.choices}
-                correctChoice={current().response.correctChoice}
+              <FlatQuestionResponseFields
+                source={currentSource}
                 fieldErrors={errors()}
                 disabled={isLocked()}
-                onChoiceChange={(id, patch) => {
-                  const next =
-                    patch.text === undefined
-                      ? setChoiceFeedback(current(), id, patch.feedback ?? null)
-                      : setChoiceText(current(), id, patch.text);
-                  if (next.changed) applyEdit(next.source);
-                }}
-                onCorrectChoiceChange={(id) => {
-                  const next = setCorrectChoice(current(), id);
-                  if (next.changed) applyEdit(next.source);
-                }}
-                onAddChoice={() => {
-                  const next = addChoice(current());
-                  if (next.changed) applyEdit(next.source);
-                }}
-                onRemoveChoice={(id) => {
-                  const next = removeChoice(current(), id);
-                  if (next.changed) applyEdit(next.source);
-                }}
+                numericAnswerLiteral={numericAnswerLiteral}
+                onNumericAnswerLiteralChange={updateNumericAnswerLiteral}
+                onEdit={applyEdit}
                 onMoveChoice={moveChoice}
+                onStatus={setStatus}
+                selectedKind={() => (hotspotPending() ? "hotspot" : currentSource().response.kind)}
+                hotspotResponse={hotspotResponse}
+                pendingHotspotDescription={pendingHotspotDescription}
+                assetClient={props.assetClient}
+                workspace={props.workspace}
+                onChooseHotspot={selectHotspotFormat}
+                onSelectHotspotAsset={selectHotspotAsset}
+                onPendingHotspotDescriptionChange={updatePendingHotspotDescription}
+                onChooseOrdinaryFormat={selectOrdinaryFormat}
               />
               <FlatFeedbackFields
-                value={current().feedback}
+                value={currentSource().feedback}
                 fieldErrors={errors()}
                 disabled={isLocked()}
                 onChange={(patch) =>
-                  applyEdit(setOutcomeFeedback(current(), { ...current().feedback, ...patch }))
+                  applyEdit(
+                    setOutcomeFeedback(currentSource(), {
+                      ...currentSource().feedback,
+                      ...patch,
+                    }),
+                  )
                 }
               />
               <FlatPolicyFields
-                points={current().points}
-                attemptPolicy={current().attemptPolicy}
-                timingPolicy={current().timingPolicy}
+                points={currentSource().points}
+                attemptPolicy={currentSource().attemptPolicy}
+                timingPolicy={currentSource().timingPolicy}
                 fieldErrors={errors()}
                 disabled={isLocked()}
-                onPointsChange={(points) => applyEdit(setFlatQuestionPoints(current(), points))}
-                onAttemptPolicyChange={(policy) => applyEdit(setAttemptPolicy(current(), policy))}
-                onTimingPolicyChange={(policy) => applyEdit(setTimingPolicy(current(), policy))}
+                onPointsChange={(points) =>
+                  applyEdit(setFlatQuestionPoints(currentSource(), points))
+                }
+                onAttemptPolicyChange={(policy) =>
+                  applyEdit(setAttemptPolicy(currentSource(), policy))
+                }
+                onTimingPolicyChange={(policy) =>
+                  applyEdit(setTimingPolicy(currentSource(), policy))
+                }
               />
               <FlatMetadataFields
-                tags={current().tags}
-                taxonomy={current().taxonomy}
-                license={current().license}
-                language={current().language}
+                tags={currentSource().tags}
+                taxonomy={currentSource().taxonomy}
+                license={currentSource().license}
+                language={currentSource().language}
                 fieldErrors={errors()}
                 disabled={isLocked()}
-                onTagsChange={(tags) => applyEdit(setTags(current(), tags))}
-                onTaxonomyChange={(taxonomy) => applyEdit(setTaxonomy(current(), taxonomy))}
-                onLicenseChange={(license) => applyEdit(setLicense(current(), license))}
-                onLanguageChange={(language) => applyEdit(setLanguage(current(), language))}
+                onTagsChange={(tags) => applyEdit(setTags(currentSource(), tags))}
+                onTaxonomyChange={(taxonomy) => applyEdit(setTaxonomy(currentSource(), taxonomy))}
+                onLicenseChange={(license) => applyEdit(setLicense(currentSource(), license))}
+                onLanguageChange={(language) => applyEdit(setLanguage(currentSource(), language))}
               />
               <div class="editor-actions">
                 <button
@@ -532,14 +886,29 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
             </section>
             <aside class="editor-preview">
               <section class="editor-panel">
-                <FlatQuestionPreview
-                  preview={flatQuestionPublicPreview(current())}
-                  instructorAnswerCheck={
-                    showInstructorCheck() && isSaved()
-                      ? (answerCheck(current()) ?? undefined)
-                      : undefined
+                <Show
+                  when={!hotspotPending()}
+                  fallback={
+                    <p role="status">
+                      Student preview appears after the verified image and learner description form
+                      a complete hotspot draft.
+                    </p>
                   }
-                />
+                >
+                  <For each={[currentSource()]}>
+                    {(draft) => (
+                      <FlatQuestionPreview
+                        preview={flatQuestionPublicPreview(draft)}
+                        validator={props.responseValidator}
+                        instructorAnswerCheck={
+                          showInstructorCheck() && isSaved()
+                            ? (answerCheck(draft) ?? undefined)
+                            : undefined
+                        }
+                      />
+                    )}
+                  </For>
+                </Show>
               </section>
               <section class="editor-panel" aria-labelledby="flat-publish-heading">
                 <h2 id="flat-publish-heading">Publish review</h2>

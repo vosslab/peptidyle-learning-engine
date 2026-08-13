@@ -502,6 +502,8 @@ fn publication_command(
         flat_question_promotion: Some(FlatQuestionPublicationPromotion {
             source: staged,
             import_origin,
+            published_question: fixture.draft.question.clone(),
+            assets: Vec::new(),
         }),
         publisher: fixture.owner,
         scope: PublicationScope::Public,

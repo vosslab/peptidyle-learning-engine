@@ -174,7 +174,15 @@ pub(super) async fn exercise_assignment_timing(
         problem: ids.problem,
         question_version: ids.version,
         seed,
-        presentation: Some(presentation_binding(position as u8)),
+        // Timing acceptance owns no delivered envelope; make that capability explicit.
+        presentation_capability: PresentationCapability::NotApplicable,
+        presentation: None,
+        presentation_snapshot: None,
+        grading_envelope: None,
+        flat_grading: None,
+        flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
+        webwork_grading: None,
+        webwork_grading_capability: learning_data_access::WebworkGradingCapability::NotApplicable,
         webwork_replay: None,
         parameter_hash: format!("database-timing-parameters-{position}"),
         provenance: AttemptProvenance {
@@ -464,7 +472,16 @@ pub(super) async fn exercise_assignment_timing(
                 problem: ids.problem,
                 question_version: ids.version,
                 seed: 34,
-                presentation: Some(presentation_binding(34)),
+                // The exception test exercises timing resolution, not envelope delivery.
+                presentation_capability: PresentationCapability::NotApplicable,
+                presentation: None,
+                presentation_snapshot: None,
+                grading_envelope: None,
+                flat_grading: None,
+                flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
+                webwork_grading: None,
+                webwork_grading_capability:
+                    learning_data_access::WebworkGradingCapability::NotApplicable,
                 webwork_replay: None,
                 parameter_hash: "database-timing-exception-parameters".to_string(),
                 provenance: AttemptProvenance {

@@ -83,15 +83,15 @@ podman compose -f containers/compose.yaml --env-file containers/env.local \
   no external SMTP provider is configured. Give the manager-only one-time link to the learner
   through the course's established channel. The invitation remains single-use and the learner
   still completes email authentication before it can become course membership.
-- **Email sign-in is unavailable through the production process:** the `--with-smtp` overlay
-  prepares external provider delivery but cannot by itself activate the canonical PLE email-account
-  entry path. The remaining production account-provider composition is tracked in
-  [the current WP-RC8 status](active_plans/implementation_status.md).
-  After that code task is accepted, configure the selected operator-owned provider through
-  [the external SMTP provider contract](LOCAL_STACK_OPERATIONS.md#external-smtp-provider). PLE
-  connects to that provider; it does not run a mail server or need local mail-deliverability
-  infrastructure. Copy links avoid SMTP only for invitation delivery; they do not replace email
-  authentication.
+- **Email sign-in is unavailable through the production process:** this is expected today. The
+  canonical account/session route graph is composed, but no SMTP provider or email-activation path
+  is configured. Fastmail is the intended future provider. When its operator account, authorized
+  sender, and application credential exist, configure it through [the external SMTP provider
+  contract](LOCAL_STACK_OPERATIONS.md#external-smtp-provider), then verify live delivery and
+  browser sign-in. PLE connects to that provider; it does not run a mail server or need local
+  mail-deliverability infrastructure. Copy links avoid SMTP only for invitation delivery; they do
+  not replace email authentication. Missing email infrastructure does not block the deliberately
+  no-email local teaching walkthrough.
 
 ## Existing database volumes
 

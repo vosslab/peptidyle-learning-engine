@@ -12,6 +12,7 @@ use base64::Engine;
 use domain::run::RunModelError;
 use objects::{ObjectRecord, Sha256Digest};
 use question_model::FeedbackContent;
+use question_model::run_policy::FeedbackDisclosure;
 use question_model::taxonomy::TaxonomyTerm;
 use question_model::{
     ActivityTimestamp, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId, AssignmentItem,
@@ -20,8 +21,8 @@ use question_model::{
     AttemptResult, AttemptStatus, BackendCapabilities, CatalogLifecycle, CatalogProblemDetail,
     CatalogProblemSummary, CatalogSearchPage, CatalogSearchQuery, CourseGroupId, CourseId,
     CourseMembership, CourseRole, CourseSummary, DraftQuestionDefinition, EnrollmentId,
-    GradePolicy, GradebookSummaryRow, PresentationBindingV1, ProblemId, PublicationScope,
-    QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionDefinition,
+    GradePolicy, GradebookSummaryRow, PresentationBindingV1, PresentationEnvelopeV1, ProblemId,
+    PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionDefinition,
     QuestionStatisticsDisclosure, RunId, RunPolicies, ScoringGeneration, ScoringStatus,
     SelectionOrdering, StudentAssignmentSummary, StudentId, StudentResponse, TenantId, UserId,
     VersionId, WorkspaceDraftSummary, WorkspaceId,
@@ -38,6 +39,7 @@ mod external_tool;
 mod feedback;
 mod flat_import_provenance;
 mod flat_question;
+mod flat_question_assets;
 mod gradebook_cursor;
 pub mod in_memory;
 mod item_analysis;
@@ -120,7 +122,13 @@ pub use crate::flat_import_provenance::{
 };
 pub use crate::flat_question::{
     FlatQuestionGradingPayload, FlatQuestionGradingStore, FlatQuestionPublicationPromotion,
-    FlatQuestionStore, UpsertFlatQuestionCommand, WorkspaceFlatQuestionSource,
+    FlatQuestionStore, IssuedFlatGradingContract, UpsertFlatQuestionCommand,
+    WorkspaceFlatQuestionSource,
+};
+pub use crate::flat_question_assets::{
+    FlatQuestionAssetStore, MAX_WORKSPACE_FLAT_QUESTION_ASSET_LABEL_CHARS,
+    MAX_WORKSPACE_FLAT_QUESTION_ASSET_PROVENANCE_CHARS, WORKSPACE_FLAT_QUESTION_IMAGE_MEDIA_TYPES,
+    WorkspaceFlatQuestionAsset, validate_workspace_flat_question_asset_record,
 };
 pub use crate::item_analysis::{
     CourseItemAnalysisCommitOutcome, CourseItemAnalysisStore, CourseItemAnalysisWorkerCommand,

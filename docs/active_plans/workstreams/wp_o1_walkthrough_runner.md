@@ -28,9 +28,30 @@ PATH`, `--report-file BASENAME`, `--screenshot-directory PATH`, `--keep`,
 - `--env-file` is the selected Compose configuration. The runner derives the
   loopback gateway port only from that selected file, defaulting to `8080`; an
   inherited `PLE_GATEWAY_HOST_PORT` cannot change the selected run.
+
 - Before every runner-owned launcher, Compose, Node, and Playwright child, the
-  runner clears inherited `PLE_*` variables. `COMPOSE_PROJECT_NAME` remains an
-  ecosystem ownership check: it must be unset, empty, or `containers`.
+  runner clears inherited `PLE_*` variables. The runner rejects an inherited or
+  selected-file `COMPOSE_PROJECT_NAME`, then generates one bounded disposable
+  project name. It passes that standard Compose variable only to its launcher
+  and cleanup children; Node and Playwright never receive it.
+- Before launch and again immediately before start, the runner fails closed on
+  any container, volume, or network bearing either Podman Compose or Docker
+  Compose project label for its generated name. This makes volume cleanup safe
+  even after an interrupted disposable run.
+- The fixed-port clean-stack acceptance is exclusive: it refuses any existing
+  default `containers` stack, another `ple-ui-walkthrough-*` stack, or a
+  listener on PostgreSQL, MinIO API/console, or the selected gateway port. It
+  does not treat preserved inactive volumes as a conflict.
+- The runner copies the selected env file into its mode-0700 private state as
+  a mode-0600 `compose.env`, appends its generated `PLE_APPLICATION_IMAGE`, and
+  passes that file to launcher check/start and cleanup. The application image
+  is interpolated in Compose, so API and worker share one project-scoped build
+  rather than mutating `containers/env.local` or reusing another stack's tag.
+- The runner alone passes `--canonical-walkthrough` to the launcher. That
+  explicit launcher mode puts local identities, the fake-user login, invitation
+  secret, renderer provenance, and Chapter One publication manifests beside the
+  private env file. Ordinary launcher use does not enable that mode; env-path
+  equality is not a walkthrough behavior switch.
 - The runner creates one mode-0700 private state directory and atomically
   writes a mode-0600, ASCII, schema-versioned `walkthrough-inputs.json` for
   each fixed child stage. Node children receive its path through the explicit
@@ -45,9 +66,17 @@ PATH`, `--report-file BASENAME`, `--screenshot-directory PATH`, `--keep`,
   local credentials by private path, and runner-owned checkpoint paths; answer
   material and raw child output never enter the report.
 - AUTO reuses only safe `dist/index.html` and `dist/main.js`; `--build` forces
-  a build. Cleanup runs only for a stack started by this runner, uses the same
-  selected Compose file, and never removes volumes. `--keep` retains that
-  runner-owned stack for diagnosis.
+  a build. Cleanup runs only for a stack started by this runner, uses its same
+  generated Compose project and selected Compose file, and removes that
+  project's disposable volumes with `down --volumes --remove-orphans`. The
+  normal `containers` project and its volumes are never selected. `--keep`
+  retains that runner-owned stack and volumes for diagnosis, then prints the
+  generated project name and an exact read-only Compose `ps` command.
+- After a successful non-keep `down --volumes`, cleanup removes exactly the
+  generated application tag and Podman Compose's generated gateway tag. It
+  never uses an image prune or broad image removal. It first checks each exact
+  tag, so a partial launcher build that never produced one is already clean;
+  an inspection error or removal failure makes the report and exit status fail.
 
 ## Current validation and acceptance
 

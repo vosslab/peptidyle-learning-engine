@@ -30,6 +30,20 @@ function selectionCount(definition: HotspotDefinition): number | undefined {
   return undefined;
 }
 
+/** The public response contract may specify a selection rule, never correctness. */
+function selectionProgress(definition: HotspotDefinition, count: number): string | null {
+  switch (definition.selection.kind) {
+    case "exactlyOne":
+      return null;
+    case "exactly":
+      return `${count} selected. Select exactly ${definition.selection.count}.`;
+    case "atLeastOne":
+      return `${count} selected. Select at least 1.`;
+    case "anyNumber":
+      return `${count} selected.`;
+  }
+}
+
 export function HotspotResponse(props: WidgetBodyProps<HotspotDefinition>): JSX.Element {
   const restored = props.initialResponse?.points ?? [];
   const restoredIds = props.definition.regions
@@ -38,12 +52,15 @@ export function HotspotResponse(props: WidgetBodyProps<HotspotDefinition>): JSX.
     )
     .map((region) => region.id);
   const [selected, setSelected] = createSignal<ReadonlyArray<ChoiceId>>(restoredIds);
+  let firstRegion!: HTMLInputElement;
   const points = (): Array<HotspotPoint> =>
     selected().map((id) => center(props.definition.regions.find((region) => region.id === id)!));
   const response = (): StudentResponse => ({ kind: "hotspot", points: points() });
   const controller = createSubmissionController(props, response());
   const required = selectionCount(props.definition);
+  const progress = (): string | null => selectionProgress(props.definition, selected().length);
   function choose(id: ChoiceId): void {
+    if (controller.locked()) return;
     const next =
       required === 1
         ? [id]
@@ -61,6 +78,17 @@ export function HotspotResponse(props: WidgetBodyProps<HotspotDefinition>): JSX.
   function submit(): void {
     void controller.submit(response());
   }
+  function reset(): void {
+    const next = [...restoredIds];
+    setSelected(next);
+    void controller.reset({
+      kind: "hotspot",
+      points: next.map((id) =>
+        center(props.definition.regions.find((region) => region.id === id)!),
+      ),
+    });
+    queueMicrotask(() => firstRegion.focus());
+  }
   return (
     <section
       class="response-widget"
@@ -72,13 +100,23 @@ export function HotspotResponse(props: WidgetBodyProps<HotspotDefinition>): JSX.
       <fieldset
         aria-describedby={`${props.attemptId}-hotspot-help ${props.attemptId}-format-status`}
         aria-invalid={controller.invalid()}
-        disabled={controller.pending()}
+        disabled={controller.locked()}
       >
         <legend>Choose the labeled image region{required === 1 ? "" : "s"}</legend>
         <p class="keyboard-hint" id={`${props.attemptId}-hotspot-help`}>
           {props.definition.description}. Tab to a region and press Space to select it. This list is
           the primary no-mouse alternative to selecting the image.
         </p>
+        {progress() === null ? null : (
+          <p
+            class="completion-progress"
+            role="status"
+            aria-label="Selection count"
+            aria-live="polite"
+          >
+            {progress()}
+          </p>
+        )}
         <div class="choice-list">
           <For each={props.definition.regions}>
             {(region, index) => (
@@ -88,6 +126,13 @@ export function HotspotResponse(props: WidgetBodyProps<HotspotDefinition>): JSX.
                   type={required === 1 ? "radio" : "checkbox"}
                   name={`hotspot-${props.attemptId}`}
                   checked={selected().includes(region.id)}
+                  ref={
+                    index() === 0
+                      ? (element): void => {
+                          firstRegion = element;
+                        }
+                      : undefined
+                  }
                   onChange={() => choose(region.id)}
                 />
                 <span>{textFromBlocks(region.label)}</span>
@@ -98,8 +143,10 @@ export function HotspotResponse(props: WidgetBodyProps<HotspotDefinition>): JSX.
       </fieldset>
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
-        disabled={!controller.canSubmit() || controller.pending()}
+        disabled={!controller.canSubmit() || controller.locked()}
+        resetDisabled={controller.locked()}
         onSubmit={submit}
+        onReset={reset}
         onEscape={props.onEscape}
       />
     </section>

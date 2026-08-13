@@ -1,6 +1,6 @@
 import {
   FLAT_QUESTION_FORMAT,
-  FLAT_QUESTION_RESPONSE_KIND,
+  FLAT_QUESTION_SINGLE_CHOICE_RESPONSE_KIND,
   FLAT_QUESTION_VERSION,
   type FlatQuestionSourceV2,
 } from "./flat_question_source";
@@ -13,7 +13,7 @@ export function createDefaultFlatQuestionSource(): FlatQuestionSourceV2 {
     title: "Untitled question",
     prompt: "Write your question prompt here.",
     response: {
-      kind: FLAT_QUESTION_RESPONSE_KIND,
+      kind: FLAT_QUESTION_SINGLE_CHOICE_RESPONSE_KIND,
       choices: [
         { id: "choice_a", text: "First choice", feedback: null },
         { id: "choice_b", text: "Second choice", feedback: null },

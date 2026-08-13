@@ -87,6 +87,19 @@ async fn submission_validates_attempt_specific_rendered_choice_ids() {
         .lock()
         .expect("issued response fixture") = Some(rendered_response);
     let attempt = active_attempt_for(&app, assignment, &student_cookie).await;
+    let issued_question = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/attempts/{}/question", attempt.id))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("issued question request"),
+        )
+        .await
+        .expect("issued question response");
+    assert_eq!(issued_question.status(), StatusCode::OK);
+    let rendered_choice = json(issued_question).await["response"]["choices"][0]["id"].clone();
 
     let response = app
         .oneshot(
@@ -100,7 +113,7 @@ async fn submission_validates_attempt_specific_rendered_choice_ids() {
                     serde_json::json!({
                         "response": {
                             "kind": "multipleChoice",
-                            "selected": ["rendered-a"],
+                            "selected": [rendered_choice],
                         }
                     })
                     .to_string(),
@@ -111,8 +124,19 @@ async fn submission_validates_attempt_specific_rendered_choice_ids() {
         .expect("rendered choice response");
 
     assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(backend.reproduce_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(backend.reproduce_calls.load(Ordering::SeqCst), 0);
     assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        backend
+            .graded_responses
+            .lock()
+            .expect("graded response record")
+            .as_slice(),
+        [StudentResponse::MultipleChoice {
+            selected: vec![ChoiceId::new("rendered-a")],
+        }],
+        "the backend receives the durable private ID, never the browser-visible rendered ID",
+    );
 }
 
 #[tokio::test]
@@ -172,7 +196,7 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
         serde_json::json!(issued.question_version)
     );
     assert_eq!(envelope["seed"], serde_json::json!(issued.seed));
-    assert_eq!(envelope["response"]["kind"], "numeric");
+    assert_eq!(envelope["response"]["kind"], "numerical");
     let serialized_envelope = envelope.to_string();
     for answer_bearing_field in ["answerKey", "expected", "rubric", "grading"] {
         assert!(!serialized_envelope.contains(answer_bearing_field));
@@ -229,6 +253,37 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
         assert!(!serialized_receipt.contains(answer_bearing_field));
     }
     assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 1);
+
+    *backend
+        .issued_response
+        .lock()
+        .expect("issued response fixture") = Some(ResponseDefinition::ShortText {
+        match_mode: question_model::answer::TextMatchMode::Exact,
+        max_length: 32,
+    });
+
+    let submitted_question = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/attempts/{}/question", issued.id))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("submitted question request"),
+        )
+        .await
+        .expect("submitted question response");
+    assert_eq!(submitted_question.status(), StatusCode::OK);
+    assert_eq!(
+        json(submitted_question).await,
+        envelope,
+        "submitted GET returns the immutable receipt snapshot"
+    );
+    assert_eq!(
+        backend.reproduce_calls.load(Ordering::SeqCst),
+        0,
+        "submitted GET reads the receipt snapshot instead of the mutable backend",
+    );
 
     let replay = app
         .clone()

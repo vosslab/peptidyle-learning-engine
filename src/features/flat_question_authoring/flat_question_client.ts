@@ -4,8 +4,15 @@ import type { QuestionDefinition } from "../../../generated/api/QuestionDefiniti
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import { decodeDraftQuestionDefinition, decodeQuestionDefinition } from "../../api/decoders";
 import {
-  FLAT_QUESTION_FAMILY,
+  FLAT_QUESTION_FILL_IN_FAMILY,
+  FLAT_QUESTION_HOTSPOT_FAMILY,
+  FLAT_QUESTION_MATCHING_FAMILY,
   FLAT_QUESTION_MEDIA_TYPE,
+  FLAT_QUESTION_MULTI_FILL_IN_FAMILY,
+  FLAT_QUESTION_MULTIPLE_ANSWER_FAMILY,
+  FLAT_QUESTION_NUMERIC_FAMILY,
+  FLAT_QUESTION_ORDERING_FAMILY,
+  FLAT_QUESTION_SINGLE_CHOICE_FAMILY,
   type FlatQuestionSourceV2,
 } from "./flat_question_source";
 import { parseFlatQuestionSource, serializeFlatQuestionSource } from "./flat_question_codec";
@@ -176,13 +183,67 @@ function decodeJson(text: string, path: string): unknown {
 
 function requireFlatNativeSource(
   source: DraftQuestionDefinition["source"] | QuestionDefinition["source"],
+  response: FlatQuestionSourceV2["response"] | undefined,
   responseKind: "save" | "publication",
 ): void {
-  if (source.backend !== "native" || source.family !== FLAT_QUESTION_FAMILY) {
+  const expectedFamily = response === undefined ? undefined : familyForResponse(response);
+  const expectedDescription = expectedFamily ?? supportedFamilyDescription();
+  if (source.backend !== "native") {
     throw new FlatQuestionProtocolError(
-      `Flat-question ${responseKind} response must use native ${FLAT_QUESTION_FAMILY}`,
+      `Flat-question ${responseKind} response must use native ${expectedDescription}`,
     );
   }
+  const acceptedFamily =
+    expectedFamily === undefined
+      ? isFlatQuestionFamily(source.family)
+      : source.family === expectedFamily;
+  if (!acceptedFamily) {
+    throw new FlatQuestionProtocolError(
+      `Flat-question ${responseKind} response must use native ${expectedDescription}`,
+    );
+  }
+}
+
+function familyForResponse(response: FlatQuestionSourceV2["response"]): string {
+  switch (response.kind) {
+    case "singleChoice":
+      return FLAT_QUESTION_SINGLE_CHOICE_FAMILY;
+    case "multipleAnswer":
+      return FLAT_QUESTION_MULTIPLE_ANSWER_FAMILY;
+    case "fillIn":
+      return FLAT_QUESTION_FILL_IN_FAMILY;
+    case "multiFillIn":
+      return FLAT_QUESTION_MULTI_FILL_IN_FAMILY;
+    case "numeric":
+      return FLAT_QUESTION_NUMERIC_FAMILY;
+    case "matching":
+      return FLAT_QUESTION_MATCHING_FAMILY;
+    case "ordering":
+      return FLAT_QUESTION_ORDERING_FAMILY;
+    case "hotspot":
+      return FLAT_QUESTION_HOTSPOT_FAMILY;
+  }
+}
+
+function isFlatQuestionFamily(family: string): boolean {
+  return supportedFamilies().includes(family);
+}
+
+function supportedFamilies(): ReadonlyArray<string> {
+  return [
+    FLAT_QUESTION_SINGLE_CHOICE_FAMILY,
+    FLAT_QUESTION_MULTIPLE_ANSWER_FAMILY,
+    FLAT_QUESTION_FILL_IN_FAMILY,
+    FLAT_QUESTION_MULTI_FILL_IN_FAMILY,
+    FLAT_QUESTION_NUMERIC_FAMILY,
+    FLAT_QUESTION_MATCHING_FAMILY,
+    FLAT_QUESTION_ORDERING_FAMILY,
+    FLAT_QUESTION_HOTSPOT_FAMILY,
+  ];
+}
+
+function supportedFamilyDescription(): string {
+  return supportedFamilies().join(" or ");
 }
 
 function requestInit(
@@ -248,7 +309,7 @@ export function createFlatQuestionClient(
         "Flat-question save response does not match its workspace",
       );
     }
-    requireFlatNativeSource(draft.source, "save");
+    requireFlatNativeSource(draft.source, source.response, "save");
     return { draft, revision: strongRevision(response, path) };
   }
 
@@ -284,7 +345,7 @@ export function createFlatQuestionClient(
         "Flat-question publication response does not match its workspace",
       );
     }
-    requireFlatNativeSource(question.source, "publication");
+    requireFlatNativeSource(question.source, undefined, "publication");
     return question;
   }
 

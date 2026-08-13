@@ -318,6 +318,26 @@ pub struct AttemptProvenance {
     pub rendered_question_sha256: String,
 }
 
+/// Immutable family capability recorded inside the checksummed attempt payload.
+///
+/// The database keeps the corresponding private presentation and grading
+/// payloads in dedicated protected columns. This tag binds their required or
+/// not-applicable shape to the attempt itself, so a damaged column cannot
+/// downgrade a flat or WeBWorK attempt into a current-catalog recovery path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum IssuedAttemptCapabilityV1 {
+    /// A browser-safe `PresentationEnvelopeV1` with no family-specific
+    /// private first-grade contract.
+    PresentationEnvelope,
+    /// A native flat presentation and its required private grading contract.
+    FlatPresentation,
+    /// A WeBWorK presentation, immutable private definition, and replay map.
+    WebworkPresentation,
+    /// A family that intentionally issues no `PresentationEnvelopeV1`.
+    NotApplicable,
+}
+
 /// One question issued inside an assignment run.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -351,6 +371,8 @@ pub struct QuestionAttempt {
     pub timer: AttemptTimerRecord,
     /// Versions and object identities required to reproduce this attempt.
     pub provenance: AttemptProvenance,
+    /// Checksummed immutable capability for the protected issuance payloads.
+    pub issued_capability: IssuedAttemptCapabilityV1,
 }
 
 /// Compact projection read by course pages and the gradebook.

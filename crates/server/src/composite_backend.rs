@@ -8,11 +8,9 @@ use learning_data_access::{
     AssetStore, CatalogSourceStore, ExternalToolBrokerStore, Store, TenantContext,
 };
 use question_model::{
-    BackendCapabilities, DraftQuestionSource, ProblemVersionRef, QuestionAttempt,
-    QuestionDefinition, QuestionEnvelope, StudentResponse,
+    ProblemVersionRef, QuestionAttempt, QuestionDefinition, QuestionEnvelope, StudentResponse,
 };
 
-use crate::catalog::{BackendRegistry, BackendRegistryError};
 use crate::imathas_backend::ExternalToolSubmissionBackend;
 use crate::native_backend::NativeBackend;
 use crate::run::ExternalToolLaunchBackend;
@@ -21,6 +19,8 @@ use crate::run::{
     SubmissionDisposition,
 };
 use crate::webwork_backend::WebworkBackend;
+
+mod dispatch;
 
 /// One trusted server backend that delegates by persisted source kind.
 pub trait ConfiguredImathas:
@@ -122,48 +122,6 @@ impl<S, O, R> CompositeBackend<S, O, R> {
     }
 }
 
-impl<S, O, R> BackendRegistry for CompositeBackend<S, O, R>
-where
-    S: Send + Sync,
-    O: Send + Sync,
-    R: Send + Sync,
-{
-    fn capabilities(
-        &self,
-        source: &DraftQuestionSource,
-    ) -> Result<BackendCapabilities, BackendRegistryError> {
-        match source {
-            DraftQuestionSource::Native { .. } => self.native.capabilities(source),
-            DraftQuestionSource::Webwork { pg_path } if self.webwork.is_some() => {
-                adapter_webwork::webwork_source_capabilities(
-                    &question_model::QuestionSource::Webwork {
-                        pg_path: pg_path.clone(),
-                    },
-                )
-                .map_err(|_| BackendRegistryError::Unsupported)
-            }
-            DraftQuestionSource::Imathas { provider, .. }
-                if self
-                    .imathas
-                    .as_ref()
-                    .is_some_and(|backend| backend.serves_provider(provider)) =>
-            {
-                Ok(BackendCapabilities::from_iter([
-                    question_model::Capability::AlgorithmicGeneration,
-                    question_model::Capability::ServerGrading,
-                    question_model::Capability::PartialCredit,
-                ]))
-            }
-            DraftQuestionSource::Qti { .. } if self.qti.is_some() => {
-                Ok(BackendCapabilities::from_iter([
-                    question_model::Capability::ServerGrading,
-                ]))
-            }
-            _ => Err(BackendRegistryError::Unsupported),
-        }
-    }
-}
-
 #[async_trait]
 impl<S, O, R> RunBackend for CompositeBackend<S, O, R>
 where
@@ -192,6 +150,15 @@ where
                     parameter_hash: issued.parameter_hash,
                     provenance: issued.provenance,
                     webwork_replay: issued.replay,
+                    flat_grading: None,
+                    flat_grading_capability:
+                        learning_data_access::FlatGradingCapability::NotApplicable,
+                    webwork_grading: Some(
+                        learning_data_access::IssuedWebworkGradingContract::new(question.clone())
+                            .map_err(|error| RunBackendError::Invalid(error.to_string()))?,
+                    ),
+                    webwork_grading_capability:
+                        learning_data_access::WebworkGradingCapability::Required,
                 })
             }
             question_model::QuestionSource::Imathas { .. } => {
@@ -310,8 +277,12 @@ where
                     submission.context,
                     submission.actor,
                     submission.reference,
-                    submission.question,
                     submission.attempt,
+                    submission.issued_webwork_grading.ok_or_else(|| {
+                        RunBackendError::Unavailable(
+                            "WeBWorK issued grading contract is unavailable".to_string(),
+                        )
+                    })?,
                     submission.response,
                 )
                 .await
@@ -421,6 +392,7 @@ mod tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
+    use crate::catalog::{BackendRegistry, BackendRegistryError};
     use async_trait::async_trait;
     use learning_data_access::{
         ExternalToolLaunchProof, ExternalToolLaunchToken, SubmissionIdempotencyKey,
@@ -776,6 +748,7 @@ mod tests {
                 },
                 rendered_question_sha256: "a".repeat(64),
             },
+            issued_capability: question_model::IssuedAttemptCapabilityV1::NotApplicable,
         }
     }
 
@@ -868,6 +841,9 @@ mod tests {
                     reference,
                     question: &question_b,
                     attempt: &attempt,
+                    issued_grading_envelope: None,
+                    issued_flat_grading: None,
+                    issued_webwork_grading: None,
                     response: &response
                 })
                 .await,

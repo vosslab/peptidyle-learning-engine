@@ -2,6 +2,7 @@ import { publishedProblemFixture } from "../../../../generated/fixtures/publishe
 import type { DisclosedFeedback } from "../../../../generated/api/DisclosedFeedback";
 import type { QuestionAttempt } from "../../../../generated/api/QuestionAttempt";
 import type { QuestionEnvelope } from "../../../../generated/api/QuestionEnvelope";
+import type { PresentationEnvelopeV1 } from "../../../../generated/api/PresentationEnvelopeV1";
 import type {
   PrefetchedNextQuestion,
   RunSummaryResponse,
@@ -35,6 +36,7 @@ if (externalToolTemplateAttempt === undefined) {
 export const externalToolFixtureAttempt: QuestionAttempt = {
   ...externalToolTemplateAttempt,
   id: EXTERNAL_TOOL_FIXTURE_ATTEMPT_ID,
+  issuedCapability: "notApplicable",
 };
 
 /** Deterministic two-position learner fixture used by attempt-loop acceptance. */
@@ -52,8 +54,10 @@ export const prefetchedFixtureAttempt: QuestionAttempt = {
   seed: prefetchFixtureAttempt.seed + 1,
 };
 
-export function mockPrefetchedNextQuestion(): PrefetchedNextQuestion {
-  const envelope = issuedEnvelopeForAttempt(prefetchedFixtureAttempt);
+export function mockPrefetchedNextQuestion(): Omit<PrefetchedNextQuestion, "envelope"> & {
+  readonly envelope: QuestionEnvelope | PresentationEnvelopeV1;
+} {
+  const envelope = issuedQuestionWireForAttempt(prefetchedFixtureAttempt);
   return {
     predecessor: prefetchFixtureAttempt.id,
     run: prefetchedFixtureAttempt.run,
@@ -83,6 +87,7 @@ export function mockPrefetchSubmissionReceipt(): SubmissionReceipt {
       assignmentPosition: prefetchedFixtureAttempt.assignmentPosition,
       renderedQuestionSha256: "b".repeat(64),
     },
+    nextPending: false,
   };
 }
 
@@ -100,6 +105,7 @@ export function mockExternalToolSubmissionReceipt(): SubmissionReceipt {
     },
     feedback: null,
     nextIssued: null,
+    nextPending: false,
   };
 }
 
@@ -184,7 +190,7 @@ function responseForIssuedQuestion(attemptId: string | undefined): Response {
   if (attempt === undefined) {
     return jsonResponse({ error: `Unknown fixture attempt ${attemptId ?? ""}` }, 404);
   }
-  return jsonResponse(issuedEnvelopeForAttempt(attempt));
+  return jsonResponse(issuedQuestionWireForAttempt(attempt));
 }
 
 function responseForExternalToolLaunch(attemptId: string | undefined): Response {
@@ -297,6 +303,49 @@ export function issuedEnvelopeForAttempt(attempt: QuestionAttempt): QuestionEnve
     title: publishedProblemFixture.publishedProblem.metadata.title,
     prompt,
     response,
+  };
+}
+
+/** Exact browser wire used by the real issued-question route. */
+export function issuedQuestionWireForAttempt(
+  attempt: QuestionAttempt,
+): QuestionEnvelope | PresentationEnvelopeV1 {
+  const envelope = issuedEnvelopeForAttempt(attempt);
+  if (attempt.issuedCapability === "notApplicable") return envelope;
+  if (envelope.response.kind !== "multipleChoice") {
+    throw new Error("Mock presentation fixture requires a supported native response");
+  }
+  const choices = envelope.response.choices.map((choice, index) => ({
+    id: (index + 1).toString(16).padStart(4, "0"),
+    body: choice.body,
+  }));
+  const selection = envelope.response.selection;
+  let minimum: number;
+  let maximum: number;
+  switch (selection.kind) {
+    case "exactlyOne":
+      return {
+        ...envelope,
+        presentationNonce: attempt.id.replace(/-/gu, "").slice(-32),
+        response: { kind: "singleChoice", choices },
+      };
+    case "exactly":
+      minimum = selection.count;
+      maximum = selection.count;
+      break;
+    case "anyNumber":
+      minimum = 0;
+      maximum = choices.length;
+      break;
+    case "atLeastOne":
+      minimum = 1;
+      maximum = choices.length;
+      break;
+  }
+  return {
+    ...envelope,
+    presentationNonce: attempt.id.replace(/-/gu, "").slice(-32),
+    response: { kind: "multipleAnswer", choices, minimum, maximum },
   };
 }
 
@@ -421,6 +470,7 @@ export async function respondRun(request: Request): Promise<Response> {
           attempt,
           feedback: mockFeedbackForAttempt(attempt),
           nextIssued: null,
+          nextPending: false,
         });
   }
   if (

@@ -109,13 +109,14 @@ Content-Type: application/json
 }
 ```
 
-The current server authenticates the session, loads the RLS-visible attempt and owning run, loads the
-immutable question, reproduces the exact issued envelope, validates the response shape, selects the
-stored backend, grades, and commits once. Therefore the submitted `kind` is redundant. The attempt
-already determines the expected response family.
+The current server authenticates the session, loads the RLS-visible attempt and owning run, validates
+the response against the checksummed issued public snapshot, translates rendered IDs through the
+matching server-only grading envelope, grades, and commits once. It does not reproduce a mutable
+issued envelope. Therefore the submitted `kind` is redundant. The attempt already determines the
+expected response family.
 
 Removing `kind` is not merely deleting one JSON property. The v1 handler must first load the attempt
-and its reproduced response schema, then select a closed, family-specific decoder for `answer`.
+and its issued public snapshot response schema, then select a closed, family-specific decoder for `answer`.
 Unknown fields and shapes must continue to fail closed. Rich tagged Rust and TypeScript draft types
 may remain internal even though the public answer wire is type-free.
 
@@ -374,7 +375,7 @@ must fail closed for operator investigation.
 For native flat questions, PLE owns both immutable content and grading. The normal path is:
 
 1. Load the authenticated active attempt.
-2. Load the immutable published version and server-only grading payload.
+2. Load its checksummed issued flat grading contract, not a current catalog or grader view.
 3. Verify the stored and submitted presentation digest.
 4. Decode the type-free `answer` using the issued public response schema.
 5. Map rendered IDs to durable internal IDs.
@@ -405,10 +406,12 @@ boundary. The historical RC3 compatibility grading path originally performed two
    `AnSwEr...` field/value mapping; and
 2. call the same endpoint with the selected upstream field/value and `WWsubmit=1`.
 
-The post-RC3 persistence slice now stores the validated mapping under the issued attempt. Normal grade
-reproduces the safe cache locally and performs only the second private call. The official upstream
-endpoint is stateless, so PLE must still send source and signed server state on that private grade
-call. That repetition is an internal service cost, not learner payload.
+The receipt-era persistence slice stores the validated mapping, exact public snapshot, matching
+server-only grading envelope, and frozen WeBWorK definition under the issued attempt. Normal grade
+validates those artifacts and performs only the private grade call; it never resolves a current
+catalog definition or rerenders to recover state. The official upstream endpoint is stateless, so
+PLE still sends immutable source provenance and signed server state on that private grade call. That
+repetition is an internal service cost, not learner payload.
 
 ### Implemented private replay slice and remaining target
 
@@ -419,21 +422,17 @@ correct-answer flag, raw provider result, or browser-visible field name.
 Normal grade then:
 
 1. loads and validates the attempt-bound replay record;
-2. resolves the learner's rendered-item ID to one upstream field/value;
+2. validates the public response against the issued snapshot and resolves its rendered-item ID to
+   one protected upstream field/value;
 3. loads immutable source and private renderer credentials server-side;
 4. makes one private `/render-api` grade call; and
 5. accepts only the supported result shape and score policy.
 
-Step 2 is currently reached from the tagged durable-choice compatibility response after exact
-presentation reproduction. WP-P3 changes only the public decoder so the learner sends the rendered
-item ID directly.
-
 Binding disagreement refuses before grading. Successful submission and terminal instructor action
-delete replay state atomically. A legacy attempt with no row currently takes a bounded validated
-same-seed rerender fallback, but persisting a self-healed row plus disposable PostgreSQL and private
-renderer request-count evidence remain WP-P4 acceptance work. The browser never receives or
-resubmits PG source, upstream field names, radio values, passwords, session keys, renderer URLs, or
-provider score objects.
+delete replay state atomically. Missing or malformed state is an intentional unavailable failure:
+pre-production receipt-era data has no rerender, self-heal, or compatibility reader. The browser
+never receives or resubmits PG source, upstream field names, radio values, passwords, session keys,
+renderer URLs, or provider score objects.
 
 The reviewed Chapter 1 WeBWorK profile supports its two `RadioButtons` sources and two matching
 sources. Matching partial credit is admitted only when both the source path and immutable source
@@ -641,7 +640,7 @@ easy to navigate without duplicating its exact migration and codec specification
 - Files: renderer contract, WebWork backend, replay-state Store API, request-count tests, and private
   live test.
 - Behavior: persist the safe issued mapping and make normal grading one private RPC; permit one
-  validated self-heal rerender only when replay state is missing.
+  receipt-era missing or mismatched replay state fails closed without rerendering.
 - Success: normal, retry, recovery, and mismatch traces prove exact call behavior and prove no source,
   credential, session key, upstream mapping, or raw result reaches browser-visible state.
 - Validation: recorded upstream contract tests, private-container trace, state scans, and security

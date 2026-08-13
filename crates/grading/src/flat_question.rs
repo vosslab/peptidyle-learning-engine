@@ -158,6 +158,35 @@ impl FlatQuestionPrivate {
         &self.public_sha256
     }
 
+    /// Rebinds unchanged private grading material to the exact public draft
+    /// emitted during publication.
+    ///
+    /// Publication uses this only when a private HOTSPOT workspace asset is
+    /// assigned its fresh version-scoped catalog asset identity.  The answer
+    /// key and feedback remain byte-for-byte unchanged; the public binding
+    /// digest changes because that browser-safe asset identifier is part of
+    /// the public response definition.
+    pub fn rebind_to_draft(
+        &self,
+        draft: &DraftQuestionDefinition,
+    ) -> Result<Self, FlatQuestionError> {
+        self.validate_private_shape()?;
+        // The caller has already validated this private material against the
+        // staged draft. Publication may now change only the version-scoped
+        // HOTSPOT asset ID, so validate every semantic key/feedback relation
+        // against the new definition without requiring the old binding hash.
+        validate_for_draft(draft)?;
+        validate_key_against_response(&draft.response, &self.answer_key)?;
+        self.validate_feedback_targets(&draft.response)?;
+        Ok(Self {
+            schema_version: self.schema_version,
+            public_sha256: public_binding_sha256_for_draft(draft)?,
+            answer_key: self.answer_key.clone(),
+            choice_feedback: self.choice_feedback.clone(),
+            outcome_feedback: self.outcome_feedback.clone(),
+        })
+    }
+
     /// Validates this private material against its editable public draft.
     ///
     /// Publication uses this seam before durable identifiers exist. It proves
@@ -216,6 +245,19 @@ impl FlatQuestionPrivate {
             outcome: GradeOutcome::Graded(result),
             feedback: self.feedback_for(question, response, result)?,
         })
+    }
+
+    /// Verifies this private material against one exact immutable published
+    /// definition before an issuance capability retains it for later grade.
+    pub fn validate_for_question(
+        &self,
+        question: &QuestionDefinition,
+    ) -> Result<(), FlatQuestionError> {
+        validate_flat_question_question(question)?;
+        if public_binding_sha256_for_question(question)? != self.public_sha256 {
+            return Err(FlatQuestionError::PublicBindingMismatch);
+        }
+        self.validate_against_question(question)
     }
 
     fn validate_private_shape(&self) -> Result<(), FlatQuestionError> {
@@ -674,7 +716,9 @@ struct PublicBinding<'a> {
     grading: &'a GradingDefinition,
     metadata: &'a QuestionMetadata,
 }
-fn public_binding_sha256_for_draft(
+/// Returns the checksum that binds private grading material to one exact
+/// browser-safe flat-question definition.
+pub fn public_binding_sha256_for_draft(
     draft: &DraftQuestionDefinition,
 ) -> Result<String, FlatQuestionError> {
     let DraftQuestionSource::Native { family } = &draft.source else {
@@ -708,6 +752,7 @@ fn public_binding_sha256_for_question(
         metadata: &question.metadata,
     })
 }
+
 fn public_binding_sha256(binding: PublicBinding<'_>) -> Result<String, FlatQuestionError> {
     serde_json::to_vec(&binding)
         .map(|bytes| sha256_hex(&bytes))

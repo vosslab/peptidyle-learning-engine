@@ -654,6 +654,8 @@ async fn publish_flat_question(
                     flat_question_promotion: Some(FlatQuestionPublicationPromotion {
                         source: staged.clone(),
                         import_origin: None,
+                        published_question: draft.question.clone(),
+                        assets: Vec::new(),
                     }),
                     publisher,
                     scope: PublicationScope::Institution,

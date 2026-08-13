@@ -6,6 +6,7 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 readonly REPO_ROOT
 readonly PROJECT_NAME="ple_chapter_one_browser_$$"
+readonly GATEWAY_IMAGE="localhost/${PROJECT_NAME}_gateway:latest"
 readonly TENANT_ID="00000000-0000-0000-0000-000000000100"
 readonly INSTRUCTOR_ID="00000000-0000-0000-0000-000000000101"
 readonly STUDENT_ID="00000000-0000-0000-0000-000000000102"
@@ -44,14 +45,30 @@ compose() {
 
 cleanup() {
 	local status="$?"
+	local cleanup_failed=0
+	local image_status=0
 	if [ "${PLE_E2E_KEEP:-0}" = "1" ]; then
 		echo "Chapter 1 browser E2E: preserving $PROJECT_NAME and $TEMP_DIRECTORY"
 	else
 		if [ "$STACK_OWNED" = "1" ]; then
-			compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+			compose down --volumes --remove-orphans >/dev/null 2>&1 || cleanup_failed=1
+			if podman image exists "$GATEWAY_IMAGE" >/dev/null 2>&1; then
+				podman image rm "$GATEWAY_IMAGE" >/dev/null 2>&1 || cleanup_failed=1
+			else
+				image_status="$?"
+				if [ "$image_status" -ne 1 ]; then
+					cleanup_failed=1
+				fi
+			fi
 		fi
 		if [ -n "$TEMP_DIRECTORY" ] && [ -d "$TEMP_DIRECTORY" ]; then
 			rm -rf -- "$TEMP_DIRECTORY"
+		fi
+		if [ "$cleanup_failed" -ne 0 ]; then
+			echo "Chapter 1 browser E2E: exact disposable cleanup failed" >&2
+			if [ "$status" -eq 0 ]; then
+				status=1
+			fi
 		fi
 	fi
 	exit "$status"

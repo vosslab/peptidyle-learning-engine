@@ -17,9 +17,10 @@ use learning_data_access::{
     ClearAttemptCommand, CourseGroupRecord, CourseRecord, CourseRosterStore,
     DeleteAndRegradeAssignmentItemCommand, DeleteAssignmentPolicyExceptionCommand, DraftRecord,
     ForceSubmitAttemptCommand, IssueQuestionAttemptCommand, JobClaimFilter, JobLeaseDuration,
-    JobPayload, JobStore, PageRequest, PageSize, PublishDraftCommand, PutCourseGroupCommand,
-    SetAssignmentPolicyExceptionCommand, Store, StoreError, SubmissionIdempotencyKey,
-    SubmitQuestionAttemptCommand, TenantContext, UpdateAssignmentTimingCommand, UpsertCourseMember,
+    JobPayload, JobStore, PageRequest, PageSize, PresentationCapability, PublishDraftCommand,
+    PutCourseGroupCommand, SetAssignmentPolicyExceptionCommand, Store, StoreError,
+    SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext,
+    UpdateAssignmentTimingCommand, UpsertCourseMember,
 };
 use objects::{ObjectCategory, ObjectKey, ObjectStore, PutObject};
 use question_model::answer::SelectionCardinality;
@@ -41,9 +42,8 @@ use question_model::{
     AssignmentItemId, AssignmentPolicyExceptionId, AssignmentScoringMode, AssignmentTimingPolicy,
     AttemptProvenance, AttemptResult, AttemptStatus, CatalogLifecycle, CourseGroupId, CourseId,
     CourseMembership, CourseMembershipRole, EnrollmentId, FeedbackContent, ImplementationVersion,
-    ObjectId, PointValue, PresentationBindingV1, PresentationDigestV1, PresentationNonceV1,
-    ProblemId, ProblemVersionRef, PublicationScope, QuestionAttemptId, RunId, StudentId, TenantId,
-    UserId, VersionId, WorkspaceId,
+    ObjectId, PointValue, PresentationBindingV1, ProblemId, ProblemVersionRef, PublicationScope,
+    QuestionAttemptId, RunId, StudentId, TenantId, UserId, VersionId, WorkspaceId,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -83,13 +83,6 @@ const WEBWORK_PILOT_SOURCE_SHA256: &str =
     "2a662d3af1385dc180c529509106208424c978ba3890c411ae451b1be0369b2b";
 const WEBWORK_PILOT_SOURCE_PROVENANCE: &str = "Copied byte-for-byte from OTHER_REPOS/biology-problems-website/site_docs/biochemistry/topic01/downloads/which_hydrophobic-simple.pgml; source header declares CC BY 4.0 and notes that source code portions are LGPLv3.";
 const WEBWORK_PILOT_CONVERGENCE_ATTEMPTS: u8 = 3;
-
-fn presentation_binding(marker: u8) -> PresentationBindingV1 {
-    PresentationBindingV1::new(
-        PresentationNonceV1::from_bytes([marker; 16]),
-        PresentationDigestV1::compute(&[marker]),
-    )
-}
 
 /// Non-secret identifiers the replica E2E runner needs to start an assignment.
 #[derive(Debug, Serialize)]

@@ -10,7 +10,7 @@ DECLARE
     stage_function regprocedure :=
         'public.ple_stage_flat_question_grading(uuid,uuid,bigint,character,uuid,character,character,character,jsonb,character)'::regprocedure;
     promote_function regprocedure :=
-        'public.ple_promote_flat_question_grading(uuid,uuid,bigint,character,uuid,character,character,character,uuid,uuid)'::regprocedure;
+        'public.ple_promote_flat_question_grading(uuid,uuid,bigint,character,uuid,character,character,character,uuid,uuid,character)'::regprocedure;
     promotion_arguments text;
 BEGIN
     IF NOT EXISTS (
@@ -164,7 +164,9 @@ SET LOCAL ROLE ple_app;
 DO $$
 DECLARE
     staged boolean;
-    key_bytes bytea := pg_catalog.convert_to('{"answer":"red"}', 'UTF8');
+    key_bytes bytea := pg_catalog.convert_to(
+        format('{"publicSha256":"%s","answer":"red"}', repeat('2', 64)), 'UTF8'
+    );
     key_sha character(64);
     key_payload jsonb;
     stored_bytes bytea := pg_catalog.convert_to(repeat('x', 80), 'UTF8');
@@ -176,7 +178,7 @@ BEGIN
     key_payload := pg_catalog.jsonb_build_object(
         'publicSha256', repeat('d', 64),
         'payloadSha256', key_sha,
-        'payloadBase64', pg_catalog.encode(key_bytes, 'base64')
+        'payloadBase64', replace(pg_catalog.encode(key_bytes, 'base64'), E'\n', '')
     );
     SELECT public.ple_stage_flat_question_grading(
         '11111111-1111-4111-8111-0000000000b1',
@@ -447,7 +449,7 @@ BEGIN
         repeat('f', 64)::character(64), repeat('1', 64)::character(64),
         repeat('2', 64)::character(64),
         '11111111-1111-4111-8111-0000000000b6',
-        '11111111-1111-4111-8111-0000000000b7'
+        '11111111-1111-4111-8111-0000000000b7', repeat('2', 64)::character(64)
     ) INTO promoted;
     IF promoted THEN
         RAISE EXCEPTION 'publication without current grading was accepted';
@@ -472,7 +474,9 @@ SET LOCAL ROLE ple_app;
 DO $$
 DECLARE
     staged boolean;
-    key_bytes bytea := pg_catalog.convert_to('{"answer":"red"}', 'UTF8');
+    key_bytes bytea := pg_catalog.convert_to(
+        format('{"publicSha256":"%s","answer":"red"}', repeat('2', 64)), 'UTF8'
+    );
     key_sha character(64);
     key_payload jsonb;
 BEGIN
@@ -480,7 +484,7 @@ BEGIN
     key_payload := pg_catalog.jsonb_build_object(
         'publicSha256', repeat('2', 64),
         'payloadSha256', key_sha,
-        'payloadBase64', pg_catalog.encode(key_bytes, 'base64')
+        'payloadBase64', replace(pg_catalog.encode(key_bytes, 'base64'), E'\n', '')
     );
     SELECT public.ple_stage_flat_question_grading(
         '11111111-1111-4111-8111-0000000000b1',
@@ -511,7 +515,7 @@ BEGIN
         repeat('b', 64)::character(64), repeat('c', 64)::character(64),
         repeat('d', 64)::character(64),
         '11111111-1111-4111-8111-0000000000b8',
-        '11111111-1111-4111-8111-0000000000b9'
+        '11111111-1111-4111-8111-0000000000b9', repeat('2', 64)::character(64)
     ) INTO promoted;
     IF promoted THEN
         RAISE EXCEPTION 'stale grading publication selectors were accepted';
@@ -525,7 +529,7 @@ BEGIN
         repeat('f', 64)::character(64), repeat('1', 64)::character(64),
         repeat('2', 64)::character(64),
         '11111111-1111-4111-8111-0000000000c6',
-        '11111111-1111-4111-8111-0000000000c7'
+        '11111111-1111-4111-8111-0000000000c7', repeat('2', 64)::character(64)
     ) INTO promoted;
     IF promoted THEN
         RAISE EXCEPTION 'cross-tenant grading publication was accepted';
@@ -564,7 +568,7 @@ BEGIN
         repeat('f', 64)::character(64), repeat('1', 64)::character(64),
         repeat('2', 64)::character(64),
         '11111111-1111-4111-8111-0000000000b8',
-        '11111111-1111-4111-8111-0000000000b9'
+        '11111111-1111-4111-8111-0000000000b9', repeat('3', 64)::character(64)
     ) INTO promoted;
     IF NOT promoted THEN
         RAISE EXCEPTION 'stored-only publication promotion was refused';
@@ -598,7 +602,7 @@ BEGIN
         repeat('f', 64)::character(64), repeat('1', 64)::character(64),
         repeat('2', 64)::character(64),
         '11111111-1111-4111-8111-0000000000b8',
-        '11111111-1111-4111-8111-0000000000b9'
+        '11111111-1111-4111-8111-0000000000b9', repeat('3', 64)::character(64)
     ) INTO promoted;
     IF NOT promoted THEN
         RAISE EXCEPTION 'stored-only publication promotion was refused after rollback';
@@ -609,9 +613,17 @@ RESET ROLE;
 
 DO $$
 DECLARE
-    expected_sha text := pg_catalog.encode(
-        pg_catalog.sha256(pg_catalog.convert_to('{"answer":"red"}', 'UTF8')),
-        'hex'
+    expected_current_bytes bytea := pg_catalog.convert_to(
+        format('{"publicSha256":"%s","answer":"red"}', repeat('2', 64)), 'UTF8'
+    );
+    expected_published_bytes bytea := pg_catalog.convert_to(
+        format('{"publicSha256":"%s","answer":"red"}', repeat('3', 64)), 'UTF8'
+    );
+    expected_current_sha text := pg_catalog.encode(
+        pg_catalog.sha256(expected_current_bytes), 'hex'
+    );
+    expected_published_sha text := pg_catalog.encode(
+        pg_catalog.sha256(expected_published_bytes), 'hex'
     );
     current_payload jsonb;
     current_sha text;
@@ -626,9 +638,17 @@ BEGIN
       FROM public.answer_key
      WHERE problem_id = '11111111-1111-4111-8111-0000000000b8'
        AND version_id = '11111111-1111-4111-8111-0000000000b9';
-    IF current_sha <> expected_sha OR published_sha <> current_sha
-       OR published_payload IS DISTINCT FROM current_payload THEN
-        RAISE EXCEPTION 'publication did not copy exact stored grading';
+    IF current_sha <> expected_current_sha
+       OR current_payload ->> 'publicSha256' <> repeat('2', 64)
+       OR pg_catalog.decode(current_payload ->> 'payloadBase64', 'base64')
+            <> expected_current_bytes
+       OR published_sha <> expected_published_sha
+       OR published_payload ->> 'publicSha256' <> repeat('3', 64)
+       OR published_payload ->> 'payloadSha256' <> expected_published_sha
+       OR pg_catalog.decode(published_payload ->> 'payloadBase64', 'base64')
+            <> expected_published_bytes
+    THEN
+        RAISE EXCEPTION 'publication did not rebind exact grading to its published checksum';
     END IF;
 
     BEGIN
@@ -691,7 +711,10 @@ SET LOCAL ROLE ple_grading_reader;
 DO $$
 DECLARE
     expected_sha text := pg_catalog.encode(
-        pg_catalog.sha256(pg_catalog.convert_to('{"answer":"red"}', 'UTF8')),
+        pg_catalog.sha256(pg_catalog.convert_to(
+            format('{"publicSha256":"%s","answer":"red"}', repeat('3', 64)),
+            'UTF8'
+        )),
         'hex'
     );
     capability_sha text;
@@ -716,7 +739,7 @@ BEGIN
         '11111111-1111-4111-8111-0000000000b9'
       );
     IF capability_sha <> expected_sha THEN
-        RAISE EXCEPTION 'published grader capability did not return exact stored grading';
+        RAISE EXCEPTION 'published grader capability did not return rebound grading';
     END IF;
 END
 $$;

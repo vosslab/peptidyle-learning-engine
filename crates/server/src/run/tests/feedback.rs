@@ -11,6 +11,7 @@ async fn native_feedback_http_policy_matrix_is_allowlisted_and_replay_safe() {
         let (store, backend, app, student_cookie, _outsider_cookie, assignment) =
             native_feedback_fixture(policy).await;
         let first = active_attempt_for(&app, assignment, &student_cookie).await;
+        let ester = presented_choice_id(&app, first.id, &student_cookie, 0).await;
         let submit = |attempt: QuestionAttemptId, key: &str, choice: &str| {
             Request::builder()
                 .method("POST")
@@ -28,7 +29,7 @@ async fn native_feedback_http_policy_matrix_is_allowlisted_and_replay_safe() {
         };
         let first_response = app
             .clone()
-            .oneshot(submit(first.id, "native-feedback-first", "ester"))
+            .oneshot(submit(first.id, "native-feedback-first", &ester))
             .await
             .expect("first submission");
         assert_eq!(first_response.status(), StatusCode::OK);
@@ -85,7 +86,7 @@ async fn native_feedback_http_policy_matrix_is_allowlisted_and_replay_safe() {
         if !matches!(policy, FeedbackDisclosure::Deferred) {
             let replay = app
                 .clone()
-                .oneshot(submit(first.id, "native-feedback-first", "ester"))
+                .oneshot(submit(first.id, "native-feedback-first", &ester))
                 .await
                 .expect("idempotent replay");
             assert_eq!(replay.status(), StatusCode::OK);
@@ -111,7 +112,7 @@ async fn native_feedback_http_policy_matrix_is_allowlisted_and_replay_safe() {
                     .header("idempotency-key", "foreign-feedback")
                     .body(Body::from(
                         serde_json::json!({
-                            "response": { "kind": "multipleChoice", "selected": ["ester"] }
+                            "response": { "kind": "multipleChoice", "selected": [ester] }
                         })
                         .to_string(),
                     ))
@@ -122,9 +123,10 @@ async fn native_feedback_http_policy_matrix_is_allowlisted_and_replay_safe() {
         assert_eq!(foreign.status(), StatusCode::NOT_FOUND);
 
         let next = next_active_attempt(&app, first.run, &student_cookie).await;
+        let amide = presented_choice_id(&app, next.id, &student_cookie, 1).await;
         let completion = app
             .clone()
-            .oneshot(submit(next.id, "native-feedback-complete", "amide"))
+            .oneshot(submit(next.id, "native-feedback-complete", &amide))
             .await
             .expect("completion submission");
         assert_eq!(completion.status(), StatusCode::OK);
@@ -137,7 +139,7 @@ async fn native_feedback_http_policy_matrix_is_allowlisted_and_replay_safe() {
                     UserId::from_uuid(id(203)),
                     first.id,
                     &StudentResponse::MultipleChoice {
-                        selected: vec![ChoiceId::new("ester")],
+                        selected: vec![ChoiceId::new(ester.clone())],
                     },
                     &SubmissionIdempotencyKey::parse("native-feedback-first")
                         .expect("valid replay key"),
@@ -150,7 +152,7 @@ async fn native_feedback_http_policy_matrix_is_allowlisted_and_replay_safe() {
 
         let replay = app
             .clone()
-            .oneshot(submit(first.id, "native-feedback-first", "ester"))
+            .oneshot(submit(first.id, "native-feedback-first", &ester))
             .await
             .expect("post-completion replay");
         assert_eq!(replay.status(), StatusCode::OK);
@@ -182,6 +184,7 @@ async fn run_summary_projects_current_disclosure_and_release_without_rewriting_r
         )
         .await;
         let first = active_attempt_for(&app, assignment, &student_cookie).await;
+        let ester = presented_choice_id(&app, first.id, &student_cookie, 0).await;
         let submit = |attempt: QuestionAttemptId, key: &str, choice: &str| {
             Request::builder()
                 .method("POST")
@@ -199,7 +202,7 @@ async fn run_summary_projects_current_disclosure_and_release_without_rewriting_r
         };
         let first_receipt = json(
             app.clone()
-                .oneshot(submit(first.id, "summary-first", "ester"))
+                .oneshot(submit(first.id, "summary-first", &ester))
                 .await
                 .expect("first submission"),
         )
@@ -340,9 +343,10 @@ async fn run_summary_projects_current_disclosure_and_release_without_rewriting_r
         assert_eq!(foreign_tenant_summary.status(), StatusCode::NOT_FOUND);
 
         let next = next_active_attempt(&app, first.run, &student_cookie).await;
+        let amide = presented_choice_id(&app, next.id, &student_cookie, 1).await;
         let completed = app
             .clone()
-            .oneshot(submit(next.id, "summary-complete", "amide"))
+            .oneshot(submit(next.id, "summary-complete", &amide))
             .await
             .expect("completion submission");
         assert_eq!(completed.status(), StatusCode::OK);
@@ -404,7 +408,7 @@ async fn run_summary_projects_current_disclosure_and_release_without_rewriting_r
                 assert!(first_feedback.get("correctResponse").is_some());
                 let replay = json(
                     app.clone()
-                        .oneshot(submit(first.id, "summary-first", "ester"))
+                        .oneshot(submit(first.id, "summary-first", &ester))
                         .await
                         .expect("receipt replay"),
                 )

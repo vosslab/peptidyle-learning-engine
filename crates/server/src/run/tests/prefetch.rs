@@ -110,9 +110,10 @@ async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
             ))
             .expect("submission")
     };
+    let ester = presented_choice_id(&app, first.id, &student_cookie, 0).await;
     let first_response = app
         .clone()
-        .oneshot(submit(first.id, "prefetch-first", "ester"))
+        .oneshot(submit(first.id, "prefetch-first", &ester))
         .await
         .expect("first submit");
     assert_eq!(first_response.status(), StatusCode::OK);
@@ -146,15 +147,16 @@ async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
         Some(&HeaderValue::from_static("no-store")),
         "no-successor prefetches are not cacheable"
     );
+    let amide = presented_choice_id(&app, next.id, &student_cookie, 1).await;
     let completed = app
         .clone()
-        .oneshot(submit(next.id, "prefetch-second", "amide"))
+        .oneshot(submit(next.id, "prefetch-second", &amide))
         .await
         .expect("next submit");
     assert_eq!(completed.status(), StatusCode::OK);
     let replay = app
         .clone()
-        .oneshot(submit(first.id, "prefetch-first", "ester"))
+        .oneshot(submit(first.id, "prefetch-first", &ester))
         .await
         .expect("first replay");
     assert_eq!(replay.status(), StatusCode::OK);
@@ -201,8 +203,9 @@ async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay
     let (store, _backend, app, student_cookie, _outsider_cookie, assignment) =
         native_feedback_fixture(FeedbackDisclosure::ImmediateCorrectness).await;
     let first = active_attempt_for(&app, assignment, &student_cookie).await;
+    let ester = presented_choice_id(&app, first.id, &student_cookie, 0).await;
     let response = StudentResponse::MultipleChoice {
-        selected: vec![ChoiceId::new("ester")],
+        selected: vec![ChoiceId::new(ester.clone())],
     };
     let key = SubmissionIdempotencyKey::parse("crash-before-successor-link").expect("valid key");
     store
@@ -223,6 +226,27 @@ async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay
         )
         .await
         .expect("simulate durable grade commit before process crash");
+    let pending_replay = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/submissions/{}", first.id))
+                .header("cookie", &student_cookie)
+                .header("content-type", "application/json")
+                .header("idempotency-key", "crash-before-successor-link")
+                .body(Body::from(
+                    serde_json::json!({"response":{"kind":"multipleChoice","selected":[ester]}})
+                        .to_string(),
+                ))
+                .expect("pending replay"),
+        )
+        .await
+        .expect("pending replay response");
+    assert_eq!(pending_replay.status(), StatusCode::OK);
+    let pending_receipt = json(pending_replay).await;
+    assert_eq!(pending_receipt["nextPending"], true);
+    assert!(pending_receipt["nextIssued"].is_null());
     let resumed = app
         .clone()
         .oneshot(post_json(
@@ -261,7 +285,7 @@ async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay
                 .header("content-type", "application/json")
                 .header("idempotency-key", "crash-before-successor-link")
                 .body(Body::from(
-                    serde_json::json!({"response":{"kind":"multipleChoice","selected":["ester"]}})
+                    serde_json::json!({"response":{"kind":"multipleChoice","selected":[ester]}})
                         .to_string(),
                 ))
                 .expect("replay"),
@@ -276,4 +300,78 @@ async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay
     );
     let next = next_active_attempt(&app, first.run, &student_cookie).await;
     assert_eq!(receipt["nextIssued"]["id"], serde_json::json!(next.id));
+}
+
+#[tokio::test]
+async fn successor_delivery_failure_returns_the_durable_receipt_without_regrading() {
+    let (store, backend, app, student_cookie, _outsider_cookie, assignment) =
+        native_feedback_fixture(FeedbackDisclosure::ImmediateCorrectness).await;
+    let first = active_attempt_for(&app, assignment, &student_cookie).await;
+    let ester = presented_choice_id(&app, first.id, &student_cookie, 0).await;
+    let unavailable_app = router(
+        Arc::clone(&store),
+        Arc::new(UnavailableSuccessorBackend {
+            inner: Arc::clone(&backend),
+            fail_next_issue: AtomicBool::new(true),
+        }),
+    );
+    let submit = || {
+        Request::builder()
+            .method("POST")
+            .uri(format!("/api/submissions/{}", first.id))
+            .header("cookie", &student_cookie)
+            .header("content-type", "application/json")
+            .header("idempotency-key", "successor-delivery-outage")
+            .body(Body::from(
+                serde_json::json!({
+                    "response": { "kind": "multipleChoice", "selected": [ester] }
+                })
+                .to_string(),
+            ))
+            .expect("submission")
+    };
+
+    let first_response = unavailable_app
+        .clone()
+        .oneshot(submit())
+        .await
+        .expect("first response after successor outage");
+    assert_eq!(first_response.status(), StatusCode::OK);
+    let first_receipt = json(first_response).await;
+    assert_eq!(first_receipt["accepted"], true);
+    assert_eq!(first_receipt["nextPending"], true);
+    assert!(first_receipt["nextIssued"].is_null());
+    assert_eq!(backend.submissions.load(Ordering::SeqCst), 1);
+
+    let replay = unavailable_app
+        .clone()
+        .oneshot(submit())
+        .await
+        .expect("pending replay response");
+    assert_eq!(replay.status(), StatusCode::OK);
+    assert_eq!(json(replay).await, first_receipt);
+    assert_eq!(
+        backend.submissions.load(Ordering::SeqCst),
+        1,
+        "replaying a pending receipt must not invoke grading again",
+    );
+
+    let resumed = app
+        .clone()
+        .oneshot(post_json(
+            "/api/runs",
+            &student_cookie,
+            serde_json::json!({ "assignmentId": assignment }),
+        ))
+        .await
+        .expect("run recovery response");
+    assert_eq!(resumed.status(), StatusCode::CREATED);
+    let healed_replay = app
+        .clone()
+        .oneshot(submit())
+        .await
+        .expect("healed replay response");
+    assert_eq!(healed_replay.status(), StatusCode::OK);
+    assert!(json(healed_replay).await["nextIssued"].is_object());
+    assert_eq!(backend.submissions.load(Ordering::SeqCst), 1);
 }

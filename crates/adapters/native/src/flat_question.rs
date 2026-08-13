@@ -307,6 +307,19 @@ impl FlatQuestionDocument {
         self.0.compile(workspace)
     }
 
+    /// Returns a publication-only HOTSPOT source with the exact catalog asset
+    /// identity substituted for the private workspace image identity.
+    ///
+    /// The returned source remains answer-bearing and canonical, so the
+    /// published source artifact, public definition, and server-only key can
+    /// all be derived from one immutable version-scoped source document.
+    pub fn with_hotspot_surface_asset(
+        &self,
+        asset: question_model::AssetId,
+    ) -> Result<Self, FlatQuestionError> {
+        Ok(Self(self.0.with_hotspot_surface_asset(asset)?))
+    }
+
     fn validate(&self) -> Result<(), FlatQuestionError> {
         self.0.validate()
     }

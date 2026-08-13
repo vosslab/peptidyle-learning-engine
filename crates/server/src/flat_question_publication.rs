@@ -22,10 +22,11 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use learning_data_access::{
     AuthoritativeTimeStore, CatalogStore, DraftRecord, FlatImportProvenanceStore,
-    FlatImportPublicationPromotion, FlatQuestionGradingPayload, FlatQuestionPublicationPromotion,
-    FlatQuestionStore, PublishDraftCommand, PublishedSourceArtifact,
-    QTI_PROFILE_ARCHIVE_MEDIA_TYPE, SessionStore, Store, StoreError, TenantContext,
-    UpsertFlatQuestionCommand, WorkspaceDraft, WorkspaceDraftRevision, WorkspaceFlatImportOrigin,
+    FlatImportPublicationPromotion, FlatQuestionAssetStore, FlatQuestionGradingPayload,
+    FlatQuestionPublicationPromotion, FlatQuestionStore, PublishDraftCommand,
+    PublishedSourceArtifact, QTI_PROFILE_ARCHIVE_MEDIA_TYPE, SessionStore, Store, StoreError,
+    TenantContext, UpsertFlatQuestionCommand, WorkspaceDraft, WorkspaceDraftRevision,
+    WorkspaceFlatImportOrigin,
 };
 use objects::{
     Bucket, ObjectCategory, ObjectKey, ObjectRecord, ObjectStore, ObjectStoreError, PutObject,
@@ -43,6 +44,8 @@ use crate::catalog::{
     mint_publication_reference,
 };
 
+mod hotspot_assets;
+
 const MAX_FLAT_QUESTION_BODY_BYTES: usize = 256 * 1024;
 
 /// Builds isolated flat-question authoring and publication endpoints.
@@ -55,6 +58,7 @@ pub fn router<S, O, B, R>(
 where
     S: Store
         + CatalogStore
+        + FlatQuestionAssetStore
         + FlatQuestionStore
         + FlatImportProvenanceStore
         + SessionStore
@@ -94,6 +98,7 @@ async fn read_flat_question_source<S, O, B, R>(
 where
     S: Store
         + CatalogStore
+        + FlatQuestionAssetStore
         + FlatQuestionStore
         + FlatImportProvenanceStore
         + SessionStore
@@ -212,6 +217,7 @@ async fn save_flat_question<S, O, B, R>(
 where
     S: Store
         + CatalogStore
+        + FlatQuestionAssetStore
         + FlatQuestionStore
         + FlatImportProvenanceStore
         + SessionStore
@@ -268,6 +274,16 @@ where
         }
     };
     let (question, private) = compiled.into_parts();
+    if let Err(response) = hotspot_assets::resolve_workspace_hotspot_asset(
+        state.store.as_ref(),
+        authenticated.tenant_context,
+        workspace,
+        &question,
+    )
+    .await
+    {
+        return response;
+    }
     let public_binding_sha256 = private.public_binding_sha256().to_string();
     let grading = match FlatQuestionGradingPayload::from_private(&private) {
         Ok(value) => value,
@@ -354,6 +370,7 @@ async fn publish_flat_question<S, O, B, R>(
 where
     S: Store
         + CatalogStore
+        + FlatQuestionAssetStore
         + FlatQuestionStore
         + FlatImportProvenanceStore
         + SessionStore
@@ -478,15 +495,12 @@ where
             );
         }
     };
-    let canonical_source = match document.canonical_bytes() {
-        Ok(value) if value == stored.bytes => value,
-        _ => {
-            return error_response(
-                StatusCode::CONFLICT,
-                "flat-question source changed; reload it",
-            );
-        }
-    };
+    if !matches!(document.canonical_bytes(), Ok(value) if value == stored.bytes) {
+        return error_response(
+            StatusCode::CONFLICT,
+            "flat-question source changed; reload it",
+        );
+    }
     let compiled = match document.compile(workspace) {
         Ok(value) => value,
         Err(_) => {
@@ -505,6 +519,17 @@ where
             "flat-question source changed; reload it",
         );
     }
+    let hotspot_asset = match hotspot_assets::resolve_workspace_hotspot_asset(
+        state.store.as_ref(),
+        authenticated.tenant_context,
+        workspace,
+        &compiled_draft,
+    )
+    .await
+    {
+        Ok(asset) => asset,
+        Err(response) => return response,
+    };
     let publication = mint_publication_reference(current.record.revises);
     let import_promotion = match state
         .store
@@ -521,6 +546,39 @@ where
         Ok(None) => None,
         Err(error) => return private_store_error(error),
     };
+    let (assets, published_asset) = match hotspot_assets::copy_publication_candidate(
+        state.objects.as_ref(),
+        &current.record,
+        publication,
+        hotspot_asset.as_ref(),
+    )
+    .await
+    {
+        Ok(assets) => assets,
+        Err(response) => {
+            return response;
+        }
+    };
+    let published_document = match published_asset {
+        Some(asset) => match document.with_hotspot_surface_asset(asset) {
+            Ok(value) => value,
+            Err(_) => {
+                for asset in &assets {
+                    let _ = state.objects.delete(&asset.object.key).await;
+                }
+                return flat_source_changed_response();
+            }
+        },
+        None => document,
+    };
+    let published_source_bytes = match published_document.canonical_bytes() {
+        Ok(bytes) => bytes,
+        Err(_) => return flat_source_changed_response(),
+    };
+    let (published_question, published_private) = match published_document.compile(workspace) {
+        Ok(value) => value.into_parts(),
+        Err(_) => return flat_source_changed_response(),
+    };
     let source_object = ObjectId::generate();
     let published_object = match state
         .objects
@@ -530,7 +588,7 @@ where
                 version: publication.version,
                 object: source_object,
             },
-            bytes: canonical_source,
+            bytes: published_source_bytes,
             media_type: FLAT_QUESTION_MEDIA_TYPE.to_string(),
             license: publication_license(&current.record),
             provenance: "PLE flat-question published source".to_string(),
@@ -539,12 +597,30 @@ where
         .await
     {
         Ok(record) => record,
-        Err(error) => return object_error_response(error),
+        Err(error) => {
+            for asset in &assets {
+                let _ = state.objects.delete(&asset.object.key).await;
+            }
+            return object_error_response(error);
+        }
     };
+    if published_private
+        .validate_for_draft(&published_question)
+        .is_err()
+    {
+        let _ = state.objects.delete(&published_object.key).await;
+        for asset in &assets {
+            let _ = state.objects.delete(&asset.object.key).await;
+        }
+        return flat_source_changed_response();
+    }
     let published_family = match &current.record.question.source {
         DraftQuestionSource::Native { family } if is_flat_question_family(family) => family.clone(),
         _ => return flat_source_changed_response(),
     };
+    let candidate_keys = std::iter::once(published_object.key.clone())
+        .chain(assets.iter().map(|asset| asset.object.key.clone()))
+        .collect::<Vec<_>>();
     let command = PublishDraftCommand {
         expected_draft: current.record,
         expected_revision,
@@ -561,6 +637,8 @@ where
         flat_question_promotion: Some(FlatQuestionPublicationPromotion {
             source: staged,
             import_origin: import_promotion,
+            published_question,
+            assets,
         }),
         publisher,
         scope: request.scope,
@@ -572,7 +650,15 @@ where
         .await
     {
         Ok(record) => no_store((StatusCode::CREATED, Json(record.question)).into_response()),
-        Err(error) => private_store_error(error),
+        Err(error) => {
+            // The catalog transaction refused the candidate. Only the fresh
+            // objects minted by this request are eligible for compensation;
+            // private workspace assets are immutable and are never touched.
+            for key in candidate_keys {
+                let _ = state.objects.delete(&key).await;
+            }
+            private_store_error(error)
+        }
     }
 }
 
@@ -836,14 +922,14 @@ fn canonical_source_response(revision: WorkspaceDraftRevision, source: Vec<u8>) 
     no_store(response)
 }
 
-fn flat_source_changed_response() -> Response {
+pub(super) fn flat_source_changed_response() -> Response {
     error_response(
         StatusCode::CONFLICT,
         "flat-question source changed; reload it",
     )
 }
 
-fn private_store_error(error: StoreError) -> Response {
+pub(super) fn private_store_error(error: StoreError) -> Response {
     match error {
         StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden => {
             error_response(StatusCode::NOT_FOUND, "workspace not found")
@@ -864,7 +950,7 @@ fn private_store_error(error: StoreError) -> Response {
     }
 }
 
-fn object_error_response(error: ObjectStoreError) -> Response {
+pub(super) fn object_error_response(error: ObjectStoreError) -> Response {
     match error {
         ObjectStoreError::Unavailable(_) => error_response(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -882,7 +968,7 @@ fn object_error_response(error: ObjectStoreError) -> Response {
     }
 }
 
-fn publication_license(draft: &DraftRecord) -> String {
+pub(super) fn publication_license(draft: &DraftRecord) -> String {
     match &draft.question.metadata.license {
         question_model::taxonomy::License::AllRightsReserved => "All rights reserved".to_string(),
         question_model::taxonomy::License::CcBy => "CC-BY-4.0".to_string(),

@@ -8,6 +8,7 @@ import test from "node:test";
 import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
 import { createMockApiClient } from "../src/api/mock/client.ts";
 import { createSessionBootstrap, sessionFailureState } from "../src/auth/session_context.tsx";
+import { prefetchMatchesIssuedSuccessor } from "../src/features/attempt/prefetch_binding.ts";
 import { ROUTE_CONTRACT } from "../src/route_contract.ts";
 
 const EXPECTED_ROUTE_PATHS = [
@@ -306,21 +307,41 @@ test("the learner route binds stable recovery rather than creating a key for eac
   assert.doesNotMatch(source, /onSubmit={[\s\S]{0,300}crypto\.randomUUID/);
 });
 
-test("the learner consumes a prefetched envelope only when the committed receipt binds it", () => {
-  const source = fs.readFileSync("src/pages/run_page.tsx", "utf8");
+test("a prefetched successor is usable only when the committed receipt binds it", () => {
+  const predecessor = "0198e000-0000-7000-8000-000000000030";
+  const cached = {
+    predecessor,
+    run: "0198e000-0000-7000-8000-000000000023",
+    assignmentPosition: 2,
+    questionVersion: "0198e000-0000-7000-8000-000000000041",
+    seed: 42,
+    renderedQuestionSha256: "a".repeat(64),
+  };
+  const issued = {
+    id: "0198e000-0000-7000-8000-000000000031",
+    run: cached.run,
+    assignmentPosition: cached.assignmentPosition,
+    questionVersion: cached.questionVersion,
+    seed: cached.seed,
+    deadline: null,
+    renderedQuestionSha256: cached.renderedQuestionSha256,
+  };
+  const mismatches = [
+    { ...cached, predecessor: "0198e000-0000-7000-8000-000000000099" },
+    { ...cached, run: "0198e000-0000-7000-8000-000000000099" },
+    { ...cached, assignmentPosition: 3 },
+    { ...cached, questionVersion: "0198e000-0000-7000-8000-000000000099" },
+    { ...cached, seed: 43 },
+    { ...cached, renderedQuestionSha256: "b".repeat(64) },
+  ];
 
-  assert.match(
-    source,
-    /const receiptNext = feedbackState\(\)\?\.acknowledgement\.nextIssued \?\? null/,
+  assert.equal(prefetchMatchesIssuedSuccessor(cached, issued, predecessor), true);
+  assert.equal(
+    mismatches.every(
+      (candidate) => !prefetchMatchesIssuedSuccessor(candidate, issued, predecessor),
+    ),
+    true,
   );
-  assert.match(source, /cached\.predecessor === machine\.state\(\)\.context\.attemptId/);
-  assert.match(source, /cached\.run === receiptNext\.run/);
-  assert.match(source, /cached\.assignmentPosition === receiptNext\.assignmentPosition/);
-  assert.match(source, /cached\.questionVersion === receiptNext\.questionVersion/);
-  assert.match(source, /cached\.seed === receiptNext\.seed/);
-  assert.match(source, /cached\.renderedQuestionSha256 === receiptNext\.renderedQuestionSha256/);
-  assert.match(source, /runtime\.client\.getRunScreen\(screen\(\)\.run\.id\)/);
-  assert.match(source, /return runtime\.queries\.runScreen\(runId\)/);
 });
 
 test("a receipt with no successor completes locally without loading an active run screen", () => {

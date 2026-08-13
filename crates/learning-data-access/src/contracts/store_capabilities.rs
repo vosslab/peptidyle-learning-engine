@@ -364,6 +364,46 @@ pub trait RunStore: Send + Sync {
         attempt: QuestionAttemptId,
     ) -> Result<Option<PresentationBindingV1>, StoreError>;
 
+    /// Reads the answer-free snapshot frozen when one owned attempt issued its
+    /// presentation. A presentation-bearing attempt without this snapshot is
+    /// unavailable authority, never a request to rebuild from current state.
+    async fn get_attempt_presentation_snapshot_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<ReceiptPresentationSnapshot>, StoreError>;
+
+    /// Reads the exact server-only answer-free envelope frozen with one owned
+    /// presentation-bearing attempt. Its durable response IDs are used only
+    /// for first-submit validation and private grading, never browser output.
+    async fn get_attempt_grading_envelope_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<question_model::QuestionEnvelope>, StoreError>;
+
+    /// Reads immutable private flat-question grading authority for one owned
+    /// attempt. A missing or corrupt required contract is unavailable rather
+    /// than an invitation to reread mutable publication state.
+    async fn get_attempt_flat_grading_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<crate::IssuedFlatGradingContract>, StoreError>;
+
+    /// Reads immutable server-only WebWork grading authority for one owned
+    /// attempt. A missing required contract fails closed instead of asking the
+    /// current catalog or renderer to reconstruct it.
+    async fn get_attempt_webwork_grading_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<crate::IssuedWebworkGradingContract>, StoreError>;
+
     /// Reads the private answer-free WeBWorK replay state for one owned attempt.
     async fn get_webwork_grade_replay_state_impl(
         &self,
@@ -438,6 +478,19 @@ pub trait RunStore: Send + Sync {
         attempt: QuestionAttemptId,
         response: &StudentResponse,
         idempotency_key: &SubmissionIdempotencyKey,
+    ) -> Result<Option<SubmissionRecord>, StoreError>;
+
+    /// Reads the immutable receipt for one owned submitted attempt.
+    ///
+    /// This does not accept an idempotency key because it is a receipt read,
+    /// not a retry authorization. Implementations must return the persisted
+    /// receipt only and fail closed when a required receipt payload is absent
+    /// or corrupt; they must not reconstruct it from current catalog state.
+    async fn submission_record_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
     ) -> Result<Option<SubmissionRecord>, StoreError>;
 
     /// Atomically records the first response, grade event, run completion, and summary.

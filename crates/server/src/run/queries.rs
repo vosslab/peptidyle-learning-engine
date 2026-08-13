@@ -2,7 +2,9 @@
 
 use super::contracts::RunBackend;
 use super::prefetch::load_run_question;
-use super::submission::{apply_feedback_disclosure, project_run_feedback};
+use super::submission::{
+    apply_feedback_disclosure, apply_receipt_feedback_disclosure, project_run_feedback,
+};
 use super::support::*;
 
 pub(super) async fn get_run<S, B>(
@@ -169,6 +171,29 @@ where
         Err(error) => return store_error_response(error),
     };
     for attempt in &mut page.items {
+        if attempt.response.is_some() {
+            let record = match state
+                .store
+                .submission_record(
+                    authenticated.tenant_context,
+                    authenticated.record.subject.user(),
+                    attempt.id,
+                )
+                .await
+            {
+                Ok(Some(record)) => record,
+                Ok(None) => {
+                    return error_response(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "submitted attempt receipt is unavailable",
+                    );
+                }
+                Err(error) => return store_error_response(error),
+            };
+            *attempt = record.attempt;
+            apply_receipt_feedback_disclosure(record.feedback_disclosure, &run, attempt);
+            continue;
+        }
         if let Err(response) = apply_feedback_disclosure(
             state.store.as_ref(),
             authenticated.tenant_context,
@@ -209,7 +234,28 @@ where
         Ok(run) => run,
         Err(response) => return response,
     };
-    if let Err(response) = apply_feedback_disclosure(
+    if attempt.response.is_some() {
+        let record = match state
+            .store
+            .submission_record(
+                authenticated.tenant_context,
+                authenticated.record.subject.user(),
+                attempt.id,
+            )
+            .await
+        {
+            Ok(Some(record)) => record,
+            Ok(None) => {
+                return error_response(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "submitted attempt receipt is unavailable",
+                );
+            }
+            Err(error) => return store_error_response(error),
+        };
+        attempt = record.attempt;
+        apply_receipt_feedback_disclosure(record.feedback_disclosure, &run, &mut attempt);
+    } else if let Err(response) = apply_feedback_disclosure(
         state.store.as_ref(),
         authenticated.tenant_context,
         &run,
@@ -224,10 +270,12 @@ where
 
 /// Returns the exact, key-free envelope for an already issued attempt.
 ///
-/// An attempt record is not enough to reconstruct student-facing content: its
-/// seed and provenance must be checked by the selected trusted backend. This
-/// route deliberately has no authored-content fallback, so an unavailable or
-/// inconsistent backend cannot accidentally serve a different variant.
+/// Native and WeBWorK attempts carry an owned, answer-free issuance snapshot.
+/// In particular, a submitted attempt must never be rebuilt from current
+/// catalog or renderer state: a receipt is historical even if authored content
+/// later changes. Response families without a native envelope retain the
+/// contracted backend path while active, but cannot be reconstructed after a
+/// submission.
 pub(super) async fn get_attempt_question<S, B>(
     State(state): State<RunRouteState<S, B>>,
     headers: HeaderMap,
@@ -253,6 +301,46 @@ where
     if let Err(response) = authorized_run(state.store.as_ref(), &authenticated, attempt.run).await {
         return response;
     }
+    if attempt.response.is_some() {
+        // A submitted question is historical. Read its immutable receipt,
+        // including the receipt copy of the issuance snapshot, rather than
+        // allowing a catalog edit or renderer change to alter the GET result.
+        return match state
+            .store
+            .submission_record(
+                authenticated.tenant_context,
+                authenticated.record.subject.user(),
+                attempt.id,
+            )
+            .await
+        {
+            Ok(Some(record)) => match record.presentation {
+                Some(snapshot) => no_store(Json(snapshot.envelope).into_response()),
+                None => error_response(
+                    StatusCode::CONFLICT,
+                    "submitted attempt has no native presentation receipt",
+                ),
+            },
+            Ok(None) => error_response(
+                StatusCode::CONFLICT,
+                "submitted attempt receipt is unavailable",
+            ),
+            Err(error) => store_error_response(error),
+        };
+    }
+    match state
+        .store
+        .get_attempt_presentation_snapshot(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            attempt.id,
+        )
+        .await
+    {
+        Ok(Some(snapshot)) => return no_store(Json(snapshot.envelope).into_response()),
+        Ok(None) => {}
+        Err(error) => return store_error_response(error),
+    };
     let reference = ProblemVersionRef {
         problem: attempt.problem,
         version: attempt.question_version,

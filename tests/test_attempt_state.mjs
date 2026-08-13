@@ -46,6 +46,7 @@ function receipt() {
     },
     feedback: null,
     nextIssued: null,
+    nextPending: false,
   };
 }
 
@@ -138,6 +139,24 @@ test("an in-flight submit cannot create a duplicate grading request", async () =
   resolveSubmission();
   await Promise.all([first, duplicate]);
   assert.equal(fixture.submissionCalls.length, 1);
+});
+
+test("a receipt with a pending successor preserves feedback without resubmitting", async () => {
+  const fixture = createMachine({
+    submitResponse: async (attemptId, response, key) => {
+      fixture.submissionCalls.push({ attemptId, response, key });
+      return { ...receipt(), nextPending: true };
+    },
+  });
+  ready(fixture.machine);
+
+  await fixture.machine.submit();
+
+  const state = fixture.machine.state();
+  assert.equal(state.phase, "feedback");
+  assert.equal(state.acknowledgement.nextPending, true);
+  assert.equal(fixture.submissionCalls.length, 1);
+  assert.equal(state.response.kind, "numeric");
 });
 
 test("offline submission keeps the controlled response locally and retries after reconnect", async () => {
@@ -490,6 +509,7 @@ test("storage exceptions retain accepted state without exposing a raw receipt", 
     accepted: true,
     attemptId: "attempt-a",
     nextIssued: null,
+    nextPending: false,
   });
   assert.equal("receipt" in state, false);
 });

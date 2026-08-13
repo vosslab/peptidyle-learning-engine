@@ -298,7 +298,7 @@ CREATE TABLE public.course_roster_member (
     CONSTRAINT course_roster_member_revocation_check CHECK (
         (status = 'active' AND revoked_at IS NULL)
         OR (status = 'revoked' AND revoked_at IS NOT NULL AND revoked_at >= joined_at)
-    ),
+    )
 );
 
 CREATE UNIQUE INDEX course_roster_member_roster_id_key

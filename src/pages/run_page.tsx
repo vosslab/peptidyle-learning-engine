@@ -35,6 +35,7 @@ import {
   type AttemptState,
   type AttemptStorage,
 } from "../features/attempt/attempt_state";
+import { prefetchMatchesIssuedSuccessor } from "../features/attempt/prefetch_binding";
 import { projectLearnerResponse } from "../features/attempt/learner_response";
 import type { ResponseFormatReport } from "../wasm/index";
 import { useWasmFacade } from "../wasm/context";
@@ -163,17 +164,19 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
   }
 
   async function continueAttempt(): Promise<void> {
-    const receiptNext = feedbackState()?.acknowledgement.nextIssued ?? null;
+    const acknowledgement = feedbackState()?.acknowledgement;
+    if (acknowledgement?.nextPending) {
+      // The response is already durable. A refresh can recover only successor
+      // delivery; it never resubmits or recreates the learner response.
+      window.location.reload();
+      return;
+    }
+    const receiptNext = acknowledgement?.nextIssued ?? null;
     const cached = prefetched();
     if (
       receiptNext !== null &&
       cached !== null &&
-      cached.predecessor === machine.state().context.attemptId &&
-      cached.run === receiptNext.run &&
-      cached.assignmentPosition === receiptNext.assignmentPosition &&
-      cached.questionVersion === receiptNext.questionVersion &&
-      cached.seed === receiptNext.seed &&
-      cached.renderedQuestionSha256 === receiptNext.renderedQuestionSha256
+      prefetchMatchesIssuedSuccessor(cached, receiptNext, machine.state().context.attemptId)
     ) {
       const current = machine.state().context;
       await machine.advance(() =>
@@ -542,6 +545,11 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
                         new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
                       }
                       onAdvance={() => void continueAttempt()}
+                      advanceLabel={
+                        feedback().acknowledgement.nextPending
+                          ? "Refresh for the next question"
+                          : undefined
+                      }
                     />
                   )}
                 </Show>

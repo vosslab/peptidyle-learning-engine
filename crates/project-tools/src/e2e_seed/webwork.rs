@@ -359,7 +359,7 @@ where
         .await
         .context("reading deterministic WebWork pilot course")?
     {
-        Some(actual) if actual == expected => Ok(()),
+        Some(actual) if webwork_pilot_course_seed_matches(&actual, &expected) => Ok(()),
         Some(_) => bail!("existing WebWork pilot course differs from the deterministic seed"),
         None => {
             store
@@ -371,12 +371,33 @@ where
                 .await
                 .context("reloading created WebWork pilot course")?
                 .ok_or_else(|| anyhow::anyhow!("created WebWork pilot course disappeared"))?;
-            if actual != expected {
+            if !webwork_pilot_course_seed_matches(&actual, &expected) {
                 bail!("created WebWork pilot course differs from the deterministic seed");
             }
             Ok(())
         }
     }
+}
+
+/// Verifies the authored course seed without claiming ownership of roster
+/// membership. The canonical roster transaction may add students after the
+/// course is created; seeded identity, title, and required roles remain exact,
+/// and an unexpected instructor still fails closed.
+pub(super) fn webwork_pilot_course_seed_matches(
+    actual: &CourseRecord,
+    expected: &CourseRecord,
+) -> bool {
+    actual.id == expected.id
+        && actual.tenant == expected.tenant
+        && actual.title == expected.title
+        && expected
+            .members
+            .iter()
+            .all(|membership| actual.members.contains(membership))
+        && actual.members.iter().all(|membership| {
+            expected.members.contains(membership)
+                || membership.role == CourseMembershipRole::Student
+        })
 }
 
 pub(super) async fn ensure_webwork_pilot_assignment<S>(

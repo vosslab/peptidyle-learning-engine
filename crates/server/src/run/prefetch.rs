@@ -3,9 +3,86 @@
 use super::contracts::{IssuedAttemptMetadata, RunBackend, RunBackendError};
 use super::queries::{all_attempts, owned_assignment_for_run, owned_enrollment, owned_run};
 use super::support::*;
-use question_model::ResponseDefinition;
+use learning_data_access::AssetStore;
+use question_model::{
+    ResponseDefinition,
+    envelope::{AssetRef, ContentBlock},
+};
 
-fn fresh_presentation(
+fn referenced_assets(envelope: &QuestionEnvelope) -> Result<Vec<AssetRef>, RunBackendError> {
+    fn add_reference(
+        references: &mut Vec<AssetRef>,
+        reference: &AssetRef,
+    ) -> Result<(), RunBackendError> {
+        if let Some(existing) = references
+            .iter()
+            .find(|existing| existing.asset == reference.asset)
+        {
+            if existing.checksum != reference.checksum {
+                return Err(RunBackendError::Invalid(
+                    "one question references an asset with conflicting checksums".to_string(),
+                ));
+            }
+        } else {
+            references.push(reference.clone());
+        }
+        Ok(())
+    }
+    fn add_content(
+        references: &mut Vec<AssetRef>,
+        content: &[ContentBlock],
+    ) -> Result<(), RunBackendError> {
+        for block in content {
+            if let ContentBlock::Image { asset, .. } = block {
+                add_reference(references, asset)?;
+            }
+        }
+        Ok(())
+    }
+    let mut references = Vec::new();
+    add_content(&mut references, &envelope.prompt)?;
+    match &envelope.response {
+        ResponseDefinition::MultipleChoice { choices, .. } => {
+            for choice in choices {
+                add_content(&mut references, &choice.body)?;
+            }
+        }
+        ResponseDefinition::MultiBlank { blanks } => {
+            for blank in blanks {
+                add_content(&mut references, &blank.label)?;
+            }
+        }
+        ResponseDefinition::Matching { prompts, choices } => {
+            for choice in prompts.iter().chain(choices) {
+                add_content(&mut references, &choice.body)?;
+            }
+        }
+        ResponseDefinition::Ordering { items } => {
+            for item in items {
+                add_content(&mut references, &item.body)?;
+            }
+        }
+        ResponseDefinition::Hotspot {
+            surface, regions, ..
+        } => {
+            add_reference(&mut references, surface)?;
+            for region in regions {
+                add_content(&mut references, &region.label)?;
+            }
+        }
+        ResponseDefinition::Numeric { .. }
+        | ResponseDefinition::ShortText { .. }
+        | ResponseDefinition::FileUpload { .. }
+        | ResponseDefinition::ExternalTool {} => {}
+    }
+    references.sort_by_key(|reference| reference.asset);
+    Ok(references)
+}
+
+async fn fresh_presentation<S: AssetStore>(
+    store: &S,
+    context: TenantContext,
+    reference: ProblemVersionRef,
     envelope: &QuestionEnvelope,
 ) -> Result<Option<PresentationV1>, RunBackendError> {
     if matches!(
@@ -14,24 +91,51 @@ fn fresh_presentation(
     ) {
         return Ok(None);
     }
-    build_presentation_v1(envelope, &[])
+    let registered = store
+        .catalog_asset_bindings(context, reference)
+        .await
+        .map_err(|error| {
+            RunBackendError::Unavailable(format!(
+                "published asset registry is unavailable: {error}"
+            ))
+        })?;
+    let bindings = referenced_assets(envelope)?
+        .into_iter()
+        .map(|authored| {
+            let registered = registered
+                .iter()
+                .find(|registered| registered.asset == authored.asset)
+                .ok_or_else(|| {
+                    RunBackendError::Invalid(
+                        "published question references an unavailable immutable asset".to_string(),
+                    )
+                })?;
+            if registered.rendition_checksum.to_string() != authored.checksum {
+                return Err(RunBackendError::Invalid(
+                    "published asset checksum does not match the authored reference".to_string(),
+                ));
+            }
+            Ok(AssetBindingV1 {
+                asset: authored.asset,
+                authored_checksum: authored.checksum,
+                rendition_checksum: registered.rendition_checksum.to_string(),
+                intrinsic_width: registered.intrinsic_width,
+                intrinsic_height: registered.intrinsic_height,
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    build_presentation_v1(envelope, &bindings)
         .map(Some)
         .map_err(|error| {
             RunBackendError::Invalid(format!("question presentation is invalid: {error}"))
         })
 }
 
-fn reproduce_presentation(
-    envelope: &QuestionEnvelope,
-    binding: PresentationBindingV1,
-) -> Result<PresentationV1, RunBackendError> {
-    question_model::presentation::reproduce_presentation_v1(envelope, &[], binding).map_err(
-        |error| {
-            RunBackendError::Invalid(format!(
-                "question presentation cannot be reproduced: {error}"
-            ))
-        },
-    )
+fn receipt_presentation(presentation: PresentationV1) -> ReceiptPresentationSnapshot {
+    ReceiptPresentationSnapshot {
+        envelope: presentation.envelope,
+        asset_bindings: presentation.asset_bindings,
+    }
 }
 
 fn bind_webwork_replay(
@@ -173,7 +277,14 @@ where
                 Ok(value) => value,
                 Err(error) => return backend_error_response(error),
             };
-            let presentation = match fresh_presentation(&issued.envelope) {
+            let presentation = match fresh_presentation(
+                state.store.as_ref(),
+                authenticated.tenant_context,
+                reference,
+                &issued.envelope,
+            )
+            .await
+            {
                 Ok(Some(value)) => value,
                 Ok(None) => {
                     return error_response(
@@ -198,11 +309,18 @@ where
                 seed,
                 parameter_hash: issued.parameter_hash.clone(),
                 provenance: issued.provenance.clone(),
+                presentation_capability: PresentationCapability::EnvelopeV1,
                 presentation: PresentationBindingV1::new(
                     presentation.envelope.presentation_nonce,
                     presentation.digest,
                 ),
+                presentation_snapshot: receipt_presentation(presentation),
+                grading_envelope: issued.envelope.clone(),
+                flat_grading: issued.flat_grading.clone(),
+                flat_grading_capability: issued.flat_grading_capability,
                 webwork_replay,
+                webwork_grading: issued.webwork_grading.clone(),
+                webwork_grading_capability: issued.webwork_grading_capability,
             };
             let reservation = match state
                 .store
@@ -265,11 +383,26 @@ where
             "prefetched question did not reproduce exactly",
         );
     }
-    let presentation = match reproduce_presentation(&issued.envelope, reservation.presentation) {
+    let receipt_presentation = match question_model::presentation::rebuild_public_presentation_v1(
+        &reservation.presentation_snapshot.envelope,
+        &reservation.presentation_snapshot.asset_bindings,
+    ) {
         Ok(value) => value,
-        Err(error) => return backend_error_response(error),
+        Err(error) => {
+            return backend_error_response(RunBackendError::Invalid(format!(
+                "prefetched receipt presentation is invalid: {error}"
+            )));
+        }
     };
-    let replay = match bind_webwork_replay(&question, &issued, Some(&presentation)) {
+    if receipt_presentation.digest != reservation.presentation.digest()
+        || receipt_presentation.envelope.presentation_nonce != reservation.presentation.nonce()
+    {
+        return error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "prefetched receipt presentation does not match its binding",
+        );
+    }
+    let replay = match bind_webwork_replay(&question, &issued, Some(&receipt_presentation)) {
         Ok(value) => value,
         Err(error) => return backend_error_response(error),
     };
@@ -465,45 +598,88 @@ where
     S: Store,
     B: RunBackend,
 {
-    let (seed, parameter_hash, provenance, presentation, webwork_replay) =
-        match request.prefetched.as_ref() {
-            Some(value) => (
-                value.seed,
-                value.parameter_hash.clone(),
-                value.provenance.clone(),
-                Some(value.presentation),
-                value.webwork_replay.clone(),
-            ),
-            None => {
-                let seed = fresh_seed().map_err(backend_error_response)?;
-                let issued = backend
-                    .issue(
-                        authenticated.tenant_context,
-                        request.reference,
-                        request.question,
-                        seed,
-                    )
-                    .await
-                    .map_err(backend_error_response)?;
-                let presentation =
-                    fresh_presentation(&issued.envelope).map_err(backend_error_response)?;
-                let webwork_replay =
-                    bind_webwork_replay(request.question, &issued, presentation.as_ref())
-                        .map_err(backend_error_response)?;
-                (
+    let (
+        seed,
+        parameter_hash,
+        provenance,
+        presentation_capability,
+        presentation,
+        presentation_snapshot,
+        grading_envelope,
+        flat_grading,
+        flat_grading_capability,
+        webwork_replay,
+        webwork_grading,
+        webwork_grading_capability,
+    ) = match request.prefetched.as_ref() {
+        Some(value) => (
+            value.seed,
+            value.parameter_hash.clone(),
+            value.provenance.clone(),
+            value.presentation_capability,
+            Some(value.presentation),
+            Some(value.presentation_snapshot.clone()),
+            Some(value.grading_envelope.clone()),
+            value.flat_grading.clone(),
+            value.flat_grading_capability,
+            value.webwork_replay.clone(),
+            value.webwork_grading.clone(),
+            value.webwork_grading_capability,
+        ),
+        None => {
+            let seed = fresh_seed().map_err(backend_error_response)?;
+            let issued = backend
+                .issue(
+                    authenticated.tenant_context,
+                    request.reference,
+                    request.question,
                     seed,
-                    issued.parameter_hash,
-                    issued.provenance,
-                    presentation.map(|presentation| {
-                        PresentationBindingV1::new(
-                            presentation.envelope.presentation_nonce,
-                            presentation.digest,
-                        )
-                    }),
-                    webwork_replay,
                 )
-            }
-        };
+                .await
+                .map_err(backend_error_response)?;
+            let presentation = fresh_presentation(
+                store,
+                authenticated.tenant_context,
+                request.reference,
+                &issued.envelope,
+            )
+            .await
+            .map_err(backend_error_response)?;
+            let webwork_replay =
+                bind_webwork_replay(request.question, &issued, presentation.as_ref())
+                    .map_err(backend_error_response)?;
+            let presentation_capability = if presentation.is_some() {
+                PresentationCapability::EnvelopeV1
+            } else {
+                PresentationCapability::NotApplicable
+            };
+            let presentation_snapshot = presentation.clone().map(receipt_presentation);
+            let grading_envelope = presentation.as_ref().map(|_| issued.envelope);
+            let flat_grading = issued.flat_grading;
+            let flat_grading_capability = issued.flat_grading_capability;
+            let webwork_grading = issued.webwork_grading;
+            let webwork_grading_capability = issued.webwork_grading_capability;
+            (
+                seed,
+                issued.parameter_hash,
+                issued.provenance,
+                presentation_capability,
+                presentation.map(|presentation| {
+                    PresentationBindingV1::new(
+                        presentation.envelope.presentation_nonce,
+                        presentation.digest,
+                    )
+                }),
+                presentation_snapshot,
+                grading_envelope,
+                flat_grading,
+                flat_grading_capability,
+                webwork_replay,
+                webwork_grading,
+                webwork_grading_capability,
+            )
+        }
+    };
     store
         .issue_or_resume_question_attempt(
             authenticated.tenant_context,
@@ -517,12 +693,78 @@ where
                 seed,
                 parameter_hash,
                 provenance,
+                presentation_capability,
                 presentation,
+                presentation_snapshot,
+                grading_envelope,
+                flat_grading,
+                flat_grading_capability,
                 webwork_replay,
+                webwork_grading,
+                webwork_grading_capability,
                 prefetched: request.prefetched,
                 predecessor_submission: request.predecessor_submission,
             },
         )
         .await
         .map_err(store_error_response)
+}
+
+#[cfg(test)]
+mod presentation_snapshot_tests {
+    use super::*;
+    use question_model::answer::SelectionCardinality;
+    use question_model::presentation::rebuild_public_presentation_v1;
+    use question_model::response::{ChoiceId, HotspotRegion, ResponseDefinition};
+    use question_model::{AssetId, VersionId, generation::Seed};
+    use uuid::Uuid;
+
+    #[test]
+    fn hotspot_receipt_snapshot_rebuilds_only_with_its_public_asset_binding() {
+        let asset = AssetId::from_uuid(Uuid::from_u128(1));
+        let envelope = QuestionEnvelope {
+            version: VersionId::from_uuid(Uuid::from_u128(2)),
+            seed: Seed::new(3),
+            title: "Protein hotspot".to_string(),
+            prompt: Vec::new(),
+            response: ResponseDefinition::Hotspot {
+                surface: AssetRef {
+                    asset,
+                    checksum: "a".repeat(64),
+                },
+                description: "A protein surface.".to_string(),
+                regions: vec![HotspotRegion {
+                    id: ChoiceId::new("active-site"),
+                    label: vec![ContentBlock::Text {
+                        markdown: "Active site".to_string(),
+                    }],
+                    x: 1_000,
+                    y: 2_000,
+                    width: 3_000,
+                    height: 2_000,
+                }],
+                selection: SelectionCardinality::ExactlyOne,
+            },
+        };
+
+        // A backend that issues hotspots provides the measured public asset
+        // dimensions. The receipt preserves those descriptor inputs verbatim;
+        // it does not infer a size from mutable object metadata on replay.
+        let issued = build_presentation_v1(
+            &envelope,
+            &[AssetBindingV1 {
+                asset,
+                authored_checksum: "a".repeat(64),
+                rendition_checksum: "b".repeat(64),
+                intrinsic_width: Some(1_024),
+                intrinsic_height: Some(768),
+            }],
+        )
+        .expect("asset-backed hotspot is presentable");
+        let replayed = rebuild_public_presentation_v1(&issued.envelope, &issued.asset_bindings)
+            .expect("receipt snapshot retains every descriptor input");
+        assert_eq!(replayed.digest, issued.digest);
+        assert_eq!(issued.asset_bindings.len(), 1);
+        assert!(rebuild_public_presentation_v1(&issued.envelope, &[]).is_err());
+    }
 }

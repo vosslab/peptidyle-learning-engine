@@ -8,10 +8,7 @@ import {
 } from "./simulator/instructor_setup_state";
 import { writeInstructorSetupCheckpoint } from "./simulator/instructor_setup_checkpoint";
 import { tabTo } from "./simulator/keyboard_walkthrough";
-import {
-  credentialFromValidatedFile,
-  learnerAliasFromValidatedFile,
-} from "./ui_walkthrough_config_factory";
+import { credentialFromValidatedFile } from "./ui_walkthrough_config_factory";
 import {
   captureDocumentationScreenshot,
   documentationScreenshotsEnabled,
@@ -101,26 +98,50 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
   await expect(students).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Students", exact: true })).toBeVisible();
-  const learnerAlias = page.getByLabel("Configured learner alias");
-  await tabTo(page, learnerAlias);
-  await expect(learnerAlias).toBeFocused();
-  await learnerAlias.fill(learnerAliasFromValidatedFile(inputs.learnerAliasFile));
-  const addStudent = page.getByRole("button", { name: "Add active student", exact: true });
+  const emailEnrollmentRequests: string[] = [];
+  page.on("request", (request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (
+      pathname.includes("/invitations") ||
+      pathname.includes("/enrollment-policy") ||
+      pathname.includes("/roster-imports")
+    ) {
+      emailEnrollmentRequests.push(pathname);
+    }
+  });
+  await expect(page.getByRole("heading", { name: "Invite one student", exact: true })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("heading", { name: "Enrollment policy", exact: true })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("heading", { name: "Pending invitations", exact: true })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("heading", { name: "Import a CSV roster", exact: true })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("columnheader", { name: "Email", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "Roster ID", exact: true })).toHaveCount(0);
+  const addStudent = page.getByRole("button", { name: "Add Mary Fake Student", exact: true });
   await tabTo(page, addStudent);
   await expect(addStudent).toBeFocused();
   await page.keyboard.press("Enter");
-  const activeRow = page.locator("tr", { hasText: "Local pilot" }).filter({ hasText: "active" });
+  const activeRow = page.getByRole("row", { name: /Mary Fake Student.*active/u });
   await expect(activeRow).toHaveCount(1);
+  await expect(activeRow).toHaveAttribute("tabindex", "-1");
+  await expect(page.getByRole("status")).toHaveText(
+    "Mary Fake Student is now an active student in this course.",
+  );
   await expect(activeRow).toBeFocused();
+  expect(emailEnrollmentRequests).toEqual([]);
   writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "student_active");
   if (documentationScreenshotsEnabled(inputs.screenshotDirectory)) {
-    await tabTo(page, learnerAlias);
-    await expect(learnerAlias).toBeFocused();
-    await learnerAlias.fill("student-jack");
-    await tabTo(page, addStudent);
-    await expect(addStudent).toBeFocused();
+    const addJack = page.getByRole("button", { name: "Add Jack Fake Student", exact: true });
+    await tabTo(page, addJack);
+    await expect(addJack).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(activeRow).toHaveCount(2);
+    await expect(activeRow).toHaveCount(1);
     await expect(page.getByRole("row", { name: /Jack Fake Student.*active/u })).toBeFocused();
   }
   await captureDocumentationScreenshot(

@@ -1,7 +1,7 @@
 // Deterministic passwordless and roster fixture capability for browser previews.
 
 import { publishedProblemFixture } from "../../../generated/fixtures/published_problem";
-import type { CourseRosterClient, CourseRosterPage, PasskeySummary } from "../enrollment";
+import type { CourseRosterClient, EmailEnrollmentRosterPage, PasskeySummary } from "../enrollment";
 
 const ACCOUNT_COURSE = {
   courseId: publishedProblemFixture.course.id,
@@ -27,7 +27,8 @@ export function createMockEnrollmentClient(): CourseRosterClient {
       lastUsedAtMillis: null,
     },
   ];
-  let roster: CourseRosterPage = {
+  let roster: EmailEnrollmentRosterPage = {
+    rosterMode: "emailEnrollment",
     members: [
       {
         memberId: MOCK_MEMBER_ID,
@@ -45,7 +46,9 @@ export function createMockEnrollmentClient(): CourseRosterClient {
     rosterRevision,
   };
 
-  function replaceRoster(next: Omit<CourseRosterPage, "rosterRevision">): CourseRosterPage {
+  function replaceRoster(
+    next: Omit<EmailEnrollmentRosterPage, "rosterRevision">,
+  ): EmailEnrollmentRosterPage {
     rosterRevision += 1;
     roster = { ...next, rosterRevision };
     return roster;
@@ -85,6 +88,8 @@ export function createMockEnrollmentClient(): CourseRosterClient {
       return Promise.resolve();
     },
     listCourseRoster: () => Promise.resolve(roster),
+    addLocalTeachingMember: () =>
+      Promise.reject(new Error("Local teaching roster enrollment is unavailable in this preview.")),
     inviteCourseMember: (
       _courseId,
       email,

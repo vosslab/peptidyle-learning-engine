@@ -354,6 +354,32 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
             .expect("envelope body"),
     )
     .expect("envelope JSON");
+    let public_choice_for = |durable: &ChoiceId| {
+        let body = choices
+            .iter()
+            .find(|choice| &choice.id == durable)
+            .expect("durable QTI choice exists")
+            .body
+            .clone();
+        let expected_body = serde_json::to_value(&body).expect("QTI choice serializes");
+        let identifier = envelope_json
+            .pointer("/response/choices")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|issued_choices| {
+                issued_choices.iter().find_map(|choice| {
+                    (choice.get("body") == Some(&expected_body))
+                        .then(|| choice.get("id").and_then(serde_json::Value::as_str))
+                        .flatten()
+                })
+            })
+            .expect("issued public QTI choice exists");
+        ChoiceId::new(identifier)
+    };
+    let rendered_wrong = public_choice_for(&wrong);
+    assert_ne!(
+        rendered_wrong, wrong,
+        "the browser must submit the presentation-specific rendered choice ID"
+    );
     for forbidden in [
         "answerKey",
         "correctResponse",
@@ -370,7 +396,7 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
     };
     let wrong_response = app
         .clone()
-        .oneshot(submit(&wrong, "qti-wrong"))
+        .oneshot(submit(&rendered_wrong, "qti-wrong"))
         .await
         .expect("wrong response");
     assert_eq!(wrong_response.status(), axum::http::StatusCode::OK);
@@ -392,7 +418,7 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
     assert_eq!(grader_calls.load(Ordering::SeqCst), 1);
     let replay = app
         .clone()
-        .oneshot(submit(&wrong, "qti-wrong"))
+        .oneshot(submit(&rendered_wrong, "qti-wrong"))
         .await
         .expect("replay response");
     assert_eq!(replay.status(), axum::http::StatusCode::OK);
@@ -422,7 +448,49 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
         .into_iter()
         .find(|value| value.response.is_none())
         .expect("retry after wrong response");
-    let correct_response = app.oneshot(axum::http::Request::builder().method("POST").uri(format!("/api/submissions/{}", retry.id)).header("cookie", &cookie).header("content-type", "application/json").header("idempotency-key", "qti-correct").body(axum::body::Body::from(serde_json::json!({ "response": { "kind": "multipleChoice", "selected": [correct] } }).to_string())).expect("correct request")).await.expect("correct response");
+    let retry_question = app
+        .clone()
+        .oneshot(
+            axum::http::Request::builder()
+                .uri(format!("/api/attempts/{}/question", retry.id))
+                .header("cookie", &cookie)
+                .body(axum::body::Body::empty())
+                .expect("retry question request"),
+        )
+        .await
+        .expect("retry question response");
+    assert_eq!(retry_question.status(), axum::http::StatusCode::OK);
+    let retry_envelope: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(retry_question.into_body(), 64 * 1024)
+            .await
+            .expect("retry envelope body"),
+    )
+    .expect("retry public QTI envelope");
+    let correct_body = choices
+        .iter()
+        .find(|choice| choice.id == correct)
+        .expect("durable correct QTI choice exists")
+        .body
+        .clone();
+    let expected_correct_body =
+        serde_json::to_value(&correct_body).expect("QTI correct choice serializes");
+    let rendered_correct = retry_envelope
+        .pointer("/response/choices")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|retry_choices| {
+            retry_choices.iter().find_map(|choice| {
+                (choice.get("body") == Some(&expected_correct_body))
+                    .then(|| choice.get("id").and_then(serde_json::Value::as_str))
+                    .flatten()
+            })
+        })
+        .map(ChoiceId::new)
+        .expect("retry public correct QTI choice exists");
+    assert_ne!(
+        rendered_correct, correct,
+        "the retry also receives a presentation-specific rendered choice ID"
+    );
+    let correct_response = app.oneshot(axum::http::Request::builder().method("POST").uri(format!("/api/submissions/{}", retry.id)).header("cookie", &cookie).header("content-type", "application/json").header("idempotency-key", "qti-correct").body(axum::body::Body::from(serde_json::json!({ "response": { "kind": "multipleChoice", "selected": [rendered_correct] } }).to_string())).expect("correct request")).await.expect("correct response");
     assert_eq!(correct_response.status(), axum::http::StatusCode::OK);
     assert_eq!(
         serde_json::from_slice::<serde_json::Value>(

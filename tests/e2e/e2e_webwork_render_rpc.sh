@@ -10,8 +10,8 @@ cd "$(git rev-parse --show-toplevel)"
 ENV_FILE="${PLE_E2E_ENV_FILE:-containers/env.local}"
 E2E_ENV_DIRECTORY="$(dirname "$ENV_FILE")"
 CREDENTIAL_FILE="${PLE_E2E_STUDENT_CREDENTIAL_FILE:-$E2E_ENV_DIRECTORY/local-login.txt}"
-MANIFEST_FILE="${PLE_E2E_WEBWORK_MANIFEST_FILE:-$E2E_ENV_DIRECTORY/local-webwork-demo.json}"
 WORK_DIRECTORY="$(mktemp -d "${TMPDIR:-/tmp}/ple-webwork-e2e.XXXXXX")"
+MANIFEST_FILE="$WORK_DIRECTORY/webwork-renderer-fixture.json"
 COOKIE_JAR="$WORK_DIRECTORY/student.cookies"
 trap 'rm -rf "$WORK_DIRECTORY"' EXIT
 
@@ -195,9 +195,35 @@ PY
 require_file "$ENV_FILE"
 configure_compose
 
-# Required/no-SKIP acceptance: this is the supported all-in-one launch path.
+# Required/no-SKIP acceptance: the canonical launcher has only the reviewed
+# Chapter 1 teaching corpus. This acceptance then creates its one-question
+# renderer fixture explicitly and keeps its answer-free manifest private to
+# this temporary directory.
 ./launch_local_stack.sh --no-open --env-file "$ENV_FILE"
 require_file "$CREDENTIAL_FILE"
+postgres_user="$(env_value POSTGRES_USER)"
+postgres_password="$(env_value POSTGRES_PASSWORD)"
+postgres_database="$(env_value POSTGRES_DB)"
+postgres_port="$(env_value PLE_POSTGRES_HOST_PORT)"
+minio_port="$(env_value PLE_MINIO_API_HOST_PORT)"
+for required_value in "$postgres_user" "$postgres_password" "$postgres_database" "$postgres_port" "$minio_port"; do
+	[ -n "$required_value" ] || fail "renderer fixture requires complete local PostgreSQL and MinIO configuration"
+done
+case "$postgres_port" in ''|*[!0-9]*) fail "PLE_POSTGRES_HOST_PORT is not an integer" ;; esac
+case "$minio_port" in ''|*[!0-9]*) fail "PLE_MINIO_API_HOST_PORT is not an integer" ;; esac
+database_url="postgres://${postgres_user}:${postgres_password}@127.0.0.1:${postgres_port}/${postgres_database}"
+AWS_ACCESS_KEY_ID="$(env_value MINIO_ROOT_USER)" \
+AWS_SECRET_ACCESS_KEY="$(env_value MINIO_ROOT_PASSWORD)" \
+	cargo tools e2e-seed --webwork-pilot \
+		--database-url "$database_url" \
+		--apply-migrations \
+		--tenant "00000000-0000-0000-0000-000000000100" \
+		--instructor "00000000-0000-0000-0000-000000000101" \
+		--student "00000000-0000-0000-0000-000000000102" \
+		--s3-endpoint "http://127.0.0.1:${minio_port}" \
+		--s3-region "us-east-1" \
+		--content-bucket "content" >"$MANIFEST_FILE"
+chmod 600 "$MANIFEST_FILE"
 require_file "$MANIFEST_FILE"
 
 gateway_port="$(env_value PLE_GATEWAY_HOST_PORT)"

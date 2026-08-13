@@ -825,6 +825,8 @@ where
             provenance: "published QTI asset fixture".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(2),
         },
+        intrinsic_width: None,
+        intrinsic_height: None,
         scope: AssetDeliveryScope::Catalog {
             asset: logical_asset,
             reference,
@@ -947,6 +949,10 @@ where
         Ok(vec![learning_data_access::CatalogAssetBinding {
             asset: logical_asset,
             object,
+            rendition_checksum: staged_asset.sha256,
+            media_type: staged_asset.media_type.clone(),
+            intrinsic_width: None,
+            intrinsic_height: None,
         }])
     );
 }

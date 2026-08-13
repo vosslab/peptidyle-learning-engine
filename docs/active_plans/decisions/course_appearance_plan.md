@@ -514,8 +514,10 @@ indistinguishable choices. Re-run the OKLab oracle whenever any anchor changes.
     entry-only, and route changes cannot retain the previous course's variables.
   - Prove contrast, focus, alt behavior, forced colors, reduced motion, responsive layout, object
     lifecycle, RLS, current-pointer authorization, and retention ownership.
-  - Emit and review a 15-theme contact sheet, 320/480/768/1920/forced-color screenshots, and
-    `palette_metrics.json` containing rendered contrast plus the OKLab dedup table.
+  - The accepted 2026-08-09 run emitted a 15-theme contact sheet plus
+    320/480/768/1920/forced-color screenshots. Future refreshes use the canonical 1280 by 800
+    instructor canvas plus a separate narrow compatibility guard and retain `palette_metrics.json`
+    containing rendered contrast plus the OKLab dedup table.
   - Keep grading/Wasm/generated answer secrecy and learner network-trace gates green.
 - Evidence or review, when useful: full commands and exact artifact paths in the implementation
   handoff; independent PASS with no P0/P1 finding.

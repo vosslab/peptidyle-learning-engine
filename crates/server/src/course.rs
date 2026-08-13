@@ -4,6 +4,7 @@
 //! keep routing, queries, mutations, access policy, and wire projections small.
 
 mod assignments;
+mod invitation_capability;
 mod invitation_email;
 mod policy;
 mod projection;
@@ -11,13 +12,15 @@ mod queries;
 mod roster;
 mod routing;
 
-pub use invitation_email::{
-    SmtpCourseInvitationDelivery, SmtpCourseInvitationDeliveryConfig, SmtpTlsMode,
-};
-pub use roster::{
+pub use invitation_capability::{
     CourseInvitationDelivery, CourseInvitationDeliveryError, CourseInvitationIssuer,
     CourseInvitationSecret, UnavailableCourseInvitationDelivery,
 };
+pub use invitation_email::{
+    SmtpCourseInvitationDelivery, SmtpCourseInvitationDeliveryConfig, SmtpTlsMode,
+};
+pub(crate) use roster::{LocalTeachingRosterDirectory, LocalTeachingRosterIdentity};
+pub(crate) use routing::router_with_invitations_and_local_teaching;
 pub use routing::{router, router_with_invitations};
 
 #[cfg(test)]

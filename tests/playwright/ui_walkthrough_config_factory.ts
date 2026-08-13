@@ -25,7 +25,6 @@ export interface UiWalkthroughInputs extends SharedWalkthroughInputs {
 
 export interface InstructorSetupInputs extends SharedWalkthroughInputs {
   readonly stage: "instructor_setup";
-  readonly learnerAliasFile: string;
   readonly instructorSetupCheckpointFile: string;
   readonly catalogDisplayIds: readonly [string, string, string, string];
 }
@@ -295,7 +294,6 @@ export function readUiWalkthroughInputs(inputPath: string): ValidatedUiWalkthrou
         "masterSeed",
         "credentialFile",
         "journeyStateFile",
-        "learnerAliasFile",
         "instructorSetupCheckpointFile",
         "catalogDisplayIds",
         "screenshotDirectory",
@@ -303,19 +301,9 @@ export function readUiWalkthroughInputs(inputPath: string): ValidatedUiWalkthrou
       "walkthrough instructor inputs have an invalid schema",
     );
     const shared = sharedInputs(value);
-    const learnerAliasFile = stringValue(
-      value["learnerAliasFile"],
-      "walkthrough learner alias file is invalid",
-    );
-    try {
-      inspectCredentialFile(learnerAliasFile);
-    } catch {
-      throw new Error("walkthrough learner alias is unreadable or has unsafe metadata");
-    }
     return {
       stage,
       ...shared,
-      learnerAliasFile,
       instructorSetupCheckpointFile: validatedChildFile(
         shared.journeyStateFile,
         value["instructorSetupCheckpointFile"],
@@ -374,16 +362,5 @@ export function credentialFromValidatedFile(path: string, role: "student" | "ins
     return credential;
   } catch {
     throw new Error("walkthrough credential file is unreadable or has unsafe metadata");
-  }
-}
-
-export function learnerAliasFromValidatedFile(path: string): string {
-  try {
-    inspectCredentialFile(path);
-    const alias = readFileSync(path, "ascii");
-    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\n$/u.test(alias)) throw new Error("invalid alias");
-    return alias.slice(0, -1);
-  } catch {
-    throw new Error("walkthrough learner alias is unreadable or has unsafe metadata");
   }
 }

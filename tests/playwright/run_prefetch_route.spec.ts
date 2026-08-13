@@ -42,7 +42,7 @@ test.beforeAll(async () => {
         import { createComponent } from "solid-js";
         import { render } from "solid-js/web";
         import { publishedProblemFixture } from "./generated/fixtures/published_problem.ts";
-        import { issuedEnvelopeForAttempt } from "./src/api/mock/handlers.ts";
+        import { issuedQuestionWireForAttempt } from "./src/api/mock/handlers.ts";
         import { createHttpApiClient } from "./src/api/http_client.ts";
         import { createApiRuntime, ApiRuntimeProvider } from "./src/api/runtime.tsx";
         import { WasmRuntimeProvider } from "./src/wasm/context.tsx";
@@ -50,6 +50,7 @@ test.beforeAll(async () => {
 
         const ids = { run30: "0198e000-0000-7000-8000-000000000730", run31: "0198e000-0000-7000-8000-000000000731", a30: "0198e000-0000-7000-8000-000000000732", b30: "0198e000-0000-7000-8000-000000000733", a31: "0198e000-0000-7000-8000-000000000734", b31: "0198e000-0000-7000-8000-000000000735" };
         const hash = (n) => String(n).repeat(64);
+        const submissionCountKey = "prefetch-fixture-submission-count";
         const requests = [];
         const held = new Map();
         let heldSuccessorScreen = null;
@@ -75,12 +76,16 @@ test.beforeAll(async () => {
           if (screenMode === "wrongHash") return { ...next, provenance: { ...next.provenance, renderedQuestionSha256: hash("c") } };
           return next;
         };
-        const envelope = (value) => { const base = issuedEnvelopeForAttempt(value); return { ...base, title: "Position " + (value.assignmentPosition + 1) + " / " + value.run.slice(-3), prompt: value.assignmentPosition === 1 ? [...base.prompt, ...Array.from({length: 14}, (_, i) => ({ kind: "image", asset: { asset: "0198e000-0000-7000-8000-" + String(900 + i).padStart(12, "0"), checksum: hash("a") }, description: "Warm asset " + i }))] : base.prompt }; };
+        const envelope = (value) => { const base = issuedQuestionWireForAttempt(value); return { ...base, title: "Position " + (value.assignmentPosition + 1) + " / " + value.run.slice(-3), prompt: value.assignmentPosition === 1 ? [...base.prompt, ...Array.from({length: 14}, (_, i) => ({ kind: "image", asset: { asset: "0198e000-0000-7000-8000-" + String(900 + i).padStart(12, "0"), checksum: hash("a") }, description: "Warm asset " + i }))] : base.prompt }; };
         const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
         const transport = async (input, init) => {
           const request = new Request(new URL(String(input), window.location.origin), init);
           const url = new URL(request.url); const path = url.pathname; const method = request.method;
           requests.push({ method, path, runId, body: method === "GET" ? null : await request.clone().text(), aborted: request.signal.aborted });
+          if (method === "POST" && path.startsWith("/api/submissions/")) {
+            const prior = Number(sessionStorage.getItem(submissionCountKey) ?? "0");
+            sessionStorage.setItem(submissionCountKey, String(prior + 1));
+          }
           const currentRun = makeRun(runId, runId === ids.run30 ? 30 : 31);
           const current = screenAttempt();
           if (method === "GET" && path === "/api/runs/" + runId) {
@@ -107,7 +112,8 @@ test.beforeAll(async () => {
           }
           if (method === "POST" && path === "/api/submissions/" + current.id) {
             const next = attempt(runId, 1); active[runId] = 1; submitted = true;
-            return json({ accepted: true, attempt: { ...current, response: { kind: "multipleChoice", selected: ["carbonyl"] } }, feedback: { correctness: true }, nextIssued: { id: next.id, run: next.run, questionVersion: next.questionVersion, seed: next.seed, deadline: null, assignmentPosition: 1, renderedQuestionSha256: hash("b") } });
+            const nextIssued = mode === "pending" ? null : { id: next.id, run: next.run, questionVersion: next.questionVersion, seed: next.seed, deadline: null, assignmentPosition: 1, renderedQuestionSha256: hash("b") };
+            return json({ accepted: true, attempt: { ...current, response: { kind: "multipleChoice", selected: ["0001"] } }, feedback: { correctness: true }, nextIssued, nextPending: mode === "pending" });
           }
           if (method === "GET" && path.startsWith("/api/assets/")) return new Response("asset", { status: 200 });
           return json({ error: "unhandled " + method + " " + path }, 404);
@@ -125,7 +131,7 @@ test.beforeAll(async () => {
         const root = document.createElement("div"); root.id = "run-prefetch-fixture"; document.documentElement.append(root);
         const mount = () => render(() => createComponent(ApiRuntimeProvider, { runtime, get children() { return createComponent(WasmRuntimeProvider, { formatFallback: async () => ({ violations: [] }), timerFallback: async () => "open", capabilityFallback: async () => [], get children() { return createComponent(RunPage, {}); } }); } }), root);
         let dispose = mount();
-        window.__prefetchFixture = { get runId() { return runId; }, requests: () => requests, armStaleRunScreenQuery: () => { rejectStaleRunScreenQuery = true; }, staleRunScreenQueryCalls: () => staleRunScreenQueryCalls, setMode: (value) => { mode = value; }, setScreenMode: (value) => { screenMode = value; }, releaseSuccessorScreen: () => { const release = heldSuccessorScreen; heldSuccessorScreen = null; if (release === null) return false; screenMode = "exact"; release(); return true; }, switchRun: (next) => { dispose(); runId = next; active[next] = 0; mode = "match"; screenMode = "exact"; submitted = false; dispose = mount(); }, settleHeld: (run) => { const entry = held.get(run); if (!entry) return false; const next = entry.next; entry.resolve(json({ predecessor: run === ids.run30 ? ids.a30 : ids.a31, run: next.run, assignmentPosition: 1, questionVersion: next.questionVersion, seed: next.seed, renderedQuestionSha256: hash("b"), envelope: envelope(next) })); return entry.signal.aborted; }, ids };
+        window.__prefetchFixture = { get runId() { return runId; }, requests: () => requests, submissionCount: () => Number(sessionStorage.getItem(submissionCountKey) ?? "0"), armStaleRunScreenQuery: () => { rejectStaleRunScreenQuery = true; }, staleRunScreenQueryCalls: () => staleRunScreenQueryCalls, setMode: (value) => { mode = value; }, setScreenMode: (value) => { screenMode = value; }, releaseSuccessorScreen: () => { const release = heldSuccessorScreen; heldSuccessorScreen = null; if (release === null) return false; screenMode = "exact"; release(); return true; }, switchRun: (next) => { dispose(); runId = next; active[next] = 0; mode = "match"; screenMode = "exact"; submitted = false; dispose = mount(); }, settleHeld: (run) => { const entry = held.get(run); if (!entry) return false; const next = entry.next; entry.resolve(json({ predecessor: run === ids.run30 ? ids.a30 : ids.a31, run: next.run, assignmentPosition: 1, questionVersion: next.questionVersion, seed: next.seed, renderedQuestionSha256: hash("b"), envelope: envelope(next) })); return entry.signal.aborted; }, ids };
       `,
     },
     write: false,
@@ -142,6 +148,7 @@ interface PrefetchFixture {
   readonly runId: string;
   readonly ids: { readonly run30: string; readonly run31: string };
   readonly requests: () => ReadonlyArray<PrefetchRequest>;
+  readonly submissionCount: () => number;
   readonly armStaleRunScreenQuery: () => void;
   readonly staleRunScreenQueryCalls: () => number;
   readonly setMode: (mode: string) => void;
@@ -161,14 +168,40 @@ declare global {
 async function mount(page: Page, mode = "match"): Promise<void> {
   await page.addInitScript((initialMode) => {
     window.__prefetchMode = initialMode;
+    if (sessionStorage.getItem("prefetch-fixture-mounted") !== "true") {
+      sessionStorage.removeItem("prefetch-fixture-submission-count");
+      sessionStorage.setItem("prefetch-fixture-mounted", "true");
+    }
   }, mode);
   await page.goto("/");
-  await page.waitForTimeout(50);
   await page.addScriptTag({ content: fixtureScript });
   await expect(
     page.locator("#run-prefetch-fixture").getByRole("heading", { name: /Position 1/ }),
   ).toBeVisible();
 }
+
+test("a pending successor keeps feedback visible and offers a refresh without another submission", async ({
+  page,
+}) => {
+  await mount(page, "pending");
+  const root = page.locator("#run-prefetch-fixture");
+  await root.locator('input[type="radio"]').first().check();
+  await root.getByRole("button", { name: /submit answer/i }).click();
+  await expect(root.getByRole("heading", { name: "Correct" })).toBeVisible();
+  const refresh = root.getByRole("button", { name: "Refresh for the next question" });
+  await expect(refresh).toBeVisible();
+  const submissionsBeforeRefresh = await page.evaluate(() =>
+    window.__prefetchFixture.submissionCount(),
+  );
+  expect(submissionsBeforeRefresh).toBe(1);
+
+  const reloaded = page.waitForNavigation();
+  await refresh.click();
+  await reloaded;
+  expect(
+    await page.evaluate(() => sessionStorage.getItem("prefetch-fixture-submission-count")),
+  ).toBe("1");
+});
 
 async function submitAndContinue(page: Page): Promise<void> {
   const root = page.locator("#run-prefetch-fixture");
