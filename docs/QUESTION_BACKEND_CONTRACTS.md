@@ -185,15 +185,21 @@ The external activity loads only from PLE's protected same-origin launch route.
 ### Verified result and persistence
 
 PLE creates a short-lived tenant/learner/attempt-bound launch session only after reproducing the
-issued attempt. The browser receives an HttpOnly, Secure, SameSite=Strict cookie scoped to launch.
-The same-origin shell uses a sandboxed iframe and constrained message bridge. Provider state is
-AEAD-wrapped before protected store persistence and is never a JSON field.
+issued attempt, through `POST /api/attempts/{attempt}/external-tool/launch`. The browser receives
+an HttpOnly, Secure, SameSite=Strict cookie scoped to launch. The corresponding GET is an inert
+same-origin shell: it cannot create or renew a session or disclose a provider URL. The shell uses a
+sandboxed iframe and constrained message bridge. Provider state is AEAD-wrapped before protected
+store persistence and is never a JSON field.
 
 The server creates a broker binding over tenant, attempt, problem, version, seed, immutable source,
-profile, and canonical marker response. It obtains an opaque MAC-bound correlation, takes a short
-lease, calls the provider through its broker, verifies the result against that binding, and atomically
-persists the first verified result under the idempotency key. Replay returns the committed record,
-not another provider call.
+profile, and canonical marker response. Before an effectful provider POST it durably records an
+indeterminate-dispatch marker under the active, unexpired lease and exact launch-token hash. A
+crash or ambiguous transport result leaves the attempt fenced rather than retrying an action that
+may have reached the provider; claim, new launch, grade, finalization, and revocation refuse until
+the operator-safe resolution path decides the state. A valid provider result is verified against the
+binding and atomically clears the marker while persisting the first verified result under the
+idempotency key. Replay returns the committed record, not another provider call. Grade retrieval is
+structurally GET-only and side-effect free; it cannot be substituted for an effectful provider POST.
 
 Provider results are intentionally non-serializable. Correlation, provider state, launch proof, and
 lease token redact debug output. Timeout, authentication failure, malformed provider response, bad
@@ -218,9 +224,9 @@ iMathAS. It allows an external activity UI without handing it PLE grading author
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Authorize | Authenticate, load an RLS-visible attempt, and prove ownership of its run before launch, proxy, or submission work.                              |
 | Bind      | `ExternalToolBinding` covers provider, problem/version, seed, immutable source checksum, profile, and SHA-256 of canonical `ExternalTool {}`.    |
-| Launch    | Create a server-owned session with opaque random token. A protected cookie is required for activity and submit.                                  |
-| Proxy     | Browser calls same-origin PLE activity route. PLE alone contacts the provider using encrypted server-held state.                                 |
-| Lease     | Broker returns a committed replay, verified-pending result, in-progress state, or one lease holder. Concurrent retries cannot duplicate grading. |
+| Launch    | POST creates a server-owned session with opaque random token; GET is only an inert shell. A protected cookie is required for activity and submit. |
+| Proxy     | Browser calls same-origin PLE activity route. Only the sandboxed activity POST may carry `Origin: null`, and it must also present the launch cookie and AEAD-bound context. PLE alone contacts the provider using encrypted server-held state. |
+| Lease     | Broker returns a committed replay, verified-pending result, in-progress state, or one unexpired lease holder. A pre-dispatch indeterminate marker fences an ambiguous provider POST, so concurrent retries cannot duplicate grading. |
 | Verify    | Backend accepts only a server-verified result matching tenant, attempt, problem, version, seed, and correlation.                                 |
 | Commit    | Backend atomically commits verified grade and receipt; PLE then applies disclosure and gradebook policy.                                         |
 

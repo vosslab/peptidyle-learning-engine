@@ -1,5 +1,9 @@
 use super::*;
 use base64::Engine;
+use image::codecs::jpeg::JpegEncoder;
+use image::codecs::png::PngEncoder;
+use image::codecs::webp::WebPEncoder;
+use image::{ExtendedColorType, ImageEncoder, Rgb, RgbImage};
 use std::io::Cursor;
 const VALID_PACKAGE: &str = concat!(
     "UEsDBBQAAAAIAHS7B13yXbGdXwAAAIsAAAAPAAAAaW1zbWFuaWZlc3QueG1sVY5RDkAwEESv0uwBNHxXryLClg2l",
@@ -44,6 +48,48 @@ fn fixture(s: &str) -> Vec<u8> {
     base64::engine::general_purpose::STANDARD
         .decode(s.trim())
         .expect("base64")
+}
+
+fn valid_png() -> Vec<u8> {
+    let image = RgbImage::from_pixel(2, 1, Rgb([12, 34, 56]));
+    let mut bytes = Vec::new();
+    PngEncoder::new(&mut bytes)
+        .write_image(
+            image.as_raw(),
+            image.width(),
+            image.height(),
+            ExtendedColorType::Rgb8,
+        )
+        .expect("PNG fixture encodes");
+    bytes
+}
+
+fn valid_jpeg() -> Vec<u8> {
+    let image = RgbImage::from_pixel(2, 1, Rgb([12, 34, 56]));
+    let mut bytes = Vec::new();
+    JpegEncoder::new_with_quality(&mut bytes, 90)
+        .write_image(
+            image.as_raw(),
+            image.width(),
+            image.height(),
+            ExtendedColorType::Rgb8,
+        )
+        .expect("JPEG fixture encodes");
+    bytes
+}
+
+fn valid_webp() -> Vec<u8> {
+    let image = RgbImage::from_pixel(2, 1, Rgb([12, 34, 56]));
+    let mut bytes = Vec::new();
+    WebPEncoder::new_lossless(&mut bytes)
+        .write_image(
+            image.as_raw(),
+            image.width(),
+            image.height(),
+            ExtendedColorType::Rgb8,
+        )
+        .expect("WebP fixture encodes");
+    bytes
 }
 #[test]
 fn imports_supported_single_choice_with_no_debuggable_answer_or_archive() {
@@ -183,8 +229,8 @@ fn xml_parser_refuses_deep_and_wide_documents_at_resource_limits() {
     );
 }
 #[test]
-fn extracts_sniffed_image_to_worker_manifest_and_rewrites_prompt() {
-    let png = vec![0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n'];
+fn extracts_verified_image_to_worker_manifest_and_rewrites_prompt() {
+    let png = valid_png();
     let item = "<assessmentItem identifier='choice'><responseDeclaration identifier='R'><correctResponse><value>b</value></correctResponse></responseDeclaration><itemBody><p>Look <img src='../assets/p.png' alt='plot'/></p><choiceInteraction responseIdentifier='R' maxChoices='1'><simpleChoice identifier='a'>A</simpleChoice><simpleChoice identifier='b'>B</simpleChoice></choiceInteraction></itemBody></assessmentItem>";
     let bytes = package_bytes(&[
         (MANIFEST_PATH, manifest("items/item.xml").into_bytes()),
@@ -207,6 +253,59 @@ fn extracts_sniffed_image_to_worker_manifest_and_rewrites_prompt() {
         imported.questions[0].prompt.last(),
         Some(ContentBlock::Image { .. })
     ));
+}
+
+#[test]
+fn qti_assets_share_the_complete_still_raster_boundary() {
+    let item = "<assessmentItem identifier='choice'><responseDeclaration identifier='R'><correctResponse><value>b</value></correctResponse></responseDeclaration><itemBody><img src='../assets/asset' alt='plot'/><choiceInteraction responseIdentifier='R' maxChoices='1'><simpleChoice identifier='a'>A</simpleChoice><simpleChoice identifier='b'>B</simpleChoice></choiceInteraction></itemBody></assessmentItem>";
+    for (bytes, expected_media_type) in [
+        (valid_png(), "image/png"),
+        (valid_jpeg(), "image/jpeg"),
+        (valid_webp(), "image/webp"),
+    ] {
+        let archive = package_bytes(&[
+            (MANIFEST_PATH, manifest("items/item.xml").into_bytes()),
+            ("items/item.xml", item.as_bytes().to_vec()),
+            ("assets/asset", bytes),
+        ]);
+        let imported = QtiImporter::default()
+            .import(&archive)
+            .expect("safe image imports");
+        assert_eq!(imported.worker_assets().len(), 1);
+        assert_eq!(
+            imported.worker_assets()[0].worker_media_type(),
+            expected_media_type
+        );
+    }
+}
+
+#[test]
+fn qti_reports_unsafe_image_bytes_without_publishing_an_asset() {
+    let item = "<assessmentItem identifier='choice'><responseDeclaration identifier='R'><correctResponse><value>b</value></correctResponse></responseDeclaration><itemBody><img src='../assets/asset' alt='plot'/><choiceInteraction responseIdentifier='R' maxChoices='1'><simpleChoice identifier='a'>A</simpleChoice><simpleChoice identifier='b'>B</simpleChoice></choiceInteraction></itemBody></assessmentItem>";
+    let mut polyglot = valid_png();
+    polyglot.extend_from_slice(b"PK\\x03\\x04not-an-image");
+    for bytes in [
+        b"GIF89a".to_vec(),
+        vec![0x89, b'P', b'N', b'G', 13, 10, 26, 10],
+        polyglot,
+    ] {
+        let archive = package_bytes(&[
+            (MANIFEST_PATH, manifest("items/item.xml").into_bytes()),
+            ("items/item.xml", item.as_bytes().to_vec()),
+            ("assets/asset", bytes),
+        ]);
+        let imported = QtiImporter::default()
+            .import(&archive)
+            .expect("partial report");
+        assert!(imported.questions.is_empty());
+        assert!(imported.worker_assets().is_empty());
+        assert!(
+            imported.item_results[0]
+                .warnings
+                .iter()
+                .any(|warning| warning.feature == "unsafe-image")
+        );
+    }
 }
 
 #[test]
@@ -254,7 +353,7 @@ fn active_svg_assets_are_rejected_without_disclosing_source_bytes() {
             result
                 .warnings
                 .iter()
-                .any(|warning| warning.feature == "unsupported-media-type"),
+                .any(|warning| warning.feature == "unsafe-image"),
             "{name}: {:?}",
             result.warnings
         );
@@ -264,25 +363,12 @@ fn active_svg_assets_are_rejected_without_disclosing_source_bytes() {
 }
 
 #[test]
-fn inert_raster_signatures_remain_supported() {
-    for (bytes, expected) in [
-        (&b"\x89PNG\r\n\x1a\n"[..], "image/png"),
-        (&b"\xff\xd8\xff"[..], "image/jpeg"),
-        (&b"GIF87a"[..], "image/gif"),
-        (&b"GIF89a"[..], "image/gif"),
-        (&b"RIFFsizeWEBP"[..], "image/webp"),
-    ] {
-        assert_eq!(sniff_media_type(bytes), Some(expected));
-    }
-}
-
-#[test]
 fn asset_collector_includes_images_in_choice_bodies() {
     let item = "<assessmentItem identifier='choice'><responseDeclaration identifier='R'><correctResponse><value>b</value></correctResponse></responseDeclaration><itemBody><p>Choose one.</p><choiceInteraction responseIdentifier='R' maxChoices='1'><simpleChoice identifier='a'>A</simpleChoice><simpleChoice identifier='b'><img src='../assets/choice.png' alt='choice diagram'/>B</simpleChoice></choiceInteraction></itemBody></assessmentItem>";
     let archive = package_bytes(&[
         (MANIFEST_PATH, manifest("items/choice.xml").into_bytes()),
         ("items/choice.xml", item.as_bytes().to_vec()),
-        ("assets/choice.png", b"\x89PNG\r\n\x1a\nfixture".to_vec()),
+        ("assets/choice.png", valid_png()),
     ]);
     let imported = QtiImporter::default()
         .import(&archive)

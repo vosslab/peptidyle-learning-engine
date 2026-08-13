@@ -186,16 +186,14 @@ where
         }
         let mut objects = Vec::with_capacity(bindings.len());
         for binding in bindings {
-            let key = ObjectKey::ProblemAsset {
-                problem: reference.problem,
-                version: reference.version,
-                asset: binding.asset,
-                object: binding.object,
-            };
+            // The durable catalog binding names the exact immutable key.  Do
+            // not probe alternate public/private keys: scope is selected at
+            // publication and must not be re-inferred from storage presence.
+            let key = binding.key.clone();
             let stored = self.objects.get(&key).await.map_err(map_object_error)?;
             if stored.record.id != binding.object
                 || stored.record.key != key
-                || stored.record.bucket != Bucket::Content
+                || stored.record.bucket != key.bucket()
                 || stored.record.category != ObjectCategory::Asset
                 || stored.record.version != Some(reference.version)
                 || Sha256Digest::compute(&stored.bytes) != stored.record.sha256
@@ -365,7 +363,7 @@ fn validate_source_artifact(
         || artifact.backend != question_model::QuestionBackend::Qti
         || artifact.object.id != *package_object
         || artifact.object.key != expected_key
-        || artifact.object.bucket != Bucket::Content
+        || artifact.object.bucket != Bucket::PrivateContent
         || artifact.object.category != ObjectCategory::Source
         || artifact.object.version != Some(reference.version)
         || artifact.object.sha256.to_string() != package_sha256

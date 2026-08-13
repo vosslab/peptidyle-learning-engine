@@ -80,7 +80,7 @@ podman compose -f containers/compose.yaml --env-file containers/env.local \
 ## Email sign-in and invitations
 
 - **A new invitation reports `emailDelivery: notSent`:** this is the normal copy-link path when
-  no external SMTP provider is configured. Give the manager-only one-time link to the learner
+  no external SMTP provider is configured. Give the Instructor-only one-time link to the learner
   through the course's established channel. The invitation remains single-use and the learner
   still completes email authentication before it can become course membership.
 - **Email sign-in is unavailable through the production process:** this is expected today. The

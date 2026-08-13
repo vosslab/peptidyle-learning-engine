@@ -1,4 +1,4 @@
-//! Object-store contract and backends (WP-C4, MOD-OBJ).
+//! Object-store contract and backends.
 //!
 //! Callers provide [`ObjectKey`] values built from typed IDs, never physical
 //! key strings. Implementations compute SHA-256 on write and verify it on read.
@@ -9,13 +9,17 @@ use question_model::{ActivityTimestamp, ObjectId, VersionId};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use sha2::{Digest, Sha256};
 
+/// Production AWS client wiring using container workload identity only.
+pub mod aws;
 /// Typed bucket and immutable key construction.
 pub mod bucket;
-/// In-memory backend used by tests and the M1 conformance suite.
+/// Shared hostile-input validation for still instructional raster images.
+pub mod image_validation;
+/// In-memory backend used by tests and the shared conformance suite.
 pub mod memory;
 /// MinIO client wiring used by the development containers.
 pub mod minio;
-/// AWS S3 backend implemented in M2.
+/// Production AWS S3 backend.
 pub mod s3;
 
 pub use crate::bucket::{
@@ -298,7 +302,7 @@ mod tests {
         let object = ObjectId::from_uuid(Uuid::from_u128(3));
         let record = ObjectRecord {
             id: object,
-            bucket: Bucket::Content,
+            bucket: Bucket::PrivateContent,
             key: ObjectKey::ProblemSource {
                 problem,
                 version,
@@ -319,7 +323,7 @@ mod tests {
             encoded,
             concat!(
                 "{\"id\":\"00000000-0000-0000-0000-000000000003\",",
-                "\"bucket\":\"content\",",
+                "\"bucket\":\"private-content\",",
                 "\"key\":{\"kind\":\"problemSource\",",
                 "\"problem\":\"00000000-0000-0000-0000-000000000001\",",
                 "\"version\":\"00000000-0000-0000-0000-000000000002\",",

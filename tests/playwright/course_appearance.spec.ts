@@ -19,6 +19,7 @@ import {
 test("instructor edits by keyboard, preserves a stale draft, then replaces and removes a banner", async ({
   page,
 }) => {
+  test.setTimeout(2_000);
   let appearance = { theme: "grass", revision: "1", banner: null } as {
     theme: string;
     revision: string;
@@ -37,12 +38,24 @@ test("instructor edits by keyboard, preserves a stale draft, then replaces and r
 
   await page.route("**/api/**", async (route) => {
     const request = route.request();
-    const path = new URL(request.url()).pathname;
+    const url = new URL(request.url());
+    const path = url.pathname;
     if (path === "/api/auth/session") return await json(route, session(["instructor"]));
     if (path === `/api/courses/${COURSE_ID}`) {
       return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
     }
+    if (path === `/api/assets/${BANNER_ID}/delivery`) {
+      expect(request.method()).toBe("POST");
+      return await json(
+        route,
+        { url: `${url.origin}/api/assets/${BANNER_ID}?signed=course-appearance` },
+        200,
+        { "cache-control": "no-store" },
+      );
+    }
     if (path === `/api/assets/${BANNER_ID}`) {
+      expect(request.method()).toBe("GET");
+      expect(url.searchParams.get("signed")).toBe("course-appearance");
       return await route.fulfill({ status: 200, contentType: "image/png", body: bannerBytes });
     }
     if (path === `/api/courses/${COURSE_ID}/appearance/banner-candidates`) {

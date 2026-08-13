@@ -97,7 +97,7 @@ write_private_inputs() {
 	umask 077
 	printf 'instructor=%s\nstudent=%s\n' \
 		"$instructor_credential" "$student_credential" >"$TEMP_DIRECTORY/local-login.txt"
-	printf '{"credentials":[{"credential_sha256":"%s","learner_alias":"instructor-local","tenant_id":"%s","user_id":"%s","display_name":"Dr. Fake Professor","roles":["instructor","administrator"]},{"credential_sha256":"%s","learner_alias":"student-local","tenant_id":"%s","user_id":"%s","display_name":"Mary Fake Student","roles":["student"]}]}\n' \
+	printf '{"credentials":[{"credential_sha256":"%s","learner_alias":"instructor-local","tenant_id":"%s","user_id":"%s","display_name":"Dr. Fake Professor","roles":["instructor","sysadmin"]},{"credential_sha256":"%s","learner_alias":"student-local","tenant_id":"%s","user_id":"%s","display_name":"Mary Fake Student","roles":["student"]}]}\n' \
 		"$instructor_hash" "$TENANT_ID" "$INSTRUCTOR_ID" \
 		"$student_hash" "$TENANT_ID" "$STUDENT_ID" >"$TEMP_DIRECTORY/local-identities.json"
 	printf '%s' "$invitation_secret" >"$TEMP_DIRECTORY/invitation-secret"
@@ -120,7 +120,7 @@ write_private_inputs() {
 		"PLE_GATEWAY_HOST_PORT=$GATEWAY_PORT" \
 		"PLE_GATEWAY_IMAGE_SHA256=844f60b64e4724a5aa8245e019dace0d3f199f7433ce6c57676cb30a920dbad9" \
 		"PLE_LOCAL_AUTH_HOST_FILE=$TEMP_DIRECTORY/local-identities.json" \
-		"PLE_PUBLIC_ASSET_BASE_URL=http://127.0.0.1:$MINIO_PORT/content" \
+		"PLE_PUBLIC_ASSET_BASE_URL=http://127.0.0.1:$MINIO_PORT/public-assets" \
 		"PLE_WEBAUTHN_RP_ID=localhost" \
 		"PLE_WEBAUTHN_ORIGIN=http://localhost:$GATEWAY_PORT" \
 		"PLE_WEBAUTHN_RP_NAME=Peptidyle Learning Engine" \
@@ -171,7 +171,7 @@ AWS_ACCESS_KEY_ID=ple-chapter-browser AWS_SECRET_ACCESS_KEY="$minio_password" \
 	--student "$STUDENT_ID" \
 	--s3-endpoint "http://127.0.0.1:$MINIO_PORT" \
 	--s3-region us-east-1 \
-	--content-bucket content >"$TEMP_DIRECTORY/chapter-one.json"
+	--private-content-bucket private-content >"$TEMP_DIRECTORY/chapter-one.json"
 chmod 600 "$TEMP_DIRECTORY/chapter-one.json"
 
 echo "Chapter 1 browser E2E: completing all eight questions through visible keyboard controls"

@@ -371,8 +371,8 @@ fn archive_matches_registry(
             && *import == reference.import
             && *object == expected_object
     ) && registry.source.id == expected_object
-        && registry.source.bucket == Bucket::Content
-        && registry.source.key.bucket() == Bucket::Content
+        && registry.source.bucket == Bucket::PrivateContent
+        && registry.source.key.bucket() == Bucket::PrivateContent
         && registry.source.category == ObjectCategory::Source
         && registry.source.key.category() == ObjectCategory::Source
         && registry.source.version.is_none()
@@ -388,12 +388,9 @@ fn archive_matches_registry(
 }
 
 fn may_author(roles: &[UserRole]) -> bool {
-    roles.iter().any(|role| {
-        matches!(
-            role,
-            UserRole::Instructor | UserRole::Publisher | UserRole::Administrator
-        )
-    })
+    roles
+        .iter()
+        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
 }
 
 #[derive(Clone, Copy)]

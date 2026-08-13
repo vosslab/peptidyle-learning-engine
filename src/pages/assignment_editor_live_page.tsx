@@ -20,9 +20,7 @@ type CourseGate =
 
 function mayOpenInstructorSurface(session: SessionBootstrapState): boolean {
   if (session.kind !== "authenticated") return false;
-  return session.session.user.roles.some((role) =>
-    ["instructor", "publisher", "administrator"].includes(role),
-  );
+  return session.session.user.roles.some((role) => ["instructor", "sysadmin"].includes(role));
 }
 
 function AssignmentEditingDenied(): JSX.Element {
@@ -35,7 +33,7 @@ function AssignmentEditingDenied(): JSX.Element {
     >
       <p class="eyebrow">Instructor course design</p>
       <h1>Assignment editing is not available for this account</h1>
-      <p>Your learning space remains available. Ask a course administrator for editing access.</p>
+      <p>Your learning space remains available. Ask the course instructor for editing access.</p>
     </section>
   );
 }
@@ -87,7 +85,7 @@ export function AssignmentEditorLivePage(): JSX.Element {
         setGate({ kind: "unavailable" });
         return;
       }
-      if (course.role !== "instructor" && course.role !== "administrator") {
+      if (course.role !== "instructor") {
         setGate({ kind: "denied" });
         return;
       }

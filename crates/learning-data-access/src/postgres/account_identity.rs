@@ -1,7 +1,9 @@
 //! PostgreSQL passwordless-account persistence through `ple_auth`.
 
 use async_trait::async_trait;
-use question_model::{ActivityTimestamp, CourseId, CourseRole, TenantId, UserId};
+use question_model::{
+    ActivityTimestamp, CourseId, CourseMembershipRole, TenantId, UserId, UserRole,
+};
 use serde_json::Value;
 use sqlx::postgres::PgRow;
 use sqlx::types::{Json, Uuid};
@@ -11,14 +13,15 @@ use super::{PostgresStore, map_sqlx_error, page_from_keyed_records};
 use crate::{
     AccountCourseContext, AccountIdentityStore, AccountRecord, AccountSessionLifetime,
     AccountSessionRecord, AccountSessionStore, AccountSessionTokenHash, AuthenticationEmail,
-    AuthenticationRateLimitDecision, AuthenticationRateLimitScope, BeginEmailAuthentication,
-    BeginWebauthnCeremony, BrowserBindingHash, CompleteEmailAuthentication,
-    CompleteEmailAuthenticationAndCreateSession, CompletePasskeyAuthenticationAndCreateSession,
-    CompletedAccountSession, CompletedEmailAuthentication, CompletedPasskeySession,
-    ConsumeAuthenticationRateLimit, CredentialIdHash, EmailAuthenticationChallenge,
-    EmailAuthenticationPurpose, EmailChallengeId, EmailChallengeSecretHash, Page, PageRequest,
-    PasskeyId, PasskeyRecord, RegisterPasskey, StoreError, WebauthnCeremony, WebauthnCeremonyId,
-    WebauthnCeremonyKind, WebauthnState, validated_account_display_name,
+    AuthenticationRateLimitDecision, AuthenticationRateLimitKey, AuthenticationRateLimitScope,
+    BeginEmailAuthentication, BeginWebauthnCeremony, BrowserBindingHash,
+    CompleteEmailAuthentication, CompleteEmailAuthenticationAndCreateSession,
+    CompletePasskeyAuthenticationAndCreateSession, CompletedAccountSession,
+    CompletedEmailAuthentication, CompletedPasskeySession, ConsumeAuthenticationRateLimit,
+    CredentialIdHash, EmailAuthenticationChallenge, EmailAuthenticationPurpose, EmailChallengeId,
+    EmailChallengeSecretHash, Page, PageRequest, PasskeyId, PasskeyRecord, RegisterPasskey,
+    StoreError, WebauthnCeremony, WebauthnCeremonyId, WebauthnCeremonyKind, WebauthnState,
+    validated_account_display_name,
 };
 
 const AUTH_EXPIRY_CLEANUP_BATCH: i64 = 128;
@@ -102,18 +105,19 @@ impl AccountIdentityStore for PostgresStore {
         delete_expired_email_challenges(&mut transaction).await?;
         let row = sqlx::query(
             "INSERT INTO email_authentication_challenge \
-             (challenge_id, token_hash, browser_binding_hash, normalized_email, \
+             (challenge_id, token_hash, browser_binding_hash, rate_limit_key_hash, normalized_email, \
               delivery_email, purpose, purpose_user_id, expires_at) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, \
-                     transaction_timestamp() + ($8::bigint * interval '1 second')) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, \
+                     transaction_timestamp() + ($9::bigint * interval '1 second')) \
              ON CONFLICT ON CONSTRAINT email_authentication_challenge_subject_key \
              DO UPDATE SET challenge_id = EXCLUDED.challenge_id, \
                            token_hash = EXCLUDED.token_hash, \
                            browser_binding_hash = EXCLUDED.browser_binding_hash, \
+                           rate_limit_key_hash = EXCLUDED.rate_limit_key_hash, \
                            delivery_email = EXCLUDED.delivery_email, \
                            created_at = transaction_timestamp(), \
                            expires_at = EXCLUDED.expires_at \
-             RETURNING challenge_id, token_hash, browser_binding_hash, normalized_email, \
+             RETURNING challenge_id, token_hash, browser_binding_hash, rate_limit_key_hash, normalized_email, \
                        delivery_email, purpose, purpose_user_id, \
                        floor(extract(epoch FROM created_at) * 1000)::bigint AS created_at_millis, \
                        floor(extract(epoch FROM expires_at) * 1000)::bigint AS expires_at_millis",
@@ -121,6 +125,7 @@ impl AccountIdentityStore for PostgresStore {
         .bind(command.id.as_uuid())
         .bind(command.token_hash.as_bytes().to_vec())
         .bind(command.browser_binding.as_bytes().to_vec())
+        .bind(command.email_rate_limit_key.as_bytes().to_vec())
         .bind(command.email.normalized())
         .bind(command.email.delivery())
         .bind(purpose)
@@ -279,11 +284,13 @@ impl AccountIdentityStore for PostgresStore {
         let mut transaction = self.begin_auth().await?;
         let row = sqlx::query(
             "DELETE FROM webauthn_ceremony \
-             WHERE ceremony_id = $1 AND expires_at > transaction_timestamp() \
+             WHERE ceremony_id = $1 AND browser_binding_hash = $2 \
+               AND expires_at > transaction_timestamp() \
              RETURNING ceremony_id, ceremony_kind, user_id, browser_binding_hash, state, \
-             floor(extract(epoch FROM expires_at) * 1000)::bigint AS expires_at_millis",
+               floor(extract(epoch FROM expires_at) * 1000)::bigint AS expires_at_millis",
         )
         .bind(id.as_uuid())
+        .bind(browser_binding.as_bytes().to_vec())
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -291,12 +298,6 @@ impl AccountIdentityStore for PostgresStore {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(None);
         };
-        if !constant_time_eq(
-            &fixed_hash(&row, "browser_binding_hash")?,
-            &browser_binding.as_bytes(),
-        ) {
-            return Ok(None);
-        }
         let result = decode_ceremony(&row)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(Some(result))
@@ -548,24 +549,22 @@ async fn complete_email_authentication_in_transaction(
 ) -> Result<CompletedEmailAuthentication, StoreError> {
     let row = sqlx::query(
         "DELETE FROM email_authentication_challenge \
-         WHERE token_hash = $1 AND expires_at > transaction_timestamp() \
-         RETURNING normalized_email, delivery_email, browser_binding_hash, \
+         WHERE token_hash = $1 AND browser_binding_hash = $2 \
+           AND expires_at > transaction_timestamp() \
+         RETURNING normalized_email, delivery_email, browser_binding_hash, rate_limit_key_hash, \
                    purpose, purpose_user_id",
     )
     .bind(command.token_hash.as_bytes().to_vec())
+    .bind(command.browser_binding.as_bytes().to_vec())
     .fetch_optional(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?
     .ok_or(StoreError::NotFound)?;
-    if !constant_time_eq(
-        &fixed_hash(&row, "browser_binding_hash")?,
-        &command.browser_binding.as_bytes(),
-    ) {
-        return Err(StoreError::NotFound);
-    }
     let normalized: String = row.try_get("normalized_email").map_err(map_sqlx_error)?;
     let delivery: String = row.try_get("delivery_email").map_err(map_sqlx_error)?;
     let email = decode_email(&normalized, &delivery)?;
+    let email_rate_limit_key =
+        AuthenticationRateLimitKey::from_bytes(fixed_hash(&row, "rate_limit_key_hash")?);
     let purpose: String = row.try_get("purpose").map_err(map_sqlx_error)?;
     let purpose_user: Option<Uuid> = row.try_get("purpose_user_id").map_err(map_sqlx_error)?;
     let display_name = validated_account_display_name(&command.proposed_display_name)
@@ -586,7 +585,7 @@ async fn complete_email_authentication_in_transaction(
             let row = sqlx::query(
                 "UPDATE ple_account SET normalized_email = $2, delivery_email = $3, \
                  updated_at = transaction_timestamp() WHERE user_id = $1 \
-                 RETURNING user_id, normalized_email, delivery_email, display_name, \
+                 RETURNING user_id, normalized_email, delivery_email, display_name, platform_roles, \
                  floor(extract(epoch FROM created_at) * 1000)::bigint AS created_at_millis, \
                  floor(extract(epoch FROM updated_at) * 1000)::bigint AS updated_at_millis",
             )
@@ -605,6 +604,15 @@ async fn complete_email_authentication_in_transaction(
             ));
         }
     };
+    // Challenge consumption and mailbox quota recovery are one transaction:
+    // an attacker cannot release a target mailbox budget without its secret.
+    sqlx::query(
+        "DELETE FROM authentication_rate_limit WHERE limit_scope = 'email' AND key_hash = $1",
+    )
+    .bind(email_rate_limit_key.as_bytes().to_vec())
+    .execute(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
     Ok(CompletedEmailAuthentication { account, created })
 }
 
@@ -631,13 +639,13 @@ async fn insert_account_session(
     decode_account_session(&row)
 }
 
-const ACCOUNT_SELECT: &str = "SELECT user_id, normalized_email, delivery_email, display_name, \
+const ACCOUNT_SELECT: &str = "SELECT user_id, normalized_email, delivery_email, display_name, platform_roles, \
  floor(extract(epoch FROM created_at) * 1000)::bigint AS created_at_millis, \
  floor(extract(epoch FROM updated_at) * 1000)::bigint AS updated_at_millis \
  FROM ple_account WHERE user_id = $1";
 
 const ACCOUNT_BY_EMAIL_SELECT: &str = "SELECT user_id, normalized_email, delivery_email, \
- display_name, floor(extract(epoch FROM created_at) * 1000)::bigint AS created_at_millis, \
+ display_name, platform_roles, floor(extract(epoch FROM created_at) * 1000)::bigint AS created_at_millis, \
  floor(extract(epoch FROM updated_at) * 1000)::bigint AS updated_at_millis \
  FROM ple_account WHERE normalized_email = $1 FOR UPDATE";
 
@@ -674,7 +682,7 @@ async fn insert_account(
     let row = sqlx::query(
         "INSERT INTO ple_account (user_id, normalized_email, delivery_email, display_name) \
          VALUES ($1, $2, $3, $4) RETURNING user_id, normalized_email, delivery_email, \
-         display_name, floor(extract(epoch FROM created_at) * 1000)::bigint AS created_at_millis, \
+         display_name, platform_roles, floor(extract(epoch FROM created_at) * 1000)::bigint AS created_at_millis, \
          floor(extract(epoch FROM updated_at) * 1000)::bigint AS updated_at_millis",
     )
     .bind(user.as_uuid())
@@ -690,10 +698,21 @@ async fn insert_account(
 fn decode_account(row: &PgRow) -> Result<AccountRecord, StoreError> {
     let normalized: String = row.try_get("normalized_email").map_err(map_sqlx_error)?;
     let delivery: String = row.try_get("delivery_email").map_err(map_sqlx_error)?;
+    let Json(platform_roles): Json<Vec<UserRole>> =
+        row.try_get("platform_roles").map_err(map_sqlx_error)?;
+    if platform_roles
+        .iter()
+        .any(|role| *role != UserRole::Sysadmin)
+    {
+        return Err(StoreError::Unavailable(
+            "stored account platform role is invalid".to_string(),
+        ));
+    }
     Ok(AccountRecord {
         user: UserId::from_uuid(row.try_get("user_id").map_err(map_sqlx_error)?),
         email: decode_email(&normalized, &delivery)?,
         display_name: row.try_get("display_name").map_err(map_sqlx_error)?,
+        platform_roles,
         created_at: timestamp(row, "created_at_millis")?,
         updated_at: timestamp(row, "updated_at_millis")?,
     })
@@ -702,8 +721,8 @@ fn decode_account(row: &PgRow) -> Result<AccountRecord, StoreError> {
 fn decode_account_course_context(row: &PgRow) -> Result<AccountCourseContext, StoreError> {
     let role: String = row.try_get("role").map_err(map_sqlx_error)?;
     let role = match role.as_str() {
-        "student" => CourseRole::Student,
-        "instructor" => CourseRole::Instructor,
+        "student" => CourseMembershipRole::Student,
+        "instructor" => CourseMembershipRole::Instructor,
         _ => {
             return Err(StoreError::Unavailable(
                 "stored account course role is invalid".to_string(),
@@ -767,6 +786,10 @@ fn decode_email_challenge(row: &PgRow) -> Result<EmailAuthenticationChallenge, S
         id: EmailChallengeId::from_uuid(row.try_get("challenge_id").map_err(map_sqlx_error)?),
         token_hash: EmailChallengeSecretHash::from_bytes(fixed_hash(row, "token_hash")?),
         browser_binding: BrowserBindingHash::from_bytes(fixed_hash(row, "browser_binding_hash")?),
+        email_rate_limit_key: AuthenticationRateLimitKey::from_bytes(fixed_hash(
+            row,
+            "rate_limit_key_hash",
+        )?),
         email: decode_email(&normalized, &delivery)?,
         purpose: decode_purpose(&purpose, purpose_user)?,
         created_at: timestamp(row, "created_at_millis")?,
@@ -812,6 +835,8 @@ fn rate_limit_scope(value: AuthenticationRateLimitScope) -> &'static str {
     match value {
         AuthenticationRateLimitScope::Email => "email",
         AuthenticationRateLimitScope::Network => "network",
+        AuthenticationRateLimitScope::Principal => "principal",
+        AuthenticationRateLimitScope::Service => "service",
     }
 }
 
@@ -888,13 +913,4 @@ fn optional_timestamp(row: &PgRow, column: &str) -> Result<Option<ActivityTimest
 
 fn one_row(rows: u64) -> Result<(), StoreError> {
     (rows == 1).then_some(()).ok_or(StoreError::NotFound)
-}
-
-fn constant_time_eq(left: &[u8; 32], right: &[u8; 32]) -> bool {
-    left.iter()
-        .zip(right)
-        .fold(0_u8, |difference, (left, right)| {
-            difference | (left ^ right)
-        })
-        == 0
 }

@@ -29,7 +29,8 @@ revisions, and Open Problem Library compatibility require separate examples and 
 
 ## Roster CSV import
 
-Course managers can preview and explicitly commit a UTF-8 CSV roster at the private roster-import
+Direct course Instructors, or a Sysadmin using the audited roster-support
+capability, can preview and explicitly commit a UTF-8 CSV roster at the private roster-import
 route. The current generic file has exactly these headers, in this order:
 
 ```csv
@@ -51,7 +52,7 @@ The invitation, preview, atomic commit, retention, and privacy semantics are in
 
 ## Manual grade CSV export
 
-For one course and assignment, a course manager can download a synchronous `text/csv; charset=utf-8`
+For one course and assignment, a direct course Instructor can download a synchronous `text/csv; charset=utf-8`
 file from the private grade-export route. The current output uses CRLF records and these headers:
 
 ```csv

@@ -443,6 +443,101 @@ export function resolveSameOriginAssetUrl(asset: AssetRef, resolver: AssetUrlRes
   return url.href;
 }
 
+/**
+ * Recovers a protected image after its intentionally concealed logical GET
+ * returns 404. The recovery is an explicit same-origin POST; it is never
+ * attempted for a URL outside the logical asset route and it runs once only.
+ * Public immutable assets keep their ordinary cacheable GET path.
+ */
+export function recoverProtectedAssetImage(event: Event): void {
+  const image = event.currentTarget;
+  if (!(image instanceof HTMLImageElement)) return;
+  if (image.dataset.pleDeliveryAttempted === "true") return;
+  let logical: URL;
+  try {
+    logical = new URL(image.currentSrc || image.src, globalThis.location.origin);
+  } catch (_error: unknown) {
+    return;
+  }
+  if (
+    logical.origin !== globalThis.location.origin ||
+    !/^\/api\/assets\/[^/]+$/u.test(logical.pathname) ||
+    logical.search !== "" ||
+    logical.hash !== ""
+  )
+    return;
+  image.dataset.pleDeliveryAttempted = "true";
+  const delivery = new URL(`${logical.pathname}/delivery`, logical.origin);
+  void globalThis
+    .fetch(delivery, {
+      method: "POST",
+      headers: { accept: "application/json" },
+      credentials: "same-origin",
+      cache: "no-store",
+    })
+    .then(async (response) => {
+      if (!response.ok) return;
+      const body: unknown = await response.json();
+      if (typeof body !== "object" || body === null || Array.isArray(body)) return;
+      const value = (body as Record<string, unknown>).url;
+      if (typeof value !== "string") return;
+      const signed = new URL(value);
+      if (
+        (signed.protocol !== "https:" && signed.protocol !== "http:") ||
+        signed.username !== "" ||
+        signed.password !== ""
+      )
+        return;
+      image.referrerPolicy = "no-referrer";
+      image.src = signed.href;
+    })
+    .catch(() => undefined);
+}
+
+function authorizeProtectedAssetLink(event: MouseEvent): void {
+  const link = event.currentTarget;
+  if (!(link instanceof HTMLAnchorElement)) return;
+  let logical: URL;
+  try {
+    logical = new URL(link.href, globalThis.location.origin);
+  } catch (_error: unknown) {
+    return;
+  }
+  if (
+    logical.origin !== globalThis.location.origin ||
+    !/^\/api\/assets\/[^/]+$/u.test(logical.pathname)
+  )
+    return;
+  event.preventDefault();
+  const delivery = new URL(`${logical.pathname}/delivery`, logical.origin);
+  void globalThis
+    .fetch(delivery, {
+      method: "POST",
+      headers: { accept: "application/json" },
+      credentials: "same-origin",
+      cache: "no-store",
+    })
+    .then(async (response) => {
+      if (response.status === 405) {
+        globalThis.location.assign(logical.href);
+        return;
+      }
+      if (!response.ok) return;
+      const body: unknown = await response.json();
+      if (typeof body !== "object" || body === null || Array.isArray(body)) return;
+      const value = (body as Record<string, unknown>).url;
+      if (typeof value !== "string") return;
+      const signed = new URL(value);
+      if (
+        (signed.protocol === "https:" || signed.protocol === "http:") &&
+        signed.username === "" &&
+        signed.password === ""
+      )
+        globalThis.location.assign(signed.href);
+    })
+    .catch(() => undefined);
+}
+
 function appendSafeNodes(
   document: Document,
   parent: Node,
@@ -465,10 +560,12 @@ function appendSafeNodes(
           );
         }
         element.setAttribute("data-asset-id", value);
-        element.setAttribute(
-          node.tag === "a" ? "href" : "src",
-          resolveSameOriginAssetUrl(asset, resolver),
-        );
+        const url = resolveSameOriginAssetUrl(asset, resolver);
+        element.setAttribute(node.tag === "a" ? "href" : "src", url);
+        if (element instanceof HTMLImageElement)
+          element.addEventListener("error", recoverProtectedAssetImage);
+        if (element instanceof HTMLAnchorElement)
+          element.addEventListener("click", authorizeProtectedAssetLink);
       } else {
         element.setAttribute(name, value);
       }
@@ -567,6 +664,7 @@ function StructuredBlock(props: {
             class="question-renderer__image"
             src={resolveSameOriginAssetUrl(props.block.asset, props.assetUrl)}
             alt={description}
+            onError={recoverProtectedAssetImage}
           />
           <figcaption>{description}</figcaption>
         </figure>

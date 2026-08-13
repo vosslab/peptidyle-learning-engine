@@ -63,6 +63,9 @@ impl CatalogStore for MemoryStore {
                 "publication cannot contain both QTI and flat-question promotion".to_string(),
             ));
         }
+        let has_pending_public_assets = command.scope == PublicationScope::Public
+            && (qti_promotion.is_some_and(|promotion| !promotion.assets.is_empty())
+                || flat_promotion.is_some_and(|promotion| !promotion.assets.is_empty()));
         let mut state = self.write_state()?;
         let draft_key = (
             context.tenant_id(),
@@ -332,6 +335,27 @@ impl CatalogStore for MemoryStore {
                 .published_flat_import_origins
                 .insert((record.problem, record.version), origin);
             debug_assert!(replaced.is_none(), "published origin must be immutable");
+        }
+        if has_pending_public_assets {
+            let job = JobId::generate()?;
+            let available_at = state.authoritative_time;
+            let replaced = state.jobs.insert(
+                job,
+                StoredJob {
+                    tenant: context.tenant_id(),
+                    payload: JobPayload::PublishPublicAssets {
+                        reference: publication,
+                    },
+                    state: JobState::Ready,
+                    available_at,
+                    lease_token: None,
+                    lease_expires_at: None,
+                    attempt_count: 0,
+                    max_attempts: 20,
+                    failure: None,
+                },
+            );
+            debug_assert!(replaced.is_none(), "generated outbox job must be unique");
         }
         state.drafts.remove(&draft_key);
         state.draft_revisions.remove(&draft_key);

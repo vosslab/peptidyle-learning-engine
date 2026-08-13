@@ -80,36 +80,36 @@ gateway selection rather than assuming a port. See
 and recovery commands, and [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md)
 for network and service ownership.
 
-## Planned AWS mapping
+## AWS baseline mapping
 
-This is a FUTURE, UNIMPLEMENTED AWS Fargate mapping for WP-RC10. It is not
-deployment or acceptance evidence. The planned topology is owned by
-[MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md#planned-production-topology) and
-[release_completion_plan.md](active_plans/active/release_completion_plan.md).
+`deploy/opentofu/` defines this AWS mapping, but it is not live-deployment or
+acceptance evidence. The topology is described in
+[MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md#production-baseline-in-opentofu).
 
 | Boundary | Planned port | Exposure | Purpose |
 | --- | --- | --- | --- |
 | Internet to CloudFront/WAF | `443` | Public | HTTPS application entry point. |
 | Internet to CloudFront/WAF | `80` | Optional edge redirect | HTTPS redirect only, if configured. |
-| CloudFront/WAF to private ALB | not selected | Private origin boundary | ALB admission is not yet implemented. |
+| CloudFront/WAF to ALB TLS origin | `443` | Origin-facing CIDR plus secret header | Controlled TLS alias; ALB default rule denies absent/mismatched header. |
 | Private ALB to Fargate API | `3000` | Private target boundary | Browser/API origin; no local gateway task. |
-| API to renderer Fargate task | `3000` | Private discovery | PG/PGML render and grade requests. |
-| API or worker to RDS | `5432` | Private security group | PostgreSQL; RDS is never public. |
-| API/worker to S3 | HTTPS `443` | VPC endpoint | Replaces MinIO API and console. |
+| API to renderer | `443` | Optional private integration | Disabled unless its separately attested external renderer feature is enabled. |
+| API, worker, or publisher to RDS | `5432` | Private security groups | TLS PostgreSQL; RDS is never public. |
+| API/worker/publisher to S3 | HTTPS `443` | S3 VPC endpoint | No NAT route or object-storage console. |
 | Worker Fargate task | none | Private | No listener or target group. |
 
-The planned public edge is CloudFront and WAF; the ALB, API, renderer, worker,
-RDS, and S3 access remain private. The local Caddy gateway is not carried into
-this production topology. The exact CloudFront-to-ALB origin mechanism and ALB
-listener/TLS details belong to WP-RC10 implementation evidence.
+The public edge is CloudFront and WAF; the ALB, API, worker, publisher, RDS,
+and S3 access remain private. The local Caddy gateway is not carried into this
+topology. Private subnets have no NAT route; disabled integrations receive no
+API security-group egress rule.
 
 | Security-group owner | Inbound rule |
 | --- | --- |
-| Private ALB | CloudFront origin mechanism only; exact rule is WP-RC10 work. |
+| Private ALB | CloudFront origin-facing managed prefix list on `443`; listener additionally requires the secret origin header. |
 | API | `3000` from the ALB security group only. |
-| Renderer | `3000` from the API security group only. |
-| RDS | `5432` from API and worker security groups only. |
+| External renderer | Not managed by this baseline; its feature remains disabled pending independent ingress, TLS, image, and authority attestation. |
+| RDS | `5432` from API, worker, and publisher security groups only. |
 | Worker | No inbound rule. |
+| Publisher | No inbound rule. |
 | S3 | IAM and bucket policy with an S3 VPC endpoint; no application listener. |
 
 Repeated task-local `3000` listeners remain valid in AWS for the same reason
@@ -117,14 +117,12 @@ they do in Podman: each task has its own network namespace. Private subnets,
 target groups, security groups, and service discovery define reachability. They
 replace local Compose networks; they do not make the renderer or worker public.
 
-S3 replaces local MinIO's loopback `9000` API and `9001` console. The planned
-deployment uses IAM and encrypted S3 buckets rather than a host-published object
-storage administrator console. The future ALB target group must health-check
-`/health` on API port `3000`. If browser WebSocket traffic is introduced, its
-ALB behavior needs separate acceptance evidence.
-
-AWS Fargate is selected, but no OpenTofu manifests, listener, security-group
-rule, or production deployment is implemented by this document.
+S3 replaces local MinIO's loopback `9000` API and `9001` console. The baseline
+uses IAM and four SSE-KMS bucket domains rather than a host-published object
+storage administrator console. The ALB target group health-checks `/health` on
+API port `3000` and allows a 45-second drain, longer than the API's 30-second
+graceful request drain. Browser WebSocket behavior still needs separate
+acceptance evidence if introduced.
 
 ### Primary AWS references
 

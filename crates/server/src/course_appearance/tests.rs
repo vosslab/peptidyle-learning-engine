@@ -4,7 +4,7 @@ use ::image::codecs::png::{CompressionType, FilterType, PngEncoder};
 use ::image::{ExtendedColorType, GenericImageView, ImageEncoder, ImageFormat, Rgb, RgbImage};
 use async_trait::async_trait;
 use axum::body::{Body, to_bytes};
-use axum::http::header::{CACHE_CONTROL, COOKIE, LOCATION};
+use axum::http::header::{CACHE_CONTROL, COOKIE};
 use axum::http::{Method, Request};
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
@@ -300,7 +300,7 @@ where
         Arc::clone(&fixture.objects),
         public_assets,
     );
-    let current_delivery = asset_app
+    let concealed_get = asset_app
         .clone()
         .oneshot(request(
             Method::GET,
@@ -309,10 +309,46 @@ where
             Body::empty(),
         ))
         .await
-        .expect("current delivery should run");
-    assert_eq!(current_delivery.status(), StatusCode::TEMPORARY_REDIRECT);
-    assert!(current_delivery.headers().contains_key(LOCATION));
+        .expect("protected GET should run");
+    assert_eq!(concealed_get.status(), StatusCode::NOT_FOUND);
+    assert_eq!(concealed_get.headers()[CACHE_CONTROL], "no-store");
+    assert!(
+        fixture
+            .store
+            .asset_access_events()
+            .expect("asset access audit should be readable")
+            .is_empty(),
+        "a protected GET must not authorize or append an audit event"
+    );
+
+    let current_delivery = asset_app
+        .clone()
+        .oneshot(request(
+            Method::POST,
+            format!("/api/assets/{first_banner}/delivery"),
+            &fixture.student_cookie,
+            Body::empty(),
+        ))
+        .await
+        .expect("current protected delivery should run");
+    assert_eq!(current_delivery.status(), StatusCode::OK);
     assert_eq!(current_delivery.headers()[CACHE_CONTROL], "no-store");
+    let current_delivery: serde_json::Value = response_json(current_delivery).await;
+    assert!(
+        current_delivery["url"]
+            .as_str()
+            .expect("protected delivery should return a signed URL")
+            .contains("?expires="),
+    );
+    assert_eq!(
+        fixture
+            .store
+            .asset_access_events()
+            .expect("asset access audit should be readable")
+            .len(),
+        1,
+        "only the explicit protected delivery POST should audit access"
+    );
 
     let stale = save(
         &fixture,
@@ -370,6 +406,7 @@ where
         .id;
 
     let superseded = asset_app
+        .clone()
         .oneshot(request(
             Method::GET,
             format!("/api/assets/{first_banner}"),
@@ -377,8 +414,28 @@ where
             Body::empty(),
         ))
         .await
-        .expect("superseded delivery should run");
+        .expect("superseded protected GET should run");
     assert_eq!(superseded.status(), StatusCode::NOT_FOUND);
+
+    let superseded_delivery = asset_app
+        .oneshot(request(
+            Method::POST,
+            format!("/api/assets/{first_banner}/delivery"),
+            &fixture.student_cookie,
+            Body::empty(),
+        ))
+        .await
+        .expect("superseded protected delivery should run");
+    assert_eq!(superseded_delivery.status(), StatusCode::NOT_FOUND);
+    assert_eq!(
+        fixture
+            .store
+            .asset_access_events()
+            .expect("asset access audit should be readable")
+            .len(),
+        1,
+        "a superseded protected delivery must fail before appending an audit event"
+    );
 
     fixture
         .store

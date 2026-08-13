@@ -93,9 +93,8 @@ impl crate::CourseStore for MemoryStore {
                 }
                 let role = match scope {
                     CourseListScope::Member(user) => record.role_for(user)?,
-                    CourseListScope::TenantAdministrator => CourseRole::Administrator,
                 };
-                if role == CourseRole::Student
+                if role == CourseMembershipRole::Student
                     && !course_records_accessible(&state, context.tenant_id(), *course_id)
                 {
                     return None;
@@ -120,12 +119,12 @@ impl crate::CourseStore for MemoryStore {
             .courses
             .get(&(tenant, command.record.course))
             .ok_or(StoreError::NotFound)?;
-        if course.role_for(command.actor) != Some(CourseRole::Instructor)
+        if course.role_for(command.actor) != Some(CourseMembershipRole::Instructor)
             || command
                 .record
                 .members
                 .iter()
-                .any(|user| course.role_for(*user) != Some(CourseRole::Student))
+                .any(|user| course.role_for(*user) != Some(CourseMembershipRole::Student))
         {
             return Err(StoreError::NotFound);
         }

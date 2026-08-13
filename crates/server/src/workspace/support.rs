@@ -22,12 +22,9 @@ pub(super) struct WorkspaceQuery {
 }
 
 pub(super) fn may_author_workspaces(roles: &[UserRole]) -> bool {
-    roles.iter().any(|role| {
-        matches!(
-            role,
-            UserRole::Instructor | UserRole::Publisher | UserRole::Administrator
-        )
-    })
+    roles
+        .iter()
+        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
 }
 
 pub(super) fn page_request(query: WorkspaceQuery) -> Result<PageRequest, PaginationError> {

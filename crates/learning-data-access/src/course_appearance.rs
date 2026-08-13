@@ -118,7 +118,7 @@ pub struct CourseBannerCleanupClaim {
 /// Appearance and course-banner persistence boundary.
 #[async_trait]
 pub trait CourseAppearanceStore: Send + Sync {
-    /// Reads appearance for an active persisted manager session, or for an active
+    /// Reads appearance for an active persisted instructor session, or for an active
     /// student membership while learner records remain accessible.
     async fn course_appearance(
         &self,

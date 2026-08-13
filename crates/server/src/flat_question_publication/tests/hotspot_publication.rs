@@ -183,10 +183,13 @@ async fn hotspot_publication_copies_a_verified_private_image_to_a_fresh_catalog_
         .record;
     assert_eq!(delivery.object.id, binding[0].object);
     assert_eq!(delivery.object.sha256, checksum);
-    assert_eq!(delivery.object.key.bucket(), objects::Bucket::Content);
+    assert_eq!(
+        delivery.object.key.bucket(),
+        objects::Bucket::PrivateContent
+    );
     assert_eq!(delivery.object.key.version_id(), Some(reference.version));
     assert!(
-        matches!(delivery.object.key, ObjectKey::ProblemAsset { problem, version, asset, .. }
+        matches!(delivery.object.key, ObjectKey::RestrictedProblemAsset { problem, version, asset, .. }
         if problem == reference.problem && version == reference.version && asset == surface.asset)
     );
     assert_eq!(

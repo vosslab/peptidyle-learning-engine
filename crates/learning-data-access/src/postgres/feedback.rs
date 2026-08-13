@@ -101,9 +101,21 @@ impl crate::FeedbackStore for PostgresStore {
         let enrollment =
             load_enrollment_for_update(&mut transaction, tenant, run.enrollment).await?;
         let assignment = load_assignment(&mut transaction, tenant, enrollment.assignment).await?;
-        if actor != enrollment.user
-            && !postgres_is_course_instructor(&mut transaction, tenant, assignment.course_id, actor)
-                .await?
+        if actor == enrollment.user {
+            transaction_context::require_active_learner_membership(
+                &mut transaction,
+                tenant,
+                enrollment.assignment,
+                actor,
+            )
+            .await?;
+        } else if !postgres_is_course_instructor(
+            &mut transaction,
+            tenant,
+            assignment.course_id,
+            actor,
+        )
+        .await?
         {
             return Err(StoreError::NotFound);
         }
@@ -171,9 +183,21 @@ impl crate::FeedbackStore for PostgresStore {
         .ok_or(StoreError::NotFound)?;
         let enrollment: AssignmentEnrollment = decode_payload_row(&enrollment_row)?;
         let assignment = load_assignment(&mut transaction, tenant, enrollment.assignment).await?;
-        if actor != enrollment.user
-            && !postgres_is_course_instructor(&mut transaction, tenant, assignment.course_id, actor)
-                .await?
+        if actor == enrollment.user {
+            transaction_context::require_active_learner_membership(
+                &mut transaction,
+                tenant,
+                enrollment.assignment,
+                actor,
+            )
+            .await?;
+        } else if !postgres_is_course_instructor(
+            &mut transaction,
+            tenant,
+            assignment.course_id,
+            actor,
+        )
+        .await?
         {
             return Err(StoreError::NotFound);
         }

@@ -2,20 +2,24 @@
 
 use question_model::generation::Seed;
 use question_model::{
-    AssetId, CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId, ProblemId, TenantId,
-    VersionId, WorkspaceId, WorkspaceImportId,
+    AssetId, CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId, ProblemId,
+    PublicationScope, TenantId, VersionId, WorkspaceId, WorkspaceImportId,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{ObjectCategory, Sha256Digest};
 
-/// One of the three object stores with a distinct access and retention policy.
+/// One of the four object stores with a distinct access, encryption, and
+/// delivery policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Bucket {
-    /// Shared source, assets, and deterministic rendered content.
-    Content,
+    /// Immutable learner-facing renditions. This is the only CDN-readable
+    /// domain and therefore contains only [`ObjectKey::ProblemAsset`] bytes.
+    PublicAssets,
+    /// Private authoring, provenance, grading, rendering, and course content.
+    PrivateContent,
     /// Student-specific exports, uploads, and annotations.
     StudentRecords,
     /// Never-served extraction and conversion workspaces.
@@ -26,7 +30,8 @@ impl Bucket {
     /// Returns the deployment bucket name.
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Content => "content",
+            Self::PublicAssets => "public-assets",
+            Self::PrivateContent => "private-content",
             Self::StudentRecords => "student-records",
             Self::TempProcessing => "temp-processing",
         }
@@ -46,9 +51,9 @@ impl Bucket {
 pub enum ObjectKey {
     /// Original bytes for a private workspace import.
     ///
-    /// This intentionally uses the content bucket for immutable durable bytes,
-    /// but it is not a catalog asset and must never be exposed through CDN or
-    /// catalog asset delivery.
+    /// This intentionally uses the private-content bucket for immutable
+    /// durable bytes and must never be exposed through CDN or catalog asset
+    /// delivery.
     WorkspaceSource {
         /// Tenant which owns the private workspace.
         tenant: TenantId,
@@ -73,7 +78,7 @@ pub enum ObjectKey {
     },
     /// A verified logical asset extracted from a private workspace import.
     ///
-    /// Like [`Self::WorkspaceSource`], this is durable content-bucket storage
+    /// Like [`Self::WorkspaceSource`], this is durable private-content storage
     /// but not a CDN or catalog-delivery candidate.
     WorkspaceAsset {
         /// Tenant which owns the private workspace.
@@ -89,7 +94,7 @@ pub enum ObjectKey {
     },
     /// A logical asset authored directly for a private workspace question.
     ///
-    /// This content-bucket object is intentionally distinct from
+    /// This private-content object is intentionally distinct from
     /// [`Self::WorkspaceAsset`]: it has no import provenance and is never a
     /// catalog asset or direct-delivery candidate.
     WorkspaceQuestionAsset {
@@ -130,6 +135,23 @@ pub enum ObjectKey {
     },
     /// A logical asset and its physical object for a published version.
     ProblemAsset {
+        /// Published problem identity.
+        problem: ProblemId,
+        /// Immutable version identity.
+        version: VersionId,
+        /// Logical asset referenced by content.
+        asset: AssetId,
+        /// Physical object-record identity.
+        object: ObjectId,
+    },
+    /// A learner-facing asset belonging to an institution-only published
+    /// version.
+    ///
+    /// Its identity is as immutable as [`Self::ProblemAsset`], but its bytes
+    /// live in private-content and are delivered only after catalog
+    /// authorization.  A CDN-readable key must never represent restricted
+    /// published content.
+    RestrictedProblemAsset {
         /// Published problem identity.
         problem: ProblemId,
         /// Immutable version identity.
@@ -198,9 +220,10 @@ impl ObjectKey {
             | Self::WorkspaceQuestionAsset { .. }
             | Self::ProblemSource { .. }
             | Self::PublishedImportArchive { .. }
-            | Self::ProblemAsset { .. }
+            | Self::RestrictedProblemAsset { .. }
             | Self::ProblemRender { .. }
-            | Self::CourseBanner { .. } => Bucket::Content,
+            | Self::CourseBanner { .. } => Bucket::PrivateContent,
+            Self::ProblemAsset { .. } => Bucket::PublicAssets,
             Self::CourseBannerCandidate { .. } => Bucket::TempProcessing,
             Self::StudentRecord { .. } => Bucket::StudentRecords,
             Self::Temporary { .. } => Bucket::TempProcessing,
@@ -256,6 +279,14 @@ impl ObjectKey {
                 asset,
                 object,
             } => format!("problems/{problem}/versions/{version}/assets/{asset}/{object}"),
+            Self::RestrictedProblemAsset {
+                problem,
+                version,
+                asset,
+                object,
+            } => {
+                format!("problems/{problem}/versions/{version}/restricted-assets/{asset}/{object}")
+            }
             Self::ProblemRender {
                 problem,
                 version,
@@ -298,6 +329,7 @@ impl ObjectKey {
             | Self::ProblemSource { object, .. }
             | Self::PublishedImportArchive { object, .. }
             | Self::ProblemAsset { object, .. }
+            | Self::RestrictedProblemAsset { object, .. }
             | Self::ProblemRender { object, .. }
             | Self::StudentRecord { object, .. }
             | Self::Temporary { object } => *object,
@@ -324,6 +356,7 @@ impl ObjectKey {
             Self::ProblemSource { .. } => ObjectCategory::Source,
             Self::PublishedImportArchive { .. } => ObjectCategory::Source,
             Self::ProblemAsset { .. } => ObjectCategory::Asset,
+            Self::RestrictedProblemAsset { .. } => ObjectCategory::Asset,
             Self::ProblemRender { .. } => ObjectCategory::Render,
             Self::CourseBannerCandidate { .. } => ObjectCategory::Temporary,
             Self::CourseBanner { .. } => ObjectCategory::CourseContent,
@@ -338,6 +371,7 @@ impl ObjectKey {
             Self::ProblemSource { version, .. }
             | Self::PublishedImportArchive { version, .. }
             | Self::ProblemAsset { version, .. }
+            | Self::RestrictedProblemAsset { version, .. }
             | Self::ProblemRender { version, .. } => Some(*version),
             Self::WorkspaceSource { .. }
             | Self::WorkspaceQuestionSource { .. }
@@ -352,8 +386,8 @@ impl ObjectKey {
 
     /// Whether this semantic object may receive a direct delivery URL.
     ///
-    /// Workspace imports and published source artifacts remain private even
-    /// though their immutable bytes live in the content bucket. Source may
+    /// Workspace imports and published source artifacts remain private in the
+    /// private-content bucket. Source may
     /// contain answer keys or executable grading logic, so only trusted
     /// server-side adapters may read it. Generic catalog or CDN URL issuance
     /// must reject every source key.
@@ -361,10 +395,37 @@ impl ObjectKey {
         matches!(
             self,
             Self::ProblemAsset { .. }
+                | Self::RestrictedProblemAsset { .. }
                 | Self::ProblemRender { .. }
                 | Self::CourseBanner { .. }
                 | Self::StudentRecord { .. }
         )
+    }
+
+    /// Chooses the physical immutable asset domain from the publication's
+    /// immutable visibility.  Call this at publication time rather than
+    /// reconstructing a key later from an untrusted route or browser value.
+    pub fn published_problem_asset(
+        scope: PublicationScope,
+        problem: ProblemId,
+        version: VersionId,
+        asset: AssetId,
+        object: ObjectId,
+    ) -> Self {
+        match scope {
+            PublicationScope::Public => Self::ProblemAsset {
+                problem,
+                version,
+                asset,
+                object,
+            },
+            PublicationScope::Institution => Self::RestrictedProblemAsset {
+                problem,
+                version,
+                asset,
+                object,
+            },
+        }
     }
 }
 
@@ -481,6 +542,85 @@ mod tests {
     }
 
     #[test]
+    fn only_immutable_problem_assets_enter_the_public_delivery_domain() {
+        let tenant = TenantId::from_uuid(Uuid::from_u128(1));
+        let workspace = WorkspaceId::from_uuid(Uuid::from_u128(2));
+        let problem = ProblemId::from_uuid(Uuid::from_u128(3));
+        let version = VersionId::from_uuid(Uuid::from_u128(4));
+        let object = ObjectId::from_uuid(Uuid::from_u128(5));
+
+        let public_asset = ObjectKey::ProblemAsset {
+            problem,
+            version,
+            asset: AssetId::from_uuid(Uuid::from_u128(6)),
+            object,
+        };
+        assert_eq!(public_asset.bucket(), Bucket::PublicAssets);
+        assert_eq!(
+            ObjectKey::published_problem_asset(
+                PublicationScope::Institution,
+                problem,
+                version,
+                AssetId::from_uuid(Uuid::from_u128(60)),
+                object,
+            )
+            .bucket(),
+            Bucket::PrivateContent,
+            "institution-only published assets must never enter the CDN-readable bucket"
+        );
+
+        for private_key in [
+            ObjectKey::WorkspaceSource {
+                tenant,
+                workspace,
+                import: WorkspaceImportId::from_uuid(Uuid::from_u128(7)),
+                object,
+            },
+            ObjectKey::WorkspaceQuestionAsset {
+                tenant,
+                workspace,
+                asset: AssetId::from_uuid(Uuid::from_u128(8)),
+                object,
+            },
+            ObjectKey::ProblemSource {
+                problem,
+                version,
+                object,
+            },
+            ObjectKey::RestrictedProblemAsset {
+                problem,
+                version,
+                asset: AssetId::from_uuid(Uuid::from_u128(61)),
+                object,
+            },
+            ObjectKey::PublishedImportArchive {
+                tenant,
+                problem,
+                version,
+                import: WorkspaceImportId::from_uuid(Uuid::from_u128(9)),
+                object,
+            },
+            ObjectKey::ProblemRender {
+                problem,
+                version,
+                seed: Seed::new(1),
+                object,
+            },
+            ObjectKey::CourseBanner {
+                tenant,
+                course: CourseId::from_uuid(Uuid::from_u128(10)),
+                banner: CourseBannerId::from_uuid(Uuid::from_u128(11)),
+            },
+        ] {
+            assert_eq!(
+                private_key.bucket(),
+                Bucket::PrivateContent,
+                "{private_key:?} must not be placed in the CDN-readable bucket"
+            );
+        }
+    }
+
+    #[test]
     fn course_banner_keys_bind_scope_classification_and_signing() {
         let tenant = TenantId::from_uuid(Uuid::from_u128(1));
         let course = CourseId::from_uuid(Uuid::from_u128(2));
@@ -501,7 +641,7 @@ mod tests {
         assert_eq!(candidate.category(), ObjectCategory::Temporary);
         assert_eq!(candidate.version_id(), None);
         assert!(!candidate.may_issue_signed_url());
-        assert_eq!(banner.bucket(), Bucket::Content);
+        assert_eq!(banner.bucket(), Bucket::PrivateContent);
         assert_eq!(banner.category(), ObjectCategory::CourseContent);
         assert_eq!(banner.version_id(), None);
         assert!(banner.may_issue_signed_url());
@@ -646,7 +786,7 @@ mod tests {
             format!("workspaces/{tenant}/{workspace}/imports/{import}/source/{object}")
         );
         assert_eq!(key.object_id(), object);
-        assert_eq!(key.bucket(), Bucket::Content);
+        assert_eq!(key.bucket(), Bucket::PrivateContent);
         assert_eq!(key.category(), ObjectCategory::Source);
         assert_eq!(key.version_id(), None);
         assert!(!key.may_issue_signed_url());
@@ -685,7 +825,7 @@ mod tests {
             key.path(),
             "tenants/00000000-0000-0000-0000-000000000001/problems/00000000-0000-0000-0000-000000000002/versions/00000000-0000-0000-0000-000000000003/imports/00000000-0000-0000-0000-000000000004/archive/00000000-0000-0000-0000-000000000005"
         );
-        assert_eq!(key.bucket(), Bucket::Content);
+        assert_eq!(key.bucket(), Bucket::PrivateContent);
         assert_eq!(key.category(), ObjectCategory::Source);
         assert_eq!(
             key.version_id(),

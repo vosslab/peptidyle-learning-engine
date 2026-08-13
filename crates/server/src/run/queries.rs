@@ -164,10 +164,16 @@ where
     };
     let mut page = match state
         .store
-        .list_question_attempts(authenticated.tenant_context, run.id, page)
+        .learner_list_question_attempts(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            run.id,
+            page,
+        )
         .await
     {
-        Ok(page) => page,
+        Ok(Some(page)) => page,
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "run not found"),
         Err(error) => return store_error_response(error),
     };
     for attempt in &mut page.items {
@@ -223,7 +229,11 @@ where
     };
     let mut attempt = match state
         .store
-        .get_question_attempt(authenticated.tenant_context, attempt_id)
+        .learner_get_question_attempt(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            attempt_id,
+        )
         .await
     {
         Ok(Some(attempt)) => attempt,
@@ -291,7 +301,11 @@ where
     };
     let attempt = match state
         .store
-        .get_question_attempt(authenticated.tenant_context, attempt_id)
+        .learner_get_question_attempt(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            attempt_id,
+        )
         .await
     {
         Ok(Some(attempt)) => attempt,
@@ -381,7 +395,11 @@ where
         };
     let summary = match state
         .store
-        .get_summary(authenticated.tenant_context, enrollment.id)
+        .learner_get_summary(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            enrollment.id,
+        )
         .await
     {
         Ok(Some(summary)) => summary,
@@ -417,7 +435,11 @@ where
     }
     match state
         .store
-        .get_summary(authenticated.tenant_context, enrollment_id)
+        .learner_get_summary(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            enrollment_id,
+        )
         .await
     {
         Ok(Some(summary)) => no_store(Json(summary).into_response()),
@@ -451,17 +473,23 @@ where
     };
     match state
         .store
-        .list_runs(authenticated.tenant_context, enrollment_id, page)
+        .learner_list_runs(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            enrollment_id,
+            page,
+        )
         .await
     {
-        Ok(page) => no_store(Json(page).into_response()),
+        Ok(Some(page)) => no_store(Json(page).into_response()),
+        Ok(None) => error_response(StatusCode::NOT_FOUND, "enrollment not found"),
         Err(error) => store_error_response(error),
     }
 }
 
 pub(super) async fn all_attempts<S: Store>(
     store: &S,
-    context: learning_data_access::TenantContext,
+    authenticated: &AuthenticatedSession,
     run: RunId,
 ) -> Result<Vec<QuestionAttempt>, Response> {
     let size = PageSize::new(INTERNAL_ATTEMPT_PAGE_SIZE)
@@ -470,9 +498,15 @@ pub(super) async fn all_attempts<S: Store>(
     let mut attempts = Vec::new();
     loop {
         let page = store
-            .list_question_attempts(context, run, page_request)
+            .learner_list_question_attempts(
+                authenticated.tenant_context,
+                authenticated.record.subject.user(),
+                run,
+                page_request,
+            )
             .await
             .map_err(store_error_response)?;
+        let page = page.ok_or_else(|| error_response(StatusCode::NOT_FOUND, "run not found"))?;
         attempts.extend(page.items);
         let Some(cursor) = page.next_cursor else {
             return Ok(attempts);
@@ -487,7 +521,11 @@ pub(super) async fn authorized_run<S: Store>(
     run_id: RunId,
 ) -> Result<AssignmentRun, Response> {
     let run = store
-        .get_run(authenticated.tenant_context, run_id)
+        .learner_get_run(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            run_id,
+        )
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "run not found"))?;
@@ -510,14 +548,7 @@ where
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "course not found"))?;
     let actor = authenticated.record.subject.user();
-    let role = record.role_for(actor).or_else(|| {
-        authenticated
-            .record
-            .subject
-            .roles()
-            .contains(&UserRole::Administrator)
-            .then_some(CourseRole::Administrator)
-    });
+    let role = record.role_for(actor);
     let Some(role) = role else {
         return Err(error_response(StatusCode::NOT_FOUND, "course not found"));
     };
@@ -542,7 +573,11 @@ pub(super) async fn owned_run<S: Store>(
     run_id: RunId,
 ) -> Result<AssignmentRun, Response> {
     let run = store
-        .get_run(authenticated.tenant_context, run_id)
+        .learner_get_run(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            run_id,
+        )
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "run not found"))?;
@@ -555,18 +590,7 @@ pub(super) async fn owned_enrollment<S: Store>(
     authenticated: &AuthenticatedSession,
     enrollment_id: question_model::EnrollmentId,
 ) -> Result<AssignmentEnrollment, Response> {
-    let enrollment = store
-        .get_enrollment(authenticated.tenant_context, enrollment_id)
-        .await
-        .map_err(store_error_response)?
-        .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "enrollment not found"))?;
-    if enrollment.user != authenticated.record.subject.user() {
-        return Err(error_response(
-            StatusCode::NOT_FOUND,
-            "enrollment not found",
-        ));
-    }
-    Ok(enrollment)
+    authorized_enrollment(store, authenticated, enrollment_id, true).await
 }
 
 pub(super) async fn owned_assignment_for_run<S: Store>(
@@ -588,20 +612,22 @@ pub(super) async fn authorized_enrollment<S: Store>(
     enrollment_id: question_model::EnrollmentId,
     require_owner: bool,
 ) -> Result<AssignmentEnrollment, Response> {
+    let actor = authenticated.record.subject.user();
+    if let Some(enrollment) = store
+        .learner_get_enrollment(authenticated.tenant_context, actor, enrollment_id)
+        .await
+        .map_err(store_error_response)?
+    {
+        return Ok(enrollment);
+    }
+    // Staff retain the distinct historical-record capability. Learners never
+    // fall through to this raw read: an enrollment belonging to the caller is
+    // rejected below unless the learner capability proved active membership.
     let enrollment = store
-        .get_enrollment(authenticated.tenant_context, enrollment_id)
+        .instructor_get_enrollment(authenticated.tenant_context, actor, enrollment_id)
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "enrollment not found"))?;
-    if enrollment.user == authenticated.record.subject.user() {
-        return Ok(enrollment);
-    }
-    if require_owner {
-        return Err(error_response(
-            StatusCode::NOT_FOUND,
-            "enrollment not found",
-        ));
-    }
     let assignment = store
         .get_assignment(authenticated.tenant_context, enrollment.assignment)
         .await
@@ -612,15 +638,22 @@ pub(super) async fn authorized_enrollment<S: Store>(
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "enrollment not found"))?;
-    let administrator = authenticated
-        .record
-        .subject
-        .roles()
-        .contains(&UserRole::Administrator);
+    if enrollment.user == actor {
+        return Err(error_response(
+            StatusCode::NOT_FOUND,
+            "enrollment not found",
+        ));
+    }
+    if require_owner {
+        return Err(error_response(
+            StatusCode::NOT_FOUND,
+            "enrollment not found",
+        ));
+    }
     let instructor = course
-        .role_for(authenticated.record.subject.user())
-        .is_some_and(|role| matches!(role, question_model::CourseRole::Instructor));
-    if administrator || instructor {
+        .role_for(actor)
+        .is_some_and(|role| matches!(role, question_model::CourseMembershipRole::Instructor));
+    if instructor {
         Ok(enrollment)
     } else {
         Err(error_response(

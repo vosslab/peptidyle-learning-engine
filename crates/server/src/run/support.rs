@@ -13,16 +13,18 @@ pub(super) use learning_data_access::{
     ReceiptPresentationSnapshot, SessionStore, Store, StoreError, SubmissionIdempotencyKey,
     SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext,
 };
+#[cfg(test)]
+pub(super) use question_model::UserRole;
 pub(super) use question_model::generation::Seed;
 pub(super) use question_model::presentation::{
     AssetBindingV1, PresentationV1, build_presentation_v1,
 };
 pub(super) use question_model::run_policy::FeedbackDisclosure;
 pub(super) use question_model::{
-    AssignmentEnrollment, AssignmentRun, AttemptResult, CourseAppearance, CourseRole,
-    CourseSummary, DisclosedFeedback, FeedbackContent, PresentationBindingV1, ProblemVersionRef,
-    QuestionAttempt, QuestionAttemptId, QuestionDefinition, QuestionEnvelope, RunId,
-    StudentAssignmentSummary, StudentResponse, UserRole,
+    AssignmentEnrollment, AssignmentRun, AttemptResult, CourseAppearance, CourseSummary,
+    DisclosedFeedback, FeedbackContent, PresentationBindingV1, ProblemVersionRef, QuestionAttempt,
+    QuestionAttemptId, QuestionDefinition, QuestionEnvelope, RunId, StudentAssignmentSummary,
+    StudentResponse,
 };
 pub(super) use serde::{Deserialize, Serialize};
 

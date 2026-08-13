@@ -131,7 +131,7 @@ async function routeStudentCourse(page: Page, requests: string[]): Promise<void>
   });
 }
 
-test("course manager reaches New assignment from the visible course page by keyboard", async ({
+test("course instructor reaches New assignment from the visible course page by keyboard", async ({
   page,
 }) => {
   const requests: Array<{ readonly method: string; readonly path: string }> = [];
@@ -498,7 +498,7 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
   );
 });
 
-test("manager creates a Mastery assignment from public immutable catalog tuples by keyboard", async ({
+test("instructor creates a Mastery assignment from public immutable catalog tuples by keyboard", async ({
   page,
 }) => {
   const requests: Array<{

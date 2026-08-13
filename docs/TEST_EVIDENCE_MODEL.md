@@ -143,6 +143,20 @@ counts, a private local service, an unrepeatable fixture, wall-clock timing,
 or a migration shape that will naturally change. Do not preserve a probe just
 because it caught a defect once.
 
+The 2026-08 test-policy review retired three representative anti-patterns:
+
+- pytests that sliced shell, Compose, Containerfile, or Caddy source and
+  asserted exact fragments;
+- a repository-wide lexical Rust/SQL scanner for `OFFSET` that took longer
+  than the complete fast-test budget for a single case; and
+- exact validators for dated walked-journey evidence rows and arrangement
+  lists.
+
+Use executable check-mode/E2E behavior for the first class, typed pagination
+contracts plus query-plan review for the second, and the live report parser
+plus the retained human evidence record for the third. Do not recreate these
+tests under new filenames.
+
 If a durable behavior was discovered, write the smallest independent test for
 that behavior in its proper owner and location. The replacement should not
 need the probe's incidental setup.
@@ -179,6 +193,10 @@ the PLE same-origin gateway.
   feature and use `#[ignore = "requires the disposable PostgreSQL acceptance database"]`.
   They compile in the feature-enabled gate but run only when the documented
   disposable database command selects them.
+- Rust checks that intentionally open a loopback HTTP listener or invoke an
+  installed PDF/DOCX reader are also `#[ignore]` and run only through their
+  named adapter or export acceptance command. They never execute in
+  `check_rust.sh`'s ordinary workspace tests.
 - Live Playwright specs remain in `tests/playwright/`, but must require
   explicit configuration rather than silently contacting a real service.
 - Temporary screenshots, traces, recordings, and Playwright results belong in

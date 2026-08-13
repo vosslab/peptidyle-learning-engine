@@ -831,6 +831,8 @@ where
             asset: logical_asset,
             reference,
         },
+        publication: AssetPublication::Ready,
+        pending_source: None,
     };
     let collaborator = UserId::from_uuid(uuid(9_109));
     store
@@ -949,6 +951,12 @@ where
         Ok(vec![learning_data_access::CatalogAssetBinding {
             asset: logical_asset,
             object,
+            key: ObjectKey::ProblemAsset {
+                problem: reference.problem,
+                version: reference.version,
+                asset: logical_asset,
+                object,
+            },
             rendition_checksum: staged_asset.sha256,
             media_type: staged_asset.media_type.clone(),
             intrinsic_width: None,

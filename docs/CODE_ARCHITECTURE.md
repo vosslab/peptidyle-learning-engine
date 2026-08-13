@@ -3,41 +3,42 @@
 ## Overview
 
 Peptidyle Learning Engine (PLE) is a question-agnostic learning platform. A
-SolidJS browser client renders server-issued question presentations; a Rust API
-owns identity, authorization, attempts, grading, and durable records. Focused
-Rust crates keep question generation, answer-bearing grading, persistence, and
-external engines separate.
+SolidJS browser client renders server-issued presentations; a Rust API owns
+identity, authorization, assessment state, grading, and durable records. The
+repository separates question generation, answer-bearing grading, persistence,
+object storage, and external-engine integration into focused Rust crates.
 
 This is the high-level map. [FILE_STRUCTURE.md](FILE_STRUCTURE.md) maps paths,
-[CONTRACTS.md](CONTRACTS.md) indexes durable contracts, and
-[DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) explains their rationale. Current
+[CONTRACTS.md](CONTRACTS.md) indexes durable rules, and
+[DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) records their rationale. Current
 release state belongs in [active_plans/](active_plans/), not in this document.
 
 ## System shape
 
 ```text
 browser
-  SolidJS application + domain WebAssembly
+  SolidJS application + answer-free domain WebAssembly
         |
-        | same-origin requests and browser-safe JSON
+        | same-origin HTTPS requests and browser-safe JSON
         v
-gateway --> Rust API --> PostgreSQL
-                 |          |
-                 |          `-> tenant-owned learning records and jobs
-                 v
-             object store
-                 |
-                 `-> immutable content and protected artifacts
+CloudFront --> application load balancer --> Rust API --> PostgreSQL
+                                              |          |
+                                              |          `-> forced RLS tenant records and jobs
+                                              v
+                                         four object domains
+                                              |
+                       public-assets publisher outbox and dedicated publisher
 
-Rust API --> private external question engines
-              `-> standalone webwork-pg-renderer
+Rust API --> private external question-engine broker --> reviewed provider or renderer
 ```
 
-The browser is a presentation and interaction client. It can validate format,
-display a timer, and provide accessible controls, but it does not receive
-answer keys or make authoritative grading or timing decisions.
+The browser and WebAssembly bridge are deliberately thin and key-free. They
+format values, validate response shape, and display timers, but receive no
+answer keys and cannot make authoritative timing, grading, feedback, or
+completion decisions. The API is the trust-boundary owner for every
+browser-visible assessment transition.
 
-## Core guarantees
+## Security boundaries and guarantees
 
 - **Server-owned assessment authority.** Answer keys, correctness, timing
   verdicts, feedback disclosure, completion, and grade changes remain in Rust
@@ -45,209 +46,187 @@ answer keys or make authoritative grading or timing decisions.
   and [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) define this
   boundary.
 - **Compile-time answer separation.** `crates/grading/` is outside the
-  dependency closure of `crates/wasm/`, so the browser bridge cannot import the
-  grading implementation. [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md)
+  dependency closure of `crates/wasm/`. The browser bridge therefore cannot
+  import answer-bearing checkers. [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md)
   defines adapter responsibilities.
-- **Course-scoped disclosure.** Immutable published content is distinct from
-  tenant-owned courses, memberships, enrollments, runs, and grades. PostgreSQL
-  forces row-level security for tenant-owned records. See
-  [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) and
-  [DATABASE_TENANCY.md](DATABASE_TENANCY.md).
-- **Attempt-bound presentations.** The server issues a browser-safe question
-  envelope with a presentation nonce, digest, and rendered-item identities.
-  The submitted response identifies the issued presentation rather than a
-  durable answer key. See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
-- **Replaceable infrastructure.** Domain code depends on models, while storage,
-  object, identity, and question-engine implementations sit behind focused
-  interfaces and the server composition root.
+- **Actor-scoped learner access.** Learner routes use learner-scoped store
+  operations. Each operation verifies the acting user, active student
+  membership, enrollment, and attempt or run relationship in the same store
+  boundary; a route-level ownership check is not the sole control.
+- **Database-enforced tenant isolation.** PostgreSQL forces row-level security
+  on tenant-bearing records. API, worker, grader, and public-asset-publisher
+  processes use distinct login profiles with closed capability-role contracts;
+  startup attests the required login and role attributes before handling work.
+  [DATABASE_TENANCY.md](DATABASE_TENANCY.md) and
+  [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) define the record
+  scope rules.
+- **Physical object-domain isolation.** Typed keys select four object domains:
+  `public-assets`, `private-content`, `student-records`, and
+  `temp-processing`. The deployed configuration gives each its own S3 bucket
+  and KMS key. A key cannot be supplied as an arbitrary object-store path.
+- **Published public assets are a committed transition.** Catalog publication
+  records pending public assets and a `publishPublicAssets` job transactionally.
+  The dedicated publisher verifies bytes and checksums, writes only the final
+  immutable public object, then conditionally activates its registry record.
+  The ordinary API and worker do not own that public-write capability.
+- **External side effects are fenced.** The external-tool broker owns launch,
+  submission, and result normalization. It stores a pre-dispatch marker under
+  an active activity lease before an effectful provider request; an uncertain
+  outcome remains fenced rather than being retried as a potentially duplicate
+  learner action.
 
 ## Major components
 
-| Component                | Location                                                                                  | Responsibility                                                                                                                |
-| ------------------------ | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Question model           | [crates/question_model/](../crates/question_model/)                                       | Question taxonomy, identifiers, capabilities, browser-safe presentation values, and response schemas.                         |
-| Domain                   | [crates/domain/](../crates/domain/)                                                       | Run state, policy evaluation, seeded generation rules, timing inputs, and validation without a database or wall clock.        |
-| Grading                  | [crates/grading/](../crates/grading/)                                                     | Answer-bearing checkers and correctness decisions; server-side only.                                                          |
-| Native adapter           | [crates/adapters/native/](../crates/adapters/native/)                                     | First-party generated questions and static flat-question compilation.                                                         |
-| External adapters        | [crates/adapters/](../crates/adapters/)                                                   | Bounded QTI, H5P, iMathAS, and WeBWorK boundaries with declared capabilities.                                                 |
-| Learning data access     | [crates/learning-data-access/](../crates/learning-data-access/)                           | Store contracts plus in-memory and PostgreSQL implementations, migrations, RLS context, and conformance coverage.             |
-| Object storage           | [crates/objects/](../crates/objects/)                                                     | Typed immutable object records and S3-compatible backends.                                                                    |
-| Server                   | [crates/server/](../crates/server/)                                                       | Axum routes, authentication, authorization, adapter selection, worker composition, and browser DTOs.                          |
-| Browser and WebAssembly  | [src/](../src/) and [crates/wasm/](../crates/wasm/)                                       | SolidJS interaction layer and an answer-free browser bridge to shared domain logic.                                           |
-| Export and project tools | [crates/export/](../crates/export/) and [crates/project-tools/](../crates/project-tools/) | Print/export generation and repository-only code generation, migration, fixture, pilot-content validation, and seed commands. |
+| Component | Location | Responsibility |
+| --- | --- | --- |
+| Question model | [crates/question_model/](../crates/question_model/) | Question taxonomy, identifiers, capabilities, browser-safe presentations, and response schemas. |
+| Domain | [crates/domain/](../crates/domain/) | Run state, policy evaluation, seeded generation, timing inputs, and validation without a database or wall clock. |
+| Grading | [crates/grading/](../crates/grading/) | Answer-bearing checkers and correctness decisions; server-side only. |
+| Learning data access | [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, in-memory and PostgreSQL implementations, migrations, forced RLS context, capability roles, and conformance tests. |
+| Object storage | [crates/objects/](../crates/objects/) | Typed object keys, checksums, strict image ingress validation, and MinIO/S3-compatible implementations. |
+| Native adapter | [crates/adapters/native/](../crates/adapters/native/) | First-party generated questions and static flat-question compilation. |
+| External adapters | [crates/adapters/](../crates/adapters/) | Bounded QTI, H5P, iMathAS, and WeBWorK integration behind declared capabilities. |
+| Server | [crates/server/](../crates/server/) | Axum routes, passwordless auth, authorization, adapter selection, API composition, ordinary worker, and public-asset publisher process. |
+| Browser and WebAssembly | [src/](../src/) and [crates/wasm/](../crates/wasm/) | SolidJS interaction layer and answer-free browser bridge to shared domain logic. |
+| Export and project tools | [crates/export/](../crates/export/) and [crates/project-tools/](../crates/project-tools/) | Print/export generation plus repository-only code generation, migration, fixture, pilot-content validation, and seed commands. |
+| Deployment configuration | `deploy/opentofu/` | AWS network, edge, compute, database, storage, IAM, observability, and WAF definitions. |
 
-Each Cargo crate declares its permitted dependencies explicitly. In particular,
-`crates/domain/` depends only on the question model, and the server is the
-composition root that chooses concrete adapters and stores.
+The Cargo dependency graph is a security control: `crates/domain/` depends only
+on the question model, while `crates/wasm/` does not depend on `crates/grading/`.
+The server composition root selects concrete stores, object backends, identity
+providers, and adapters.
 
-## Assessment flow
-
-The normal automatic-grading path is an ownership transition, not a browser
-calculation:
+## Assessment and asset-publication flow
 
 ```text
-author draft
-  -> immutable published problem version
-  -> course assignment references that version
-  -> authorized learner starts or resumes a run
-  -> server issues one attempt-bound public presentation
-  -> browser submits a compact response plus request identity
-  -> server validates, grades, and persists the authoritative result
-  -> server returns only feedback allowed by assignment policy
+authorized author publishes immutable version
+  -> catalog transaction registers pending public assets + durable outbox job
+  -> dedicated publisher verifies private source bytes and checksum
+  -> publisher writes tagged immutable public asset and activates registry
+  -> course assignment references immutable version
+  -> active enrolled learner starts or resumes a run
+  -> API issues one attempt-bound browser-safe presentation
+  -> browser submits response identity and value
+  -> API authorizes, validates, grades, and commits the result
+  -> API returns only feedback allowed by assignment policy
 ```
 
 `crates/server/src/run/` coordinates issue, prefetch, submission, manual
 grading, and external-tool paths. `crates/learning-data-access/` commits run,
-submission, score, and summary changes transactionally. The browser decodes
-the response schema and selects the matching response widget; it does not
-choose a grading backend or derive a correct response.
+submission, score, summary, and outbox transitions. The browser decodes the
+response schema and selects a response widget; it does not select a grading
+backend or derive a correct response.
 
-The flat-question adapter supports the PLE JSON authoring model, including
-single and multiple choice, fill-in, numeric, multi-blank, matching, ordering,
-and hotspot questions. [INPUT_FORMATS.md](INPUT_FORMATS.md) and
-[QUESTION_MODEL.md](QUESTION_MODEL.md) define supported authoring and response
-models. File-upload responses remain fail-closed until the server can issue a
-tenant-, learner-, and attempt-bound upload capability.
+Published content is immutable and shared. Courses, memberships, enrollments,
+runs, attempts, grades, and student artifacts are tenant-owned. This keeps
+course-record deletion separate from reusable published content.
+
+## Identity and authorization
+
+`crates/server/src/auth/` implements passwordless email and passkey flows,
+session issuance, logout, challenge binding, request-origin checks, and
+rate-limiting inputs. Opaque user identifiers, not email addresses, identify
+accounts. Course membership and enrollment determine course authority.
+
+The data-access Store contracts make authority explicit at the persistence
+boundary. Learner operations accept an actor and require active learner access;
+Instructor-history operations use their own contracts. PostgreSQL evaluates those
+operations in transactions with tenant context and row-level security, while
+the in-memory store supplies the same behavior for conformance testing.
 
 ## External question engines
 
-Adapters own the boundary between PLE and each question source. They normalize
-the source into PLE's question and grading contracts, while PLE continues to
-own assignments, attempts, authorization, records, and feedback policy.
+Adapters normalize supported source formats into PLE question and grading
+contracts. PLE continues to own assignment, attempt, authorization, record,
+and feedback policy. The external-tool broker treats provider data as
+untrusted input and isolates effectful requests behind activity leases,
+request identities, and indeterminate-outcome fences.
 
-The WeBWorK integration calls the separate, stateless
-`webwork-pg-renderer` service over a private network. It is a PG/PGML render
-and grade engine, not a second assignment platform. The adapter accepts only
-reviewed upstream response shapes, projects browser-safe HTML, and keeps source
-and grading calls on the server. [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md)
-documents the integration.
+The WeBWorK integration calls a separate private `webwork-pg-renderer` service
+for PG/PGML rendering and grading. It is not a second assignment platform. The
+adapter projects reviewed response shapes for the browser and keeps source and
+grading calls server-side. [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md)
+documents that boundary.
 
-The reviewed first-release content is a repository-owned input to those same production
-boundaries, not a browser fixture. `cargo tools pilot-content` validates its human-readable
-two-chapter manifest and source/compiler contracts. The host-only `e2e-seed --chapter-one-pilot`
-command publishes immutable PGML and flat source objects, protected flat grading material,
-catalog versions, courses, four-item assignments, and roster-derived enrollments. Its JSON output
-uses `P-...-v1` as the display identity and retains UUIDs only for machine routing.
-
-The three WeBWorK reference trees have distinct purposes:
-
-- `OTHER_REPOS/pg/` is reference material for the PG/PGML engine.
-- `OTHER_REPOS/webwork-pg-renderer/` is a reference snapshot of the maintained
-  standalone renderer project.
-- `OTHER_REPOS/webwork2/` is reference material for the full WeBWorK course
-  application.
-
-`OTHER_REPOS/` is comparison material only. The local stack uses the external
-renderer image named in its environment, not a build context or mounted copy
-from one of these snapshots.
-
-## Identity, courses, and authorization
-
-PLE accounts use opaque `UserId` values. Email authentication establishes or
-recovers account access, while passkeys provide an additional browser-bound
-authentication method. Email and display information are mutable account or
-course-roster attributes; they are not database primary keys. An invitation can
-be claimed only after authentication, and course membership then provides the
-instructor or learner access appropriate to that course.
-
-`crates/server/src/auth/` owns passwordless email and passkey HTTP behavior.
-`crates/server/src/course/` owns course access, roster, invitation, and
-assignment routes. [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md) and
-[ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) define the account and roster
-contract; [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) defines the
-non-disclosure and course-scoping rules.
+`OTHER_REPOS/` contains reference snapshots only. It is not a source import
+path, container build context, or runtime dependency.
 
 ## Storage and background work
 
-The data-access crate exposes behavior-level Store contracts. Its in-memory
-implementation supports fast behavior and conformance tests; its PostgreSQL
-implementation uses transactions, explicit tenant context, and schema-owned
-constraints for durable production records.
+PostgreSQL stores policy-bearing relationships, passwordless sessions,
+attempts, submissions, summaries, jobs, and audit events. Object storage keeps
+the bytes that do not belong in relational rows. The four typed domains are:
 
-PostgreSQL stores relationships, policy-bearing records, sessions, attempts,
-submissions, summaries, jobs, and audit events. The object store holds immutable
-content, protected learner artifacts, exports, and temporary processing bytes.
-Object records include typed keys and checksums, so an HTTP request cannot turn
-arbitrary text into an object-store path. See [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md),
-[OBJECT_STORAGE.md](OBJECT_STORAGE.md), and [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md).
+- `public-assets`: immutable, published browser-visible problem assets.
+- `private-content`: source, restricted problem material, and private course
+  assets.
+- `student-records`: tenant-owned exports and learner record artifacts.
+- `temp-processing`: bounded temporary ingress and processing bytes; it is not
+  signable for browser delivery.
 
-The worker claims durable jobs. It performs background work such as exports,
-imports, retention, scoring maintenance, and item analysis. A worker restart
-does not erase the job record or educational result because both remain in
-shared storage.
+The normal worker claims the supported educational job families. The
+public-asset publisher is a separate process (`--public-asset-publisher`) with
+its own database login, queue filter, and object-store authority. A restart
+does not erase a job or educational result because the state transitions remain
+in shared storage.
 
-## Browser architecture
+## Browser and local/deployed topology
 
-The browser application in [src/](../src/) is organized by API, authentication,
-reusable components, capabilities, pages, and the shared WebAssembly facade.
-Generated TypeScript contracts are decoded at the API edge before they enter
-Solid components. Response widgets use native controls first and add the PLE
-keyboard extensions described in [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md).
+The browser application in [src/](../src/) decodes API contracts before they
+enter Solid components. `crates/wasm/` exposes answer-free helpers for
+deterministic formatting, response validation, and timer support. The server
+remains authoritative whenever browser and server could disagree.
 
-`crates/wasm/` exposes answer-free domain helpers for deterministic formatting,
-parameter work, response validation, and timer support. The API remains
-authoritative whenever the browser and server could disagree.
+[containers/compose.yaml](../containers/compose.yaml) defines the local stack:
+gateway, API, ordinary worker, PostgreSQL, MinIO, a private renderer, and
+one-shot setup services. The gateway is the browser entry point. Local
+PostgreSQL and MinIO retain named-volume state; application services are
+replaceable. [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md) and
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) document its topology
+and operation.
 
-## Local stack
-
-[launch_local_stack.sh](../launch_local_stack.sh) builds and starts the
-developer stack described by [containers/compose.yaml](../containers/compose.yaml).
-The long-running services are gateway, API, worker, PostgreSQL, MinIO, and the
-private standalone PG renderer. One-shot services provision buckets and
-runtime-readable secrets. PostgreSQL and MinIO keep durable state in named
-volumes; API, worker, gateway, and renderer containers are replaceable.
-
-The gateway is the only browser entry point. The API joins the gateway, data,
-and renderer networks; the renderer has no host port and no SQL database.
-[LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md) explains service
-roles, while [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) documents
-startup, rebuild, health, and shutdown.
+`deploy/opentofu/` identifies the production deployment target:
+CloudFront and WAF at the edge, a CloudFront-restricted application load
+balancer, private ECS tasks, private PostgreSQL, S3 VPC access, separate task
+roles, and four encrypted object buckets. It is deployment configuration, not
+evidence that an AWS account has been provisioned or operated correctly.
 
 ## Testing and verification
 
 - [check_codebase.sh](../check_codebase.sh) runs the repository's TypeScript,
   Rust formatting, lint, and test gates.
-- [tests/](../tests/) contains fast repository and Node behavior checks.
-- Rust unit and integration tests live beside the crates they exercise.
+- [tests/](../tests/) contains repository-policy and deterministic Node checks.
+- Rust unit and integration tests live beside their crates; data-access
+  conformance tests exercise matching in-memory and PostgreSQL behavior.
 - [tests/playwright/](../tests/playwright/) exercises built browser behavior and
   accessibility over HTTP.
-- [tests/e2e/](../tests/e2e/) holds slower disposable PostgreSQL, replica,
-  WebAssembly, local-stack, and exact Chapter 1 publication evidence.
-- [tests/walkthrough/](../tests/walkthrough/) owns the teaching-loop runner,
-  fixed child processes, and importable `walklib/` configuration, contracts,
-  subprocess, and lifecycle behavior. The historical E2E paths are thin
-  compatibility launchers. Its default run ends after the instructor-created Genetics assignment
-  and focused J1-J5/J8 student journey; the isolated Chapter 1 release gate owns the all-eight
-  browser sweep. Browser journeys remain independently readable under `tests/playwright/`.
-- Learning data-access capabilities use a contract, an in-memory implementation,
-  a PostgreSQL implementation, and conformance coverage where both backends
-  should agree.
+- [tests/e2e/](../tests/e2e/) contains disposable PostgreSQL, replica,
+  WebAssembly, local-stack, and publication evidence.
+- `deploy/opentofu/tests/policy.tftest.hcl` asserts deployment-policy invariants
+  in the infrastructure configuration.
 
 [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) distinguishes permanent tests,
-one-time acceptance evidence, and human review. A passing plan or document is
+one-time acceptance evidence, and human review. A passing document or plan is
 not evidence that an unrun deployment path works.
 
 ## Extension points
 
-- Add question behavior behind the appropriate adapter and declare its
-  capabilities in the question model.
-- Add persistence behavior as a Store contract plus matching in-memory,
-  PostgreSQL, and conformance owners when the behavior is shared.
-- Add HTTP behavior to its server route module; keep
-  [crates/server/src/composition.rs](../crates/server/src/composition.rs) for
+- Add question behavior behind an adapter and declare its capabilities in the
+  question model.
+- Add persistence behavior through a Store contract, both implementations, and
+  conformance coverage when behavior is shared.
+- Add HTTP behavior in its owning server module; keep composition focused on
   dependency assembly.
-- Add browser behavior in an owning API, feature, page, or component module;
-  use generated contracts instead of a parallel handwritten wire model.
-- Add a WeBWorK response family only after defining its safe PLE projection,
-  grading handoff, and accessible browser interaction.
-- Add forward-only schema changes under [schemas/migrations/](../schemas/migrations/)
-  and validate them with the database tooling and relevant live oracle.
+- Add browser behavior in its owning API, feature, page, or component module;
+  preserve the decoded contract boundary.
+- Add an external-engine response family only after defining its safe browser
+  projection, grading handoff, authorization, and side-effect behavior.
+- Add forward-only schema changes under [schemas/migrations/](../schemas/migrations/).
 
 ## Known gaps
 
-- Verify each production deployment's SMTP provider, DNS configuration, secret
-  rotation, backup, recovery, and monitoring against its operator environment;
-  the repository provides integration boundaries, not hosted-provider accounts.
-- Verify every newly supported external question shape against its actual
-  renderer or import source before claiming compatibility beyond the reviewed
-  adapter contract.
+- Verify the deployed AWS account's DNS, ACM certificates, Secrets Manager
+  values, database login provisioning, backup recovery, alerting, and incident
+  procedures before production use.
+- Verify each enabled external provider and renderer image against its live
+  protocol, egress rule, authentication, and operational recovery contract.

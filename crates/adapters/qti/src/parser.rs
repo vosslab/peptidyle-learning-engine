@@ -10,6 +10,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use objects::Sha256Digest;
+use objects::image_validation::verify_still_image;
 use question_model::answer::SelectionCardinality;
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::response::{ChoiceId, ChoiceOption};
@@ -515,13 +516,9 @@ fn image_block(
             &format!("referenced asset `{path}` is absent"),
         )
     })?;
-    let media_type = sniff_media_type(bytes).ok_or_else(|| {
-        unsupported(
-            &path,
-            "unsupported-media-type",
-            "media bytes do not match a supported image signature",
-        )
-    })?;
+    let verified = verify_still_image(bytes)
+        .map_err(|error| unsupported(&path, "unsafe-image", error.import_detail()))?;
+    let media_type = verified.media_type.canonical_media_type();
     let asset = assets
         .entry(path.clone())
         .or_insert_with(|| asset_object(path.clone(), bytes.to_vec(), media_type.to_string()));
@@ -584,19 +581,6 @@ fn resolve_asset_path(item_path: &str, raw: &str) -> Result<String, String> {
         return Err("media reference must resolve under assets/".into());
     }
     Ok(joined)
-}
-fn sniff_media_type(bytes: &[u8]) -> Option<&'static str> {
-    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
-        Some("image/png")
-    } else if bytes.starts_with(&[0xff, 0xd8, 0xff]) {
-        Some("image/jpeg")
-    } else if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
-        Some("image/gif")
-    } else if bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP") {
-        Some("image/webp")
-    } else {
-        None
-    }
 }
 fn unsupported(path: &str, feature: &str, detail: &str) -> UnsupportedFeature {
     UnsupportedFeature {

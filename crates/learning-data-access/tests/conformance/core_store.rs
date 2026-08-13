@@ -733,14 +733,6 @@ where
         )
         .await
         .expect("nonmember course list should load");
-    let administrator_courses = store
-        .list_courses(
-            context,
-            CourseListScope::TenantAdministrator,
-            PageRequest::first(PageSize::new(10).expect("ten is a valid page size")),
-        )
-        .await
-        .expect("administrator course list should load");
     let run_page = store
         .list_runs(
             context,
@@ -765,12 +757,11 @@ where
     );
     assert_eq!(tenant_assignments.items.len(), 1);
     assert_eq!(member_courses.items.len(), 1);
-    assert_eq!(member_courses.items[0].role, CourseRole::Instructor);
-    assert!(nonmember_courses.items.is_empty());
     assert_eq!(
-        administrator_courses.items[0].role,
-        CourseRole::Administrator
+        member_courses.items[0].role,
+        CourseMembershipRole::Instructor
     );
+    assert!(nonmember_courses.items.is_empty());
     assert_eq!(store.get_course(foreign_context, course_id).await, Ok(None));
     assert_eq!(
         (

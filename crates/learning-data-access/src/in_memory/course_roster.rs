@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use async_trait::async_trait;
 use question_model::{
-    AssignmentEnrollment, CourseMembership, CourseMembershipRole, CourseRole, EnrollmentId,
+    AssignmentEnrollment, CourseMembership, CourseMembershipRole, EnrollmentId,
     StudentAssignmentSummary, StudentId, UserRole,
 };
 
@@ -14,10 +14,10 @@ use crate::{
     ClaimCourseInvitation, ClaimedCourseMembership, CommitCourseRosterImport,
     CommittedCourseRosterImport, CourseEnrollmentPolicy, CourseInvitation, CourseInvitationId,
     CourseInvitationStatus, CourseMemberId, CourseMemberStatus, CourseRosterEntry,
-    CourseRosterImportPreview, CourseRosterPage, CourseRosterStore, CourseSignupPosture,
-    CreateCourseInvitation, ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation,
-    RevokeCourseMember, RosterRevision, SessionTokenHash, StageCourseRosterImport, StoreError,
-    TenantContext, UpsertCourseMember,
+    CourseRosterImportPreview, CourseRosterPage, CourseRosterStore, CourseRosterSupportAction,
+    CourseRosterSupportAudit, CourseSignupPosture, CreateCourseInvitation,
+    ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation, RevokeCourseMember, RosterRevision,
+    SessionTokenHash, StageCourseRosterImport, StoreError, TenantContext, UpsertCourseMember,
 };
 
 #[path = "course_roster/import.rs"]
@@ -37,9 +37,15 @@ impl CourseRosterStore for MemoryStore {
         course: question_model::CourseId,
         page: crate::PageRequest,
     ) -> Result<CourseRosterPage, StoreError> {
-        let state = self.read_state()?;
+        let mut state = self.write_state()?;
         require_course_records_accessible(&state, context.tenant_id(), course)?;
-        require_manager(&state, context, session, course)?;
+        require_roster_authority(
+            &mut state,
+            context,
+            session,
+            course,
+            CourseRosterSupportAction::ListRoster,
+        )?;
         let mut records = state
             .roster_members
             .iter()
@@ -86,7 +92,13 @@ impl CourseRosterStore for MemoryStore {
         let tenant = context.tenant_id();
         let mut state = self.write_state()?;
         require_course_records_accessible(&state, tenant, command.course)?;
-        let actor = require_manager(&state, context, session, command.course)?;
+        let actor = require_roster_authority(
+            &mut state,
+            context,
+            session,
+            command.course,
+            CourseRosterSupportAction::CreateInvitation,
+        )?;
         let policy = roster_policy(&state, tenant, command.course);
         if !policy.validates(&command.email) {
             return Err(StoreError::InvalidRecord(
@@ -160,7 +172,13 @@ impl CourseRosterStore for MemoryStore {
         let tenant = context.tenant_id();
         let mut state = self.write_state()?;
         require_course_records_accessible(&state, tenant, command.course)?;
-        require_manager(&state, context, session, command.course)?;
+        require_roster_authority(
+            &mut state,
+            context,
+            session,
+            command.course,
+            CourseRosterSupportAction::ReplaceEnrollmentPolicy,
+        )?;
         let current = roster_policy(&state, tenant, command.course);
         if current.revision != command.expected_revision {
             return Err(StoreError::Conflict);
@@ -261,7 +279,13 @@ impl CourseRosterStore for MemoryStore {
         let tenant = context.tenant_id();
         let mut state = self.write_state()?;
         require_course_records_accessible(&state, tenant, command.course)?;
-        require_manager(&state, context, session, command.course)?;
+        require_roster_authority(
+            &mut state,
+            context,
+            session,
+            command.course,
+            CourseRosterSupportAction::RevokeMember,
+        )?;
         let current = roster_policy(&state, tenant, command.course);
         if current.revision != command.expected_revision {
             return Err(StoreError::Conflict);
@@ -311,7 +335,13 @@ impl CourseRosterStore for MemoryStore {
         let tenant = context.tenant_id();
         let mut state = self.write_state()?;
         require_course_records_accessible(&state, tenant, command.course)?;
-        require_manager(&state, context, session, command.course)?;
+        require_roster_authority(
+            &mut state,
+            context,
+            session,
+            command.course,
+            CourseRosterSupportAction::RevokeInvitation,
+        )?;
         let current = roster_policy(&state, tenant, command.course);
         if current.revision != command.expected_revision {
             return Err(StoreError::Conflict);
@@ -346,7 +376,13 @@ impl CourseRosterStore for MemoryStore {
         let tenant = context.tenant_id();
         let mut state = self.write_state()?;
         require_course_records_accessible(&state, tenant, command.course)?;
-        let actor = require_manager(&state, context, session, command.course)?;
+        let actor = require_roster_authority(
+            &mut state,
+            context,
+            session,
+            command.course,
+            CourseRosterSupportAction::StageImport,
+        )?;
         import::stage(&mut state, tenant, actor, command)
     }
 
@@ -359,7 +395,13 @@ impl CourseRosterStore for MemoryStore {
         let tenant = context.tenant_id();
         let mut state = self.write_state()?;
         require_course_records_accessible(&state, tenant, command.course)?;
-        let actor = require_manager(&state, context, session, command.course)?;
+        let actor = require_roster_authority(
+            &mut state,
+            context,
+            session,
+            command.course,
+            CourseRosterSupportAction::CommitImport,
+        )?;
         let rollback = state.clone();
         let result = import::commit(&mut state, tenant, actor, command);
         if result.is_err() {
@@ -441,7 +483,7 @@ fn claim_locked(
             user: command.user,
             role: CourseMembershipRole::Student,
         });
-    } else if course_record.role_for(command.user) != Some(CourseRole::Student) {
+    } else if course_record.role_for(command.user) != Some(CourseMembershipRole::Student) {
         return Err(StoreError::Conflict);
     }
     reconcile_member_assignments(state, tenant, course, command.user, student)?;
@@ -560,7 +602,7 @@ fn ensure_student_membership(
             user,
             role: CourseMembershipRole::Student,
         });
-    } else if course_record.role_for(user) != Some(CourseRole::Student) {
+    } else if course_record.role_for(user) != Some(CourseMembershipRole::Student) {
         return Err(StoreError::Conflict);
     }
     Ok(())
@@ -657,7 +699,7 @@ pub(super) fn reconcile_new_assignment(
     Ok(())
 }
 
-pub(super) fn require_manager(
+pub(super) fn require_course_instructor(
     state: &State,
     context: TenantContext,
     session: SessionTokenHash,
@@ -668,17 +710,47 @@ pub(super) fn require_manager(
         .courses
         .get(&(context.tenant_id(), course))
         .ok_or(StoreError::NotFound)?;
-    if subject.roles().contains(&UserRole::Administrator) {
-        return Ok(subject.user());
-    }
     match record.role_for(subject.user()) {
-        Some(CourseRole::Instructor) => Ok(subject.user()),
-        Some(CourseRole::Student) => Err(StoreError::Forbidden),
-        Some(CourseRole::Administrator) => Err(StoreError::Unavailable(
-            "administrator is not a persistable course-member role".to_string(),
-        )),
+        Some(CourseMembershipRole::Instructor) => Ok(subject.user()),
+        Some(CourseMembershipRole::Student) => Err(StoreError::Forbidden),
         None => Err(StoreError::NotFound),
     }
+}
+
+fn require_roster_authority(
+    state: &mut State,
+    context: TenantContext,
+    session: SessionTokenHash,
+    course: question_model::CourseId,
+    action: CourseRosterSupportAction,
+) -> Result<question_model::UserId, StoreError> {
+    let subject = active_subject(state, context, session).ok_or(StoreError::NotFound)?;
+    let actor = subject.user();
+    let is_sysadmin = subject.roles().contains(&UserRole::Sysadmin);
+    let record = state
+        .courses
+        .get(&(context.tenant_id(), course))
+        .ok_or(StoreError::NotFound)?;
+    if record.role_for(actor) == Some(CourseMembershipRole::Instructor) {
+        return Ok(actor);
+    }
+    if !is_sysadmin {
+        return match record.role_for(actor) {
+            Some(CourseMembershipRole::Student) => Err(StoreError::Forbidden),
+            None => Err(StoreError::NotFound),
+            Some(CourseMembershipRole::Instructor) => {
+                unreachable!("direct Instructor returned above")
+            }
+        };
+    }
+    state.roster_support_audits.push(CourseRosterSupportAudit {
+        tenant: context.tenant_id(),
+        course,
+        actor,
+        action,
+        occurred_at: state.authoritative_time,
+    });
+    Ok(actor)
 }
 
 fn roster_policy(

@@ -39,7 +39,7 @@ The shared tree contains independently reviewed, behavior-tested verticals for:
   survival;
 - retention R1 through R4.4: pure policy, authorized persistence, worker cleanup,
   trusted due dispatch, schedule extension, archive-time assignment disposition, a revisioned
-  manager API, and truthful archive completion gates; and
+  Instructor/Sysadmin retention API, and truthful archive completion gates; and
 - course appearance WP-CA1 through WP-CA7/WP-RC1: closed themes, Grass default, revisioned
   persistence, protected current-only banner objects, safe image normalization, all-seven-route
   Solid scope, keyboard-complete settings, live PostgreSQL/MinIO cleanup, visual evidence, and
@@ -63,8 +63,9 @@ truthful only after exact cleanup and idempotent replay.
   assignments, enrollments, run/attempt/submission, summary/gradebook, feedback, prefetch,
   external-tool, exports, and StudentRecord-bound assets) via Store access checks and
   PostgreSQL RLS.
-- Manager routes retain retained-definition read visibility, while learner rows use the
-  central course-fence and return concealed `404` for archived/deleted learners.
+- Instructor routes retain direct-course definition read visibility. Sysadmin retains only the
+  separately documented payload-free retention lifecycle authority, while Student rows use the
+  central course fence and return concealed `404` for archived or deleted records.
 - Archive completion is now strictly after exact cleanup, and both Store and server replay are
   exact/idempotent across retry/replay.
 - Export, StudentRecord, and external-tool resurrection paths now terminate at the same closed

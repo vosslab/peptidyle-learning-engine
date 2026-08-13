@@ -5,6 +5,7 @@ impl ExportJobStore for MemoryStore {
     async fn create_assignment_export(
         &self,
         context: TenantContext,
+        session: crate::SessionTokenHash,
         request: CreateAssignmentExport,
     ) -> Result<StudentExportView, StoreError> {
         if !(1..=20).contains(&request.max_attempts) {
@@ -28,11 +29,17 @@ impl ExportJobStore for MemoryStore {
             return Err(StoreError::NotFound);
         }
         require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+        let requested_by = super::course_roster::require_course_instructor(
+            &state,
+            context,
+            session,
+            assignment.course_id,
+        )?;
         let record = StoredExport {
             course: assignment.course_id,
             assignment: assignment.id,
             title: assignment.title.clone(),
-            requested_by: request.requested_by,
+            requested_by,
             manifest,
             problems: assignment.active_references().collect(),
             job,
@@ -178,6 +185,8 @@ impl ExportJobStore for MemoryStore {
                     course: stored.course,
                     authorized_users: vec![stored.requested_by],
                 },
+                publication: crate::AssetPublication::Ready,
+                pending_source: None,
             };
             crate::validate_asset_delivery(&delivery)?;
             if state.asset_deliveries.contains_key(&delivery.id) {
@@ -198,6 +207,8 @@ impl ExportJobStore for MemoryStore {
                         course: stored.course,
                         authorized_users: vec![stored.requested_by],
                     },
+                    publication: crate::AssetPublication::Ready,
+                    pending_source: None,
                 },
             );
         }

@@ -526,8 +526,8 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
                           onResponseChange={responseChanged}
                           onSubmit={submit}
                           onEscape={escapeToAssignment}
-                          getExternalToolLaunch={() =>
-                            runtime.client.getExternalToolLaunch(attemptId)
+                          beginExternalToolLaunch={() =>
+                            runtime.client.beginExternalToolLaunch(attemptId)
                           }
                         />
                       )}

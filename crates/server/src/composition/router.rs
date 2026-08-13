@@ -18,11 +18,10 @@ pub(super) async fn verify_application_schema_bounded(
     }
 }
 
-/// Merges every ready API route group.  Keeping this generic makes the exact
-/// production concrete types visible above and prevents a route from quietly
-/// acquiring a different state store.
+/// Test-only legacy-provider composition used to prove the real local route
+/// graph. Production cannot compile this helper or its provider login merge.
+#[cfg(all(test, feature = "local-development-auth"))]
 #[allow(clippy::too_many_arguments)]
-#[allow(dead_code)]
 pub(super) fn compose_router<S, O, C, B, P, R>(
     store: Arc<S>,
     objects: Arc<O>,
@@ -36,6 +35,7 @@ pub(super) fn compose_router<S, O, C, B, P, R>(
     invitation_delivery: Arc<dyn crate::course::CourseInvitationDelivery>,
     passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
     passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
+    client_address_policy: crate::auth::ClientAddressPolicy,
     webauthn: Option<crate::auth::PasswordlessWebauthn>,
     health: Arc<HealthState>,
 ) -> Router
@@ -69,27 +69,30 @@ where
     P::Presentation: serde::de::DeserializeOwned + Send + Sync + 'static,
     R: PublicReviewGate + 'static,
 {
-    compose_passwordless_router(
-        Arc::clone(&store),
-        objects,
-        public_assets,
-        backends,
-        native_adapter,
-        review_gate,
-        session_config,
-        invitation_issuer,
-        invitation_delivery,
-        passwordless_email_delivery,
-        passwordless_rate_limit_issuer,
-        webauthn,
-        None,
-        health,
+    crate::http_security::apply_api_security_headers(
+        compose_passwordless_router(
+            Arc::clone(&store),
+            objects,
+            public_assets,
+            backends,
+            native_adapter,
+            review_gate,
+            session_config,
+            invitation_issuer,
+            invitation_delivery,
+            passwordless_email_delivery,
+            passwordless_rate_limit_issuer,
+            client_address_policy,
+            webauthn,
+            None,
+            health,
+        )
+        .merge(crate::auth::provider_login_router(
+            identity_provider,
+            store,
+            session_config,
+        )),
     )
-    .merge(crate::auth::router(
-        identity_provider,
-        store,
-        session_config,
-    ))
 }
 
 /// Merges every route that uses PLE-owned account authentication or no
@@ -108,6 +111,7 @@ pub(super) fn compose_passwordless_router<S, O, C, B, R>(
     invitation_delivery: Arc<dyn crate::course::CourseInvitationDelivery>,
     passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
     passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
+    client_address_policy: crate::auth::ClientAddressPolicy,
     webauthn: Option<crate::auth::PasswordlessWebauthn>,
     local_teaching_roster: Option<Arc<crate::course::LocalTeachingRosterDirectory>>,
     health: Arc<HealthState>,
@@ -140,12 +144,19 @@ where
     B: BackendRegistry + RunBackend + 'static,
     R: PublicReviewGate + 'static,
 {
+    let passkey_rate_limit_issuer = passwordless_rate_limit_issuer.clone();
+    let passkey_client_address_policy = client_address_policy.clone();
     let mut router = Router::new()
         .route("/health", get(health_handler))
+        .merge(crate::auth::session_router(
+            Arc::clone(&store),
+            session_config,
+        ))
         .merge(crate::auth::passwordless_router(
             Arc::clone(&store),
             passwordless_email_delivery,
             passwordless_rate_limit_issuer,
+            client_address_policy,
             session_config,
         ))
         .merge(crate::catalog::router(
@@ -207,11 +218,16 @@ where
         router = router.merge(crate::auth::passkey_router(
             Arc::clone(&store),
             webauthn,
+            passkey_rate_limit_issuer,
+            passkey_client_address_policy,
             session_config,
         ));
     }
 
-    apply_e2e_replica_attribution(router, e2e_replica_attribution_from_env())
+    crate::route_policy::apply_route_method_policy(apply_e2e_replica_attribution(
+        router,
+        e2e_replica_attribution_from_env(),
+    ))
 }
 
 /// Opaque container identity carried only by the test-only replica E2E build.
@@ -283,6 +299,7 @@ fn e2e_replica_attribution_from_env() -> Option<ReplicaAttribution> {
 }
 
 #[cfg(any(feature = "e2e-observability", test))]
+#[cfg_attr(not(feature = "e2e-observability"), allow(dead_code))]
 pub(super) fn e2e_replica_attribution_from_values(
     enabled: Option<&str>,
     hostname: Option<&str>,
@@ -328,7 +345,10 @@ fn validated_e2e_hostname(hostname: &str) -> Option<HeaderValue> {
 pub(super) struct HealthState {
     pub(super) postgres: Pool,
     pub(super) object_client: objects::minio::S3Client,
-    pub(super) content_bucket: String,
+    pub(super) public_assets_bucket: String,
+    pub(super) private_content_bucket: String,
+    pub(super) student_records_bucket: String,
+    pub(super) temp_processing_bucket: String,
 }
 
 pub(super) fn postgres_schema_probe(
@@ -349,20 +369,56 @@ async fn health_handler(Extension(state): Extension<Arc<HealthState>>) -> impl I
     if !postgres.ok {
         eprintln!("postgres schema readiness probe failed");
     }
-    let objects =
-        match objects::minio::probe_bucket(&state.object_client, &state.content_bucket).await {
-            Ok(()) => ProbeResult::ready("object-store"),
-            Err(error) => {
-                eprintln!("object store probe failed: {error}");
-                ProbeResult::failed("object-store")
-            }
-        };
-    match readiness(&[postgres, objects]) {
+    let public_assets = probe_object_bucket(
+        &state.object_client,
+        &state.public_assets_bucket,
+        "public-assets",
+    )
+    .await;
+    let private_content = probe_object_bucket(
+        &state.object_client,
+        &state.private_content_bucket,
+        "private-content",
+    )
+    .await;
+    let student_records = probe_object_bucket(
+        &state.object_client,
+        &state.student_records_bucket,
+        "student-records",
+    )
+    .await;
+    let temp_processing = probe_object_bucket(
+        &state.object_client,
+        &state.temp_processing_bucket,
+        "temp-processing",
+    )
+    .await;
+    match readiness(&[
+        postgres,
+        public_assets,
+        private_content,
+        student_records,
+        temp_processing,
+    ]) {
         Readiness::Ready => (StatusCode::OK, Json(json!({ "status": "ready" }))).into_response(),
         Readiness::Degraded(failing) => (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(json!({ "status": "degraded", "failing": failing })),
         )
             .into_response(),
+    }
+}
+
+async fn probe_object_bucket(
+    client: &objects::minio::S3Client,
+    bucket: &str,
+    name: &'static str,
+) -> ProbeResult {
+    match objects::minio::probe_bucket(client, bucket).await {
+        Ok(()) => ProbeResult::ready(name),
+        Err(error) => {
+            eprintln!("{name} object-store probe failed: {error}");
+            ProbeResult::failed(name)
+        }
     }
 }

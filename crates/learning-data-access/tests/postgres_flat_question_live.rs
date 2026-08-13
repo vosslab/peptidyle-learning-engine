@@ -225,7 +225,7 @@ async fn postgres_flat_question_publication_preserves_private_grading_boundary()
         .await
         .expect("live PostgreSQL schema compatibility");
     let store = PostgresStore::new(pool.clone());
-    let grader = PostgresGraderStore::connect(&grader_url)
+    let grader = PostgresGraderStore::connect_local_development(&grader_url)
         .await
         .expect("dedicated grader credentials are accepted");
 

@@ -16,9 +16,10 @@ tests/
     helpers.mjs          shared test utilities
     e2e/                 OPTIONAL: full-path browser walkthroughs
       test_*.mjs
-  e2e/                   non-browser whole-system E2E (shell/Python)
+  e2e/                   non-browser whole-system E2E (shell/Python/Node)
     e2e_*.sh             shell orchestration
     e2e_*.py             Python orchestration
+    e2e_*.mjs            Node/build orchestration
     e2e_run_all.sh       run all non-browser E2E tests
   walkthrough/           opt-in instructor-to-student teaching-loop runner
     run_ui_walkthrough.sh canonical shell entrypoint
@@ -29,7 +30,9 @@ tests/
 
 - Fast pytest lane: `pytest tests/`
 - Single browser test: `node tests/playwright/test_<name>.mjs` (TypeScript repos include `PLAYWRIGHT_USAGE.md` in their propagated `docs/` folder)
-- Single non-browser E2E: `bash tests/e2e/e2e_<name>.sh` or `source source_me.sh && python3 tests/e2e/e2e_<name>.py` (see [../docs/E2E_TESTS.md](../docs/E2E_TESTS.md))
+- Single non-browser E2E: `bash tests/e2e/e2e_<name>.sh`,
+  `source source_me.sh && python3 tests/e2e/e2e_<name>.py`, or
+  `node tests/e2e/e2e_<name>.mjs` (see [../docs/E2E_TESTS.md](../docs/E2E_TESTS.md))
 - Bulk non-browser E2E: `bash tests/e2e/e2e_run_all.sh`
 
 ## Why two folders for E2E
@@ -51,6 +54,13 @@ them. The filename conventions (`e2e_*` prefix in `tests/e2e/`, `test_*.mjs`
 for Playwright) are a readability layer on top of this active guard.
 
 Important: `collect_ignore` only affects pytest test collection. The repo's lint tests (ASCII compliance, whitespace, pyflakes, indentation, shebangs, etc.) enumerate files via `git ls-files` and still scan files inside `tests/playwright/` and `tests/e2e/`. A non-ASCII character in `tests/playwright/foo.mjs` will still fail the ASCII check - only execution as a pytest test is suppressed.
+
+Repository-specific pytest must also follow the permanent-test checklist in
+[PYTEST_STYLE.md](../docs/PYTEST_STYLE.md). In particular, do not add a pytest
+that slices shell/Compose/Containerfile source, inventories current module or
+route names, invokes a real CLI, scans the whole Rust/SQL tree, or freezes a
+dated acceptance report. Those are implementation reviews or E2E concerns,
+not fast permanent behavior tests.
 
 ## Hygiene file discovery
 

@@ -47,7 +47,8 @@ services:
       - |
         set -eu
         mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
-        mc mb --ignore-existing local/content
+        mc mb --ignore-existing local/public-assets
+        mc mb --ignore-existing local/private-content
         mc mb --ignore-existing local/student-records
         mc mb --ignore-existing local/temp-processing
 

@@ -843,7 +843,7 @@ fn decode_job_payload(value: Value) -> Result<JobPayload, StoreError> {
 }
 
 #[cfg(feature = "postgres")]
-fn decode_claimed_job(
+pub(super) fn decode_claimed_job(
     row: &PgRow,
     expected_token: JobLeaseToken,
 ) -> Result<ClaimedJob, StoreError> {

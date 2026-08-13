@@ -492,9 +492,9 @@ END $$;
 SQL
 echo "database baseline E2E: role and grant inventory"
 psql_in_container -d "$DATABASE_NAME" -c \
-	"SELECT rolname, rolcanlogin, rolsuper, rolbypassrls FROM pg_roles WHERE rolname IN ('ple_app', 'ple_student', 'ple_grader', 'ple_grading_reader') ORDER BY rolname"
+	"SELECT rolname, rolcanlogin, rolsuper, rolbypassrls FROM pg_roles WHERE rolname IN ('ple_app', 'ple_student', 'ple_grader', 'ple_grading_reader', 'ple_public_asset_publisher') ORDER BY rolname"
 
-for role in ple_app ple_student ple_grader ple_grading_reader; do
+for role in ple_app ple_student ple_grader ple_grading_reader ple_public_asset_publisher; do
 	run_role_matrix "$role"
 done
 

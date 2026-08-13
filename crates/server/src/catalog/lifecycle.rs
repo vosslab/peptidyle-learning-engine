@@ -88,10 +88,7 @@ where
 }
 
 fn may_manage_catalog(roles: &[UserRole]) -> bool {
-    roles.iter().any(|role| {
-        matches!(
-            role,
-            UserRole::Instructor | UserRole::Publisher | UserRole::Administrator
-        )
-    })
+    roles
+        .iter()
+        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
 }

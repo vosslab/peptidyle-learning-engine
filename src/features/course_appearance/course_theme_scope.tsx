@@ -29,9 +29,7 @@ export function CourseThemeScope(props: CourseThemeScopeProps): JSX.Element {
   if (
     props.pathname.startsWith("/instructor/") &&
     (session.kind !== "authenticated" ||
-      !session.session.user.roles.some((role) =>
-        ["instructor", "publisher", "administrator"].includes(role),
-      ))
+      !session.session.user.roles.some((role) => ["instructor", "sysadmin"].includes(role)))
   ) {
     return <>{props.children}</>;
   }

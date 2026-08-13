@@ -390,7 +390,9 @@ pub trait ScoredEmbedTransport: Send + Sync {
         &self,
         request: ProtectedLaunchRequest,
     ) -> Result<ProviderLaunchHandle, ScoredEmbedTransportFailure>;
-    async fn fetch_signed_result(
+    /// Retrieves a signed grade using a safe, idempotent HTTP GET only.
+    /// Implementations must not dispatch a provider mutation from this method.
+    async fn fetch_signed_grade_get(
         &self,
         request: ResultTransportRequest<'_>,
     ) -> Result<Vec<u8>, ScoredEmbedTransportFailure>;

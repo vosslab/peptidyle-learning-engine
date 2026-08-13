@@ -122,10 +122,13 @@ require WebWork2 source pins, render-course credentials, or a MariaDB password.
 
 ```bash
 ./build.sh                 # Rust, Wasm, generated contracts, fixtures, and Solid bundle
-./check_codebase.sh        # repository-wide quality gate
-cargo test --workspace     # Rust tests
+./check_codebase.sh        # vendored TypeScript and browser gate
+./check_rust.sh            # repository-owned Cargo and Rust gate
 npm run test:playwright    # built-browser tests
 ```
+
+Use a focused `cargo test -p <package> <filter>` while editing one Rust behavior, then run
+`./check_rust.sh` for the complete offline Rust acceptance gate.
 
 `npm run build` and `npm run launch` are aliases for `./build.sh` and `./launch_local_stack.sh`.
 Both accept `--release` for optimized artifacts.

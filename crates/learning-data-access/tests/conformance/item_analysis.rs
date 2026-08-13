@@ -16,7 +16,7 @@ struct AnalysisFixture {
     automatic_item: AssignmentItemId,
     manual_item: AssignmentItemId,
     instructor_session: SessionTokenHash,
-    administrator_session: SessionTokenHash,
+    sysadmin_session: SessionTokenHash,
     student_session: SessionTokenHash,
     outsider_session: SessionTokenHash,
 }
@@ -27,7 +27,7 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
     let context = TenantContext::from_authenticated_session(tenant);
     let foreign_context = TenantContext::from_authenticated_session(foreign_tenant);
     let instructor = UserId::from_uuid(uuid(80_003));
-    let administrator = UserId::from_uuid(uuid(80_004));
+    let sysadmin = UserId::from_uuid(uuid(80_004));
     let student = UserId::from_uuid(uuid(80_005));
     let outsider = UserId::from_uuid(uuid(80_006));
     let workspace = WorkspaceId::from_uuid(uuid(80_007));
@@ -172,12 +172,12 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
             b"analysis-instructor",
         )
         .await,
-        administrator_session: session(
+        sysadmin_session: session(
             store,
             tenant,
-            administrator,
-            vec![UserRole::Administrator],
-            b"analysis-administrator",
+            sysadmin,
+            vec![UserRole::Sysadmin],
+            b"analysis-sysadmin",
         )
         .await,
         student_session: session(
@@ -572,20 +572,13 @@ async fn memory_item_analysis_is_instructor_only_and_report_is_identity_free() {
     assert_eq!(cleared_row.graded_attempt_count, 0);
     assert_eq!(cleared_row.unanswered_attempt_count, 0);
     assert_eq!(cleared_row.pending_manual_attempt_count, 0);
-    assert_eq!(
-        store
-            .course_item_analysis(
-                fixture.context,
-                fixture.administrator_session,
-                fixture.course,
-                fixture.assignment
-            )
-            .await,
-        Ok(Some(report.clone())),
-        "tenant administrators have report access"
-    );
     for (context, session, label) in [
         (fixture.context, fixture.student_session, "student"),
+        (
+            fixture.context,
+            fixture.sysadmin_session,
+            "sysadmin without direct instructor membership",
+        ),
         (fixture.context, fixture.outsider_session, "outsider"),
         (
             fixture.foreign_context,

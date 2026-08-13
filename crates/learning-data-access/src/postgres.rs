@@ -32,14 +32,13 @@ use question_model::{
     AssignmentSelectionGroupId, AssignmentTimingPolicy, AttemptResult, AttemptStatus,
     BackendCapabilities, CatalogCapabilityFacet, CatalogLicenseFacet, CatalogLifecycle,
     CatalogProblemSummary, CatalogSearchQuery, CatalogTaxonomyFacet, CourseGroupId, CourseId,
-    CourseMembership, CourseMembershipRole, CourseRole, CourseSummary, EnrollmentId,
-    EnrollmentStatus, LateSubmissionPolicy, PointValue, PresentationBindingV1,
-    PresentationDigestV1, PresentationNonceV1, ProblemId, ProblemPublicId, ProblemVersionNumber,
-    ProblemVersionRef, PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend,
-    QuestionMetadata, QuestionStatisticsDisclosure, QuestionStatisticsView, RunId, RunMode,
-    ScoringGeneration, ScoringStatus, SelectionOrdering, StudentAssignmentSummary, StudentId,
-    StudentResponse, TenantId, UserId, VersionId, WorkspaceDraftSummary, WorkspaceId,
-    WorkspaceImportId,
+    CourseMembership, CourseMembershipRole, CourseSummary, EnrollmentId, EnrollmentStatus,
+    LateSubmissionPolicy, PointValue, PresentationBindingV1, PresentationDigestV1,
+    PresentationNonceV1, ProblemId, ProblemPublicId, ProblemVersionNumber, ProblemVersionRef,
+    PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionMetadata,
+    QuestionStatisticsDisclosure, QuestionStatisticsView, RunId, RunMode, ScoringGeneration,
+    ScoringStatus, SelectionOrdering, StudentAssignmentSummary, StudentId, StudentResponse,
+    TenantId, UserId, VersionId, WorkspaceDraftSummary, WorkspaceId, WorkspaceImportId,
 };
 #[cfg(feature = "postgres")]
 use question_model::{FeedbackContent, envelope::ContentBlock};
@@ -179,6 +178,8 @@ mod manual_grade_export;
 #[cfg(feature = "postgres")]
 mod migrations;
 #[cfg(feature = "postgres")]
+mod publisher;
+#[cfg(feature = "postgres")]
 mod qti;
 #[cfg(feature = "postgres")]
 mod qti_ingress;
@@ -191,15 +192,19 @@ mod sessions;
 #[cfg(feature = "postgres")]
 mod statistics;
 #[cfg(feature = "postgres")]
-pub use connection::lazy_pool;
+pub use connection::{ProductionLoginProfile, lazy_pool, production_pool};
 #[cfg(feature = "postgres")]
-use connection::{connect_grader_pool, map_sqlx_error, retry_transaction};
+use connection::{
+    connect_grader_pool, connect_local_grader_pool, map_sqlx_error, retry_transaction,
+};
 #[cfg(feature = "postgres")]
 pub use migrations::{
     MigrationDisposition, MigrationStatus, MigrationStatusEntry, SchemaCompatibilityError,
     apply_migrations, migration_principal, migration_status, migration_status_from_directory,
-    verify_application_schema,
+    verify_application_schema, verify_public_asset_publisher_schema,
 };
+#[cfg(feature = "postgres")]
+pub use publisher::PostgresPublicAssetPublisherStore;
 
 #[cfg(feature = "postgres")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -228,7 +233,7 @@ const GRADEBOOK_SUMMARY_PAGE_SQL: &str = "SELECT \
         OR (a.assignment_id, e.enrollment_id) > ($3, $4)) \
  ORDER BY a.assignment_id, e.enrollment_id LIMIT $5";
 
-/// Member course pagination preserves manager definition access while hiding
+/// Member course pagination preserves instructor definition access while hiding
 /// an archived course from its learners at the database query boundary.
 #[cfg(feature = "postgres")]
 const MEMBER_COURSE_PAGE_SQL: &str = "SELECT \
@@ -326,29 +331,15 @@ impl PostgresGraderStore {
         let pool = connect_grader_pool(database_url)
             .await
             .map_err(map_sqlx_error)?;
-        let row = sqlx::query(
-            "SELECT current_user AS current_user, session_user AS session_user, \
-             r.rolsuper, r.rolbypassrls, \
-             pg_has_role(current_user, 'ple_app', 'member') AS can_assume_app \
-             FROM pg_roles AS r WHERE r.rolname = current_user",
-        )
-        .fetch_one(&pool)
-        .await
-        .map_err(map_sqlx_error)?;
-        let current_user: String = row.try_get("current_user").map_err(map_sqlx_error)?;
-        let session_user: String = row.try_get("session_user").map_err(map_sqlx_error)?;
-        let superuser: bool = row.try_get("rolsuper").map_err(map_sqlx_error)?;
-        let bypass_rls: bool = row.try_get("rolbypassrls").map_err(map_sqlx_error)?;
-        let can_assume_app: bool = row.try_get("can_assume_app").map_err(map_sqlx_error)?;
-        if current_user != "ple_grading_reader"
-            || session_user != "ple_grading_reader"
-            || superuser
-            || bypass_rls
-            || can_assume_app
-        {
-            pool.close().await;
-            return Err(StoreError::Forbidden);
-        }
+        Ok(Self { pool })
+    }
+
+    /// Connects the exact grader principal for an explicitly local plaintext
+    /// stack. Production composition never calls this constructor.
+    pub async fn connect_local_development(database_url: &str) -> Result<Self, StoreError> {
+        let pool = connect_local_grader_pool(database_url)
+            .await
+            .map_err(map_sqlx_error)?;
         Ok(Self { pool })
     }
 

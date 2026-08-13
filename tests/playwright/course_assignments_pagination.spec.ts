@@ -149,6 +149,7 @@ async function mountFixture(page: import("@playwright/test").Page): Promise<void
 test("the production list helper reaches the exact 101st assignment through two keyboard pages", async ({
   page,
 }) => {
+  test.setTimeout(2_000);
   await mountFixture(page);
   const targetCard = page.locator(".course-card").filter({
     has: page.getByRole("heading", { name: "Assignment 101", exact: true }),

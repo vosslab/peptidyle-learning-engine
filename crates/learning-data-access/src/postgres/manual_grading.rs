@@ -17,6 +17,37 @@ use crate::{
 
 #[async_trait]
 impl ManualGradingStore for PostgresStore {
+    async fn get_manual_evaluation_with_response_for_edit(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<(ManualEvaluationRecord, StudentResponse)>, StoreError> {
+        let tenant = context.tenant_id();
+        let mut transaction = self.begin_tenant(context).await?;
+        let attempt_record =
+            load_manual_attempt_for_update(&mut transaction, tenant, attempt).await?;
+        let run = load_run_for_update(&mut transaction, tenant, attempt_record.run).await?;
+        let enrollment =
+            load_enrollment_for_update(&mut transaction, tenant, run.enrollment).await?;
+        let assignment = load_assignment(&mut transaction, tenant, enrollment.assignment).await?;
+        let accessible: bool =
+            sqlx::query_scalar("SELECT public.ple_course_records_accessible($1, $2)")
+                .bind(tenant.as_uuid())
+                .bind(assignment.course_id.as_uuid())
+                .fetch_one(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+        if !accessible
+            || !postgres_is_course_instructor(&mut transaction, tenant, assignment.course_id, actor)
+                .await?
+        {
+            return Err(StoreError::NotFound);
+        }
+        let record = load_manual_evaluation(&mut transaction, tenant, attempt).await?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(record.zip(attempt_record.response))
+    }
     async fn submit_pending_manual_question_attempt(
         &self,
         context: TenantContext,
@@ -43,8 +74,16 @@ impl ManualGradingStore for PostgresStore {
         let enrollment =
             load_enrollment_for_update(&mut transaction, tenant, run.enrollment).await?;
         let assignment = load_assignment(&mut transaction, tenant, enrollment.assignment).await?;
-        if !postgres_is_course_instructor(&mut transaction, tenant, assignment.course_id, actor)
-            .await?
+        let accessible: bool =
+            sqlx::query_scalar("SELECT public.ple_course_records_accessible($1, $2)")
+                .bind(tenant.as_uuid())
+                .bind(assignment.course_id.as_uuid())
+                .fetch_one(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+        if !accessible
+            || !postgres_is_course_instructor(&mut transaction, tenant, assignment.course_id, actor)
+                .await?
         {
             return Err(StoreError::NotFound);
         }
@@ -287,7 +326,15 @@ async fn set_postgres_manual_grade(
     let mut run = load_run_for_update(transaction, tenant, attempt.run).await?;
     let enrollment = load_enrollment_for_update(transaction, tenant, run.enrollment).await?;
     let assignment = load_assignment(transaction, tenant, enrollment.assignment).await?;
-    if assignment.id != assignment_id
+    let accessible: bool =
+        sqlx::query_scalar("SELECT public.ple_course_records_accessible($1, $2)")
+            .bind(tenant.as_uuid())
+            .bind(assignment.course_id.as_uuid())
+            .fetch_one(&mut **transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+    if !accessible
+        || assignment.id != assignment_id
         || !postgres_is_course_instructor(transaction, tenant, assignment.course_id, command.actor)
             .await?
     {

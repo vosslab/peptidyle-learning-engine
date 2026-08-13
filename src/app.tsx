@@ -1,10 +1,11 @@
 // app.tsx - persistent application shell and route-level error boundary.
 
-import { A, useLocation, type RouteSectionProps } from "@solidjs/router";
+import { A, useLocation, useNavigate, type RouteSectionProps } from "@solidjs/router";
 import { createEffect, createSignal, ErrorBoundary, Show, type JSX } from "solid-js";
 
 import { useSessionBootstrap, type SessionBootstrapState } from "./auth/session_context";
 import { CourseThemeScope } from "./features/course_appearance/course_theme_scope";
+import { LocalDevelopmentSignIn } from "./auth/local_development";
 
 declare global {
   interface Window {
@@ -19,9 +20,7 @@ function canUseAuthoringTools(state: SessionBootstrapState): boolean {
   if (state.kind !== "authenticated") {
     return false;
   }
-  return state.session.user.roles.some((role) =>
-    ["instructor", "publisher", "administrator"].includes(role),
-  );
+  return state.session.user.roles.some((role) => ["instructor", "sysadmin"].includes(role));
 }
 
 type ScopedRouteSectionProps = RouteSectionProps & { readonly pathname: string };
@@ -46,6 +45,7 @@ function SessionContent(props: ScopedRouteSectionProps): JSX.Element {
         <SessionRecovery
           state={state()}
           retry={session.retry}
+          localCredentialSignInAvailable={session.localCredentialSignInAvailable}
           signInWithLocalCredential={session.signInWithLocalCredential}
         />
       }
@@ -66,24 +66,11 @@ function RouteContent(props: ScopedRouteSectionProps): JSX.Element {
 interface SessionRecoveryProps {
   readonly state: SessionBootstrapState;
   readonly retry: () => Promise<void>;
+  readonly localCredentialSignInAvailable: boolean;
   readonly signInWithLocalCredential: (credential: string) => Promise<boolean>;
 }
 
 function SessionRecovery(props: SessionRecoveryProps): JSX.Element {
-  const [credential, setCredential] = createSignal("");
-  const [signInFailed, setSignInFailed] = createSignal(false);
-
-  async function signIn(event: SubmitEvent): Promise<void> {
-    event.preventDefault();
-    setSignInFailed(false);
-    const accepted = await props.signInWithLocalCredential(credential());
-    if (accepted) {
-      setCredential("");
-    } else {
-      setSignInFailed(true);
-    }
-  }
-
   if (props.state.kind === "authenticated") {
     return <></>;
   }
@@ -97,44 +84,32 @@ function SessionRecovery(props: SessionRecoveryProps): JSX.Element {
     );
   }
 
-  const expired = props.state.kind === "expired";
-  const title = expired ? "Your session needs to be renewed" : "We could not restore your session";
-  const description = expired
-    ? "Return to your sign-in page, then continue where you left off."
-    : "Check your connection, then try opening your learning space again.";
+  const needsSignIn = props.state.kind === "expired" || props.state.kind === "signedOut";
+  const title =
+    props.state.kind === "signedOut"
+      ? "You are signed out"
+      : props.state.kind === "expired"
+        ? "Your session needs to be renewed"
+        : "We could not restore your session";
+  const description =
+    props.state.kind === "signedOut"
+      ? "This browser no longer has access to your account or course session."
+      : props.state.kind === "expired"
+        ? "Return to your sign-in page, then continue where you left off."
+        : "Check your connection, then try opening your learning space again.";
 
   return (
     <section class="route-error" data-session-state={props.state.kind} aria-live="polite">
       <p class="eyebrow">Session recovery</p>
       <h1>{title}</h1>
       <p>{description}</p>
-      <Show when={expired}>
+      <Show when={needsSignIn}>
         <p>
           <A href="/sign-in">Sign in with a passkey or email</A>
         </p>
-        <form class="local-sign-in" onSubmit={(event) => void signIn(event)}>
-          <label for="local-development-credential">Local development credential</label>
-          <input
-            id="local-development-credential"
-            type="password"
-            autocomplete="off"
-            spellcheck={false}
-            value={credential()}
-            onInput={(event) => setCredential(event.currentTarget.value)}
-            required
-          />
-          <p class="field-help">
-            Paste the instructor or student value from containers/local-login.txt.
-          </p>
-          <Show when={signInFailed()}>
-            <p class="inline-error" role="alert">
-              That local credential was not accepted. Copy it again and retry.
-            </p>
-          </Show>
-          <button class="primary-action" type="submit">
-            Sign in locally
-          </button>
-        </form>
+        <Show when={props.localCredentialSignInAvailable && LocalDevelopmentSignIn !== undefined}>
+          <LocalDevelopmentSignIn signIn={props.signInWithLocalCredential} />
+        </Show>
       </Show>
       <div class="action-row">
         <button class="primary-action" type="button" onClick={() => void props.retry()}>
@@ -147,12 +122,27 @@ function SessionRecovery(props: SessionRecoveryProps): JSX.Element {
 
 export function App(props: RouteSectionProps): JSX.Element {
   const location = useLocation();
+  const navigate = useNavigate();
   const session = useSessionBootstrap();
+  const [signOutBusy, setSignOutBusy] = createSignal(false);
+  const [signOutError, setSignOutError] = createSignal("");
   let mainContent: HTMLElement | undefined;
   let previousPath = location.pathname;
 
   function focusMainContent(): void {
     mainContent?.focus();
+  }
+
+  async function signOut(): Promise<void> {
+    setSignOutBusy(true);
+    setSignOutError("");
+    const confirmed = await session.signOut();
+    setSignOutBusy(false);
+    if (confirmed) {
+      navigate("/sign-in");
+    } else {
+      setSignOutError("Sign-out could not be confirmed. Your session is still open; please retry.");
+    }
   }
 
   createEffect(() => {
@@ -192,8 +182,19 @@ export function App(props: RouteSectionProps): JSX.Element {
             <A href="/account/security" activeClass="active">
               Account
             </A>
+            <button
+              class="nav-action"
+              type="button"
+              disabled={signOutBusy()}
+              onClick={() => void signOut()}
+            >
+              {signOutBusy() ? "Signing out..." : "Sign out"}
+            </button>
           </Show>
         </nav>
+        <span class="sr-only" role="status" aria-live="polite">
+          {signOutError()}
+        </span>
       </header>
       <main
         id="main-content"

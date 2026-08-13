@@ -52,7 +52,7 @@ impl std::fmt::Debug for ManualGradeExportRow {
     }
 }
 
-/// Manager-authorized request for one course assignment.
+/// Instructor-authorized request for one course assignment.
 #[derive(Debug, Clone, Copy)]
 pub struct CreateManualGradeExport {
     pub course: CourseId,

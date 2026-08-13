@@ -1,7 +1,7 @@
 //! PostgreSQL immutable asset registration and protected delivery.
 
 use async_trait::async_trait;
-use question_model::{CourseId, ProblemVersionRef, UserId};
+use question_model::{CourseId, ProblemVersionRef, PublicationScope, UserId};
 use sqlx::Row;
 use sqlx::postgres::PgRow;
 use sqlx::types::Uuid;
@@ -11,7 +11,7 @@ use super::{PostgresStore, database_timestamp, decode_payload_row, encode_payloa
 use crate::{
     AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssetStore,
     AuthorizedAssetDelivery, CatalogAssetBinding, StoreError, TenantContext, ensure_tenant,
-    validate_asset_delivery,
+    validate_asset_delivery, validate_catalog_asset_delivery_scope,
 };
 
 #[async_trait]
@@ -52,18 +52,26 @@ impl AssetStore for PostgresStore {
         };
         let mut transaction = self.begin_tenant(context).await?;
         if let (Some(problem), Some(version)) = (problem, version) {
-            let visible: bool = sqlx::query_scalar(
-                "SELECT EXISTS(SELECT 1 FROM problem_version \
-                 WHERE problem_id = $1 AND version_id = $2)",
+            let publication_scope: Option<String> = sqlx::query_scalar(
+                "SELECT publication_scope FROM problem_version \
+                 WHERE problem_id = $1 AND version_id = $2",
             )
             .bind(problem.as_uuid())
             .bind(version.as_uuid())
-            .fetch_one(&mut *transaction)
+            .fetch_optional(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
-            if !visible {
-                return Err(StoreError::NotFound);
-            }
+            let publication_scope = match publication_scope.as_deref() {
+                Some("public") => PublicationScope::Public,
+                Some("institution") => PublicationScope::Institution,
+                Some(_) => {
+                    return Err(StoreError::Unavailable(
+                        "catalog asset publication has an unknown scope".to_string(),
+                    ));
+                }
+                None => return Err(StoreError::NotFound),
+            };
+            validate_catalog_asset_delivery_scope(&record, publication_scope)?;
         }
         if let Some(course) = course {
             let accessible: bool =
@@ -108,8 +116,9 @@ impl AssetStore for PostgresStore {
             "SELECT ad.payload, ad.payload_sha256 FROM asset_delivery AS ad \
              JOIN problem_version AS pv \
                ON pv.problem_id = ad.problem_id AND pv.version_id = ad.version_id \
-             WHERE ad.delivery_id = $1 AND ad.delivery_kind = 'catalog' \
-               AND pv.publication_scope = 'public'",
+            WHERE ad.delivery_id = $1 AND ad.delivery_kind = 'catalog' \
+               AND pv.publication_scope = 'public' \
+               AND COALESCE(ad.payload ->> 'publication', 'ready') = 'ready'",
         )
         .bind(delivery.as_uuid())
         .fetch_optional(&mut *transaction)
@@ -130,6 +139,7 @@ impl AssetStore for PostgresStore {
             "SELECT asset_id, object_id, payload, payload_sha256 FROM asset_delivery \
              WHERE delivery_kind = 'catalog' \
                AND problem_id = $1 AND version_id = $2 \
+               AND COALESCE(payload ->> 'publication', 'ready') = 'ready' \
              ORDER BY asset_id ASC",
         )
         .bind(reference.problem.as_uuid())
@@ -162,6 +172,7 @@ impl AssetStore for PostgresStore {
                 Ok(CatalogAssetBinding {
                     asset,
                     object: record.object.id,
+                    key: record.object.key,
                     rendition_checksum: record.object.sha256,
                     media_type: record.object.media_type,
                     intrinsic_width: record.intrinsic_width,
@@ -182,7 +193,9 @@ impl AssetStore for PostgresStore {
         let mut transaction = self.begin_tenant(context).await?;
         let row = sqlx::query(
             "SELECT payload, payload_sha256, course_id FROM asset_delivery \
-             WHERE delivery_id = $1",
+             WHERE delivery_id = $1 \
+               AND (delivery_kind <> 'catalog' \
+                    OR COALESCE(payload ->> 'publication', 'ready') = 'ready')",
         )
         .bind(delivery.as_uuid())
         .fetch_optional(&mut *transaction)

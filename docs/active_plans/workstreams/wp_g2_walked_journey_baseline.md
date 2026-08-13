@@ -26,13 +26,11 @@ take/score/repeat.
 
 ## Guard
 
-`tests/test_walked_journey_baseline.py` keeps the manifest ASCII-only and
-enforces its exact ordered keys, arrangement vocabulary, journey order, outcome
-vocabulary, and reason-to-dependency mapping. Its hostile in-memory cases
-reject false PASS, a mismatched blocker, an added public identifier, and a
-live-report record type. The loader also rejects duplicate JSON member names at
-every object level before validation, including duplicate top-level record type
-or forbidden fields and duplicate journey IDs, outcomes, or reason codes.
+The baseline is a dated, one-time evidence record, not a product input. Its
+former exact-key/order/count pytest was retired because it froze the plan's
+current report contents rather than maintained application behavior. The live
+report parser keeps focused hostile-input tests for its stable public schema;
+ordinary Markdown/ASCII hygiene still covers the retained historical record.
 
 ## Review boundary
 
@@ -42,9 +40,5 @@ corrected charter.
 
 ## Validation
 
-```bash
-source source_me.sh && python3 -m pytest tests/test_walked_journey_baseline.py
-```
-
-This fast test validates the static record only. It does not start a stack,
-launch a browser, or convert this baseline into live evidence.
+The accepted review and live-run records are the evidence. Do not add a
+permanent test merely to keep this historical JSON byte-for-byte current.

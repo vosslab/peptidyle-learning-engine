@@ -1,9 +1,13 @@
 //! PostgreSQL pool construction and portable error classification.
 
 use std::future::Future;
+use std::str::FromStr;
 use std::time::Duration;
 
-use sqlx::postgres::{PgPool, PgPoolOptions};
+use serde::Deserialize;
+use sqlx::postgres::{PgConnectOptions, PgConnection, PgPool, PgPoolOptions, PgSslMode};
+use sqlx::types::Json;
+use sqlx::{Executor, Row};
 
 use crate::StoreError;
 
@@ -11,6 +15,126 @@ const ACQUIRE_TIMEOUT: Duration = Duration::from_secs(5);
 const IDLE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const MAX_LIFETIME: Duration = Duration::from_secs(30 * 60);
 const TRANSACTION_ATTEMPTS: u8 = 3;
+
+/// Fixed least-privilege identities accepted by production process pools.
+///
+/// These login roles are deployment-owned. Schema migrations continue to own
+/// only the NOLOGIN capabilities that the process assumes transaction-locally.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProductionLoginProfile {
+    /// Browser/API process: tenant data plus passwordless account sessions.
+    Api,
+    /// Background worker: tenant data only; never account authentication.
+    Worker,
+    /// Public asset publisher: no tenant/application tables, only its queue capability.
+    Publisher,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LoginAuthority {
+    current_user: String,
+    session_user: String,
+    superuser: bool,
+    create_database: bool,
+    create_role: bool,
+    inherit: bool,
+    replication: bool,
+    bypass_rls: bool,
+    can_login: bool,
+    direct_memberships: Vec<DirectMembership>,
+}
+
+/// The authority carried by a NOLOGIN capability role which a process enters
+/// with `SET LOCAL ROLE`.
+///
+/// Attesting only the process login is insufficient: PostgreSQL applies the
+/// selected role's attributes and memberships for every tenant transaction.
+/// Capability roles therefore have their own closed authority contract.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CapabilityAuthority {
+    role_name: String,
+    superuser: bool,
+    create_database: bool,
+    create_role: bool,
+    inherit: bool,
+    replication: bool,
+    bypass_rls: bool,
+    can_login: bool,
+    direct_memberships: Vec<DirectMembership>,
+}
+
+/// The privilege controls on one direct PostgreSQL role membership.
+///
+/// PostgreSQL 17 records these on `pg_auth_members`: `ADMIN OPTION` lets the
+/// member grant the capability role to another principal, `INHERIT` makes the
+/// capability effective without an explicit role change, and `SET` permits
+/// `SET ROLE` to that capability.  The process principals must not delegate or
+/// automatically inherit a capability.  They deliberately retain `SET` only
+/// for the exact, connection-attested capability roles, because every database
+/// operation enters that role with `SET LOCAL ROLE` inside its transaction.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+struct DirectMembership {
+    role_name: String,
+    admin_option: bool,
+    inherit_option: bool,
+    set_option: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ExpectedMembership {
+    role_name: &'static str,
+    set_option: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LoginContract {
+    Production(ProductionLoginProfile),
+    Grader,
+}
+
+impl LoginContract {
+    fn expected_login(self) -> &'static str {
+        match self {
+            Self::Production(ProductionLoginProfile::Api) => "ple_api_login",
+            Self::Production(ProductionLoginProfile::Worker) => "ple_worker_login",
+            Self::Production(ProductionLoginProfile::Publisher) => "ple_publisher_login",
+            Self::Grader => "ple_grading_reader",
+        }
+    }
+
+    fn expected_memberships(self) -> &'static [ExpectedMembership] {
+        match self {
+            Self::Production(ProductionLoginProfile::Api) => &[
+                ExpectedMembership {
+                    role_name: "ple_app",
+                    set_option: true,
+                },
+                ExpectedMembership {
+                    role_name: "ple_auth",
+                    set_option: true,
+                },
+            ],
+            Self::Production(ProductionLoginProfile::Worker) => &[ExpectedMembership {
+                role_name: "ple_app",
+                set_option: true,
+            }],
+            Self::Production(ProductionLoginProfile::Publisher) => &[ExpectedMembership {
+                role_name: "ple_public_asset_publisher",
+                set_option: true,
+            }],
+            Self::Grader => &[],
+        }
+    }
+
+    /// NOLOGIN roles which this login may make effective inside a transaction.
+    ///
+    /// The list is deliberately derived from the exact login-membership
+    /// contract: adding a new `SET ROLE` path must also add startup attestation
+    /// for that role.
+    fn expected_capabilities(self) -> &'static [ExpectedMembership] {
+        self.expected_memberships()
+    }
+}
 
 fn pool_options(max_connections: u32) -> PgPoolOptions {
     PgPoolOptions::new()
@@ -25,9 +149,233 @@ pub fn lazy_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
     pool_options(8).connect_lazy(database_url)
 }
 
+/// Builds a lazy production pool with a verified transport and per-connection
+/// least-privilege login enforcement.
+///
+/// The callback runs for every replacement connection, so a credential or
+/// server-side role change cannot silently widen a long-running process.
+pub fn production_pool(
+    database_url: &str,
+    profile: ProductionLoginProfile,
+) -> Result<PgPool, sqlx::Error> {
+    let contract = LoginContract::Production(profile);
+    let options = verified_connect_options(database_url, contract)?;
+    Ok(pool_options(8)
+        .after_connect(move |connection, _metadata| {
+            Box::pin(async move { verify_login_authority(connection, contract).await })
+        })
+        .connect_lazy_with(options))
+}
+
 /// Connects the bounded dedicated QTI grader pool.
 pub(super) async fn connect_grader_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
-    pool_options(4).connect(database_url).await
+    let contract = LoginContract::Grader;
+    let options = verified_connect_options(database_url, contract)?;
+    pool_options(4)
+        .after_connect(move |connection, _metadata| {
+            Box::pin(async move { verify_login_authority(connection, contract).await })
+        })
+        .connect_with(options)
+        .await
+}
+
+/// Connects the local-development grader pool without requiring TLS while
+/// retaining the exact grader login and authority contract.
+pub(super) async fn connect_local_grader_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
+    let contract = LoginContract::Grader;
+    let options = local_connect_options(database_url, contract)?;
+    pool_options(4)
+        .after_connect(move |connection, _metadata| {
+            Box::pin(async move { verify_login_authority(connection, contract).await })
+        })
+        .connect_with(options)
+        .await
+}
+
+fn local_connect_options(
+    database_url: &str,
+    contract: LoginContract,
+) -> Result<PgConnectOptions, sqlx::Error> {
+    let options = PgConnectOptions::from_str(database_url)
+        .map_err(|_| sqlx::Error::Configuration("local database URL is invalid".into()))?;
+    if options.get_username() != contract.expected_login() {
+        return Err(sqlx::Error::Configuration(
+            format!(
+                "local grader URL must use the {} login",
+                contract.expected_login()
+            )
+            .into(),
+        ));
+    }
+    Ok(options)
+}
+
+fn verified_connect_options(
+    database_url: &str,
+    contract: LoginContract,
+) -> Result<PgConnectOptions, sqlx::Error> {
+    let options = PgConnectOptions::from_str(database_url)
+        .map_err(|_| sqlx::Error::Configuration("production database URL is invalid".into()))?;
+    if !matches!(options.get_ssl_mode(), PgSslMode::VerifyFull) {
+        return Err(sqlx::Error::Configuration(
+            "production database URL must set sslmode=verify-full".into(),
+        ));
+    }
+    if options.get_username() != contract.expected_login() {
+        return Err(sqlx::Error::Configuration(
+            format!(
+                "production database URL must use the {} login",
+                contract.expected_login()
+            )
+            .into(),
+        ));
+    }
+    Ok(options)
+}
+
+async fn verify_login_authority(
+    connection: &mut PgConnection,
+    contract: LoginContract,
+) -> Result<(), sqlx::Error> {
+    let row = connection
+        .fetch_one(
+            "SELECT current_user AS current_user, session_user AS session_user, \
+             r.rolsuper, r.rolcreatedb, r.rolcreaterole, r.rolinherit, \
+             r.rolreplication, r.rolbypassrls, r.rolcanlogin, \
+             COALESCE(( \
+                 SELECT jsonb_agg(jsonb_build_object( \
+                     'role_name', granted.rolname, \
+                     'admin_option', membership.admin_option, \
+                     'inherit_option', membership.inherit_option, \
+                     'set_option', membership.set_option \
+                 ) ORDER BY granted.rolname) \
+                 FROM pg_catalog.pg_auth_members AS membership \
+                 JOIN pg_catalog.pg_roles AS granted \
+                   ON granted.oid = membership.roleid \
+                 WHERE membership.member = r.oid \
+             ), '[]'::jsonb) AS direct_memberships \
+             FROM pg_catalog.pg_roles AS r WHERE r.rolname = current_user",
+        )
+        .await?;
+    let authority = LoginAuthority {
+        current_user: row.try_get("current_user")?,
+        session_user: row.try_get("session_user")?,
+        superuser: row.try_get("rolsuper")?,
+        create_database: row.try_get("rolcreatedb")?,
+        create_role: row.try_get("rolcreaterole")?,
+        inherit: row.try_get("rolinherit")?,
+        replication: row.try_get("rolreplication")?,
+        bypass_rls: row.try_get("rolbypassrls")?,
+        can_login: row.try_get("rolcanlogin")?,
+        direct_memberships: {
+            let Json(memberships): Json<Vec<DirectMembership>> =
+                row.try_get("direct_memberships")?;
+            memberships
+        },
+    };
+    if !login_authority_matches(&authority, contract) {
+        Err(sqlx::Error::Protocol(
+            "database login violates the process authority contract".to_string(),
+        ))?;
+    }
+
+    for expected in contract.expected_capabilities() {
+        let authority = fetch_capability_authority(connection, expected.role_name).await?;
+        if !capability_authority_matches(&authority, expected) {
+            return Err(sqlx::Error::Protocol(
+                "database capability role violates the process authority contract".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+async fn fetch_capability_authority(
+    connection: &mut PgConnection,
+    expected_role: &str,
+) -> Result<CapabilityAuthority, sqlx::Error> {
+    let row = sqlx::query(
+        "SELECT r.rolname AS role_name, r.rolsuper, r.rolcreatedb, r.rolcreaterole, \
+             r.rolinherit, r.rolreplication, r.rolbypassrls, r.rolcanlogin, \
+             COALESCE(( \
+                 SELECT jsonb_agg(jsonb_build_object( \
+                     'role_name', granted.rolname, \
+                     'admin_option', membership.admin_option, \
+                     'inherit_option', membership.inherit_option, \
+                     'set_option', membership.set_option \
+                 ) ORDER BY granted.rolname) \
+                 FROM pg_catalog.pg_auth_members AS membership \
+                 JOIN pg_catalog.pg_roles AS granted \
+                   ON granted.oid = membership.roleid \
+                 WHERE membership.member = r.oid \
+             ), '[]'::jsonb) AS direct_memberships \
+             FROM pg_catalog.pg_roles AS r WHERE r.rolname = $1",
+    )
+    .bind(expected_role)
+    .fetch_optional(connection)
+    .await?
+    .ok_or_else(|| {
+        sqlx::Error::Protocol(
+            "database capability role violates the process authority contract".to_string(),
+        )
+    })?;
+    Ok(CapabilityAuthority {
+        role_name: row.try_get("role_name")?,
+        superuser: row.try_get("rolsuper")?,
+        create_database: row.try_get("rolcreatedb")?,
+        create_role: row.try_get("rolcreaterole")?,
+        inherit: row.try_get("rolinherit")?,
+        replication: row.try_get("rolreplication")?,
+        bypass_rls: row.try_get("rolbypassrls")?,
+        can_login: row.try_get("rolcanlogin")?,
+        direct_memberships: {
+            let Json(memberships): Json<Vec<DirectMembership>> =
+                row.try_get("direct_memberships")?;
+            memberships
+        },
+    })
+}
+
+fn login_authority_matches(authority: &LoginAuthority, contract: LoginContract) -> bool {
+    authority.current_user == contract.expected_login()
+        && authority.session_user == contract.expected_login()
+        && !authority.superuser
+        && !authority.create_database
+        && !authority.create_role
+        && !authority.inherit
+        && !authority.replication
+        && !authority.bypass_rls
+        && authority.can_login
+        && authority.direct_memberships.len() == contract.expected_memberships().len()
+        && authority
+            .direct_memberships
+            .iter()
+            .zip(contract.expected_memberships())
+            .all(|(actual, expected)| {
+                actual.role_name == expected.role_name
+                    && !actual.admin_option
+                    && !actual.inherit_option
+                    && actual.set_option == expected.set_option
+            })
+}
+
+fn capability_authority_matches(
+    authority: &CapabilityAuthority,
+    expected: &ExpectedMembership,
+) -> bool {
+    authority.role_name == expected.role_name
+        && !authority.superuser
+        && !authority.create_database
+        && !authority.create_role
+        && !authority.inherit
+        && !authority.replication
+        && !authority.bypass_rls
+        && !authority.can_login
+        // A capability role cannot itself have a grant path: otherwise SET
+        // LOCAL ROLE makes any of its nested roles effective as well.  This
+        // catches ADMIN, INHERIT, and SET delegation metadata too because the
+        // expected direct-membership set is exactly empty.
+        && authority.direct_memberships.is_empty()
 }
 
 pub(super) fn is_connection_error(error: &sqlx::Error) -> bool {
@@ -155,6 +503,202 @@ mod tests {
             options.get_max_lifetime(),
             Some(Duration::from_secs(30 * 60))
         );
+    }
+
+    fn authority(contract: LoginContract) -> LoginAuthority {
+        LoginAuthority {
+            current_user: contract.expected_login().to_string(),
+            session_user: contract.expected_login().to_string(),
+            superuser: false,
+            create_database: false,
+            create_role: false,
+            inherit: false,
+            replication: false,
+            bypass_rls: false,
+            can_login: true,
+            direct_memberships: contract
+                .expected_memberships()
+                .iter()
+                .map(|expected| DirectMembership {
+                    role_name: expected.role_name.to_string(),
+                    admin_option: false,
+                    inherit_option: false,
+                    set_option: expected.set_option,
+                })
+                .collect(),
+        }
+    }
+
+    fn capability_authority(role_name: &str) -> CapabilityAuthority {
+        CapabilityAuthority {
+            role_name: role_name.to_string(),
+            superuser: false,
+            create_database: false,
+            create_role: false,
+            inherit: false,
+            replication: false,
+            bypass_rls: false,
+            can_login: false,
+            direct_memberships: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn production_urls_require_verified_tls_and_fixed_process_identity() {
+        let api = LoginContract::Production(ProductionLoginProfile::Api);
+        assert!(
+            verified_connect_options(
+                "postgres://ple_api_login:secret@db.example/ple?sslmode=verify-full",
+                api,
+            )
+            .is_ok()
+        );
+        for url in [
+            "postgres://ple_api_login:secret@db.example/ple",
+            "postgres://ple_api_login:secret@db.example/ple?sslmode=require",
+            "postgres://postgres:secret@db.example/ple?sslmode=verify-full",
+        ] {
+            assert!(
+                verified_connect_options(url, api).is_err(),
+                "accepted {url}"
+            );
+        }
+        let publisher = LoginContract::Production(ProductionLoginProfile::Publisher);
+        assert!(
+            verified_connect_options(
+                "postgres://ple_publisher_login:secret@db.example/ple?sslmode=verify-full",
+                publisher,
+            )
+            .is_ok()
+        );
+        assert!(
+            verified_connect_options(
+                "postgres://ple_worker_login:secret@db.example/ple?sslmode=verify-full",
+                publisher,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn process_authority_contract_rejects_each_privilege_widening() {
+        for contract in [
+            LoginContract::Production(ProductionLoginProfile::Api),
+            LoginContract::Production(ProductionLoginProfile::Worker),
+            LoginContract::Production(ProductionLoginProfile::Publisher),
+            LoginContract::Grader,
+        ] {
+            assert!(login_authority_matches(&authority(contract), contract));
+
+            let mut widened = authority(contract);
+            widened.bypass_rls = true;
+            assert!(!login_authority_matches(&widened, contract));
+
+            let mut widened = authority(contract);
+            widened.superuser = true;
+            assert!(!login_authority_matches(&widened, contract));
+
+            let mut widened = authority(contract);
+            widened.inherit = true;
+            assert!(!login_authority_matches(&widened, contract));
+
+            let mut widened = authority(contract);
+            widened.direct_memberships.push(DirectMembership {
+                role_name: "ple_grader".to_string(),
+                admin_option: false,
+                inherit_option: false,
+                set_option: true,
+            });
+            assert!(!login_authority_matches(&widened, contract));
+        }
+    }
+
+    #[test]
+    fn process_authority_contract_rejects_delegable_or_unscoped_memberships() {
+        for contract in [
+            LoginContract::Production(ProductionLoginProfile::Api),
+            LoginContract::Production(ProductionLoginProfile::Worker),
+            LoginContract::Production(ProductionLoginProfile::Publisher),
+        ] {
+            let mut delegable = authority(contract);
+            delegable.direct_memberships[0].admin_option = true;
+            assert!(
+                !login_authority_matches(&delegable, contract),
+                "{contract:?} must not delegate a capability role"
+            );
+
+            let mut inherited = authority(contract);
+            inherited.direct_memberships[0].inherit_option = true;
+            assert!(
+                !login_authority_matches(&inherited, contract),
+                "{contract:?} must not gain a capability outside SET LOCAL ROLE"
+            );
+
+            let mut cannot_enter_expected_role = authority(contract);
+            cannot_enter_expected_role.direct_memberships[0].set_option = false;
+            assert!(
+                !login_authority_matches(&cannot_enter_expected_role, contract),
+                "{contract:?} must retain only its attested SET LOCAL ROLE path"
+            );
+        }
+    }
+
+    #[test]
+    fn effective_capability_roles_have_closed_exact_authority() {
+        for contract in [
+            LoginContract::Production(ProductionLoginProfile::Api),
+            LoginContract::Production(ProductionLoginProfile::Worker),
+            LoginContract::Production(ProductionLoginProfile::Publisher),
+        ] {
+            for expected in contract.expected_capabilities() {
+                assert!(capability_authority_matches(
+                    &capability_authority(expected.role_name),
+                    expected
+                ));
+            }
+        }
+        assert!(LoginContract::Grader.expected_capabilities().is_empty());
+        assert!(login_authority_matches(
+            &authority(LoginContract::Grader),
+            LoginContract::Grader
+        ));
+    }
+
+    #[test]
+    fn effective_capability_roles_reject_privilege_and_nested_role_widening() {
+        let api = LoginContract::Production(ProductionLoginProfile::Api);
+        for expected in api.expected_capabilities() {
+            let mut widened = capability_authority(expected.role_name);
+            widened.bypass_rls = true;
+            assert!(!capability_authority_matches(&widened, expected));
+
+            let mut widened = capability_authority(expected.role_name);
+            widened.can_login = true;
+            assert!(!capability_authority_matches(&widened, expected));
+
+            let mut widened = capability_authority(expected.role_name);
+            widened.create_role = true;
+            assert!(!capability_authority_matches(&widened, expected));
+
+            for (admin_option, inherit_option, set_option) in [
+                (true, false, false),
+                (false, true, false),
+                (false, false, true),
+            ] {
+                let mut widened = capability_authority(expected.role_name);
+                widened.direct_memberships.push(DirectMembership {
+                    role_name: "ple_catalog_ownership_broker".to_string(),
+                    admin_option,
+                    inherit_option,
+                    set_option,
+                });
+                assert!(
+                    !capability_authority_matches(&widened, expected),
+                    "{} must not gain a nested capability role",
+                    expected.role_name
+                );
+            }
+        }
     }
 
     #[tokio::test]

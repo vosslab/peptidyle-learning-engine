@@ -73,7 +73,7 @@ impl CourseAppearanceStore for PostgresStore {
     ) -> Result<(), StoreError> {
         validate_candidate(context, course, &command)?;
         let mut transaction = self.begin_tenant(context).await?;
-        let actor = require_manager(&mut transaction, session, course).await?;
+        let actor = require_appearance_authority(&mut transaction, session, course).await?;
         let now = database_timestamp(&mut transaction).await?;
         if command.expires_at <= now {
             return Err(StoreError::InvalidRecord(
@@ -127,7 +127,7 @@ impl CourseAppearanceStore for PostgresStore {
         candidate: CourseBannerCandidateId,
     ) -> Result<CourseBannerPromotion, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        let actor = require_manager(&mut transaction, session, course).await?;
+        let actor = require_appearance_authority(&mut transaction, session, course).await?;
         let row = sqlx::query(
             "SELECT candidate_id, created_by, candidate_object_id, normalized_sha256, size_bytes, \
                     future_banner_id, future_object_id, \
@@ -175,7 +175,7 @@ impl CourseAppearanceStore for PostgresStore {
         command: SaveCourseAppearance,
     ) -> Result<CourseAppearance, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        let actor = require_manager(&mut transaction, session, course).await?;
+        let actor = require_appearance_authority(&mut transaction, session, course).await?;
         let appearance_row = sqlx::query(
             "SELECT theme_id, current_banner_delivery_id, banner_alt_kind, banner_alt_text, revision \
              FROM course_appearance WHERE tenant_id = $1 AND course_id = $2 FOR UPDATE",
@@ -224,6 +224,8 @@ impl CourseAppearanceStore for PostgresStore {
                         course,
                         banner: stored.banner,
                     },
+                    publication: crate::AssetPublication::Ready,
+                    pending_source: None,
                 };
                 validate_asset_delivery(&delivery)?;
                 persist_course_banner_delivery(&mut transaction, &delivery).await?;
@@ -595,12 +597,12 @@ async fn appearance_authorized(
     transaction: &mut Transaction<'_, Postgres>,
     session: SessionTokenHash,
     course: CourseId,
-    manager_only: bool,
+    instructor_only: bool,
 ) -> Result<bool, StoreError> {
     sqlx::query_scalar("SELECT ple_course_appearance_authorize($1, $2, $3)")
         .bind(session.to_string())
         .bind(course.as_uuid())
-        .bind(manager_only)
+        .bind(instructor_only)
         .fetch_one(&mut **transaction)
         .await
         .map_err(map_sqlx_error)
@@ -610,19 +612,19 @@ async fn appearance_actor(
     transaction: &mut Transaction<'_, Postgres>,
     session: SessionTokenHash,
     course: CourseId,
-    manager_only: bool,
+    instructor_only: bool,
 ) -> Result<Option<UserId>, StoreError> {
     let actor: Option<Uuid> = sqlx::query_scalar("SELECT ple_course_appearance_actor($1, $2, $3)")
         .bind(session.to_string())
         .bind(course.as_uuid())
-        .bind(manager_only)
+        .bind(instructor_only)
         .fetch_one(&mut **transaction)
         .await
         .map_err(map_sqlx_error)?;
     Ok(actor.map(UserId::from_uuid))
 }
 
-async fn require_manager(
+async fn require_appearance_authority(
     transaction: &mut Transaction<'_, Postgres>,
     session: SessionTokenHash,
     course: CourseId,
@@ -867,7 +869,7 @@ fn validate_promoted(
         || banner != candidate.banner
         || promoted.id != candidate.future_object_id
         || promoted.id != promoted.key.object_id()
-        || promoted.bucket != Bucket::Content
+        || promoted.bucket != Bucket::PrivateContent
         || promoted.category != ObjectCategory::CourseContent
         || promoted.version.is_some()
         || promoted.media_type != "image/webp"

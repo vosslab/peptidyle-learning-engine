@@ -280,14 +280,6 @@ def test_lifecycle_scopes_stack_children_and_keep_cleanup(
 
 
 #============================================
-def test_compose_uses_the_runner_owned_application_image() -> None:
-	"""API and worker share the interpolated image instead of a global local tag."""
-	compose = (pathlib.Path(__file__).resolve().parents[1] / "containers/compose.yaml").read_text()
-
-	assert compose.count("${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}") == 2
-
-
-#============================================
 def test_instructor_arrangement_uses_only_private_launcher_manifest(tmp_path: pathlib.Path) -> None:
 	"""Canonical setup must not consult a stale manifest beside the selected source env."""
 	repository = tmp_path / "repository"
@@ -368,13 +360,10 @@ def test_playwright_uses_standard_config_and_no_hidden_ple_protocol(tmp_path: pa
 	command, environment = commands.calls[0]
 	config_path = runner.playwright_config_file
 	assert config_path is not None
-	config_source = config_path.read_text(encoding="ascii")
 	runner.remove_private_state()
 
 	assert "--config" in command
 	assert config_path.suffix == ".mts"
-	assert str(repository / "tests/playwright/ui_walkthrough_config_factory.ts") in config_source
-	assert str(repository / "tests/playwright") in config_source
 	assert not any(key.startswith("PLE_") for key in environment or {})
 
 

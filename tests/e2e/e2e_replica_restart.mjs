@@ -581,7 +581,7 @@ async function runLive() {
         `PLE_GATEWAY_HOST_PORT=${gatewayPort}`,
         `PLE_GATEWAY_IMAGE_SHA256=${gatewayDigest}`,
         `PLE_LOCAL_AUTH_HOST_FILE=${identityPath}`,
-        `PLE_PUBLIC_ASSET_BASE_URL=http://127.0.0.1:${minioPort}/content`,
+        `PLE_PUBLIC_ASSET_BASE_URL=http://127.0.0.1:${minioPort}/public-assets`,
         "PLE_WEBWORK_RENDERER_IMAGE_REPOSITORY=example.invalid/unused-renderer",
         `PLE_WEBWORK_RENDERER_IMAGE_SHA256=${"0".repeat(64)}`,
         "PLE_WEBWORK_RENDERER_BASE_URL=http://webwork-renderer:8080",

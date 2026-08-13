@@ -7,39 +7,53 @@
 
 use std::sync::Arc;
 
+#[cfg(any(feature = "local-development-auth", test))]
 use async_trait::async_trait;
-use axum::extract::{DefaultBodyLimit, State};
+#[cfg(any(feature = "local-development-auth", test))]
+use axum::extract::DefaultBodyLimit;
+use axum::extract::State;
 use axum::http::header::{CACHE_CONTROL, COOKIE, SET_COOKIE};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use base64::Engine;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use cookie::{Cookie, SameSite};
 use learning_data_access::{
-    SessionLifetime, SessionRecord, SessionStore, SessionSubject, SessionTokenHash, StoreError,
+    AccountSessionStore, SessionLifetime, SessionRecord, SessionStore, SessionSubject, StoreError,
     TenantContext,
 };
 use question_model::{TenantId, UserId, UserRole};
 use serde::Serialize;
+#[cfg(any(feature = "local-development-auth", test))]
 use serde::de::DeserializeOwned;
 
+#[path = "auth/browser_boundary.rs"]
+mod browser_boundary;
+#[path = "auth/client_address.rs"]
+mod client_address;
 #[path = "auth/passwordless.rs"]
 mod passwordless;
+#[path = "auth/session_cookie.rs"]
+mod session_cookie;
 #[path = "auth/webauthn.rs"]
 mod webauthn;
 
+pub(crate) use browser_boundary::{ProductionBrowserBoundary, production_cookie_boundary};
+#[cfg(test)]
+use browser_boundary::{normalize_production_cookies, origin_matches};
+pub use client_address::ClientAddressPolicy;
 pub use passwordless::{
     PasswordlessEmailAction, PasswordlessEmailDelivery, PasswordlessEmailDeliveryError,
     PasswordlessEmailSecret, PasswordlessRateLimitIssuer, UnavailablePasswordlessEmailDelivery,
     passwordless_router,
 };
+use session_cookie::{SessionToken, presented_token, session_cookie, wire_cookie_name};
 pub use webauthn::{PasswordlessWebauthn, passkey_router};
 
 const SESSION_COOKIE_NAME: &str = "ple_session";
 const SESSION_TOKEN_BYTES: usize = 32;
 const TOKEN_GENERATION_ATTEMPTS: usize = 3;
+#[cfg(any(feature = "local-development-auth", test))]
 const MAX_AUTH_PRESENTATION_BYTES: usize = 64 * 1_024;
 
 /// HTTP setting selected for the application's deployment context.
@@ -47,8 +61,6 @@ const MAX_AUTH_PRESENTATION_BYTES: usize = 64 * 1_024;
 pub enum CookieTransport {
     /// Normal HTTPS navigation, protected against cross-site requests.
     FirstPartyHttps,
-    /// HTTPS embedding needed by a future configured LTI launch.
-    EmbeddedHttps,
     /// Explicit opt-out used only by local plain-HTTP development.
     LocalHttp,
 }
@@ -85,10 +97,7 @@ impl SessionConfig {
     }
 
     fn same_site(self) -> SameSite {
-        match self.transport {
-            CookieTransport::FirstPartyHttps | CookieTransport::LocalHttp => SameSite::Lax,
-            CookieTransport::EmbeddedHttps => SameSite::None,
-        }
+        SameSite::Lax
     }
 }
 
@@ -96,6 +105,7 @@ impl SessionConfig {
 ///
 /// OIDC, institutional SSO, LTI, or a local development provider can implement
 /// this boundary without changing cookie handling or persistence.
+#[cfg(any(feature = "local-development-auth", test))]
 #[async_trait]
 pub trait IdentityProvider: Send + Sync {
     /// Credential presentation type owned by that provider.
@@ -109,6 +119,7 @@ pub trait IdentityProvider: Send + Sync {
 }
 
 /// Credential-provider failure without exposing provider secrets to callers.
+#[cfg(any(feature = "local-development-auth", test))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IdentityProviderError {
     /// Credentials are absent, invalid, or no longer authorized.
@@ -189,6 +200,7 @@ pub enum AuthError {
     /// Missing, malformed, expired, revoked, or unknown cookie.
     Unauthenticated,
     /// The configured credential provider rejected a login.
+    #[cfg(any(feature = "local-development-auth", test))]
     ProviderRejected,
     /// A dependency needed for authentication was unavailable.
     Unavailable(String),
@@ -199,9 +211,9 @@ pub enum AuthError {
 impl std::fmt::Display for AuthError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Unauthenticated | Self::ProviderRejected => {
-                formatter.write_str("authentication required")
-            }
+            Self::Unauthenticated => formatter.write_str("authentication required"),
+            #[cfg(any(feature = "local-development-auth", test))]
+            Self::ProviderRejected => formatter.write_str("authentication required"),
             Self::Unavailable(message) => {
                 write!(formatter, "authentication unavailable: {message}")
             }
@@ -212,11 +224,18 @@ impl std::fmt::Display for AuthError {
 
 impl std::error::Error for AuthError {}
 
-/// Builds the provider-backed `/api/auth` route group.
+/// Builds the provider-backed login route.
 ///
 /// The provider owns the typed credential presentation and its anti-replay or
-/// anti-CSRF validation. Session and cookie policy remain provider-neutral.
-pub fn router<P, S>(provider: Arc<P>, sessions: Arc<S>, config: SessionConfig) -> Router
+/// anti-CSRF validation. Session resolution and logout are composed separately
+/// so production passwordless identity and local development share one
+/// complete session lifecycle without exposing the local login route.
+#[cfg(any(feature = "local-development-auth", test))]
+pub fn provider_login_router<P, S>(
+    provider: Arc<P>,
+    sessions: Arc<S>,
+    config: SessionConfig,
+) -> Router
 where
     P: IdentityProvider + 'static,
     P::Presentation: DeserializeOwned + Send + Sync + 'static,
@@ -229,13 +248,24 @@ where
     };
     Router::new()
         .route("/api/auth/login", post(login_handler::<P, S>))
-        .route("/api/auth/session", get(session_handler::<P, S>))
-        .route("/api/auth/logout", post(logout_handler::<P, S>))
         .layer(DefaultBodyLimit::max(MAX_AUTH_PRESENTATION_BYTES))
         .with_state(state)
 }
 
+/// Builds the provider-neutral session resolution and complete sign-out routes.
+pub fn session_router<S>(sessions: Arc<S>, config: SessionConfig) -> Router
+where
+    S: SessionStore + AccountSessionStore + 'static,
+{
+    let state = SessionRouteState { sessions, config };
+    Router::new()
+        .route("/api/auth/session", get(session_handler::<S>))
+        .route("/api/auth/logout", post(logout_handler::<S>))
+        .with_state(state)
+}
+
 /// Verifies provider credentials and establishes a database session.
+#[cfg(any(feature = "local-development-auth", test))]
 pub async fn authenticate_with_provider<P: IdentityProvider>(
     provider: &P,
     presentation: &P::Presentation,
@@ -323,7 +353,7 @@ pub async fn revoke_session(
 
 /// Builds the deletion cookie returned after sign-out.
 pub fn clear_session_cookie(config: SessionConfig) -> String {
-    Cookie::build((SESSION_COOKIE_NAME, ""))
+    Cookie::build((wire_cookie_name(SESSION_COOKIE_NAME, config), ""))
         .path("/")
         .http_only(true)
         .secure(config.secure())
@@ -333,12 +363,14 @@ pub fn clear_session_cookie(config: SessionConfig) -> String {
         .to_string()
 }
 
+#[cfg(any(feature = "local-development-auth", test))]
 struct AuthRouteState<P, S> {
     provider: Arc<P>,
     sessions: Arc<S>,
     config: SessionConfig,
 }
 
+#[cfg(any(feature = "local-development-auth", test))]
 impl<P, S> Clone for AuthRouteState<P, S> {
     fn clone(&self) -> Self {
         Self {
@@ -349,6 +381,21 @@ impl<P, S> Clone for AuthRouteState<P, S> {
     }
 }
 
+struct SessionRouteState<S> {
+    sessions: Arc<S>,
+    config: SessionConfig,
+}
+
+impl<S> Clone for SessionRouteState<S> {
+    fn clone(&self) -> Self {
+        Self {
+            sessions: Arc::clone(&self.sessions),
+            config: self.config,
+        }
+    }
+}
+
+#[cfg(any(feature = "local-development-auth", test))]
 async fn login_handler<P, S>(
     State(state): State<AuthRouteState<P, S>>,
     Json(presentation): Json<P::Presentation>,
@@ -375,13 +422,12 @@ where
     }
 }
 
-async fn session_handler<P, S>(
-    State(state): State<AuthRouteState<P, S>>,
+async fn session_handler<S>(
+    State(state): State<SessionRouteState<S>>,
     headers: HeaderMap,
 ) -> Response
 where
-    P: IdentityProvider + 'static,
-    S: SessionStore + 'static,
+    S: SessionStore + AccountSessionStore + 'static,
 {
     let cookie_header = joined_cookie_header(&headers);
     match resolve_session(state.sessions.as_ref(), cookie_header.as_deref()).await {
@@ -390,25 +436,39 @@ where
     }
 }
 
-async fn logout_handler<P, S>(
-    State(state): State<AuthRouteState<P, S>>,
+async fn logout_handler<S>(
+    State(state): State<SessionRouteState<S>>,
     headers: HeaderMap,
 ) -> Response
 where
-    P: IdentityProvider + 'static,
-    S: SessionStore + 'static,
+    S: SessionStore + AccountSessionStore + 'static,
 {
     let cookie_header = joined_cookie_header(&headers);
-    let mut response = match revoke_session(state.sessions.as_ref(), cookie_header.as_deref()).await
-    {
-        Ok(()) => Json(SignedOutResponse {
-            authenticated: false,
-        })
-        .into_response(),
-        Err(error) => auth_error_response(error),
+    let tenant_result = revoke_session(state.sessions.as_ref(), cookie_header.as_deref()).await;
+    let account_result =
+        passwordless::revoke_presented_account_session(state.sessions.as_ref(), &headers).await;
+    let (mut response, revoked) = match (tenant_result, account_result) {
+        (Ok(()), Ok(())) => (
+            Json(SignedOutResponse {
+                authenticated: false,
+            })
+            .into_response(),
+            true,
+        ),
+        (Err(error), _) | (_, Err(error)) => (auth_error_response(error), false),
     };
-    if let Ok(value) = HeaderValue::from_str(&clear_session_cookie(state.config)) {
-        response.headers_mut().insert(SET_COOKIE, value);
+    if revoked {
+        if let Ok(value) = HeaderValue::from_str(&clear_session_cookie(state.config)) {
+            response.headers_mut().append(SET_COOKIE, value);
+        }
+        for cookie in passwordless::clear_account_authentication_cookies(state.config) {
+            if let Ok(value) = HeaderValue::from_str(&cookie) {
+                response.headers_mut().append(SET_COOKIE, value);
+            }
+        }
+        if let Ok(value) = HeaderValue::from_str(&webauthn::clear_binding_cookie(state.config)) {
+            response.headers_mut().append(SET_COOKIE, value);
+        }
     }
     no_store(response)
 }
@@ -450,9 +510,9 @@ fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
 
 pub(crate) fn auth_error_response(error: AuthError) -> Response {
     let (status, message) = match error {
-        AuthError::Unauthenticated | AuthError::ProviderRejected => {
-            (StatusCode::UNAUTHORIZED, "authentication required")
-        }
+        AuthError::Unauthenticated => (StatusCode::UNAUTHORIZED, "authentication required"),
+        #[cfg(any(feature = "local-development-auth", test))]
+        AuthError::ProviderRejected => (StatusCode::UNAUTHORIZED, "authentication required"),
         AuthError::Unavailable(_) | AuthError::Randomness(_) => (
             StatusCode::SERVICE_UNAVAILABLE,
             "authentication unavailable",
@@ -468,66 +528,13 @@ pub(crate) fn no_store(mut response: Response) -> Response {
     response
 }
 
-#[derive(Clone, PartialEq, Eq)]
-struct SessionToken([u8; SESSION_TOKEN_BYTES]);
-
-impl SessionToken {
-    fn generate() -> Result<Self, getrandom::Error> {
-        let mut bytes = [0_u8; SESSION_TOKEN_BYTES];
-        getrandom::fill(&mut bytes)?;
-        Ok(Self(bytes))
-    }
-
-    fn decode(value: &str) -> Option<Self> {
-        let bytes = URL_SAFE_NO_PAD.decode(value).ok()?;
-        let bytes: [u8; SESSION_TOKEN_BYTES] = bytes.try_into().ok()?;
-        Some(Self(bytes))
-    }
-
-    fn encode(&self) -> String {
-        URL_SAFE_NO_PAD.encode(self.0)
-    }
-
-    fn hash(&self) -> SessionTokenHash {
-        SessionTokenHash::compute(&self.0)
-    }
-}
-
-impl std::fmt::Debug for SessionToken {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("SessionToken([redacted])")
-    }
-}
-
-fn session_cookie(token: &SessionToken, config: SessionConfig) -> Cookie<'static> {
-    Cookie::build((SESSION_COOKIE_NAME, token.encode()))
-        .path("/")
-        .http_only(true)
-        .secure(config.secure())
-        .same_site(config.same_site())
-        .build()
-}
-
-fn presented_token(cookie_header: Option<&str>) -> Option<SessionToken> {
-    let mut tokens = Cookie::split_parse(cookie_header?)
-        .filter_map(Result::ok)
-        .filter_map(|cookie| {
-            (cookie.name() == SESSION_COOKIE_NAME)
-                .then(|| SessionToken::decode(cookie.value()))
-                .flatten()
-        });
-    let token = tokens.next()?;
-    if tokens.next().is_some() {
-        return None;
-    }
-    Some(token)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::body::Body;
+    use axum::body::{Body, to_bytes};
     use axum::http::Request;
+    use axum::middleware;
+    use axum::routing::post;
     use learning_data_access::in_memory::MemoryStore;
     use question_model::{TenantId, UserId, UserRole};
     use tower::ServiceExt;
@@ -664,14 +671,155 @@ mod tests {
         assert_eq!(first_party.max_age(), None);
         assert_eq!(first_party.expires(), None);
         assert!(!first_party.value().contains('='));
-
-        let embedded = session_cookie(&token, config(CookieTransport::EmbeddedHttps));
-        assert_eq!(embedded.secure(), Some(true));
-        assert_eq!(embedded.same_site(), Some(SameSite::None));
+        assert_eq!(first_party.name(), "__Host-ple_session");
 
         let local = session_cookie(&token, config(CookieTransport::LocalHttp));
         assert_eq!(local.secure(), Some(false));
         assert_eq!(local.same_site(), Some(SameSite::Lax));
+        assert_eq!(local.name(), "ple_session");
+    }
+
+    #[test]
+    fn production_cookie_normalization_ignores_unprefixed_sensitive_injection() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            COOKIE,
+            HeaderValue::from_static(
+                "ple_session=attacker; __Host-ple_session=trusted; theme=contrast",
+            ),
+        );
+        normalize_production_cookies(&mut headers);
+        assert_eq!(
+            headers.get(COOKIE).and_then(|value| value.to_str().ok()),
+            Some("ple_session=trusted; theme=contrast")
+        );
+    }
+
+    #[test]
+    fn production_origin_must_be_one_exact_value() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "origin",
+            HeaderValue::from_static("https://learn.example.edu"),
+        );
+        assert!(origin_matches(&headers, "https://learn.example.edu"));
+        assert!(!origin_matches(&headers, "https://other.example.edu"));
+        headers.append(
+            "origin",
+            HeaderValue::from_static("https://learn.example.edu"),
+        );
+        assert!(!origin_matches(&headers, "https://learn.example.edu"));
+    }
+
+    #[test]
+    fn production_browser_boundary_normalizes_a_serialized_origin() {
+        let boundary = ProductionBrowserBoundary::new(Arc::from("https://learn.example.edu/"))
+            .expect("a root HTTPS URL is an origin");
+        assert_eq!(boundary.origin.as_ref(), "https://learn.example.edu");
+        assert_eq!(boundary.authority.as_ref(), "learn.example.edu");
+        assert!(
+            ProductionBrowserBoundary::new(Arc::from("https://user@learn.example.edu/")).is_err()
+        );
+    }
+
+    fn production_boundary_test_router() -> Router {
+        Router::new()
+            .route(
+                "/write",
+                post(|headers: HeaderMap| async move {
+                    headers
+                        .get(COOKIE)
+                        .and_then(|value| value.to_str().ok())
+                        .unwrap_or("no-cookie")
+                        .to_string()
+                }),
+            )
+            .layer(middleware::from_fn_with_state(
+                ProductionBrowserBoundary::new(Arc::from("https://learn.example.edu"))
+                    .expect("fixture origin"),
+                production_cookie_boundary,
+            ))
+    }
+
+    #[tokio::test]
+    async fn production_boundary_requires_exact_host_and_origin_for_cookie_mutations() {
+        let app = production_boundary_test_router();
+        let valid = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/write")
+                    .header("host", "learn.example.edu")
+                    .header("origin", "https://learn.example.edu")
+                    .header(COOKIE, "__Host-ple_session=trusted")
+                    .body(Body::empty())
+                    .expect("valid request"),
+            )
+            .await
+            .expect("valid response");
+        assert_eq!(valid.status(), StatusCode::OK);
+        assert!(
+            !valid.headers().contains_key("strict-transport-security"),
+            "the API boundary must not emit HSTS; the HTTPS edge owns it"
+        );
+        assert_eq!(
+            to_bytes(valid.into_body(), 1024).await.expect("body"),
+            "ple_session=trusted"
+        );
+
+        let cross_origin = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/write")
+                    .header("host", "learn.example.edu")
+                    .header("origin", "https://attacker.example")
+                    .header(COOKIE, "__Host-ple_session=trusted")
+                    .body(Body::empty())
+                    .expect("cross-origin request"),
+            )
+            .await
+            .expect("cross-origin response");
+        assert_eq!(cross_origin.status(), StatusCode::FORBIDDEN);
+        assert_eq!(cross_origin.headers()[CACHE_CONTROL], "no-store");
+
+        let wrong_host = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/write")
+                    .header("host", "attacker.example")
+                    .header("origin", "https://learn.example.edu")
+                    .header(COOKIE, "__Host-ple_session=trusted")
+                    .body(Body::empty())
+                    .expect("wrong-host request"),
+            )
+            .await
+            .expect("wrong-host response");
+        assert_eq!(wrong_host.status(), StatusCode::MISDIRECTED_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn production_boundary_drops_legacy_sensitive_cookie_aliases() {
+        let response = production_boundary_test_router()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/write")
+                    .header("host", "learn.example.edu")
+                    .header(COOKIE, "ple_session=attacker; theme=contrast")
+                    .body(Body::empty())
+                    .expect("legacy-cookie request"),
+            )
+            .await
+            .expect("legacy-cookie response");
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            to_bytes(response.into_body(), 1024).await.expect("body"),
+            "theme=contrast"
+        );
     }
 
     #[tokio::test]
@@ -715,12 +863,21 @@ mod tests {
         let issuer = Arc::new(MemoryStore::default());
         let next_replica = Arc::new(issuer.as_ref().clone());
         let provider = Arc::new(FixtureProvider { subject: subject() });
-        let issuer_app = router(
+        let issuer_app = provider_login_router(
             Arc::clone(&provider),
-            issuer,
+            Arc::clone(&issuer),
             config(CookieTransport::LocalHttp),
-        );
-        let replica_app = router(provider, next_replica, config(CookieTransport::LocalHttp));
+        )
+        .merge(session_router(issuer, config(CookieTransport::LocalHttp)));
+        let replica_app = provider_login_router(
+            provider,
+            Arc::clone(&next_replica),
+            config(CookieTransport::LocalHttp),
+        )
+        .merge(session_router(
+            next_replica,
+            config(CookieTransport::LocalHttp),
+        ));
         let login = issuer_app
             .clone()
             .oneshot(

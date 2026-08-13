@@ -27,7 +27,7 @@ impl crate::FeedbackStore for MemoryStore {
             .courses
             .get(&(tenant, assignment.course_id))
             .ok_or(StoreError::NotFound)?;
-        if course.role_for(command.actor) != Some(CourseRole::Instructor) {
+        if course.role_for(command.actor) != Some(CourseMembershipRole::Instructor) {
             return Err(StoreError::NotFound);
         }
         if !state.submissions.contains_key(&(tenant, command.attempt)) {
@@ -85,7 +85,9 @@ impl crate::FeedbackStore for MemoryStore {
             .courses
             .get(&(tenant, assignment.course_id))
             .ok_or(StoreError::NotFound)?;
-        if actor != enrollment.user && course.role_for(actor) != Some(CourseRole::Instructor) {
+        if actor == enrollment.user {
+            require_active_learner_membership(&state, tenant, assignment.course_id, actor)?;
+        } else if course.role_for(actor) != Some(CourseMembershipRole::Instructor) {
             return Err(StoreError::NotFound);
         }
         Ok(state.feedback_releases.get(&(tenant, attempt_id)).cloned())
@@ -111,7 +113,9 @@ impl crate::FeedbackStore for MemoryStore {
             .courses
             .get(&(tenant, assignment.course_id))
             .ok_or(StoreError::NotFound)?;
-        if actor != enrollment.user && course.role_for(actor) != Some(CourseRole::Instructor) {
+        if actor == enrollment.user {
+            require_active_learner_membership(&state, tenant, assignment.course_id, actor)?;
+        } else if course.role_for(actor) != Some(CourseMembershipRole::Instructor) {
             return Err(StoreError::NotFound);
         }
         let summary = state

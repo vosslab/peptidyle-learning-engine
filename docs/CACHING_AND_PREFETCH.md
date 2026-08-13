@@ -24,27 +24,35 @@ PLE uses distinct caches with deliberately different contents and lifetimes.
 | --- | --- | --- | --- |
 | Browser run state | Current authoritative screen and one speculative envelope | Current route and active attempt | Answers, grade keys, durable prefetch reservation |
 | Browser asset cache | Delivered image and other asset bytes | Delivery URL and content checksum | Private source or a signed protected URL retained by PLE |
-| CDN public assets | Public immutable published assets | Typed immutable `ProblemAsset` object key | Tenant records, source archives, renders, or answer material |
+| CDN public assets | Public immutable `ProblemAsset` renditions in `PublicAssets` | Typed immutable public object key and checksum | `PrivateContent`, `StudentRecords`, source archives, restricted assets, renders, or answer material |
 | Adapter render cache | Answer-free envelope, safe markup, source binding, renderer identity | Published problem, immutable version, and seed | Answer keys, private rubrics, credentials, raw provider output |
 | Attempt and prefetch rows | Issuance provenance, binding, and private replay state where needed | Tenant, learner, run, predecessor, position | A browser-writable substitute for the attempt record |
 
 The browser treats every API JSON response as `Cache-Control: no-store`.
 This includes run screens, submissions, prefetch responses, feedback, and
-protected asset redirects. It keeps a successfully decoded prefetched envelope
+protected asset delivery responses. It keeps a successfully decoded prefetched envelope
 in memory only, never in `localStorage` or `sessionStorage`.
 
-Public immutable asset delivery is the exception. `/api/assets/{id}` resolves
-one typed database record and redirects a catalog `ProblemAsset` to its CDN
-URL with `Cache-Control: public, max-age=31536000, immutable` and a checksum
-ETag. The route does not accept an object key or list a bucket. Protected
-assets are authorized and audited first, then use a bounded signed URL and
-`no-store`, `Pragma: no-cache`, and `Referrer-Policy: no-referrer`.
+Public immutable asset delivery is the exception. `GET /api/assets/{id}` can
+resolve only a `Ready` catalog `ProblemAsset` in the physically separate
+`PublicAssets` domain, then redirects to its CDN URL with
+`Cache-Control: public, max-age=31536000, immutable` and a checksum ETag. A
+`Pending` record, restricted asset, and nonexistent delivery ID are all
+non-deliverable on that GET path. The route does not accept an object key or
+list a bucket.
+
+Protected assets use `POST /api/assets/{id}/delivery`, not GET. The request is
+same-origin/session authenticated, reauthorizes and audits the exact typed
+record, then returns a bounded signed URL with `no-store`, `Pragma: no-cache`,
+and `Referrer-Policy: no-referrer`. The URL must be used as a transient
+image/download source, never retained as a reusable browser cache entry.
 
 ## Immutable render keys
 
 An adapter render is reusable only when it is a pure, safe projection of an
 immutable published version and its stored seed. Its object key is
-`ProblemRender { problem, version, seed, object }`; the object identity is
+`ProblemRender { problem, version, seed, object }`; it lives in
+`PrivateContent`, and the object identity is
 deterministically derived with an adapter-specific SHA-256 domain separator.
 The typed key therefore includes the problem even where the compact object ID
 is derived from version and seed. Cache identity never includes a learner,

@@ -1,7 +1,7 @@
 use axum::http::StatusCode;
 use axum::response::Response;
 use learning_data_access::{CourseRecordsAccessStore, Store};
-use question_model::{CourseId, CourseRole, UserRole};
+use question_model::{CourseId, CourseMembershipRole, UserRole};
 
 use crate::auth::AuthenticatedSession;
 
@@ -21,14 +21,10 @@ where
         Ok(None) => return Err(error_response(StatusCode::NOT_FOUND, "course not found")),
         Err(error) => return Err(store_error_response(error)),
     };
-    let role = if is_tenant_administrator(authenticated) {
-        Some(CourseRole::Administrator)
-    } else {
-        record.role_for(authenticated.record.subject.user())
-    };
+    let role = record.role_for(authenticated.record.subject.user());
     match role {
-        Some(CourseRole::Instructor | CourseRole::Administrator) => Ok(()),
-        Some(CourseRole::Student) => {
+        Some(CourseMembershipRole::Instructor) => Ok(()),
+        Some(CourseMembershipRole::Student) => {
             match course_records_are_visible(store, authenticated, course).await {
                 Ok(true) => {}
                 Ok(false) => {
@@ -72,13 +68,5 @@ pub(super) fn may_create_course(authenticated: &AuthenticatedSession) -> bool {
         .subject
         .roles()
         .iter()
-        .any(|role| matches!(role, UserRole::Instructor | UserRole::Administrator))
-}
-
-pub(super) fn is_tenant_administrator(authenticated: &AuthenticatedSession) -> bool {
-    authenticated
-        .record
-        .subject
-        .roles()
-        .contains(&UserRole::Administrator)
+        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
 }

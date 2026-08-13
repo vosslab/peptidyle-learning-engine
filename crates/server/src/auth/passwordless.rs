@@ -1,46 +1,66 @@
 //! Passwordless email bootstrap and authenticated invitation redemption.
 
+#[path = "passwordless/support.rs"]
+mod support;
+
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use axum::extract::{Query, State};
-use axum::http::header::{COOKIE, SET_COOKIE};
+use axum::extract::{ConnectInfo, Query, State};
+use axum::http::header::SET_COOKIE;
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use cookie::{Cookie, SameSite};
 use hmac::{Hmac, KeyInit, Mac};
 use learning_data_access::{
-    AccountIdentityStore, AccountRecord, AccountSessionLifetime, AccountSessionStore,
-    AccountSessionTokenHash, AuthenticationEmail, AuthenticationRateLimitDecision,
-    AuthenticationRateLimitKey, AuthenticationRateLimitPolicy, AuthenticationRateLimitScope,
-    BeginEmailAuthentication, BrowserBindingHash, ClaimCourseInvitation,
-    CompleteEmailAuthentication, CompleteEmailAuthenticationAndCreateSession,
-    ConsumeAuthenticationRateLimit, CourseInvitationSecretHash, CourseRosterStore, Cursor,
-    EmailAuthenticationPurpose, EmailChallengeId, EmailChallengeLifetime, EmailChallengeSecretHash,
-    PageRequest, PageSize, SessionStore, StoreError,
+    AccountIdentityStore, AccountSessionLifetime, AccountSessionStore, AccountSessionTokenHash,
+    AuthenticationEmail, AuthenticationRateLimitDecision, AuthenticationRateLimitKey,
+    AuthenticationRateLimitPolicy, AuthenticationRateLimitScope, BeginEmailAuthentication,
+    BrowserBindingHash, ClaimCourseInvitation, CompleteEmailAuthentication,
+    CompleteEmailAuthenticationAndCreateSession, ConsumeAuthenticationRateLimit,
+    CourseInvitationSecretHash, CourseRosterStore, Cursor, EmailAuthenticationPurpose,
+    EmailChallengeId, EmailChallengeLifetime, EmailChallengeSecretHash, PageRequest, PageSize,
+    SessionStore, StoreError,
 };
-use question_model::{CourseId, CourseRole, UserId, UserRole};
+use question_model::{CourseId, CourseMembershipRole, UserId, UserRole};
 use serde::{Deserialize, Serialize};
 
-use super::{
-    AuthError, CookieTransport, SessionConfig, issue_session, no_store, response_with_cookie,
+use super::{ClientAddressPolicy, SessionConfig, issue_session, no_store, response_with_cookie};
+
+#[cfg(test)]
+use super::AuthError;
+
+pub(super) use support::{
+    RandomSecret, authenticated_account, authentication_rejected,
+    clear_account_authentication_cookies, clear_named_cookie, cookie_secret,
+    passwordless_unavailable, revoke_presented_account_session, secret_cookie,
+};
+use support::{
+    accepted_email_response, account_course_not_found, account_email_change_rate_limited,
+    course_role_name, invalid_account_course_request, invalid_account_email_request,
+    invitation_conflict, invitation_rejected,
 };
 
-const SECRET_BYTES: usize = 32;
+pub(super) const SECRET_BYTES: usize = 32;
 const EMAIL_CHALLENGE_SECONDS: u32 = 10 * 60;
 pub(super) const ACCOUNT_SESSION_SECONDS: u32 = 15 * 60;
-const RATE_LIMIT_WINDOW_SECONDS: u32 = 15 * 60;
+pub(super) const RATE_LIMIT_WINDOW_SECONDS: u32 = 15 * 60;
 const EMAIL_RATE_LIMIT_ATTEMPTS: u32 = 5;
-const NETWORK_RATE_LIMIT_ATTEMPTS: u32 = 120;
+// Network is deliberately a coarse /24 (IPv4) or /56 (IPv6) budget.  A
+// campus/NAT should sustain normal class traffic, while one prefix cannot use
+// this low-cost endpoint as an unlimited email relay.
+pub(super) const NETWORK_RATE_LIMIT_ATTEMPTS: u32 = 600;
+const PRINCIPAL_RATE_LIMIT_ATTEMPTS: u32 = 12;
+const SERVICE_RATE_LIMIT_ATTEMPTS: u32 = 4_000;
+const EMAIL_DELIVERY_SERVICE_KEY: &[u8] = b"email-delivery-v1";
 const MAX_PASSWORDLESS_BODY_BYTES: usize = 16 * 1_024;
 const DEFAULT_ACCOUNT_COURSE_PAGE_SIZE: u16 = 50;
-const EMAIL_BINDING_COOKIE: &str = "ple_email_binding";
+pub(super) const EMAIL_BINDING_COOKIE: &str = "ple_email_binding";
 pub(super) const ACCOUNT_SESSION_COOKIE: &str = "ple_account_session";
-const CLIENT_IP_HEADER: &str = "x-ple-client-ip";
 
 /// Derives non-reversible database rate-limit keys from protected request data.
 #[derive(Clone)]
@@ -55,7 +75,7 @@ impl PasswordlessRateLimitIssuer {
         Self(None)
     }
 
-    fn key(
+    pub(super) fn key(
         &self,
         scope: AuthenticationRateLimitScope,
         value: &[u8],
@@ -67,6 +87,8 @@ impl PasswordlessRateLimitIssuer {
         mac.update(match scope {
             AuthenticationRateLimitScope::Email => b"email\0",
             AuthenticationRateLimitScope::Network => b"network\0",
+            AuthenticationRateLimitScope::Principal => b"principal\0",
+            AuthenticationRateLimitScope::Service => b"service\0",
         });
         mac.update(&(value.len() as u64).to_be_bytes());
         mac.update(value);
@@ -150,6 +172,7 @@ struct PasswordlessRouteState<S> {
     store: Arc<S>,
     delivery: Arc<dyn PasswordlessEmailDelivery>,
     rate_limit_issuer: PasswordlessRateLimitIssuer,
+    client_address_policy: ClientAddressPolicy,
     session_config: SessionConfig,
 }
 
@@ -159,6 +182,7 @@ impl<S> Clone for PasswordlessRouteState<S> {
             store: Arc::clone(&self.store),
             delivery: Arc::clone(&self.delivery),
             rate_limit_issuer: self.rate_limit_issuer.clone(),
+            client_address_policy: self.client_address_policy.clone(),
             session_config: self.session_config,
         }
     }
@@ -168,6 +192,7 @@ pub fn passwordless_router<S>(
     store: Arc<S>,
     delivery: Arc<dyn PasswordlessEmailDelivery>,
     rate_limit_issuer: PasswordlessRateLimitIssuer,
+    client_address_policy: ClientAddressPolicy,
     session_config: SessionConfig,
 ) -> Router
 where
@@ -206,6 +231,7 @@ where
             store,
             delivery,
             rate_limit_issuer,
+            client_address_policy,
             session_config,
         })
 }
@@ -298,6 +324,7 @@ struct SelectedCourseSessionResponse {
 
 async fn start_email_authentication<S>(
     State(state): State<PasswordlessRouteState<S>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(request): Json<StartEmailRequest>,
 ) -> Response
@@ -307,27 +334,17 @@ where
     if !state.delivery.is_configured() {
         return passwordless_unavailable();
     }
-    let Some(network_key) = state.rate_limit_issuer.key(
-        AuthenticationRateLimitScope::Network,
-        &network_rate_limit_identity(&headers),
-    ) else {
-        return passwordless_unavailable();
-    };
-    match consume_rate_limit(
-        state.store.as_ref(),
-        AuthenticationRateLimitScope::Network,
-        network_key,
-        NETWORK_RATE_LIMIT_ATTEMPTS,
-    )
-    .await
-    {
-        Ok(true) => {}
-        Ok(false) => return accepted_email_response(None, state.session_config),
-        Err(()) => return passwordless_unavailable(),
-    }
     let email = match AuthenticationEmail::parse(&request.email) {
         Ok(email) => email,
         Err(_) => return accepted_email_response(None, state.session_config),
+    };
+    let Some(network_key) = state.rate_limit_issuer.key(
+        AuthenticationRateLimitScope::Network,
+        &state
+            .client_address_policy
+            .rate_limit_identity(peer, &headers),
+    ) else {
+        return passwordless_unavailable();
     };
     let Some(email_key) = state.rate_limit_issuer.key(
         AuthenticationRateLimitScope::Email,
@@ -335,16 +352,38 @@ where
     ) else {
         return passwordless_unavailable();
     };
-    match consume_rate_limit(
+    let Some(service_key) = state.rate_limit_issuer.key(
+        AuthenticationRateLimitScope::Service,
+        EMAIL_DELIVERY_SERVICE_KEY,
+    ) else {
+        return passwordless_unavailable();
+    };
+    match consume_rate_limits(
         state.store.as_ref(),
-        AuthenticationRateLimitScope::Email,
-        email_key,
-        EMAIL_RATE_LIMIT_ATTEMPTS,
+        [
+            (
+                AuthenticationRateLimitScope::Network,
+                network_key,
+                NETWORK_RATE_LIMIT_ATTEMPTS,
+            ),
+            (
+                AuthenticationRateLimitScope::Email,
+                email_key,
+                EMAIL_RATE_LIMIT_ATTEMPTS,
+            ),
+            (
+                AuthenticationRateLimitScope::Service,
+                service_key,
+                SERVICE_RATE_LIMIT_ATTEMPTS,
+            ),
+        ],
     )
     .await
     {
-        Ok(true) => {}
-        Ok(false) => return accepted_email_response(None, state.session_config),
+        Ok(RateLimitOutcome::Allowed) => {}
+        Ok(RateLimitOutcome::Denied { .. }) => {
+            return accepted_email_response(None, state.session_config);
+        }
         Err(()) => return passwordless_unavailable(),
     }
     let email_secret = match RandomSecret::generate() {
@@ -364,6 +403,7 @@ where
         },
         token_hash: email_secret.hash(),
         browser_binding: BrowserBindingHash::compute(&browser_binding.0),
+        email_rate_limit_key: email_key,
         email: email.clone(),
         purpose: EmailAuthenticationPurpose::SignInOrRegister,
         lifetime,
@@ -389,6 +429,7 @@ where
 
 async fn start_account_email_change<S>(
     State(state): State<PasswordlessRouteState<S>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(request): Json<StartEmailRequest>,
 ) -> Response
@@ -406,22 +447,65 @@ where
         Ok(email) => email,
         Err(_) => return invalid_account_email_request(),
     };
+    let Some(network_key) = state.rate_limit_issuer.key(
+        AuthenticationRateLimitScope::Network,
+        &state
+            .client_address_policy
+            .rate_limit_identity(peer, &headers),
+    ) else {
+        return passwordless_unavailable();
+    };
+    let Some(principal_key) = state.rate_limit_issuer.key(
+        AuthenticationRateLimitScope::Principal,
+        account.user.as_uuid().as_bytes(),
+    ) else {
+        return passwordless_unavailable();
+    };
     let Some(email_key) = state.rate_limit_issuer.key(
         AuthenticationRateLimitScope::Email,
         email.normalized().as_bytes(),
     ) else {
         return passwordless_unavailable();
     };
-    match consume_rate_limit(
+    let Some(service_key) = state.rate_limit_issuer.key(
+        AuthenticationRateLimitScope::Service,
+        EMAIL_DELIVERY_SERVICE_KEY,
+    ) else {
+        return passwordless_unavailable();
+    };
+    match consume_rate_limits(
         state.store.as_ref(),
-        AuthenticationRateLimitScope::Email,
-        email_key,
-        EMAIL_RATE_LIMIT_ATTEMPTS,
+        [
+            (
+                AuthenticationRateLimitScope::Network,
+                network_key,
+                NETWORK_RATE_LIMIT_ATTEMPTS,
+            ),
+            (
+                AuthenticationRateLimitScope::Principal,
+                principal_key,
+                PRINCIPAL_RATE_LIMIT_ATTEMPTS,
+            ),
+            (
+                AuthenticationRateLimitScope::Email,
+                email_key,
+                EMAIL_RATE_LIMIT_ATTEMPTS,
+            ),
+            (
+                AuthenticationRateLimitScope::Service,
+                service_key,
+                SERVICE_RATE_LIMIT_ATTEMPTS,
+            ),
+        ],
     )
     .await
     {
-        Ok(true) => {}
-        Ok(false) => return accepted_email_response(None, state.session_config),
+        Ok(RateLimitOutcome::Allowed) => {}
+        Ok(RateLimitOutcome::Denied {
+            retry_after_seconds,
+        }) => {
+            return account_email_change_rate_limited(retry_after_seconds);
+        }
         Err(()) => return passwordless_unavailable(),
     }
     let email_secret = match RandomSecret::generate() {
@@ -439,6 +523,7 @@ where
         },
         token_hash: email_secret.hash(),
         browser_binding: BrowserBindingHash::compute(&browser_binding.0),
+        email_rate_limit_key: email_key,
         email: email.clone(),
         purpose: EmailAuthenticationPurpose::ChangeEmail { user: account.user },
         lifetime: EmailChallengeLifetime::from_seconds(EMAIL_CHALLENGE_SECONDS)
@@ -506,7 +591,7 @@ where
     }
 }
 
-async fn consume_rate_limit<S>(
+pub(super) async fn consume_rate_limit<S>(
     store: &S,
     scope: AuthenticationRateLimitScope,
     key: AuthenticationRateLimitKey,
@@ -515,26 +600,61 @@ async fn consume_rate_limit<S>(
 where
     S: AccountIdentityStore,
 {
+    Ok(matches!(
+        consume_rate_limit_outcome(store, scope, key, maximum_attempts).await?,
+        RateLimitOutcome::Allowed
+    ))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RateLimitOutcome {
+    Allowed,
+    Denied { retry_after_seconds: u32 },
+}
+
+async fn consume_rate_limits<S, const N: usize>(
+    store: &S,
+    limits: [(
+        AuthenticationRateLimitScope,
+        AuthenticationRateLimitKey,
+        u32,
+    ); N],
+) -> Result<RateLimitOutcome, ()>
+where
+    S: AccountIdentityStore,
+{
+    for (scope, key, maximum_attempts) in limits {
+        let outcome = consume_rate_limit_outcome(store, scope, key, maximum_attempts).await?;
+        if !matches!(outcome, RateLimitOutcome::Allowed) {
+            return Ok(outcome);
+        }
+    }
+    Ok(RateLimitOutcome::Allowed)
+}
+
+async fn consume_rate_limit_outcome<S>(
+    store: &S,
+    scope: AuthenticationRateLimitScope,
+    key: AuthenticationRateLimitKey,
+    maximum_attempts: u32,
+) -> Result<RateLimitOutcome, ()>
+where
+    S: AccountIdentityStore,
+{
     let policy = AuthenticationRateLimitPolicy::new(maximum_attempts, RATE_LIMIT_WINDOW_SECONDS)
         .expect("fixed passwordless rate-limit policy is bounded");
     store
         .consume_authentication_rate_limit(ConsumeAuthenticationRateLimit { scope, key, policy })
         .await
-        .map(|decision| matches!(decision, AuthenticationRateLimitDecision::Allowed { .. }))
+        .map(|decision| match decision {
+            AuthenticationRateLimitDecision::Allowed { .. } => RateLimitOutcome::Allowed,
+            AuthenticationRateLimitDecision::Denied {
+                retry_after_seconds,
+            } => RateLimitOutcome::Denied {
+                retry_after_seconds,
+            },
+        })
         .map_err(|_| ())
-}
-
-fn network_rate_limit_identity(headers: &HeaderMap) -> Vec<u8> {
-    let mut values = headers.get_all(CLIENT_IP_HEADER).iter();
-    let address = values
-        .next()
-        .filter(|_| values.next().is_none())
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.parse::<std::net::IpAddr>().ok());
-    match address {
-        Some(address) => address.to_string().into_bytes(),
-        None => b"unknown-client-network".to_vec(),
-    }
 }
 
 async fn complete_email_authentication<S>(
@@ -645,11 +765,13 @@ where
         }
         Err(_) => return passwordless_unavailable(),
     };
+    let mut roles = vec![UserRole::Student];
+    roles.extend(account.platform_roles.iter().copied());
     let subject = match learning_data_access::SessionSubject::new(
         claimed.tenant,
         account.user,
         account.display_name,
-        vec![UserRole::Student],
+        roles,
     ) {
         Ok(subject) => subject,
         Err(_) => return passwordless_unavailable(),
@@ -739,15 +861,16 @@ where
         Err(_) => return passwordless_unavailable(),
     };
     let user_role = match context.role {
-        CourseRole::Student => UserRole::Student,
-        CourseRole::Instructor => UserRole::Instructor,
-        CourseRole::Administrator => UserRole::Administrator,
+        CourseMembershipRole::Student => UserRole::Student,
+        CourseMembershipRole::Instructor => UserRole::Instructor,
     };
+    let mut roles = vec![user_role];
+    roles.extend(account.platform_roles.iter().copied());
     let subject = match learning_data_access::SessionSubject::new(
         context.tenant,
         account.user,
         account.display_name,
-        vec![user_role],
+        roles,
     ) {
         Ok(subject) => subject,
         Err(_) => return passwordless_unavailable(),
@@ -764,203 +887,6 @@ where
             course_id: context.course,
             role: course_role_name(context.role),
         },
-    )
-}
-
-pub(super) async fn authenticated_account<S>(
-    store: &S,
-    headers: &HeaderMap,
-) -> Result<AccountRecord, Response>
-where
-    S: AccountIdentityStore + AccountSessionStore,
-{
-    let token =
-        cookie_secret(headers, ACCOUNT_SESSION_COOKIE).ok_or_else(authentication_rejected)?;
-    let session = store
-        .resolve_account_session(AccountSessionTokenHash::compute(&token.0))
-        .await
-        .map_err(|_| passwordless_unavailable())?
-        .ok_or_else(authentication_rejected)?;
-    store
-        .get_account(session.user)
-        .await
-        .map_err(|_| passwordless_unavailable())?
-        .ok_or_else(authentication_rejected)
-}
-
-fn course_role_name(role: CourseRole) -> &'static str {
-    match role {
-        CourseRole::Student => "student",
-        CourseRole::Instructor => "instructor",
-        CourseRole::Administrator => "administrator",
-    }
-}
-
-#[derive(Clone, PartialEq, Eq)]
-pub(super) struct RandomSecret(pub(super) [u8; SECRET_BYTES]);
-
-impl RandomSecret {
-    pub(super) fn generate() -> Result<Self, AuthError> {
-        let mut value = [0_u8; SECRET_BYTES];
-        getrandom::fill(&mut value).map_err(AuthError::Randomness)?;
-        Ok(Self(value))
-    }
-
-    fn decode(value: &str) -> Option<Self> {
-        if value.len() != 43 {
-            return None;
-        }
-        let decoded: [u8; SECRET_BYTES] = URL_SAFE_NO_PAD.decode(value).ok()?.try_into().ok()?;
-        (URL_SAFE_NO_PAD.encode(decoded) == value).then_some(Self(decoded))
-    }
-
-    fn encoded(&self) -> String {
-        URL_SAFE_NO_PAD.encode(self.0)
-    }
-}
-
-impl std::fmt::Debug for RandomSecret {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("RandomSecret([redacted])")
-    }
-}
-
-pub(super) fn cookie_secret(headers: &HeaderMap, name: &str) -> Option<RandomSecret> {
-    let values = headers
-        .get_all(COOKIE)
-        .iter()
-        .map(|value| value.to_str().ok())
-        .collect::<Option<Vec<_>>>()?;
-    let joined = values.join("; ");
-    let mut matches = Cookie::split_parse(&joined)
-        .filter_map(Result::ok)
-        .filter(|cookie| cookie.name() == name)
-        .filter_map(|cookie| RandomSecret::decode(cookie.value()));
-    let value = matches.next()?;
-    matches.next().is_none().then_some(value)
-}
-
-pub(super) fn secret_cookie(
-    name: &'static str,
-    secret: &RandomSecret,
-    seconds: u32,
-    config: SessionConfig,
-) -> String {
-    Cookie::build((name, secret.encoded()))
-        .path("/")
-        .http_only(true)
-        .secure(config.secure())
-        .same_site(match config.transport() {
-            CookieTransport::EmbeddedHttps => SameSite::None,
-            CookieTransport::FirstPartyHttps | CookieTransport::LocalHttp => SameSite::Lax,
-        })
-        .max_age(cookie::time::Duration::seconds(i64::from(seconds)))
-        .build()
-        .to_string()
-}
-
-pub(super) fn clear_named_cookie(name: &'static str, config: SessionConfig) -> String {
-    Cookie::build((name, ""))
-        .path("/")
-        .http_only(true)
-        .secure(config.secure())
-        .same_site(match config.transport() {
-            CookieTransport::EmbeddedHttps => SameSite::None,
-            CookieTransport::FirstPartyHttps | CookieTransport::LocalHttp => SameSite::Lax,
-        })
-        .max_age(cookie::time::Duration::ZERO)
-        .build()
-        .to_string()
-}
-
-fn accepted_email_response(binding: Option<RandomSecret>, config: SessionConfig) -> Response {
-    let mut response = (
-        StatusCode::ACCEPTED,
-        Json(AcceptedEmailResponse { accepted: true }),
-    )
-        .into_response();
-    if let Some(binding) = binding {
-        let cookie = secret_cookie(
-            EMAIL_BINDING_COOKIE,
-            &binding,
-            EMAIL_CHALLENGE_SECONDS,
-            config,
-        );
-        let Ok(cookie) = HeaderValue::from_str(&cookie) else {
-            return passwordless_unavailable();
-        };
-        response.headers_mut().insert(SET_COOKIE, cookie);
-    }
-    no_store(response)
-}
-
-pub(super) fn authentication_rejected() -> Response {
-    no_store(
-        (
-            StatusCode::UNAUTHORIZED,
-            Json(serde_json::json!({ "error": "authentication required" })),
-        )
-            .into_response(),
-    )
-}
-
-fn invitation_rejected() -> Response {
-    no_store(
-        (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": "course invitation not found" })),
-        )
-            .into_response(),
-    )
-}
-
-fn invitation_conflict() -> Response {
-    no_store(
-        (
-            StatusCode::CONFLICT,
-            Json(serde_json::json!({ "error": "course invitation cannot be claimed" })),
-        )
-            .into_response(),
-    )
-}
-
-fn invalid_account_course_request() -> Response {
-    no_store(
-        (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": "account course request is invalid" })),
-        )
-            .into_response(),
-    )
-}
-
-fn invalid_account_email_request() -> Response {
-    no_store(
-        (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": "account email request is invalid" })),
-        )
-            .into_response(),
-    )
-}
-
-fn account_course_not_found() -> Response {
-    no_store(
-        (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": "course not found" })),
-        )
-            .into_response(),
-    )
-}
-
-pub(super) fn passwordless_unavailable() -> Response {
-    no_store(
-        (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "error": "passwordless authentication unavailable" })),
-        )
-            .into_response(),
     )
 }
 

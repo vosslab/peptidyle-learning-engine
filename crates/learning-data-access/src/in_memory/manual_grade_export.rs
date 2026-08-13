@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 
-use super::course_roster::require_manager;
+use super::course_roster::require_course_instructor;
 use super::{MemoryStore, require_course_records_accessible};
 use crate::{
     CreateManualGradeExport, MAX_MANUAL_GRADE_EXPORT_ROWS, ManualGradeExport, ManualGradeExportId,
@@ -20,7 +20,7 @@ impl ManualGradeExportStore for MemoryStore {
         let tenant = context.tenant_id();
         let mut state = self.write_state()?;
         require_course_records_accessible(&state, tenant, command.course)?;
-        let actor = require_manager(&state, context, session, command.course)?;
+        let actor = require_course_instructor(&state, context, session, command.course)?;
         let assignment = state
             .assignments
             .get(&(tenant, command.assignment))

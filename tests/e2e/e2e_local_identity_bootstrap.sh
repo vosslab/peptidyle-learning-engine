@@ -93,7 +93,7 @@ bootstrap_local_identities >"$success_stdout" 2>"$success_stderr"
 [ "$(rg -o '"display_name":"Dr. Fake Professor"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
 [ "$(rg -o '"display_name":"Mary Fake Student"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
 [ "$(rg -o '"display_name":"Jack Fake Student"' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
-[ "$(rg -o '"roles":\["instructor","administrator"\]' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
+[ "$(rg -o '"roles":\["instructor","sysadmin"\]' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "1" ] || die
 [ "$(rg -o '"roles":\["student"\]' "$LOCAL_IDENTITY_FILE" | wc -l | tr -d '[:space:]')" = "2" ] || die
 if rg -F "$INSTRUCTOR_CREDENTIAL" "$LOCAL_IDENTITY_FILE" >/dev/null \
 	|| rg -F "$STUDENT_CREDENTIAL" "$LOCAL_IDENTITY_FILE" >/dev/null; then

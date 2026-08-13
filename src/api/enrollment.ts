@@ -41,7 +41,7 @@ export interface AccountEmailChanged {
 export interface AccountCourse {
   readonly courseId: CourseId;
   readonly title: string;
-  readonly role: "student" | "instructor" | "administrator";
+  readonly role: "student" | "instructor";
 }
 
 export interface AccountCoursePage {
@@ -296,7 +296,7 @@ export function decodeAccountEmailChanged(value: unknown, path = "response"): Ac
 }
 
 function decodeAccountRole(value: unknown, path: string): AccountCourse["role"] {
-  return decodeStringEnum(value, path, ["student", "instructor", "administrator"]);
+  return decodeStringEnum(value, path, ["student", "instructor"]);
 }
 
 function decodeAccountCourse(value: unknown, path: string): AccountCourse {

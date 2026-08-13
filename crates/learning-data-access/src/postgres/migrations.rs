@@ -262,6 +262,49 @@ pub async fn migration_status_from_directory(
 /// unknown version, dirty row, pending migration, or checksum mismatch returns
 /// [`SchemaCompatibilityError::Incompatible`].
 pub async fn verify_application_schema(pool: &PgPool) -> Result<(), SchemaCompatibilityError> {
+    verify_schema_as(pool, SchemaVerificationProfile::Application).await
+}
+
+/// Verifies the exact embedded schema through the publisher's metadata-only
+/// capability. The publisher cannot assume `ple_app` merely to run a startup
+/// check.
+pub async fn verify_public_asset_publisher_schema(
+    pool: &PgPool,
+) -> Result<(), SchemaCompatibilityError> {
+    verify_schema_as(pool, SchemaVerificationProfile::PublicAssetPublisher).await
+}
+
+#[derive(Clone, Copy)]
+enum SchemaVerificationProfile {
+    Application,
+    PublicAssetPublisher,
+}
+
+impl SchemaVerificationProfile {
+    const fn role_sql(self) -> &'static str {
+        match self {
+            Self::Application => "SET LOCAL ROLE ple_app",
+            Self::PublicAssetPublisher => "SET LOCAL ROLE ple_public_asset_publisher",
+        }
+    }
+
+    const fn migration_state_sql(self) -> &'static str {
+        match self {
+            Self::Application => {
+                "SELECT version, success, checksum FROM public.ple_migration_state ORDER BY version"
+            }
+            Self::PublicAssetPublisher => {
+                "SELECT version, success, checksum \
+                 FROM public.ple_public_asset_publisher_migration_state() ORDER BY version"
+            }
+        }
+    }
+}
+
+async fn verify_schema_as(
+    pool: &PgPool,
+    profile: SchemaVerificationProfile,
+) -> Result<(), SchemaCompatibilityError> {
     let mut transaction = pool
         .begin()
         .await
@@ -270,16 +313,16 @@ pub async fn verify_application_schema(pool: &PgPool) -> Result<(), SchemaCompat
         .execute(&mut *transaction)
         .await
         .map_err(|_| SchemaCompatibilityError::Unavailable)?;
-    sqlx::query("SET LOCAL ROLE ple_app")
+    sqlx::query(profile.role_sql())
         .execute(&mut *transaction)
         .await
         .map_err(|error| verify_step_error(&error, "the application principal is unavailable"))?;
-    let rows = sqlx::query(
-        "SELECT version, success, checksum FROM public.ple_migration_state ORDER BY version",
-    )
-    .fetch_all(&mut *transaction)
-    .await
-    .map_err(|error| verify_step_error(&error, "the migration-state projection is unavailable"))?;
+    let rows = sqlx::query(profile.migration_state_sql())
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(|error| {
+            verify_step_error(&error, "the migration-state projection is unavailable")
+        })?;
     let applied = rows
         .into_iter()
         .map(|row| {

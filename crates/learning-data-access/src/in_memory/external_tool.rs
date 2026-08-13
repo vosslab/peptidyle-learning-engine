@@ -13,14 +13,15 @@ use super::{
     submit_question_attempt_locked,
 };
 use crate::{
-    BeginExternalToolGradeCommand, CommitExternalToolSubmissionCommand,
+    BeginExternalToolGradeCommand, ClaimExternalToolFinalizationActivityCommand,
+    ClaimedExternalToolActivity, CommitExternalToolSubmissionCommand,
     CommitVerifiedExternalToolSubmissionCommand, CreateExternalToolLaunchSessionCommand,
-    CreatedExternalToolLaunchSession, ExternalToolBegin, ExternalToolBinding,
-    ExternalToolBrokerStore, ExternalToolLaunchProof, ExternalToolLaunchSessionStore,
-    ExternalToolLaunchToken, ExternalToolLease, ExternalToolLeaseToken,
-    ExternalToolVerifiedPending, ResolvedExternalToolLaunchSession,
-    StageExternalToolVerificationCommand, StoreError, SubmissionRecord,
-    SubmitQuestionAttemptCommand, TenantContext, fresh_external_tool_launch_id,
+    CreatedExternalToolLaunchSession, ExternalToolActivityClaim, ExternalToolActivityLeaseToken,
+    ExternalToolBegin, ExternalToolBinding, ExternalToolBrokerStore, ExternalToolLaunchProof,
+    ExternalToolLaunchSessionStore, ExternalToolLaunchToken, ExternalToolLease,
+    ExternalToolLeaseToken, ExternalToolVerifiedPending, StageExternalToolVerificationCommand,
+    StoreError, SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext,
+    fresh_external_tool_launch_id,
 };
 
 #[async_trait]
@@ -40,6 +41,12 @@ impl ExternalToolBrokerStore for MemoryStore {
             .ok_or(StoreError::NotFound)?;
         require_attempt_owner(&state, tenant, &attempt, command.actor)?;
         require_attempt_course_records_accessible(&state, tenant, &attempt)?;
+        if state
+            .indeterminate_external_tool_activities
+            .contains_key(&(tenant, command.attempt))
+        {
+            return Err(StoreError::Conflict);
+        }
         let published = state
             .published
             .get(&(attempt.problem, attempt.question_version))
@@ -55,6 +62,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             return Err(StoreError::Conflict);
         }
         let now = state.authoritative_time;
+        let live_activity = has_live_external_activity(&state, tenant, command.attempt, now);
         if let Some(exchange) = state
             .external_tool_exchanges
             .get_mut(&(tenant, command.attempt))
@@ -64,6 +72,9 @@ impl ExternalToolBrokerStore for MemoryStore {
                 return Ok(ExternalToolBegin::VerifiedPending(verified.clone()));
             }
             if exchange.lease_expires_at.is_some_and(|expiry| expiry > now) {
+                return Ok(ExternalToolBegin::InProgress);
+            }
+            if live_activity {
                 return Ok(ExternalToolBegin::InProgress);
             }
             let token = ExternalToolLeaseToken::generate()?;
@@ -76,6 +87,9 @@ impl ExternalToolBrokerStore for MemoryStore {
                 token,
                 expires_at,
             }));
+        }
+        if live_activity {
+            return Ok(ExternalToolBegin::InProgress);
         }
         let token = ExternalToolLeaseToken::generate()?;
         let expires_at = add_external_millis(now, command.lease_millis)?;
@@ -330,6 +344,12 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
             .ok_or(StoreError::NotFound)?;
         require_attempt_owner(&state, tenant, &attempt, command.actor)?;
         require_attempt_course_records_accessible(&state, tenant, &attempt)?;
+        if state
+            .indeterminate_external_tool_activities
+            .contains_key(&(tenant, command.attempt))
+        {
+            return Err(StoreError::Conflict);
+        }
         let published = state
             .published
             .get(&(attempt.problem, attempt.question_version))
@@ -349,6 +369,8 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
                 encrypted_provider_state: command.encrypted_provider_state,
                 expires_at,
                 revoked: false,
+                activity_lease_hash: None,
+                activity_lease_expires_at: None,
             },
         );
         Ok(CreatedExternalToolLaunchSession {
@@ -357,15 +379,17 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
             expires_at,
         })
     }
-    async fn resolve_external_tool_launch_session(
+    async fn claim_external_tool_activity(
         &self,
         context: TenantContext,
         actor: UserId,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolLaunchToken,
-    ) -> Result<Option<ResolvedExternalToolLaunchSession>, StoreError> {
-        let state = self.read_state()?;
+        lease_millis: u32,
+    ) -> Result<ExternalToolActivityClaim, StoreError> {
+        let lease_millis = validate_external_activity_lease_millis(lease_millis)?;
+        let mut state = self.write_state()?;
         let tenant = context.tenant_id();
         let record = state
             .attempts
@@ -374,21 +398,210 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
         require_attempt_owner(&state, tenant, record, actor)?;
         require_attempt_course_records_accessible(&state, tenant, record)?;
         let Some(session) = state.external_tool_launch_sessions.get(&(tenant, id)) else {
-            return Ok(None);
+            return Ok(ExternalToolActivityClaim::Unavailable);
         };
         if session.actor != actor || session.attempt != attempt {
-            return Ok(None);
+            return Ok(ExternalToolActivityClaim::Unavailable);
         }
         if session.revoked
             || session.expires_at <= state.authoritative_time
             || session.token_hash != token.hash()
         {
-            return Ok(None);
+            return Ok(ExternalToolActivityClaim::Unavailable);
         }
-        Ok(Some(ResolvedExternalToolLaunchSession {
-            binding: session.binding.clone(),
-            encrypted_provider_state: session.encrypted_provider_state.clone(),
-        }))
+        if state
+            .indeterminate_external_tool_activities
+            .contains_key(&(tenant, attempt))
+        {
+            return Ok(ExternalToolActivityClaim::Unavailable);
+        }
+        if finalization_blocks_ordinary_activity(&state, tenant, attempt, state.authoritative_time)
+        {
+            return Ok(ExternalToolActivityClaim::InProgress);
+        }
+        claim_external_activity_locked(&mut state, tenant, id, lease_millis)
+    }
+
+    async fn claim_external_tool_finalization_activity(
+        &self,
+        context: TenantContext,
+        command: ClaimExternalToolFinalizationActivityCommand,
+    ) -> Result<ExternalToolActivityClaim, StoreError> {
+        let ClaimExternalToolFinalizationActivityCommand {
+            actor,
+            attempt,
+            id,
+            token,
+            verification_lease,
+            lease_millis,
+        } = command;
+        let lease_millis = validate_external_activity_lease_millis(lease_millis)?;
+        let mut state = self.write_state()?;
+        let tenant = context.tenant_id();
+        let record = state
+            .attempts
+            .get(&(tenant, attempt))
+            .ok_or(StoreError::NotFound)?;
+        require_attempt_owner(&state, tenant, record, actor)?;
+        require_attempt_course_records_accessible(&state, tenant, record)?;
+        let Some(session) = state.external_tool_launch_sessions.get(&(tenant, id)) else {
+            return Ok(ExternalToolActivityClaim::Unavailable);
+        };
+        if session.actor != actor
+            || session.attempt != attempt
+            || session.revoked
+            || session.expires_at <= state.authoritative_time
+            || session.token_hash != token.hash()
+        {
+            return Ok(ExternalToolActivityClaim::Unavailable);
+        }
+        if state
+            .indeterminate_external_tool_activities
+            .contains_key(&(tenant, attempt))
+        {
+            return Ok(ExternalToolActivityClaim::Unavailable);
+        }
+        let Some(exchange) = state.external_tool_exchanges.get(&(tenant, attempt)) else {
+            return Ok(ExternalToolActivityClaim::Unavailable);
+        };
+        if exchange.verified.is_some()
+            || exchange.lease.as_ref() != Some(&verification_lease)
+            || !exchange
+                .lease_expires_at
+                .is_some_and(|expiry| expiry > state.authoritative_time)
+        {
+            return Ok(ExternalToolActivityClaim::Unavailable);
+        }
+        claim_external_activity_locked(&mut state, tenant, id, lease_millis)
+    }
+
+    async fn release_external_tool_activity(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+        id: Uuid,
+        token: &ExternalToolActivityLeaseToken,
+    ) -> Result<(), StoreError> {
+        let mut state = self.write_state()?;
+        let tenant = context.tenant_id();
+        let attempt_record = state
+            .attempts
+            .get(&(tenant, attempt))
+            .cloned()
+            .ok_or(StoreError::NotFound)?;
+        require_attempt_owner(&state, tenant, &attempt_record, actor)?;
+        require_attempt_course_records_accessible(&state, tenant, &attempt_record)?;
+        let session = state
+            .external_tool_launch_sessions
+            .get_mut(&(tenant, id))
+            .ok_or(StoreError::NotFound)?;
+        if session.actor != actor
+            || session.attempt != attempt
+            || session.activity_lease_hash.as_ref() != Some(&token.hash())
+        {
+            return Err(StoreError::Conflict);
+        }
+        session.activity_lease_hash = None;
+        session.activity_lease_expires_at = None;
+        Ok(())
+    }
+
+    async fn begin_external_tool_activity_dispatch(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+        id: Uuid,
+        token: &ExternalToolActivityLeaseToken,
+    ) -> Result<(), StoreError> {
+        let mut state = self.write_state()?;
+        let tenant = context.tenant_id();
+        let session = state
+            .external_tool_launch_sessions
+            .get(&(tenant, id))
+            .ok_or(StoreError::NotFound)?;
+        if session.actor != actor
+            || session.attempt != attempt
+            || session.activity_lease_hash.as_ref() != Some(&token.hash())
+            || session
+                .activity_lease_expires_at
+                .is_none_or(|expiry| expiry <= state.authoritative_time)
+            || state
+                .indeterminate_external_tool_activities
+                .contains_key(&(tenant, attempt))
+        {
+            return Err(StoreError::Conflict);
+        }
+        state
+            .indeterminate_external_tool_activities
+            .insert((tenant, attempt), token.hash());
+        Ok(())
+    }
+
+    async fn complete_external_tool_activity_dispatch(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+        token: &ExternalToolActivityLeaseToken,
+    ) -> Result<(), StoreError> {
+        let mut state = self.write_state()?;
+        let tenant = context.tenant_id();
+        let attempt_record = state
+            .attempts
+            .get(&(tenant, attempt))
+            .cloned()
+            .ok_or(StoreError::NotFound)?;
+        require_attempt_owner(&state, tenant, &attempt_record, actor)?;
+        if state
+            .indeterminate_external_tool_activities
+            .get(&(tenant, attempt))
+            != Some(&token.hash())
+        {
+            return Err(StoreError::Conflict);
+        }
+        state
+            .indeterminate_external_tool_activities
+            .remove(&(tenant, attempt));
+        Ok(())
+    }
+
+    async fn fence_indeterminate_external_tool_activity(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+        id: Uuid,
+        token: &ExternalToolActivityLeaseToken,
+    ) -> Result<(), StoreError> {
+        let mut state = self.write_state()?;
+        let tenant = context.tenant_id();
+        let attempt_record = state
+            .attempts
+            .get(&(tenant, attempt))
+            .cloned()
+            .ok_or(StoreError::NotFound)?;
+        require_attempt_owner(&state, tenant, &attempt_record, actor)?;
+        require_attempt_course_records_accessible(&state, tenant, &attempt_record)?;
+        let session = state
+            .external_tool_launch_sessions
+            .get_mut(&(tenant, id))
+            .ok_or(StoreError::NotFound)?;
+        if session.actor != actor
+            || session.attempt != attempt
+            || session.activity_lease_hash.as_ref() != Some(&token.hash())
+        {
+            return Err(StoreError::Conflict);
+        }
+        session.activity_lease_hash = None;
+        session.activity_lease_expires_at = None;
+        session.revoked = true;
+        state
+            .indeterminate_external_tool_activities
+            .entry((tenant, attempt))
+            .or_insert_with(|| token.hash());
+        Ok(())
     }
     async fn revoke_external_tool_launch_session(
         &self,
@@ -406,12 +619,25 @@ impl ExternalToolLaunchSessionStore for MemoryStore {
             .ok_or(StoreError::NotFound)?;
         require_attempt_owner(&state, tenant, &attempt_record, actor)?;
         require_attempt_course_records_accessible(&state, tenant, &attempt_record)?;
+        if state
+            .indeterminate_external_tool_activities
+            .contains_key(&(tenant, attempt))
+        {
+            return Err(StoreError::Conflict);
+        }
+        let now = state.authoritative_time;
         let session = state
             .external_tool_launch_sessions
             .get_mut(&(tenant, id))
             .ok_or(StoreError::NotFound)?;
         if session.actor != actor || session.attempt != attempt {
             return Err(StoreError::NotFound);
+        }
+        if session
+            .activity_lease_expires_at
+            .is_some_and(|expiry| expiry > now)
+        {
+            return Err(StoreError::Conflict);
         }
         session.revoked = true;
         Ok(())
@@ -449,6 +675,92 @@ fn add_external_launch_millis(
         .map(ActivityTimestamp::from_unix_millis)
         .ok_or_else(|| {
             StoreError::InvalidRecord("external-tool launch timestamp overflow".to_string())
+        })
+}
+
+fn validate_external_activity_lease_millis(millis: u32) -> Result<u32, StoreError> {
+    if millis == 0 || millis > 60_000 {
+        return Err(StoreError::InvalidRecord(
+            "external-tool activity lease must be 1 to 60000 milliseconds".to_string(),
+        ));
+    }
+    Ok(millis)
+}
+
+fn has_live_external_activity(
+    state: &State,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+    now: ActivityTimestamp,
+) -> bool {
+    state
+        .external_tool_launch_sessions
+        .iter()
+        .any(|((session_tenant, _), session)| {
+            *session_tenant == tenant
+                && session.attempt == attempt
+                && session
+                    .activity_lease_expires_at
+                    .is_some_and(|expiry| expiry > now)
+        })
+}
+
+fn finalization_blocks_ordinary_activity(
+    state: &State,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+    now: ActivityTimestamp,
+) -> bool {
+    if state.submissions.contains_key(&(tenant, attempt)) {
+        return false;
+    }
+    let Some(exchange) = state.external_tool_exchanges.get(&(tenant, attempt)) else {
+        return false;
+    };
+    exchange.verified.is_some() || exchange.lease_expires_at.is_some_and(|expiry| expiry > now)
+}
+
+fn claim_external_activity_locked(
+    state: &mut State,
+    tenant: TenantId,
+    id: Uuid,
+    lease_millis: u32,
+) -> Result<ExternalToolActivityClaim, StoreError> {
+    let now = state.authoritative_time;
+    let session = state
+        .external_tool_launch_sessions
+        .get_mut(&(tenant, id))
+        .expect("checked launch session remains present while memory state is locked");
+    if session
+        .activity_lease_expires_at
+        .is_some_and(|expiry| expiry > now)
+    {
+        return Ok(ExternalToolActivityClaim::InProgress);
+    }
+    let activity_token = ExternalToolActivityLeaseToken::generate()?;
+    let expires_at = add_external_activity_millis(now, lease_millis)?;
+    session.activity_lease_hash = Some(activity_token.hash());
+    session.activity_lease_expires_at = Some(expires_at);
+    Ok(ExternalToolActivityClaim::Lease(Box::new(
+        ClaimedExternalToolActivity {
+            binding: session.binding.clone(),
+            encrypted_provider_state: session.encrypted_provider_state.clone(),
+            token: activity_token,
+            expires_at,
+        },
+    )))
+}
+
+fn add_external_activity_millis(
+    now: ActivityTimestamp,
+    millis: u32,
+) -> Result<ActivityTimestamp, StoreError> {
+    let millis = validate_external_activity_lease_millis(millis)?;
+    now.as_unix_millis()
+        .checked_add(i64::from(millis))
+        .map(ActivityTimestamp::from_unix_millis)
+        .ok_or_else(|| {
+            StoreError::InvalidRecord("external-tool activity lease timestamp overflow".to_string())
         })
 }
 
@@ -540,6 +852,9 @@ fn validate_active_external_launch(
         || session.revoked
         || session.expires_at <= state.authoritative_time
         || session.token_hash != proof.token.hash()
+        || session
+            .activity_lease_expires_at
+            .is_some_and(|expiry| expiry > state.authoritative_time)
     {
         return Err(StoreError::Conflict);
     }
@@ -556,6 +871,12 @@ fn revoke_external_launch(
         .get_mut(&(tenant, session_id))
         .ok_or(StoreError::Conflict)?;
     if session.revoked {
+        return Err(StoreError::Conflict);
+    }
+    if session
+        .activity_lease_expires_at
+        .is_some_and(|expiry| expiry > state.authoritative_time)
+    {
         return Err(StoreError::Conflict);
     }
     session.revoked = true;

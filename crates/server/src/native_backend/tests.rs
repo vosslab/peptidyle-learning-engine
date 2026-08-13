@@ -105,7 +105,7 @@ fn asset_record(
     asset: AssetId,
     object: question_model::ObjectId,
 ) -> AssetDeliveryRecord {
-    let key = ObjectKey::ProblemAsset {
+    let key = ObjectKey::RestrictedProblemAsset {
         problem: reference.problem,
         version: reference.version,
         asset,
@@ -129,6 +129,8 @@ fn asset_record(
         intrinsic_width: None,
         intrinsic_height: None,
         scope: AssetDeliveryScope::Catalog { asset, reference },
+        publication: learning_data_access::AssetPublication::Ready,
+        pending_source: None,
     }
 }
 

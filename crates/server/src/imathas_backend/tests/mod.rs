@@ -31,6 +31,23 @@ use question_model::{
 use uuid::Uuid;
 
 #[test]
+fn provider_timeout_derives_a_non_overlapping_bounded_activity_lease() {
+    let provider_timeout = std::time::Duration::from_secs(15);
+    let provider_millis = u32::try_from(provider_timeout.as_millis()).expect("bounded timeout");
+    let timing = ExternalToolTiming::from_provider_timeout(provider_timeout)
+        .expect("15-second provider timeout is supported");
+    assert!(timing.activity_lease_millis() > provider_millis);
+    assert!(timing.verification_lease_millis() > timing.activity_lease_millis());
+
+    // Invalid or unrepresentable provider deadlines must not invent a lease.
+    assert!(ExternalToolTiming::from_provider_timeout(std::time::Duration::ZERO).is_err());
+    assert!(
+        ExternalToolTiming::from_provider_timeout(std::time::Duration::from_secs(u64::MAX))
+            .is_err()
+    );
+}
+
+#[test]
 fn launch_state_aead_binds_each_issued_identity() {
     let aead = LaunchStateAead::from_server_secret([9; 32]).expect("aead");
     let aad = b"tenant\0actor\0attempt\0problem\0version\0seed\0provider\0source\0profile\0";
@@ -258,6 +275,8 @@ async fn fixture() -> Fixture {
         Arc::clone(&objects),
         adapter,
         Arc::new(CorrelationIssuer::from_server_secret([3; 32])),
+        ExternalToolTiming::from_provider_timeout(std::time::Duration::from_secs(15))
+            .expect("bounded test timing"),
     );
     let issued = backend
         .issue(context, reference, &question, 17)
@@ -455,7 +474,7 @@ async fn generic_submission_refuses_even_when_a_broker_exchange_exists() {
                 binding: binding.clone(),
                 proposed_correlation: PersistedCorrelation::new(b"corrupted".to_vec())
                     .expect("bounded corruption"),
-                lease_millis: EXTERNAL_TOOL_LEASE_MILLIS,
+                lease_millis: tampered_fixture.backend.timing.verification_lease_millis(),
             },
         )
         .await
@@ -495,7 +514,7 @@ async fn generic_submission_refuses_even_when_a_broker_exchange_exists() {
                     .backend
                     .persisted_correlation(grade_binding)
                     .expect("correlation"),
-                lease_millis: EXTERNAL_TOOL_LEASE_MILLIS,
+                lease_millis: in_progress.backend.timing.verification_lease_millis(),
             },
         )
         .await
@@ -530,7 +549,7 @@ async fn generic_submission_cannot_commit_verified_pending_without_launch_proof(
                     .backend
                     .persisted_correlation(grade_binding)
                     .expect("correlation"),
-                lease_millis: EXTERNAL_TOOL_LEASE_MILLIS,
+                lease_millis: fixture.backend.timing.verification_lease_millis(),
             },
         )
         .await

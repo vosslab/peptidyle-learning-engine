@@ -73,7 +73,7 @@ use scoring::*;
 mod records;
 use records::*;
 
-const USAGE: &str = "usage: cargo tools e2e-seed --database-url <URL> --tenant <UUID> (--instructor <UUID>|--user <UUID>) --student <UUID> --apply-migrations [--exercise-scoring] [--exercise-timing] [(--webwork-pilot|--chapter-one-pilot) --s3-endpoint <URL> --s3-region <REGION> --content-bucket <BUCKET>]";
+const USAGE: &str = "usage: cargo tools e2e-seed --database-url <URL> --tenant <UUID> (--instructor <UUID>|--user <UUID>) --student <UUID> --apply-migrations [--exercise-scoring] [--exercise-timing] [(--webwork-pilot|--chapter-one-pilot) --s3-endpoint <URL> --s3-region <REGION> --private-content-bucket <BUCKET>]";
 const WEBWORK_PILOT_SOURCE_PATH: &str = "content/pilot/webwork/which_hydrophobic-simple.pgml";
 const WEBWORK_PILOT_SOURCE: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -116,7 +116,7 @@ struct SeedArguments {
 struct WebworkPilotStorage {
     endpoint_url: String,
     region: String,
-    content_bucket: String,
+    private_content_bucket: String,
 }
 
 /// Dispatches the host-only command without adding an API route or a service.
@@ -147,7 +147,7 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
     let mut chapter_one_pilot = false;
     let mut s3_endpoint = None;
     let mut s3_region = None;
-    let mut content_bucket = None;
+    let mut private_content_bucket = None;
     let mut index = 0;
     while index < args.len() {
         let flag = &args[index];
@@ -185,7 +185,9 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
             "--student" if student.is_none() => student = Some(parse_user(value, "student")?),
             "--s3-endpoint" if s3_endpoint.is_none() => s3_endpoint = Some(value.clone()),
             "--s3-region" if s3_region.is_none() => s3_region = Some(value.clone()),
-            "--content-bucket" if content_bucket.is_none() => content_bucket = Some(value.clone()),
+            "--private-content-bucket" if private_content_bucket.is_none() => {
+                private_content_bucket = Some(value.clone())
+            }
             _ => bail!("unknown, duplicate, or misplaced argument {flag}; {USAGE}"),
         }
     }
@@ -196,21 +198,23 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
         webwork_pilot || chapter_one_pilot,
         s3_endpoint,
         s3_region,
-        content_bucket,
+        private_content_bucket,
     ) {
         (false, None, None, None) => None,
         (false, _, _, _) => {
-            bail!("--s3-endpoint, --s3-region, and --content-bucket require a pilot flag; {USAGE}")
+            bail!(
+                "--s3-endpoint, --s3-region, and --private-content-bucket require a pilot flag; {USAGE}"
+            )
         }
-        (true, Some(endpoint_url), Some(region), Some(content_bucket)) => {
+        (true, Some(endpoint_url), Some(region), Some(private_content_bucket)) => {
             Some(WebworkPilotStorage {
                 endpoint_url: validate_s3_endpoint(&endpoint_url)?,
                 region,
-                content_bucket,
+                private_content_bucket,
             })
         }
         (true, _, _, _) => bail!(
-            "the selected pilot requires --s3-endpoint, --s3-region, and --content-bucket; {USAGE}"
+            "the selected pilot requires --s3-endpoint, --s3-region, and --private-content-bucket; {USAGE}"
         ),
     };
     let webwork_pilot = webwork_pilot.then(|| storage.clone().expect("pilot storage is complete"));

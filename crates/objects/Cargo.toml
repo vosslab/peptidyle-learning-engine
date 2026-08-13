@@ -12,6 +12,10 @@ async-trait.workspace = true
 serde.workspace = true
 sha2.workspace = true
 uuid.workspace = true
+# Every user-supplied instructional image crosses this crate's object boundary.
+# Keep the hostile-image decoder policy below the server and import adapters so
+# no publication path can accidentally choose a weaker parser.
+image.workspace = true
 
 # Enabled by the `s3` feature so the memory backend needs no AWS types. Select
 # the modern HTTP 1.x client explicitly: the SDK's default feature set also
@@ -29,10 +33,15 @@ aws-sdk-s3 = { version = "*", default-features = false, features = [
     "default-https-client",
     "rt-tokio",
 ], optional = true }
+aws-config = { version = "*", default-features = false, features = [
+    "behavior-version-latest",
+    "default-https-client",
+    "rt-tokio",
+], optional = true }
 
 [features]
 default = []
-s3 = ["dep:aws-sdk-s3", "dep:base64", "dep:serde_json"]
+s3 = ["dep:aws-config", "dep:aws-sdk-s3", "dep:base64", "dep:serde_json"]
 
 [dev-dependencies]
 tokio.workspace = true

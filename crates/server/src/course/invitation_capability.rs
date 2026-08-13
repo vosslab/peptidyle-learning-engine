@@ -16,7 +16,7 @@ pub struct CourseInvitationSecret([u8; INVITATION_TOKEN_BYTES]);
 
 impl CourseInvitationSecret {
     /// Canonical URL-safe value consumed by an invitation delivery or the
-    /// manager-only one-time response. It must never be logged or persisted.
+    /// instructor-only one-time response. It must never be logged or persisted.
     pub fn encoded(&self) -> String {
         URL_SAFE_NO_PAD.encode(self.0)
     }

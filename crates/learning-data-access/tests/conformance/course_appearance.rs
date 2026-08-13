@@ -105,7 +105,7 @@ async fn memory_course_appearance_cas_delivery_membership_and_cleanup_conform() 
     let instructor = UserId::from_uuid(id(70_003));
     let student = UserId::from_uuid(id(70_004));
     let outsider = UserId::from_uuid(id(70_005));
-    let administrator = UserId::from_uuid(id(70_006));
+    let sysadmin = UserId::from_uuid(id(70_006));
     let replacement_instructor = UserId::from_uuid(id(70_007));
     let context = TenantContext::from_authenticated_session(tenant);
     let instructor_session = create_session(
@@ -132,12 +132,12 @@ async fn memory_course_appearance_cas_delivery_membership_and_cleanup_conform() 
         b"appearance-outsider",
     )
     .await;
-    let administrator_session = create_session(
+    let sysadmin_session = create_session(
         &store,
         tenant,
-        administrator,
-        vec![UserRole::Administrator],
-        b"appearance-administrator",
+        sysadmin,
+        vec![UserRole::Sysadmin],
+        b"appearance-sysadmin",
     )
     .await;
     store
@@ -363,12 +363,12 @@ async fn memory_course_appearance_cas_delivery_membership_and_cleanup_conform() 
         Err(StoreError::NotFound),
         "persisted membership removal must revoke a previously valid session"
     );
-    assert!(
+    assert_eq!(
         store
-            .course_appearance(context, administrator_session, course)
-            .await
-            .expect("administrator read should run")
-            .is_some()
+            .course_appearance(context, sysadmin_session, course)
+            .await,
+        Ok(None),
+        "sysadmin status alone must not expose a course"
     );
 
     store

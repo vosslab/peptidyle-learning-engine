@@ -1,4 +1,4 @@
-//! Manager-only course roster HTTP boundary and local-teaching capability projection.
+//! Instructor-owned roster HTTP boundary with narrow audited Sysadmin support.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -20,10 +20,10 @@ use learning_data_access::{
 use question_model::{ActivityTimestamp, CourseId, TenantId, UserId, UserRole};
 use serde::{Deserialize, Serialize};
 
-use crate::auth::{auth_error_response, no_store, resolve_request_session};
+use crate::auth::{AuthenticatedSession, auth_error_response, no_store, resolve_request_session};
 
 use super::invitation_capability::{CourseInvitationDelivery, CourseInvitationIssuer};
-use super::policy::require_course_access;
+use super::policy::{course_records_are_visible, require_course_access};
 use super::projection::{error_response, store_error_response};
 
 #[path = "roster/export.rs"]
@@ -76,6 +76,7 @@ struct LocalTeachingLearner {
 }
 
 impl LocalTeachingRosterDirectory {
+    #[cfg_attr(not(feature = "local-development-auth"), allow(dead_code))]
     pub(crate) fn new(
         identities: impl IntoIterator<Item = (String, LocalTeachingRosterIdentity)>,
     ) -> Option<Self> {
@@ -168,6 +169,29 @@ where
         delivery,
         local_teaching_roster,
     })
+}
+
+pub(super) async fn require_roster_support_access<S>(
+    store: &S,
+    authenticated: &AuthenticatedSession,
+    course: CourseId,
+) -> Result<(), Response>
+where
+    S: Store + CourseRecordsAccessStore,
+{
+    if authenticated
+        .record
+        .subject
+        .roles()
+        .contains(&UserRole::Sysadmin)
+    {
+        return match course_records_are_visible(store, authenticated, course).await {
+            Ok(true) => Ok(()),
+            Ok(false) => Err(error_response(StatusCode::NOT_FOUND, "course not found")),
+            Err(response) => Err(response),
+        };
+    }
+    require_course_access(store, authenticated, course, true).await
 }
 
 #[derive(Debug, Deserialize)]
@@ -290,7 +314,7 @@ where
         Err(error) => return auth_error_response(error),
     };
     if let Err(response) =
-        require_course_access(state.store.as_ref(), &authenticated, course, true).await
+        require_roster_support_access(state.store.as_ref(), &authenticated, course).await
     {
         return response;
     }
@@ -385,7 +409,7 @@ where
         Err(error) => return auth_error_response(error),
     };
     if let Err(response) =
-        require_course_access(state.store.as_ref(), &authenticated, course, true).await
+        require_roster_support_access(state.store.as_ref(), &authenticated, course).await
     {
         return response;
     }
@@ -470,7 +494,7 @@ where
         Err(error) => return auth_error_response(error),
     };
     if let Err(response) =
-        require_course_access(state.store.as_ref(), &authenticated, course, true).await
+        require_roster_support_access(state.store.as_ref(), &authenticated, course).await
     {
         return response;
     }
@@ -544,7 +568,7 @@ where
         Err(error) => return auth_error_response(error),
     };
     if let Err(response) =
-        require_course_access(state.store.as_ref(), &authenticated, course, true).await
+        require_roster_support_access(state.store.as_ref(), &authenticated, course).await
     {
         return response;
     }
@@ -594,7 +618,7 @@ where
         Err(error) => return auth_error_response(error),
     };
     if let Err(response) =
-        require_course_access(state.store.as_ref(), &authenticated, course, true).await
+        require_roster_support_access(state.store.as_ref(), &authenticated, course).await
     {
         return response;
     }

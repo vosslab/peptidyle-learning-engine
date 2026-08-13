@@ -36,10 +36,35 @@ const repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
 
 const skipWasm = process.argv.includes("--skip-wasm");
 
-const distDir = path.join(repoRoot, "dist");
+const localDevelopmentAuth = process.env.PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH ?? "0";
+if (!["0", "1"].includes(localDevelopmentAuth)) {
+  throw new Error("PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH must be unset, 0, or exactly 1");
+}
+
+// Tests may direct an isolated build and machine-readable dependency graph
+// elsewhere. Ordinary builds use dist/ and do not emit the diagnostic graph.
+const configuredOutputDirectory = process.env.PLE_BROWSER_OUTPUT_DIRECTORY;
+const distDir =
+  configuredOutputDirectory === undefined
+    ? path.join(repoRoot, "dist")
+    : path.resolve(repoRoot, configuredOutputDirectory);
+const configuredMetafilePath = process.env.PLE_BROWSER_METAFILE_PATH;
+const metafilePath =
+  configuredMetafilePath === undefined ? undefined : path.resolve(repoRoot, configuredMetafilePath);
+if (
+  metafilePath !== undefined &&
+  path.relative(distDir, metafilePath).split(path.sep).includes("..")
+) {
+  throw new Error("PLE_BROWSER_METAFILE_PATH must remain inside the browser output directory");
+}
 const srcDir = path.join(repoRoot, "src");
 const wasmWebDir = path.join(repoRoot, "dist_wasm", "web");
 const fixtureProjectionPath = path.join(repoRoot, "generated", "fixtures", "published_problem.ts");
+const localDevelopmentBoundary = path.join(
+  srcDir,
+  "auth",
+  localDevelopmentAuth === "1" ? "local_development.tsx" : "local_development_disabled.tsx",
+);
 
 //============================================
 
@@ -181,7 +206,7 @@ async function main() {
   fs.mkdirSync(distDir, { recursive: true });
 
   console.log("==> bundle");
-  await esbuild.build({
+  const buildResult = await esbuild.build({
     entryPoints: [path.join(repoRoot, entry)],
     outfile: path.join(distDir, "main.js"),
     bundle: true,
@@ -190,9 +215,24 @@ async function main() {
     platform: "browser",
     minify: true,
     sourcemap: true,
+    metafile: metafilePath !== undefined,
     logLevel: "info",
-    plugins: [solidPlugin()],
+    define: {},
+    plugins: [
+      {
+        name: "local-development-browser-boundary",
+        setup(build) {
+          build.onResolve({ filter: /^\.\/auth\/local_development$/ }, () => ({
+            path: localDevelopmentBoundary,
+          }));
+        },
+      },
+      solidPlugin(),
+    ],
   });
+  if (metafilePath !== undefined && buildResult.metafile !== undefined) {
+    fs.writeFileSync(metafilePath, `${JSON.stringify(buildResult.metafile, null, 2)}\n`);
+  }
 
   const bundleBytes = fs.readFileSync(path.join(distDir, "main.js"));
   const bundleHash = crypto.createHash("sha256").update(bundleBytes).digest("hex").slice(0, 8);

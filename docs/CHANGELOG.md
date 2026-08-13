@@ -1,9 +1,82 @@
 # Changelog
 
+## 2026-08-13
+
+### Fixes and Maintenance
+
+- Reclassified plan validation under the permanent-test checklist. Removed ten fast-suite pytests
+  that inspected current shell, Compose, Containerfile, Caddy, SQL, or dated walkthrough artifacts,
+  plus their unreferenced baseline fixture; the stable behavior remains covered by its Rust, Node,
+  Playwright, or opt-in E2E owner. Loopback adapter and installed-document-reader Rust checks are now
+  explicit ignored acceptance tests, while ordinary worker timing uses paused Tokio time and browser
+  tests no longer sleep for eventual state. The fast suite now runs 4,433 tests in 2.31 seconds with
+  no test call above 0.01 seconds; all 203 enabled Playwright cases pass below two seconds. The active
+  plans and test guides now distinguish permanent tests, one-time scratch evidence, opt-in live
+  acceptance, and justified serialized fixtures. The PortSwigger review reference is self-contained
+  and no longer names untracked local books.
+- Repaired four browser regressions without weakening the application boundary. Course-banner
+  tests now exercise protected `POST /api/assets/{id}/delivery` authorization before loading the
+  returned image URL, and course-creation and gradebook recovery assertions select their own
+  visible status instead of colliding with the global screen-reader announcer. Each repaired
+  scenario has a two-second Playwright ceiling. Removed a cumulative 50 ms retry from every native
+  Tab step in the shared keyboard helper, reducing the three over-budget pagination/matching cases
+  below 800 ms even in the fully parallel suite. All 203 enabled browser tests now complete below
+  two seconds on the development machine.
+
 ## 2026-08-12
 
 ### Fixes and Maintenance
 
+- Closed the human role model to Student, Instructor, and Sysadmin and added
+  `docs/USER_ROLES.md` as its canonical reference. Publishing is an Instructor
+  or Sysadmin action backed by a dedicated service identity, never a Publisher
+  user. Sysadmin status is operator-approved but supplies no ambient access to
+  FERPA course records; general access still requires current direct Instructor
+  membership, while roster help and retention use separately closed, audited,
+  payload-minimizing Sysadmin permissions. Removed the duplicate effective
+  `CourseRole` model so one `CourseMembershipRole` relationship scopes Student
+  or Instructor to an exact course without defining more human user roles. The
+  data-classification, enrollment, security, database, API, frontend, retention,
+  and active-plan contracts now treat all course-linked student educational
+  records-not merely roster identifiers-as FERPA data under the radioactive
+  handling rule. Added an explicit database table map for especially radioactive
+  payload-bearing relations and radioactive linkage relations; partitions, query
+  results, dumps, WAL, replicas, snapshots, and restores inherit the highest
+  classification of the data they contain.
+- Added the repository-owned `./check_rust.sh` front door so the complete offline Cargo gate is
+  memorable and cannot be removed when the vendored TypeScript `check_codebase.sh` is refreshed.
+  It checks Rust-owned TypeScript/fixture generation, formatting, default and all-feature
+  compilation, strict Clippy, workspace tests and doctests, and the browser WebAssembly target;
+  contributor docs now assign each root gate to its actual owner.
+- Applied the permanent-test checklist to the security rebuild. Removed temporary Python and Rust
+  scans that froze retired storage strings, exact container UIDs/tmpfs sizes, drain constants,
+  migration SQL spelling, and OpenTofu source layout. Passwordless behavior tests now prove bounded
+  delivery and denial without freezing tunable quota values. The two-build local credential artifact
+  proof moved from the fast Node lane into the explicit non-browser E2E tier and now inspects the
+  build dependency graph instead of UI copy or emitted source strings. Timing-driven TCP shutdown
+  probes remain one-time implementation evidence instead of scheduler-sensitive unit tests. The Wasm export
+  allowlist also moved there because it performs Cargo and bindgen subprocess builds; it now uses a
+  temporary output directory instead of maintained generated-tree exclusions. The native OpenTofu
+  plan test now inspects planned resource behavior instead of searching HCL source text. One-time
+  rebuild probes remain audit evidence rather than permanent suite obligations.
+- Applied the six-pass pre-merge audit. Corrected remaining Manager/Administrator role wording to
+  the closed Student, Instructor, and Sysadmin model; repaired the documented root and E2E test
+  commands; removed milestone tags from durable code comments; and stopped tests from freezing
+  signed-URL expiry values. Restored the consumer-owned ESLint exclusion for disposable historical
+  `generated/wasm-export-check/` glue so the vendored `check_codebase.sh` remains repeatable without
+  excluding maintained `generated/api/` contracts.
+- Completed the end-to-end security architecture audit and replaced the dated active audit with a
+  current threat model, trust-boundary map, finding ledger, evidence tiers, and explicit live
+  activation gates. Clean pre-production corrections now enforce the full passwordless
+  session/logout lifecycle, exact Host/Origin and safe-method policy, actor-scoped learner and
+  Student/Instructor authority, PostgreSQL login/capability attestation, four isolated storage/KMS domains,
+  post-commit immutable public publication through a dedicated publisher, protected POST asset
+  delivery, strict image/container validation, and durable external-provider uncertainty fencing.
+  The browser/Wasm surface remains answer-free, containers and the declarative AWS topology are
+  least-authority by design, and independent re-reviews found no remaining repository-owned P0--P2
+  architecture defect. Production activation remains blocked on named disposable AWS/RDS,
+  IAM/KMS/S3, edge/parser/cache, backup/restore, provider, email/WebAuthn, and renderer provenance
+  evidence; static tests do not claim those live properties.
 - Accepted the bounded human-guidance workflow after rerunning its real boundaries rather than
   relying on stale plan checkboxes. The clean-stack no-email teaching loop now covers visible
   four-ID instructor copy/paste, the 15-minute run, keyboard completion, fresh practice, and the
@@ -310,7 +383,7 @@
 - Implemented the WP-RC8 passwordless identity and enrollment slice with acceptance still open.
   PLE-owned opaque accounts now support uniform browser-bound email authentication, discoverable
   WebAuthn, multiple passkeys, verified email replacement, and authorized course-context selection.
-  Course managers can page rosters, enforce exact email domains, send or revoke invitations,
+  Course Instructors can page rosters, enforce exact email domains, send or revoke invitations,
   preview and atomically commit bounded `email,roster_id` CSV files, revoke access, and download a
   synchronous no-store manual grade CSV. Invitation claim and later assignment creation preserve the
   membership-by-assignment enrollment/summary invariant in both stores. Migration 0909 passed the
@@ -347,9 +420,10 @@
 
 - Explored and then rejected a separate course-scoped account-recovery design. Because verified
   email is PLE's canonical registration and sign-in path, passkeys are optional conveniences rather
-  than a stronger credential required for ordinary access. A course manager may revoke and re-invite
+  than a stronger credential required for ordinary access. A course Instructor may revoke and
+  re-invite
   but cannot prove that two accounts belong to the same person strongly enough to transfer
-  educational records. Version 1 therefore has no manager account merge or record-transfer path;
+  educational records. Version 1 therefore has no Instructor account merge or record-transfer path;
   object reconciliation, LTI, and secure upload retain the next migration slots 0910 through 0912.
 
 - Removed the unaccepted REC1/REC2 account-transfer foundation before it became a durable schema or

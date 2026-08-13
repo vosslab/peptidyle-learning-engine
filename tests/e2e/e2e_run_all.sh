@@ -33,13 +33,19 @@ run_check() {
 	fi
 }
 
-# WP-F2: a Rust export is callable from Node through the wasm-bindgen glue.
+# A Rust export is callable from Node through the wasm-bindgen glue.
 run_check wasm_bridge node tests/e2e/e2e_wasm_bridge.mjs
+
+# The processed Wasm artifact exposes only the explicitly reviewed bridge API.
+run_check wasm_export_allowlist node tests/e2e/e2e_wasm_export_allowlist.mjs
+
+# Production and local browser builds expose different authentication capabilities.
+run_check browser_local_auth_build node tests/e2e/e2e_browser_local_development_build.mjs
 
 # SQLx baseline, role grants, forced RLS, and disposable migration checksum proof.
 run_check database_baseline bash tests/e2e/e2e_database_baseline.sh
 
-# M2: durable learner session and idempotent submission across two API replicas.
+# A learner session and idempotent submission survive across two API replicas.
 # A missing Podman machine is deliberately a failing BLOCKED prerequisite, not a skip.
 run_check replica_restart node tests/e2e/e2e_replica_restart.mjs
 

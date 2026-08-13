@@ -32,9 +32,7 @@ function currentWorkspace(
 function mayAuthorWorkspace(): boolean {
   const session = useSessionBootstrap().state();
   if (session.kind !== "authenticated") return false;
-  return session.session.user.roles.some((role) =>
-    ["instructor", "publisher", "administrator"].includes(role),
-  );
+  return session.session.user.roles.some((role) => ["instructor", "sysadmin"].includes(role));
 }
 
 function WorkspaceAuthoringDenied(): JSX.Element {
@@ -42,7 +40,7 @@ function WorkspaceAuthoringDenied(): JSX.Element {
     <section class="page" data-route-surface="workspaceAuthoringDenied" aria-live="polite">
       <p class="eyebrow">Instructor workspace</p>
       <h1>Workspace authoring is not available for this account</h1>
-      <p>Your learning space remains available. Ask a course administrator for authoring access.</p>
+      <p>Your learning space remains available. Ask an instructor for authoring access.</p>
     </section>
   );
 }

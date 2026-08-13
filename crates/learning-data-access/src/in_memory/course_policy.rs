@@ -54,7 +54,7 @@ impl crate::AssignmentPolicyStore for MemoryStore {
             .courses
             .get(&(tenant, command.course))
             .ok_or(StoreError::NotFound)?;
-        if course.role_for(command.actor) != Some(CourseRole::Instructor) {
+        if course.role_for(command.actor) != Some(CourseMembershipRole::Instructor) {
             return Err(StoreError::NotFound);
         }
         let current_revision = state
@@ -119,7 +119,7 @@ impl crate::AssignmentPolicyStore for MemoryStore {
             .courses
             .get(&(tenant, command.course))
             .ok_or(StoreError::NotFound)?;
-        if course.role_for(command.actor) != Some(CourseRole::Instructor) {
+        if course.role_for(command.actor) != Some(CourseMembershipRole::Instructor) {
             return Err(StoreError::NotFound);
         }
         match command.exception.target {
@@ -213,7 +213,7 @@ impl crate::AssignmentPolicyStore for MemoryStore {
             .courses
             .get(&(tenant, command.course))
             .ok_or(StoreError::NotFound)?;
-        if course.role_for(command.actor) != Some(CourseRole::Instructor) {
+        if course.role_for(command.actor) != Some(CourseMembershipRole::Instructor) {
             return Err(StoreError::NotFound);
         }
         let current_revision = state

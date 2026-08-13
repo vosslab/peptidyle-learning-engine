@@ -425,11 +425,7 @@ export function decodeCourseSummary(
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
-    role: decodeStringEnum(field(record, "role", path), `${path}.role`, [
-      "student",
-      "instructor",
-      "administrator",
-    ]),
+    role: decodeStringEnum(field(record, "role", path), `${path}.role`, ["student", "instructor"]),
   } satisfies CourseSummary;
   return decoded;
 }

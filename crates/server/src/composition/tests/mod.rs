@@ -15,8 +15,9 @@ use super::router::{
     e2e_replica_attribution_from_values, postgres_schema_probe,
 };
 use super::settings::{
-    ProductionSettings, StorageSettings, WebworkRendererSettings, parse_positive_u64,
-    parse_positive_usize, parse_secret32, required_env,
+    ObjectStorageConnection, ProductionSettings, StorageRuntime, StorageSettings,
+    WebworkRendererSettings, parse_positive_u64, parse_positive_usize, parse_secret32,
+    required_env,
 };
 use super::*;
 use crate::auth::{CookieTransport, IdentityProviderError};
@@ -125,7 +126,10 @@ fn composed_memory_router_with_legacy_login(legacy_login: bool) -> Router {
             access_key_id: "test-access".to_string(),
             secret_access_key: "test-secret".to_string(),
         }),
-        content_bucket: "content".to_string(),
+        public_assets_bucket: "public-assets".to_string(),
+        private_content_bucket: "private-content".to_string(),
+        student_records_bucket: "student-records".to_string(),
+        temp_processing_bucket: "temp-processing".to_string(),
     });
     if legacy_login {
         compose_router(
@@ -141,6 +145,7 @@ fn composed_memory_router_with_legacy_login(legacy_login: bool) -> Router {
             Arc::new(crate::course::UnavailableCourseInvitationDelivery),
             Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery),
             crate::auth::PasswordlessRateLimitIssuer::unavailable(),
+            crate::auth::ClientAddressPolicy::direct(),
             Some(
                 crate::auth::PasswordlessWebauthn::new(
                     "localhost",
@@ -164,6 +169,7 @@ fn composed_memory_router_with_legacy_login(legacy_login: bool) -> Router {
             Arc::new(crate::course::UnavailableCourseInvitationDelivery),
             Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery),
             crate::auth::PasswordlessRateLimitIssuer::unavailable(),
+            crate::auth::ClientAddressPolicy::direct(),
             Some(
                 crate::auth::PasswordlessWebauthn::new(
                     "localhost",
@@ -188,17 +194,19 @@ fn production_session_config_uses_first_party_https() {
 #[tokio::test]
 async fn production_composition_has_passwordless_routes_without_local_login() {
     let app = composed_memory_router_with_legacy_login(false);
-    for uri in [
-        "/api/auth/passwordless/email/start",
-        "/api/course-invitations/redeem",
-        "/api/auth/account/course-session",
-        "/api/auth/passkeys/authentication/start",
+    for (method, uri) in [
+        ("POST", "/api/auth/passwordless/email/start"),
+        ("POST", "/api/course-invitations/redeem"),
+        ("POST", "/api/auth/account/course-session"),
+        ("POST", "/api/auth/passkeys/authentication/start"),
+        ("GET", "/api/auth/session"),
+        ("POST", "/api/auth/logout"),
     ] {
         let response = app
             .clone()
             .oneshot(
                 Request::builder()
-                    .method("POST")
+                    .method(method)
                     .uri(uri)
                     .body(Body::from("{}"))
                     .expect("production-style route request"),
@@ -351,19 +359,59 @@ fn production_settings_require_all_persistent_configuration() {
     assert!(missing.to_string().contains("PLE_COMPOSITION_TEST_MISSING"));
 }
 
+#[test]
+fn object_security_domains_require_distinct_trimmed_bucket_names() {
+    use super::settings::validate_object_bucket_names;
+
+    assert!(
+        validate_object_bucket_names(
+            "public-assets",
+            "private-content",
+            "student-records",
+            "temp-processing",
+        )
+        .is_ok()
+    );
+    assert!(
+        validate_object_bucket_names(
+            "public-assets",
+            "public-assets",
+            "student-records",
+            "temp-processing",
+        )
+        .is_err()
+    );
+    assert!(
+        validate_object_bucket_names(
+            "public-assets ",
+            "private-content",
+            "student-records",
+            "temp-processing",
+        )
+        .is_err()
+    );
+}
+
 fn production_settings() -> ProductionSettings {
     ProductionSettings {
         storage: StorageSettings {
+            runtime: StorageRuntime::LocalDevelopment,
             database_url: "postgres://user:password@127.0.0.1:1/ple".to_string(),
-            s3_endpoint: "http://127.0.0.1:1".to_string(),
-            s3_region: "us-east-1".to_string(),
-            access_key_id: "test-access".to_string(),
-            secret_access_key: "test-secret".to_string(),
-            content_bucket: "content".to_string(),
+            object_connection: ObjectStorageConnection::LocalMinio(
+                objects::minio::EndpointConfig {
+                    endpoint_url: "http://127.0.0.1:1".to_string(),
+                    region: "us-east-1".to_string(),
+                    access_key_id: "test-access".to_string(),
+                    secret_access_key: "test-secret".to_string(),
+                },
+            ),
+            public_assets_bucket: "public-assets".to_string(),
+            private_content_bucket: "private-content".to_string(),
             student_records_bucket: "student-records".to_string(),
             temp_processing_bucket: "temp-processing".to_string(),
         },
-        public_asset_base_url: "https://cdn.example.test/content".to_string(),
+        public_asset_base_url: PublicAssetBaseUrl::new("https://cdn.example.test/content")
+            .expect("valid public asset base"),
         webwork: Some(WebworkRendererSettings {
             webwork_renderer_base_url: "http://webwork-renderer:3000/".to_string(),
             webwork_request_timeout_seconds: 15,
@@ -382,6 +430,11 @@ fn production_settings() -> ProductionSettings {
             "PLE local test",
         )
         .expect("valid test WebAuthn configuration"),
+        browser_boundary: crate::auth::ProductionBrowserBoundary::new(Arc::from(
+            "https://learn.example.test",
+        ))
+        .expect("test browser boundary"),
+        client_address_policy: crate::auth::ClientAddressPolicy::direct(),
     }
 }
 
@@ -567,14 +620,8 @@ fn valid_imathas_environment() -> Vec<(&'static str, Option<&'static str>)> {
         ("PLE_IMATHAS_LAUNCH_TTL_MILLIS", Some("30000")),
         ("PLE_IMATHAS_LAUNCH_STATE_SECRET", Some(secret)),
         ("PLE_IMATHAS_CORRELATION_SECRET", Some(secret)),
-        (
-            "PLE_IMATHAS_LAUNCH_SIGNING_SECRET",
-            Some("test-launch-signing-secret"),
-        ),
-        (
-            "PLE_IMATHAS_RESULT_VERIFICATION_SECRET",
-            Some("test-result-verification-secret"),
-        ),
+        ("PLE_IMATHAS_LAUNCH_SIGNING_SECRET", Some(secret)),
+        ("PLE_IMATHAS_RESULT_VERIFICATION_SECRET", Some(secret)),
     ]
 }
 
@@ -585,16 +632,16 @@ async fn imathas_production_configuration_fails_closed_without_provider_ping() {
     let store = Arc::new(PostgresStore::new(
         lazy_pool(&configured.storage.database_url).expect("lazy postgres pool"),
     ));
-    let object_client = objects::minio::client(&objects::minio::EndpointConfig {
-        endpoint_url: configured.storage.s3_endpoint.clone(),
-        region: configured.storage.s3_region.clone(),
-        access_key_id: configured.storage.access_key_id.clone(),
-        secret_access_key: configured.storage.secret_access_key.clone(),
-    });
+    let ObjectStorageConnection::LocalMinio(endpoint) = &configured.storage.object_connection
+    else {
+        panic!("test storage must use local MinIO");
+    };
+    let object_client = objects::minio::client(endpoint);
     let objects = Arc::new(objects::s3::S3ObjectStore::new(
         object_client,
         objects::s3::BucketNames {
-            content: configured.storage.content_bucket.clone(),
+            public_assets: configured.storage.public_assets_bucket.clone(),
+            private_content: configured.storage.private_content_bucket.clone(),
             student_records: configured.storage.student_records_bucket.clone(),
             temp_processing: configured.storage.temp_processing_bucket.clone(),
         },
@@ -621,6 +668,7 @@ async fn imathas_production_configuration_fails_closed_without_provider_ping() {
         ),
         ("PLE_IMATHAS_REQUEST_TIMEOUT_SECONDS", Some("0")),
         ("PLE_IMATHAS_REQUEST_TIMEOUT_SECONDS", Some("not-a-number")),
+        ("PLE_IMATHAS_REQUEST_TIMEOUT_SECONDS", Some("56")),
         ("PLE_IMATHAS_MAX_TRANSPORT_BYTES", Some("0")),
         ("PLE_IMATHAS_MAX_SNAPSHOT_BYTES", Some("0")),
         ("PLE_IMATHAS_MAX_SNAPSHOT_BYTES", Some("1048577")),
@@ -630,6 +678,11 @@ async fn imathas_production_configuration_fails_closed_without_provider_ping() {
         ("PLE_IMATHAS_LAUNCH_TTL_MILLIS", Some("300001")),
         ("PLE_IMATHAS_LAUNCH_STATE_SECRET", Some("not-32-bytes")),
         ("PLE_IMATHAS_CORRELATION_SECRET", Some("AQE")),
+        ("PLE_IMATHAS_LAUNCH_SIGNING_SECRET", Some("too-short")),
+        (
+            "PLE_IMATHAS_RESULT_VERIFICATION_SECRET",
+            Some("AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="),
+        ),
         ("PLE_IMATHAS_LAUNCH_SIGNING_SECRET", None),
         ("PLE_IMATHAS_RESULT_VERIFICATION_SECRET", None),
         (
@@ -695,9 +748,6 @@ async fn composition_mounts_every_route_group() {
             "POST",
             "/api/problems/00000000-0000-0000-0000-000000000001/flat-question-publish",
         ),
-        // A POST to a GET-only asset route reaches axum's method router
-        // (405) without opening the deliberately unreachable test DB.
-        ("POST", "/api/assets/not-a-uuid"),
         ("POST", "/api/validation/timer"),
     ] {
         let request = Request::builder()
@@ -712,6 +762,26 @@ async fn composition_mounts_every_route_group() {
             "missing route {path}"
         );
     }
+}
+
+#[tokio::test]
+async fn composition_mounts_protected_asset_delivery_as_a_post_route() {
+    let response = composed_memory_router()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/assets/00000000-0000-0000-0000-000000000001/delivery")
+                .body(Body::empty())
+                .expect("protected asset delivery request"),
+        )
+        .await
+        .expect("protected asset delivery response");
+
+    // The valid identifier reaches the route and its authentication boundary.
+    // This avoids using the public GET endpoint as a route-presence oracle:
+    // that endpoint deliberately returns the same 404 for protected and
+    // nonexistent assets.
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
@@ -821,7 +891,7 @@ async fn local_provider_hashes_raw_bearer_bytes_not_base64url_spelling() {
 
 #[tokio::test]
 async fn local_provider_only_accepts_canonical_fixed_identity_login() {
-    let app = crate::auth::router(
+    let app = crate::auth::provider_login_router(
         Arc::new(local_provider()),
         Arc::new(MemoryStore::default()),
         local_development_session_config(),

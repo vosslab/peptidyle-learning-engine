@@ -123,7 +123,7 @@ impl std::error::Error for RetentionPolicyError {}
 
 /// Per-institution retention intervals, resolved by trusted server policy.
 ///
-/// The type has no request deserializer: a future administrator-only Store
+/// The type has no request deserializer: a future sysadmin-only Store
 /// boundary owns configuration and prevents a browser request from choosing a
 /// shorter or longer deletion window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -259,7 +259,7 @@ pub struct RetentionNotificationView {
 }
 
 /// Frozen in-app archive notification copy; delivery channels are outside R3.
-pub const RETENTION_ARCHIVE_NOTIFICATION_COPY: &str = "This course ended 30 days ago. Student records are still available. If they are no longer needed, archive or delete the course now. Student records will be automatically removed after 100 days unless the course is archived or the retention period is extended by an administrator.";
+pub const RETENTION_ARCHIVE_NOTIFICATION_COPY: &str = "This course ended 30 days ago. Student records are still available. If they are no longer needed, archive or delete the course now. Student records will be automatically removed after 100 days unless the course is archived or the retention period is extended by a sysadmin.";
 
 /// Coarse, browser-safe course retention state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -594,7 +594,7 @@ mod tests {
         assert_eq!(RetentionNotificationIntent::Archive as u8, 0);
         assert_eq!(
             RETENTION_ARCHIVE_NOTIFICATION_COPY,
-            "This course ended 30 days ago. Student records are still available. If they are no longer needed, archive or delete the course now. Student records will be automatically removed after 100 days unless the course is archived or the retention period is extended by an administrator."
+            "This course ended 30 days ago. Student records are still available. If they are no longer needed, archive or delete the course now. Student records will be automatically removed after 100 days unless the course is archived or the retention period is extended by a sysadmin."
         );
         assert!(RETENTION_ARCHIVE_NOTIFICATION_COPY.contains("course ended"));
         assert!(

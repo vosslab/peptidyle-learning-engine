@@ -66,7 +66,7 @@ impl ScoredEmbedTransport for RecordedTransport {
         ));
         ProviderLaunchHandle::from_server_handle("recorded-proxy-session")
     }
-    async fn fetch_signed_result(
+    async fn fetch_signed_grade_get(
         &self,
         request: ResultTransportRequest<'_>,
     ) -> Result<Vec<u8>, ScoredEmbedTransportFailure> {

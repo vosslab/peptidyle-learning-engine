@@ -422,20 +422,12 @@ export async function respondRun(request: Request): Promise<Response> {
   }
   if (
     resource === "attempts" &&
-    segments.length === 4 &&
-    segments[3] === "external-tool-launch" &&
-    request.method === "GET"
-  ) {
-    return responseForExternalToolLaunch(segments[2]);
-  }
-  if (
-    resource === "attempts" &&
     segments.length === 5 &&
     segments[3] === "external-tool" &&
     segments[4] === "launch" &&
-    request.method === "GET"
+    request.method === "POST"
   ) {
-    return routeNotFound(request);
+    return responseForExternalToolLaunch(segments[2]);
   }
   if (
     resource === "attempts" &&

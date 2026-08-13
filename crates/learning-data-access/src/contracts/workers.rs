@@ -11,11 +11,11 @@ pub trait AuthoritativeTimeStore: Send + Sync {
 }
 
 /// Retention persistence boundary. Every mutator authenticates the supplied
-/// stored session and derives administrator or course-instructor authority
+/// stored session and derives sysadmin or course-instructor authority
 /// from persisted session/course data; no request supplies a role or tenant.
 #[async_trait]
 pub trait RetentionStore: Send + Sync {
-    /// Updates this tenant's future-course policy after stored-admin validation.
+    /// Updates this tenant's future-course policy after stored-Sysadmin validation.
     async fn configure_retention_policy(
         &self,
         context: TenantContext,
@@ -53,7 +53,7 @@ pub trait RetentionScheduleStore: Send + Sync {
         batch: RetentionDispatchBatch,
     ) -> Result<u16, StoreError>;
 
-    /// Extends only unstarted current stages after stored-administrator validation.
+    /// Extends only unstarted current stages after stored-sysadmin validation.
     async fn extend_course_retention(
         &self,
         context: TenantContext,

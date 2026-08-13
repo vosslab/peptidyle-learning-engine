@@ -160,22 +160,21 @@ async fn current_item_analysis_route_authorizes_without_leaking_private_analysis
     let tenant = TenantId::from_uuid(id(1));
     let context = TenantContext::from_authenticated_session(tenant);
     let instructor = UserId::from_uuid(id(2));
-    let administrator = UserId::from_uuid(id(3));
+    let sysadmin = UserId::from_uuid(id(3));
     let student = UserId::from_uuid(id(4));
     let outsider = UserId::from_uuid(id(5));
     let foreign_tenant = TenantId::from_uuid(id(6));
     let foreign_user = UserId::from_uuid(id(7));
     let instructor_cookie =
         issued_cookie(&store, tenant, instructor, vec![UserRole::Instructor]).await;
-    let administrator_cookie =
-        issued_cookie(&store, tenant, administrator, vec![UserRole::Administrator]).await;
+    let sysadmin_cookie = issued_cookie(&store, tenant, sysadmin, vec![UserRole::Sysadmin]).await;
     let student_cookie = issued_cookie(&store, tenant, student, vec![UserRole::Student]).await;
     let outsider_cookie = issued_cookie(&store, tenant, outsider, vec![UserRole::Instructor]).await;
     let foreign_cookie = issued_cookie(
         &store,
         foreign_tenant,
         foreign_user,
-        vec![UserRole::Administrator],
+        vec![UserRole::Sysadmin],
     )
     .await;
 
@@ -274,7 +273,7 @@ async fn current_item_analysis_route_authorizes_without_leaking_private_analysis
 
     let app = router(Arc::clone(&store));
     let uri = format!("/api/courses/{course}/assignments/{assignment}/item-analysis");
-    for cookie in [&instructor_cookie, &administrator_cookie] {
+    for cookie in [&instructor_cookie] {
         let response = get(&app, cookie, uri.clone()).await;
         assert_eq!(response.status(), axum::http::StatusCode::OK);
         assert_eq!(response.headers()["cache-control"], "no-store");
@@ -302,7 +301,12 @@ async fn current_item_analysis_route_authorizes_without_leaking_private_analysis
             );
         }
     }
-    for cookie in [&student_cookie, &outsider_cookie, &foreign_cookie] {
+    for cookie in [
+        &sysadmin_cookie,
+        &student_cookie,
+        &outsider_cookie,
+        &foreign_cookie,
+    ] {
         let response = get(&app, cookie, uri.clone()).await;
         assert_eq!(response.status(), axum::http::StatusCode::NOT_FOUND);
         assert_eq!(response.headers()["cache-control"], "no-store");

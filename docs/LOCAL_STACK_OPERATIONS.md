@@ -25,6 +25,16 @@ The gateway also mounts the ignored `dist/` browser artifact read-only. It
 serves browser navigation while proxying `/api`, `/api/*`, and `/health` to the
 API, so the browser and its HttpOnly session use one origin.
 
+The launcher builds this local bundle with
+`PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH=1`, which includes the local credential
+form only alongside the server's explicit local login route. An ordinary
+`./build.sh` leaves that build capability disabled for production artifacts.
+
+The loopback gateway is deliberately HTTP-only and does not set HSTS. It is a
+local development origin, not a production TLS edge; production HSTS is owned
+by CloudFront. Do not treat a local browser check as evidence of edge-header
+behavior.
+
 macOS setup for the Podman virtual machine lives in
 [MACOS_PODMAN.md](MACOS_PODMAN.md).
 
@@ -47,18 +57,54 @@ local network. See `docs/CONTAINER_PORT_MAPPING.md` for the complete mapping,
 port ranges, and the distinction between container-local and host-published
 ports.
 
+## Stateful runtime containment
+
+PostgreSQL, MinIO, and `createbuckets` run under fixed non-root UIDs with an
+immutable container root, an empty capability set, `no-new-privileges`, bounded
+CPU, memory, and PID budgets, and a bounded non-executable `/tmp`. PostgreSQL
+can write only `ple_pgdata`; MinIO can write only `ple_miniodata`; and the
+one-shot bucket creator has no durable mount. PostgreSQL receives an additional
+ephemeral Unix-socket directory under `/var/run/postgresql`.
+
+`local-data-volume-permissions` is the one networkless preflight that runs as
+root *inside the rootless Podman user namespace*. It has only `CAP_CHOWN`, and
+can assign the two named-volume top-level directories to the fixed PostgreSQL
+UID 999 and MinIO UID 10001 before their daemons start. It does not recurse,
+create database/object content, or retain a running process. This is necessary
+because a fresh rootless named volume is engine-owned, while PostgreSQL's
+official entrypoint requires its data directory to be writable by the selected
+runtime user. MinIO explicitly supports an arbitrary regular user when `/data`
+is writable; its transient home is the bounded `/tmp` tmpfs.
+
+This is a local-development containment boundary, not an authorization boundary
+or a production deployment claim. The service ports remain loopback-only, and
+operator access to the host account or its Podman socket can still read the
+named volumes. Production uses the separate AWS RDS, S3, IAM, and KMS design.
+If an image upgrade changes either documented UID or requires an additional
+writable path, the Compose policy test and a disposable Podman start must be
+updated together; do not silently remove the fixed-user or read-only settings.
+
+The API stops accepting new work and drains admitted requests for up to 30
+seconds. Compose provides a 45-second stop grace period, so a normal container
+stop cannot preempt that documented application drain. Workers have their own
+longer bounded stop allowance because a claimed durable job must finish or
+release safely. This timing is configuration evidence; verify it during a
+disposable live shutdown drill before relying on it operationally.
+
 ## Buckets
 
-`createbuckets` creates three buckets, and they are separate because their
+`createbuckets` creates four buckets, and they are separate because their
 rules differ, not for tidiness.
 
-| Bucket            | Holds                                          | Serving                                                                                 | Retention                        |
-| ----------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------- |
-| `content`         | source packages, shared assets, cached renders | CDN and immutable URLs for public content, 60-minute authorized URLs for secure content | indefinite, versioned            |
-| `student-records` | exports, uploaded responses, annotated exams   | 5-minute authorized URLs, always logged                                                 | explicit expiration and deletion |
-| `temp-processing` | extraction and conversion workspaces           | never served                                                                            | lifecycle rule, days             |
+| Bucket              | Holds                                        | Serving                                      | Retention                        |
+| ------------------- | -------------------------------------------- | -------------------------------------------- | -------------------------------- |
+| `public-assets`     | immutable learner-facing problem assets      | public immutable URLs                        | indefinite, versioned            |
+| `private-content`  | sources, archives, renders, course banners   | authorized delivery only, never public paths | indefinite, versioned            |
+| `student-records`  | exports, uploaded responses, annotated exams | 5-minute authorized URLs, always logged      | explicit expiration and deletion |
+| `temp-processing`  | extraction and conversion workspaces         | never served                                 | lifecycle rule, days             |
 
-A course deletion removes `student-records` artifacts and leaves `content`
+A course deletion removes `student-records` artifacts and leaves shared
+content domains
 untouched. Separate buckets make that a policy rather than a filter over a
 shared prefix.
 
@@ -97,7 +143,7 @@ optional alias.
 
 The API reads the mode-0600 invitation issuer from a read-only named volume
 populated by a networkless one-shot initializer running under the pinned Alpine
-image. This makes manager copy-link invitations available without SMTP and
+image. This makes Instructor copy-link invitations available without SMTP and
 keeps the raw issuer out of environment variables. PLE uses its established
 Rust SMTP adapter only when an operator supplies provider settings; the local
 stack does not run or maintain a mail server.
@@ -165,11 +211,12 @@ MinIO retain records in named volumes outside their writable container layers;
 normal `down` and rebuild operations preserve those volumes.
 
 The startup probe is not a substitute for PLE integration or browser testing.
-The explicit live E2E accepted on 2026-08-10 proves the original bounded licensed PGML
-`RadioButtons` path through PLE, including correct/incorrect grading, cache behavior, renderer outage
-recovery, keyboard use, and protected-material non-disclosure. The Chapter 1 release gate adds live
-evidence for the four reviewed PGML sources, including matching and partial credit. Broader PG
-compatibility still requires its own reviewed source and live evidence.
+The repository contains explicit E2E gates for the bounded licensed PGML
+`RadioButtons` path and four reviewed Chapter 1 sources, covering render,
+grading, cache, renderer outage recovery, keyboard use, and protected-material
+non-disclosure. Run them in a disposable stack before treating that behavior as
+current live evidence. Broader PG compatibility always requires its own
+reviewed source and live evidence.
 
 The worker handles one job per bounded pass and concurrency comes from scaling
 the service. It claims only current scoring, course item analysis, attempt
@@ -253,9 +300,9 @@ PLE_E2E_GATEWAY_IMAGE_SHA256=<64-hex-official-Caddy-digest> \
   bash tests/e2e/e2e_run_all.sh
 ```
 
-It proves the Wasm bridge, the complete PostgreSQL migration/RLS/live-oracle
-suite, and a real learner submission across two API replicas after stopping the
-replica that issued the question. The gateway image is derived from that pinned
+It is designed to exercise the Wasm bridge, PostgreSQL migration/RLS/live
+oracle suite, and a real learner submission across two API replicas after
+stopping the replica that issued the question. The gateway image is derived from that pinned
 official digest and strips Caddy's unnecessary low-port file capability before
 running as UID 1000 with `cap_drop: ALL`. Generated projects and volumes are
 removed on both success and failure; the runner never targets a long-lived

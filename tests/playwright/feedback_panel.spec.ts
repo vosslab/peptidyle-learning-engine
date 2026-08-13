@@ -97,6 +97,7 @@ test("a released panel focuses its heading, then its advance after the announcem
 
 test("a learner focus move during the announcement delay is never stolen", async ({ page }) => {
   await page.goto("/");
+  await page.clock.install();
   await page.addScriptTag({
     content: fixtureScript.replace("focusAdvanceDelayMs: 1000", "focusAdvanceDelayMs: 100"),
   });
@@ -105,7 +106,7 @@ test("a learner focus move during the announcement delay is never stolen", async
   await expect(panel.getByRole("heading", { name: "Feedback" })).toBeFocused();
   const escapeFocus = page.locator("#escape-focus");
   await escapeFocus.focus();
-  await page.waitForTimeout(150);
+  await page.clock.runFor(150);
   await expect(escapeFocus).toBeFocused();
 });
 

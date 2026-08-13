@@ -1,12 +1,14 @@
-// WP-C6 gate: every processed WebAssembly export requires explicit review.
+// Every processed WebAssembly export requires explicit security review. This
+// check builds Rust and runs bindgen, so it belongs in the E2E tier rather than
+// the fast Node unit-test lane.
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import test from "node:test";
 
-const EXPECTED_EXPORTS = [
+const expectedExports = [
   { name: "__abort_handler", kind: "global" },
   { name: "__externref_table_dealloc", kind: "function" },
   { name: "__instance_terminated", kind: "global" },
@@ -24,9 +26,7 @@ const EXPECTED_EXPORTS = [
   { name: "verify_presentation_descriptor", kind: "function" },
 ];
 
-const repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
-  encoding: "utf8",
-}).trim();
+const repoRoot = process.cwd();
 const rawModule = path.join(
   repoRoot,
   "target",
@@ -34,14 +34,13 @@ const rawModule = path.join(
   "debug",
   "wasm_bridge.wasm",
 );
-const outputDirectory = path.join(repoRoot, "generated", "wasm-export-check");
-const processedModule = path.join(outputDirectory, "ple_boundary_bg.wasm");
 
 function compareExport(left, right) {
   return left.name.localeCompare(right.name) || left.kind.localeCompare(right.kind);
 }
 
-test("processed WebAssembly exports match the reviewed allowlist", () => {
+const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "ple-wasm-export-check-"));
+try {
   execFileSync(
     "cargo",
     [
@@ -73,14 +72,17 @@ test("processed WebAssembly exports match the reviewed allowlist", () => {
     { cwd: repoRoot, stdio: "inherit" },
   );
 
+  const processedModule = path.join(outputDirectory, "ple_boundary_bg.wasm");
   const bytes = fs.readFileSync(processedModule);
   const wasmModule = new WebAssembly.Module(bytes);
   const actual = WebAssembly.Module.exports(wasmModule).toSorted(compareExport);
-  const expected = EXPECTED_EXPORTS.toSorted(compareExport);
+  const expected = expectedExports.toSorted(compareExport);
 
   assert.deepEqual(
     actual,
     expected,
     "WebAssembly export list changed; review the diff and update the allowlist deliberately",
   );
-});
+} finally {
+  fs.rmSync(outputDirectory, { recursive: true, force: true });
+}

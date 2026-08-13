@@ -5,6 +5,7 @@ use crate::{ReceiptNextAttempt, ReceiptPresentationSnapshot};
 
 mod attempt_issuance;
 mod issued_contracts;
+mod learner_reads;
 
 pub(super) use issued_contracts::{
     load_issued_flat_grading, load_issued_presentation, load_issued_webwork_grading,
@@ -13,6 +14,14 @@ pub(super) use issued_contracts::{
 
 #[async_trait]
 impl crate::RunStore for MemoryStore {
+    async fn learner_assignment_run_items_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        run: RunId,
+    ) -> Result<Option<Vec<AssignmentRunItem>>, StoreError> {
+        learner_reads::assignment_run_items(self, context, actor, run).await
+    }
     async fn start_or_resume_run_impl(
         &self,
         context: TenantContext,
@@ -32,6 +41,9 @@ impl crate::RunStore for MemoryStore {
             })
             .cloned()
             .ok_or(StoreError::NotFound)?;
+        let assignment = assignment_record(&state, tenant, assignment_id)?;
+        require_course_records_accessible(&state, tenant, assignment.course_id)?;
+        require_active_learner_membership(&state, tenant, assignment.course_id, actor)?;
         if let Some(active) = state.runs.values().find(|run| {
             run.tenant == tenant && run.enrollment == enrollment.id && run.completed_at.is_none()
         }) {
@@ -40,8 +52,6 @@ impl crate::RunStore for MemoryStore {
         if state.runs.contains_key(&(tenant, proposed_run)) {
             return Err(StoreError::AlreadyExists);
         }
-        let assignment = assignment_record(&state, tenant, assignment_id)?;
-        require_course_records_accessible(&state, tenant, assignment.course_id)?;
         let timing =
             memory_resolved_assignment_policy(&state, tenant, assignment_id, &enrollment, None)?
                 .policy;
@@ -341,6 +351,7 @@ impl crate::RunStore for MemoryStore {
         }
         let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
         require_course_records_accessible(&state, tenant, assignment.course_id)?;
+        require_active_learner_membership(&state, tenant, assignment.course_id, command.actor)?;
         let expected = assignment
             .active_item_at(reservation.assignment_position)
             .ok_or_else(|| {
@@ -399,6 +410,24 @@ impl crate::RunStore for MemoryStore {
             .prefetched_questions
             .get(&(context.tenant_id(), run, predecessor, assignment_position))
             .cloned())
+    }
+    async fn learner_get_prefetched_question_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        run: RunId,
+        predecessor: QuestionAttemptId,
+        assignment_position: u32,
+    ) -> Result<Option<PrefetchedQuestion>, StoreError> {
+        learner_reads::prefetched_question(
+            self,
+            context,
+            actor,
+            run,
+            predecessor,
+            assignment_position,
+        )
+        .await
     }
     async fn submission_next_attempt_impl(
         &self,
@@ -474,6 +503,14 @@ impl crate::RunStore for MemoryStore {
             [id] => Ok(Some(*id)),
             _ => Err(StoreError::Conflict),
         }
+    }
+    async fn learner_pending_submission_for_run_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        run: RunId,
+    ) -> Result<Option<QuestionAttemptId>, StoreError> {
+        learner_reads::pending_submission_for_run(self, context, actor, run).await
     }
     async fn finalize_submission_next_attempt_impl(
         &self,
@@ -554,6 +591,15 @@ impl crate::RunStore for MemoryStore {
             })
             .collect();
         Ok(page_records(records, &page))
+    }
+    async fn learner_list_question_attempts_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        run: RunId,
+        page: PageRequest,
+    ) -> Result<Option<Page<QuestionAttempt>>, StoreError> {
+        learner_reads::list_question_attempts(self, context, actor, run, page).await
     }
     async fn replay_submission_impl(
         &self,

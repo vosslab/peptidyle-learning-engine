@@ -6,13 +6,11 @@ use learning_data_access::{
     CourseListScope, CourseRecord, CourseRecordsAccessStore, Cursor, PageRequest, PageSize,
     PaginationError, SessionStore, Store,
 };
-use question_model::{CourseId, CourseMembership, CourseMembershipRole, CourseRole};
+use question_model::{CourseId, CourseMembership, CourseMembershipRole};
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
-use super::policy::{
-    course_records_are_visible, is_tenant_administrator, may_create_course, require_course_access,
-};
+use super::policy::{course_records_are_visible, may_create_course, require_course_access};
 use super::projection::{assignment_page, error_response, store_error_response};
 use super::routing::{CourseQuery, CourseRouteState, CreateCourseRequest, DEFAULT_PAGE_SIZE};
 
@@ -32,11 +30,7 @@ where
         Ok(page) => page,
         Err(error) => return error_response(StatusCode::BAD_REQUEST, &error.to_string()),
     };
-    let scope = if is_tenant_administrator(&authenticated) {
-        CourseListScope::TenantAdministrator
-    } else {
-        CourseListScope::Member(authenticated.record.subject.user())
-    };
+    let scope = CourseListScope::Member(authenticated.record.subject.user());
     match state
         .store
         .list_courses(authenticated.tenant_context, scope, page)
@@ -85,7 +79,7 @@ where
         Ok(()) => no_store(
             (
                 StatusCode::CREATED,
-                Json(course.summary(CourseRole::Instructor)),
+                Json(course.summary(CourseMembershipRole::Instructor)),
             )
                 .into_response(),
         ),
@@ -114,14 +108,12 @@ where
         Ok(None) => return error_response(StatusCode::NOT_FOUND, "course not found"),
         Err(error) => return store_error_response(error),
     };
-    let role = if is_tenant_administrator(&authenticated) {
-        CourseRole::Administrator
-    } else if let Some(role) = record.role_for(authenticated.record.subject.user()) {
+    let role = if let Some(role) = record.role_for(authenticated.record.subject.user()) {
         role
     } else {
         return error_response(StatusCode::NOT_FOUND, "course not found");
     };
-    if role == CourseRole::Student {
+    if role == CourseMembershipRole::Student {
         match course_records_are_visible(state.store.as_ref(), &authenticated, course).await {
             Ok(true) => {}
             Ok(false) => return error_response(StatusCode::NOT_FOUND, "course not found"),

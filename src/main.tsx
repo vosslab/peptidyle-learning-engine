@@ -11,6 +11,7 @@ import { createMockApiClient } from "./api/mock/client";
 import { createHttpApiClient } from "./api/http_client";
 import { ApiRuntimeProvider, createApiRuntime } from "./api/runtime";
 import { App } from "./app";
+import { localCredentialLogin } from "./auth/local_development";
 import { SessionProvider } from "./auth/session_context";
 import { log } from "./log";
 import { appRoutes, notFoundRoute } from "./routes";
@@ -36,7 +37,8 @@ render(
     <ApiRuntimeProvider runtime={apiRuntime}>
       <SessionProvider
         getSession={apiClient.getSession}
-        loginWithLocalCredential={apiClient.loginWithLocalCredential}
+        logout={apiClient.logout}
+        loginWithLocalCredential={localCredentialLogin()}
       >
         <WasmRuntimeProvider
           formatFallback={apiClient.validateResponseFormatOnServer}

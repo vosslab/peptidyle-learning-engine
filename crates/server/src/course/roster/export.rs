@@ -1,4 +1,4 @@
-//! Manager-authorized ephemeral CSV grade export.
+//! Instructor-authorized ephemeral CSV grade export.
 
 use axum::body::to_bytes;
 use axum::extract::{Path, Request, State};

@@ -22,7 +22,7 @@ impl RetentionStore for MemoryStore {
     ) -> Result<(), StoreError> {
         let mut state = self.write_state()?;
         let subject = active_retention_session(&state, context, session)?;
-        if !subject.roles().contains(&UserRole::Administrator) {
+        if !subject.roles().contains(&UserRole::Sysadmin) {
             return Err(StoreError::Forbidden);
         }
         state.retention_policies.insert(context.tenant_id(), policy);
@@ -187,7 +187,7 @@ impl RetentionScheduleStore for MemoryStore {
     ) -> Result<CourseRetentionRecord, StoreError> {
         let mut state = self.write_state()?;
         let subject = active_retention_session(&state, context, session)?;
-        if !subject.roles().contains(&UserRole::Administrator) {
+        if !subject.roles().contains(&UserRole::Sysadmin) {
             return Err(StoreError::Forbidden);
         }
         let key = (context.tenant_id(), course);
@@ -495,9 +495,9 @@ impl MemoryStore {
         let mut state = self.write_state()?;
         let subject = active_retention_session(&state, context, session)?;
         let actor = subject.user();
-        let administrator = subject.roles().contains(&UserRole::Administrator);
+        let sysadmin = subject.roles().contains(&UserRole::Sysadmin);
         ensure_retention_course_authority(&state, context, actor, subject.roles(), course)?;
-        if matches!(action, RetentionApiAction::Extend(_)) && !administrator {
+        if matches!(action, RetentionApiAction::Extend(_)) && !sysadmin {
             return Err(StoreError::Forbidden);
         }
         let key = (context.tenant_id(), course);
@@ -814,8 +814,8 @@ fn ensure_retention_course_authority(
         .courses
         .get(&(context.tenant_id(), course))
         .ok_or(StoreError::Forbidden)?;
-    if roles.contains(&UserRole::Administrator)
-        || course_record.role_for(user) == Some(CourseRole::Instructor)
+    if roles.contains(&UserRole::Sysadmin)
+        || course_record.role_for(user) == Some(CourseMembershipRole::Instructor)
     {
         Ok(())
     } else {

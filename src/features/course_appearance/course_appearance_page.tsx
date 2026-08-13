@@ -1,7 +1,16 @@
 // course_appearance_page.tsx - instructor theme and entry-banner settings.
 
 import { A, revalidate, useParams } from "@solidjs/router";
-import { For, Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
+import {
+  For,
+  Show,
+  createEffect,
+  createMemo,
+  createResource,
+  createSignal,
+  onCleanup,
+  type JSX,
+} from "solid-js";
 
 import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
 import type { CourseBannerAlternativeText } from "../../../generated/api/CourseBannerAlternativeText";
@@ -111,9 +120,7 @@ export function CourseAppearancePage(): JSX.Element {
       <section class="page" data-route-surface="courseAppearance">
         <p class="eyebrow">Course settings</p>
         <h1>Course appearance is not available for this account</h1>
-        <p class="page-lede">
-          Only a course instructor or administrator can change its appearance.
-        </p>
+        <p class="page-lede">Only a course instructor can change its appearance.</p>
         <A class="quiet-link" href="/">
           Return to courses
         </A>
@@ -121,17 +128,12 @@ export function CourseAppearancePage(): JSX.Element {
     );
   }
   const course = courseRouteData(routeThemeData);
-  if (
-    params["courseId"] !== course.summary.id ||
-    !["instructor", "administrator"].includes(course.summary.role)
-  ) {
+  if (params["courseId"] !== course.summary.id || course.summary.role !== "instructor") {
     return (
       <section class="page" data-route-surface="courseAppearance">
         <p class="eyebrow">Course settings</p>
         <h1>Course appearance is not available for this account</h1>
-        <p class="page-lede">
-          Only a course instructor or administrator can change its appearance.
-        </p>
+        <p class="page-lede">Only a course instructor can change its appearance.</p>
         <A class="quiet-link" href={`/courses/${encodeURIComponent(course.summary.id)}`}>
           Return to course
         </A>
@@ -152,6 +154,10 @@ export function CourseAppearancePage(): JSX.Element {
   const [errorMessage, setErrorMessage] = createSignal<string | null>(null);
   const [successMessage, setSuccessMessage] = createSignal<string | null>(null);
   const [conflict, setConflict] = createSignal(false);
+  const [savedBannerUrl] = createResource(
+    () => current().banner?.id ?? null,
+    (assetId) => runtime.client.issueProtectedAssetDelivery(assetId),
+  );
   let fileInput: HTMLInputElement | undefined;
   let errorHeading: HTMLHeadingElement | undefined;
 
@@ -167,7 +173,7 @@ export function CourseAppearancePage(): JSX.Element {
     const local = replacementPreview();
     if (local !== null) return local;
     const banner = draft().banner;
-    return banner.kind === "keep" ? runtime.client.assetUrl(banner.presentation.id) : null;
+    return banner.kind === "keep" ? (savedBannerUrl() ?? null) : null;
   });
 
   createEffect(() => {

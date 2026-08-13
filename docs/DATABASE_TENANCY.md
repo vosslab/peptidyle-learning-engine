@@ -134,8 +134,9 @@ Course definitions and learner records have different post-retention behavior:
 
 - Student-facing course, assignment, enrollment, run, and record aliases fail
   closed once the fence is closed.
-- Authorized managers can still read retained course and assignment definitions
-  through the separate manager query path, without restoring learner rows.
+- Direct course Instructors can still read retained course and assignment
+  definitions through the separate Instructor query path, without restoring
+  learner rows. Sysadmin status alone does not grant this course access.
 - Retention workers use explicit tenant-bound broker functions, typed object
   manifests, a generation, and renewed leases; a stale worker cannot publish a
   cleanup result for a newer retention generation.
@@ -148,7 +149,8 @@ records the failure behavior.
 
 ## Durable record rules
 
-Educational records are protected FERPA-sensitive data. The local schema and
+Educational records are protected FERPA-sensitive data and are treated as
+radioactive. The local schema and
 Store keep raw responses, feedback, grades, student artifacts, and access/audit
 evidence tenant-owned and retention-bound. Browser-gradebook paths use current
 summaries instead of exposing or scanning a learner's history. Queue payloads
@@ -158,6 +160,98 @@ attempt-bound, retention-bound exception for the minimum answer-free replay
 mapping required to reproduce an issued WeBWorK presentation; it has its own
 tenant, course, attempt, seed, renderer, digest, checksum, and RLS bindings.
 It is not a general renderer cache or an answer-key store.
+
+### Radioactive table map
+
+`Radioactive` is PLE's deliberately overprotective operational label for
+FERPA-bearing data. It is not a fourth human role, a PostgreSQL role, or a
+claim that every column is independently an educational record. A whole
+relation receives the label when an ordinary row can contain or directly locate
+a Student's course record. This prevents a mixed-purpose table or an opaque UUID
+from becoming an excuse for a broad dump.
+
+The following tables are **especially radioactive** because they can hold
+direct roster identifiers, accommodations, responses, feedback, scores,
+course-local analysis, or export material:
+
+- roster and policy data: `course_roster_member`, `course_invitation`,
+  `course_roster_import_row`, `enrollment`, and
+  `assignment_policy_exception`;
+- current or historical learner work: `student_assignment_summary`,
+  `submission`, `submission_idempotency`, `submission_receipt_snapshot`,
+  `submission_evaluation`, `attempt_feedback`, and `attempt_score_current`;
+- scoring and analysis workspaces: `assignment_attempt_score_staging`,
+  `assignment_summary_staging`, `course_item_analysis_current`, and
+  `course_item_analysis_staging`; and
+- generated educational exports: `student_export_request` and
+  `student_export_artifact`.
+
+The following tables are **radioactive by stable linkage**. Their principal
+content may be an opaque identifier, lease, state transition, timing value, or
+audit fact, but that value can locate or explain one Student's educational
+record:
+
+- identity, roster, and group links: `tenant_learner_identity`,
+  `course_member`, `course_group_member`, `course_roster_state`, and
+  `course_roster_import`;
+- attempt lifecycle: `assignment_run`, `assignment_run_item`,
+  `question_attempt`, `question_prefetch`, `attempt_timing_current`,
+  `feedback_release`, `manual_grade_receipt`, `submission_next_attempt`, and
+  `webwork_grade_replay_state`;
+- external activity: `external_tool_exchange` and
+  `external_tool_launch_session`;
+- contribution, export, delivery, and audit links:
+  `question_statistics_contribution_receipt`, `course_grade_export_audit`,
+  `asset_delivery`, `record_access_log`, `audit_event`, and `worker_job`; and
+- deletion evidence: `course_retention_cleanup_manifest_object`,
+  `course_retention_purge_attempt`, `course_retention_purge_export`, and
+  `course_retention_purge_run`.
+
+Direct and linked tables receive the same access, logging, retention, and
+incident-response discipline. The distinction only tells an operator where a
+mistake is most likely to disclose human-readable information immediately.
+Partition children inherit their parent's label. A view, temporary table,
+staging relation, query result, spreadsheet, or diagnostic file inherits the
+highest label of its inputs.
+
+Three boundaries must not be blurred:
+
+- `ple_account`, authentication challenges, passkeys, ceremonies, and account
+  sessions are restricted account/security data, but are not FERPA records
+  merely because the account exists. A course-linked copy or join result is
+  radioactive.
+- Answer-bearing grading material and private authoring sources are highly
+  restricted for assessment integrity, but are not Student educational records
+  unless combined with learner activity.
+- `question_statistics_aggregate` is deliberately identity-free and global.
+  Its contribution receipt is radioactive; the published aggregate is not.
+  Course-local item analysis remains radioactive because small cohorts and
+  course context can make results identifiable.
+
+### Radioactive handling rules
+
+- Prefer actor-scoped Store methods and the audited Sysadmin roster-support
+  capability. Instructor support does not justify browsing attempts, grades,
+  exports, or unrelated courses.
+- Select the minimum rows and columns for one authorized teaching or support
+  task. Never paste raw rows into logs, issue trackers, chat, screenshots, or
+  general analytics.
+- If direct SQL is required for an incident, use a read-only, tenant- and
+  course-bounded query, record the support action without roster PII, and
+  destroy any local result as soon as the task is complete.
+- Do not restore production Student data into a developer or shared test
+  environment. Use fictional fixtures unless an approved, isolated recovery
+  exercise requires the real encrypted backup.
+- Encryption at rest is mandatory for persistent copies, but it does not
+  replace authorization, RLS, minimization, auditing, or deletion.
+
+Every physical/base backup, WAL or point-in-time recovery stream, logical dump,
+snapshot, read replica, crash copy, and restored database that includes a
+radioactive table is radioactive as a whole. It requires restricted operator
+access, encryption, an explicit expiry, an isolated restore target, and an
+access record. These are deployment requirements; the repository's local
+restore rehearsal does not claim that production backup lifecycle or access
+evidence is deployed.
 
 The main immutable and idempotent boundaries are:
 
@@ -190,7 +284,7 @@ An authorized institution can configure one ordered policy, subject to the
 database requirement `notify < archive < delete`. Archive access is fenced
 centrally: learner-facing aliases, exports, external-tool records, and
 student-record-bound assets stop at the same closed boundary. Retained
-definitions can remain visible to authorized managers without restoring
+definitions can remain visible to direct course Instructors without restoring
 learner rows.
 
 FERPA readiness is broader than schema design. The implemented controls support

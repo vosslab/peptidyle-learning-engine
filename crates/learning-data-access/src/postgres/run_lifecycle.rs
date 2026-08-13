@@ -21,6 +21,25 @@ pub(super) async fn start_or_resume_run(
     .map_err(map_sqlx_error)?
     .ok_or(StoreError::NotFound)?;
     let enrollment: AssignmentEnrollment = decode_payload_row(&enrollment_row)?;
+    transaction_context::require_active_learner_membership(
+        transaction,
+        tenant,
+        assignment_id,
+        actor,
+    )
+    .await?;
+    assignment_timing::lock_postgres_assignment_policy(transaction, tenant, assignment_id).await?;
+    let assignment = load_assignment_for_share(transaction, tenant, assignment_id).await?;
+    let course_accessible: bool =
+        sqlx::query_scalar("SELECT public.ple_course_records_accessible($1, $2)")
+            .bind(tenant.as_uuid())
+            .bind(assignment.course_id.as_uuid())
+            .fetch_one(&mut **transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+    if !course_accessible {
+        return Err(StoreError::NotFound);
+    }
     let active_row = sqlx::query(
         "SELECT payload, payload_sha256 FROM assignment_run \
          WHERE tenant_id = $1 AND enrollment_id = $2 AND completed_at IS NULL \
@@ -34,9 +53,6 @@ pub(super) async fn start_or_resume_run(
     if let Some(row) = active_row {
         return decode_payload_row(&row);
     }
-
-    assignment_timing::lock_postgres_assignment_policy(transaction, tenant, assignment_id).await?;
-    let assignment = load_assignment_for_share(transaction, tenant, assignment_id).await?;
     let timing = assignment_timing::load_postgres_resolved_assignment_policy(
         transaction,
         tenant,

@@ -1,134 +1,139 @@
 # Object storage
 
-PLE's implemented object layer stores immutable binary and archival payloads through typed object
-storage. The contract keeps physical paths, bucket selection, checksums, and delivery policy on
-the server, so browser data names only logical assets and never a storage location. Learner file
-uploads are deliberately not an exception: they remain fail-closed until their separately planned,
-attempt-bound capability is implemented.
+PLE treats object storage as four separate security domains, not as one bucket
+with naming conventions. `ObjectKey` is the only physical-key constructor;
+routes and browser payloads name logical delivery IDs, never buckets, paths, or
+client-selected filenames.
 
-## Typed objects
+## Physical domains
 
-[crates/objects/src/bucket.rs](../crates/objects/src/bucket.rs) is the sole constructor for an
-`ObjectKey`. Callers supply typed IDs rather than a raw bucket name or path. A key derives its
-bucket, immutable path, object ID, category, and, where applicable, published version. Immutable
-writes reject an existing key; reads verify SHA-256 before returning bytes.
+| Domain | Typed bucket | Contents | Delivery rule |
+| --- | --- | --- | --- |
+| Public assets | `PublicAssets` | Only public, immutable `ProblemAsset` renditions | CDN-readable after the durable registry is `Ready` and the object has the exact immutable-public tag. |
+| Private content | `PrivateContent` | Authoring, source archives, answer-bearing provenance, renders, institution-only `RestrictedProblemAsset` objects, and course banners | Never CDN-readable. A protected delivery is authorized per request. |
+| Student records | `StudentRecords` | Tenant-owned exports and the reserved future student-artifact class | Never public; a protected delivery requires RLS-scoped authorization and an explicit grant. |
+| Temporary processing | `TempProcessing` | Conversion workspaces and course-banner candidates | Never signable or browser-served. |
 
-| Bucket            | Implemented roles | Delivery rule |
-| ----------------- | ----------------- | ------------- |
-| `content` | Private workspace sources/assets, published source archives/assets, deterministic renders, and retained course banners | The object layer can sign published assets, renders, and course banners. The delivery registry currently exposes only catalog assets and an exact current course banner. |
-| `student-records` | Tenant-owned export artifacts represented by `StudentRecord` | Requires authenticated, RLS-scoped, explicit authorization. |
-| `temp-processing` | Generic temporary processing data and short-lived course-banner candidates | Never signable or publicly served. |
+Each production domain has its own bucket and KMS key. This physical split is
+an enforcement boundary: a public CDN policy cannot accidentally expose an
+institution-only asset merely because both are published content. Local MinIO
+uses four correspondingly named buckets to preserve the same routing contract,
+but is not evidence of AWS IAM, KMS, bucket-policy, Object Lock, or recovery
+configuration.
 
-The `student-records` bucket is intentionally ready for more educational-record classes, but it
-does **not** yet accept learner uploads or general annotations. The active
-[secure learner-upload plan](active_plans/active/secure_learner_file_upload_plan.md) reserves
-attempt-bound candidate and durable upload key types, a distinct `LearnerSubmission` category,
-streaming writes, inspection, protected delivery, retention, and reconciliation. Until that work
-is accepted, a file-upload response fails closed before any object write.
+## Typed immutable objects
 
-The `content` bucket is not synonymous with public data. For example, a private workspace import
-and a published source archive use durable `content` keys but cannot receive a generic delivery
-URL. A banner candidate uses `temp-processing`; promotion produces a distinct immutable
-`CourseBanner` key in `content`.
+`crates/objects/src/bucket.rs` derives a key's bucket, path, category,
+version, and object identity from typed server values. There is no raw-string
+key variant. Important mappings are:
 
-## Key and delivery matrix
+| Key family | Domain | Browser delivery |
+| --- | --- | --- |
+| `WorkspaceSource`, `WorkspaceQuestionSource`, `WorkspaceAsset`, `WorkspaceQuestionAsset`, `ProblemSource`, `PublishedImportArchive`, `ProblemRender` | Private content | Never generic delivery. |
+| `ProblemAsset` | Public assets | Public CDN path only after publication activation. |
+| `RestrictedProblemAsset` | Private content | Protected delivery only; never a CDN key. |
+| `CourseBanner` | Private content | Protected delivery only when it is the exact current course banner. |
+| `StudentRecord` | Student records | Protected delivery only through an explicit grant. |
+| `CourseBannerCandidate`, `Temporary` | Temporary processing | Never delivered. |
 
-`ObjectKey` has no raw-string variant. The following is the current complete key vocabulary;
-adding a new object class requires a new typed variant and its exact ownership rules.
+Objects are immutable. A write to an existing typed key is refused; replacement
+uses a new identity and, for published content, a new immutable version. The
+object record carries server-computed SHA-256, size, verified media type,
+category, provenance, and creation time. Reads recompute SHA-256 and reject a
+mismatch. The checksum detects storage corruption or a substituted object; it
+does not authenticate a writer or authorize a reader. Database ownership,
+bucket/IAM policy, TLS, and publication immutability provide those properties.
 
-| Key family | Bucket | Category | Version-pinned | Object-store signable | Current route delivery |
-| --- | --- | --- | --- | --- | --- |
-| `WorkspaceSource`, `WorkspaceQuestionSource`, `WorkspaceAsset` | `content` | source or asset | no | no | never |
-| `ProblemSource`, `PublishedImportArchive` | `content` | source | yes | no | never |
-| `ProblemAsset` | `content` | asset | yes | yes | public catalog CDN after registry validation |
-| `ProblemRender` | `content` | render | yes | yes | not registered by the current asset route |
-| `CourseBannerCandidate`, `Temporary` | `temp-processing` | temporary | no | no | never |
-| `CourseBanner` | `content` | course content | no | yes | protected only when it is the course's exact current banner |
-| `StudentRecord` | `student-records` | export | no | yes | protected only through an explicit student-record grant |
+## Instructional image boundary
 
-Object-store signability is only a necessary capability. It never grants browser access by itself:
-the `asset_delivery` registry decides whether a typed object currently has a browser route and the
-route reauthorizes protected reads. In particular, a `ProblemRender` is signable at the storage
-layer but is not a general learner-facing asset under the present delivery contract.
+Images are hostile input even when they came from an instructor. The shared
+`objects::image_validation` boundary accepts only complete, single-container
+PNG, JPEG, or WebP still images. It enforces an 8 MiB input limit and a
+20-million-pixel decoded limit before a bounded full decode; rejects GIF and
+other formats, animation, zero dimensions, malformed containers, and trailing
+container bytes (including JPEG data after EOI). The measured media type and
+dimensions, rather than a filename or request `Content-Type`, are registered
+with the immutable asset.
 
-## Immutable record
+This is a content-safety and parser-confusion boundary, not a malware scanner.
+The system does not claim to make arbitrary files safe for every downstream
+consumer; it only admits the strict still-image formats that its own rendering
+paths support.
 
-Each successful `put` returns an [ObjectRecord](../crates/objects/src/lib.rs) with the durable
-object ID, typed bucket and key, computed SHA-256, byte size, verified media type, category,
-optional published version, license, provenance, and server creation time. The checksum is
-computed on write and rechecked on read. `ObjectRecord` is backend-neutral immutable metadata,
-not a universal database table: its owning workflow persists the required record, such as an
-asset-delivery registration, published-import provenance, or retention manifest. Metadata records
-provenance and handling context; it does not make object bytes browser-visible.
+## Delivery boundary
 
-Bytes are written before the database record. The database is authoritative for intended object
-existence: a record without its bytes is a broken reference that must be alerted on, not hidden by
-deleting the record. The bucket is authoritative for bytes: bytes without a record are orphans
-that may be collected after the reconciliation quarantine policy. This is the committed ownership
-rule in [implementation_plan.md](active_plans/implementation_plan.md#database-or-object-store-who-owns-existence).
+`GET /api/assets/{id}` can return only an already-ready public catalog asset.
+It resolves an opaque registry ID, verifies the complete trusted
+`ProblemAsset`/`PublicAssets` record shape, then redirects to a configured
+immutable CDN URL. It cannot authorize, audit, or issue a protected bearer
+URL, and returns the same not-found response for protected and absent IDs.
 
-## Publication and record boundaries
+`POST /api/assets/{id}/delivery` is the separate protected path. It requires a
+same-origin authenticated session, reauthorizes the tenant/actor/object
+relationship, records a minimized access event, and returns a short-lived URL
+in JSON. It refuses public assets so there is no second, stateful public path.
+Private-content URLs are at most 60 minutes; student-record URLs are at most
+five minutes. Protected responses use `no-store`, `Pragma: no-cache`, and
+`Referrer-Policy: no-referrer`. Temporary objects are never signable.
 
-Draft workspace source, extracted assets, and staged imports are tenant-private and use workspace
-keys. Publication creates version-pinned `ProblemSource`, `PublishedImportArchive`, `ProblemAsset`,
-and `ProblemRender` objects. Their typed paths bind the relevant problem, immutable version, and
-logical asset or seed. Published content is shared and immutable; private source provenance is
-not a learner-facing asset.
+The route never accepts a bucket, object key, checksum, or filename. A signed
+URL is a short-lived bearer capability, not a durable browser datum: clients
+must not place it in browser storage, analytics, a referrer chain, or logs.
 
-Student records are a different boundary: `StudentRecord` keys include the owning tenant, and the
-`asset_delivery` schema binds their delivery to a tenant and course. Retention code validates an
-exact typed-object manifest before deleting tenant-owned record artifacts, while shared published
-content and drafts remain outside the student-record deletion path. See
-[2026080805_operations_analytics.sql](../schemas/migrations/2026080805_operations_analytics.sql),
-[2026080806_retention.sql](../schemas/migrations/2026080806_retention.sql), and
-[SECURITY_MODEL.md](SECURITY_MODEL.md#asset-delivery-boundary).
+## Public-asset publication
 
-Course-banner candidates are a separate short-lived authorization boundary. They are scoped to one
-tenant and course, non-signable, and tracked in `course_banner_candidate`; only a verified save
-can promote bytes to the immutable course-banner record. See
-[2026080907_course_appearance.sql](../schemas/migrations/2026080907_course_appearance.sql) and
-[CONTRACTS.md](CONTRACTS.md#course-appearance-contract).
+Public publication is intentionally not a pre-commit S3 upload. PostgreSQL and
+object storage do not share a transaction, so catalog publication atomically:
 
-## Delivery grants
+1. commits immutable catalog state, `Pending` asset-delivery records, and a
+   closed `PublishPublicAssets` outbox job; and
+2. makes no final public object or CDN-visible registry transition in that
+   transaction.
 
-The stable route is `GET /api/assets/{id}`. The database registry maps that opaque delivery ID to
-one exact `ObjectRecord` and an `AssetDeliveryScope`; the route does not accept a bucket, key,
-checksum, or filename from the client.
+The dedicated publisher subsequently claims only that job kind, re-reads each
+pending record and its exact private source from PostgreSQL, verifies the
+source record and SHA-256, and writes the final public key. It uses immutable
+creation semantics. A retry accepts an existing final key only when its exact
+record and checksum agree. Finally, a lease-conditional database function
+changes the complete batch from `Pending` to `Ready` and completes that same
+job atomically. Pending records have no public route result.
 
-- A globally visible catalog `ProblemAsset` redirects to the configured immutable CDN URL only
-  after the trusted record shape matches the exact published asset.
-- Institution catalog content, student records, and course banners require the opaque HttpOnly
-  session. Forced RLS limits the lookup; student-record access also checks the explicit user grant.
-- A successful protected authorization records tenant, actor, delivery ID, object ID, bucket,
-  optional course, and database time before a signed URL is requested. URLs and session data are
-  never included in that audit event.
-- `content` signed URLs are at most 60 minutes and `student-records` URLs at most 5 minutes.
-  Protected redirects use no-store, no-cache, and no-referrer headers. `temp-processing` is
-  rejected even if a caller reaches the route.
+The pending source is an exact allowlist: a private `WorkspaceAsset` or
+`WorkspaceQuestionAsset` with the expected tenant/workspace/object/category
+and no published version. It is never a public object, arbitrary private key,
+browser value, or queue payload byte sequence. The dedicated publisher has a
+separate database capability and production IAM role; ordinary API and worker
+roles cannot materialize public objects. This closes both pre-commit CDN
+orphans and a confused deputy that could copy arbitrary private data into the
+public domain.
 
-These contracts live in [asset_delivery.rs](../crates/learning-data-access/src/asset_delivery.rs)
-and are enforced by [asset.rs](../crates/server/src/asset.rs). The security rationale and headers
-are specified in [SECURITY_MODEL.md](SECURITY_MODEL.md#asset-delivery-boundary).
+Production infrastructure enforces immutable publication tags, conditional
+create (`If-None-Match: *`), and bucket/IAM policies. The public bucket is
+created with Object Lock enabled, but has no default legal-retention period:
+the active append-only guarantee is the immutable-tag policy so disposable
+rehearsals remain recoverable. Any legal-retention rule is a separate reviewed
+operations decision. Code requests and verifies the exact public-object tag
+before public use, but an AWS deployment is not verified until its
+infrastructure tests and live policy inspection pass.
 
-## Backends and lifecycle status
+## Encryption and lifecycle evidence
 
-Tests use `MemoryObjectStore`. The local container stack configures an S3-compatible MinIO endpoint
-through `PLE_S3_ENDPOINT`, region, credentials, and the three bucket names; the same
-[S3ObjectStore](../crates/objects/src/s3.rs) implementation serves an AWS S3 endpoint without
-exposing AWS SDK types through the `ObjectStore` trait. The MinIO client uses path-style requests.
-Production composition requires names for all three buckets, but its current readiness route makes
-one authorized `HeadBucket` request for the `content` bucket only. That proves the configured
-endpoint and primary content bucket are available; it is not evidence that `student-records` and
-`temp-processing` are reachable. Operations work should extend readiness to all three buckets
-before treating a full object-storage outage check as complete. See
-[minio.rs](../crates/objects/src/minio.rs) and
-[composition/router.rs](../crates/server/src/composition/router.rs).
+Production S3 composition requires SSE-KMS for every object write and verifies
+the returned encryption headers. Encryption at rest is the baseline for all
+four domains and their backups. PLE deliberately does not encrypt every
+public asset again in application code: public objects must be CDN-readable,
+and a blanket application layer would add key-handling risk without supplying
+an access-control property that the public domain intentionally lacks.
 
-Object reconciliation is planned, not complete. WP-RC7 reserves bounded bucket inventory,
-twice-observed orphan quarantine and deletion, missing/mismatched-byte alerts and delivery
-quarantine, and an idempotent tenant-safe worker. Its reserved migration is
-`2026080910_object_reconciliation.sql`; the named implementation files and acceptance gate remain
-unlanded. The current release plan marks WP-RC7 unchecked, so this document does not treat
-reconciliation or the combined M2-M5 gate as accepted. See
-[release_completion_plan.md](active_plans/active/release_completion_plan.md#wp-rc7-reconcile-objects-and-close-m2-through-m5)
-and [implementation_status.md](active_plans/implementation_status.md#dependency-ordered-remaining-work).
+Private or student-specific application payload encryption is a separate
+design decision when a field needs protection from storage administrators or a
+specific downstream processor; it is not implied by the object checksum.
+Secrets and provider state use their own server-side protection boundaries.
+
+The current repository validates typed routing, immutable writes, checksums,
+strict image admission, delivery separation, pending-publication behavior, and
+publisher lease/retry behavior. General object reconciliation remains planned:
+an orphan is never served, and a missing or checksum-mismatched referenced
+object fails closed and retains its database evidence until repair. Production
+KMS rotation, bucket policies, Object Lock retention, backup restore, and IAM
+are deployment evidence, not properties demonstrated by `MemoryObjectStore`.

@@ -216,7 +216,7 @@ async fn publication_uses_server_capabilities_roles_and_fresh_problem_identity()
         .await
         .expect("draft save")
         .revision;
-    let cookie = issued_cookie(&store, vec![UserRole::Publisher], publisher).await;
+    let cookie = issued_cookie(&store, vec![UserRole::Instructor], publisher).await;
 
     let failing_app = router(
         Arc::clone(&store),
@@ -276,15 +276,15 @@ async fn publication_uses_server_capabilities_roles_and_fresh_problem_identity()
         }),
         Arc::new(ReviewNotRequired),
     );
-    let instructor_cookie =
-        issued_cookie(&store, vec![UserRole::Instructor], UserId::from_uuid(id(5))).await;
+    let student_cookie =
+        issued_cookie(&store, vec![UserRole::Student], UserId::from_uuid(id(5))).await;
     let role_rejected = passing_app
         .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
                 .uri(format!("/api/problems/{workspace}/publish"))
-                .header("cookie", instructor_cookie)
+                .header("cookie", student_cookie)
                 .header(IF_MATCH, strong_if_match(draft_revision))
                 .header("content-type", "application/json")
                 .body(Body::from(r#"{"scope":"public"}"#))
@@ -357,7 +357,7 @@ async fn publication_requires_a_current_strong_workspace_revision_before_minting
         .await
         .expect("draft save")
         .revision;
-    let cookie = issued_cookie(&store, vec![UserRole::Publisher], publisher).await;
+    let cookie = issued_cookie(&store, vec![UserRole::Instructor], publisher).await;
     let app = router(
         Arc::clone(&store),
         Arc::new(FixtureRegistry {
@@ -454,7 +454,7 @@ async fn publication_refuses_a_collaborator_edit_that_arrives_during_review_befo
         .grant_draft_collaborator(context, publisher, workspace, collaborator)
         .await
         .expect("collaborator grant");
-    let cookie = issued_cookie(&store, vec![UserRole::Publisher], publisher).await;
+    let cookie = issued_cookie(&store, vec![UserRole::Instructor], publisher).await;
     let app = router(
         Arc::clone(&store),
         Arc::new(FixtureRegistry {
@@ -511,7 +511,7 @@ async fn same_tenant_nonowner_publisher_cannot_mint_from_a_private_workspace() {
         .expect("owner draft save")
         .revision;
     let nonowner = UserId::from_uuid(id(84));
-    let cookie = issued_cookie(&store, vec![UserRole::Publisher], nonowner).await;
+    let cookie = issued_cookie(&store, vec![UserRole::Instructor], nonowner).await;
     let app = router(
         Arc::clone(&store),
         Arc::new(FixtureRegistry {

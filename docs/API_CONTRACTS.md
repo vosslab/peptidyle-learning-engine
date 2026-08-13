@@ -39,7 +39,7 @@ substituted for the current tagged `StudentResponse` route contract.
 | JSON | Browser JSON is decoded from `unknown` with bounded bodies, content-type checks, closed discriminants, bounded numeric values, and relationship checks. A TypeScript type assertion is not a decoder. |
 | Request parsing | Mutating Rust request types use closed Serde models or canonical typed-value comparison. Unknown fields, malformed IDs, and unsupported variants refuse. |
 | Pagination | Lists use opaque cursors. Clients do not use offsets and must reject a repeated cursor during traversal. |
-| Object delivery | JSON carries opaque delivery IDs, never object keys, bucket names, object checksums, or signed URLs. `GET /api/assets/{id}` is the only browser asset handle. |
+| Object delivery | JSON carries opaque delivery IDs, never object keys, bucket names, object checksums, or signed URLs. `GET /api/assets/{id}` can redirect only an immutable, active public asset. A protected object requires body-free `POST /api/assets/{id}/delivery`, which reauthorizes the current typed delivery record, audits the decision, and returns the short-lived delivery result. |
 | Error detail | Errors describe a permitted action or unavailable service, not hidden tenant, course, draft, answer, key, renderer, or object state. |
 
 ## Identity and authorization
@@ -57,8 +57,8 @@ or a database object key as an authorization input.
 | Scope | Authority | Normal concealed result |
 | --- | --- | --- |
 | Shared catalog | Visibility and lifecycle policy | Hidden or archived versions do not appear in browse results. |
-| Course | Persisted `course_member` relationship or tenant administrator authority | Foreign/nonmember course looks absent where disclosure is unsafe. |
-| Assignment/run/attempt | Owning course, enrollment, and session-derived learner or instructor role | A route refuses unrelated records before returning question or grading data. |
+| Course | Persisted direct `course_member` relationship | Foreign/nonmember course looks absent where disclosure is unsafe; Sysadmin alone is not course authority. |
+| Assignment/run/attempt | Owning course, enrollment, and session-derived learner or instructor role | Learner-facing Store reads and mutations take the actor and require an active `Student` course membership in the same authority boundary as the record lookup. A revoked learner cannot retain access through an old enrollment, run, or attempt identifier. |
 | Workspace | Tenant-owned author/collaborator ACL | Student, foreign, and unshared workspaces share an absent projection. |
 | Protected asset | Typed delivery record plus current persisted authorization pointer | Unknown or unauthorized delivery ID is not an object-storage lookup. |
 
@@ -77,7 +77,7 @@ body limit, status response, and Rust type remain in the linked owner.
 | Catalog | `GET /api/problems`, `/search`, `/by-id/{reference}`, `/{problem}/versions/{version}`, `/{problem}/versions/{version}/detail`, `GET /api/taxonomy` | Browse and detail are browser-safe catalog projections. Source, private response/grading material, credentials, and student records are excluded. | [crates/server/src/catalog/routes.rs](../crates/server/src/catalog/routes.rs) |
 | Catalog lifecycle | `POST /api/problems/{workspace}/publish`, `POST /api/problems/{problem}/versions/{version}/deprecate`, `/archive` | Publication mints immutable content from an authorized workspace. Lifecycle actions operate on immutable published versions and retain historical references. | [crates/server/src/catalog/routes.rs](../crates/server/src/catalog/routes.rs) |
 | Course and assignment | `GET/POST /api/courses`, `GET/POST /api/courses/{course}/assignments`, `GET /api/courses/{course}`, `/gradebook`, `GET /api/assignments/{assignment}`, `PUT /api/courses/{course}/assignments/{assignment}` | Course comes from path plus membership. Assignment create/update bodies carry title, immutable version references, and policies; they cannot select tenant, draft, source, or answer payload. | [crates/server/src/course/routing.rs](../crates/server/src/course/routing.rs) |
-| Course roster | `GET /api/courses/{course}/roster`; invitation create/revoke/redeem; enrollment-policy replace; member revoke; roster-import preview/commit; `POST /api/courses/{course}/assignments/{assignment}/grade-export.csv` | Single creation returns one manager-only no-store relative redemption path; configured SMTP may deliver the same secret, but later roster reads remain secret-free. Invitation claim resolves the authenticated PLE account and atomically reconciles membership, assignment enrollments, and empty summaries. Bulk commits use staged normalized rows. The export is manager-only, synchronous, no-store, and excludes global account IDs. | [crates/server/src/course/roster.rs](../crates/server/src/course/roster.rs), [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) |
+| Course roster | `GET /api/courses/{course}/roster`; invitation create/revoke/redeem; enrollment-policy replace; member revoke; roster-import preview/commit; `POST /api/courses/{course}/assignments/{assignment}/grade-export.csv` | Direct Instructors own the workflow. A Sysadmin may use only the closed list/invite/policy/revoke/import support operations; the Store records actor/course/action/time for each support disclosure or change. Invitation claim resolves the authenticated PLE account and atomically reconciles membership, assignment enrollments, and empty summaries. Grade export remains direct-Instructor-only, synchronous, no-store, and excludes global account IDs. | [crates/server/src/course/roster.rs](../crates/server/src/course/roster.rs), [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) |
 | Course appearance | `GET/PUT /api/courses/{course}/appearance`, `POST /api/courses/{course}/appearance/banner-candidates` | Safe theme/banner projection; candidate upload uses raw bounded raster bytes and returns an opaque candidate receipt. Current appearance update uses strong `If-Match`. | [crates/server/src/course_appearance.rs](../crates/server/src/course_appearance.rs) |
 | Workspace | `GET /api/workspaces`, `GET/PUT/DELETE /api/workspaces/{workspace}`, `POST /publication-validation`, `GET /publication-diff` | Private authoring draft surface. Mutation and publication review use the strong workspace revision ETag. | [crates/server/src/workspace.rs](../crates/server/src/workspace.rs) |
 | Private author presentation | `GET /api/workspaces/{workspace}/author-preview?seed=...` | Instructor-only teaching display; it may return rendered correct-response material but never an answer key or reusable grading contract. | [crates/server/src/author_preview.rs](../crates/server/src/author_preview.rs) |
@@ -85,11 +85,11 @@ body limit, status response, and Rust type remain in the linked owner.
 | QTI profile | `GET/PUT /api/workspaces/{workspace}/qti-imports/{import}`, `POST /items/{item}/convert-flat`, `POST /api/problems/{workspace}/qti-publish` | Archive bytes and conversion/provenance stay private. Browser reports, acknowledgements, and converted draft handoff remain answer-free. | [crates/server/src/qti_profile_import.rs](../crates/server/src/qti_profile_import.rs) |
 | Runs and attempts | `POST /api/runs`, `GET /api/runs/{run}`, `/summary`, `/attempts`, `GET /api/attempts/{attempt}`, `/question`, `POST /prefetch-next`, `POST /api/submissions/{attempt}` | An authenticated attempt binds learner, run, assignment position, immutable version, seed, timing, lifecycle, and backend. The current submission response is typed; the planned compact contract is owned separately by the assessment payload design. | [crates/server/src/run/routes.rs](../crates/server/src/run/routes.rs) |
 | Instructor grading | `GET/PUT /api/attempts/{attempt}/manual-grade`, `POST /feedback-release`, `GET /api/grading/summaries/{enrollment}` | Instructor actions use the course relationship resolved from the attempt/enrollment. Learners receive only policy-projected feedback and score. | [crates/server/src/run/routes.rs](../crates/server/src/run/routes.rs) |
-| External tool | `GET /api/attempts/{attempt}/external-tool-launch` and its `/launch/*` children | Browser receives a same-origin attempt handle only. Provider launch material, replay state, field names, credentials, and raw provider outcomes remain server-held. | [crates/server/src/run/external_tool.rs](../crates/server/src/run/external_tool.rs) |
+| External tool | `POST /api/attempts/{attempt}/external-tool/launch`, inert `GET /api/attempts/{attempt}/external-tool/launch`, and bounded `/launch/*` activity children | Only the POST creates a server-held, one-attempt launch session. The GET returns an inert same-origin shell; it cannot create, renew, or reveal a provider launch. Activity requires the session-bound launch proof. Provider material, replay state, field names, credentials, and raw provider outcomes remain server-held. | [crates/server/src/run/external_tool.rs](../crates/server/src/run/external_tool.rs) |
 | Item analysis | `GET /api/courses/{course}/assignments/{assignment}/item-analysis` | Instructor-only aggregate projection. It excludes learner, attempt, raw response, answer, and object identity. | [crates/server/src/item_analysis.rs](../crates/server/src/item_analysis.rs) |
 | Export | `POST /api/assignments/{assignment}/exports`, `GET /api/exports/{export}` | Creation requires an exactly empty body. The server freezes the assignment and delivery plan; status returns safe identifiers and progress, not object keys or manifests. | [crates/server/src/export.rs](../crates/server/src/export.rs) |
 | Retention | `GET /api/courses/{course}/retention`, `POST /end`, `/archive`, `/delete`, `PATCH /extend` | Instructor-only tenant-owned record-retention control. It cannot expose another tenant's learner data or worker lease state. | [crates/server/src/retention.rs](../crates/server/src/retention.rs) |
-| Assets | `GET /api/assets/{id}` | One opaque delivery ID resolves either to an immutable public CDN redirect or an authorized protected delivery. The asset contract owns cache differences. | [crates/server/src/asset.rs](../crates/server/src/asset.rs) |
+| Assets | `GET /api/assets/{id}`, `POST /api/assets/{id}/delivery` | GET is deliberately public-only: it redirects an active immutable public asset and never signs private content. POST is deliberately protected: it rechecks the session-derived authorization pointer, records the authorization decision, and then creates the bounded private delivery. Pending public assets are unavailable from both paths until the dedicated publisher has verified and activated them. | [crates/server/src/asset.rs](../crates/server/src/asset.rs) |
 | Browser validation fallback | `POST /api/validation/response-format`, `/timer`, `/assignment-capabilities` | Authenticated, key-free pure validation only. It never grades, authorizes publication, establishes server time, or replaces server grading. | [crates/server/src/validation.rs](../crates/server/src/validation.rs) |
 
 ### Identity composition and activation
@@ -113,17 +113,48 @@ institutional review integration optional. It does not read
 `PLE_AUTH_PROVIDER`, `PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH`, or
 `PLE_LOCAL_AUTH_FILE`, and it does not mount `/api/auth/login`.
 
+Production is a same-origin first-party application. It does not support an
+embedded `SameSite=None` session mode. A future LTI integration is a separate
+security design and must establish its own authenticated launch and CSRF
+protocol; it must not relax these cookie or origin rules by convention.
+
+## Browser request, method, and frame boundaries
+
+The router owns one exhaustive typed route-method inventory. A registered
+method is explicit; an unregistered method fails closed before a handler can
+interpret a body. State-changing routes use their declared non-GET method and
+the request's canonical same-origin protection. A route must never create a
+launch, grade, mutation, or signed protected delivery from an incidental GET.
+
+The normal unsafe-request boundary requires the canonical HTTPS `Host` and an
+exact same-origin `Origin`, with duplicate session cookies refused. The sole
+intentional narrow exception is the sandboxed external-activity POST: a
+browser iframe may send `Origin: null` only when it presents both its ordinary
+session and the distinct HttpOnly launch cookie, and the server verifies the
+AEAD-bound launch context, attempt, actor, and lease before proxying a
+bounded activity. `Origin: null` is not a general CSRF bypass and is rejected
+by every other unsafe route.
+
+The browser decoder treats all network JSON as hostile: it bounds bytes,
+checks content type, constructs null-prototype records, refuses duplicate or
+unknown fields and closed-discriminant misses, and checks requested/returned
+relationships before exposing a typed value. The server gives mutating
+Serde models the same closed-world posture. Browser types, mocks, and WASM
+are convenience projections, never authorization evidence.
+
 The separately callable local-development launcher requires
 `PLE_AUTH_PROVIDER=local-file`, the explicit development flag, and an
 operator-owned identity file. That provider serves legacy `POST /api/auth/login`
 and issues a tenant-scoped `ple_session`; it does not bootstrap a PLE account.
-The binary selects that launcher only when `PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH=1`.
+Only a binary explicitly built with the `local-development-auth` feature may
+select that launcher, and it does so only when
+`PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH=1`.
 
 The established SMTP adapter is constructed only when the complete SMTP
 settings and `PLE_INVITATION_TOKEN_SECRET_FILE` are configured. It implements
 both invitation and passwordless email delivery. Without them, the router uses
 unavailable delivery/issuer capabilities and email start fails closed; a
-server-secret-only deployment can still issue a manager copy link for an
+server-secret-only deployment can still issue an Instructor copy link for an
 invitation. PLE has no mail-server container or deliverability subsystem. A
 live external-provider account and its acceptance evidence remain WP-RC8 work.
 Optional OIDC/SAML linking is

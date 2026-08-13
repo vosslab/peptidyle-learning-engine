@@ -343,7 +343,7 @@ fn pilot_object_store(storage: &WebworkPilotStorage) -> Result<objects::s3::S3Ob
     Ok(objects::s3::S3ObjectStore::new(
         client,
         objects::s3::BucketNames {
-            content: storage.content_bucket.clone(),
+            private_content: storage.private_content_bucket.clone(),
             ..objects::s3::BucketNames::default()
         },
     ))

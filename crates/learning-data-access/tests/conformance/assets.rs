@@ -126,6 +126,8 @@ where
                 version: public_version,
             },
         },
+        publication: AssetPublication::Ready,
+        pending_source: None,
     };
     let second_public_asset = AssetId::from_uuid(uuid(419));
     let second_public_object = ObjectId::from_uuid(uuid(420));
@@ -150,13 +152,15 @@ where
                 version: public_version,
             },
         },
+        publication: AssetPublication::Ready,
+        pending_source: None,
     };
     let institution_asset = AssetId::from_uuid(uuid(414));
     let institution_object = ObjectId::from_uuid(uuid(415));
     let institution_delivery = AssetDeliveryRecord {
         id: AssetDeliveryId::from_asset(institution_asset),
         object: object_record(
-            ObjectKey::ProblemAsset {
+            ObjectKey::RestrictedProblemAsset {
                 problem: institution_problem,
                 version: institution_version,
                 asset: institution_asset,
@@ -174,6 +178,8 @@ where
                 version: institution_version,
             },
         },
+        publication: AssetPublication::Ready,
+        pending_source: None,
     };
     let student_object = ObjectId::from_uuid(uuid(416));
     let student_delivery = AssetDeliveryRecord {
@@ -193,6 +199,8 @@ where
             course,
             authorized_users: vec![student],
         },
+        publication: AssetPublication::Ready,
+        pending_source: None,
     };
 
     for record in [
@@ -254,6 +262,12 @@ where
             learning_data_access::CatalogAssetBinding {
                 asset: public_asset,
                 object: public_object,
+                key: ObjectKey::ProblemAsset {
+                    problem: public_problem,
+                    version: public_version,
+                    asset: public_asset,
+                    object: public_object,
+                },
                 rendition_checksum: Sha256Digest::compute(b"public"),
                 media_type: "image/svg+xml".to_string(),
                 intrinsic_width: None,
@@ -262,6 +276,12 @@ where
             learning_data_access::CatalogAssetBinding {
                 asset: second_public_asset,
                 object: second_public_object,
+                key: ObjectKey::ProblemAsset {
+                    problem: public_problem,
+                    version: public_version,
+                    asset: second_public_asset,
+                    object: second_public_object,
+                },
                 rendition_checksum: Sha256Digest::compute(b"second public asset"),
                 media_type: "image/svg+xml".to_string(),
                 intrinsic_width: None,
@@ -286,6 +306,12 @@ where
         vec![learning_data_access::CatalogAssetBinding {
             asset: institution_asset,
             object: institution_object,
+            key: ObjectKey::RestrictedProblemAsset {
+                problem: institution_problem,
+                version: institution_version,
+                asset: institution_asset,
+                object: institution_object,
+            },
             rendition_checksum: Sha256Digest::compute(b"institution"),
             media_type: "image/svg+xml".to_string(),
             intrinsic_width: None,
@@ -348,6 +374,57 @@ where
         "RLS tenant context must protect student records"
     );
 
+    let pending_asset = AssetId::from_uuid(uuid(425));
+    let pending_delivery = AssetDeliveryRecord {
+        id: AssetDeliveryId::from_asset(pending_asset),
+        object: object_record(
+            ObjectKey::ProblemAsset {
+                problem: public_problem,
+                version: public_version,
+                asset: pending_asset,
+                object: ObjectId::from_uuid(uuid(426)),
+            },
+            b"pending public target",
+            1_000,
+        ),
+        intrinsic_width: None,
+        intrinsic_height: None,
+        scope: AssetDeliveryScope::Catalog {
+            asset: pending_asset,
+            reference: public_reference,
+        },
+        publication: AssetPublication::Pending,
+        pending_source: Some(object_record(
+            ObjectKey::WorkspaceQuestionAsset {
+                tenant,
+                workspace: WorkspaceId::from_uuid(uuid(427)),
+                asset: pending_asset,
+                object: ObjectId::from_uuid(uuid(428)),
+            },
+            b"private pending source",
+            1_000,
+        )),
+    };
+    store
+        .register_asset_delivery(context, pending_delivery.clone())
+        .await
+        .expect("pending public asset should register for its publisher");
+    assert_eq!(
+        store
+            .get_public_asset_delivery(pending_delivery.id)
+            .await
+            .expect("pending public lookup should run"),
+        None,
+        "a pending public asset must not enter the CDN path"
+    );
+    assert_eq!(
+        store
+            .authorize_asset_delivery(context, student, pending_delivery.id)
+            .await,
+        Err(StoreError::NotFound),
+        "a pending public asset must be concealed before access auditing"
+    );
+
     let temporary = ObjectId::from_uuid(uuid(417));
     let invalid = AssetDeliveryRecord {
         id: AssetDeliveryId::from_object(temporary),
@@ -363,10 +440,68 @@ where
             course,
             authorized_users: vec![student],
         },
+        publication: AssetPublication::Ready,
+        pending_source: None,
     };
     assert!(matches!(
         store.register_asset_delivery(context, invalid).await,
         Err(StoreError::InvalidRecord(_))
+    ));
+
+    let public_with_restricted_key = AssetDeliveryRecord {
+        id: AssetDeliveryId::from_asset(AssetId::from_uuid(uuid(421))),
+        object: object_record(
+            ObjectKey::RestrictedProblemAsset {
+                problem: public_problem,
+                version: public_version,
+                asset: AssetId::from_uuid(uuid(421)),
+                object: ObjectId::from_uuid(uuid(422)),
+            },
+            b"wrong public domain",
+            1_000,
+        ),
+        intrinsic_width: None,
+        intrinsic_height: None,
+        scope: AssetDeliveryScope::Catalog {
+            asset: AssetId::from_uuid(uuid(421)),
+            reference: public_reference,
+        },
+        publication: AssetPublication::Ready,
+        pending_source: None,
+    };
+    assert!(matches!(
+        store
+            .register_asset_delivery(context, public_with_restricted_key)
+            .await,
+        Err(StoreError::InvalidRecord(message)) if message.contains("public catalog content")
+    ));
+
+    let institution_with_public_key = AssetDeliveryRecord {
+        id: AssetDeliveryId::from_asset(AssetId::from_uuid(uuid(423))),
+        object: object_record(
+            ObjectKey::ProblemAsset {
+                problem: institution_problem,
+                version: institution_version,
+                asset: AssetId::from_uuid(uuid(423)),
+                object: ObjectId::from_uuid(uuid(424)),
+            },
+            b"wrong institution domain",
+            1_000,
+        ),
+        intrinsic_width: None,
+        intrinsic_height: None,
+        scope: AssetDeliveryScope::Catalog {
+            asset: AssetId::from_uuid(uuid(423)),
+            reference: institution_reference,
+        },
+        publication: AssetPublication::Ready,
+        pending_source: None,
+    };
+    assert!(matches!(
+        store
+            .register_asset_delivery(context, institution_with_public_key)
+            .await,
+        Err(StoreError::InvalidRecord(message)) if message.contains("institution catalog content")
     ));
 }
 

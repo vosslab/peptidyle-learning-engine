@@ -3,6 +3,7 @@
 //! Composition stays in the `server_core::composition` library module; this
 //! file handles binding and the self-probe used by the container image.
 
+use std::future::IntoFuture;
 use std::net::SocketAddr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -10,11 +11,14 @@ enum ProcessMode {
     Api,
     HealthProbe,
     Worker,
+    PublicAssetPublisher,
+    LocalDevelopmentWorker,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ApiRouterMode {
     Production,
+    #[cfg(feature = "local-development-auth")]
     LocalDevelopment,
 }
 
@@ -23,14 +27,29 @@ fn process_mode(arguments: &[String]) -> anyhow::Result<ProcessMode> {
         [] => Ok(ProcessMode::Api),
         [flag] if flag == "--health-probe" => Ok(ProcessMode::HealthProbe),
         [flag] if flag == "--worker" => Ok(ProcessMode::Worker),
-        _ => anyhow::bail!("usage: peptidyle-api [--health-probe|--worker]"),
+        [flag] if flag == "--public-asset-publisher" => Ok(ProcessMode::PublicAssetPublisher),
+        [flag] if flag == "--local-worker" => Ok(ProcessMode::LocalDevelopmentWorker),
+        _ => anyhow::bail!(
+            "usage: peptidyle-api [--health-probe|--worker|--public-asset-publisher|--local-worker]"
+        ),
     }
 }
 
 fn api_router_mode(local_development_auth: Option<&str>) -> anyhow::Result<ApiRouterMode> {
     match local_development_auth {
         None | Some("0") => Ok(ApiRouterMode::Production),
-        Some("1") => Ok(ApiRouterMode::LocalDevelopment),
+        Some("1") => {
+            #[cfg(feature = "local-development-auth")]
+            {
+                Ok(ApiRouterMode::LocalDevelopment)
+            }
+            #[cfg(not(feature = "local-development-auth"))]
+            {
+                anyhow::bail!(
+                    "PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH=1 requires a binary built with local-development-auth"
+                )
+            }
+        }
         Some(value) => anyhow::bail!(
             "PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH must be unset, 0, or exactly 1; got {value:?}"
         ),
@@ -49,6 +68,15 @@ pub(crate) async fn run() -> anyhow::Result<()> {
 
     if mode == ProcessMode::Worker {
         return server_core::composition::run_production_worker_from_env().await;
+    }
+    if mode == ProcessMode::PublicAssetPublisher {
+        return server_core::composition::run_public_asset_publisher_from_env().await;
+    }
+    if mode == ProcessMode::LocalDevelopmentWorker {
+        #[cfg(feature = "local-development-auth")]
+        return server_core::composition::run_local_development_worker_from_env().await;
+        #[cfg(not(feature = "local-development-auth"))]
+        anyhow::bail!("--local-worker requires a binary built with local-development-auth");
     }
 
     // Container health check mode. The same binary probes its own /health so
@@ -80,16 +108,88 @@ pub(crate) async fn run() -> anyhow::Result<()> {
             .as_deref(),
     )? {
         ApiRouterMode::Production => server_core::composition::production_router_from_env().await?,
+        #[cfg(feature = "local-development-auth")]
         ApiRouterMode::LocalDevelopment => {
             server_core::composition::local_development_router_from_env().await?
         }
     };
 
+    let app = server_core::request_lifecycle::apply_request_lifecycle(app);
     let listener = tokio::net::TcpListener::bind(bind_addr).await?;
-    eprintln!("peptidyle api listening on {bind_addr}");
-    axum::serve(listener, app).await?;
+    tracing::info!(event = "api_listening", address = %bind_addr);
+    run_api_until_shutdown(listener, app).await?;
 
     Ok(())
+}
+
+async fn run_api_until_shutdown(
+    listener: tokio::net::TcpListener,
+    app: axum::Router,
+) -> anyhow::Result<()> {
+    let (drain_signal, drain_requested) = tokio::sync::oneshot::channel::<()>();
+    let server = axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(async move {
+        let _ = drain_requested.await;
+    })
+    .into_future();
+    tokio::pin!(server);
+    let shutdown = shutdown_signal();
+    tokio::pin!(shutdown);
+
+    tokio::select! {
+        result = &mut server => result.map_err(Into::into),
+        () = &mut shutdown => {
+            tracing::info!(event = "api_shutdown_requested");
+            // A receiver can only be absent if the server ended first, which
+            // this select arm excludes. Do not panic while stopping.
+            let _ = drain_signal.send(());
+            match tokio::time::timeout(
+                server_core::request_lifecycle::API_DRAIN_TIMEOUT,
+                &mut server,
+            ).await {
+                Ok(result) => result.map_err(Into::into),
+                Err(_) => {
+                    tracing::error!(
+                        event = "api_shutdown_drain_expired",
+                        drain_timeout_seconds = server_core::request_lifecycle::API_DRAIN_TIMEOUT.as_secs()
+                    );
+                    Ok(())
+                }
+            }
+        }
+    }
+}
+
+async fn shutdown_signal() {
+    #[cfg(unix)]
+    {
+        let mut terminate = match tokio::signal::unix::signal(
+            tokio::signal::unix::SignalKind::terminate(),
+        ) {
+            Ok(signal) => signal,
+            Err(error) => {
+                tracing::error!(event = "api_shutdown_signal_unavailable", signal = "SIGTERM", error = %error);
+                let _ = tokio::signal::ctrl_c().await;
+                return;
+            }
+        };
+        tokio::select! {
+            result = tokio::signal::ctrl_c() => {
+                if let Err(error) = result {
+                    tracing::error!(event = "api_shutdown_signal_unavailable", signal = "SIGINT", error = %error);
+                }
+            }
+            _ = terminate.recv() => {}
+        }
+    }
+
+    #[cfg(not(unix))]
+    if let Err(error) = tokio::signal::ctrl_c().await {
+        tracing::error!(event = "api_shutdown_signal_unavailable", signal = "SIGINT", error = %error);
+    }
 }
 
 #[cfg(test)]
@@ -106,6 +206,14 @@ mod tests {
         assert_eq!(
             process_mode(&["--worker".to_string()]).expect("worker"),
             ProcessMode::Worker
+        );
+        assert_eq!(
+            process_mode(&["--public-asset-publisher".to_string()]).expect("publisher"),
+            ProcessMode::PublicAssetPublisher
+        );
+        assert_eq!(
+            process_mode(&["--local-worker".to_string()]).expect("local worker"),
+            ProcessMode::LocalDevelopmentWorker
         );
         for invalid in [
             vec!["--unknown".to_string()],
@@ -125,10 +233,13 @@ mod tests {
             api_router_mode(Some("0")).expect("production disabled"),
             ApiRouterMode::Production
         );
+        #[cfg(feature = "local-development-auth")]
         assert_eq!(
             api_router_mode(Some("1")).expect("explicit local development"),
             ApiRouterMode::LocalDevelopment
         );
+        #[cfg(not(feature = "local-development-auth"))]
+        assert!(api_router_mode(Some("1")).is_err());
         for invalid in ["", "01", "true", "2"] {
             assert!(api_router_mode(Some(invalid)).is_err(), "{invalid:?}");
         }

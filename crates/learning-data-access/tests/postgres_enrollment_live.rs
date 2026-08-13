@@ -6,18 +6,19 @@ use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_applicatio
 use learning_data_access::{
     AccountIdentityStore, AuthenticationEmail, AuthenticationRateLimitDecision,
     AuthenticationRateLimitKey, AuthenticationRateLimitPolicy, AuthenticationRateLimitScope,
-    BeginWebauthnCeremony, BrowserBindingHash, CommitCourseRosterImport,
-    CompletePasskeyAuthenticationAndCreateSession, ConsumeAuthenticationRateLimit,
-    CourseInvitationLifetime, CourseInvitationSecretHash, CourseRosterId,
-    CourseRosterImportLifetime, CourseRosterImportRowInput, CourseRosterStore,
-    CreateCourseInvitation, CredentialIdHash, PageRequest, PageSize, PasskeyId, PasskeyRecord,
-    RegisterPasskey, RosterIdempotencyKey, RosterImportInvitation, SessionLifetime, SessionStore,
-    SessionSubject, SessionTokenHash, StageCourseRosterImport, StoreError, TenantContext,
-    UpsertCourseMember, WebauthnCeremonyId, WebauthnCeremonyKind, WebauthnCeremonyLifetime,
-    WebauthnState,
+    BeginEmailAuthentication, BeginWebauthnCeremony, BrowserBindingHash, CommitCourseRosterImport,
+    CompleteEmailAuthentication, CompletePasskeyAuthenticationAndCreateSession,
+    ConsumeAuthenticationRateLimit, CourseInvitationLifetime, CourseInvitationSecretHash,
+    CourseRosterId, CourseRosterImportLifetime, CourseRosterImportRowInput, CourseRosterStore,
+    CreateCourseInvitation, CredentialIdHash, EmailAuthenticationPurpose, EmailChallengeId,
+    EmailChallengeLifetime, EmailChallengeSecretHash, PageRequest, PageSize, PasskeyId,
+    PasskeyRecord, RegisterPasskey, RosterIdempotencyKey, RosterImportInvitation, SessionLifetime,
+    SessionStore, SessionSubject, SessionTokenHash, StageCourseRosterImport, StoreError,
+    TenantContext, UpsertCourseMember, WebauthnCeremonyId, WebauthnCeremonyKind,
+    WebauthnCeremonyLifetime, WebauthnState,
 };
 use objects::Sha256Digest;
-use question_model::{CourseId, CourseRole, TenantId, UserId, UserRole};
+use question_model::{CourseId, CourseMembershipRole, TenantId, UserId, UserRole};
 use sqlx::Row;
 use uuid::Uuid;
 
@@ -32,6 +33,144 @@ fn database_error_code(error: &sqlx::Error) -> Option<String> {
         .as_database_error()
         .and_then(|database_error| database_error.code())
         .map(|code| code.into_owned())
+}
+
+#[tokio::test]
+#[ignore = "requires the disposable PostgreSQL acceptance database"]
+async fn postgres_passwordless_challenge_consumption_is_binding_atomic() {
+    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
+        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
+    let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    verify_application_schema(&pool)
+        .await
+        .expect("live PostgreSQL schema compatibility");
+    let store = PostgresStore::new(pool);
+    let browser_binding = BrowserBindingHash::compute(b"durable issuing browser");
+    let foreign_binding = BrowserBindingHash::compute(b"durable forwarded browser");
+
+    let user = UserId::from_uuid(id());
+    let token_hash = EmailChallengeSecretHash::compute(id().as_bytes());
+    store
+        .begin_email_authentication(BeginEmailAuthentication {
+            id: EmailChallengeId::from_uuid(id()),
+            token_hash,
+            browser_binding,
+            email_rate_limit_key: AuthenticationRateLimitKey::compute(id().as_bytes()),
+            email: AuthenticationEmail::parse(&format!("binding-{}@example.edu", id()))
+                .expect("valid unique email"),
+            purpose: EmailAuthenticationPurpose::SignInOrRegister,
+            lifetime: EmailChallengeLifetime::from_seconds(600).expect("bounded lifetime"),
+        })
+        .await
+        .expect("persist durable email challenge");
+    let command = CompleteEmailAuthentication {
+        token_hash,
+        browser_binding,
+        proposed_user: user,
+        proposed_display_name: "Binding atomic learner".to_string(),
+    };
+    assert_eq!(
+        store
+            .complete_email_authentication(CompleteEmailAuthentication {
+                browser_binding: foreign_binding,
+                ..command.clone()
+            })
+            .await,
+        Err(StoreError::NotFound),
+        "a mismatched browser binding must leave the durable email challenge usable"
+    );
+    store
+        .complete_email_authentication(command)
+        .await
+        .expect("the issuing browser can still consume the email challenge");
+
+    let concurrent_token_hash = EmailChallengeSecretHash::compute(id().as_bytes());
+    store
+        .begin_email_authentication(BeginEmailAuthentication {
+            id: EmailChallengeId::from_uuid(id()),
+            token_hash: concurrent_token_hash,
+            browser_binding,
+            email_rate_limit_key: AuthenticationRateLimitKey::compute(id().as_bytes()),
+            email: AuthenticationEmail::parse(&format!("concurrent-{}@example.edu", id()))
+                .expect("valid unique email"),
+            purpose: EmailAuthenticationPurpose::SignInOrRegister,
+            lifetime: EmailChallengeLifetime::from_seconds(600).expect("bounded lifetime"),
+        })
+        .await
+        .expect("persist concurrent durable email challenge");
+    let concurrent_command = CompleteEmailAuthentication {
+        token_hash: concurrent_token_hash,
+        browser_binding,
+        proposed_user: UserId::from_uuid(id()),
+        proposed_display_name: "Concurrent learner".to_string(),
+    };
+    let first_store = store.clone();
+    let second_store = store.clone();
+    let (first, second) = tokio::join!(
+        first_store.complete_email_authentication(concurrent_command.clone()),
+        second_store.complete_email_authentication(concurrent_command),
+    );
+    assert_eq!(
+        [first, second]
+            .into_iter()
+            .filter(|result| result.is_ok())
+            .count(),
+        1,
+        "exactly one concurrent valid email completion may consume the challenge"
+    );
+
+    let ceremony = store
+        .begin_webauthn_ceremony(BeginWebauthnCeremony {
+            id: WebauthnCeremonyId::from_uuid(id()),
+            kind: WebauthnCeremonyKind::Registration { user },
+            browser_binding,
+            state: WebauthnState::new(br#"{"binding":"atomic"}"#.to_vec())
+                .expect("valid ceremony state"),
+            lifetime: WebauthnCeremonyLifetime::from_seconds(600).expect("bounded lifetime"),
+        })
+        .await
+        .expect("persist durable WebAuthn ceremony");
+    assert_eq!(
+        store
+            .take_webauthn_ceremony(ceremony.id, foreign_binding)
+            .await
+            .expect("mismatched durable ceremony take"),
+        None,
+        "a mismatched browser binding must leave the WebAuthn ceremony usable"
+    );
+    assert_eq!(
+        store
+            .take_webauthn_ceremony(ceremony.id, browser_binding)
+            .await
+            .expect("issuing browser takes ceremony"),
+        Some(ceremony),
+    );
+
+    let concurrent_ceremony = store
+        .begin_webauthn_ceremony(BeginWebauthnCeremony {
+            id: WebauthnCeremonyId::from_uuid(id()),
+            kind: WebauthnCeremonyKind::Registration { user },
+            browser_binding,
+            state: WebauthnState::new(br#"{"binding":"concurrent"}"#.to_vec())
+                .expect("valid ceremony state"),
+            lifetime: WebauthnCeremonyLifetime::from_seconds(600).expect("bounded lifetime"),
+        })
+        .await
+        .expect("persist concurrent durable WebAuthn ceremony");
+    let first_store = store.clone();
+    let second_store = store.clone();
+    let (first, second) = tokio::join!(
+        first_store.take_webauthn_ceremony(concurrent_ceremony.id, browser_binding),
+        second_store.take_webauthn_ceremony(concurrent_ceremony.id, browser_binding),
+    );
+    assert_eq!(
+        [first, second]
+            .into_iter()
+            .filter(|result| matches!(result, Ok(Some(_))))
+            .count(),
+        1,
+        "exactly one concurrent valid WebAuthn ceremony take may succeed"
+    );
 }
 
 #[tokio::test]
@@ -195,65 +334,80 @@ async fn postgres_enrollment_capability_is_locked_unique_and_role_separated() {
 
     let managed_tenant = TenantId::from_uuid(id());
     let managed_course = CourseId::from_uuid(id());
-    let administrator = UserId::from_uuid(id());
-    let administrator_session = SessionTokenHash::compute(id().as_bytes());
+    let sysadmin = UserId::from_uuid(id());
+    let sysadmin_session = SessionTokenHash::compute(id().as_bytes());
     store
         .create_session(
-            administrator_session,
+            sysadmin_session,
             SessionSubject::new(
                 managed_tenant,
-                administrator,
-                "Tenant administrator",
-                vec![UserRole::Administrator],
+                sysadmin,
+                "Sysadmin",
+                vec![UserRole::Sysadmin],
             )
-            .expect("valid administrator session subject"),
+            .expect("valid sysadmin session subject"),
             SessionLifetime::from_seconds(3_600).expect("bounded session lifetime"),
         )
         .await
-        .expect("administrator session should persist");
+        .expect("sysadmin session should persist");
     sqlx::query("INSERT INTO course (tenant_id, course_id, title) VALUES ($1, $2, $3)")
         .bind(managed_tenant.as_uuid())
         .bind(managed_course.as_uuid())
-        .bind("Tenant-admin managed course")
+        .bind("Sysadmin-created course")
         .execute(&pool)
         .await
-        .expect("insert course without direct administrator membership");
+        .expect("insert course without direct sysadmin membership");
 
     let managed_context = TenantContext::from_authenticated_session(managed_tenant);
     let invitation = store
         .create_course_invitation(
             managed_context,
-            administrator_session,
+            sysadmin_session,
             CreateCourseInvitation {
                 course: managed_course,
-                email: AuthenticationEmail::parse("admin-invited@example.edu")
+                email: AuthenticationEmail::parse("sysadmin-invited@example.edu")
                     .expect("valid invitation email"),
                 roster_id: CourseRosterId::parse("900999001").expect("valid roster identifier"),
-                token_hash: CourseInvitationSecretHash::compute(b"live-admin-invitation"),
-                idempotency_key: RosterIdempotencyKey::parse("live-admin-invitation")
+                token_hash: CourseInvitationSecretHash::compute(b"live-sysadmin-invitation"),
+                idempotency_key: RosterIdempotencyKey::parse("live-sysadmin-invitation")
                     .expect("valid invitation idempotency key"),
                 lifetime: CourseInvitationLifetime::from_seconds(86_400)
                     .expect("bounded invitation lifetime"),
             },
         )
         .await
-        .expect("tenant administrator should manage a course without direct membership");
-    assert_eq!(invitation.invited_by, administrator);
+        .expect("sysadmin roster-support capability should authorize the narrow mutation");
+    assert_eq!(invitation.invited_by, sysadmin);
     let roster = store
         .list_course_roster(
             managed_context,
-            administrator_session,
+            sysadmin_session,
             managed_course,
             PageRequest::first(PageSize::new(20).expect("bounded page size")),
         )
         .await
-        .expect("tenant administrator should read the managed roster");
+        .expect("sysadmin roster-support capability should authorize the narrow disclosure");
     assert_eq!(roster.entries.items.len(), 1);
+    let support_actions = sqlx::query_scalar::<_, String>(
+        "SELECT payload ->> 'supportAction' FROM audit_event \
+         WHERE tenant_id = $1 AND course_id = $2 AND actor_id = $3 \
+           AND action = 'sysadmin.rosterSupport' ORDER BY payload ->> 'supportAction'",
+    )
+    .bind(managed_tenant.as_uuid())
+    .bind(managed_course.as_uuid())
+    .bind(sysadmin.as_uuid())
+    .fetch_all(&pool)
+    .await
+    .expect("read roster-support audit evidence");
+    assert_eq!(
+        support_actions,
+        vec!["createInvitation".to_string(), "listRoster".to_string()]
+    );
 
     let preview = store
         .stage_course_roster_import(
             managed_context,
-            administrator_session,
+            sysadmin_session,
             StageCourseRosterImport {
                 course: managed_course,
                 expected_roster_revision: roster.policy.revision,
@@ -292,18 +446,14 @@ async fn postgres_enrollment_capability_is_locked_unique_and_role_separated() {
         }],
     };
     let committed = store
-        .commit_course_roster_import(
-            managed_context,
-            administrator_session,
-            commit_command.clone(),
-        )
+        .commit_course_roster_import(managed_context, sysadmin_session, commit_command.clone())
         .await
         .expect("ready roster rows should commit atomically");
     assert_eq!(committed.invitations.len(), 1);
     assert_eq!(committed.invitations[0].0, 2);
     assert_eq!(
         store
-            .commit_course_roster_import(managed_context, administrator_session, commit_command,)
+            .commit_course_roster_import(managed_context, sysadmin_session, commit_command,)
             .await
             .expect("database commit retry should be idempotent"),
         committed
@@ -339,7 +489,7 @@ async fn postgres_enrollment_capability_is_locked_unique_and_role_separated() {
     assert_eq!(contexts.items.len(), 1);
     assert_eq!(contexts.items[0].tenant, managed_tenant);
     assert_eq!(contexts.items[0].course, managed_course);
-    assert_eq!(contexts.items[0].role, CourseRole::Instructor);
+    assert_eq!(contexts.items[0].role, CourseMembershipRole::Instructor);
     assert_eq!(
         store
             .resolve_account_course_context(account_user, managed_course)
@@ -421,14 +571,14 @@ async fn postgres_course_member_upsert_is_atomic_idempotent_and_tenant_scoped() 
     let store = PostgresStore::new(pool.clone());
     let tenant = TenantId::from_uuid(id());
     let course = CourseId::from_uuid(id());
-    let manager = UserId::from_uuid(id());
+    let instructor = UserId::from_uuid(id());
     let learner = UserId::from_uuid(id());
     let conflicting_instructor = UserId::from_uuid(id());
     let assignments = [id(), id()];
-    let manager_session = SessionTokenHash::compute(id().as_bytes());
+    let instructor_session = SessionTokenHash::compute(id().as_bytes());
     let context = TenantContext::from_authenticated_session(tenant);
 
-    for (user, roles, token) in [(manager, vec![UserRole::Instructor], manager_session)] {
+    for (user, roles, token) in [(instructor, vec![UserRole::Instructor], instructor_session)] {
         store
             .create_session(
                 token,
@@ -458,7 +608,7 @@ async fn postgres_course_member_upsert_is_atomic_idempotent_and_tenant_scoped() 
         .execute(&mut *fixture)
         .await
         .expect("insert local roster state");
-    for user in [manager, conflicting_instructor] {
+    for user in [instructor, conflicting_instructor] {
         sqlx::query(
             "INSERT INTO course_member (tenant_id, course_id, user_id, role) \
              VALUES ($1, $2, $3, 'instructor')",
@@ -468,7 +618,7 @@ async fn postgres_course_member_upsert_is_atomic_idempotent_and_tenant_scoped() 
         .bind(user.as_uuid())
         .execute(&mut *fixture)
         .await
-        .expect("insert local roster manager fixture");
+        .expect("insert local roster instructor fixture");
     }
     for (index, assignment) in assignments.iter().enumerate() {
         sqlx::query(
@@ -504,12 +654,12 @@ async fn postgres_course_member_upsert_is_atomic_idempotent_and_tenant_scoped() 
     let roster = store
         .list_course_roster(
             context,
-            manager_session,
+            instructor_session,
             course,
             PageRequest::first(PageSize::new(20).expect("bounded page size")),
         )
         .await
-        .expect("manager roster read");
+        .expect("instructor roster read");
     assert_eq!(roster.entries.items.len(), 1);
     assert_eq!(roster.policy.revision, first.roster_revision);
     let student_memberships = sqlx::query_scalar::<_, i64>(

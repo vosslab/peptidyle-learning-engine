@@ -159,6 +159,13 @@ impl MemoryStore {
         Ok(self.read_state()?.asset_access_events.clone())
     }
 
+    /// Returns Sysadmin roster-support audit events for conformance assertions.
+    pub fn roster_support_audits(
+        &self,
+    ) -> Result<Vec<crate::CourseRosterSupportAudit>, StoreError> {
+        Ok(self.read_state()?.roster_support_audits.clone())
+    }
+
     /// Test-only equivalent of the later submission-completion capability.
     ///
     /// No public Store trait method accepts a collapsed observation.  Keeping

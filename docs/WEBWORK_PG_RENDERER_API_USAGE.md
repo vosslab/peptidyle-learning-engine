@@ -187,12 +187,13 @@ Live acceptance is intentionally separate:
 ```bash
 cargo test -p adapter_webwork --all-targets
 cargo clippy -p adapter_webwork --all-targets -- -D warnings
-source source_me.sh && python3 -m pytest -q \
-  tests/test_webwork_renderer_container.py \
-  tests/test_local_stack_launcher.py
 ./launch_local_stack.sh --check --no-open
 tests/e2e/e2e_webwork_render_rpc.sh
 ```
+
+Exact Compose and launcher source inspection was useful during the renderer
+cutover but is not retained as pytest. The check-mode launcher and live E2E
+exercise the maintained boundary without freezing configuration text.
 
 The original renderer E2E passed on 2026-08-10 for the licensed PGML `RadioButtons` pilot. The
 Chapter 1 release gate subsequently passed all four reviewed PGML sources, including both matching

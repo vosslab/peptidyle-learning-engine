@@ -1,7 +1,7 @@
 //! Concrete production storage and grading backend assembly.
 
 use super::router::{HealthState, compose_passwordless_router, verify_application_schema_bounded};
-use super::settings::{LazyStorageDependencies, ProductionSettings};
+use super::settings::{LazyStorageDependencies, ProductionSettings, StorageRuntime};
 use super::*;
 
 /// Concrete dependency construction for the future institution adapter.
@@ -21,6 +21,8 @@ pub(super) struct PersistentDependencies {
     passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
     passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
     webauthn: crate::auth::PasswordlessWebauthn,
+    browser_boundary: crate::auth::ProductionBrowserBoundary,
+    client_address_policy: crate::auth::ClientAddressPolicy,
     health: Arc<HealthState>,
 }
 
@@ -37,8 +39,8 @@ pub(super) struct ConfiguredImathas {
 }
 
 impl PersistentDependencies {
-    pub(super) async fn from_env() -> Result<Self> {
-        let settings = ProductionSettings::from_env()?;
+    pub(super) async fn from_env(runtime: StorageRuntime) -> Result<Self> {
+        let settings = ProductionSettings::from_env(runtime)?;
         let dependencies = Self::from_settings(&settings).await?;
         dependencies.verify_startup_schema().await?;
         Ok(dependencies)
@@ -63,11 +65,8 @@ impl PersistentDependencies {
             objects,
             pool,
             object_client,
-        } = LazyStorageDependencies::from_settings(&settings.storage)?;
-        let public_assets = Arc::new(
-            PublicAssetBaseUrl::new(settings.public_asset_base_url.clone())
-                .context("PLE_PUBLIC_ASSET_BASE_URL rejected")?,
-        );
+        } = LazyStorageDependencies::from_settings(&settings.storage).await?;
+        let public_assets = Arc::new(settings.public_asset_base_url.clone());
         // This only validates and constructs a private HTTP client.  It makes
         // no renderer request: renderer availability must not gate API startup,
         // native questions, or the API health endpoint.
@@ -109,9 +108,17 @@ impl PersistentDependencies {
         };
         let grader_database_url = settings.grader_database_url()?;
         let grader = Arc::new(
-            PostgresGraderStore::connect(grader_database_url)
-                .await
-                .map_err(|_| anyhow::anyhow!("PLE grader connection could not be established"))?,
+            match settings.storage.runtime {
+                StorageRuntime::LocalDevelopment => {
+                    PostgresGraderStore::connect_local_development(grader_database_url).await
+                }
+                StorageRuntime::Api
+                | StorageRuntime::Worker
+                | StorageRuntime::PublicAssetPublisher => {
+                    PostgresGraderStore::connect(grader_database_url).await
+                }
+            }
+            .map_err(|_| anyhow::anyhow!("PLE grader connection could not be established"))?,
         );
         let qti = if qti_runtime_enabled {
             Some(Arc::new(QtiBackend::new(
@@ -135,10 +142,15 @@ impl PersistentDependencies {
             passwordless_email_delivery,
             passwordless_rate_limit_issuer,
             webauthn: settings.webauthn.clone(),
+            browser_boundary: settings.browser_boundary.clone(),
+            client_address_policy: settings.client_address_policy.clone(),
             health: Arc::new(HealthState {
                 postgres: pool,
                 object_client,
-                content_bucket: settings.storage.content_bucket.clone(),
+                public_assets_bucket: settings.storage.public_assets_bucket.clone(),
+                private_content_bucket: settings.storage.private_content_bucket.clone(),
+                student_records_bucket: settings.storage.student_records_bucket.clone(),
+                temp_processing_bucket: settings.storage.temp_processing_bucket.clone(),
             }),
         })
     }
@@ -149,10 +161,19 @@ impl PersistentDependencies {
     /// selection, so this graph intentionally has no provider-backed legacy
     /// `/api/auth/login` route and does not inspect local-development setup.
     pub(super) fn production_router(&self) -> Router {
-        self.passwordless_router(
-            Arc::new(crate::catalog::ReviewNotRequired),
-            production_session_config(),
-            None,
+        crate::http_security::apply_api_security_headers(
+            self.passwordless_router(
+                Arc::new(crate::catalog::ReviewNotRequired),
+                production_session_config(),
+                None,
+            )
+            // The host/origin boundary is inside the universal response
+            // boundary so even an early 403/421 remains non-cacheable and
+            // gets the same browser hardening headers as a routed response.
+            .layer(axum::middleware::from_fn_with_state(
+                self.browser_boundary.clone(),
+                crate::auth::production_cookie_boundary,
+            )),
         )
     }
 
@@ -207,6 +228,7 @@ impl PersistentDependencies {
             Arc::clone(&self.invitation_delivery),
             Arc::clone(&self.passwordless_email_delivery),
             self.passwordless_rate_limit_issuer.clone(),
+            self.client_address_policy.clone(),
             Some(self.webauthn.clone()),
             local_teaching_roster,
             Arc::clone(&self.health),
@@ -221,6 +243,7 @@ impl PersistentDependencies {
         router
     }
 
+    #[cfg(feature = "local-development-auth")]
     pub(super) fn local_development_router<R>(
         &self,
         local_authentication: LocalDevelopmentAuthentication,
@@ -229,16 +252,18 @@ impl PersistentDependencies {
     where
         R: PublicReviewGate + 'static,
     {
-        self.passwordless_router(
-            review_gate,
-            local_authentication.session_config,
-            Some(local_authentication.teaching_roster_directory),
+        crate::http_security::apply_api_security_headers(
+            self.passwordless_router(
+                review_gate,
+                local_authentication.session_config,
+                Some(local_authentication.teaching_roster_directory),
+            )
+            .merge(crate::auth::provider_login_router(
+                local_authentication.provider,
+                Arc::clone(&self.store),
+                local_authentication.session_config,
+            )),
         )
-        .merge(crate::auth::router(
-            local_authentication.provider,
-            Arc::clone(&self.store),
-            local_authentication.session_config,
-        ))
     }
 }
 

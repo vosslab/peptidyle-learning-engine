@@ -20,7 +20,10 @@ use super::queries::owned_run;
 use super::submission::finish_submission;
 use super::support::*;
 
-const EXTERNAL_LAUNCH_COOKIE: &str = "ple_external_launch";
+/// A host-only, strict, path-scoped browser presentation of an encrypted
+/// launch capability.  It is deliberately separate from the host-wide session
+/// cookie because provider activity may use it only beneath one attempt path.
+pub(crate) const EXTERNAL_LAUNCH_COOKIE: &str = "ple_external_launch";
 
 /// Separate capability for the protected same-origin external-tool frame.
 /// It is intentionally not part of `RunBackend`: native and WeBWorK routers
@@ -79,7 +82,7 @@ where
     Router::new()
         .route(
             "/api/attempts/{attempt}/external-tool/launch",
-            get(external_tool_shell::<S, B>),
+            get(external_tool_shell::<S, B>).post(begin_external_tool_launch::<S, B>),
         )
         .route(
             "/api/attempts/{attempt}/external-tool/launch/activity",
@@ -137,7 +140,79 @@ where
     let actor = authenticated.record.subject.user();
     let attempt = match state
         .store
-        .get_question_attempt(authenticated.tenant_context, attempt_id)
+        .learner_get_question_attempt(authenticated.tenant_context, actor, attempt_id)
+        .await
+    {
+        Ok(Some(v)) => v,
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "attempt not found"),
+        Err(e) => return store_error_response(e),
+    };
+    if let Err(response) = owned_run(state.store.as_ref(), &authenticated, attempt.run).await {
+        return response;
+    }
+    // A GET only renders the sandbox shell for a launch that was already
+    // created by the same-origin POST below. This is deliberately separate
+    // from session issuance: Lax cookies accompany top-level cross-site GET
+    // navigations, so creation on this route would be GET-CSRFable.
+    if external_launch_proof(
+        state.aead.as_ref(),
+        &headers,
+        authenticated.tenant_context,
+        actor,
+        attempt.id,
+    )
+    .is_none()
+    {
+        return error_response(StatusCode::NOT_FOUND, "external-tool launch is unavailable");
+    }
+    let script_nonce = match external_tool_script_nonce() {
+        Ok(value) => value,
+        Err(error) => return backend_error_response(error),
+    };
+    let activity_path = format!("/api/attempts/{attempt_id}/external-tool/launch/activity");
+    // `attempt_id` is a typed UUID formatted by this server. No provider
+    // document, handle, credential, or response becomes shell markup.
+    let body = format!(
+        "<!doctype html><meta charset=\"utf-8\"><title>External activity</title><iframe id=\"ple-external-activity\" title=\"External activity\" src=\"{activity_path}\" sandbox=\"allow-scripts allow-forms\"></iframe><script nonce=\"{script_nonce}\">(function(){{const frame=document.getElementById('ple-external-activity');window.addEventListener('message',function(event){{const value=event.data;if(event.source!==frame.contentWindow||event.origin!=='null'||!value||value.kind!=='ple.externalTool.activityReady'||value.attemptId!=='{attempt_id}')return;parent.postMessage({{kind:'ple.externalTool.ready',attemptId:'{attempt_id}'}},location.origin)}})}})()</script>"
+    );
+    let csp = format!(
+        "default-src 'none'; frame-src 'self'; script-src 'nonce-{script_nonce}'; base-uri 'none'; object-src 'none'; form-action 'none'; frame-ancestors 'self'"
+    );
+    no_store(
+        (
+            StatusCode::OK,
+            [
+                ("content-security-policy", csp.as_str()),
+                ("content-type", "text/html; charset=utf-8"),
+            ],
+            body,
+        )
+            .into_response(),
+    )
+}
+
+/// Creates a one-attempt external-tool session after a same-origin API POST.
+///
+/// The returned route is inert on GET: it only renders a sandbox shell when
+/// this response's Strict, HttpOnly binding cookie is present. Keeping session
+/// creation here prevents top-level GET navigation from becoming a CSRF path.
+async fn begin_external_tool_launch<S, B>(
+    State(state): State<ExternalToolRouteState<S, B>>,
+    headers: HeaderMap,
+    Path(attempt_id): Path<QuestionAttemptId>,
+) -> Response
+where
+    S: Store + CatalogStore + ManualGradingStore + SessionStore + 'static,
+    B: ExternalToolLaunchBackend + 'static,
+{
+    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
+        Ok(v) => v,
+        Err(e) => return auth_error_response(e),
+    };
+    let actor = authenticated.record.subject.user();
+    let attempt = match state
+        .store
+        .learner_get_question_attempt(authenticated.tenant_context, actor, attempt_id)
         .await
     {
         Ok(Some(v)) => v,
@@ -191,35 +266,12 @@ where
     };
     let path = format!("/api/attempts/{attempt_id}/external-tool/launch");
     let cookie = Cookie::build((EXTERNAL_LAUNCH_COOKIE, value))
-        .path(path)
+        .path(path.clone())
         .http_only(true)
         .secure(true)
         .same_site(SameSite::Strict)
         .build();
-    let script_nonce = match external_tool_script_nonce() {
-        Ok(value) => value,
-        Err(error) => return backend_error_response(error),
-    };
-    let activity_path = format!("/api/attempts/{attempt_id}/external-tool/launch/activity");
-    // `attempt_id` is a typed UUID formatted by this server. No provider
-    // document, handle, credential, or response becomes shell markup.
-    let body = format!(
-        "<!doctype html><meta charset=\"utf-8\"><title>External activity</title><iframe id=\"ple-external-activity\" title=\"External activity\" src=\"{activity_path}\" sandbox=\"allow-scripts allow-forms\"></iframe><script nonce=\"{script_nonce}\">(function(){{const frame=document.getElementById('ple-external-activity');window.addEventListener('message',function(event){{const value=event.data;if(event.source!==frame.contentWindow||event.origin!=='null'||!value||value.kind!=='ple.externalTool.activityReady'||value.attemptId!=='{attempt_id}')return;parent.postMessage({{kind:'ple.externalTool.ready',attemptId:'{attempt_id}'}},location.origin)}})}})()</script>"
-    );
-    let csp = format!(
-        "default-src 'none'; frame-src 'self'; script-src 'nonce-{script_nonce}'; base-uri 'none'; form-action 'none'"
-    );
-    let mut response = no_store(
-        (
-            StatusCode::OK,
-            [
-                ("content-security-policy", csp.as_str()),
-                ("content-type", "text/html; charset=utf-8"),
-            ],
-            body,
-        )
-            .into_response(),
-    );
+    let mut response = no_store(Json(ExternalToolLaunch { launch_url: path }).into_response());
     if let Ok(header) = HeaderValue::from_str(&cookie.to_string()) {
         response.headers_mut().append("set-cookie", header);
     }
@@ -283,7 +335,7 @@ where
     let actor = authenticated.record.subject.user();
     let attempt = match state
         .store
-        .get_question_attempt(authenticated.tenant_context, attempt_id)
+        .learner_get_question_attempt(authenticated.tenant_context, actor, attempt_id)
         .await
     {
         Ok(Some(v)) => v,
@@ -293,19 +345,8 @@ where
     if let Err(response) = owned_run(state.store.as_ref(), &authenticated, attempt.run).await {
         return response;
     }
-    let cookie = match Cookie::split_parse(
-        headers
-            .get("cookie")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or(""),
-    )
-    .filter_map(Result::ok)
-    .find(|c| c.name() == EXTERNAL_LAUNCH_COOKIE)
-    {
-        Some(v) => v.value().to_owned(),
-        None => {
-            return error_response(StatusCode::NOT_FOUND, "external-tool launch is unavailable");
-        }
+    let Some(cookie) = external_launch_cookie(&headers) else {
+        return error_response(StatusCode::NOT_FOUND, "external-tool launch is unavailable");
     };
     let (session_id, token) = match state.aead.open_cookie(
         &cookie,
@@ -367,7 +408,7 @@ where
     out.headers_mut().insert(
         "content-security-policy",
         HeaderValue::from_str(&format!(
-            "default-src 'none'; script-src 'nonce-{script_nonce}'; form-action 'self'; base-uri 'none'"
+            "default-src 'none'; script-src 'nonce-{script_nonce}'; form-action 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'"
         ))
         .expect("CSP nonce uses base64url"),
     );
@@ -381,21 +422,34 @@ fn external_launch_proof(
     actor: question_model::UserId,
     attempt: QuestionAttemptId,
 ) -> Option<learning_data_access::ExternalToolLaunchProof> {
-    let cookie = Cookie::split_parse(
-        headers
-            .get("cookie")
-            .and_then(|value| value.to_str().ok())
-            .unwrap_or(""),
-    )
-    .filter_map(Result::ok)
-    .find(|cookie| cookie.name() == EXTERNAL_LAUNCH_COOKIE)
-    .map(|cookie| cookie.value().to_owned())?;
+    let cookie = external_launch_cookie(headers)?;
     aead.open_cookie(
         &cookie,
         &crate::imathas_backend::launch_cookie_aad(context, actor, attempt),
     )
     .map(|(session_id, token)| learning_data_access::ExternalToolLaunchProof { session_id, token })
     .ok()
+}
+
+/// Returns the sole launch capability presentation.  A domain cookie from a
+/// sibling host can share this name, and RFC cookie ordering is not authority;
+/// duplicate or malformed presentations must therefore fail closed instead of
+/// allowing the first parsed value to win.
+fn external_launch_cookie(headers: &HeaderMap) -> Option<String> {
+    let mut launch = None;
+    for value in headers.get_all("cookie").iter() {
+        let value = value.to_str().ok()?;
+        for parsed in Cookie::split_parse(value) {
+            let cookie = parsed.ok()?;
+            if cookie.name() == EXTERNAL_LAUNCH_COOKIE {
+                if launch.is_some() {
+                    return None;
+                }
+                launch = Some(cookie.value().to_owned());
+            }
+        }
+    }
+    launch
 }
 
 async fn external_tool_submission<S, B>(
@@ -452,7 +506,7 @@ where
     }
     let attempt = match state
         .store
-        .get_question_attempt(authenticated.tenant_context, attempt_id)
+        .learner_get_question_attempt(authenticated.tenant_context, actor, attempt_id)
         .await
     {
         Ok(Some(value)) => value,

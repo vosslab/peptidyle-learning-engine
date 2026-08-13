@@ -101,8 +101,8 @@ pub(crate) fn validate_queue_qti_import(command: &QueueQtiImportCommand) -> Resu
                 command.reference.workspace,
                 command.reference.import,
             )
-        || command.source.bucket != Bucket::Content
-        || command.source.key.bucket() != Bucket::Content
+        || command.source.bucket != Bucket::PrivateContent
+        || command.source.key.bucket() != Bucket::PrivateContent
         || command.source.category != ObjectCategory::Source
         || command.source.key.category() != ObjectCategory::Source
         || command.source.version.is_some()

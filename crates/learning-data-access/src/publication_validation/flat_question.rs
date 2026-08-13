@@ -106,6 +106,7 @@ pub(crate) fn validate_flat_question_publication(
         Some(surface) if promotion.assets.len() == 1 => {
             let delivery = &promotion.assets[0];
             validate_asset_delivery(delivery)?;
+            crate::validate_catalog_asset_delivery_scope(delivery, command.scope)?;
             let AssetDeliveryScope::Catalog { asset, reference } = delivery.scope else {
                 return Err(StoreError::InvalidRecord(
                     "flat-question hotspot asset must be a catalog asset".to_string(),

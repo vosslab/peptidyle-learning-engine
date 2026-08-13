@@ -14,7 +14,11 @@ import type { ContentBlock } from "../../generated/api/ContentBlock";
 import type { DisclosedFeedback } from "../../generated/api/DisclosedFeedback";
 import { formatPointScore, formatScoreValue } from "../score_format";
 
-import { resolveSameOriginAssetUrl, type AssetUrlResolver } from "./question_renderer";
+import {
+  recoverProtectedAssetImage,
+  resolveSameOriginAssetUrl,
+  type AssetUrlResolver,
+} from "./question_renderer";
 import { FEEDBACK_PANEL_STYLES } from "./feedback_panel_styles";
 
 /**
@@ -89,6 +93,7 @@ function FeedbackBlock(props: {
             class="feedback-panel__image"
             src={resolveSameOriginAssetUrl(props.block.asset, props.assetUrl)}
             alt={props.block.description}
+            onError={recoverProtectedAssetImage}
           />
           <figcaption>{props.block.description}</figcaption>
         </figure>

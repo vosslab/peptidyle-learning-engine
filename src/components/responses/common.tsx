@@ -34,7 +34,7 @@ export interface ResponseWidgetBaseProps {
   readonly onSubmit: (response: StudentResponse) => Promise<void>;
   readonly onEscape: () => void;
   readonly onResponseChange?: (response: StudentResponse, validation: ResponseFormatReport) => void;
-  readonly getExternalToolLaunch?: () => Promise<ExternalToolLaunch>;
+  readonly beginExternalToolLaunch?: () => Promise<ExternalToolLaunch>;
 }
 
 export interface ResponseWidgetProps extends ResponseWidgetBaseProps {

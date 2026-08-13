@@ -32,7 +32,7 @@ the gradebook read model (`docs/active_plans/decisions/database_schema_evolution
 | Existing gradebook      | `crates/question_model/src/course.rs:89-111` defines a compact summary-only row; `src/pages/gradebook_page_model.ts:10-25` makes one summary request and lazy history; `tests/test_gradebook.mjs:67-80` forbids attempt, feedback, and grading reads in its initial view. | The existing default gradebook cannot drive manual review and must remain summary-only.                           |
 | Decoder hardening       | `src/api/decoders.ts:1448-1514` rejects unknown grading/draft fields; `tests/test_http_client.mjs:56-88` proves answer and provider-secret rejection; `src/api/decoders.ts:2387-2463` strictly validates compact gradebook rows.                                          | New instructor DTOs require their own exact-field decoders and must not reuse permissive storage/domain decoding. |
 | Wasm closure            | `crates/wasm/Cargo.toml:14-22` depends only on `question_model` and `domain`; `crates/grading/Cargo.toml:1-14` is server-only; `tests/test_crate_boundaries.py:148-185` proves the exact closure and no private feedback crossing.                                        | Manual grading must add no Wasm dependency, export, or facade method.                                             |
-| Wasm exports            | `crates/wasm/src/lib.rs:29-109` exports format validation, timing, capability validation, and draft preview only; `tests/test_wasm_export_allowlist.mjs:9-24` freezes that list.                                                                                          | A `grade`, `manual_grade`, `correct`, or answer-related Wasm export is prohibited.                                |
+| Wasm exports            | `crates/wasm/src/lib.rs:29-109` exports format validation, timing, capability validation, and draft preview only; `tests/e2e/e2e_wasm_export_allowlist.mjs` freezes that list.                                                                                           | A `grade`, `manual_grade`, `correct`, or answer-related Wasm export is prohibited.                                |
 
 The TypeScript facade does import full `QuestionDefinition` for author capability validation
 (`src/wasm/index.ts:59-76`), but the learner route is independently guarded against it and grading
@@ -145,24 +145,25 @@ cargo run --quiet -p project-tools -- tsgen
 npx tsc --noEmit -p tsconfig.json
 node --import tsx --test tests/test_gradebook.mjs tests/test_http_client.mjs tests/test_frontend_contract.mjs
 source source_me.sh && python3 -m pytest -q tests/test_crate_boundaries.py
-node --import tsx --test tests/test_wasm_export_allowlist.mjs
+node tests/e2e/e2e_wasm_export_allowlist.mjs
 cargo test -p wasm_bridge
 ./check_codebase.sh
 ```
 
 The first command verifies generated bindings remain derived from the Rust-owned public model; it is
-not permission to generate an instructor route DTO from a storage row. The Python closure test and
-Wasm export allowlist are permanent security tests. A native-versus-Wasm parity test is intentionally
-not added for manual grading because grade calculation is server-only; requiring one would weaken the
-security boundary rather than test product behavior. A one-time browser network trace should confirm
-that the manual-review request/response contains no answer material and that a learner never receives
-the instructor queue route.
+not permission to generate an instructor route DTO from a storage row. The Python closure check is a
+permanent fast security test. The Wasm export allowlist is a permanent emitted-artifact E2E check,
+not a fast Node unit test. A native-versus-Wasm parity test is intentionally not added for manual
+grading because grade calculation is server-only; requiring one would weaken the security boundary
+rather than test product behavior. A one-time browser network trace should confirm that the
+manual-review request/response contains no answer material and that a learner never receives the
+instructor queue route.
 
 ## Audit execution
 
 - `npx tsc --noEmit -p tsconfig.json`: exit 0 with no diagnostic output.
-- `node --import tsx --test tests/test_gradebook.mjs tests/test_http_client.mjs
-tests/test_frontend_contract.mjs tests/test_wasm_export_allowlist.mjs`: 40 passed, 0 failed.
+- The focused gradebook, HTTP-client, and frontend-contract Node suite passed. The slower Wasm export
+  artifact check runs separately from `tests/e2e/e2e_wasm_export_allowlist.mjs`.
 - `source source_me.sh && python3 -m pytest -q tests/test_crate_boundaries.py`: 4 passed.
 
 No production files were edited. No change to generated bindings, client contracts/decoders/mocks,

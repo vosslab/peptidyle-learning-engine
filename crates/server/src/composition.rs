@@ -7,6 +7,7 @@
 
 #[path = "composition/backend.rs"]
 mod backend;
+#[cfg(feature = "local-development-auth")]
 #[path = "composition/local_identity.rs"]
 mod local_identity;
 #[path = "composition/router.rs"]
@@ -17,8 +18,12 @@ mod settings;
 mod worker;
 
 use backend::PersistentDependencies;
+#[cfg(feature = "local-development-auth")]
 use local_identity::*;
-pub use worker::run_production_worker_from_env;
+use settings::StorageRuntime;
+#[cfg(feature = "local-development-auth")]
+pub use worker::run_local_development_worker_from_env;
+pub use worker::{run_production_worker_from_env, run_public_asset_publisher_from_env};
 
 pub(super) use std::net::SocketAddr;
 pub(super) use std::sync::Arc;
@@ -39,7 +44,8 @@ use axum::{
 pub(super) use base64::Engine;
 pub(super) use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 pub(super) use learning_data_access::postgres::{
-    Pool, PostgresGraderStore, PostgresStore, SchemaCompatibilityError, lazy_pool,
+    Pool, PostgresGraderStore, PostgresStore, ProductionLoginProfile, SchemaCompatibilityError,
+    lazy_pool, production_pool,
 };
 pub(super) use learning_data_access::{
     AssetStore, AuthoritativeTimeStore, CatalogStore, CourseAppearanceStore,
@@ -50,7 +56,9 @@ pub(super) use learning_data_access::{
 pub(super) use serde_json::json;
 
 pub(super) use crate::asset::{PublicAssetBaseUrl, PublicAssetUrlResolver};
-pub(super) use crate::auth::{IdentityProvider, SessionConfig};
+#[cfg(all(test, feature = "local-development-auth"))]
+pub(super) use crate::auth::IdentityProvider;
+pub(super) use crate::auth::SessionConfig;
 pub(super) use crate::catalog::{BackendRegistry, PublicReviewGate};
 pub(super) use crate::composite_backend::CompositeBackend;
 pub(super) use crate::health::{ProbeResult, Readiness, readiness};
@@ -78,7 +86,7 @@ pub(super) use adapter_webwork::{HttpWebworkRenderer, HttpWebworkRendererConfig,
 /// provider-backed login route. The local launcher remains separately paired
 /// with explicit development-only configuration.
 pub async fn production_router_from_env() -> Result<Router> {
-    let persistent = PersistentDependencies::from_env().await?;
+    let persistent = PersistentDependencies::from_env(StorageRuntime::Api).await?;
     Ok(persistent.production_router())
 }
 
@@ -88,8 +96,9 @@ pub async fn production_router_from_env() -> Result<Router> {
 /// production entry point cannot load the file-backed bearer identity scheme.
 /// It remains available for local fixture work only and keeps plain-HTTP
 /// cookies and public-publication denial coupled to that mode.
+#[cfg(feature = "local-development-auth")]
 pub async fn local_development_router_from_env() -> Result<Router> {
-    let persistent = PersistentDependencies::from_env().await?;
+    let persistent = PersistentDependencies::from_env(StorageRuntime::LocalDevelopment).await?;
     let local_authentication = local_development_authentication_from_env()?;
     Ok(persistent
         .local_development_router(local_authentication, Arc::new(LocalDevelopmentReviewGate)))
@@ -103,6 +112,6 @@ pub fn bind_address_from_env() -> Result<SocketAddr> {
         .context("PLE_BIND_ADDR must be a socket address")
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "local-development-auth"))]
 #[path = "composition/tests/mod.rs"]
 mod tests;

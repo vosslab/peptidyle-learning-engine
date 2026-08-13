@@ -23,6 +23,7 @@ test("all route groups answer without a server", async () => {
   const mockFetch = createMockFetch();
   const probes = [
     { group: "auth", path: "/api/auth/session", method: "GET" },
+    { group: "auth", path: "/api/auth/logout", method: "POST" },
     { group: "catalog", path: "/api/problems", method: "GET" },
     { group: "course", path: "/api/courses", method: "GET" },
     { group: "run", path: "/api/runs", method: "POST" },
@@ -175,13 +176,18 @@ test("mock client decodes handler prefetch responses instead of trusting fixture
   await assert.rejects(client.prefetchNextQuestion(prefetchFixtureAttempt.id));
 });
 
-test("external-tool launch mock projects only an inert same-origin broker path", async () => {
+test("external-tool launch mock creates only through POST and returns an inert same-origin shell", async () => {
   const mockFetch = createMockFetch();
   const attemptId = "0198e000-0000-7000-8000-000000000034";
-  const response = await mockFetch(`/api/attempts/${attemptId}/external-tool-launch`);
+  const legacyGet = await mockFetch(`/api/attempts/${attemptId}/external-tool-launch`);
+  assert.equal(legacyGet.status, 404);
+  const shellGet = await mockFetch(`/api/attempts/${attemptId}/external-tool/launch`);
+  assert.equal(shellGet.status, 404);
+  const response = await mockFetch(`/api/attempts/${attemptId}/external-tool/launch`, {
+    method: "POST",
+  });
   assert.equal(response.status, 200);
   const projection = await response.json();
-  assert.deepEqual(Object.keys(projection), ["launchUrl"]);
   assert.equal(projection.launchUrl, `/api/attempts/${attemptId}/external-tool/launch`);
   assert.ok(!JSON.stringify(projection).match(/provider|token|score|answer|https?:/i));
 });
@@ -191,7 +197,9 @@ test("external-tool launch mock requires its external capability and has no brok
   const nonExternalId = "0198e000-0000-7000-8000-000000000030";
   const externalId = "0198e000-0000-7000-8000-000000000034";
 
-  const nonExternal = await mockFetch(`/api/attempts/${nonExternalId}/external-tool-launch`);
+  const nonExternal = await mockFetch(`/api/attempts/${nonExternalId}/external-tool/launch`, {
+    method: "POST",
+  });
   assert.equal(nonExternal.status, 404);
   assert.ok(!JSON.stringify(await nonExternal.json()).includes("launchUrl"));
 

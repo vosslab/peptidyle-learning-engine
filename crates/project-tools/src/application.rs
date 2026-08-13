@@ -16,7 +16,7 @@
 //! # Explicit renderer-acceptance fixture only (not normal local-stack seeding):
 //! cargo tools e2e-seed --webwork-pilot --database-url <URL> --apply-migrations
 //! --tenant <UUID> --instructor <UUID> --student <UUID> --s3-endpoint <URL>
-//! --s3-region <REGION> --content-bucket <BUCKET>
+//! --s3-region <REGION> --private-content-bucket <BUCKET>
 //! ```
 
 use std::path::{Path, PathBuf};

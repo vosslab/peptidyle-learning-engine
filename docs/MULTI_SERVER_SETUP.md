@@ -1,8 +1,8 @@
 # Multiple-server setup
 
 This document explains the implemented local multi-replica topology and the
-separate, planned production topology. It is an operations guide, not evidence
-that AWS deployment has been accepted. The source contracts are
+separate OpenTofu production baseline. It is an operations guide, not evidence
+that an AWS deployment has been accepted. The source contracts are
 [containers/compose.yaml](../containers/compose.yaml),
 [containers/Caddyfile](../containers/Caddyfile), and the server composition in
 [crates/server/src/composition.rs](../crates/server/src/composition.rs).
@@ -13,15 +13,17 @@ The supported local topology runs one Caddy gateway, one or more stateless API
 replicas, one or more durable-worker replicas, one PostgreSQL 17 instance, one
 MinIO instance, and one private external stateless PG renderer. The renderer supports the accepted,
 deliberately bounded four-source Chapter 1 PGML MC/MATCH profile. It does not imply broad WeBWorK
-compatibility.
+compatibility or production approval of that externally supplied image.
 A local two-API-replica restart test exists and has been used as the behavioral
 proof that a learner can continue after the issuing API replica stops.
 
 The target AWS Fargate, ALB, RDS, S3, CloudFront, WAF, KMS, Secrets Manager,
-and OpenTofu deployment is a future WP-RC10 work package. It has a complete
-acceptance contract in
+and OpenTofu deployment has a separate deployment acceptance contract. Its
+browser-facing HTTPS edge, rather than the API process or this HTTP-only local
+gateway, owns HSTS. It is defined in
 [active_plans/active/release_completion_plan.md](active_plans/active/release_completion_plan.md),
-but its files and disposable-cloud acceptance are not implemented or accepted.
+but a disposable-cloud acceptance run is still distinct from this local
+topology evidence.
 Do not describe local PostgreSQL or MinIO as highly available, and do not use
 this local topology as production deployment evidence.
 
@@ -76,7 +78,7 @@ not browser routes. The complete local container policy is in
 | `worker`           | Claims and completes bounded durable jobs                     | `default`; no host port                                        | PostgreSQL queue and object store      | `--scale worker=N`; each process claims one job at a time  |
 | `postgres`         | Shared tenant records, sessions, attempts, idempotency, jobs  | `default`; loopback 5432 by default                            | `ple_pgdata`                           | One local instance; no local HA claim                      |
 | `minio`            | Shared S3-compatible object store                             | `default`; loopback 9000/9001 by default                       | `ple_miniodata`                        | One local instance; no local HA claim                      |
-| `createbuckets`    | Idempotently ensures the three required buckets exist         | `default`; no host port                                        | MinIO buckets                          | One-shot, not scaled                                       |
+| `createbuckets`    | Idempotently ensures the four required buckets exist          | `default`; no host port                                        | MinIO buckets                          | One-shot, not scaled                                       |
 | `webwork-renderer` | Private standalone PG/PGML render and grade process           | `renderer_private`; no host port                               | None                                   | One normal service; no browser access                      |
 
 The named volumes preserve local data across normal `down`. Removing a volume
@@ -177,7 +179,7 @@ and credentials with mode 0600; never commit or reuse them outside local work.
 | `DATABASE_URL`                                                                   | Compose from PostgreSQL settings           | Yes for API and worker                    | Shared application database                                          |
 | `PLE_GRADER_DATABASE_URL`                                                        | Compose/API only                           | Yes for API                               | Restricted answer-bearing reader                                     |
 | `PLE_S3_ENDPOINT`, `PLE_S3_REGION`                                               | Compose                                    | Yes for API and worker                    | Shared S3-compatible endpoint                                        |
-| `PLE_CONTENT_BUCKET`, `PLE_STUDENT_RECORDS_BUCKET`, `PLE_TEMP_PROCESSING_BUCKET` | Compose                                    | Yes for API and worker                    | Fixed policy-separated buckets                                       |
+| `PLE_{PUBLIC_ASSETS,PRIVATE_CONTENT,STUDENT_RECORDS,TEMP_PROCESSING}_BUCKET` | Compose | Yes for API and worker | Fixed policy-separated buckets |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`                                     | Ignored local env; deployment secret store | Yes for API and worker                    | Object-store credentials                                             |
 | `PLE_PUBLIC_ASSET_BASE_URL`                                                      | Operator                                   | Yes for API                               | Safe public immutable asset base                                     |
 | `PLE_BIND_ADDR`                                                                  | Compose/API                                | Yes except binding address                | API listen address; `0.0.0.0:3000` remains internal                  |
@@ -270,12 +272,11 @@ change any PLE educational record.
 
 ## Validation evidence
 
-Run the following in increasing scope. The first two are permanent static
-policy checks; the replica test creates and cleans its own disposable project.
+Run the following in increasing scope. The replica test creates and cleans its
+own disposable project; exact Compose-source inspections are one-time review
+evidence rather than permanent pytests.
 
 ```bash
-source source_me.sh && python3 -m pytest -q tests/test_replica_compose_topology.py
-source source_me.sh && python3 -m pytest -q tests/test_replica_e2e_compose_override.py
 node tests/e2e/e2e_replica_restart.mjs
 ./launch_local_stack.sh --check
 ```
@@ -286,36 +287,68 @@ surviving replica, and verifies exact envelope replay plus durable idempotent
 submission. It uses a test-only attribution header only in its dedicated build;
 normal production builds never emit replica identity headers.
 
-For a complete repository acceptance run, use `./check_codebase.sh`. The
-full required release gates and their acceptance ownership remain in
-[active_plans/active/release_completion_plan.md](active_plans/active/release_completion_plan.md).
+Run the three repository-owned offline gates separately:
 
-## Planned production topology
-
-WP-RC10 specifies, but does not yet deliver, this production shape:
-
-```text
-internet -> CloudFront and WAF -> private ALB -> Fargate API replicas
-                                                     |        |         |
-                                              encrypted RDS   |   private renderer tasks
-                                               PostgreSQL     |
-                                                        encrypted S3 buckets
-
-Fargate worker tasks -> shared durable job state in RDS and objects in S3
-all tasks            -> scoped Secrets Manager and KMS access in private subnets
+```bash
+./check_codebase.sh
+./check_rust.sh
+source source_me.sh && python3 -m pytest -q tests/
 ```
 
-The planned package adds private networking, least-privilege IAM, encrypted
-RDS with PITR, three private encrypted S3 buckets and lifecycle policies, ECR,
-Fargate API/worker/renderer tasks, ALB, CloudFront, WAF, KMS, Secrets Manager,
-logs, metrics, alarms, autoscaling ceilings, immutable deployment manifests,
-restore rehearsal, rollback, drift detection, and tagged teardown. It must
-pass OpenTofu policy/format/validation plus a disposable account deployment,
-migration, semantic-health, assignment, restore, rollback, drift, and destroy
-rehearsal before it can be called deployed.
+The vendored `check_codebase.sh` owns the browser/TypeScript lane;
+`check_rust.sh` owns Cargo and Wasm. Named E2E and live-environment release
+gates are additional requirements recorded in
+[active_plans/active/release_completion_plan.md](active_plans/active/release_completion_plan.md).
 
-This version succeeds locally without production infrastructure because the
-same stateless API, PostgreSQL session/RLS, object-store, job-lease, health,
-and private-renderer contracts are executable and replica-tested. It does not
-claim AWS availability, automated failover, managed backup/restore, autoscaling,
-CDN, WAF, or multi-region operation before WP-RC10 proves those behaviors.
+## Production baseline in OpenTofu
+
+`deploy/opentofu/` now defines a pre-production AWS baseline. It is a
+configuration and policy-test baseline, not evidence of a live AWS deployment,
+successful restore, or real browser traffic. A disposable-account apply and
+the probes listed below remain required before production use.
+
+```text
+internet -> CloudFront/WAF -> ALB TLS origin -> private API tasks
+                                | secret origin header  | HTTPS :3000
+                                +-----------------------+
+private API/worker/publisher tasks -> RDS PostgreSQL and S3 VPC endpoint
+                                  -> distinct Secrets Manager values and KMS keys
+CloudFront -> tagged immutable public-assets bucket only
+```
+
+Private task subnets have no NAT or public IPs. Their only AWS service paths
+are S3 gateway and ECR, Logs, Secrets Manager, KMS, and STS interface
+endpoints. Security groups begin with no implicit egress; API-to-iMathAS,
+API-to-SMTP, and API-to-renderer egress rules are created only when the
+corresponding feature is enabled. The API, worker, and public-asset publisher
+are distinct Fargate services with distinct task roles, execution roles,
+application-secret values, and database URLs. The publisher is the only task
+allowed to promote a verified private source into the immutable public-assets
+domain.
+
+The CloudFront viewer path preserves the canonical host to the API. CloudFront
+reaches a controlled TLS origin alias and adds a secret origin header; the ALB
+denies requests without that header and admits only CloudFront origin-facing
+addresses. Edge policy supplies HSTS for browser responses, applies the static
+CSP only to static content, and deliberately preserves API CSP. The local HTTP
+Caddy stack does not send HSTS.
+
+RDS is private and TLS-authenticated; production login provisioning uses
+separate API, worker, publisher, and grader roles rather than an application
+superuser. Four versioned, SSE-KMS S3 domains separate public assets, private
+content, student records, and temporary processing. CloudFront may read only
+tagged immutable public assets. Public promotion is an outbox-backed publisher
+operation, never an API write during content authoring.
+
+The WeBWorK renderer is deliberately not deployed by this baseline. Its
+integration flag is off by default. Do not enable it until a separately owned
+renderer deployment has demonstrated: private API-only ingress, immutable
+image provenance, a TLS identity matching its configured origin, no RDS or S3
+authority, and a bounded fail-closed request contract.
+
+Before calling this production-ready, run OpenTofu format, validate, and policy
+tests, then in a disposable account apply the stack, provision the exact RDS
+roles and secret values, verify CloudFront/ALB origin admission and headers,
+exercise each enabled integration, migrate and check semantic health, test
+publication, restore, rollback, drift detection, and destroy. Those are
+live-only probes; this repository does not claim they have happened.

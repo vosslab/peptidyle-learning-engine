@@ -52,11 +52,10 @@ async fn course_creation_rejects_invalid_requests_and_student_callers_without_pe
     let context = TenantContext::from_authenticated_session(tenant);
     let instructor = UserId::from_uuid(id(2));
     let student = UserId::from_uuid(id(3));
-    let administrator = UserId::from_uuid(id(4));
+    let sysadmin = UserId::from_uuid(id(4));
     let instructor_cookie = issued_cookie(&store, vec![UserRole::Instructor], instructor).await;
     let student_cookie = issued_cookie(&store, vec![UserRole::Student], student).await;
-    let administrator_cookie =
-        issued_cookie(&store, vec![UserRole::Administrator], administrator).await;
+    let sysadmin_cookie = issued_cookie(&store, vec![UserRole::Sysadmin], sysadmin).await;
     let app = router(Arc::clone(&store));
 
     let student_create = app
@@ -78,7 +77,7 @@ async fn course_creation_rejects_invalid_requests_and_student_callers_without_pe
 
     for invalid_body in [
         r#"{"title":"   "}"#,
-        r#"{"title":"BIOC 301","role":"administrator"}"#,
+        r#"{"title":"BIOC 301","role":"sysadmin"}"#,
     ] {
         let rejected_course = app
             .clone()
@@ -125,30 +124,30 @@ async fn course_creation_rejects_invalid_requests_and_student_callers_without_pe
         );
     }
 
-    let administrator_create = app
+    let sysadmin_create = app
         .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
                 .uri("/api/courses")
-                .header("cookie", &administrator_cookie)
+                .header("cookie", &sysadmin_cookie)
                 .header("content-type", "application/json")
                 .body(Body::from(r#"{"title":"BIOC 301: Biochemistry"}"#))
-                .expect("administrator course request"),
+                .expect("sysadmin course request"),
         )
         .await
-        .expect("administrator course response");
-    assert_eq!(administrator_create.status(), StatusCode::CREATED);
-    let created = response_json(administrator_create).await;
+        .expect("sysadmin course response");
+    assert_eq!(sysadmin_create.status(), StatusCode::CREATED);
+    let created = response_json(sysadmin_create).await;
     assert_eq!(created["role"], "instructor");
 
-    let administrator_courses = store
+    let sysadmin_courses = store
         .list_courses(
             context,
-            learning_data_access::CourseListScope::TenantAdministrator,
+            learning_data_access::CourseListScope::Member(sysadmin),
             PageRequest::first(PageSize::new(50).expect("valid page size")),
         )
         .await
-        .expect("administrator course list");
-    assert_eq!(administrator_courses.items.len(), 1);
+        .expect("sysadmin-created direct course list");
+    assert_eq!(sysadmin_courses.items.len(), 1);
 }

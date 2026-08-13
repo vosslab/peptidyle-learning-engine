@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use question_model::{AssignmentId, CourseId, ObjectId, TenantId, UserId};
 use sqlx::{Row, types::Uuid};
 
+use super::course_roster::{lock_course_roster_cross_product, require_course_instructor};
 use super::{PostgresStore, decode_payload_row, encode_payload, map_sqlx_error};
 use crate::{
     AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssignmentRecord,
@@ -18,6 +19,7 @@ impl ExportJobStore for PostgresStore {
     async fn create_assignment_export(
         &self,
         context: TenantContext,
+        session: crate::SessionTokenHash,
         request: CreateAssignmentExport,
     ) -> Result<StudentExportView, StoreError> {
         if !(1..=20).contains(&request.max_attempts) {
@@ -31,16 +33,28 @@ impl ExportJobStore for PostgresStore {
         let mut transaction = self.begin_tenant(context).await?;
         let row = sqlx::query(
             "SELECT payload FROM assignment \
-             WHERE assignment_id = $1 \
+             WHERE tenant_id = $1 AND assignment_id = $2 \
                AND public.ple_course_records_accessible(tenant_id, course_id) \
              FOR SHARE",
         )
+        .bind(context.tenant_id().as_uuid())
         .bind(request.assignment.as_uuid())
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::NotFound)?;
         let assignment: AssignmentRecord = decode_payload_row(&row)?;
+        // Course roster mutation takes this same row lock. Holding it while
+        // resolving the session and inserting the job prevents a removed
+        // instructor from winning a membership-change race.
+        lock_course_roster_cross_product(
+            &mut transaction,
+            context.tenant_id(),
+            assignment.course_id,
+        )
+        .await?;
+        let requested_by =
+            require_course_instructor(&mut transaction, session, assignment.course_id).await?;
         let mut expected = Vec::new();
         for kind in ExportArtifactKind::ALL {
             expected.push((kind, fresh_export_object_id()?));
@@ -51,7 +65,7 @@ impl ExportJobStore for PostgresStore {
             assignment: assignment.id,
             course: assignment.course_id,
             title: assignment.title.clone(),
-            requested_by: request.requested_by,
+            requested_by,
             manifest,
             problems: assignment.active_references().collect(),
             expected_artifacts: expected.clone(),
@@ -84,7 +98,7 @@ impl ExportJobStore for PostgresStore {
         .bind(context.tenant_id().as_uuid())
         .bind(assignment.course_id.as_uuid())
         .bind(assignment.id.as_uuid())
-        .bind(request.requested_by.as_uuid())
+        .bind(requested_by.as_uuid())
         .bind(job.as_uuid())
         .bind(manifest.as_uuid())
         .bind(frozen_payload)
@@ -183,6 +197,8 @@ impl ExportJobStore for PostgresStore {
                     course,
                     authorized_users: vec![requester],
                 },
+                publication: crate::AssetPublication::Ready,
+                pending_source: None,
             };
             // The requester and course come only from the frozen export row.
             // The broker verifies the exact typed delivery while committing

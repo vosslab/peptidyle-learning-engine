@@ -149,6 +149,11 @@ pub(crate) enum PreparedJobEffect {
         import: WorkspaceImportId,
         source_object: ObjectId,
     },
+    /// Committed-publication asset bytes have been materialized at the exact
+    /// immutable public keys and await the lease-conditional registry flip.
+    PublicAssetPublication {
+        reference: question_model::ProblemVersionRef,
+    },
     /// Opaque effect used only to exercise the generic worker lifecycle.
     #[cfg(test)]
     Test,

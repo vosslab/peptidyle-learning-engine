@@ -18,6 +18,8 @@ use aws_sdk_s3::presigning::PresigningConfig;
 #[cfg(feature = "s3")]
 use aws_sdk_s3::primitives::ByteStream;
 #[cfg(feature = "s3")]
+use aws_sdk_s3::types::ServerSideEncryption;
+#[cfg(feature = "s3")]
 use base64::Engine;
 #[cfg(feature = "s3")]
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -32,24 +34,91 @@ use crate::{
 
 #[cfg(feature = "s3")]
 const RECORD_METADATA_KEY: &str = "ple-record-v1";
+/// S3 tag required on the only CDN-readable object kind.
+///
+/// This is deliberately a tag, rather than metadata: the production bucket
+/// policy can require it at write time and use it to protect the immutable
+/// publication boundary independently of the application process.
+#[cfg(feature = "s3")]
+const IMMUTABLE_PUBLICATION_TAG_KEY: &str = "ple-published-immutable";
+#[cfg(feature = "s3")]
+const IMMUTABLE_PUBLICATION_TAG_VALUE: &str = "true";
+#[cfg(feature = "s3")]
+const IMMUTABLE_PUBLICATION_TAG_QUERY: &str = "ple-published-immutable=true";
 
-/// Physical names for the three policy-specific buckets.
+/// Physical names for the four policy-specific buckets.
 #[cfg(feature = "s3")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BucketNames {
-    /// Shared immutable content bucket.
-    pub content: String,
+    /// CDN-readable immutable learner-public assets only.
+    pub public_assets: String,
+    /// Private authoring, provenance, render, and course-content bytes.
+    pub private_content: String,
     /// Tenant-owned educational-record bucket.
     pub student_records: String,
     /// Never-served processing bucket.
     pub temp_processing: String,
 }
 
+/// Customer-managed KMS key ARNs for policy-separated production buckets.
+#[cfg(feature = "s3")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KmsKeyNames {
+    pub public_assets: String,
+    pub private_content: String,
+    pub student_records: String,
+    pub temp_processing: String,
+}
+
+#[cfg(feature = "s3")]
+impl KmsKeyNames {
+    /// Accepts only four distinct KMS key ARNs.
+    pub fn new(
+        public_assets: String,
+        private_content: String,
+        student_records: String,
+        temp_processing: String,
+    ) -> Result<Self, String> {
+        let keys = [
+            &public_assets,
+            &private_content,
+            &student_records,
+            &temp_processing,
+        ];
+        if keys
+            .iter()
+            .any(|key| !key.starts_with("arn:aws:kms:") || key.chars().any(char::is_whitespace))
+            || keys
+                .iter()
+                .enumerate()
+                .any(|(index, key)| keys.iter().skip(index + 1).any(|other| key == other))
+        {
+            return Err("production object buckets require four distinct KMS key ARNs".into());
+        }
+        Ok(Self {
+            public_assets,
+            private_content,
+            student_records,
+            temp_processing,
+        })
+    }
+
+    fn name(&self, bucket: Bucket) -> &str {
+        match bucket {
+            Bucket::PublicAssets => &self.public_assets,
+            Bucket::PrivateContent => &self.private_content,
+            Bucket::StudentRecords => &self.student_records,
+            Bucket::TempProcessing => &self.temp_processing,
+        }
+    }
+}
+
 #[cfg(feature = "s3")]
 impl Default for BucketNames {
     fn default() -> Self {
         Self {
-            content: Bucket::Content.as_str().to_string(),
+            public_assets: Bucket::PublicAssets.as_str().to_string(),
+            private_content: Bucket::PrivateContent.as_str().to_string(),
             student_records: Bucket::StudentRecords.as_str().to_string(),
             temp_processing: Bucket::TempProcessing.as_str().to_string(),
         }
@@ -60,7 +129,8 @@ impl Default for BucketNames {
 impl BucketNames {
     fn name(&self, bucket: Bucket) -> &str {
         match bucket {
-            Bucket::Content => &self.content,
+            Bucket::PublicAssets => &self.public_assets,
+            Bucket::PrivateContent => &self.private_content,
             Bucket::StudentRecords => &self.student_records,
             Bucket::TempProcessing => &self.temp_processing,
         }
@@ -73,13 +143,28 @@ impl BucketNames {
 pub struct S3ObjectStore {
     client: Client,
     buckets: BucketNames,
+    kms_keys: Option<KmsKeyNames>,
 }
 
 #[cfg(feature = "s3")]
 impl S3ObjectStore {
     /// Builds a store from a crate-owned SDK client and explicit bucket names.
     pub fn new(client: Client, buckets: BucketNames) -> Self {
-        Self { client, buckets }
+        Self {
+            client,
+            buckets,
+            kms_keys: None,
+        }
+    }
+
+    /// Builds a production store that requests and verifies SSE-KMS for every
+    /// object using the key assigned to its policy bucket.
+    pub fn new_kms_encrypted(client: Client, buckets: BucketNames, kms_keys: KmsKeyNames) -> Self {
+        Self {
+            client,
+            buckets,
+            kms_keys: Some(kms_keys),
+        }
     }
 
     async fn head_record(&self, key: &ObjectKey) -> Result<ObjectRecord, ObjectStoreError> {
@@ -104,12 +189,65 @@ impl S3ObjectStore {
                     ObjectStoreError::Unavailable(error.to_string())
                 }
             })?;
-        decode_record(
+        let record = decode_record(
             key,
             output.metadata(),
             output.content_length(),
             output.content_type(),
+        )?;
+        self.verify_encryption(
+            key.bucket(),
+            output.server_side_encryption(),
+            output.ssekms_key_id(),
+        )?;
+        self.verify_immutable_publication_tag(key).await?;
+        Ok(record)
+    }
+
+    /// Validates the bucket-policy marker before a public asset is accepted,
+    /// delivered, or presigned. `HeadObject` does not return object tags, so
+    /// the marker must be read through the separate S3 tagging API.
+    async fn verify_immutable_publication_tag(
+        &self,
+        key: &ObjectKey,
+    ) -> Result<(), ObjectStoreError> {
+        if !requires_immutable_publication_tag(key) {
+            return Ok(());
+        }
+        let tags = self
+            .client
+            .get_object_tagging()
+            .bucket(self.buckets.name(key.bucket()))
+            .key(key.path())
+            .send()
+            .await
+            .map_err(|error| {
+                ObjectStoreError::Unavailable(format!(
+                    "could not verify immutable-publication object tag: {error}"
+                ))
+            })?;
+        validate_immutable_publication_tags(
+            tags.tag_set().iter().map(|tag| (tag.key(), tag.value())),
         )
+    }
+
+    fn verify_encryption(
+        &self,
+        bucket: Bucket,
+        encryption: Option<&ServerSideEncryption>,
+        kms_key_id: Option<&str>,
+    ) -> Result<(), ObjectStoreError> {
+        let Some(keys) = &self.kms_keys else {
+            return Ok(());
+        };
+        if encryption != Some(&ServerSideEncryption::AwsKms)
+            || kms_key_id != Some(keys.name(bucket))
+        {
+            return Err(ObjectStoreError::Unavailable(
+                "object does not satisfy the bucket encryption contract".into(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -137,7 +275,8 @@ impl ObjectStore for S3ObjectStore {
         let encoded_record = encode_record(&record)?;
         let bucket = self.buckets.name(record.bucket);
 
-        self.client
+        let mut put = self
+            .client
             .put_object()
             .bucket(bucket)
             .key(record.key.path())
@@ -145,19 +284,25 @@ impl ObjectStore for S3ObjectStore {
             .content_length(content_length)
             .content_type(record.media_type.clone())
             .metadata(RECORD_METADATA_KEY, encoded_record)
-            .if_none_match("*")
-            .send()
-            .await
-            .map_err(|error| {
-                if error
-                    .raw_response()
-                    .is_some_and(|response| response.status().as_u16() == 412)
-                {
-                    ObjectStoreError::AlreadyExists
-                } else {
-                    ObjectStoreError::Unavailable(error.to_string())
-                }
-            })?;
+            .if_none_match("*");
+        if let Some(keys) = &self.kms_keys {
+            put = put
+                .server_side_encryption(ServerSideEncryption::AwsKms)
+                .ssekms_key_id(keys.name(record.bucket));
+        }
+        if let Some(tagging) = immutable_publication_tagging(&record.key) {
+            put = put.tagging(tagging);
+        }
+        put.send().await.map_err(|error| {
+            if error
+                .raw_response()
+                .is_some_and(|response| response.status().as_u16() == 412)
+            {
+                ObjectStoreError::AlreadyExists
+            } else {
+                ObjectStoreError::Unavailable(error.to_string())
+            }
+        })?;
         Ok(record)
     }
 
@@ -189,6 +334,12 @@ impl ObjectStore for S3ObjectStore {
             output.content_length(),
             output.content_type(),
         )?;
+        self.verify_encryption(
+            key.bucket(),
+            output.server_side_encryption(),
+            output.ssekms_key_id(),
+        )?;
+        self.verify_immutable_publication_tag(key).await?;
         let bytes = output
             .body
             .collect()
@@ -303,7 +454,7 @@ fn verify_bytes(record: ObjectRecord, bytes: Vec<u8>) -> Result<StoredObject, Ob
 #[cfg(feature = "s3")]
 fn signed_url_lifetime(bucket: Bucket) -> Result<Duration, ObjectStoreError> {
     match bucket {
-        Bucket::Content => Ok(Duration::from_secs(60 * 60)),
+        Bucket::PublicAssets | Bucket::PrivateContent => Ok(Duration::from_secs(60 * 60)),
         Bucket::StudentRecords => Ok(Duration::from_secs(5 * 60)),
         Bucket::TempProcessing => Err(ObjectStoreError::NotSignable),
     }
@@ -329,10 +480,38 @@ fn unavailable_metadata(message: &str) -> ObjectStoreError {
     ObjectStoreError::Unavailable(format!("invalid object metadata: {message}"))
 }
 
+/// `ProblemAsset` is the one semantic key admitted to the public-assets
+/// bucket. Every other typed key must remain untagged so a private object
+/// cannot accidentally acquire the public immutable-publication capability.
+#[cfg(feature = "s3")]
+fn requires_immutable_publication_tag(key: &ObjectKey) -> bool {
+    matches!(key, ObjectKey::ProblemAsset { .. })
+}
+
+#[cfg(feature = "s3")]
+fn immutable_publication_tagging(key: &ObjectKey) -> Option<&'static str> {
+    requires_immutable_publication_tag(key).then_some(IMMUTABLE_PUBLICATION_TAG_QUERY)
+}
+
+/// The publication marker is an exact singleton set. Extra tags are refused:
+/// accepting them would silently broaden the deployment policy vocabulary at
+/// a security boundary without a reviewed contract change.
+#[cfg(feature = "s3")]
+fn validate_immutable_publication_tags<'a>(
+    mut tags: impl Iterator<Item = (&'a str, &'a str)>,
+) -> Result<(), ObjectStoreError> {
+    match (tags.next(), tags.next()) {
+        (Some((IMMUTABLE_PUBLICATION_TAG_KEY, IMMUTABLE_PUBLICATION_TAG_VALUE)), None) => Ok(()),
+        _ => Err(ObjectStoreError::Unavailable(
+            "public asset does not satisfy the immutable-publication tag contract".into(),
+        )),
+    }
+}
+
 #[cfg(all(test, feature = "s3"))]
 mod tests {
     use super::*;
-    use question_model::{ObjectId, ProblemId, VersionId};
+    use question_model::{AssetId, ObjectId, ProblemId, VersionId};
     use uuid::Uuid;
 
     fn record() -> ObjectRecord {
@@ -353,6 +532,15 @@ mod tests {
             license: "CC-BY-SA-4.0".to_string(),
             provenance: "faculty source with an accented name: Jos\u{e9}".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
+        }
+    }
+
+    fn public_asset_key() -> ObjectKey {
+        ObjectKey::ProblemAsset {
+            problem: ProblemId::from_uuid(Uuid::from_u128(1)),
+            version: VersionId::from_uuid(Uuid::from_u128(2)),
+            asset: AssetId::from_uuid(Uuid::from_u128(3)),
+            object: ObjectId::from_uuid(Uuid::from_u128(4)),
         }
     }
 
@@ -401,6 +589,84 @@ mod tests {
         assert_eq!(
             verify_bytes(record(), b"changed".to_vec()),
             Err(ObjectStoreError::ChecksumMismatch)
+        );
+    }
+
+    #[test]
+    fn only_public_problem_assets_receive_the_immutable_publication_tag() {
+        let private_source = record().key;
+        let public_asset = public_asset_key();
+
+        assert_eq!(
+            immutable_publication_tagging(&public_asset),
+            Some(IMMUTABLE_PUBLICATION_TAG_QUERY)
+        );
+        assert!(requires_immutable_publication_tag(&public_asset));
+        assert_eq!(immutable_publication_tagging(&private_source), None);
+        assert!(!requires_immutable_publication_tag(&private_source));
+    }
+
+    #[test]
+    fn public_immutable_publication_tag_is_an_exact_singleton() {
+        assert!(
+            validate_immutable_publication_tags(
+                [(
+                    IMMUTABLE_PUBLICATION_TAG_KEY,
+                    IMMUTABLE_PUBLICATION_TAG_VALUE
+                )]
+                .into_iter()
+            )
+            .is_ok()
+        );
+
+        for invalid in [
+            vec![],
+            vec![(IMMUTABLE_PUBLICATION_TAG_KEY, "false")],
+            vec![("other", IMMUTABLE_PUBLICATION_TAG_VALUE)],
+            vec![
+                (
+                    IMMUTABLE_PUBLICATION_TAG_KEY,
+                    IMMUTABLE_PUBLICATION_TAG_VALUE,
+                ),
+                ("review-state", "approved"),
+            ],
+        ] {
+            assert!(validate_immutable_publication_tags(invalid.into_iter()).is_err());
+        }
+    }
+
+    #[test]
+    fn production_kms_keys_must_be_distinct_arns() {
+        let public_assets = "arn:aws:kms:us-east-1:111122223333:key/public-assets".to_string();
+        let private_content = "arn:aws:kms:us-east-1:111122223333:key/private-content".to_string();
+        let records = "arn:aws:kms:us-east-1:111122223333:key/records".to_string();
+        let temporary = "arn:aws:kms:us-east-1:111122223333:key/temporary".to_string();
+        assert!(
+            KmsKeyNames::new(
+                public_assets.clone(),
+                private_content.clone(),
+                records.clone(),
+                temporary.clone()
+            )
+            .is_ok()
+        );
+        assert!(
+            KmsKeyNames::new(
+                public_assets.clone(),
+                public_assets,
+                records.clone(),
+                temporary.clone()
+            )
+            .is_err()
+        );
+        assert!(
+            KmsKeyNames::new(
+                "alias/public-assets".into(),
+                private_content,
+                records.clone(),
+                temporary
+            )
+            .is_err()
         );
     }
 }

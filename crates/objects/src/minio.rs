@@ -1,11 +1,9 @@
 //! MinIO backend and the S3-compatible client (MOD-OBJ).
 //!
 //! MinIO is the S3-compatible endpoint used by the development and test
-//! containers, so this module and [`crate::s3`] share one client type and
-//! differ only in endpoint and credential source. Building the client by hand
-//! rather than through `aws-config` keeps credentials explicit: they arrive as
-//! arguments, from the process environment, at run time -- never from a
-//! committed file.
+//! containers. Production AWS construction is deliberately separate in
+//! [`crate::aws`] so endpoint overrides and static credentials cannot leak into
+//! the production configuration shape.
 
 #[cfg(feature = "s3")]
 use aws_sdk_s3::Client;
@@ -36,7 +34,7 @@ pub struct EndpointConfig {
     pub secret_access_key: String,
 }
 
-/// Builds an S3 client for a MinIO or AWS endpoint.
+/// Builds an S3 client for the local MinIO endpoint.
 ///
 /// Path-style addressing is forced because MinIO in a container is reached by
 /// host name, and virtual-host-style addressing would require per-bucket DNS

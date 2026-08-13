@@ -13,6 +13,42 @@ use crate::{
 pub(super) mod attempt_issuance;
 pub(super) use attempt_issuance::add_seconds;
 
+async fn require_active_learner_run(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    actor: UserId,
+    run: RunId,
+) -> Result<Option<AssignmentRun>, StoreError> {
+    let record = match load_run_for_update(transaction, tenant, run).await {
+        Ok(value) => value,
+        Err(StoreError::NotFound) => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let enrollment = load_enrollment_for_update(transaction, tenant, record.enrollment).await?;
+    if enrollment.user != actor {
+        return Ok(None);
+    }
+    let assignment = load_assignment(transaction, tenant, enrollment.assignment).await?;
+    let accessible: bool =
+        sqlx::query_scalar("SELECT public.ple_course_records_accessible($1, $2)")
+            .bind(tenant.as_uuid())
+            .bind(assignment.course_id.as_uuid())
+            .fetch_one(&mut **transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+    if !accessible {
+        return Err(StoreError::NotFound);
+    }
+    transaction_context::require_active_learner_membership(
+        transaction,
+        tenant,
+        enrollment.assignment,
+        actor,
+    )
+    .await?;
+    Ok(Some(record))
+}
+
 /// Accepts a concurrent successor-link write only when it retained the exact
 /// durable descriptor this transaction produced. The id alone is not enough:
 /// it would let a mismatched or checksum-invalid public successor replace the
@@ -66,6 +102,24 @@ pub(super) async fn require_exact_submission_successor(
 
 #[async_trait]
 impl crate::RunStore for PostgresStore {
+    async fn learner_assignment_run_items_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        run: RunId,
+    ) -> Result<Option<Vec<AssignmentRunItem>>, StoreError> {
+        let mut transaction = self.begin_tenant(context).await?;
+        if require_active_learner_run(&mut transaction, context.tenant_id(), actor, run)
+            .await?
+            .is_none()
+        {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(None);
+        }
+        let items = load_assignment_run_items(&mut transaction, context.tenant_id(), run).await?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(Some(items))
+    }
     async fn start_or_resume_run_impl(
         &self,
         context: TenantContext,
@@ -477,6 +531,33 @@ impl crate::RunStore for PostgresStore {
         }
         Ok(Some(reservation))
     }
+    async fn learner_get_prefetched_question_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        run: RunId,
+        predecessor: QuestionAttemptId,
+        assignment_position: u32,
+    ) -> Result<Option<PrefetchedQuestion>, StoreError> {
+        let mut transaction = self.begin_tenant(context).await?;
+        if require_active_learner_run(&mut transaction, context.tenant_id(), actor, run)
+            .await?
+            .is_none()
+        {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(None);
+        }
+        let row = sqlx::query("SELECT payload, payload_sha256, presentation_descriptor_version, presentation_nonce, presentation_digest FROM question_prefetch WHERE tenant_id = $1 AND run_id = $2 AND predecessor_attempt_id = $3 AND assignment_position = $4").bind(context.tenant_id().as_uuid()).bind(run.as_uuid()).bind(predecessor.as_uuid()).bind(i32::try_from(assignment_position).map_err(|_| StoreError::InvalidRecord("prefetch position is too large".to_string()))?).fetch_optional(&mut *transaction).await.map_err(map_sqlx_error)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        let Some(row) = row else { return Ok(None) };
+        let reservation: PrefetchedQuestion = decode_payload_row(&row)?;
+        if decode_presentation_binding_row(&row)? != Some(reservation.presentation) {
+            return Err(StoreError::Unavailable(
+                "stored prefetch presentation disagrees with its columns".to_string(),
+            ));
+        }
+        Ok(Some(reservation))
+    }
     async fn submission_next_attempt_impl(
         &self,
         context: TenantContext,
@@ -536,6 +617,28 @@ impl crate::RunStore for PostgresStore {
         }
         let ids: Vec<Uuid> = sqlx::query_scalar("SELECT qa.attempt_id FROM question_attempt qa JOIN submission_idempotency si ON si.tenant_id = qa.tenant_id AND si.attempt_id = qa.attempt_id LEFT JOIN submission_next_attempt sna ON sna.tenant_id = qa.tenant_id AND sna.predecessor_attempt_id = qa.attempt_id WHERE qa.tenant_id = $1 AND qa.run_id = $2 AND sna.predecessor_attempt_id IS NULL ORDER BY qa.occurred_at DESC LIMIT 2")
             .bind(context.tenant_id().as_uuid()).bind(run.as_uuid()).fetch_all(&mut *transaction).await.map_err(map_sqlx_error)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        match ids.as_slice() {
+            [] => Ok(None),
+            [id] => Ok(Some(QuestionAttemptId::from_uuid(*id))),
+            _ => Err(StoreError::Conflict),
+        }
+    }
+    async fn learner_pending_submission_for_run_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        run: RunId,
+    ) -> Result<Option<QuestionAttemptId>, StoreError> {
+        let mut transaction = self.begin_tenant(context).await?;
+        if require_active_learner_run(&mut transaction, context.tenant_id(), actor, run)
+            .await?
+            .is_none()
+        {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(None);
+        }
+        let ids: Vec<Uuid> = sqlx::query_scalar("SELECT qa.attempt_id FROM question_attempt qa JOIN submission_idempotency si ON si.tenant_id = qa.tenant_id AND si.attempt_id = qa.attempt_id LEFT JOIN submission_next_attempt sna ON sna.tenant_id = qa.tenant_id AND sna.predecessor_attempt_id = qa.attempt_id WHERE qa.tenant_id = $1 AND qa.run_id = $2 AND sna.predecessor_attempt_id IS NULL ORDER BY qa.occurred_at DESC LIMIT 2").bind(context.tenant_id().as_uuid()).bind(run.as_uuid()).fetch_all(&mut *transaction).await.map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         match ids.as_slice() {
             [] => Ok(None),
@@ -664,6 +767,32 @@ impl crate::RunStore for PostgresStore {
         )?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
+    }
+    async fn learner_list_question_attempts_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        run: RunId,
+        page: PageRequest,
+    ) -> Result<Option<Page<QuestionAttempt>>, StoreError> {
+        let cursor = page.after.as_ref().map(|value| value.as_str().to_string());
+        let limit = i64::from(page.size.get()) + 1;
+        let mut transaction = self.begin_tenant(context).await?;
+        if require_active_learner_run(&mut transaction, context.tenant_id(), actor, run)
+            .await?
+            .is_none()
+        {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(None);
+        }
+        let rows = sqlx::query("SELECT lpad(qa.assignment_position::text, 10, '0') || '/' || lpad((extract(epoch FROM qa.occurred_at) * 1000)::bigint::text, 20, '0') || '/' || qa.attempt_id::text AS stable_key, COALESCE(si.payload, qa.payload) AS payload, COALESCE(si.payload_sha256, qa.payload_sha256) AS payload_sha256, evaluation.payload AS evaluation_payload, evaluation.payload_sha256 AS evaluation_payload_sha256, evaluation.grading_status AS evaluation_grading_status, qa.attempt_status AS current_attempt_status, floor(extract(epoch FROM qa.submitted_at) * 1000)::bigint AS current_submitted_at, floor(extract(epoch FROM timing.effective_deadline) * 1000)::bigint AS current_deadline_at FROM question_attempt AS qa LEFT JOIN submission_idempotency AS si ON si.tenant_id = qa.tenant_id AND si.attempt_id = qa.attempt_id LEFT JOIN submission_evaluation AS evaluation ON evaluation.tenant_id = qa.tenant_id AND evaluation.attempt_id = qa.attempt_id LEFT JOIN attempt_timing_current AS timing ON timing.tenant_id = qa.tenant_id AND timing.attempt_id = qa.attempt_id WHERE qa.tenant_id = $1 AND qa.run_id = $2 AND ($3::text IS NULL OR lpad(qa.assignment_position::text, 10, '0') || '/' || lpad((extract(epoch FROM qa.occurred_at) * 1000)::bigint::text, 20, '0') || '/' || qa.attempt_id::text > $3) ORDER BY qa.assignment_position, qa.occurred_at, qa.attempt_id::text LIMIT $4").bind(context.tenant_id().as_uuid()).bind(run.as_uuid()).bind(cursor).bind(limit).fetch_all(&mut *transaction).await.map_err(map_sqlx_error)?;
+        let result = page_from_rows_with(
+            rows,
+            page.size.get(),
+            decode_current_attempt_with_evaluation_row,
+        )?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(Some(result))
     }
     async fn replay_submission_impl(
         &self,

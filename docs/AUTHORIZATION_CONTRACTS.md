@@ -18,7 +18,7 @@ Every protected request follows this order:
 opaque session cookie
         |
         v
-resolve shared session and provider-established subject
+resolve shared session and PLE-established subject
         |
         v
 derive TenantContext on the server
@@ -44,11 +44,21 @@ comes before `If-Match`, body parsing where possible, publication capability
 checks, and expensive external work. A malformed revision or request body must
 not become a membership, resource-existence, or tenant-discovery oracle.
 
+The closed human-role vocabulary is defined in
+[USER_ROLES.md](USER_ROLES.md). `Sysadmin` is platform authority, not ambient
+course authority. Reading, grading, exporting, or otherwise using FERPA
+records as teaching data still requires direct Instructor membership in the
+exact course. Sysadmin-only retention transitions are the narrow payload-free
+exception documented in [RETENTION_POLICY.md](RETENTION_POLICY.md). The other
+explicit exception is audited roster support: its closed operations expose or
+change only the roster state needed to help an Instructor and do not grant
+grade, response, run, export, item-analysis, or ordinary course authority.
+
 ## Separate decisions
 
 | Control | Question answered | It does not prove |
 | --- | --- | --- |
-| Authentication | Which trusted identity provider established this session subject? | Permission for a particular course or record |
+| Authentication | Which PLE account ceremony established this session subject? | Permission for a particular course or record |
 | Tenant derivation | Which tenant owns the protected operation? | Course, workspace, or asset permission |
 | Authorization | May this actor perform this action on this resource now? | That content is well-formed or pedagogically valid |
 | Structural validation | Does input satisfy the closed API and domain shape? | That the actor owns the target or response is correct |
@@ -62,13 +72,15 @@ unsupported question capability.
 
 ## Session and tenant authority
 
-PLE uses one opaque, host-only session credential. The server stores only its
+PLE uses one opaque `__Host-` first-party session credential. The server stores only its
 SHA-256 hash with database-authoritative expiry and revocation state. The raw
 credential is HttpOnly and does not enter browser storage, logs, DTOs, or
 PostgreSQL. Missing, malformed, expired, revoked, and unknown credentials have
 the same unauthenticated result.
 
-The trusted provider establishes a `SessionSubject`: tenant, authenticated
+Production email/passwordless and optional passkey ceremonies establish the
+PLE account; no production password verifier or generic identity provider
+establishes this session. A `SessionSubject` carries tenant, authenticated
 `UserId`, display name, and coarse roles. The authenticated user is not an
 `EnrollmentId` or `StudentId`; run and record access binds the user to a
 persisted enrollment rather than equating identifiers.
@@ -84,9 +96,9 @@ mechanism to obtain grader access.
 | Resource | Authority source | Important limit |
 | --- | --- | --- |
 | Tenant-owned record | Session-derived tenant plus forced RLS | Tenant match alone does not grant user access |
-| Course | Direct `course_member` row, or separate tenant-administrator authority | Coarse instructor role does not grant every course |
-| Assignment write | Exact course instructor or tenant administrator | References must also be visible, published, and lifecycle-valid |
-| Learner run and submission | Enrollment owned by the authenticated user | Course staff cannot submit as the learner |
+| Course | Direct `course_member` row | Neither a coarse Instructor role nor Sysadmin status grants every course; audited Sysadmin roster support is a separate narrow capability |
+| Assignment write | Exact direct course Instructor | References must also be visible, published, and lifecycle-valid |
+| Learner run, attempt, summary, and submission | Enrollment owned by the authenticated user **and active Student membership** | A removed learner cannot retain read/write access; course staff cannot submit as the learner |
 | Workspace draft | Persisted workspace owner/collaborator ACL | Student routes do not construct authoring repositories |
 | Catalog publication | Eligible role, ownership, and review policy | Browser scope, problem ID, and adapter declaration are not authority |
 | Asset delivery | Immutable registry scope plus session, tenant, and user grant where required | Logical `AssetId` never grants object-key access |
@@ -101,24 +113,24 @@ content, request an export, promote an upload, or obtain a signed URL.
 
 Course membership is an explicit tenant-owned relationship between an
 authenticated `UserId` and a course. Its durable membership roles are
-`Student` and `Instructor`. `Administrator` is effective course authority
-derived through a separate tenant-administrator path; it is not a storable
-membership role. A membership write therefore cannot manufacture tenant-wide
-administrative authority.
+`Student` and `Instructor`. `Sysadmin` is deliberately not a course role and
+does not replace direct Instructor membership for general FERPA access.
 
 Nonmembers receive the same not-found response as an absent or foreign course.
 This concealment applies to course-scoped assignments and learner records when
 revealing existence would disclose protected educational information. Students
 may list and work assignments in their own courses, but cannot create or alter
-them. Direct instructors and tenant administrators may mutate course
-definitions only after exact course authorization succeeds.
+them. Direct course instructors may mutate course definitions only after exact
+course authorization succeeds.
 
-The same boundary applies to gradebook and run history. A learner starts or
-submits only a run bound to their enrolled user. Course instructors and tenant
-administrators may read permitted course record projections, but a non-owner
-does not gain learner submission authority. Archive and deletion state adds a
-second fence: retained definitions can remain visible to authorized managers
-while learner records, exports, external-tool records, and student-record assets
+The same boundary applies to gradebook and run history. Learner-scoped Store
+methods recheck both enrollment ownership and an active `Student` membership
+inside the Store transaction, so a route authorization check cannot outlive a
+concurrent roster revocation. Direct course instructors may read permitted,
+explicitly instructor-scoped historical projections, but a non-owner does not
+gain learner submission authority. Archive and deletion state adds a second
+fence: retained definitions can remain visible to authorized instructors while
+learner records, exports, external-tool records, and student-record assets
 remain closed.
 
 ## Workspace and author preview
@@ -150,9 +162,9 @@ capability, or select a private source.
 
 The server loads the authorized draft, obtains capabilities from the trusted
 adapter registry, and commits immutable payload, visibility grant, and draft
-transition together. Public publication requires publisher or administrator
+transition together. Public publication requires Instructor or Sysadmin
 authority and any configured review gate. Institution publication permits an
-instructor, publisher, or administrator. Post-publication lifecycle transitions
+Instructor or Sysadmin. Post-publication lifecycle transitions
 also require eligible authority and author ownership. Published identity, scope,
 payload, capabilities, metadata, authorship, and lineage are immutable to the
 application role.
@@ -229,13 +241,20 @@ PostgreSQL broker grants and RLS restrict job types; stale or foreign lease
 completion fails. Queue payloads carry bounded IDs and generations, never
 names, raw responses, answer keys, grades, or object URLs.
 
+An external provider `POST` is separately fenced: the Store writes a marker
+for the exact active activity lease before dispatch and clears it only after a
+valid result. Any ambiguous outcome remains fenced and blocks reclaim,
+relaunch, grading, and finalization. A new lease or browser retry is never
+authority to repeat an indeterminate upstream effect.
+
 ## Database enforcement
 
 Authorization has application and database layers:
 
 - Server routes establish actor authority and concealment behavior.
 - Store methods require explicit `TenantContext` and bind actor, course,
-  enrollment, workspace, or delivery identities as appropriate.
+  enrollment, active membership, workspace, or delivery identities as
+  appropriate; learner-scoped reads are Store authority, not route convention.
 - PostgreSQL enables and forces RLS on tenant-owned tables. Policies compare
   the row tenant with `ple_current_tenant()` and add resource predicates.
 - Roles are narrow, `NOINHERIT`, `NOSUPERUSER`, and `NOBYPASSRLS`; the
@@ -247,6 +266,12 @@ A tenant row match does not establish course membership, workspace
 collaboration, learner ownership, retention access, or delivery ACL.
 Conversely, route checks cannot compensate for missing RLS because a future
 path may be wrong.
+
+Export creation is also Store authority: it takes the resolved session-token
+hash, locks the course roster, and resolves the current direct Instructor
+itself before freezing a job. Request fields cannot choose an actor, recipient,
+object, or export input, and a concurrently revoked Instructor cannot win the
+race.
 
 ## Error, audit, and change rules
 

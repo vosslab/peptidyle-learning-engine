@@ -136,7 +136,8 @@ nav {
   gap: 0.25rem;
 }
 
-nav a {
+nav a,
+.nav-action {
   display: inline-grid;
   min-height: var(--ple-control-min-height);
   padding: 0 0.5rem;
@@ -148,9 +149,21 @@ nav a {
 }
 
 nav a:hover,
-nav a.active {
+nav a.active,
+.nav-action:hover:not(:disabled) {
   background: var(--ple-surface-soft);
   color: var(--ple-accent-strong);
+}
+
+.nav-action {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.nav-action:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 
 .degraded-banner {
@@ -785,7 +798,8 @@ h2 {
     justify-content: space-between;
   }
 
-  nav a {
+  nav a,
+  .nav-action {
     min-width: 0;
     padding-inline: 0.4rem;
     flex: 1;
@@ -892,11 +906,12 @@ h2 {
   .site-header nav {
     display: grid;
     width: 100%;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     column-gap: 0.25rem;
   }
 
-  .site-header nav a {
+  .site-header nav a,
+  .site-header .nav-action {
     min-width: 0;
     padding-inline: 0.15rem;
     font-size: 0.78rem;

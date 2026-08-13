@@ -304,7 +304,12 @@ async fn dedicated_qti_route_validates_then_copies_exact_source_bytes_first() {
         version: question_model::VersionId::from_uuid(id(6)),
     };
     let prepared = preparer
-        .copy_candidates(&fixture.draft, reference, validated)
+        .copy_candidates(
+            &fixture.draft,
+            reference,
+            PublicationScope::Public,
+            validated,
+        )
         .await
         .expect("validated QTI copies candidate objects");
 
@@ -326,6 +331,14 @@ async fn dedicated_qti_route_validates_then_copies_exact_source_bytes_first() {
     assert_eq!(
         prepared.source_artifact.object.category,
         ObjectCategory::Source
+    );
+    assert!(
+        prepared.promotion.assets.iter().all(|asset| matches!(
+            asset.object.key,
+            ObjectKey::ProblemAsset { .. }
+        ) && asset.object.bucket
+            == objects::Bucket::PublicAssets),
+        "only globally public QTI publication may create CDN-readable asset keys"
     );
     assert!(matches!(
         prepared.source_artifact.object.key,
@@ -731,7 +744,7 @@ async fn qti_publish_rejects_review_time_draft_change_without_visible_version() 
         .await
         .expect("owner draft lookup")
         .expect("fixture draft exists");
-    let cookie = issued_cookie(&fixture.store, publisher, vec![UserRole::Publisher]).await;
+    let cookie = issued_cookie(&fixture.store, publisher, vec![UserRole::Instructor]).await;
     let app = router(
         Arc::clone(&fixture.store),
         Arc::clone(&fixture.objects),

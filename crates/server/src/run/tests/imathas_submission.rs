@@ -11,6 +11,7 @@ async fn contracted_imathas_submission_retrieves_once_commits_and_replays_after_
         .clone()
         .oneshot(
             Request::builder()
+                .method("POST")
                 .uri(&launch_path)
                 .header("cookie", &fixture.student_cookie)
                 .body(Body::empty())
@@ -84,6 +85,7 @@ async fn contracted_imathas_submission_refuses_missing_copied_and_malformed_mark
         .clone()
         .oneshot(
             Request::builder()
+                .method("POST")
                 .uri(&launch_path)
                 .header("cookie", &fixture.student_cookie)
                 .body(Body::empty())

@@ -180,7 +180,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn shutdown_waits_for_the_active_bounded_pass_to_settle() {
         let store = Arc::new(MemoryStore::default());
         let tenant = TenantId::from_uuid(Uuid::from_u128(1));

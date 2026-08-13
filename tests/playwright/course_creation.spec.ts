@@ -50,6 +50,7 @@ async function useProductionTransport(page: Page): Promise<void> {
 test("an instructor creates a course by keyboard and opens its real course link", async ({
   page,
 }) => {
+  test.setTimeout(2_000);
   const requests: Array<{
     readonly method: string;
     readonly path: string;
@@ -84,11 +85,9 @@ test("an instructor creates a course by keyboard and opens its real course link"
   await expect(title).toBeVisible();
   await title.fill(createdCourse.title);
   await title.press("Enter");
-  const newLink = page
-    .getByRole("link", { name: "Open course" })
-    .filter({ hasText: "Open course" })
-    .first();
-  await expect(page.getByRole("heading", { name: createdCourse.title })).toBeVisible();
+  const newLink = page.locator(`a[href="/courses/${createdCourse.id}"]`);
+  const newCourse = page.locator("article.course-card").filter({ has: newLink });
+  await expect(newCourse.getByRole("heading", { name: createdCourse.title })).toBeVisible();
   await expect(newLink).toBeFocused();
   expect(requests.filter((request) => request.method === "POST")).toEqual([
     { method: "POST", path: "/api/courses", body: { title: createdCourse.title } },
@@ -121,10 +120,11 @@ test("a student sees no course creation control and cannot call its endpoint", a
 test("a recoverable creation failure preserves the typed title and exposes retry guidance", async ({
   page,
 }) => {
+  test.setTimeout(2_000);
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
-    if (path === "/api/auth/session") return await json(route, session(["administrator"]));
+    if (path === "/api/auth/session") return await json(route, session(["sysadmin"]));
     if (path === "/api/courses" && request.method() === "GET") {
       return await json(route, { items: [], nextCursor: null });
     }
@@ -137,9 +137,12 @@ test("a recoverable creation failure preserves the typed title and exposes retry
   await page.goto("/");
 
   const title = page.getByLabel("Course title");
+  await expect(title).toBeVisible();
   await title.fill("BIOC 301: Biochemistry");
   await title.press("Enter");
-  await expect(page.getByRole("status")).toContainText("We could not create that course");
+  await expect(
+    page.getByRole("status").filter({ hasText: "We could not create that course" }),
+  ).toBeVisible();
   await expect(title).toHaveValue("BIOC 301: Biochemistry");
   await expect(page.getByRole("button", { name: "Create course" })).toBeEnabled();
 });

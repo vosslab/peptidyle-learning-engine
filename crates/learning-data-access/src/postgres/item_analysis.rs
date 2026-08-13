@@ -70,12 +70,13 @@ impl CourseItemAnalysisStore for PostgresStore {
     ) -> Result<Option<CourseItemAnalysisReport>, StoreError> {
         let tenant = context.tenant_id();
         let mut transaction = self.begin_tenant_snapshot(context).await?;
-        let authorized: bool = sqlx::query_scalar("SELECT ple_retention_authorize($1, $2, false)")
-            .bind(session.to_string())
-            .bind(course.as_uuid())
-            .fetch_one(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
+        let authorized: bool =
+            sqlx::query_scalar("SELECT public.ple_course_roster_actor($1, $2, true) IS NOT NULL")
+                .bind(session.to_string())
+                .bind(course.as_uuid())
+                .fetch_one(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
         if !authorized {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(None);

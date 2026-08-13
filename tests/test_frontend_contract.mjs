@@ -7,6 +7,7 @@ import test from "node:test";
 
 import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
 import { createMockApiClient } from "../src/api/mock/client.ts";
+import { createMockLocalCredentialLogin } from "../src/api/mock/local_development_auth.ts";
 import { createSessionBootstrap, sessionFailureState } from "../src/auth/session_context.tsx";
 import { prefetchMatchesIssuedSuccessor } from "../src/features/attempt/prefetch_binding.ts";
 import { ROUTE_CONTRACT } from "../src/route_contract.ts";
@@ -41,15 +42,22 @@ test("the product route data matches the frozen route contract", () => {
   assert.equal(new Set(ROUTE_CONTRACT.map((route) => route.id)).size, ROUTE_CONTRACT.length);
 });
 
-test("session bootstrap exposes only safe loading, authenticated, and recovery states", async () => {
+test("session bootstrap exposes only safe loading, authenticated, signed-out, and recovery states", async () => {
   const client = createMockApiClient();
-  const bootstrap = createSessionBootstrap(client.getSession);
+  const bootstrap = createSessionBootstrap(
+    client.getSession,
+    createMockLocalCredentialLogin(),
+    client.logout,
+  );
 
   assert.deepEqual(bootstrap.state(), { kind: "loading" });
   await bootstrap.retry();
   assert.equal(bootstrap.state().kind, "authenticated");
   assert.equal("credential" in bootstrap.state(), false);
   assert.equal("answer" in bootstrap.state(), false);
+
+  assert.equal(await bootstrap.signOut(), true);
+  assert.deepEqual(bootstrap.state(), { kind: "signedOut" });
 
   assert.deepEqual(sessionFailureState({ status: 401 }), { kind: "expired" });
   assert.deepEqual(sessionFailureState({ status: 403 }), { kind: "expired" });
@@ -58,11 +66,34 @@ test("session bootstrap exposes only safe loading, authenticated, and recovery s
 
 test("local sign-in exchanges the credential once and retains only the safe session", async () => {
   const client = createMockApiClient();
-  const bootstrap = createSessionBootstrap(client.getSession, client.loginWithLocalCredential);
+  const bootstrap = createSessionBootstrap(client.getSession, createMockLocalCredentialLogin());
 
+  assert.equal(bootstrap.localCredentialSignInAvailable, true);
   assert.equal(await bootstrap.signInWithLocalCredential("local-only-token"), true);
   assert.equal(bootstrap.state().kind, "authenticated");
   assert.equal("credential" in bootstrap.state(), false);
+});
+
+test("production session bootstrap cannot expose or invoke local credential sign-in", async () => {
+  const client = createMockApiClient();
+  const bootstrap = createSessionBootstrap(client.getSession);
+
+  assert.equal(bootstrap.localCredentialSignInAvailable, false);
+  assert.equal(await bootstrap.signInWithLocalCredential("local-only-token"), false);
+  assert.deepEqual(bootstrap.state(), { kind: "loading" });
+});
+
+test("failed sign-out keeps the authenticated session visible for a safe retry", async () => {
+  const client = createMockApiClient();
+  const bootstrap = createSessionBootstrap(
+    client.getSession,
+    createMockLocalCredentialLogin(),
+    () => Promise.reject(new Error("server unavailable")),
+  );
+  await bootstrap.retry();
+
+  assert.equal(await bootstrap.signOut(), false);
+  assert.equal(bootstrap.state().kind, "authenticated");
 });
 
 test("the shell keeps client navigation role-aware and never echoes route exceptions", () => {
@@ -74,8 +105,6 @@ test("the shell keeps client navigation role-aware and never echoes route except
   assert.match(source, /<Show when={location\.pathname} keyed>/);
   assert.doesNotMatch(source, /String\(error\)/);
   assert.doesNotMatch(source, /error\.message/);
-  assert.match(source, /Local development credential/);
-  assert.match(source, /type="password"/);
   assert.doesNotMatch(source, /localStorage/);
 });
 

@@ -550,6 +550,7 @@ where
         state.objects.as_ref(),
         &current.record,
         publication,
+        request.scope,
         hotspot_asset.as_ref(),
     )
     .await
@@ -751,8 +752,8 @@ fn is_exact_workspace_import_archive(
         && *workspace == import.workspace
         && *archive_import == import.import
         && *object == expected.id
-        && expected.bucket == Bucket::Content
-        && expected.key.bucket() == Bucket::Content
+        && expected.bucket == Bucket::PrivateContent
+        && expected.key.bucket() == Bucket::PrivateContent
         && expected.category == ObjectCategory::Source
         && expected.key.category() == ObjectCategory::Source
         && expected.version.is_none()
@@ -853,12 +854,9 @@ where
 }
 
 fn may_author(roles: &[UserRole]) -> bool {
-    roles.iter().any(|role| {
-        matches!(
-            role,
-            UserRole::Instructor | UserRole::Publisher | UserRole::Administrator
-        )
-    })
+    roles
+        .iter()
+        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
 }
 
 #[derive(Clone, Copy)]

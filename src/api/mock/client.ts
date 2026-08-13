@@ -330,25 +330,10 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
       };
       return expectSerialized(mockFetch("/api/auth/session"), expected);
     },
-    loginWithLocalCredential: (credential: string) => {
-      if (credential.length === 0) return Promise.reject(new Error("credential is required"));
-      const expected: AuthSession = {
-        authenticated: true,
-        tenant: publishedProblemFixture.enrollment.tenant,
-        user: {
-          id: publishedProblemFixture.enrollment.user,
-          displayName: "Fixture Student",
-          roles: ["student"],
-        },
-      };
-      return expectSerialized(
-        mockFetch("/api/auth/login", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ credential }),
-        }),
-        expected,
-      );
+    logout: async () => {
+      await expectSerialized(mockFetch("/api/auth/logout", { method: "POST" }), {
+        authenticated: false,
+      });
     },
     listWorkspaceDrafts: (): Promise<WorkspaceDraftPage> => {
       const authorizationError = workspaceAuthoringError();
@@ -761,14 +746,17 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
         mockFetch(`/api/attempts/${attemptId}/prefetch-next`, { method: "POST" }),
         attemptId,
       ),
-    getExternalToolLaunch: (attemptId: QuestionAttemptId): Promise<ExternalToolLaunch> => {
+    beginExternalToolLaunch: (attemptId: QuestionAttemptId): Promise<ExternalToolLaunch> => {
       const attempt = mockAttemptById(attemptId);
       if (attempt === undefined) {
         return Promise.reject(new Error(`Fixture has no attempt ${attemptId}`));
       }
-      return expectSerialized(mockFetch(`/api/attempts/${attemptId}/external-tool-launch`), {
-        launchUrl: `/api/attempts/${attempt.id}/external-tool/launch`,
-      });
+      return expectSerialized(
+        mockFetch(`/api/attempts/${attemptId}/external-tool/launch`, { method: "POST" }),
+        {
+          launchUrl: `/api/attempts/${attempt.id}/external-tool/launch`,
+        },
+      );
     },
     submitResponse: (
       attemptId: QuestionAttemptId,
@@ -854,6 +842,7 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
         issuedQuestion,
       };
     },
+    issueProtectedAssetDelivery: (assetId) => Promise.resolve(`/api/assets/${assetId}`),
     assetUrl: (assetId) => `/api/assets/${assetId}`,
     validateResponseFormatOnServer: validateResponseFormatInMock,
     timerVerdictOnServer: timerVerdictInMock,

@@ -5,10 +5,15 @@ use std::{sync::Arc, time::Duration};
 use anyhow::{Context, Result, bail};
 use learning_data_access::{JobKind, postgres::SchemaCompatibilityError};
 
-use super::settings::{LazyStorageDependencies, StorageSettings};
+use super::settings::{
+    LazyStorageDependencies, PublisherStorageDependencies, StorageRuntime, StorageSettings,
+};
 use crate::{
     export_worker::{ExportJobCommitter, ExportJobHandler},
     item_analysis_worker::{CourseItemAnalysisCommitter, CourseItemAnalysisHandler},
+    public_asset_publication_worker::{
+        PublicAssetPublicationCommitter, PublicAssetPublicationHandler,
+    },
     qti_import::{QtiImportCommitter, QtiImportHandler},
     retention_worker::{RetentionJobCommitter, RetentionJobHandler},
     scoring_worker::{AssignmentScoringCommitter, AssignmentScoringHandler},
@@ -82,9 +87,42 @@ where
 /// reserved and are absent from the broker filter until their implementations
 /// have both a handler and an atomic committer.
 pub async fn run_production_worker_from_env() -> Result<()> {
-    let storage = StorageSettings::from_env()?;
+    run_worker_from_env(StorageRuntime::Worker).await
+}
+
+/// Starts the worker against the explicit plaintext local-development stack.
+#[cfg(feature = "local-development-auth")]
+pub async fn run_local_development_worker_from_env() -> Result<()> {
+    run_worker_from_env(StorageRuntime::LocalDevelopment).await
+}
+
+/// Starts the least-authority publisher process. It claims no educational
+/// work: its sole capability is materializing already-committed public asset
+/// bytes, then activating their matching registry records.
+pub async fn run_public_asset_publisher_from_env() -> Result<()> {
+    let storage = StorageSettings::from_env(StorageRuntime::PublicAssetPublisher)?;
     let settings = ProductionWorkerSettings::from_env()?;
-    let dependencies = LazyStorageDependencies::from_settings(&storage)?;
+    let dependencies = PublisherStorageDependencies::from_settings(&storage).await?;
+    verify_publisher_schema(&dependencies.pool).await?;
+    let store = dependencies.store;
+    let objects = dependencies.objects;
+    let registry = JobRegistry::new([entry(
+        JobKind::PublishPublicAssets,
+        PublicAssetPublicationHandler::new(Arc::clone(&store), objects),
+        PublicAssetPublicationCommitter::new(Arc::clone(&store)),
+    )])
+    .context("public-asset publisher registry is invalid")?;
+    let worker = Worker::new(store, registry, settings.worker);
+    eprintln!("peptidyle public-asset publisher ready");
+    runtime::run_until_shutdown(worker, settings.poll_interval, runtime::shutdown_signal())
+        .await
+        .context("public-asset publisher runtime failed")
+}
+
+async fn run_worker_from_env(runtime: StorageRuntime) -> Result<()> {
+    let storage = StorageSettings::from_env(runtime)?;
+    let settings = ProductionWorkerSettings::from_env()?;
+    let dependencies = LazyStorageDependencies::from_settings(&storage).await?;
     verify_worker_schema(&dependencies.pool).await?;
 
     let store = dependencies.store;
@@ -117,7 +155,7 @@ pub async fn run_production_worker_from_env() -> Result<()> {
         ),
         entry(
             JobKind::QtiImport,
-            QtiImportHandler::new(Arc::clone(&store), objects),
+            QtiImportHandler::new(Arc::clone(&store), Arc::clone(&objects)),
             QtiImportCommitter::new(Arc::clone(&store)),
         ),
     ])
@@ -156,6 +194,23 @@ async fn verify_worker_schema(pool: &learning_data_access::postgres::Pool) -> Re
     }
 }
 
+async fn verify_publisher_schema(pool: &learning_data_access::postgres::Pool) -> Result<()> {
+    match tokio::time::timeout(
+        Duration::from_secs(5),
+        learning_data_access::postgres::verify_public_asset_publisher_schema(pool),
+    )
+    .await
+    {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(SchemaCompatibilityError::Unavailable)) | Err(_) => {
+            bail!("database schema verification timed out or is unavailable")
+        }
+        Ok(Err(SchemaCompatibilityError::Incompatible(_))) => {
+            bail!("database schema verification failed")
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -169,5 +224,15 @@ mod tests {
         )
         .expect("production defaults");
         assert!(bounded_env("PLE_WORKER_TEST_MISSING", 5_u64, 1, 10).is_ok());
+    }
+
+    #[test]
+    fn public_asset_publisher_claim_filter_has_no_other_authority() {
+        let filter = learning_data_access::JobClaimFilter::new([JobKind::PublishPublicAssets])
+            .expect("one closed publisher family");
+        assert!(filter.contains(JobKind::PublishPublicAssets));
+        assert!(!filter.contains(JobKind::Export));
+        assert!(!filter.contains(JobKind::QtiImport));
+        assert!(!filter.contains(JobKind::Retention));
     }
 }

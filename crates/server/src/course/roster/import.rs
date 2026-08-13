@@ -20,10 +20,10 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     CourseRosterRouteState, DEFAULT_INVITATION_LIFETIME_SECONDS, RevisionHeaderError,
-    enrollment_unavailable, required_idempotency_key, required_roster_revision,
+    enrollment_unavailable, require_roster_support_access, required_idempotency_key,
+    required_roster_revision,
 };
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
-use crate::course::policy::require_course_access;
 use crate::course::projection::{error_response, store_error_response};
 
 const MAX_ROSTER_CSV_BYTES: usize = 1_048_576;
@@ -83,7 +83,7 @@ where
         Err(error) => return auth_error_response(error),
     };
     if let Err(response) =
-        require_course_access(state.store.as_ref(), &authenticated, course, true).await
+        require_roster_support_access(state.store.as_ref(), &authenticated, course).await
     {
         return response;
     }
@@ -162,7 +162,7 @@ where
         Err(error) => return auth_error_response(error),
     };
     if let Err(response) =
-        require_course_access(state.store.as_ref(), &authenticated, course, true).await
+        require_roster_support_access(state.store.as_ref(), &authenticated, course).await
     {
         return response;
     }

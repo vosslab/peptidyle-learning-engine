@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use objects::{Bucket, ObjectCategory, ObjectKey, ObjectRecord};
 use question_model::{
     ActivityTimestamp, CourseAppearance, CourseBannerMutation, CourseBannerPresentation, CourseId,
-    CourseRole, UserId, UserRole,
+    CourseMembershipRole, UserId,
 };
 
 use super::sessions::active_subject;
@@ -43,10 +43,11 @@ impl CourseAppearanceStore for MemoryStore {
         let Some(subject) = active_subject(&state, context, session) else {
             return Ok(None);
         };
-        let Some(role) = appearance_role(&state, context, subject, course) else {
+        let role = appearance_role(&state, context, subject, course);
+        if role.is_none() {
             return Ok(None);
-        };
-        if role == CourseRole::Student
+        }
+        if role == Some(CourseMembershipRole::Student)
             && !course_records_accessible(&state, context.tenant_id(), course)
         {
             return Ok(None);
@@ -66,7 +67,7 @@ impl CourseAppearanceStore for MemoryStore {
     ) -> Result<(), StoreError> {
         validate_candidate(context, course, &command)?;
         let mut state = self.write_state()?;
-        let actor = require_manager(&state, context, session, course)?;
+        let actor = require_appearance_authority(&state, context, session, course)?;
         if command.expires_at <= state.authoritative_time {
             return Err(StoreError::InvalidRecord(
                 "course banner candidate expiry must be in the future".to_string(),
@@ -100,7 +101,7 @@ impl CourseAppearanceStore for MemoryStore {
         candidate: question_model::CourseBannerCandidateId,
     ) -> Result<CourseBannerPromotion, StoreError> {
         let state = self.read_state()?;
-        let actor = require_manager(&state, context, session, course)?;
+        let actor = require_appearance_authority(&state, context, session, course)?;
         let stored = state
             .course_banner_candidates
             .get(&(context.tenant_id(), course, candidate))
@@ -131,7 +132,7 @@ impl CourseAppearanceStore for MemoryStore {
         command: SaveCourseAppearance,
     ) -> Result<CourseAppearance, StoreError> {
         let mut state = self.write_state()?;
-        let actor = require_manager(&state, context, session, course)?;
+        let actor = require_appearance_authority(&state, context, session, course)?;
         let key = (context.tenant_id(), course);
         let current = state
             .course_appearances
@@ -161,6 +162,8 @@ impl CourseAppearanceStore for MemoryStore {
                         course,
                         banner: stored.banner,
                     },
+                    publication: crate::AssetPublication::Ready,
+                    pending_source: None,
                 };
                 validate_asset_delivery(&delivery)?;
                 if let Some(existing) = state.asset_deliveries.get(&delivery.id) {
@@ -280,7 +283,7 @@ impl CourseAppearanceStore for MemoryStore {
         let Some(role) = appearance_role(&state, context, &subject, course) else {
             return Err(StoreError::NotFound);
         };
-        if role == CourseRole::Student
+        if role == CourseMembershipRole::Student
             && !course_records_accessible(&state, context.tenant_id(), course)
         {
             return Err(StoreError::NotFound);
@@ -439,24 +442,25 @@ fn appearance_role(
     context: TenantContext,
     subject: &SessionSubject,
     course: CourseId,
-) -> Option<CourseRole> {
+) -> Option<CourseMembershipRole> {
     let record = state.courses.get(&(context.tenant_id(), course))?;
-    if subject.roles().contains(&UserRole::Administrator) {
-        return Some(CourseRole::Administrator);
-    }
     record.role_for(subject.user())
 }
 
-fn require_manager(
+fn require_appearance_authority(
     state: &State,
     context: TenantContext,
     session: SessionTokenHash,
     course: CourseId,
 ) -> Result<UserId, StoreError> {
     let subject = active_subject(state, context, session).ok_or(StoreError::NotFound)?;
-    match appearance_role(state, context, subject, course) {
-        Some(CourseRole::Administrator | CourseRole::Instructor) => Ok(subject.user()),
-        Some(CourseRole::Student) => Err(StoreError::Forbidden),
+    let record = state
+        .courses
+        .get(&(context.tenant_id(), course))
+        .ok_or(StoreError::NotFound)?;
+    match record.role_for(subject.user()) {
+        Some(CourseMembershipRole::Instructor) => Ok(subject.user()),
+        Some(CourseMembershipRole::Student) => Err(StoreError::Forbidden),
         None => Err(StoreError::NotFound),
     }
 }
@@ -515,7 +519,7 @@ fn validate_promoted(
         || key_course != course
         || banner != candidate.banner
         || promoted.id != promoted.key.object_id()
-        || promoted.bucket != Bucket::Content
+        || promoted.bucket != Bucket::PrivateContent
         || promoted.category != ObjectCategory::CourseContent
         || promoted.version.is_some()
         || promoted.media_type != "image/webp"

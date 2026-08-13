@@ -9,6 +9,11 @@ The normal stack includes PLE's standalone WeBWorK PG renderer. SMTP is the one
 optional overlay because PLE connects to an external mail provider rather than
 operating a mail server.
 
+This is intentionally an HTTP, loopback-only development topology. Caddy does
+not emit HSTS locally: a browser must not be instructed to require HTTPS for a
+development origin that intentionally has no local TLS endpoint. HSTS belongs
+to the production CloudFront edge.
+
 Before the API starts, the host launcher uses the production PostgreSQL and MinIO contracts to
 publish the reviewed Genetics and Biochemistry Chapter 1 assignments. This host-only bootstrap
 does not add a content-management service or expose source bytes to the browser.
@@ -33,6 +38,16 @@ The external renderer is genuinely stateless from PLE's perspective. PLE owns
 immutable question source, attempt state, replay mapping, and grades. A
 renderer restart therefore cannot lose an educational record.
 
+Every long-running local service is non-root where its upstream image permits,
+has a read-only root filesystem, drops all Linux capabilities, sets
+`no-new-privileges`, and has bounded CPU, memory, process, and writable-tmpfs
+budgets. The exception is not a broad privilege grant: the networkless,
+one-shot `local-data-volume-permissions` helper starts as root inside the
+rootless Podman user namespace with only `CAP_CHOWN`, then exits after setting
+the two volume-directory owners. These controls contain accidental service
+escape and resource exhaustion; they do not make a host or Podman-socket
+administrator unable to read local development data.
+
 ## One-shot services
 
 These containers run a bounded initialization task and exit successfully. They
@@ -41,8 +56,9 @@ permissions.
 
 | Service                | Necessary role                                                                                                     | Safety property                                                                                                             |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `local-data-volume-permissions` | Assigns the two fresh named-volume top directories to the fixed database and object-store UIDs. | Rootless, networkless, one-shot, read-only-root task with only `CAP_CHOWN`; it neither traverses data nor remains running. |
 | `postgres-major-guard` | Reads an existing `PG_VERSION` before PostgreSQL starts.                                                           | Read-only volume, no network, and refusal when the retained volume is not PostgreSQL 17. It never migrates or deletes data. |
-| `createbuckets`        | Creates the three required MinIO buckets idempotently.                                                             | It exits after setup; API and worker do not need bucket-administration behavior.                                            |
+| `createbuckets`        | Creates the four required MinIO buckets idempotently.                                                              | It exits after setup; API and worker do not need bucket-administration behavior.                                            |
 | `identity-secret-init` | Copies the host-owned invitation issuer secret into an API-readable runtime volume with the API UID and mode 0600. | No network and a minimal capability set; the host path is not exposed to the API.                                           |
 | `smtp-secret-init`     | When the SMTP overlay is selected, copies an external provider credential into an API-readable runtime volume.     | No network; PLE never starts a mail-transfer service.                                                                       |
 
@@ -57,6 +73,16 @@ not failed daemons and consume no running CPU after completion.
 | `ple_miniodata`        | MinIO                             | Durable object bytes and metadata. Preserve it with the relational volume.             |
 | `ple_identity_runtime` | Secret initializer and API        | Runtime-only permission-normalized invitation secret copy, not an educational record.  |
 | `ple_smtp_runtime`     | Optional SMTP initializer and API | Runtime-only external provider credential copy. Present only with the SMTP overlay.    |
+
+PostgreSQL, MinIO, and `createbuckets` use fixed non-root identities, immutable
+container roots, empty capability sets, `no-new-privileges`, bounded resources,
+and bounded non-executable temporary filesystems. PostgreSQL writes only its
+data volume plus an ephemeral Unix-socket directory; MinIO writes only its data
+volume; `createbuckets` writes only temporary client configuration. The retained
+data volumes are deliberately local-development state, not a host-compromise
+barrier: a user who controls the rootless Podman socket or host account can read
+them. Production protection is separately owned by managed database/object
+storage, IAM, and KMS controls.
 
 The normal stop command intentionally omits `--volumes`:
 
@@ -135,3 +161,9 @@ not permanent pytest cases or a claim that every PG problem is compatible.
 See [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for operating commands and
 [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md) for replica and production
 boundaries.
+
+The local renderer has a pinned image reference and private network, but that
+evidence does not approve an AWS renderer. Production keeps that feature
+disabled until the external service is separately attested for private ingress,
+image provenance, TLS identity, no database/object-store authority, and
+fail-closed behavior.

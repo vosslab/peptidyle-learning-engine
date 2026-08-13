@@ -84,6 +84,9 @@ impl CatalogStore for PostgresStore {
                             .to_string(),
                     ));
                 }
+                let has_pending_public_assets = command.scope == PublicationScope::Public
+                    && (qti_promotion.is_some_and(|promotion| !promotion.assets.is_empty())
+                        || flat_promotion.is_some_and(|promotion| !promotion.assets.is_empty()));
 
                 let mut transaction = self.begin_tenant(context).await?;
                 if command.publisher != actor {
@@ -488,6 +491,27 @@ impl CatalogStore for PostgresStore {
                     if !promoted {
                         return Err(StoreError::Conflict);
                     }
+                }
+                if has_pending_public_assets {
+                    let job = crate::JobId::generate()?;
+                    let payload = serde_json::to_value(crate::JobPayload::PublishPublicAssets {
+                        reference: publication,
+                    })
+                    .map_err(|error| {
+                        StoreError::InvalidRecord(format!(
+                            "public-asset publisher payload serialization failed: {error}"
+                        ))
+                    })?;
+                    sqlx::query(
+                        "INSERT INTO worker_job (job_id, tenant_id, payload, state, max_attempts) \
+                         VALUES ($1, $2, $3, 'ready', 20)",
+                    )
+                    .bind(job.as_uuid())
+                    .bind(context.tenant_id().as_uuid())
+                    .bind(payload)
+                    .execute(&mut *transaction)
+                    .await
+                    .map_err(map_sqlx_error)?;
                 }
                 sqlx::query(
                     "DELETE FROM workspace_draft WHERE tenant_id = $1 AND workspace_id = $2",

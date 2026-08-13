@@ -6,15 +6,15 @@ use super::MemoryStore;
 use crate::{
     AccountCourseContext, AccountIdentityStore, AccountRecord, AccountSessionLifetime,
     AccountSessionRecord, AccountSessionStore, AccountSessionTokenHash,
-    AuthenticationRateLimitDecision, BeginEmailAuthentication, BeginWebauthnCeremony,
-    CompleteEmailAuthentication, CompleteEmailAuthenticationAndCreateSession,
-    CompletePasskeyAuthenticationAndCreateSession, CompletedAccountSession,
-    CompletedEmailAuthentication, CompletedPasskeySession, ConsumeAuthenticationRateLimit,
-    EmailAuthenticationChallenge, EmailAuthenticationPurpose, Page, PageRequest, PasskeyId,
-    PasskeyRecord, RegisterPasskey, StoreError, WebauthnCeremony, WebauthnCeremonyId,
-    validated_account_display_name,
+    AuthenticationRateLimitDecision, AuthenticationRateLimitScope, BeginEmailAuthentication,
+    BeginWebauthnCeremony, CompleteEmailAuthentication,
+    CompleteEmailAuthenticationAndCreateSession, CompletePasskeyAuthenticationAndCreateSession,
+    CompletedAccountSession, CompletedEmailAuthentication, CompletedPasskeySession,
+    ConsumeAuthenticationRateLimit, EmailAuthenticationChallenge, EmailAuthenticationPurpose, Page,
+    PageRequest, PasskeyId, PasskeyRecord, RegisterPasskey, StoreError, WebauthnCeremony,
+    WebauthnCeremonyId, validated_account_display_name,
 };
-use question_model::{ActivityTimestamp, CourseId, CourseRole, UserId};
+use question_model::{ActivityTimestamp, CourseId, CourseMembershipRole, UserId};
 
 #[derive(Debug, Clone)]
 pub(super) struct StoredAuthenticationRateLimit {
@@ -151,6 +151,7 @@ impl AccountIdentityStore for MemoryStore {
             id: command.id,
             token_hash: command.token_hash,
             browser_binding: command.browser_binding,
+            email_rate_limit_key: command.email_rate_limit_key,
             email: command.email,
             purpose: command.purpose,
             created_at,
@@ -229,7 +230,7 @@ impl AccountIdentityStore for MemoryStore {
             .iter()
             .filter_map(|((tenant, course), record)| {
                 let role = record.role_for(user)?;
-                if role == CourseRole::Student
+                if role == CourseMembershipRole::Student
                     && !super::course_records_accessible(&state, *tenant, *course)
                 {
                     return None;
@@ -262,7 +263,7 @@ impl AccountIdentityStore for MemoryStore {
                     return None;
                 }
                 let role = record.role_for(user)?;
-                if role == CourseRole::Student
+                if role == CourseMembershipRole::Student
                     && !super::course_records_accessible(&state, *tenant, *stored_course)
                 {
                     return None;
@@ -526,6 +527,7 @@ fn complete_email_authentication_locked(
                     user: command.proposed_user,
                     email: challenge.record.email.clone(),
                     display_name,
+                    platform_roles: Vec::new(),
                     created_at: state.authoritative_time,
                     updated_at: state.authoritative_time,
                 };
@@ -541,6 +543,12 @@ fn complete_email_authentication_locked(
         }
     };
     state.email_challenges.remove(&command.token_hash);
+    // Mailbox proof is the only recovery authority for this quota. It never
+    // clears a shared network, principal, or service budget.
+    state.authentication_rate_limits.remove(&(
+        AuthenticationRateLimitScope::Email,
+        challenge.record.email_rate_limit_key,
+    ));
     Ok(CompletedEmailAuthentication { account, created })
 }
 

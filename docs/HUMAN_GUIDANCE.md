@@ -153,6 +153,23 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Favor behavior-focused evidence that reflects what instructors and students
   actually do over implementation-detail tests.
 
+## User roles and student records
+
+- The only human user roles are Sysadmin, Instructor, and Student. There are no
+  Manager, Administrator, or Publisher users. The repository owner is the
+  current sysadmin and is also an instructor.
+- Approve every Instructor manually after real-person validation. Do not add a
+  self-service promotion path.
+- Student users fall under FERPA. Treat their course-linked data, not their
+  account merely for existing, as radioactive.
+- A sysadmin does not receive general access to FERPA course records. Require
+  direct Instructor membership in the exact course when the sysadmin needs to
+  act as its instructor. Permit roster troubleshooting through the separate
+  audited Sysadmin roster-support capability; do not widen it to grades,
+  responses, attempts, exports, item analysis, or general course browsing.
+- Keep the dedicated public-asset publisher as a service identity, never a
+  human role.
+
 ## Student keyboard accessibility
 
 - Make every student browser action usable with the keyboard alone.
@@ -438,10 +455,27 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Require separate consent handling before adding any nonessential browser
   storage or tracking. Recheck the deployed behavior against the target
   jurisdiction; this engineering rule is not a substitute for legal review.
-- Keep the technical controls narrow: `Secure; SameSite=Lax` for ordinary
-  HTTPS, explicit `SameSite=None; Secure` only for configured LTI embedding,
-  explicit insecure mode only for local HTTP development, and immediate
-  server-side revocation on sign-out.
+- Keep the technical controls narrow: a `__Host-` cookie with `Secure`,
+  `HttpOnly`, `SameSite=Lax`, `Path=/`, and no `Domain` for production HTTPS;
+  explicit insecure mode only for local HTTP development; and immediate
+  server-side revocation on sign-out. Do not add a production
+  `SameSite=None`/embedded-LTI mode. A future LTI integration needs a separate
+  reviewed browser and session design.
+
+## Security design decisions
+
+- Encrypt PostgreSQL, object storage, backups, and deployment volumes at rest
+  with managed encryption and scoped KMS keys. Do not add blanket application
+  encryption to immutable public published content: its delivery needs CDN
+  access and its integrity is enforced by immutable publication evidence and
+  SHA-256 bindings. Use application AEAD selectively for stored secrets such
+  as external-tool launch state.
+- Security concealment and accessible teaching guidance are complementary:
+  revoked or unauthorized learners receive the same generic unavailable/not-
+  found outcome needed to avoid record disclosure, while the UI gives clear,
+  keyboard-accessible recovery guidance (for example, contact the instructor
+  for an indeterminate external tool). Do not reveal membership, provider, or
+  record details merely to make an error more specific.
 
 The durable regulatory references for this decision are Article 5(3) of the
 [consolidated EU ePrivacy Directive](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02002L0058-20091219), the

@@ -7,6 +7,9 @@ edition.workspace = true
 rust-version.workspace = true
 
 [features]
+# The local bearer identity adapter is an explicit development artifact.  It
+# must never be present in the default production or publisher binary.
+local-development-auth = []
 # Compiles the strictly opt-in response attribution used only by the
 # container-replica E2E harness.  Production images deliberately do not
 # enable it, and enabling the feature alone still exposes nothing.
@@ -31,6 +34,7 @@ subtle = "*"
 chacha20poly1305.workspace = true
 uuid.workspace = true
 libc = "*"
+ipnet = "*"
 tracing = "*"
 tracing-subscriber = "*"
 url.workspace = true

@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use question_model::StudentAssignmentSummary;
 use sqlx::Row;
 
-use super::course_roster::require_manager;
+use super::course_roster::require_course_instructor;
 use super::{PostgresStore, decode_payload_row, map_sqlx_error};
 use crate::{
     AuthenticationEmail, CourseRosterId, CreateManualGradeExport, MAX_MANUAL_GRADE_EXPORT_ROWS,
@@ -22,7 +22,7 @@ impl ManualGradeExportStore for PostgresStore {
     ) -> Result<ManualGradeExport, StoreError> {
         let tenant = context.tenant_id();
         let mut transaction = self.begin_tenant(context).await?;
-        let actor = require_manager(&mut transaction, session, command.course).await?;
+        let actor = require_course_instructor(&mut transaction, session, command.course).await?;
         let assignment_exists: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM assignment \
              WHERE tenant_id = $1 AND course_id = $2 AND assignment_id = $3 \

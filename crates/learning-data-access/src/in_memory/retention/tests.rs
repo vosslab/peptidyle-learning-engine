@@ -41,7 +41,7 @@ mod retention_tests {
         let context = TenantContext::from_authenticated_session(tenant);
         let instructor = UserId::from_uuid(Uuid::from_u128(81_002));
         let student = UserId::from_uuid(Uuid::from_u128(81_003));
-        let administrator = UserId::from_uuid(Uuid::from_u128(81_004));
+        let sysadmin = UserId::from_uuid(Uuid::from_u128(81_004));
         let course = CourseId::from_uuid(Uuid::from_u128(81_005));
         {
             let mut state = store.write_state().expect("retention state");
@@ -78,8 +78,8 @@ mod retention_tests {
             &store,
             session(3),
             tenant,
-            administrator,
-            vec![UserRole::Administrator],
+            sysadmin,
+            vec![UserRole::Sysadmin],
         )
         .await;
 
@@ -102,7 +102,7 @@ mod retention_tests {
         store
             .configure_retention_policy(context, session(3), custom)
             .await
-            .expect("admin policy");
+            .expect("sysadmin policy");
         let first = store
             .end_course_retention(context, session(1), course)
             .await
@@ -129,7 +129,7 @@ mod retention_tests {
             store
                 .course_retention(context, session(3), course)
                 .await
-                .expect("admin view"),
+                .expect("sysadmin view"),
             Some(first)
         );
     }
@@ -140,7 +140,7 @@ mod retention_tests {
         let tenant = TenantId::from_uuid(Uuid::from_u128(81_100));
         let context = TenantContext::from_authenticated_session(tenant);
         let instructor = UserId::from_uuid(Uuid::from_u128(81_101));
-        let administrator = UserId::from_uuid(Uuid::from_u128(81_102));
+        let sysadmin = UserId::from_uuid(Uuid::from_u128(81_102));
         let course = CourseId::from_uuid(Uuid::from_u128(81_103));
         {
             let mut state = store.write_state().expect("state");
@@ -170,8 +170,8 @@ mod retention_tests {
             &store,
             session(11),
             tenant,
-            administrator,
-            vec![UserRole::Administrator],
+            sysadmin,
+            vec![UserRole::Sysadmin],
         )
         .await;
         let policy = InstitutionRetentionPolicy::new(
@@ -183,7 +183,7 @@ mod retention_tests {
         store
             .configure_retention_policy(context, session(11), policy)
             .await
-            .expect("admin policy");
+            .expect("sysadmin policy");
         let record = store
             .end_course_retention(context, session(10), course)
             .await
@@ -354,7 +354,7 @@ mod retention_tests {
         let context = TenantContext::from_authenticated_session(tenant);
         let instructor = UserId::from_uuid(Uuid::from_u128(81_201));
         let student = UserId::from_uuid(Uuid::from_u128(81_202));
-        let administrator = UserId::from_uuid(Uuid::from_u128(81_203));
+        let sysadmin = UserId::from_uuid(Uuid::from_u128(81_203));
         let course = CourseId::from_uuid(Uuid::from_u128(81_204));
         {
             let mut state = store.write_state().expect("state");
@@ -398,8 +398,8 @@ mod retention_tests {
             &store,
             session(22),
             tenant,
-            administrator,
-            vec![UserRole::Administrator],
+            sysadmin,
+            vec![UserRole::Sysadmin],
         )
         .await;
         assert_eq!(
@@ -525,7 +525,7 @@ mod retention_tests {
         let extended = store
             .extend_course_retention(context, session(22), course, RetentionDays::new(7).unwrap())
             .await
-            .expect("admin extension");
+            .expect("sysadmin extension");
         assert_eq!(extended.snapshot.generation(), 2);
         assert_eq!(
             extended.status.assignment_definitions,
@@ -574,7 +574,7 @@ mod retention_tests {
         }
 
         // The archive-time disposition freezes as soon as its own stage starts;
-        // an administrator also cannot extend an in-progress generation.
+        // a Sysadmin also cannot extend an in-progress generation.
         {
             let mut state = store.write_state().expect("state");
             let archive_key = (

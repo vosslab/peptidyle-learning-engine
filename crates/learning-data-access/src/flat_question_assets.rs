@@ -157,9 +157,9 @@ pub fn validate_workspace_flat_question_asset_record(
             "flat-question image key must match its workspace asset identity".to_string(),
         ));
     }
-    if record.bucket != Bucket::Content || record.key.bucket() != Bucket::Content {
+    if record.bucket != Bucket::PrivateContent || record.key.bucket() != Bucket::PrivateContent {
         return Err(StoreError::InvalidRecord(
-            "flat-question image must be stored in the content bucket".to_string(),
+            "flat-question image must be stored in the private-content bucket".to_string(),
         ));
     }
     if record.category != ObjectCategory::Asset || record.key.category() != ObjectCategory::Asset {

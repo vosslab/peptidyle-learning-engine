@@ -310,7 +310,7 @@ impl ScoredEmbedTransport for RecordedContractedTransport {
         }
     }
 
-    async fn fetch_signed_result(
+    async fn fetch_signed_grade_get(
         &self,
         _request: ResultTransportRequest<'_>,
     ) -> Result<Vec<u8>, ScoredEmbedTransportFailure> {

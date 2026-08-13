@@ -353,16 +353,17 @@ where
                     .get(&asset.asset)
                     .copied()
                     .ok_or(JobFailureKind::Permanent)?;
-                let key = ObjectKey::ProblemAsset {
-                    problem: reference.problem,
-                    version: reference.version,
-                    asset: asset.asset,
+                let key = ObjectKey::published_problem_asset(
+                    published.scope,
+                    reference.problem,
+                    reference.version,
+                    asset.asset,
                     object,
-                };
+                );
                 let stored = map_object(cancellable(&execution, self.objects.get(&key)).await)?;
                 if stored.record.id != object
                     || stored.record.key != key
-                    || stored.record.bucket != Bucket::Content
+                    || stored.record.bucket != key.bucket()
                     || stored.record.category != ObjectCategory::Asset
                     || stored.record.sha256.to_string() != asset.checksum
                 {
@@ -517,7 +518,7 @@ mod tests {
     use learning_data_access::{
         AssetStore, AssignmentRecord, CatalogStore, CourseRecord, CreateAssignmentExport,
         DraftRecord, ExportJobStore, JobLeaseDuration, JobPayload, JobStore, PublishDraftCommand,
-        Store,
+        SessionLifetime, SessionStore, SessionSubject, SessionTokenHash, Store,
     };
     use objects::{
         Bucket, ObjectCategory, ObjectKey, ObjectRecord, ObjectStore, PutObject, Sha256Digest,
@@ -535,7 +536,7 @@ mod tests {
         CourseMembership, CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource,
         GradingDefinition, ObjectId, ProblemId, ProblemVersionRef, PublicationScope,
         QuestionMetadata, QuestionSource, ResponseDefinition, RunPolicies, TenantId, UserId,
-        VersionId, WorkspaceId,
+        UserRole, VersionId, WorkspaceId,
     };
     use uuid::Uuid;
 
@@ -687,12 +688,27 @@ mod tests {
             )
             .await
             .expect("fixture assignment saves");
+        let session = SessionTokenHash::compute(b"export-worker-fixture-instructor");
+        store
+            .create_session(
+                session,
+                SessionSubject::new(
+                    tenant,
+                    author,
+                    "Export worker fixture",
+                    vec![UserRole::Instructor],
+                )
+                .expect("fixture session subject"),
+                SessionLifetime::from_seconds(3_600).expect("fixture session lifetime"),
+            )
+            .await
+            .expect("fixture session saves");
         let view = store
             .create_assignment_export(
                 context,
+                session,
                 CreateAssignmentExport {
                     assignment,
-                    requested_by: author,
                     max_attempts: 2,
                 },
             )

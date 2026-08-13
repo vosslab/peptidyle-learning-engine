@@ -32,10 +32,10 @@ use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
     ActivityTimestamp, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId, AssignmentItem,
     AssignmentItemId, AssignmentRun, AssignmentScoringMode, AssignmentSummary, AttemptTimerRecord,
-    CatalogLifecycle, CatalogProblemSummary, CourseId, CourseRole, CourseSummary, EnrollmentId,
-    GradebookSummaryRow, PointValue, ProblemVersionRef, PublicationScope, QuestionAttempt,
-    QuestionAttemptId, QuestionBackend, RunId, RunMode, StudentAssignmentSummary, StudentId,
-    TenantId, UserId,
+    CatalogLifecycle, CatalogProblemSummary, CourseId, CourseMembershipRole, CourseSummary,
+    EnrollmentId, GradebookSummaryRow, PointValue, ProblemVersionRef, PublicationScope,
+    QuestionAttempt, QuestionAttemptId, QuestionBackend, RunId, RunMode, StudentAssignmentSummary,
+    StudentId, TenantId, UserId,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -299,7 +299,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
             id: course_id,
             tenant,
             title: "BIOC 301: Biochemistry".to_string(),
-            role: CourseRole::Student,
+            role: CourseMembershipRole::Student,
         },
         assignment: AssignmentSummary {
             id: assignment_id,

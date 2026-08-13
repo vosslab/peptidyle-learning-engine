@@ -54,7 +54,7 @@ recoverable failure. Continued practice remains available after completion.
 | `/instructor/courses/:courseId/assignments/:assignmentId/edit` | Assignment policy editor                   | Assignment and capability validation          |
 | `/instructor/courses/:courseId/gradebook`                      | Summary-row gradebook                      | Student assignment summaries only             |
 | `/instructor/courses/:courseId/appearance`                     | Course theme and entry banner settings     | Revisioned safe appearance projection         |
-| `/instructor/courses/:courseId/students`                       | Roster, invitations, import, grade export  | Revisioned manager-only roster projection     |
+| `/instructor/courses/:courseId/students`                       | Roster, invitations, import, grade export  | Revisioned Instructor-only roster projection  |
 
 `src/routes.ts` is the executable copy of this table. It also provides a
 catch-all not-found route, which is infrastructure rather than a product
@@ -77,6 +77,13 @@ Routes consume them through narrow context hooks. Components do not import mock
 fixtures directly; mock data stays behind the same client interface a future
 HTTP transport implements.
 
+The ordinary browser build excludes the local-development credential form.
+`launch_local_stack.sh` alone opts its build into that UI with the exact
+`PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH=1` build capability, matching the server's
+separately feature-gated local route composition. Production does not mount the
+endpoint or include the form or local-login transport in its emitted browser
+artifacts.
+
 ## Client contract
 
 | Concern         | Contract                                                                         |
@@ -98,7 +105,8 @@ source locators for every row.
 signed-in user's effective course role. `listAssignments(courseId, cursor)` is
 typed with `CourseId` and returns Rust-owned `AssignmentSummary` values whose
 ordered problems are exact immutable ID pairs. The course API verifies direct
-membership or tenant-administrator authority before either list is returned.
+course membership before either list is returned. `Sysadmin` is a platform
+role, not ambient authority over a course or its FERPA records.
 
 `startRun(assignmentId)` sends `{ assignmentId }` to the run route rather than
 encoding the assignment in a tenant-selecting path. `listRuns(enrollmentId,
@@ -110,9 +118,9 @@ server can return the first committed result without grading twice.
 `assetUrl(assetId)` returns only the stable same-origin
 `/api/assets/{assetId}` route. The browser does not receive a bucket key and
 does not retain a signed URL. The production route redirects globally public
-content to its immutable CDN path and authorizes protected content before a
-short-lived redirect. The mock handler serves fixture bytes directly as the
-offline stand-in for that public CDN behavior.
+content to its immutable CDN path. Protected content first requires a no-store
+same-origin POST that returns one bounded delivery URL. The mock handler serves
+fixture bytes directly as the offline stand-in for that public CDN behavior.
 
 The mock client verifies exact serialized handler responses against the typed
 fixture values before returning them. This keeps a server-free UI useful
@@ -182,9 +190,12 @@ The production transport is one no-store `GET` and compare-and-swap
 `PUT` at `/api/courses/{courseId}/appearance`, plus an author-only candidate
 upload at `/api/courses/{courseId}/appearance/banner-candidates`. Candidate
 upload returns only `CourseBannerCandidateReceipt`; candidate bytes never use
-the delivery route. A current `CourseBannerId` uses the existing
-`/api/assets/{id}` route, whose persistence owner rechecks the exact current
-course pointer before delivery.
+the delivery route. A current `CourseBannerId` is protected media and therefore
+uses body-free `POST /api/assets/{id}/delivery`; its persistence owner rechecks
+and audits the exact current authorization pointer before signing. Public
+question assets retain `GET /api/assets/{id}`, which can only redirect an active
+immutable public object. A pending public asset is deliberately unavailable,
+not a browser retry or object-key fallback.
 
 `src/features/course_appearance/course_appearance_page.tsx` owns the working instructor form over a
 pure draft model and narrow repository. It uses native named theme radios, one raw raster file input,
@@ -218,7 +229,10 @@ than substituting another course's appearance.
 `src/wasm/index.ts` is the only browser import boundary for generated
 `wasm-bindgen` glue. It loads the same-origin module once, verifies its runtime
 shape, initializes it, and converts JSON strings into a typed key-free format
-report. No component calls a raw snake-case export.
+report. No component calls a raw snake-case export. The module is not granted
+cookies, tenant identity, object storage, launch state, provider credentials,
+answer keys, grading envelopes, or a network authorization role; server
+results remain authoritative.
 
 The facade presents five browser-style lower-camel-case operations:
 
@@ -340,10 +354,9 @@ them.
 ## Security rules
 
 - The client bundle and generated types contain no answer-bearing type.
-- State-changing requests use same-origin JSON transport. Embedded LTI mode
-  cannot treat `SameSite=None` as CSRF protection; the future LTI composition
-  must add an origin-bound anti-CSRF mechanism before enabling that cookie
-  policy in production.
+- State-changing requests use the explicitly typed same-origin method and
+  canonical-origin checks. There is no embedded `SameSite=None` session mode.
+  LTI is a future separate launch and CSRF design, not a cookie-policy switch.
 - Supplied markup is sanitized on the server before becoming a render block.
 - The content security policy allows scripts only from the app origin, permits
   WebAssembly instantiation, disables object embedding, and limits frame
@@ -351,6 +364,10 @@ them.
 - Asset markup carries internal IDs; the API resolves authorized delivery.
 - Browser logs contain identifiers and error codes, not names, response text,
   grades, keys, or undisclosed feedback.
+- The external-tool view first POSTs to create a server-held launch and then
+  displays only its inert same-origin shell. Its sandboxed activity may use
+  the narrow `Origin: null` exception only with both ordinary and launch
+  cookies; no other browser mutation may rely on that exception.
 
 ## Validation gates
 

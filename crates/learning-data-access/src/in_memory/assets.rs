@@ -8,9 +8,9 @@ use super::{
     require_course_records_accessible,
 };
 use crate::{
-    AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssetStore,
-    AuthorizedAssetDelivery, CatalogAssetBinding, StoreError, TenantContext, ensure_tenant,
-    validate_asset_delivery,
+    AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssetPublication,
+    AssetStore, AuthorizedAssetDelivery, CatalogAssetBinding, StoreError, TenantContext,
+    ensure_tenant, validate_asset_delivery, validate_catalog_asset_delivery_scope,
 };
 
 #[async_trait]
@@ -28,6 +28,7 @@ impl AssetStore for MemoryStore {
                     .published
                     .get(&(reference.problem, reference.version))
                     .ok_or(StoreError::NotFound)?;
+                validate_catalog_asset_delivery_scope(&record, published.scope)?;
                 if !catalog_record_visible(&state, context.tenant_id(), published) {
                     return Err(StoreError::NotFound);
                 }
@@ -65,6 +66,7 @@ impl AssetStore for MemoryStore {
             .published
             .get(&(reference.problem, reference.version))
             .filter(|published| published.scope == PublicationScope::Public)
+            .filter(|_| record.publication == AssetPublication::Ready)
             .map(|_| record.clone()))
     }
 
@@ -88,14 +90,19 @@ impl AssetStore for MemoryStore {
                 AssetDeliveryScope::Catalog {
                     asset,
                     reference: asset_reference,
-                } if asset_reference == reference => Some(CatalogAssetBinding {
-                    asset,
-                    object: record.object.id,
-                    rendition_checksum: record.object.sha256,
-                    media_type: record.object.media_type.clone(),
-                    intrinsic_width: record.intrinsic_width,
-                    intrinsic_height: record.intrinsic_height,
-                }),
+                } if asset_reference == reference
+                    && record.publication == AssetPublication::Ready =>
+                {
+                    Some(CatalogAssetBinding {
+                        asset,
+                        object: record.object.id,
+                        key: record.object.key.clone(),
+                        rendition_checksum: record.object.sha256,
+                        media_type: record.object.media_type.clone(),
+                        intrinsic_width: record.intrinsic_width,
+                        intrinsic_height: record.intrinsic_height,
+                    })
+                }
                 AssetDeliveryScope::Catalog { .. }
                 | AssetDeliveryScope::StudentRecord { .. }
                 | AssetDeliveryScope::CourseBanner { .. } => None,
@@ -118,12 +125,19 @@ impl AssetStore for MemoryStore {
             .cloned()
             .ok_or(StoreError::NotFound)?;
         let authorized = match &record.scope {
-            AssetDeliveryScope::Catalog { reference, .. } => state
-                .published
-                .get(&(reference.problem, reference.version))
-                .is_some_and(|published| {
-                    catalog_record_visible(&state, context.tenant_id(), published)
-                }),
+            // A pending public catalog record names its eventual immutable CDN
+            // key but that key is not published yet. It must look absent on
+            // the authenticated path too, otherwise an authenticated caller
+            // could obtain a signed URL before the publisher commits it.
+            AssetDeliveryScope::Catalog { reference, .. } => {
+                record.publication == AssetPublication::Ready
+                    && state
+                        .published
+                        .get(&(reference.problem, reference.version))
+                        .is_some_and(|published| {
+                            catalog_record_visible(&state, context.tenant_id(), published)
+                        })
+            }
             AssetDeliveryScope::StudentRecord {
                 tenant,
                 course,
@@ -156,5 +170,79 @@ impl AssetStore for MemoryStore {
             record,
             authorized_at,
         })
+    }
+}
+
+#[async_trait]
+impl crate::PublicAssetPublicationStore for MemoryStore {
+    async fn pending_public_asset_publication(
+        &self,
+        job: crate::JobId,
+        lease: crate::JobLeaseToken,
+        reference: ProblemVersionRef,
+    ) -> Result<Vec<AssetDeliveryRecord>, StoreError> {
+        let state = self.read_state()?;
+        let active = state.jobs.get(&job).is_some_and(|stored| {
+            stored.state == crate::JobState::Leased
+                && stored.lease_token == Some(lease)
+                && stored
+                    .lease_expires_at
+                    .is_some_and(|expiry| expiry > state.authoritative_time)
+                && stored.payload == crate::JobPayload::PublishPublicAssets { reference }
+        });
+        if !active {
+            return Err(StoreError::Conflict);
+        }
+        let Some(published) = state.published.get(&(reference.problem, reference.version)) else {
+            return Err(StoreError::NotFound);
+        };
+        if published.scope != PublicationScope::Public {
+            return Err(StoreError::NotFound);
+        }
+        let mut records = state
+            .asset_deliveries
+            .values()
+            .filter(|record| matches!(record.scope, AssetDeliveryScope::Catalog { reference: value, .. } if value == reference))
+            .filter(|record| record.publication == AssetPublication::Pending)
+            .cloned()
+            .collect::<Vec<_>>();
+        records.sort_unstable_by_key(|record| record.id);
+        Ok(records)
+    }
+
+    async fn activate_public_asset_publication(
+        &self,
+        job: crate::JobId,
+        lease: crate::JobLeaseToken,
+        reference: ProblemVersionRef,
+    ) -> Result<(), StoreError> {
+        let mut state = self.write_state()?;
+        let now = state.authoritative_time;
+        let expected = crate::JobPayload::PublishPublicAssets { reference };
+        let active = state.jobs.get(&job).is_some_and(|stored| {
+            stored.state == crate::JobState::Leased
+                && stored.lease_token == Some(lease)
+                && stored.lease_expires_at.is_some_and(|expiry| expiry > now)
+                && stored.payload == expected
+        });
+        if !active {
+            return Err(StoreError::Conflict);
+        }
+        for record in state.asset_deliveries.values_mut() {
+            if matches!(record.scope, AssetDeliveryScope::Catalog { reference: value, .. } if value == reference)
+                && record.publication == AssetPublication::Pending
+            {
+                record.publication = AssetPublication::Ready;
+                record.pending_source = None;
+            }
+        }
+        let stored = state
+            .jobs
+            .get_mut(&job)
+            .expect("active job remains present");
+        stored.state = crate::JobState::Completed;
+        stored.lease_token = None;
+        stored.lease_expires_at = None;
+        Ok(())
     }
 }

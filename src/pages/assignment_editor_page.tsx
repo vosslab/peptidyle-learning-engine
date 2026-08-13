@@ -117,7 +117,7 @@ export interface AssignmentEditorPageProps {
 
 /**
  * This component owns only editable assignment state. Its route parent has already
- * established both session and course-manager access before constructing the repository.
+ * established both session and direct course-instructor access before constructing the repository.
  */
 export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Element {
   const [state, setState] = createSignal<EditorState>({ kind: "loading" });

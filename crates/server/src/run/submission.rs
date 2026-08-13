@@ -54,7 +54,11 @@ where
     }
     let attempt = match state
         .store
-        .get_question_attempt(authenticated.tenant_context, attempt_id)
+        .learner_get_question_attempt(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            attempt_id,
+        )
         .await
     {
         Ok(Some(attempt)) => attempt,

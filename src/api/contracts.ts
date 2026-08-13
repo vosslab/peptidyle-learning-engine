@@ -102,6 +102,11 @@ export interface AuthSession {
   };
 }
 
+/** Confirmation that both browser authentication scopes were revoked. */
+export interface SignedOutResponse {
+  readonly authenticated: false;
+}
+
 /** Enrollment and its transactionally maintained student summary. */
 export interface EnrollmentView {
   readonly enrollment: AssignmentEnrollment;

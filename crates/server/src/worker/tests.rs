@@ -166,6 +166,7 @@ fn effect_for(payload: JobPayload) -> PreparedJobEffect {
             import,
             source_object,
         },
+        JobPayload::PublishPublicAssets { .. } => PreparedJobEffect::Test,
     }
 }
 
@@ -332,7 +333,7 @@ async fn concurrent_workers_claim_distinct_jobs_and_drain_depth() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn cooperative_timeout_stops_preparation_before_retry() {
     let store = Arc::new(learning_data_access::in_memory::MemoryStore::default());
     let seen = Arc::new(Mutex::new(Vec::new()));
@@ -369,7 +370,7 @@ async fn cooperative_timeout_stops_preparation_before_retry() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn unconfirmed_preparation_is_dead_and_adjacent_work_continues() {
     let store = Arc::new(learning_data_access::in_memory::MemoryStore::default());
     let seen = Arc::new(Mutex::new(Vec::new()));

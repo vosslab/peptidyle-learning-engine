@@ -7,23 +7,10 @@ use crate::{
     StudentAssignmentSummary, StudentId, TenantId, UserId,
 };
 
-/// A person's course-specific authorization role.
+/// Relationship that may be persisted on one direct course membership.
 ///
-/// This is deliberately separate from the coarse roles carried by a login
-/// session: being an instructor somewhere in a tenant does not grant access
-/// to every course in that tenant.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum CourseRole {
-    /// Works assignments and views only personal educational records.
-    Student,
-    /// Manages this course and its assignments.
-    Instructor,
-    /// Tenant administrator viewing the course through global authority.
-    Administrator,
-}
-
-/// Authority that may be persisted on one direct course membership.
+/// This scopes a Student or Instructor to one course. It is not another
+/// inventory of human user roles, and Sysadmin is never a membership value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CourseMembershipRole {
@@ -31,15 +18,6 @@ pub enum CourseMembershipRole {
     Student,
     /// Manages this course and its assignments.
     Instructor,
-}
-
-impl From<CourseMembershipRole> for CourseRole {
-    fn from(role: CourseMembershipRole) -> Self {
-        match role {
-            CourseMembershipRole::Student => Self::Student,
-            CourseMembershipRole::Instructor => Self::Instructor,
-        }
-    }
 }
 
 /// One authenticated user's direct membership in a course.
@@ -63,7 +41,7 @@ pub struct CourseSummary {
     /// Human-facing course or section title.
     pub title: String,
     /// Signed-in user's authority for this course.
-    pub role: CourseRole,
+    pub role: CourseMembershipRole,
 }
 
 /// Browser-safe assignment definition.

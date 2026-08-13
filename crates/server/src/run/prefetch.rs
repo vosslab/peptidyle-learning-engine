@@ -196,7 +196,11 @@ where
     }
     let active = match state
         .store
-        .get_question_attempt(authenticated.tenant_context, predecessor)
+        .learner_get_question_attempt(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            predecessor,
+        )
         .await
     {
         Ok(Some(value)) => value,
@@ -217,17 +221,21 @@ where
     }
     let run_items = match state
         .store
-        .assignment_run_items(authenticated.tenant_context, run.id)
+        .learner_assignment_run_items(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            run.id,
+        )
         .await
     {
-        Ok(items) => items,
+        Ok(Some(items)) => items,
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "run not found"),
         Err(error) => return store_error_response(error),
     };
-    let attempts =
-        match all_attempts(state.store.as_ref(), authenticated.tenant_context, run.id).await {
-            Ok(value) => value,
-            Err(response) => return response,
-        };
+    let attempts = match all_attempts(state.store.as_ref(), &authenticated, run.id).await {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
     if attempts
         .iter()
         .any(|attempt| attempt.response.is_none() && attempt.id != predecessor)
@@ -250,7 +258,7 @@ where
     let actor = authenticated.record.subject.user();
     let existing = match state
         .store
-        .get_prefetched_question(
+        .learner_get_prefetched_question(
             authenticated.tenant_context,
             actor,
             run.id,
@@ -336,7 +344,7 @@ where
                 Ok(value) => value,
                 Err(StoreError::Conflict) => match state
                     .store
-                    .get_prefetched_question(
+                    .learner_get_prefetched_question(
                         authenticated.tenant_context,
                         actor,
                         run.id,
@@ -447,10 +455,15 @@ where
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "assignment not found"))?;
     let run_items = store
-        .assignment_run_items(authenticated.tenant_context, run.id)
+        .learner_assignment_run_items(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            run.id,
+        )
         .await
-        .map_err(store_error_response)?;
-    let attempts = all_attempts(store, authenticated.tenant_context, run.id).await?;
+        .map_err(store_error_response)?
+        .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "run not found"))?;
+    let attempts = all_attempts(store, authenticated, run.id).await?;
 
     if attempts.iter().any(|attempt| attempt.response.is_none()) {
         return Ok(());
@@ -466,7 +479,7 @@ where
             let question = load_run_question(store, authenticated, reference).await?;
             let prefetched = match predecessor {
                 Some(predecessor) => store
-                    .get_prefetched_question(
+                    .learner_get_prefetched_question(
                         authenticated.tenant_context,
                         authenticated.record.subject.user(),
                         run.id,

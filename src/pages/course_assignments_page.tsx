@@ -217,12 +217,12 @@ export function CourseAssignmentsPage(): JSX.Element {
   });
   const canManageCourse = (): boolean => {
     const current = session.state();
-    const globalManager =
+    const hasInstructorRole =
       current.kind === "authenticated" &&
-      current.session.user.roles.some((role) => role === "instructor" || role === "administrator");
-    if (!globalManager || courseScope?.kind !== "course") return false;
+      current.session.user.roles.some((role) => role === "instructor");
+    if (!hasInstructorRole || courseScope?.kind !== "course") return false;
     const role = courseRouteData(courseScope).summary.role;
-    return role === "instructor" || role === "administrator";
+    return role === "instructor";
   };
   async function reloadAssignments(): Promise<void> {
     const courseId = params["courseId"];

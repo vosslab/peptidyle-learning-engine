@@ -1,17 +1,38 @@
 use super::*;
 
+async fn export_session(store: &MemoryStore, user: UserId, token: &[u8]) -> SessionTokenHash {
+    let hash = SessionTokenHash::compute(token);
+    store
+        .create_session(
+            hash,
+            SessionSubject::new(
+                TenantId::from_uuid(uuid(1)),
+                user,
+                "Export instructor",
+                vec![UserRole::Instructor],
+            )
+            .expect("export session subject"),
+            SessionLifetime::from_seconds(3_600).expect("export session lifetime"),
+        )
+        .await
+        .expect("export session persists");
+    hash
+}
+
 #[tokio::test]
 async fn memory_export_commits_exact_four_private_artifacts_atomically() {
     let store = MemoryStore::default();
     exercise_store(&store).await;
     let tenant = TenantId::from_uuid(uuid(1));
     let context = TenantContext::from_authenticated_session(tenant);
+    let instructor = UserId::from_uuid(uuid(18));
+    let session = export_session(&store, instructor, b"export-conformance-instructor").await;
     let view = store
         .create_assignment_export(
             context,
+            session,
             CreateAssignmentExport {
                 assignment: AssignmentId::from_uuid(uuid(8)),
-                requested_by: UserId::from_uuid(uuid(18)),
                 max_attempts: 2,
             },
         )
@@ -104,9 +125,9 @@ async fn memory_export_commits_exact_four_private_artifacts_atomically() {
     let failed = store
         .create_assignment_export(
             context,
+            session,
             CreateAssignmentExport {
                 assignment: AssignmentId::from_uuid(uuid(8)),
-                requested_by: UserId::from_uuid(uuid(18)),
                 max_attempts: 1,
             },
         )
@@ -139,5 +160,72 @@ async fn memory_export_commits_exact_four_private_artifacts_atomically() {
             .expect("failed request remains visible")
             .state,
         learning_data_access::StudentExportState::Failed
+    );
+}
+
+#[tokio::test]
+async fn export_creation_rechecks_live_course_authority_inside_the_store() {
+    let store = MemoryStore::default();
+    exercise_store(&store).await;
+    let tenant = TenantId::from_uuid(uuid(1));
+    let context = TenantContext::from_authenticated_session(tenant);
+    let assignment = AssignmentId::from_uuid(uuid(8));
+    let instructor = UserId::from_uuid(uuid(18));
+    let learner = UserId::from_uuid(uuid(14));
+    let outsider = UserId::from_uuid(uuid(20_001));
+    let instructor_session = export_session(&store, instructor, b"export-live-instructor").await;
+    let learner_session = export_session(&store, learner, b"export-live-learner").await;
+    let outsider_session = export_session(&store, outsider, b"export-live-outsider").await;
+    let command = CreateAssignmentExport {
+        assignment,
+        max_attempts: 1,
+    };
+
+    assert_eq!(
+        store
+            .create_assignment_export(context, learner_session, command)
+            .await,
+        Err(StoreError::Forbidden),
+        "a learner session cannot make the store mint an export job"
+    );
+    assert_eq!(
+        store
+            .create_assignment_export(context, outsider_session, command)
+            .await,
+        Err(StoreError::NotFound),
+        "a foreign course member cannot use a known same-tenant assignment ID"
+    );
+    store
+        .create_assignment_export(context, instructor_session, command)
+        .await
+        .expect("current course instructor can create an export");
+
+    store
+        .upsert_course(
+            context,
+            CourseRecord {
+                id: CourseId::from_uuid(uuid(17)),
+                tenant,
+                title: "Biochemistry after handoff".to_string(),
+                members: vec![
+                    CourseMembership {
+                        user: learner,
+                        role: CourseMembershipRole::Student,
+                    },
+                    CourseMembership {
+                        user: outsider,
+                        role: CourseMembershipRole::Instructor,
+                    },
+                ],
+            },
+        )
+        .await
+        .expect("fixture removes the former instructor");
+    assert_eq!(
+        store
+            .create_assignment_export(context, instructor_session, command)
+            .await,
+        Err(StoreError::NotFound),
+        "an old session loses export authority with its course membership"
     );
 }

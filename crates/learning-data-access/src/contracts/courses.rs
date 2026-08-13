@@ -15,8 +15,8 @@ pub struct CourseRecord {
 }
 
 impl CourseRecord {
-    /// Returns the browser projection for one direct member or tenant administrator.
-    pub fn summary(&self, role: CourseRole) -> CourseSummary {
+    /// Returns the browser projection for one direct course member.
+    pub fn summary(&self, role: CourseMembershipRole) -> CourseSummary {
         CourseSummary {
             id: self.id,
             tenant: self.tenant,
@@ -25,12 +25,12 @@ impl CourseRecord {
         }
     }
 
-    /// Resolves one authenticated user's explicit course role.
-    pub fn role_for(&self, user: UserId) -> Option<CourseRole> {
+    /// Resolves one authenticated user's explicit course membership.
+    pub fn role_for(&self, user: UserId) -> Option<CourseMembershipRole> {
         self.members
             .iter()
             .find(|membership| membership.user == user)
-            .map(|membership| membership.role.into())
+            .map(|membership| membership.role)
     }
 }
 
@@ -39,8 +39,6 @@ impl CourseRecord {
 pub enum CourseListScope {
     /// Return only courses carrying a direct membership for this user.
     Member(UserId),
-    /// Return every course in the tenant under coarse administrator authority.
-    TenantAdministrator,
 }
 
 /// Tenant-owned assignment that references shared immutable content.

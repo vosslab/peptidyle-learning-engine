@@ -243,6 +243,34 @@ account boundary are implemented. Acceptance remains open for the canonical oper
 email-provider journey, optional-passkey and multi-replica evidence, and independent security/HCI
 closeout.
 
+### Human roles are Student, Instructor, and Sysadmin
+
+**Decision.** PLE has exactly three human roles. Instructor approval requires
+real-person validation and direct course membership. Sysadmin is a separate
+operator-approved platform role and never substitutes for direct Instructor
+membership for general FERPA course access. It has a separate closed and
+audited roster-support capability so the operator can help an Instructor
+without gaining grade, response, run, export, item-analysis, or ordinary course
+authority. Publishing content is an Instructor action; the public-asset
+publisher is a service identity, not a person.
+
+**Why.** Ambient administrator or manager roles turn one compromised platform
+credential into access to every student's educational record. A publisher
+human role also confuses author approval with the least-authority service that
+materializes immutable public bytes.
+
+**Consequence.** `UserRole` is the closed Student/Instructor/Sysadmin set;
+course membership is the smaller Student/Instructor set. A sysadmin may create
+a course and thereby become its direct Instructor, but cannot enumerate or
+read another course's teaching records merely because of the platform role.
+Roster support records actor/course/action/time for every Sysadmin boundary
+crossing. All course-linked student data receives the FERPA radioactive
+handling discipline.
+
+**Owner.** [USER_ROLES.md](USER_ROLES.md),
+[AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md), and
+[DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
+
 ### APIs are stateless; durable state is shared
 
 **Decision.** Any API replica can serve an authenticated request. Durable state lives in PostgreSQL,

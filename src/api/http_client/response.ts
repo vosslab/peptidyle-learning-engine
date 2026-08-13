@@ -1,4 +1,5 @@
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
+import type { AssetId } from "../../../generated/api/AssetId";
 import type { AssignmentRun } from "../../../generated/api/AssignmentRun";
 import type { CatalogProblemDetail } from "../../../generated/api/CatalogProblemDetail";
 import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
@@ -16,6 +17,7 @@ import type { RunId } from "../../../generated/api/RunId";
 import type { VersionId } from "../../../generated/api/VersionId";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import type { ApiClient } from "../client";
+import { DecodeError, decodeNonemptyString, decodeRecord } from "../decoder";
 import type {
   CursorPage,
   EnrollmentView,
@@ -63,6 +65,24 @@ import {
 } from "./request";
 
 export const MAX_RESPONSE_CHARACTERS = 4 * 1_024 * 1_024;
+
+function decodeProtectedAssetDelivery(value: unknown, path = "response"): string {
+  const record = decodeRecord(value, path);
+  const raw = decodeNonemptyString(record.url, `${path}.url`);
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch (_error: unknown) {
+    throw new DecodeError(`${path}.url`, "an absolute HTTP(S) URL");
+  }
+  if (
+    (url.protocol !== "https:" && url.protocol !== "http:") ||
+    url.username !== "" ||
+    url.password !== ""
+  )
+    throw new DecodeError(`${path}.url`, "an absolute HTTP(S) URL");
+  return url.href;
+}
 
 function issuedQuestionForAttempt(
   fetchImplementation: ApiFetch,
@@ -277,9 +297,10 @@ export function createResponseClient(
   | "listAttempts"
   | "getAttempt"
   | "getIssuedQuestion"
-  | "getExternalToolLaunch"
+  | "beginExternalToolLaunch"
   | "getSummary"
   | "getRunScreen"
+  | "issueProtectedAssetDelivery"
   | "assetUrl"
 > {
   return {
@@ -431,12 +452,13 @@ export function createResponseClient(
       );
       return issuedQuestionForAttempt(fetchImplementation, basePath, attempt);
     },
-    getExternalToolLaunch: (attemptId) =>
+    beginExternalToolLaunch: (attemptId) =>
       requestJson(
         fetchImplementation,
         basePath,
-        `/api/attempts/${encodedId(attemptId)}/external-tool-launch`,
+        `/api/attempts/${encodedId(attemptId)}/external-tool/launch`,
         decodeExternalToolLaunch,
+        { method: "POST" },
       ),
     getSummary: (enrollmentId) =>
       requestJson(
@@ -492,6 +514,14 @@ export function createResponseClient(
       verifyRunScreen(screen);
       return screen;
     },
+    issueProtectedAssetDelivery: (assetId: AssetId) =>
+      requestJson(
+        fetchImplementation,
+        basePath,
+        `/api/assets/${encodedId(assetId)}/delivery`,
+        decodeProtectedAssetDelivery,
+        { method: "POST" },
+      ),
     assetUrl: (assetId) => requestPath(basePath, `/api/assets/${encodedId(assetId)}`),
   };
 }

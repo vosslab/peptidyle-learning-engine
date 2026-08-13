@@ -23,14 +23,13 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
     let instructor = UserId::from_uuid(id(2));
     let student = UserId::from_uuid(id(3));
     let outsider = UserId::from_uuid(id(4));
-    let administrator = UserId::from_uuid(id(5));
+    let sysadmin = UserId::from_uuid(id(5));
     let foreign_tenant = TenantId::from_uuid(id(6));
     let foreign_user = UserId::from_uuid(id(7));
     let instructor_cookie = issued_cookie(&store, vec![UserRole::Instructor], instructor).await;
     let student_cookie = issued_cookie(&store, vec![UserRole::Student], student).await;
     let outsider_cookie = issued_cookie(&store, vec![UserRole::Instructor], outsider).await;
-    let administrator_cookie =
-        issued_cookie(&store, vec![UserRole::Administrator], administrator).await;
+    let sysadmin_cookie = issued_cookie(&store, vec![UserRole::Sysadmin], sysadmin).await;
     let foreign_cookie = issued_cookie_for_tenant(
         &store,
         foreign_tenant,
@@ -340,40 +339,22 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         "Peptide bond mastery revised"
     );
 
-    let administrator_get = app
+    let sysadmin_get = app
         .clone()
         .oneshot(
             Request::builder()
                 .uri(format!("/api/assignments/{assignment}"))
-                .header("cookie", &administrator_cookie)
+                .header("cookie", &sysadmin_cookie)
                 .body(Body::empty())
-                .expect("administrator assignment request"),
+                .expect("sysadmin assignment request"),
         )
         .await
-        .expect("administrator assignment response");
-    assert_eq!(administrator_get.status(), StatusCode::OK);
-    let administrator_etag = administrator_get
-        .headers()
-        .get(ETAG)
-        .expect("administrator ETag");
-    let administrator_update = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method("PUT")
-                    .uri(format!("/api/courses/{course}/assignments/{assignment}"))
-                    .header("cookie", &administrator_cookie)
-                    .header(IF_MATCH, administrator_etag)
-                    .header("content-type", "application/json")
-                    .body(Body::from(serde_json::json!({
-                        "title": "Administrator revised", "problems": [reference], "policies": policies(),
-                        "assignmentTiming": { "timeLimitSeconds": 900 },
-                    }).to_string()))
-                    .expect("administrator update request"),
-            )
-            .await
-            .expect("administrator update response");
-    assert_eq!(administrator_update.status(), StatusCode::OK);
+        .expect("sysadmin assignment response");
+    assert_eq!(
+        sysadmin_get.status(),
+        StatusCode::NOT_FOUND,
+        "sysadmin status alone must not disclose FERPA course definitions"
+    );
 
     let wrong_course = CourseId::from_uuid(id(99));
     store
@@ -479,18 +460,22 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
     );
     assert_eq!(row["summary"]["tenant"], row["tenant"]);
 
-    let administrator_gradebook = app
+    let sysadmin_gradebook = app
         .clone()
         .oneshot(
             Request::builder()
                 .uri(format!("/api/courses/{course}/gradebook"))
-                .header("cookie", &administrator_cookie)
+                .header("cookie", &sysadmin_cookie)
                 .body(Body::empty())
-                .expect("administrator gradebook request"),
+                .expect("sysadmin gradebook request"),
         )
         .await
-        .expect("administrator gradebook response");
-    assert_eq!(administrator_gradebook.status(), StatusCode::OK);
+        .expect("sysadmin gradebook response");
+    assert_eq!(
+        sysadmin_gradebook.status(),
+        StatusCode::NOT_FOUND,
+        "sysadmin status alone must not disclose FERPA gradebook data"
+    );
 
     let student_gradebook = app
         .clone()
@@ -888,10 +873,10 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                 .uri("/api/courses")
                 .header("cookie", &instructor_cookie)
                 .body(Body::empty())
-                .expect("retained manager course list"),
+                .expect("retained instructor course list"),
         )
         .await
-        .expect("retained manager course response");
+        .expect("retained instructor course response");
     let instructor_courses = response_json(instructor_courses).await;
     assert!(
         instructor_courses["items"]
@@ -899,7 +884,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
             .expect("course items")
             .iter()
             .any(|item| item["id"] == serde_json::json!(course)),
-        "retained course missing from manager list: {instructor_courses}"
+        "retained course missing from instructor list: {instructor_courses}"
     );
 
     for (cookie, uri) in [
@@ -909,7 +894,6 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
             format!("/api/courses/{course}/assignments"),
         ),
         (&instructor_cookie, format!("/api/assignments/{assignment}")),
-        (&administrator_cookie, format!("/api/courses/{course}")),
     ] {
         let response = app
             .clone()
@@ -918,12 +902,24 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                     .uri(uri)
                     .header("cookie", cookie)
                     .body(Body::empty())
-                    .expect("retained manager definition request"),
+                    .expect("retained instructor definition request"),
             )
             .await
-            .expect("retained manager definition response");
+            .expect("retained instructor definition response");
         assert_eq!(response.status(), StatusCode::OK);
     }
+    let sysadmin_course = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/courses/{course}"))
+                .header("cookie", &sysadmin_cookie)
+                .body(Body::empty())
+                .expect("sysadmin retained-course request"),
+        )
+        .await
+        .expect("sysadmin retained-course response");
+    assert_eq!(sysadmin_course.status(), StatusCode::NOT_FOUND);
 
     let archived_gradebook = app
         .clone()

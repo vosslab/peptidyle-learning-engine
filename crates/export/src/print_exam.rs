@@ -605,6 +605,7 @@ mod tests {
         assert_eq!(one.accessible_pdf.filename, "exam-accessible.pdf");
     }
     #[test]
+    #[ignore = "opt-in external PDF text-reader acceptance"]
     fn unicode_scientific_content_is_embedded_and_extractable() {
         let mut question = fixture_question();
         question.metadata.title =
@@ -774,6 +775,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "opt-in external PDF/DOCX reader acceptance"]
     fn independent_readers_accept_all_four_artifacts() {
         let mut question = fixture_question();
         let checksum = Sha256Digest::compute(&png()).to_string();

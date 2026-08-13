@@ -16,6 +16,7 @@ async function openGradebook(page: import("@playwright/test").Page): Promise<voi
 test("gradebook presents compact progress and loads history only when requested", async ({
   page,
 }) => {
+  test.setTimeout(2_000);
   await openGradebook(page);
 
   await expect(page.locator('[data-route-surface="gradebook"]')).toBeVisible();
@@ -31,9 +32,9 @@ test("gradebook presents compact progress and loads history only when requested"
   await expect(historyButton).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByRole("region", { name: /run history for learner/i })).toBeVisible();
   await expect(page.getByText(/Run 1:/)).toBeVisible();
-  await expect(page.locator("[aria-live='polite']")).toContainText(
-    /Run history updated|Loading run history/,
-  );
+  await expect(
+    page.getByRole("status").filter({ hasText: /Run history updated|Loading run history/u }),
+  ).toBeVisible();
 });
 
 test("gradebook reflows into labeled records on a narrow viewport", async ({ page }) => {

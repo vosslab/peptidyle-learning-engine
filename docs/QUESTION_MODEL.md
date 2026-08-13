@@ -71,12 +71,14 @@ and publication time, but not prompt, response, or private source-locator
 fields. Exact version lookup loads the separate `QuestionDefinition` payload.
 
 `CourseMembershipRole` represents only the student and instructor values that
-may be stored on a direct membership. `CourseRole` adds the effective
-administrator value returned when tenant-wide authority is applied; using two
-types makes an administrator membership unrepresentable. `CourseSummary` and
-`AssignmentSummary` are Rust-owned browser projections. Assignment summaries
-carry an ordered list of exact `ProblemVersionRef` values and never embed a
-question payload.
+may be stored on a direct membership. There is no second effective-course-role
+enum.
+
+`Sysadmin` is a platform `UserRole`, never a course-membership value; it cannot
+replace direct Instructor membership for general FERPA access. `CourseSummary`
+and `AssignmentSummary` are Rust-owned browser projections. Assignment
+summaries carry an ordered list of exact `ProblemVersionRef` values and never
+embed a question payload.
 
 ### Capabilities
 

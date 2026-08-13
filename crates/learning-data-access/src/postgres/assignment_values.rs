@@ -222,18 +222,6 @@ pub(super) fn parse_course_membership_role(
 }
 
 #[cfg(feature = "postgres")]
-pub(super) fn parse_course_role(value: &str) -> Result<CourseRole, StoreError> {
-    match value {
-        "student" => Ok(CourseRole::Student),
-        "instructor" => Ok(CourseRole::Instructor),
-        "administrator" => Ok(CourseRole::Administrator),
-        _ => Err(StoreError::Unavailable(format!(
-            "stored effective course role is invalid: {value}"
-        ))),
-    }
-}
-
-#[cfg(feature = "postgres")]
 pub(super) fn parse_question_backend(value: &str) -> Result<QuestionBackend, StoreError> {
     match value {
         "native" => Ok(QuestionBackend::Native),

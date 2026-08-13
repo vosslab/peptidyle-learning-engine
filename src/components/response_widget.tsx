@@ -143,7 +143,7 @@ export function ResponseWidget(props: ResponseWidgetProps): JSX.Element {
           onSubmit={props.onSubmit}
           onEscape={props.onEscape}
           onResponseChange={props.onResponseChange}
-          getExternalToolLaunch={props.getExternalToolLaunch}
+          beginExternalToolLaunch={props.beginExternalToolLaunch}
         />
       );
       break;

@@ -104,7 +104,7 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
         published_import_archive_object_id(tenant, problem, version, import, first_record.sha256),
         "the candidate object identity must be derived from its complete typed identity"
     );
-    assert_eq!(first_record.bucket, Bucket::Content);
+    assert_eq!(first_record.bucket, Bucket::PrivateContent);
     assert_eq!(first_record.category, ObjectCategory::Source);
     assert!(!first_record.key.may_issue_signed_url());
     assert_eq!(

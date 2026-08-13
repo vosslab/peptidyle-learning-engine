@@ -25,7 +25,7 @@ export interface ExternalToolResponseProps {
   readonly onSubmit: (response: StudentResponse) => Promise<void>;
   readonly onEscape: () => void;
   readonly onResponseChange?: (response: StudentResponse, validation: ResponseFormatReport) => void;
-  readonly getExternalToolLaunch?: () => Promise<ExternalToolLaunch>;
+  readonly beginExternalToolLaunch?: () => Promise<ExternalToolLaunch>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -140,8 +140,8 @@ export function ExternalToolResponse(props: ExternalToolResponseProps): JSX.Elem
   }
 
   async function launch(): Promise<void> {
-    const getLaunch = props.getExternalToolLaunch;
-    if (getLaunch === undefined || phase().kind === "loading") {
+    const beginLaunch = props.beginExternalToolLaunch;
+    if (beginLaunch === undefined || phase().kind === "loading") {
       return;
     }
     persistMarker();
@@ -149,7 +149,7 @@ export function ExternalToolResponse(props: ExternalToolResponseProps): JSX.Elem
     const request = launchRequest;
     setPhase({ kind: "loading" });
     try {
-      const launchResult = await getLaunch();
+      const launchResult = await beginLaunch();
       if (request !== launchRequest) return;
       if (!isSafeExternalToolLaunchPath(launchResult.launchUrl)) {
         setPhase({ kind: "failed", message: "The learning tool route was not safe to open." });

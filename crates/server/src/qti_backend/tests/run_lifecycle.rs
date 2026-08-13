@@ -156,9 +156,17 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
         .await
         .expect("exact QTI validation");
     let prepared = preparer
-        .copy_candidates(&draft, reference, validated)
+        .copy_candidates(&draft, reference, PublicationScope::Institution, validated)
         .await
         .expect("candidate copy");
+    assert!(
+        prepared.promotion.assets.iter().all(|asset| matches!(
+            asset.object.key,
+            ObjectKey::RestrictedProblemAsset { .. }
+        ) && asset.object.bucket
+            == objects::Bucket::PrivateContent),
+        "institution QTI assets must be physically private before catalog promotion"
+    );
     store
         .publish_draft(
             context,

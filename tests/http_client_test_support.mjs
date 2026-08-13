@@ -27,6 +27,9 @@ export function createFixtureFetch() {
     if (path === "/api/validation/assignment-capabilities") {
       return jsonResponse([]);
     }
+    if (/^\/api\/assets\/[0-9a-f-]+\/delivery$/iu.test(path) && request.method === "POST") {
+      return jsonResponse({ url: "https://objects.example.test/signed/asset?expires=12345" });
+    }
     const body = request.method === "GET" ? undefined : await request.text();
     return mockFetch(`${path}${url.search}`, {
       method: request.method,

@@ -302,7 +302,7 @@ fn validate_source_artifact(
     if artifact.reference != reference
         || artifact.backend != QuestionBackend::Webwork
         || object.key != expected_key
-        || object.bucket != Bucket::Content
+        || object.bucket != Bucket::PrivateContent
         || object.category != ObjectCategory::Source
         || object.version != Some(reference.version)
     {

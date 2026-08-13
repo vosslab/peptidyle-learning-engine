@@ -102,7 +102,7 @@ browser                         gateway       stateless server replicas
 |   no answers, no keys     |                   |          |           |
 +---------------------------+                   v          v           v
                                           PostgreSQL   object store   private
-                                          forced RLS   three buckets  renderer
+                                          forced RLS   four domains   renderer
                                                |
                                                v
                                           durable jobs
@@ -142,14 +142,14 @@ for the ownership map.
 
 ## Quick start
 
-For the smallest verified first success, install current Rust through `rustup`. The repository's
-[rust-toolchain.toml](rust-toolchain.toml) selects stable Rust, rustfmt, Clippy, and the
+For the smallest complete offline first success, install current Rust through `rustup`. The
+repository's [rust-toolchain.toml](rust-toolchain.toml) selects stable Rust, rustfmt, Clippy, and the
 `wasm32-unknown-unknown` target. Clone the repository and run its Rust behavior suite:
 
 ```bash
 git clone https://github.com/vosslab/peptidyle-learning-engine.git
 cd peptidyle-learning-engine
-cargo test --workspace
+./check_rust.sh
 ```
 
 Success is an exit status of zero after the domain, grading, storage, adapter, server, and
@@ -162,11 +162,12 @@ the browser dependencies once, then use the repository front door:
 ```bash
 npm run setup
 ./check_codebase.sh
+./check_rust.sh
 ```
 
-The final summary reports all 11 TypeScript, fixture, WebAssembly-boundary, Rust formatting, Clippy,
-and test stages as `PASS`. Build the API, WebAssembly bridge, generated contracts, and Solid client
-with:
+The vendored codebase gate verifies TypeScript and browser code. The repository-owned Rust gate
+checks both Cargo feature graphs, strict Clippy, tests and doctests, and the browser WebAssembly
+target. Build the API, WebAssembly bridge, generated contracts, and Solid client with:
 
 ```bash
 ./build.sh
@@ -279,6 +280,9 @@ Start with a local run and the system map:
   API, browser, and security boundaries.
 - [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) - repository map and the owner of each major
   directory.
+- [docs/USER_ROLES.md](docs/USER_ROLES.md) - the closed Student, Instructor,
+  and Sysadmin model, direct course authority, and FERPA radioactive-data
+  boundary.
 
 The durable documentation has three layers:
 

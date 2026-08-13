@@ -13,7 +13,7 @@ async fn create_roster_session(
     store
         .create_session(
             token_hash,
-            SessionSubject::new(tenant, user, "Roster manager", roles).expect("session subject"),
+            SessionSubject::new(tenant, user, "Roster instructor", roles).expect("session subject"),
             SessionLifetime::from_seconds(3_600).expect("session lifetime"),
         )
         .await
@@ -35,6 +35,7 @@ async fn memory_email_authentication_is_browser_bound_and_single_use() {
             id: EmailChallengeId::from_uuid(uuid(120_001)),
             token_hash,
             browser_binding,
+            email_rate_limit_key: AuthenticationRateLimitKey::compute(b"one-time-email-limit"),
             email: email.clone(),
             purpose: EmailAuthenticationPurpose::SignInOrRegister,
             lifetime: EmailChallengeLifetime::from_seconds(600).expect("bounded lifetime"),
@@ -85,6 +86,7 @@ async fn memory_email_completion_and_account_session_are_atomic() {
             id: EmailChallengeId::from_uuid(uuid(120_010)),
             token_hash: challenge_hash,
             browser_binding,
+            email_rate_limit_key: AuthenticationRateLimitKey::compute(b"atomic-email-limit"),
             email: email.clone(),
             purpose: EmailAuthenticationPurpose::SignInOrRegister,
             lifetime: EmailChallengeLifetime::from_seconds(600).expect("bounded lifetime"),
@@ -207,7 +209,7 @@ async fn memory_account_course_context_derives_tenant_and_role_from_membership()
             tenant: tenant_b,
             course: course_b,
             title: "Genetics".to_string(),
-            role: CourseRole::Student,
+            role: CourseMembershipRole::Student,
         }
     );
     assert_eq!(
@@ -233,6 +235,7 @@ async fn memory_discoverable_passkey_lookup_never_requires_browser_user_identity
             id: EmailChallengeId::from_uuid(uuid(120_021)),
             token_hash: challenge_hash,
             browser_binding,
+            email_rate_limit_key: AuthenticationRateLimitKey::compute(b"passkey-account-limit"),
             email: AuthenticationEmail::parse("passkey@example.edu").expect("valid email"),
             purpose: EmailAuthenticationPurpose::SignInOrRegister,
             lifetime: EmailChallengeLifetime::from_seconds(600).expect("bounded lifetime"),
@@ -363,6 +366,73 @@ async fn memory_authentication_rate_limit_is_atomic_and_window_bounded() {
             remaining_attempts: 1
         }
     );
+}
+
+#[tokio::test]
+async fn verified_mailbox_completion_releases_only_its_email_quota() {
+    let store = MemoryStore::default();
+    store
+        .set_authoritative_time(ActivityTimestamp::from_unix_millis(5_000))
+        .expect("fixture clock");
+    let email_key = AuthenticationRateLimitKey::compute(b"verified-mailbox-limit");
+    let network_key = AuthenticationRateLimitKey::compute(b"shared-campus-network-limit");
+    let policy = AuthenticationRateLimitPolicy::new(1, 900).expect("bounded policy");
+    for (scope, key) in [
+        (AuthenticationRateLimitScope::Email, email_key),
+        (AuthenticationRateLimitScope::Network, network_key),
+    ] {
+        store
+            .consume_authentication_rate_limit(ConsumeAuthenticationRateLimit {
+                scope,
+                key,
+                policy,
+            })
+            .await
+            .expect("first allowance");
+    }
+    let token_hash = EmailChallengeSecretHash::compute(b"verified-mailbox-token");
+    let browser_binding = BrowserBindingHash::compute(b"verified-mailbox-browser");
+    store
+        .begin_email_authentication(BeginEmailAuthentication {
+            id: EmailChallengeId::from_uuid(uuid(120_030)),
+            token_hash,
+            browser_binding,
+            email_rate_limit_key: email_key,
+            email: AuthenticationEmail::parse("verified@example.edu").expect("valid email"),
+            purpose: EmailAuthenticationPurpose::SignInOrRegister,
+            lifetime: EmailChallengeLifetime::from_seconds(600).expect("bounded lifetime"),
+        })
+        .await
+        .expect("challenge should persist");
+    store
+        .complete_email_authentication(CompleteEmailAuthentication {
+            token_hash,
+            browser_binding,
+            proposed_user: UserId::from_uuid(uuid(120_031)),
+            proposed_display_name: "Verified Learner".to_string(),
+        })
+        .await
+        .expect("mailbox proof should complete");
+    assert!(matches!(
+        store
+            .consume_authentication_rate_limit(ConsumeAuthenticationRateLimit {
+                scope: AuthenticationRateLimitScope::Email,
+                key: email_key,
+                policy,
+            })
+            .await,
+        Ok(AuthenticationRateLimitDecision::Allowed { .. })
+    ));
+    assert!(matches!(
+        store
+            .consume_authentication_rate_limit(ConsumeAuthenticationRateLimit {
+                scope: AuthenticationRateLimitScope::Network,
+                key: network_key,
+                policy,
+            })
+            .await,
+        Ok(AuthenticationRateLimitDecision::Denied { .. })
+    ));
 }
 
 #[tokio::test]
@@ -528,6 +598,44 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
     );
     assert_eq!(export.rows[0].display_name, "Course Learner");
     assert_eq!(export.rows[0].current_score, None);
+
+    store
+        .revoke_course_member(
+            context,
+            instructor_session,
+            RevokeCourseMember {
+                course,
+                member: claimed.member.id,
+                expected_revision: claimed.roster_revision,
+            },
+        )
+        .await
+        .expect("revocation preserves records while removing learner authority");
+    assert_eq!(
+        store
+            .start_or_resume_run(
+                context,
+                learner,
+                first_assignment,
+                RunId::from_uuid(uuid(121_050)),
+            )
+            .await,
+        Err(StoreError::NotFound),
+        "a retained enrollment cannot outlive its revoked course membership"
+    );
+    assert_eq!(
+        store
+            .list_gradebook_rows(
+                context,
+                course,
+                PageRequest::first(PageSize::new(20).unwrap())
+            )
+            .await
+            .expect("instructor retains historical gradebook authority")
+            .items
+            .len(),
+        2
+    );
 }
 
 #[tokio::test]
@@ -604,7 +712,7 @@ async fn memory_course_allows_only_one_live_invitation_per_email() {
 }
 
 #[tokio::test]
-async fn memory_roster_manager_authority_comes_from_the_persisted_session() {
+async fn memory_sysadmin_roster_support_is_narrow_and_audited() {
     let store = MemoryStore::default();
     store
         .set_authoritative_time(ActivityTimestamp::from_unix_millis(30_000))
@@ -612,7 +720,7 @@ async fn memory_roster_manager_authority_comes_from_the_persisted_session() {
     let tenant = TenantId::from_uuid(uuid(123_000));
     let context = TenantContext::from_authenticated_session(tenant);
     let instructor = UserId::from_uuid(uuid(123_001));
-    let administrator = UserId::from_uuid(uuid(123_002));
+    let sysadmin = UserId::from_uuid(uuid(123_002));
     let course = CourseId::from_uuid(uuid(123_003));
     store
         .upsert_course(
@@ -620,7 +728,7 @@ async fn memory_roster_manager_authority_comes_from_the_persisted_session() {
             CourseRecord {
                 id: course,
                 tenant,
-                title: "Administrator roster authority".to_string(),
+                title: "Sysadmin roster authority".to_string(),
                 members: vec![CourseMembership {
                     user: instructor,
                     role: CourseMembershipRole::Instructor,
@@ -629,47 +737,58 @@ async fn memory_roster_manager_authority_comes_from_the_persisted_session() {
         )
         .await
         .expect("course");
-    let administrator_session = create_roster_session(
+    let sysadmin_session = create_roster_session(
         &store,
         tenant,
-        administrator,
-        vec![UserRole::Administrator],
-        b"tenant-administrator-roster-session",
+        sysadmin,
+        vec![UserRole::Sysadmin],
+        b"sysadmin-roster-session",
     )
     .await;
 
     let invitation = store
         .create_course_invitation(
             context,
-            administrator_session,
+            sysadmin_session,
             CreateCourseInvitation {
                 course,
-                email: AuthenticationEmail::parse("admin-invited@example.edu")
+                email: AuthenticationEmail::parse("sysadmin-invited@example.edu")
                     .expect("valid email"),
                 roster_id: CourseRosterId::parse("900123003").expect("valid roster ID"),
-                token_hash: CourseInvitationSecretHash::compute(b"administrator-invitation"),
-                idempotency_key: RosterIdempotencyKey::parse("administrator-invitation")
+                token_hash: CourseInvitationSecretHash::compute(b"sysadmin-invitation"),
+                idempotency_key: RosterIdempotencyKey::parse("sysadmin-invitation")
                     .expect("valid idempotency key"),
                 lifetime: CourseInvitationLifetime::from_seconds(86_400).expect("bounded lifetime"),
             },
         )
         .await
-        .expect("tenant administrator can manage the course roster");
-    assert_eq!(invitation.invited_by, administrator);
+        .expect("sysadmin may perform narrow roster support without course membership");
+    assert_eq!(invitation.invited_by, sysadmin);
+    let roster = store
+        .list_course_roster(
+            context,
+            sysadmin_session,
+            course,
+            PageRequest::first(PageSize::new(20).expect("page size")),
+        )
+        .await
+        .expect("sysadmin may inspect the roster being supported");
+    assert_eq!(roster.entries.items.len(), 1);
+    let audits = store
+        .roster_support_audits()
+        .expect("roster support audit evidence");
     assert_eq!(
-        store
-            .list_course_roster(
-                context,
-                administrator_session,
-                course,
-                PageRequest::first(PageSize::new(20).expect("page size")),
-            )
-            .await
-            .expect("administrator roster read")
-            .entries
-            .items
-            .len(),
-        1
+        audits.iter().map(|audit| audit.action).collect::<Vec<_>>(),
+        vec![
+            CourseRosterSupportAction::CreateInvitation,
+            CourseRosterSupportAction::ListRoster,
+        ]
+    );
+    assert!(
+        audits
+            .iter()
+            .all(|audit| audit.actor == sysadmin && audit.course == course),
+        "every support disclosure or change is actor/course bound"
     );
 
     let forged_actor_session = SessionTokenHash::compute(b"unknown-roster-session");

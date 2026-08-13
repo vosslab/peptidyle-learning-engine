@@ -27,7 +27,10 @@ COPY schemas/migrations schemas/migrations
 # makes a container build reproducible rather than "whatever resolved today".
 # The default production target deliberately has no E2E-only features.
 FROM builder AS e2e-observability-builder
-RUN cargo build --release --locked --bin server_core --features e2e-observability
+RUN cargo build --release --locked --bin server_core --features e2e-observability,local-development-auth
+
+FROM builder AS local-development-builder
+RUN cargo build --release --locked --bin server_core --features local-development-auth
 
 FROM builder AS production-builder
 RUN cargo build --release --locked --bin server_core
@@ -61,6 +64,10 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=5 \
 
 FROM runtime-base AS e2e-observability
 COPY --from=e2e-observability-builder /build/target/release/server_core /usr/local/bin/peptidyle-api
+ENTRYPOINT ["/usr/local/bin/peptidyle-api"]
+
+FROM runtime-base AS local-development
+COPY --from=local-development-builder /build/target/release/server_core /usr/local/bin/peptidyle-api
 ENTRYPOINT ["/usr/local/bin/peptidyle-api"]
 
 # Keep this final target production-safe for direct `podman build` use. The

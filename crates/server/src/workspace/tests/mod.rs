@@ -376,7 +376,7 @@ async fn authoring_route_rejects_path_mismatch_unknown_fields_and_bad_cursors() 
     let cookie = issued_cookie(
         &store,
         tenant,
-        vec![UserRole::Publisher],
+        vec![UserRole::Instructor],
         UserId::from_uuid(id(4)),
     )
     .await;

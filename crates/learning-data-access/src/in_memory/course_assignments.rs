@@ -300,7 +300,7 @@ impl crate::CourseAssignmentStore for MemoryStore {
             .courses
             .get(&(enrollment.tenant, assignment.course_id))
             .ok_or(StoreError::NotFound)?;
-        if course.role_for(enrollment.user) != Some(CourseRole::Student) {
+        if course.role_for(enrollment.user) != Some(CourseMembershipRole::Student) {
             return Err(StoreError::InvalidRecord(
                 "enrollment user must be a student member of the assignment course".to_string(),
             ));

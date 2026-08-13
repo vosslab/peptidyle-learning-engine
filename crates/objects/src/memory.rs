@@ -92,7 +92,7 @@ impl ObjectStore for MemoryObjectStore {
             }
         }
         let lifetime_millis = match key.bucket() {
-            Bucket::Content => 60_i64 * 60 * 1_000,
+            Bucket::PublicAssets | Bucket::PrivateContent => 60_i64 * 60 * 1_000,
             Bucket::StudentRecords => 5_i64 * 60 * 1_000,
             Bucket::TempProcessing => return Err(ObjectStoreError::NotSignable),
         };

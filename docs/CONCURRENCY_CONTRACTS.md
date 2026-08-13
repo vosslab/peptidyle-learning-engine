@@ -224,11 +224,18 @@ bound, expiry-bound, and revocable. Its random bearer token is stored only as a
 hash; provider state is encrypted before persistence. The browser-visible
 embed is presentation-only and cannot grade itself.
 
-An external exchange is separately idempotent and lease-fenced. It binds the
-attempt/version/seed/source checksum, response digest, provider correlation,
-and idempotency key before verification. Only the holder of the active lease
-can move it from `verifying` to `verified_pending`; a verified token then binds
-the final commit. The PostgreSQL owner is
+An external exchange is separately idempotent, lease-fenced, and
+indeterminate-safe. It binds the attempt/version/seed/source checksum,
+response digest, provider correlation, and idempotency key before verification.
+Before an effectful provider POST, the holder must atomically prove the exact
+launch-token hash and an unexpired authoritative lease, then write the durable
+pre-dispatch marker. A crash or ambiguous outcome leaves that marker in place:
+no retry, new claim/launch, grade, finalization, or revocation may guess that
+the provider did or did not act. A valid verified outcome clears the marker
+only in the same final persistence transition. Grade retrieval is a
+structurally safe GET-only operation, never a fall-through provider action.
+Only the holder of the active lease can move it from `verifying` to
+`verified_pending`; a verified token then binds the final commit. The PostgreSQL owner is
 [external_tool.rs](../crates/learning-data-access/src/postgres/external_tool.rs),
 and the server integration owner is
 [imathas_backend.rs](../crates/server/src/imathas_backend.rs).

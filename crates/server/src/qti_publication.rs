@@ -15,7 +15,7 @@ use learning_data_access::{
     QtiPublicationPromotion, SessionStore, Store, StoreError, TenantContext,
     WorkspaceDraftRevision,
 };
-use objects::{ObjectKey, ObjectStore, PutObject, Sha256Digest};
+use objects::{ObjectCategory, ObjectKey, ObjectRecord, ObjectStore, PutObject, Sha256Digest};
 use question_model::{
     DraftQuestionDefinition, ObjectId, ProblemVersionRef, PublicationScope, QuestionBackend,
     QuestionSource, UserId, WorkspaceId, WorkspaceImportId,
@@ -262,7 +262,7 @@ where
     // catalog identity or browser-visible binding.
     let publication = mint_publication_reference(current.record.revises);
     let prepared = match preparer
-        .copy_candidates(&current.record, publication, validated)
+        .copy_candidates(&current.record, publication, request.scope, validated)
         .await
     {
         Ok(prepared) => prepared,
@@ -449,15 +449,15 @@ where
         })
     }
 
-    /// Copies only the exact validated source and item assets to fresh,
-    /// published candidate keys. This is deliberately separate from Store
-    /// promotion: object storage has no multi-object transaction, while the
-    /// following Store transaction makes all catalog/grader bindings visible
-    /// together.
+    /// Copies the exact validated source and prepares item assets for fresh
+    /// published identities. Public item bytes are deferred to the durable
+    /// post-commit publisher, while institutional item bytes remain private
+    /// and can be copied before Store promotion.
     pub(crate) async fn copy_candidates(
         &self,
         draft: &DraftRecord,
         publication: ProblemVersionRef,
+        scope: PublicationScope,
         validated: ValidatedQtiPublication,
     ) -> Result<PreparedQtiPublication, StoreError> {
         if draft.tenant != validated.registry.reference.tenant
@@ -512,23 +512,48 @@ where
                 return Err(StoreError::Conflict);
             }
             let object = ObjectId::generate();
-            let record = self
-                .objects
-                .put(PutObject {
-                    key: ObjectKey::ProblemAsset {
-                        problem: publication.problem,
-                        version: publication.version,
-                        asset: *asset,
-                        object,
+            let key = ObjectKey::published_problem_asset(
+                scope,
+                publication.problem,
+                publication.version,
+                *asset,
+                object,
+            );
+            let candidate = PutObject {
+                key: key.clone(),
+                bytes: stored.bytes,
+                media_type: staged.media_type.clone(),
+                license: publication_license(draft),
+                provenance: "QTI imported asset".to_string(),
+                created_at: staged.created_at,
+            };
+            let (record, asset_publication, pending_source) = if scope == PublicationScope::Public {
+                // The final CDN key stays absent until the catalog commit
+                // has durably recorded both the target and its outbox job.
+                (
+                    ObjectRecord {
+                        id: object,
+                        bucket: key.bucket(),
+                        key,
+                        sha256: staged.sha256,
+                        size_bytes: staged.size_bytes,
+                        media_type: staged.media_type.clone(),
+                        category: ObjectCategory::Asset,
+                        version: Some(publication.version),
+                        license: candidate.license,
+                        provenance: candidate.provenance,
+                        created_at: candidate.created_at,
                     },
-                    bytes: stored.bytes,
-                    media_type: staged.media_type.clone(),
-                    license: publication_license(draft),
-                    provenance: "QTI imported asset".to_string(),
-                    created_at: staged.created_at,
-                })
-                .await
-                .map_err(object_error)?;
+                    learning_data_access::AssetPublication::Pending,
+                    Some((*staged).clone()),
+                )
+            } else {
+                (
+                    self.objects.put(candidate).await.map_err(object_error)?,
+                    learning_data_access::AssetPublication::Ready,
+                    None,
+                )
+            };
             assets.push(AssetDeliveryRecord {
                 id: AssetDeliveryId::from_asset(*asset),
                 object: record,
@@ -538,6 +563,8 @@ where
                     asset: *asset,
                     reference: publication,
                 },
+                publication: asset_publication,
+                pending_source,
             });
         }
 

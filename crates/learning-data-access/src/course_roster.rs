@@ -10,6 +10,7 @@ use std::num::NonZeroU32;
 use async_trait::async_trait;
 use objects::Sha256Digest;
 use question_model::{ActivityTimestamp, CourseId, StudentId, TenantId, UserId};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
@@ -330,7 +331,7 @@ impl std::fmt::Debug for RosterIdempotencyKey {
     }
 }
 
-/// Manager-authorized request to create an indistinguishable invitation row.
+/// Instructor-authorized request to create an indistinguishable invitation row.
 #[derive(Clone)]
 pub struct CreateCourseInvitation {
     pub course: CourseId,
@@ -427,6 +428,32 @@ pub enum CourseRosterError {
     InvalidEnrollmentPolicy,
 }
 
+/// One closed Sysadmin roster-support operation recorded before protected data
+/// is returned or changed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CourseRosterSupportAction {
+    ListRoster,
+    CreateInvitation,
+    ReplaceEnrollmentPolicy,
+    RevokeMember,
+    RevokeInvitation,
+    StageImport,
+    CommitImport,
+}
+
+/// Audit evidence created only when Sysadmin authority, rather than direct
+/// Instructor membership, opens the roster-support boundary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CourseRosterSupportAudit {
+    pub tenant: TenantId,
+    pub course: CourseId,
+    pub actor: UserId,
+    pub action: CourseRosterSupportAction,
+    pub occurred_at: ActivityTimestamp,
+}
+
 impl std::fmt::Display for CourseRosterError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let message = match self {
@@ -441,6 +468,11 @@ impl std::fmt::Display for CourseRosterError {
 impl std::error::Error for CourseRosterError {}
 
 /// Focused tenant roster persistence and atomic claim boundary.
+///
+/// Direct Instructors own these operations. The list/invite/policy/revoke/
+/// import methods also accept the closed Sysadmin roster-support authority and
+/// must durably audit that exceptional boundary. Invitation claim and the
+/// provisioning-only member upsert do not consume Sysadmin support authority.
 #[async_trait]
 pub trait CourseRosterStore: Send + Sync {
     async fn list_course_roster(

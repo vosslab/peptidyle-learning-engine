@@ -880,25 +880,25 @@ async fn retention_delete_route_requires_exact_empty_body_and_stale_if_match() {
 }
 
 #[tokio::test]
-async fn retention_extend_route_is_admin_only_and_rejects_stale_requests() {
+async fn retention_extend_route_is_sysadmin_only_and_rejects_stale_requests() {
     let store = Arc::new(MemoryStore::default());
     let tenant = TenantId::from_uuid(id(71));
     let course = CourseId::from_uuid(id(72));
     let instructor = UserId::from_uuid(id(73));
-    let admin = UserId::from_uuid(id(74));
+    let sysadmin = UserId::from_uuid(id(74));
     create_course(
         &store,
         tenant,
         course,
         vec![
             (instructor, CourseMembershipRole::Instructor),
-            (admin, CourseMembershipRole::Instructor),
+            (sysadmin, CourseMembershipRole::Instructor),
         ],
     )
     .await;
     let instructor_cookie =
         issued_cookie(&store, tenant, vec![UserRole::Instructor], instructor).await;
-    let admin_cookie = issued_cookie(&store, tenant, vec![UserRole::Administrator], admin).await;
+    let sysadmin_cookie = issued_cookie(&store, tenant, vec![UserRole::Sysadmin], sysadmin).await;
     let app = router(Arc::clone(&store));
     let ended = end_retention(&app, Some(&instructor_cookie), course, "").await;
     assert_eq!(ended.status(), StatusCode::OK);
@@ -914,9 +914,9 @@ async fn retention_extend_route_is_admin_only_and_rejects_stale_requests() {
     .await;
     assert_eq!(instructor_forbidden.status(), StatusCode::FORBIDDEN);
 
-    let admin_requires_if_match = extend_retention(
+    let sysadmin_requires_if_match = extend_retention(
         &app,
-        Some(&admin_cookie),
+        Some(&sysadmin_cookie),
         course,
         &[],
         Some("text/plain"),
@@ -924,27 +924,27 @@ async fn retention_extend_route_is_admin_only_and_rejects_stale_requests() {
     )
     .await;
     assert_eq!(
-        admin_requires_if_match.status(),
+        sysadmin_requires_if_match.status(),
         StatusCode::PRECONDITION_REQUIRED
     );
 
-    let admin_success = extend_retention(
+    let sysadmin_success = extend_retention(
         &app,
-        Some(&admin_cookie),
+        Some(&sysadmin_cookie),
         course,
         &["\"1\""],
         Some("application/json"),
         r#"{"additionalDays":3}"#,
     )
     .await;
-    assert_eq!(admin_success.status(), StatusCode::OK);
-    let admin_success = response_json(admin_success).await;
-    assert_eq!(admin_success["state"], serde_json::json!("active"));
-    assert_private_projection_fields(&admin_success);
+    assert_eq!(sysadmin_success.status(), StatusCode::OK);
+    let sysadmin_success = response_json(sysadmin_success).await;
+    assert_eq!(sysadmin_success["state"], serde_json::json!("active"));
+    assert_private_projection_fields(&sysadmin_success);
 
     let stale = extend_retention(
         &app,
-        Some(&admin_cookie),
+        Some(&sysadmin_cookie),
         course,
         &["\"1\""],
         Some("application/json"),

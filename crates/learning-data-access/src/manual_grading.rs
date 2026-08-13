@@ -210,6 +210,15 @@ pub trait ManualGradingStore: Send + Sync {
         attempt: QuestionAttemptId,
     ) -> Result<Option<ManualEvaluationRecord>, StoreError>;
 
+    /// Reads the response-bearing evaluation atomically under current instructor
+    /// authority. The response must never be fetched by a later raw lookup.
+    async fn get_manual_evaluation_with_response_for_edit(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<(ManualEvaluationRecord, StudentResponse)>, StoreError>;
+
     async fn set_manual_grade(
         &self,
         context: TenantContext,

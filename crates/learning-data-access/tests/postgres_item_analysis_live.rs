@@ -266,7 +266,7 @@ async fn postgres_item_analysis_is_current_private_and_generation_fenced() {
     let context = TenantContext::from_authenticated_session(tenant);
     let foreign_context = TenantContext::from_authenticated_session(foreign_tenant);
     let instructor = UserId::from_uuid(id());
-    let administrator = UserId::from_uuid(id());
+    let sysadmin = UserId::from_uuid(id());
     let student = UserId::from_uuid(id());
     let outsider = UserId::from_uuid(id());
     let foreign_user = UserId::from_uuid(id());
@@ -525,8 +525,8 @@ async fn postgres_item_analysis_is_current_private_and_generation_fenced() {
     let admin_session = session(
         &store,
         tenant,
-        administrator,
-        vec![UserRole::Administrator],
+        sysadmin,
+        vec![UserRole::Sysadmin],
         b"item-analysis-admin",
     )
     .await;
@@ -550,7 +550,7 @@ async fn postgres_item_analysis_is_current_private_and_generation_fenced() {
         &store,
         foreign_tenant,
         foreign_user,
-        vec![UserRole::Administrator],
+        vec![UserRole::Sysadmin],
         b"item-analysis-foreign",
     )
     .await;
@@ -585,8 +585,9 @@ async fn postgres_item_analysis_is_current_private_and_generation_fenced() {
         store
             .course_item_analysis(context, admin_session, course, assignment)
             .await
-            .expect("admin read")
-            .is_some()
+            .expect("sysadmin read")
+            .is_none(),
+        "sysadmin status alone must not disclose FERPA item analysis"
     );
     assert!(
         store

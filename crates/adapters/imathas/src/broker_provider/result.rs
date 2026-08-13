@@ -20,7 +20,7 @@ pub(super) async fn retrieve_and_verify<T: ScoredEmbedTransport>(
         .ensure_eligible_at(now)
         .map_err(ScoredEmbedFailure::into_adapter_error)?;
     let bytes = transport
-        .fetch_signed_result(ResultTransportRequest {
+        .fetch_signed_grade_get(ResultTransportRequest {
             handle: &session.handle,
             correlation: session.ledger.correlation(),
             provider_key: config.profile.provider_key(),

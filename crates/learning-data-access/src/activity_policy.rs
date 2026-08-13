@@ -10,7 +10,7 @@ use domain::completion::{
 };
 use domain::run::RunModelError;
 use domain::scoring::RunTransition;
-use objects::{Bucket, ObjectCategory, ObjectKey};
+use objects::{Bucket, ObjectCategory, ObjectKey, ObjectRecord};
 use question_model::{
     ActivityTimestamp, AssignmentEnrollment, AssignmentItemId, AssignmentRunItem,
     AssignmentTimingPolicy, AttemptResult, CourseMembershipRole, GradePolicy, QuestionAttempt,
@@ -235,7 +235,70 @@ pub(crate) fn validate_assignment_timing(policy: AssignmentTimingPolicy) -> Resu
 
 #[cfg(test)]
 mod tests {
+    use objects::Sha256Digest;
+    use question_model::{
+        AssetId, CourseBannerId, CourseId, ObjectId, ProblemId, TenantId, VersionId, WorkspaceId,
+        WorkspaceImportId,
+    };
+    use uuid::Uuid;
+
     use super::*;
+
+    fn id(value: u128) -> Uuid {
+        Uuid::from_u128(value)
+    }
+
+    fn source_record(key: ObjectKey, category: ObjectCategory) -> ObjectRecord {
+        ObjectRecord {
+            id: key.object_id(),
+            bucket: key.bucket(),
+            key,
+            sha256: Sha256Digest::compute(b"private publication candidate"),
+            size_bytes: 29,
+            media_type: "image/png".to_string(),
+            category,
+            version: None,
+            license: "CC0-1.0".to_string(),
+            provenance: "authoring asset".to_string(),
+            created_at: ActivityTimestamp::from_unix_millis(1),
+        }
+    }
+
+    fn pending_catalog_delivery(source: ObjectRecord) -> AssetDeliveryRecord {
+        let problem = ProblemId::from_uuid(id(1));
+        let version = VersionId::from_uuid(id(2));
+        let asset = AssetId::from_uuid(id(3));
+        let target_key = ObjectKey::ProblemAsset {
+            problem,
+            version,
+            asset,
+            object: ObjectId::from_uuid(id(4)),
+        };
+        AssetDeliveryRecord {
+            id: AssetDeliveryId::from_asset(asset),
+            object: ObjectRecord {
+                id: target_key.object_id(),
+                bucket: target_key.bucket(),
+                key: target_key,
+                sha256: source.sha256,
+                size_bytes: source.size_bytes,
+                media_type: source.media_type.clone(),
+                category: ObjectCategory::Asset,
+                version: Some(version),
+                license: "CC0-1.0".to_string(),
+                provenance: "published asset".to_string(),
+                created_at: source.created_at,
+            },
+            intrinsic_width: None,
+            intrinsic_height: None,
+            scope: AssetDeliveryScope::Catalog {
+                asset,
+                reference: question_model::ProblemVersionRef { problem, version },
+            },
+            publication: crate::AssetPublication::Pending,
+            pending_source: Some(source),
+        }
+    }
 
     #[test]
     fn assignment_time_limit_accepts_postgres_maximum_and_rejects_first_larger_value() {
@@ -250,6 +313,117 @@ mod tests {
             validate_assignment_timing(policy),
             Err(StoreError::InvalidRecord(message)) if message.contains("must not exceed")
         ));
+    }
+
+    #[test]
+    fn pending_public_asset_accepts_only_typed_private_workspace_assets() {
+        let tenant = TenantId::from_uuid(id(10));
+        let workspace = WorkspaceId::from_uuid(id(11));
+        let asset = AssetId::from_uuid(id(12));
+        let imported = source_record(
+            ObjectKey::WorkspaceAsset {
+                tenant,
+                workspace,
+                import: WorkspaceImportId::from_uuid(id(13)),
+                asset,
+                object: ObjectId::from_uuid(id(14)),
+            },
+            ObjectCategory::Asset,
+        );
+        assert!(validate_asset_delivery(&pending_catalog_delivery(imported)).is_ok());
+
+        let native = source_record(
+            ObjectKey::WorkspaceQuestionAsset {
+                tenant,
+                workspace,
+                asset,
+                object: ObjectId::from_uuid(id(15)),
+            },
+            ObjectCategory::Asset,
+        );
+        assert!(validate_asset_delivery(&pending_catalog_delivery(native)).is_ok());
+    }
+
+    #[test]
+    fn pending_public_asset_rejects_student_and_temporary_sources() {
+        let tenant = TenantId::from_uuid(id(20));
+        for source in [
+            source_record(
+                ObjectKey::StudentRecord {
+                    tenant,
+                    object: ObjectId::from_uuid(id(21)),
+                },
+                ObjectCategory::Export,
+            ),
+            source_record(
+                ObjectKey::Temporary {
+                    object: ObjectId::from_uuid(id(22)),
+                },
+                ObjectCategory::Temporary,
+            ),
+        ] {
+            assert!(matches!(
+                validate_asset_delivery(&pending_catalog_delivery(source)),
+                Err(StoreError::InvalidRecord(message))
+                    if message.contains("private workspace asset source")
+            ));
+        }
+    }
+
+    #[test]
+    fn pending_public_asset_rejects_private_non_authoring_and_public_sources() {
+        let tenant = TenantId::from_uuid(id(30));
+        let workspace = WorkspaceId::from_uuid(id(31));
+        let problem = ProblemId::from_uuid(id(32));
+        let version = VersionId::from_uuid(id(33));
+        let asset = AssetId::from_uuid(id(34));
+        for source in [
+            source_record(
+                ObjectKey::CourseBanner {
+                    tenant,
+                    course: CourseId::from_uuid(id(35)),
+                    banner: CourseBannerId::from_uuid(id(36)),
+                },
+                ObjectCategory::CourseContent,
+            ),
+            source_record(
+                ObjectKey::RestrictedProblemAsset {
+                    problem,
+                    version,
+                    asset,
+                    object: ObjectId::from_uuid(id(37)),
+                },
+                ObjectCategory::Asset,
+            ),
+            source_record(
+                ObjectKey::ProblemAsset {
+                    problem,
+                    version,
+                    asset,
+                    object: ObjectId::from_uuid(id(38)),
+                },
+                ObjectCategory::Asset,
+            ),
+            source_record(
+                ObjectKey::WorkspaceQuestionAsset {
+                    tenant,
+                    workspace,
+                    asset,
+                    object: ObjectId::from_uuid(id(39)),
+                },
+                ObjectCategory::Asset,
+            ),
+        ] {
+            let mut source = source;
+            if matches!(source.key, ObjectKey::WorkspaceQuestionAsset { .. }) {
+                source.version = Some(version);
+            }
+            assert!(matches!(
+                validate_asset_delivery(&pending_catalog_delivery(source)),
+                Err(StoreError::InvalidRecord(message))
+                    if message.contains("private workspace asset source")
+            ));
+        }
     }
 }
 
@@ -280,10 +454,40 @@ pub(crate) fn validate_asset_delivery(record: &AssetDeliveryRecord) -> Result<()
             "asset intrinsic dimensions must be a nonzero width and height pair".to_string(),
         ));
     }
+    match (record.publication, &record.pending_source) {
+        (crate::AssetPublication::Ready, None) => {}
+        (crate::AssetPublication::Ready, Some(_)) => {
+            return Err(StoreError::InvalidRecord(
+                "ready asset delivery must not retain a publication source".to_string(),
+            ));
+        }
+        (crate::AssetPublication::Pending, Some(source)) => {
+            if !matches!(record.scope, AssetDeliveryScope::Catalog { .. })
+                || record.object.bucket != objects::Bucket::PublicAssets
+                || !is_private_publication_candidate(source)
+            {
+                return Err(StoreError::InvalidRecord(
+                    "pending publication requires an exact private workspace asset source"
+                        .to_string(),
+                ));
+            }
+        }
+        (crate::AssetPublication::Pending, None) => {
+            return Err(StoreError::InvalidRecord(
+                "pending publication requires its private immutable source".to_string(),
+            ));
+        }
+    }
     match (&record.scope, &record.object.key) {
         (
             AssetDeliveryScope::Catalog { asset, reference },
             ObjectKey::ProblemAsset {
+                problem,
+                version,
+                asset: key_asset,
+                object: _,
+            }
+            | ObjectKey::RestrictedProblemAsset {
                 problem,
                 version,
                 asset: key_asset,
@@ -293,7 +497,7 @@ pub(crate) fn validate_asset_delivery(record: &AssetDeliveryRecord) -> Result<()
             && *asset == *key_asset
             && reference.problem == *problem
             && reference.version == *version
-            && record.object.bucket == Bucket::Content
+            && record.object.bucket == record.object.key.bucket()
             && record.object.category == ObjectCategory::Asset => {}
         (
             AssetDeliveryScope::StudentRecord {
@@ -337,7 +541,7 @@ pub(crate) fn validate_asset_delivery(record: &AssetDeliveryRecord) -> Result<()
             && *tenant == *key_tenant
             && *course == *key_course
             && *banner == *key_banner
-            && record.object.bucket == Bucket::Content
+            && record.object.bucket == Bucket::PrivateContent
             && record.object.category == ObjectCategory::CourseContent => {}
         _ => {
             return Err(StoreError::InvalidRecord(
@@ -347,6 +551,39 @@ pub(crate) fn validate_asset_delivery(record: &AssetDeliveryRecord) -> Result<()
         }
     }
     Ok(())
+}
+
+/// Returns whether an object can be copied by the committed public-asset publisher.
+///
+/// The pending target is a public catalog object, but its source remains a
+/// private authoring object until the catalog transaction and outbox commit.
+/// Only the two typed workspace-asset key families carry the tenant, workspace,
+/// logical asset, and physical-object provenance required for that bridge:
+/// imported QTI assets and native workspace-question assets.  In particular,
+/// a private bucket alone is not authority to publish: restricted catalog,
+/// course, learner-record, and temporary objects have different owners and
+/// must never become a public CDN source.
+fn is_private_publication_candidate(source: &ObjectRecord) -> bool {
+    if source.id != source.key.object_id()
+        || source.bucket != Bucket::PrivateContent
+        || source.bucket != source.key.bucket()
+        || source.category != ObjectCategory::Asset
+        || source.category != source.key.category()
+        || source.version.is_some()
+        || source.version != source.key.version_id()
+        || source.media_type.trim().is_empty()
+        || source.license.trim().is_empty()
+        || source.provenance.trim().is_empty()
+    {
+        return false;
+    }
+
+    matches!(
+        &source.key,
+        ObjectKey::WorkspaceAsset { object, .. }
+            | ObjectKey::WorkspaceQuestionAsset { object, .. }
+            if *object == source.id
+    )
 }
 
 /// One current submitted result resolved against the current assignment scoring definition.

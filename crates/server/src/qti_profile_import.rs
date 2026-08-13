@@ -516,12 +516,9 @@ fn stored_object_matches_candidate(stored: &StoredObject, candidate: &PutObject)
 }
 
 fn may_author(roles: &[UserRole]) -> bool {
-    roles.iter().any(|role| {
-        matches!(
-            role,
-            UserRole::Instructor | UserRole::Publisher | UserRole::Administrator
-        )
-    })
+    roles
+        .iter()
+        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
 }
 
 fn store_error_response(error: StoreError) -> Response {

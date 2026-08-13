@@ -42,10 +42,8 @@ pub enum UserRole {
     Student,
     /// Authors content and manages courses and assignments.
     Instructor,
-    /// May publish validated content into the cross-tenant public catalog.
-    Publisher,
-    /// Manages tenant-wide configuration and membership.
-    Administrator,
+    /// Manages the platform and approves real-person instructor access.
+    Sysadmin,
 }
 
 #[cfg(test)]
@@ -63,17 +61,10 @@ mod tests {
 
     #[test]
     fn roles_use_lower_camel_wire_names() {
-        let encoded = serde_json::to_string(&[
-            UserRole::Student,
-            UserRole::Instructor,
-            UserRole::Publisher,
-            UserRole::Administrator,
-        ])
-        .expect("roles should serialize");
+        let encoded =
+            serde_json::to_string(&[UserRole::Student, UserRole::Instructor, UserRole::Sysadmin])
+                .expect("roles should serialize");
 
-        assert_eq!(
-            encoded,
-            "[\"student\",\"instructor\",\"publisher\",\"administrator\"]"
-        );
+        assert_eq!(encoded, "[\"student\",\"instructor\",\"sysadmin\"]");
     }
 }

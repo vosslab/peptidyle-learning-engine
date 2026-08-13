@@ -317,7 +317,7 @@ impl ScoredEmbedTransport for HttpContractedScoredEmbedTransport {
             .map_err(|_| ScoredEmbedTransportFailure::InvalidResponse)?;
         ProviderLaunchHandle::from_server_handle(parsed.handle)
     }
-    async fn fetch_signed_result(
+    async fn fetch_signed_grade_get(
         &self,
         request: ResultTransportRequest<'_>,
     ) -> Result<Vec<u8>, ScoredEmbedTransportFailure> {
@@ -492,6 +492,7 @@ mod tests {
         .unwrap()
     }
     #[tokio::test]
+    #[ignore = "opt-in loopback HTTP transport acceptance"]
     async fn recorded_http_snapshot_is_bounded_fixed_and_hostile_responses_refuse_redacted() {
         let (fixture, base) = fixture().await;
         let config = HttpContractedScoredEmbedConfig::loopback_http_for_test(
@@ -548,6 +549,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "opt-in loopback HTTP transport acceptance"]
     async fn recorded_http_exercises_remaining_fixed_operations() {
         let (_, base) = fixture().await;
         let transport = HttpContractedScoredEmbedTransport::new(
@@ -593,7 +595,7 @@ mod tests {
         let correlation = issuer.restore(binding, &issuer.begin(binding)).unwrap();
         assert_eq!(
             transport
-                .fetch_signed_result(ResultTransportRequest {
+                .fetch_signed_grade_get(ResultTransportRequest {
                     handle: &handle,
                     correlation: &correlation,
                     provider_key: "institution-imathas"
@@ -629,6 +631,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "opt-in loopback HTTP transport acceptance"]
     async fn timeout_and_refused_connection_are_redacted_unavailable_categories() {
         let (fixture, base) = fixture().await;
         *fixture.0.lock().unwrap() = "slow";

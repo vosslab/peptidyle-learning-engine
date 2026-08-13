@@ -53,8 +53,8 @@ import type {
 /** Browser-safe client contract. A future HTTP transport implements this interface. */
 export interface ApiClient extends CourseRosterClient {
   readonly getSession: () => Promise<AuthSession>;
-  /** Establishes the explicit local-development session; the credential is never retained. */
-  readonly loginWithLocalCredential: (credential: string) => Promise<AuthSession>;
+  /** Revokes both account and tenant credentials for this browser. */
+  readonly logout: () => Promise<void>;
   readonly listWorkspaceDrafts: (cursor?: string) => Promise<WorkspaceDraftPage>;
   readonly getWorkspaceDraft: (workspace: WorkspaceId) => Promise<WorkspaceDraftDetail>;
   readonly saveWorkspaceDraft: (
@@ -88,7 +88,7 @@ export interface ApiClient extends CourseRosterClient {
   ) => Promise<QuestionDefinition>;
   readonly listTaxonomy: (cursor?: string) => Promise<CursorPage<TaxonomyTerm>>;
   readonly listCourses: (cursor?: string) => Promise<CursorPage<CourseSummary>>;
-  /** Creates one course for the authenticated instructor or administrator. */
+  /** Creates one course for an authenticated instructor or sysadmin. */
   readonly createCourse: (input: CourseCreateInput) => Promise<CourseSummary>;
   readonly getCourse: (courseId: CourseId) => Promise<CourseSummary>;
   /** Gets only the current authorized, browser-safe course appearance. */
@@ -153,8 +153,8 @@ export interface ApiClient extends CourseRosterClient {
     attemptId: QuestionAttemptId,
     signal?: AbortSignal,
   ) => Promise<PrefetchedNextQuestion | null>;
-  /** Returns the protected same-origin broker path for an eligible attempt. */
-  readonly getExternalToolLaunch: (attemptId: QuestionAttemptId) => Promise<ExternalToolLaunch>;
+  /** Creates a broker launch by same-origin POST, then returns its inert shell route. */
+  readonly beginExternalToolLaunch: (attemptId: QuestionAttemptId) => Promise<ExternalToolLaunch>;
   readonly submitResponse: (
     attemptId: QuestionAttemptId,
     response: StudentResponse,
@@ -166,6 +166,9 @@ export interface ApiClient extends CourseRosterClient {
   ) => Promise<FeedbackReleaseResponse>;
   readonly getSummary: (enrollmentId: EnrollmentId) => Promise<StudentAssignmentSummary>;
   readonly getRunScreen: (runId: RunId) => Promise<RunScreenData>;
+  /** Same-origin POST that authorizes one protected asset and returns its short-lived URL. */
+  readonly issueProtectedAssetDelivery: (assetId: AssetId) => Promise<string>;
+  /** Public immutable catalog-asset redirect path; it never issues a capability. */
   readonly assetUrl: (assetId: AssetId) => string;
   readonly validateResponseFormatOnServer: FormatValidator;
   readonly timerVerdictOnServer: TimerEvaluator;

@@ -9,8 +9,9 @@ import {
   type JSX,
 } from "solid-js";
 
-import type { ApiClient } from "../api/client";
 import type { AuthSession } from "../api/contracts";
+
+export type LocalCredentialLogin = (credential: string) => Promise<AuthSession>;
 
 /**
  * Browser-visible session state deliberately contains identity and roles only.
@@ -19,22 +20,26 @@ import type { AuthSession } from "../api/contracts";
 export type SessionBootstrapState =
   | { readonly kind: "loading" }
   | { readonly kind: "authenticated"; readonly session: AuthSession }
+  | { readonly kind: "signedOut" }
   | { readonly kind: "expired" }
   | { readonly kind: "error" };
 
 export interface SessionBootstrap {
   readonly state: Accessor<SessionBootstrapState>;
   readonly retry: () => Promise<void>;
+  readonly signOut: () => Promise<boolean>;
+  readonly localCredentialSignInAvailable: boolean;
   readonly signInWithLocalCredential: (credential: string) => Promise<boolean>;
 }
 
 /** Creates a retryable, injected session bootstrap without coupling it to HTTP. */
 export function createSessionBootstrap(
-  getSession: ApiClient["getSession"],
-  loginWithLocalCredential: ApiClient["loginWithLocalCredential"] = () =>
-    Promise.reject(new Error("local sign-in unavailable")),
+  getSession: () => Promise<AuthSession>,
+  loginWithLocalCredential?: LocalCredentialLogin,
+  logout: () => Promise<void> = () => Promise.reject(new Error("sign-out unavailable")),
 ): SessionBootstrap {
   const [state, setState] = createSignal<SessionBootstrapState>({ kind: "loading" });
+  const localCredentialSignInAvailable = loginWithLocalCredential !== undefined;
 
   async function retry(): Promise<void> {
     setState({ kind: "loading" });
@@ -47,6 +52,9 @@ export function createSessionBootstrap(
   }
 
   async function signInWithLocalCredential(credential: string): Promise<boolean> {
+    if (loginWithLocalCredential === undefined) {
+      return false;
+    }
     setState({ kind: "loading" });
     try {
       const session = await loginWithLocalCredential(credential);
@@ -58,7 +66,23 @@ export function createSessionBootstrap(
     }
   }
 
-  return { state, retry, signInWithLocalCredential };
+  async function signOut(): Promise<boolean> {
+    try {
+      await logout();
+      setState({ kind: "signedOut" });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  return {
+    state,
+    retry,
+    signOut,
+    localCredentialSignInAvailable,
+    signInWithLocalCredential,
+  };
 }
 
 /** Classifies only the safe recovery path; the original error remains private. */
@@ -79,14 +103,19 @@ function hasHttpStatus(error: unknown, expectedStatus: number): boolean {
 const SessionContext = createContext<SessionBootstrap>();
 
 export interface SessionProviderProps {
-  readonly getSession: ApiClient["getSession"];
-  readonly loginWithLocalCredential: ApiClient["loginWithLocalCredential"];
+  readonly getSession: () => Promise<AuthSession>;
+  readonly logout: () => Promise<void>;
+  readonly loginWithLocalCredential?: LocalCredentialLogin;
   readonly children: JSX.Element;
 }
 
 /** Installs the one session bootstrap at the application composition root. */
 export function SessionProvider(props: SessionProviderProps): JSX.Element {
-  const bootstrap = createSessionBootstrap(props.getSession, props.loginWithLocalCredential);
+  const bootstrap = createSessionBootstrap(
+    props.getSession,
+    props.loginWithLocalCredential,
+    props.logout,
+  );
   onMount(() => {
     void bootstrap.retry();
   });

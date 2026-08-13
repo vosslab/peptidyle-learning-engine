@@ -23,6 +23,7 @@ import type {
   PrefetchedNextQuestion,
   RunSummaryOutcome,
   RunSummaryResponse,
+  SignedOutResponse,
   SubmissionReceipt,
 } from "../contracts";
 import type {
@@ -475,7 +476,9 @@ export function decodeGradebookSummaryRow(value: unknown, path = "response"): Gr
 
 export function decodeAuthSession(value: unknown, path = "response"): AuthSession {
   const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["authenticated", "tenant", "user"]);
   const user = decodeRecord(field(record, "user", path), `${path}.user`);
+  requireOnlyFields(user, `${path}.user`, ["id", "displayName", "roles"]);
   const decoded = {
     authenticated: decodeTrue(field(record, "authenticated", path), `${path}.authenticated`),
     tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
@@ -486,11 +489,20 @@ export function decodeAuthSession(value: unknown, path = "response"): AuthSessio
         `${path}.user.displayName`,
       ),
       roles: decodeArray(field(user, "roles", `${path}.user`), `${path}.user.roles`, (role, p) =>
-        decodeStringEnum(role, p, ["student", "instructor", "publisher", "administrator"]),
+        decodeStringEnum(role, p, ["student", "instructor", "sysadmin"]),
       ),
     },
   } satisfies AuthSession;
   return decoded;
+}
+
+export function decodeSignedOutResponse(value: unknown, path = "response"): SignedOutResponse {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["authenticated"]);
+  if (field(record, "authenticated", path) !== false) {
+    throw new DecodeError(`${path}.authenticated`, "false");
+  }
+  return { authenticated: false };
 }
 
 export function decodeEnrollmentView(value: unknown, path = "response"): EnrollmentView {

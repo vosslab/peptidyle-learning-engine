@@ -8,7 +8,8 @@ rendering harder to reason about.
 This page is the cross-cutting identity map. It supplements, rather than
 replaces, [PROBLEM_IDENTITY.md](PROBLEM_IDENTITY.md),
 [QUESTION_MODEL.md](QUESTION_MODEL.md), [CONTRACTS.md](CONTRACTS.md), and
-[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md). The Rust types
+[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md). The closed human
+role model is in [USER_ROLES.md](USER_ROLES.md). The Rust types
 and PostgreSQL schema linked below are authoritative when this page and code
 ever disagree.
 
@@ -16,7 +17,7 @@ ever disagree.
 
 - A durable ID names one stored thing. It is opaque and never proves that the
   caller may read or change that thing.
-- The authenticated session establishes `TenantId` and `UserId`; routes and
+- The authenticated PLE session establishes `TenantId` and `UserId`; routes and
   store methods derive authorization from those facts rather than trusting
   tenant or user IDs supplied in a browser body.
 - Educational-record rows carry `TenantId` directly. PostgreSQL row-level
@@ -42,7 +43,7 @@ sequential counters and not browser secrets.
 | Identity | Owns or names | Authority and relation |
 | --- | --- | --- |
 | `TenantId` | Institution RLS boundary | Established by authentication; carried on every educational record. |
-| `UserId` | Authenticated person | Comes from the identity provider; differs from pedagogical `StudentId`. |
+| `UserId` | Authenticated person | Comes from the PLE account boundary; differs from pedagogical `StudentId`. |
 | `WorkspaceId` | Tenant-owned instructor draft workspace | Drafts and staged imports remain private here. |
 | `WorkspaceImportId` | One staged workspace import | Never becomes a catalog number; publication creates fresh published identities. |
 | `ProblemId` | One published problem across versions | Exists only after publication; never identifies a draft. |
@@ -150,6 +151,8 @@ They must never be confused with UUID record IDs or checksums.
 | Capability or secret | Holder and use | Persistence and logging rule |
 | --- | --- | --- |
 | Raw session cookie | Browser and authentication endpoint only | Storage holds only `SessionTokenHash`; raw token is never persisted. |
+| Email authentication secret | Initiating browser and email recipient only | Short-lived, single-use, browser-bound; database holds only a hash and it never enters logs or analytics. |
+| Passkey public credential | PLE account boundary | The credential/public state is protected account data, not a password verifier or course-Instructor projection. |
 | `JobLeaseToken` | The worker replica that claimed one job | Replaced on reclaim; not an HTTP or browser type; debug output redacts it. |
 | `ExternalToolLaunchToken`, launch proof, and lease token | Server-mediated external-tool exchange | Opaque fixed-size random bytes; never serialized to generic question or submission records. |
 | Provider correlation | Private external-tool recovery state | Persisted only inside the broker boundary; redacted from diagnostics. |

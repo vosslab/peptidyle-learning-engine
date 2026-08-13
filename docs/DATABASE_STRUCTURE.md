@@ -133,7 +133,10 @@ Publication pins an assignment to an exact `(problem_id, version_id)` and an iss
 to what that learner actually received. A course edit therefore does not reinterpret an
 already issued question. The detailed lifecycle is in
 [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md), and the information-class boundary is in
-[DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
+[DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md). The authoritative database-facing list of
+especially radioactive and linkage-radioactive relations is the
+[radioactive table map](DATABASE_TENANCY.md#radioactive-table-map). Its label also follows data into
+partitions, views, temporary tables, query results, dumps, WAL, replicas, snapshots, and restores.
 
 ## Assessment record chain
 

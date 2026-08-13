@@ -6,8 +6,9 @@ use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure};
 use question_model::taxonomy::{License, Tag};
 use question_model::{
     AssignmentRun, AttemptProvenance, AttemptResult, AttemptTimerRecord, BackendCapabilities,
-    Capability, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
-    ImplementationVersion, QuestionDefinition, QuestionMetadata, ResponseDefinition, StudentId,
+    Capability, CourseMembership, CourseMembershipRole, DraftQuestionDefinition,
+    DraftQuestionSource, GradingDefinition, ImplementationVersion, QuestionDefinition,
+    QuestionMetadata, ResponseDefinition, StudentId,
 };
 
 fn record(number: u128) -> PublishedProblemRecord {
@@ -268,7 +269,10 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
                 id: assignment.course_id,
                 tenant,
                 title: "Statistics fixture course".to_string(),
-                members: Vec::new(),
+                members: vec![CourseMembership {
+                    user: actor,
+                    role: CourseMembershipRole::Student,
+                }],
             },
         );
         state

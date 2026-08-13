@@ -8,8 +8,8 @@ use domain::item_analysis::{
     calculate_item_analysis_metrics,
 };
 use question_model::{
-    AssignmentId, AssignmentItemId, AssignmentRun, AttemptStatus, CourseId, CourseRole,
-    ProblemVersionRef, ScoringGeneration, ScoringStatus, TenantId, UserRole,
+    AssignmentId, AssignmentItemId, AssignmentRun, AttemptStatus, CourseId, CourseMembershipRole,
+    ProblemVersionRef, ScoringGeneration, ScoringStatus, TenantId,
 };
 
 use super::*;
@@ -55,12 +55,11 @@ impl crate::CourseItemAnalysisStore for MemoryStore {
         let Some(subject) = active_analysis_session(&state, context, session) else {
             return Ok(None);
         };
-        let authorized = subject.roles().contains(&UserRole::Administrator)
-            || state
-                .courses
-                .get(&(tenant, course))
-                .and_then(|record| record.role_for(subject.user()))
-                == Some(CourseRole::Instructor);
+        let authorized = state
+            .courses
+            .get(&(tenant, course))
+            .and_then(|record| record.role_for(subject.user()))
+            == Some(CourseMembershipRole::Instructor);
         if assignment_record.course_id != course
             || !course_records_accessible(&state, tenant, course)
             || !authorized

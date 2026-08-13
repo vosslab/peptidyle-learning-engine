@@ -273,10 +273,11 @@ pub(crate) fn validate_workspace_flat_source_record(
             "flat-question source key must match the workspace source record identity".to_string(),
         ));
     }
-    if record.bucket != objects::Bucket::Content || record.key.bucket() != objects::Bucket::Content
+    if record.bucket != objects::Bucket::PrivateContent
+        || record.key.bucket() != objects::Bucket::PrivateContent
     {
         return Err(StoreError::InvalidRecord(
-            "flat-question source must be stored in the content bucket".to_string(),
+            "flat-question source must be stored in the private-content bucket".to_string(),
         ));
     }
     if record.category != ObjectCategory::Source || record.key.category() != ObjectCategory::Source
@@ -555,7 +556,7 @@ mod tests {
         };
         let record = ObjectRecord {
             id: key.object_id(),
-            bucket: objects::Bucket::Content,
+            bucket: objects::Bucket::PrivateContent,
             key,
             sha256: objects::Sha256Digest::from_bytes([0u8; 32]),
             size_bytes: 1,
@@ -588,7 +589,7 @@ mod tests {
         };
         let record = ObjectRecord {
             id: key.object_id(),
-            bucket: objects::Bucket::Content,
+            bucket: objects::Bucket::PrivateContent,
             key,
             sha256: objects::Sha256Digest::from_bytes([0u8; 32]),
             size_bytes: 1,
@@ -617,7 +618,7 @@ mod tests {
     fn upsert_command_debug_redacts_source_hashes() {
         let source = ObjectRecord {
             id: ObjectId::from_uuid(Uuid::nil()),
-            bucket: objects::Bucket::Content,
+            bucket: objects::Bucket::PrivateContent,
             key: ObjectKey::WorkspaceQuestionSource {
                 tenant: tenant(),
                 workspace: workspace(),

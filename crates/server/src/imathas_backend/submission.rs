@@ -7,10 +7,10 @@ use adapter_imathas::broker_provider::{
 use async_trait::async_trait;
 use learning_data_access::{
     AuthoritativeTimeStore, BeginExternalToolGradeCommand, CatalogSourceStore,
-    CommitExternalToolSubmissionCommand, CommitVerifiedExternalToolSubmissionCommand,
-    ExternalToolBegin, ExternalToolBrokerStore, ExternalToolLaunchProof,
-    ExternalToolLaunchSessionStore, StageExternalToolVerificationCommand, SubmissionIdempotencyKey,
-    TenantContext,
+    ClaimExternalToolFinalizationActivityCommand, CommitExternalToolSubmissionCommand,
+    CommitVerifiedExternalToolSubmissionCommand, ExternalToolActivityClaim, ExternalToolBegin,
+    ExternalToolBrokerStore, ExternalToolLaunchProof, ExternalToolLaunchSessionStore,
+    StageExternalToolVerificationCommand, SubmissionIdempotencyKey, TenantContext,
 };
 use objects::ObjectStore;
 use question_model::{
@@ -18,8 +18,8 @@ use question_model::{
 };
 
 use super::{
-    EXTERNAL_TOOL_LEASE_MILLIS, ExternalToolSubmissionBackend, ImathasBackend, LaunchStateAead,
-    RunBackendError, SubmissionDisposition, launch_state_aad, map_adapter_error, map_store_error,
+    ExternalToolSubmissionBackend, ImathasBackend, LaunchStateAead, RunBackendError,
+    SubmissionDisposition, launch_state_aad, map_adapter_error, map_store_error,
 };
 
 #[async_trait]
@@ -66,7 +66,7 @@ where
                     idempotency_key: idempotency_key.clone(),
                     binding: binding.clone(),
                     proposed_correlation: self.persisted_correlation(grade_binding)?,
-                    lease_millis: EXTERNAL_TOOL_LEASE_MILLIS,
+                    lease_millis: self.timing.verification_lease_millis(),
                 },
             )
             .await
@@ -94,60 +94,96 @@ where
                 .map(|record| SubmissionDisposition::Committed(Box::new(record)))
                 .map_err(map_store_error),
             ExternalToolBegin::Lease(lease) => {
-                let resolved = self
+                let activity_claim = self
                     .sources
-                    .resolve_external_tool_launch_session(
+                    .claim_external_tool_finalization_activity(
+                        context,
+                        ClaimExternalToolFinalizationActivityCommand {
+                            actor,
+                            attempt: attempt.id,
+                            id: launch_proof.session_id,
+                            token: launch_proof.token.clone(),
+                            verification_lease: lease.token.clone(),
+                            lease_millis: self.timing.activity_lease_millis(),
+                        },
+                    )
+                    .await
+                    .map_err(map_store_error)?;
+                let activity_lease = match activity_claim {
+                    ExternalToolActivityClaim::Unavailable => {
+                        return Err(RunBackendError::Invalid(
+                            "external-tool launch is unavailable".into(),
+                        ));
+                    }
+                    ExternalToolActivityClaim::InProgress => {
+                        return Err(RunBackendError::Unavailable(
+                            "external-tool activity is in progress; retry shortly".into(),
+                        ));
+                    }
+                    ExternalToolActivityClaim::Lease(lease) => lease,
+                };
+                let verification = async {
+                    if activity_lease.binding != binding {
+                        return Err(RunBackendError::Invalid(
+                            "external-tool launch binding is invalid".into(),
+                        ));
+                    }
+                    let encrypted = activity_lease
+                        .encrypted_provider_state
+                        .as_ref()
+                        .ok_or_else(|| {
+                            RunBackendError::Invalid(
+                                "external-tool launch state is unavailable".into(),
+                            )
+                        })?;
+                    let aad = launch_state_aad(context, actor, attempt, &binding);
+                    let plain = state_aead.open(encrypted, &aad)?;
+                    let text = std::str::from_utf8(&plain).map_err(|_| {
+                        RunBackendError::Invalid("external-tool launch state is invalid".into())
+                    })?;
+                    let persisted = PersistedContractedLaunchSession::from_storage_value(text)
+                        .map_err(map_adapter_error)?;
+                    let expectation = ContractedLaunchExpectation::new(
+                        grade_binding,
+                        binding.provider.clone(),
+                        binding.source_sha256.clone(),
+                    )
+                    .map_err(map_adapter_error)?;
+                    let mut session = state_aead
+                        .adapter_codec
+                        .restore(&persisted, &expectation)
+                        .map_err(map_adapter_error)?;
+                    let now = self
+                        .sources
+                        .authoritative_time(context)
+                        .await
+                        .map_err(map_store_error)?;
+                    let receipt = self
+                        .adapter
+                        .retrieve_contracted_grade(&mut session, now)
+                        .await
+                        .map_err(map_adapter_error)?;
+                    if receipt.binding() != grade_binding {
+                        return Err(RunBackendError::Invalid(
+                            "iMathAS verifier returned an incorrectly bound result".into(),
+                        ));
+                    }
+                    Ok::<_, RunBackendError>(receipt)
+                }
+                .await;
+                let release = self
+                    .sources
+                    .release_external_tool_activity(
                         context,
                         actor,
                         attempt.id,
                         launch_proof.session_id,
-                        &launch_proof.token,
+                        &activity_lease.token,
                     )
                     .await
-                    .map_err(map_store_error)?
-                    .ok_or_else(|| {
-                        RunBackendError::Invalid("external-tool launch is unavailable".into())
-                    })?;
-                if resolved.binding != binding {
-                    return Err(RunBackendError::Invalid(
-                        "external-tool launch binding is invalid".into(),
-                    ));
-                }
-                let encrypted = resolved.encrypted_provider_state.ok_or_else(|| {
-                    RunBackendError::Invalid("external-tool launch state is unavailable".into())
-                })?;
-                let aad = launch_state_aad(context, actor, attempt, &binding);
-                let plain = state_aead.open(&encrypted, &aad)?;
-                let text = std::str::from_utf8(&plain).map_err(|_| {
-                    RunBackendError::Invalid("external-tool launch state is invalid".into())
-                })?;
-                let persisted = PersistedContractedLaunchSession::from_storage_value(text)
-                    .map_err(map_adapter_error)?;
-                let expectation = ContractedLaunchExpectation::new(
-                    grade_binding,
-                    binding.provider.clone(),
-                    binding.source_sha256.clone(),
-                )
-                .map_err(map_adapter_error)?;
-                let mut session = state_aead
-                    .adapter_codec
-                    .restore(&persisted, &expectation)
-                    .map_err(map_adapter_error)?;
-                let now = self
-                    .sources
-                    .authoritative_time(context)
-                    .await
-                    .map_err(map_store_error)?;
-                let receipt = self
-                    .adapter
-                    .retrieve_contracted_grade(&mut session, now)
-                    .await
-                    .map_err(map_adapter_error)?;
-                if receipt.binding() != grade_binding {
-                    return Err(RunBackendError::Invalid(
-                        "iMathAS verifier returned an incorrectly bound result".into(),
-                    ));
-                }
+                    .map_err(map_store_error);
+                release?;
+                let receipt = verification?;
                 self.sources
                     .stage_external_tool_verification(
                         context,

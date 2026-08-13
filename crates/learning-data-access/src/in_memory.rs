@@ -64,8 +64,8 @@ use question_model::{
     CatalogCapabilityFacet, CatalogLicenseFacet, CatalogLicenseValue, CatalogLifecycle,
     CatalogProblemDetail, CatalogProblemSummary, CatalogSearchFacets, CatalogSearchPage,
     CatalogSearchQuery, CatalogStatisticsAvailability, CatalogStatisticsFacet,
-    CatalogTaxonomyFacet, CourseGroupId, CourseId, CourseRole, CourseSummary, EnrollmentId,
-    EnrollmentStatus, MAX_CATALOG_TAXONOMY_FACETS, PresentationBindingV1, ProblemId,
+    CatalogTaxonomyFacet, CourseGroupId, CourseId, CourseMembershipRole, CourseSummary,
+    EnrollmentId, EnrollmentStatus, MAX_CATALOG_TAXONOMY_FACETS, PresentationBindingV1, ProblemId,
     ProblemPublicId, ProblemVersionNumber, ProblemVersionRef, PublicationScope, QuestionAttempt,
     QuestionAttemptId, QuestionEnvelope, QuestionStatisticsDisclosure, RunId, RunMode,
     ScoringGeneration, ScoringStatus, StatisticsDisclosurePolicy, StudentAssignmentSummary,
@@ -87,17 +87,18 @@ use crate::{
     CourseEnrollmentPolicy, CourseGroupRecord, CourseGroupRevision, CourseInvitationId,
     CourseInvitationSecretHash, CourseListScope, CourseMemberId, CourseRecord,
     CourseRecordsAccessStore, CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState,
-    CourseRetentionView, CourseRosterId, CourseRosterMember, CredentialIdHash, Cursor,
-    DeleteAndRegradeAssignmentItemCommand, DeleteAssignmentPolicyExceptionCommand, DraftRecord,
-    EmailChallengeSecretHash, FeedbackReleaseRecord, FlatQuestionGradingPayload,
-    ForceSubmitAttemptCommand, InstitutionRetentionPolicy, IssueQuestionAttemptCommand, Page,
-    PageRequest, PageSize, PasskeyId, PasskeyRecord, PrefetchedQuestion, PublishDraftCommand,
-    PublishedProblemRecord, PublishedSourceArtifact, PutCourseGroupCommand,
-    RETENTION_JOB_MAX_ATTEMPTS, ReleaseAttemptFeedbackCommand, ReservePrefetchedQuestionCommand,
-    ResolvedAssignmentTiming, ResolvedAttemptTiming, RetentionApiStore, RetentionCleanupManifest,
-    RetentionDays, RetentionDispatchBatch, RetentionRevision, RetentionScheduleStore,
-    RetentionStore, RetentionWork, RetentionWorkerCommand, RetentionWorkerStore,
-    RosterIdempotencyKey, RunSummaryOutcomeInput, RunSummaryPageInput, SessionTokenHash,
+    CourseRetentionView, CourseRosterId, CourseRosterMember, CourseRosterSupportAudit,
+    CredentialIdHash, Cursor, DeleteAndRegradeAssignmentItemCommand,
+    DeleteAssignmentPolicyExceptionCommand, DraftRecord, EmailChallengeSecretHash,
+    FeedbackReleaseRecord, FlatQuestionGradingPayload, ForceSubmitAttemptCommand,
+    InstitutionRetentionPolicy, IssueQuestionAttemptCommand, Page, PageRequest, PageSize,
+    PasskeyId, PasskeyRecord, PrefetchedQuestion, PublishDraftCommand, PublishedProblemRecord,
+    PublishedSourceArtifact, PutCourseGroupCommand, RETENTION_JOB_MAX_ATTEMPTS,
+    ReleaseAttemptFeedbackCommand, ReservePrefetchedQuestionCommand, ResolvedAssignmentTiming,
+    ResolvedAttemptTiming, RetentionApiStore, RetentionCleanupManifest, RetentionDays,
+    RetentionDispatchBatch, RetentionRevision, RetentionScheduleStore, RetentionStore,
+    RetentionWork, RetentionWorkerCommand, RetentionWorkerStore, RosterIdempotencyKey,
+    RunSummaryOutcomeInput, RunSummaryPageInput, SessionTokenHash,
     SetAssignmentPolicyExceptionCommand, StoreError, StoredAssignment,
     StoredAssignmentPolicyException, StoredAssignmentTiming, StoredCourseGroup,
     SubmissionIdempotencyKey, SubmissionNextAttempt, SubmissionRecord,
@@ -184,6 +185,24 @@ fn require_course_records_accessible(
     course: CourseId,
 ) -> Result<(), StoreError> {
     course_records_accessible(state, tenant, course)
+        .then_some(())
+        .ok_or(StoreError::NotFound)
+}
+
+/// An enrollment is historical evidence, not a continuing learner grant.
+/// Roster revocation removes this mutable membership but retains the record.
+fn require_active_learner_membership(
+    state: &State,
+    tenant: TenantId,
+    course: CourseId,
+    actor: UserId,
+) -> Result<(), StoreError> {
+    require_course_records_accessible(state, tenant, course)?;
+    let course = state
+        .courses
+        .get(&(tenant, course))
+        .ok_or(StoreError::NotFound)?;
+    (course.role_for(actor) == Some(CourseMembershipRole::Student))
         .then_some(())
         .ok_or(StoreError::NotFound)
 }
@@ -307,6 +326,7 @@ struct State {
     >,
     roster_import_idempotency:
         BTreeMap<(TenantId, CourseId, RosterIdempotencyKey), crate::CourseRosterImportId>,
+    roster_support_audits: Vec<CourseRosterSupportAudit>,
     manual_grade_export_audits:
         BTreeMap<crate::ManualGradeExportId, (TenantId, CourseId, AssignmentId, UserId, usize)>,
     course_appearances: BTreeMap<(TenantId, CourseId), question_model::CourseAppearance>,
@@ -379,6 +399,10 @@ struct State {
     retention_api_receipts: BTreeMap<(TenantId, CourseId, u64), RetentionApiReceipt>,
     external_tool_exchanges: BTreeMap<(TenantId, QuestionAttemptId), StoredExternalToolExchange>,
     external_tool_launch_sessions: BTreeMap<(TenantId, Uuid), StoredExternalToolLaunchSession>,
+    /// An effectful provider POST may have completed after PLE lost its
+    /// response. This attempt fence prevents any automatic duplicate call.
+    indeterminate_external_tool_activities:
+        BTreeMap<(TenantId, QuestionAttemptId), objects::Sha256Digest>,
     summaries: BTreeMap<(TenantId, EnrollmentId), StudentAssignmentSummary>,
     asset_deliveries: BTreeMap<AssetDeliveryId, AssetDeliveryRecord>,
     asset_access_events: Vec<AssetAccessEvent>,
@@ -535,4 +559,6 @@ struct StoredExternalToolLaunchSession {
     encrypted_provider_state: Option<Vec<u8>>,
     expires_at: ActivityTimestamp,
     revoked: bool,
+    activity_lease_hash: Option<objects::Sha256Digest>,
+    activity_lease_expires_at: Option<ActivityTimestamp>,
 }

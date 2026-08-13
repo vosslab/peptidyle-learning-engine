@@ -1,6 +1,6 @@
 // course_entry_identity.tsx - course title and optional entry-only banner.
 
-import { Show, type JSX } from "solid-js";
+import { Show, createResource, type JSX } from "solid-js";
 
 import type { CourseBannerAlternativeText } from "../../../generated/api/CourseBannerAlternativeText";
 import { useApiRuntime } from "../../api/runtime";
@@ -37,6 +37,11 @@ function alternativeText(value: CourseBannerAlternativeText): string {
 export function CourseEntryIdentity(): JSX.Element {
   const runtime = useApiRuntime();
   const routeData = useCourseThemeRouteData();
+  const banner = routeData === undefined ? null : courseRouteData(routeData).appearance.banner;
+  const [deliveryUrl] = createResource(
+    () => banner?.id ?? null,
+    (assetId) => runtime.client.issueProtectedAssetDelivery(assetId),
+  );
   if (routeData === undefined) return <></>;
   const course = courseRouteData(routeData);
   return (
@@ -44,16 +49,14 @@ export function CourseEntryIdentity(): JSX.Element {
       <style>{COURSE_ENTRY_IDENTITY_STYLES}</style>
       <p class="eyebrow">Course home</p>
       <h1>{course.summary.title}</h1>
-      <Show when={course.appearance.banner} keyed>
-        {(banner) => (
-          <img
-            class="course-entry-banner"
-            src={runtime.client.assetUrl(banner.id)}
-            alt={alternativeText(banner.alternativeText)}
-            width="1200"
-            height="328"
-          />
-        )}
+      <Show when={banner !== null && deliveryUrl() !== undefined}>
+        <img
+          class="course-entry-banner"
+          src={deliveryUrl()}
+          alt={banner === null ? "" : alternativeText(banner.alternativeText)}
+          width="1200"
+          height="328"
+        />
       </Show>
     </header>
   );

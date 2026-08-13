@@ -186,19 +186,6 @@ impl crate::CourseStore for PostgresStore {
                 .fetch_all(&mut *transaction)
                 .await
                 .map_err(map_sqlx_error)?,
-            CourseListScope::TenantAdministrator => sqlx::query(
-                "SELECT course_id::text AS stable_key, course_id, title, \
-                        'administrator'::text AS role \
-                 FROM course WHERE tenant_id = $1 \
-                   AND ($2::text IS NULL OR course_id::text > $2) \
-                 ORDER BY course_id::text LIMIT $3",
-            )
-            .bind(context.tenant_id().as_uuid())
-            .bind(cursor)
-            .bind(limit)
-            .fetch_all(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?,
         };
         let mut records = rows
             .iter()
@@ -213,7 +200,7 @@ impl crate::CourseStore for PostgresStore {
                         id,
                         tenant: context.tenant_id(),
                         title,
-                        role: parse_course_role(&role)?,
+                        role: parse_course_membership_role(&role)?,
                     },
                 ))
             })

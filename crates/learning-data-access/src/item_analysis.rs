@@ -27,7 +27,7 @@ pub enum CourseItemAnalysisCommitOutcome {
 #[async_trait]
 pub trait CourseItemAnalysisStore: Send + Sync {
     /// Returns `None` when the assignment is absent or the authenticated session
-    /// lacks tenant-administrator or direct-instructor authority.
+    /// lacks direct-instructor authority for that exact course.
     async fn course_item_analysis(
         &self,
         context: TenantContext,

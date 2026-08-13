@@ -220,12 +220,9 @@ where
 }
 
 fn may_author_workspaces(roles: &[UserRole]) -> bool {
-    roles.iter().any(|role| {
-        matches!(
-            role,
-            UserRole::Instructor | UserRole::Publisher | UserRole::Administrator
-        )
-    })
+    roles
+        .iter()
+        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
 }
 
 fn store_error_response(error: StoreError) -> Response {

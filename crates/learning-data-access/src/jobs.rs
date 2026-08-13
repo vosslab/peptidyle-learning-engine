@@ -89,8 +89,6 @@ impl ExportArtifactKind {
 pub struct CreateAssignmentExport {
     /// Tenant-owned assignment selected by the authenticated route.
     pub assignment: AssignmentId,
-    /// Initial and sole authorized recipient; route authorization happens first.
-    pub requested_by: UserId,
     /// Bounded queue retry budget.
     pub max_attempts: u16,
 }
@@ -319,6 +317,13 @@ pub enum JobPayload {
         import: WorkspaceImportId,
         source_object: ObjectId,
     },
+    /// Materialize committed public catalog assets. The worker re-resolves
+    /// every typed key and private source from the durable registry; neither
+    /// bucket paths nor bytes are queue payload data.
+    PublishPublicAssets {
+        /// Exact immutable version whose public assets remain pending.
+        reference: ProblemVersionRef,
+    },
 }
 
 /// Closed queue family used to bind a worker process to only the work it can finish.
@@ -332,10 +337,11 @@ pub enum JobKind {
     Export,
     Import,
     QtiImport,
+    PublishPublicAssets,
 }
 
 impl JobKind {
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 9] = [
         Self::RecalculateAssignment,
         Self::RecalculateCourseItemAnalysis,
         Self::AutoSubmitAttempt,
@@ -344,6 +350,7 @@ impl JobKind {
         Self::Export,
         Self::Import,
         Self::QtiImport,
+        Self::PublishPublicAssets,
     ];
 
     /// Exact tagged-enum discriminant persisted in `worker_job.payload`.
@@ -357,6 +364,7 @@ impl JobKind {
             Self::Export => "export",
             Self::Import => "import",
             Self::QtiImport => "qtiImport",
+            Self::PublishPublicAssets => "publishPublicAssets",
         }
     }
 }
@@ -372,6 +380,7 @@ impl JobPayload {
             Self::Export { .. } => JobKind::Export,
             Self::Import { .. } => JobKind::Import,
             Self::QtiImport { .. } => JobKind::QtiImport,
+            Self::PublishPublicAssets { .. } => JobKind::PublishPublicAssets,
         }
     }
 }
@@ -588,6 +597,8 @@ pub trait ExportJobStore: Send + Sync {
     async fn create_assignment_export(
         &self,
         context: TenantContext,
+        // Resolved at the same storage boundary as assignment authority.
+        session: crate::SessionTokenHash,
         request: CreateAssignmentExport,
     ) -> Result<StudentExportView, StoreError>;
 
@@ -599,7 +610,7 @@ pub trait ExportJobStore: Send + Sync {
     ) -> Result<Option<StudentExportView>, StoreError>;
 
     /// Reads a status projection only when it belongs to the authenticated requestor. Course-wide
-    /// instructor or administrator sharing is deliberately a separate policy, never an accidental
+    /// instructor or sysadmin sharing is deliberately a separate policy, never an accidental
     /// consequence of knowing an export ID.
     async fn get_assignment_export_for_requester(
         &self,

@@ -64,12 +64,16 @@ where
         Err(error) => return auth_error_response(error),
     };
     let actor = authenticated.record.subject.user();
-    let evaluation = match state
+    let (evaluation, response) = match state
         .store
-        .get_manual_evaluation_for_edit(authenticated.tenant_context, actor, attempt_id)
+        .get_manual_evaluation_with_response_for_edit(
+            authenticated.tenant_context,
+            actor,
+            attempt_id,
+        )
         .await
     {
-        Ok(Some(evaluation)) => evaluation,
+        Ok(Some(record)) => record,
         // This Store call proves both existence and direct-instructor access.
         Ok(None)
         | Err(learning_data_access::StoreError::NotFound)
@@ -77,16 +81,6 @@ where
             return error_response(StatusCode::NOT_FOUND, "attempt not found");
         }
         Err(error) => return store_error_response(error),
-    };
-    let response = match current_response(
-        state.store.as_ref(),
-        authenticated.tenant_context,
-        attempt_id,
-    )
-    .await
-    {
-        Ok(response) => response,
-        Err(response) => return response,
     };
     manual_grade_response(evaluation, response)
 }
@@ -152,24 +146,6 @@ where
         Err(error) => return store_error_response(error),
     };
     manual_grade_receipt_response(receipt)
-}
-
-async fn current_response<S>(
-    store: &S,
-    context: learning_data_access::TenantContext,
-    attempt: QuestionAttemptId,
-) -> Result<StudentResponse, Response>
-where
-    S: Store + ?Sized,
-{
-    let attempt = store
-        .get_question_attempt(context, attempt)
-        .await
-        .map_err(store_error_response)?
-        .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "attempt not found"))?;
-    attempt
-        .response
-        .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "attempt not found"))
 }
 
 fn manual_grade_response(

@@ -565,7 +565,7 @@ remain path-only private inputs and never enter the handoff or report.
 
 - Owner: Python and TypeScript test engineer.
 - Touch points: runner, private-state parser, report renderer, report tests,
-  `walked_journey_baseline.json`, and its strict validator.
+  and the one-time `walked_journey_baseline.json` evidence record.
 - Depends on: WP-I4, WP-S1, and WP-S2.
 - Acceptance criteria:
   - Schema version 2 requires ordered PASS rows J11, J12, J13, J1, J2, J3, J4,
@@ -576,9 +576,10 @@ remain path-only private inputs and never enter the handoff or report.
     rows are absent from this charter's report and baseline.
   - Every child failure reports only its fixed stage and bounded diagnostic;
     cleanup and 0700/0600 report guarantees remain unchanged.
-  - The static JSON loader rejects duplicate members and false PASS changes.
-- Evidence or review, when useful: focused Python/Node hostile tests, two live
-  reports, and independent report-security review.
+  - The maintained live-report parser rejects duplicate members and false PASS
+    changes; no permanent test freezes the dated baseline's exact rows or keys.
+- Evidence or review, when useful: focused Python/Node hostile report-contract
+  tests, two live reports, and independent report-security review.
 - Obvious follow-ons: WP-D1.
 
 ### Work package: WP-D1 close operator documentation

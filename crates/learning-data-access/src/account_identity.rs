@@ -9,7 +9,9 @@ use std::num::NonZeroU32;
 
 use async_trait::async_trait;
 use objects::Sha256Digest;
-use question_model::{ActivityTimestamp, CourseId, CourseRole, TenantId, UserId};
+use question_model::{
+    ActivityTimestamp, CourseId, CourseMembershipRole, TenantId, UserId, UserRole,
+};
 use uuid::Uuid;
 
 use crate::{Page, PageRequest, StoreError};
@@ -157,6 +159,10 @@ pub struct AccountRecord {
     pub user: UserId,
     pub email: AuthenticationEmail,
     pub display_name: String,
+    /// Operator-approved platform roles. Course roles are never stored here.
+    /// Version 1 permits only `Sysadmin`; instructor authority comes from a
+    /// manually approved direct course membership.
+    pub platform_roles: Vec<UserRole>,
     pub created_at: ActivityTimestamp,
     pub updated_at: ActivityTimestamp,
 }
@@ -167,7 +173,7 @@ pub struct AccountCourseContext {
     pub tenant: TenantId,
     pub course: CourseId,
     pub title: String,
-    pub role: CourseRole,
+    pub role: CourseMembershipRole,
 }
 
 impl std::fmt::Debug for AccountRecord {
@@ -177,6 +183,7 @@ impl std::fmt::Debug for AccountRecord {
             .field("user", &self.user)
             .field("email", &"[redacted]")
             .field("display_name", &self.display_name)
+            .field("platform_roles", &self.platform_roles)
             .field("created_at", &self.created_at)
             .field("updated_at", &self.updated_at)
             .finish()
@@ -273,6 +280,10 @@ secret_hash!(
 pub enum AuthenticationRateLimitScope {
     Email,
     Network,
+    /// Authenticated-account budget for sensitive account changes.
+    Principal,
+    /// A deliberately broad, bounded mail-delivery cost circuit breaker.
+    Service,
 }
 
 /// Bounded fixed-window policy owned by the server.
@@ -389,6 +400,9 @@ pub struct BeginEmailAuthentication {
     pub id: EmailChallengeId,
     pub token_hash: EmailChallengeSecretHash,
     pub browser_binding: BrowserBindingHash,
+    /// Opaque server-derived mailbox quota key. Persisting this with the
+    /// challenge lets verified mailbox control release only its own quota.
+    pub email_rate_limit_key: AuthenticationRateLimitKey,
     pub email: AuthenticationEmail,
     pub purpose: EmailAuthenticationPurpose,
     pub lifetime: EmailChallengeLifetime,
@@ -412,6 +426,7 @@ pub struct EmailAuthenticationChallenge {
     pub id: EmailChallengeId,
     pub token_hash: EmailChallengeSecretHash,
     pub browser_binding: BrowserBindingHash,
+    pub email_rate_limit_key: AuthenticationRateLimitKey,
     pub email: AuthenticationEmail,
     pub purpose: EmailAuthenticationPurpose,
     pub created_at: ActivityTimestamp,

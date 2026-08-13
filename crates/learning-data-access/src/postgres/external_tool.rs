@@ -16,12 +16,13 @@ use super::{
     load_submission_replay, map_sqlx_error, require_attempt_owner, submit_question_attempt,
 };
 use crate::{
-    BeginExternalToolGradeCommand, CommitExternalToolSubmissionCommand,
+    BeginExternalToolGradeCommand, ClaimExternalToolFinalizationActivityCommand,
+    ClaimedExternalToolActivity, CommitExternalToolSubmissionCommand,
     CommitVerifiedExternalToolSubmissionCommand, CreateExternalToolLaunchSessionCommand,
-    CreatedExternalToolLaunchSession, ExternalToolBegin, ExternalToolBinding,
-    ExternalToolBrokerStore, ExternalToolLaunchProof, ExternalToolLaunchSessionStore,
-    ExternalToolLaunchToken, ExternalToolLease, ExternalToolLeaseToken,
-    ExternalToolVerifiedPending, FeedbackContent, ResolvedExternalToolLaunchSession,
+    CreatedExternalToolLaunchSession, ExternalToolActivityClaim, ExternalToolActivityLeaseToken,
+    ExternalToolBegin, ExternalToolBinding, ExternalToolBrokerStore, ExternalToolLaunchProof,
+    ExternalToolLaunchSessionStore, ExternalToolLaunchToken, ExternalToolLease,
+    ExternalToolLeaseToken, ExternalToolVerifiedPending, FeedbackContent,
     StageExternalToolVerificationCommand, StoreError, SubmissionRecord,
     SubmitQuestionAttemptCommand, TenantContext, fresh_external_tool_launch_id,
 };
@@ -39,6 +40,9 @@ impl ExternalToolBrokerStore for PostgresStore {
         let base =
             load_attempt_for_external_update(&mut transaction, tenant, command.attempt).await?;
         require_attempt_owner(&mut transaction, tenant, base.id, command.actor).await?;
+        if postgres_external_activity_is_indeterminate(&mut transaction, tenant, base.id).await? {
+            return Err(StoreError::Conflict);
+        }
         let published =
             load_published_record(&mut transaction, base.problem, base.question_version).await?;
         postgres_validate_external_binding(&base, &published.question.source, &command.binding)?;
@@ -96,6 +100,12 @@ impl ExternalToolBrokerStore for PostgresStore {
                     },
                 ));
             }
+            if postgres_has_live_external_activity(&mut transaction, tenant, command.attempt)
+                .await?
+            {
+                transaction.commit().await.map_err(map_sqlx_error)?;
+                return Ok(ExternalToolBegin::InProgress);
+            }
             let token = ExternalToolLeaseToken::generate()?;
             let correlation = crate::PersistedCorrelation::from_stored(
                 row.try_get("correlation").map_err(map_sqlx_error)?,
@@ -117,6 +127,10 @@ impl ExternalToolBrokerStore for PostgresStore {
                 token,
                 expires_at,
             }));
+        }
+        if postgres_has_live_external_activity(&mut transaction, tenant, command.attempt).await? {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(ExternalToolBegin::InProgress);
         }
         let token = ExternalToolLeaseToken::generate()?;
         sqlx::query("INSERT INTO external_tool_exchange (tenant_id, attempt_id, actor_id, provider, problem_id, version_id, seed, source_object_id, source_sha256, integration_profile, response_sha256, idempotency_key, correlation, state, lease_token, lease_expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'verifying',$14, transaction_timestamp() + ($15::bigint * interval '1 millisecond'))")
@@ -146,6 +160,9 @@ impl ExternalToolBrokerStore for PostgresStore {
         let base =
             load_attempt_for_external_update(&mut transaction, tenant, command.attempt).await?;
         require_attempt_owner(&mut transaction, tenant, base.id, command.actor).await?;
+        if postgres_external_activity_is_indeterminate(&mut transaction, tenant, base.id).await? {
+            return Err(StoreError::Conflict);
+        }
         let published =
             load_published_record(&mut transaction, base.problem, base.question_version).await?;
         postgres_validate_external_binding(&base, &published.question.source, &command.binding)?;
@@ -327,6 +344,10 @@ impl ExternalToolLaunchSessionStore for PostgresStore {
         let attempt =
             load_attempt_for_external_update(&mut transaction, tenant, command.attempt).await?;
         require_attempt_owner(&mut transaction, tenant, attempt.id, command.actor).await?;
+        if postgres_external_activity_is_indeterminate(&mut transaction, tenant, attempt.id).await?
+        {
+            return Err(StoreError::Conflict);
+        }
         let published =
             load_published_record(&mut transaction, attempt.problem, attempt.question_version)
                 .await?;
@@ -344,28 +365,47 @@ impl ExternalToolLaunchSessionStore for PostgresStore {
         })
     }
 
-    async fn resolve_external_tool_launch_session(
+    async fn claim_external_tool_activity(
         &self,
         context: TenantContext,
         actor: UserId,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolLaunchToken,
-    ) -> Result<Option<ResolvedExternalToolLaunchSession>, StoreError> {
+        lease_millis: u32,
+    ) -> Result<ExternalToolActivityClaim, StoreError> {
+        postgres_validate_external_activity_lease_millis(lease_millis)?;
         let tenant = context.tenant_id();
         let mut transaction = self.begin_tenant(context).await?;
         let base = load_attempt_for_external_update(&mut transaction, tenant, attempt).await?;
         require_attempt_owner(&mut transaction, tenant, base.id, actor).await?;
-        let row = sqlx::query("SELECT provider, problem_id, version_id, seed, source_object_id, source_sha256, integration_profile, response_sha256, token_sha256, encrypted_provider_state FROM external_tool_launch_session WHERE tenant_id = $1 AND launch_session_id = $2 AND attempt_id = $3 AND actor_id = $4 AND revoked_at IS NULL AND expires_at > transaction_timestamp()")
+        if postgres_external_activity_is_indeterminate(&mut transaction, tenant, base.id).await? {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(ExternalToolActivityClaim::Unavailable);
+        }
+        let row = sqlx::query("SELECT provider, problem_id, version_id, seed, source_object_id, source_sha256, integration_profile, response_sha256, token_sha256, encrypted_provider_state, EXTRACT(EPOCH FROM activity_lease_expires_at) * 1000 AS activity_lease_millis FROM external_tool_launch_session WHERE tenant_id = $1 AND launch_session_id = $2 AND attempt_id = $3 AND actor_id = $4 AND revoked_at IS NULL AND expires_at > transaction_timestamp() FOR UPDATE")
             .bind(tenant.as_uuid()).bind(id).bind(attempt.as_uuid()).bind(actor.as_uuid()).fetch_optional(&mut *transaction).await.map_err(map_sqlx_error)?;
         let Some(row) = row else {
             transaction.commit().await.map_err(map_sqlx_error)?;
-            return Ok(None);
+            return Ok(ExternalToolActivityClaim::Unavailable);
         };
         let hash: Vec<u8> = row.try_get("token_sha256").map_err(map_sqlx_error)?;
         if hash.as_slice() != token.hash().as_bytes() {
             transaction.commit().await.map_err(map_sqlx_error)?;
-            return Ok(None);
+            return Ok(ExternalToolActivityClaim::Unavailable);
+        }
+        let now = database_timestamp(&mut transaction).await?;
+        let active_expiry: Option<f64> = row
+            .try_get("activity_lease_millis")
+            .map_err(map_sqlx_error)?;
+        if active_expiry.is_some_and(|expiry| expiry as i64 > now.as_unix_millis()) {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(ExternalToolActivityClaim::InProgress);
+        }
+        if postgres_finalization_blocks_ordinary_activity(&mut transaction, tenant, attempt).await?
+        {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(ExternalToolActivityClaim::InProgress);
         }
         let binding = postgres_external_binding(&row)?;
         let published =
@@ -374,11 +414,190 @@ impl ExternalToolLaunchSessionStore for PostgresStore {
         let encrypted_provider_state = row
             .try_get("encrypted_provider_state")
             .map_err(map_sqlx_error)?;
+        let activity_token = ExternalToolActivityLeaseToken::generate()?;
+        let expires_at =
+            ActivityTimestamp::from_unix_millis(now.as_unix_millis() + i64::from(lease_millis));
+        let changed = sqlx::query("UPDATE external_tool_launch_session SET activity_lease_token_sha256 = $5, activity_lease_expires_at = transaction_timestamp() + ($6::bigint * interval '1 millisecond') WHERE tenant_id = $1 AND launch_session_id = $2 AND attempt_id = $3 AND actor_id = $4 AND revoked_at IS NULL AND expires_at > transaction_timestamp() AND (activity_lease_expires_at IS NULL OR activity_lease_expires_at <= transaction_timestamp())")
+            .bind(tenant.as_uuid()).bind(id).bind(attempt.as_uuid()).bind(actor.as_uuid()).bind(activity_token.hash().as_bytes().as_slice()).bind(i64::from(lease_millis)).execute(&mut *transaction).await.map_err(map_sqlx_error)?;
+        if changed.rows_affected() != 1 {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(ExternalToolActivityClaim::InProgress);
+        }
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(Some(ResolvedExternalToolLaunchSession {
-            binding,
-            encrypted_provider_state,
-        }))
+        Ok(ExternalToolActivityClaim::Lease(Box::new(
+            ClaimedExternalToolActivity {
+                binding,
+                encrypted_provider_state,
+                token: activity_token,
+                expires_at,
+            },
+        )))
+    }
+
+    async fn claim_external_tool_finalization_activity(
+        &self,
+        context: TenantContext,
+        command: ClaimExternalToolFinalizationActivityCommand,
+    ) -> Result<ExternalToolActivityClaim, StoreError> {
+        let ClaimExternalToolFinalizationActivityCommand {
+            actor,
+            attempt,
+            id,
+            token,
+            verification_lease,
+            lease_millis,
+        } = command;
+        postgres_validate_external_activity_lease_millis(lease_millis)?;
+        let tenant = context.tenant_id();
+        let mut transaction = self.begin_tenant(context).await?;
+        let base = load_attempt_for_external_update(&mut transaction, tenant, attempt).await?;
+        require_attempt_owner(&mut transaction, tenant, base.id, actor).await?;
+        if postgres_external_activity_is_indeterminate(&mut transaction, tenant, base.id).await? {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(ExternalToolActivityClaim::Unavailable);
+        }
+        let row = sqlx::query("SELECT provider, problem_id, version_id, seed, source_object_id, source_sha256, integration_profile, response_sha256, token_sha256, encrypted_provider_state, EXTRACT(EPOCH FROM activity_lease_expires_at) * 1000 AS activity_lease_millis FROM external_tool_launch_session WHERE tenant_id = $1 AND launch_session_id = $2 AND attempt_id = $3 AND actor_id = $4 AND revoked_at IS NULL AND expires_at > transaction_timestamp() FOR UPDATE")
+            .bind(tenant.as_uuid()).bind(id).bind(attempt.as_uuid()).bind(actor.as_uuid()).fetch_optional(&mut *transaction).await.map_err(map_sqlx_error)?;
+        let Some(row) = row else {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(ExternalToolActivityClaim::Unavailable);
+        };
+        let hash: Vec<u8> = row.try_get("token_sha256").map_err(map_sqlx_error)?;
+        if hash.as_slice() != token.hash().as_bytes() {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(ExternalToolActivityClaim::Unavailable);
+        }
+        if !postgres_finalization_lease_is_current(
+            &mut transaction,
+            tenant,
+            attempt,
+            &verification_lease,
+        )
+        .await?
+        {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(ExternalToolActivityClaim::Unavailable);
+        }
+        let now = database_timestamp(&mut transaction).await?;
+        let active_expiry: Option<f64> = row
+            .try_get("activity_lease_millis")
+            .map_err(map_sqlx_error)?;
+        if active_expiry.is_some_and(|expiry| expiry as i64 > now.as_unix_millis()) {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(ExternalToolActivityClaim::InProgress);
+        }
+        let binding = postgres_external_binding(&row)?;
+        let published =
+            load_published_record(&mut transaction, base.problem, base.question_version).await?;
+        postgres_validate_external_binding(&base, &published.question.source, &binding)?;
+        let encrypted_provider_state = row
+            .try_get("encrypted_provider_state")
+            .map_err(map_sqlx_error)?;
+        let activity_token = ExternalToolActivityLeaseToken::generate()?;
+        let expires_at =
+            ActivityTimestamp::from_unix_millis(now.as_unix_millis() + i64::from(lease_millis));
+        let changed = sqlx::query("UPDATE external_tool_launch_session SET activity_lease_token_sha256 = $5, activity_lease_expires_at = transaction_timestamp() + ($6::bigint * interval '1 millisecond') WHERE tenant_id = $1 AND launch_session_id = $2 AND attempt_id = $3 AND actor_id = $4 AND revoked_at IS NULL AND expires_at > transaction_timestamp() AND (activity_lease_expires_at IS NULL OR activity_lease_expires_at <= transaction_timestamp())")
+            .bind(tenant.as_uuid()).bind(id).bind(attempt.as_uuid()).bind(actor.as_uuid()).bind(activity_token.hash().as_bytes().as_slice()).bind(i64::from(lease_millis)).execute(&mut *transaction).await.map_err(map_sqlx_error)?;
+        if changed.rows_affected() != 1 {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(ExternalToolActivityClaim::InProgress);
+        }
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(ExternalToolActivityClaim::Lease(Box::new(
+            ClaimedExternalToolActivity {
+                binding,
+                encrypted_provider_state,
+                token: activity_token,
+                expires_at,
+            },
+        )))
+    }
+
+    async fn release_external_tool_activity(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+        id: Uuid,
+        token: &ExternalToolActivityLeaseToken,
+    ) -> Result<(), StoreError> {
+        let tenant = context.tenant_id();
+        let mut transaction = self.begin_tenant(context).await?;
+        let changed = sqlx::query("UPDATE external_tool_launch_session SET activity_lease_token_sha256 = NULL, activity_lease_expires_at = NULL WHERE tenant_id = $1 AND launch_session_id = $2 AND attempt_id = $3 AND actor_id = $4 AND activity_lease_token_sha256 = $5")
+            .bind(tenant.as_uuid()).bind(id).bind(attempt.as_uuid()).bind(actor.as_uuid()).bind(token.hash().as_bytes().as_slice()).execute(&mut *transaction).await.map_err(map_sqlx_error)?;
+        if changed.rows_affected() != 1 {
+            return Err(StoreError::Conflict);
+        }
+        transaction.commit().await.map_err(map_sqlx_error)
+    }
+
+    async fn begin_external_tool_activity_dispatch(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+        id: Uuid,
+        token: &ExternalToolActivityLeaseToken,
+    ) -> Result<(), StoreError> {
+        let tenant = context.tenant_id();
+        let mut transaction = self.begin_tenant(context).await?;
+        let base = load_attempt_for_external_update(&mut transaction, tenant, attempt).await?;
+        require_attempt_owner(&mut transaction, tenant, base.id, actor).await?;
+        let claimed = sqlx::query("SELECT 1 FROM external_tool_launch_session WHERE tenant_id = $1 AND launch_session_id = $2 AND attempt_id = $3 AND actor_id = $4 AND activity_lease_token_sha256 = $5 AND activity_lease_expires_at > transaction_timestamp() FOR UPDATE")
+            .bind(tenant.as_uuid()).bind(id).bind(attempt.as_uuid()).bind(actor.as_uuid()).bind(token.hash().as_bytes().as_slice()).fetch_optional(&mut *transaction).await.map_err(map_sqlx_error)?;
+        if claimed.is_none() {
+            return Err(StoreError::Conflict);
+        }
+        let changed = sqlx::query("UPDATE question_attempt SET external_tool_indeterminate_at = transaction_timestamp(), external_tool_indeterminate_token_sha256 = $3 WHERE tenant_id = $1 AND attempt_id = $2 AND external_tool_indeterminate_at IS NULL")
+            .bind(tenant.as_uuid()).bind(attempt.as_uuid()).bind(token.hash().as_bytes().as_slice()).execute(&mut *transaction).await.map_err(map_sqlx_error)?;
+        if changed.rows_affected() != 1 {
+            return Err(StoreError::Conflict);
+        }
+        transaction.commit().await.map_err(map_sqlx_error)
+    }
+
+    async fn complete_external_tool_activity_dispatch(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+        token: &ExternalToolActivityLeaseToken,
+    ) -> Result<(), StoreError> {
+        let tenant = context.tenant_id();
+        let mut transaction = self.begin_tenant(context).await?;
+        let base = load_attempt_for_external_update(&mut transaction, tenant, attempt).await?;
+        require_attempt_owner(&mut transaction, tenant, base.id, actor).await?;
+        let changed = sqlx::query("UPDATE question_attempt SET external_tool_indeterminate_at = NULL, external_tool_indeterminate_token_sha256 = NULL WHERE tenant_id = $1 AND attempt_id = $2 AND external_tool_indeterminate_token_sha256 = $3")
+            .bind(tenant.as_uuid()).bind(attempt.as_uuid()).bind(token.hash().as_bytes().as_slice()).execute(&mut *transaction).await.map_err(map_sqlx_error)?;
+        if changed.rows_affected() != 1 {
+            return Err(StoreError::Conflict);
+        }
+        transaction.commit().await.map_err(map_sqlx_error)
+    }
+
+    async fn fence_indeterminate_external_tool_activity(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+        id: Uuid,
+        token: &ExternalToolActivityLeaseToken,
+    ) -> Result<(), StoreError> {
+        let tenant = context.tenant_id();
+        let mut transaction = self.begin_tenant(context).await?;
+        let base = load_attempt_for_external_update(&mut transaction, tenant, attempt).await?;
+        require_attempt_owner(&mut transaction, tenant, base.id, actor).await?;
+        let changed = sqlx::query("UPDATE external_tool_launch_session SET activity_lease_token_sha256 = NULL, activity_lease_expires_at = NULL, revoked_at = transaction_timestamp() WHERE tenant_id = $1 AND launch_session_id = $2 AND attempt_id = $3 AND actor_id = $4 AND revoked_at IS NULL AND activity_lease_token_sha256 = $5")
+            .bind(tenant.as_uuid()).bind(id).bind(attempt.as_uuid()).bind(actor.as_uuid()).bind(token.hash().as_bytes().as_slice()).execute(&mut *transaction).await.map_err(map_sqlx_error)?;
+        if changed.rows_affected() != 1 {
+            return Err(StoreError::Conflict);
+        }
+        let fenced = sqlx::query("UPDATE question_attempt SET external_tool_indeterminate_at = COALESCE(external_tool_indeterminate_at, transaction_timestamp()), external_tool_indeterminate_token_sha256 = COALESCE(external_tool_indeterminate_token_sha256, $3) WHERE tenant_id = $1 AND attempt_id = $2")
+            .bind(tenant.as_uuid()).bind(attempt.as_uuid()).bind(token.hash().as_bytes().as_slice()).execute(&mut *transaction).await.map_err(map_sqlx_error)?;
+        if fenced.rows_affected() != 1 {
+            return Err(StoreError::Conflict);
+        }
+        transaction.commit().await.map_err(map_sqlx_error)
     }
 
     async fn revoke_external_tool_launch_session(
@@ -390,12 +609,33 @@ impl ExternalToolLaunchSessionStore for PostgresStore {
     ) -> Result<(), StoreError> {
         let tenant = context.tenant_id();
         let mut transaction = self.begin_tenant(context).await?;
-        let changed = sqlx::query("UPDATE external_tool_launch_session SET revoked_at = transaction_timestamp() WHERE tenant_id = $1 AND launch_session_id = $2 AND attempt_id = $3 AND actor_id = $4 AND revoked_at IS NULL").bind(tenant.as_uuid()).bind(id).bind(attempt.as_uuid()).bind(actor.as_uuid()).execute(&mut *transaction).await.map_err(map_sqlx_error)?;
+        let base = load_attempt_for_external_update(&mut transaction, tenant, attempt).await?;
+        require_attempt_owner(&mut transaction, tenant, base.id, actor).await?;
+        if postgres_external_activity_is_indeterminate(&mut transaction, tenant, base.id).await? {
+            return Err(StoreError::Conflict);
+        }
+        let changed = sqlx::query("UPDATE external_tool_launch_session SET revoked_at = transaction_timestamp() WHERE tenant_id = $1 AND launch_session_id = $2 AND attempt_id = $3 AND actor_id = $4 AND revoked_at IS NULL AND (activity_lease_expires_at IS NULL OR activity_lease_expires_at <= transaction_timestamp())").bind(tenant.as_uuid()).bind(id).bind(attempt.as_uuid()).bind(actor.as_uuid()).execute(&mut *transaction).await.map_err(map_sqlx_error)?;
         if changed.rows_affected() != 1 {
             return Err(StoreError::NotFound);
         }
         transaction.commit().await.map_err(map_sqlx_error)
     }
+}
+
+async fn postgres_external_activity_is_indeterminate(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+) -> Result<bool, StoreError> {
+    sqlx::query_scalar::<_, bool>(
+        "SELECT external_tool_indeterminate_at IS NOT NULL FROM question_attempt WHERE tenant_id = $1 AND attempt_id = $2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(attempt.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?
+    .ok_or(StoreError::NotFound)
 }
 
 fn postgres_validate_external_command(
@@ -408,6 +648,78 @@ fn postgres_validate_external_command(
         ));
     }
     Ok(())
+}
+
+fn postgres_validate_external_activity_lease_millis(lease_millis: u32) -> Result<(), StoreError> {
+    if lease_millis == 0 || lease_millis > 60_000 {
+        return Err(StoreError::InvalidRecord(
+            "external-tool activity lease must be 1 to 60000 milliseconds".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+async fn postgres_has_live_external_activity(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+) -> Result<bool, StoreError> {
+    let row = sqlx::query(
+        "SELECT 1 FROM external_tool_launch_session \
+         WHERE tenant_id = $1 AND attempt_id = $2 \
+           AND activity_lease_expires_at > transaction_timestamp() FOR UPDATE",
+    )
+    .bind(tenant.as_uuid())
+    .bind(attempt.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    Ok(row.is_some())
+}
+
+async fn postgres_finalization_blocks_ordinary_activity(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+) -> Result<bool, StoreError> {
+    let row = sqlx::query(
+        "SELECT state, lease_expires_at > transaction_timestamp() AS lease_live \
+         FROM external_tool_exchange WHERE tenant_id = $1 AND attempt_id = $2 FOR UPDATE",
+    )
+    .bind(tenant.as_uuid())
+    .bind(attempt.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    let Some(row) = row else {
+        return Ok(false);
+    };
+    let state: String = row.try_get("state").map_err(map_sqlx_error)?;
+    let lease_live: Option<bool> = row.try_get("lease_live").map_err(map_sqlx_error)?;
+    Ok(state == "verified_pending" || lease_live == Some(true))
+}
+
+async fn postgres_finalization_lease_is_current(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+    verification_lease: &ExternalToolLeaseToken,
+) -> Result<bool, StoreError> {
+    let row = sqlx::query(
+        "SELECT lease_token FROM external_tool_exchange \
+         WHERE tenant_id = $1 AND attempt_id = $2 AND state = 'verifying' \
+           AND lease_expires_at > transaction_timestamp() FOR UPDATE",
+    )
+    .bind(tenant.as_uuid())
+    .bind(attempt.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    let Some(row) = row else {
+        return Ok(false);
+    };
+    let lease: Vec<u8> = row.try_get("lease_token").map_err(map_sqlx_error)?;
+    Ok(lease.as_slice() == verification_lease.bytes().as_slice())
 }
 
 fn postgres_validate_external_binding(
@@ -482,7 +794,8 @@ async fn validate_and_lock_external_launch(
         "SELECT provider, problem_id, version_id, seed, source_object_id, source_sha256, integration_profile, response_sha256, token_sha256 \
          FROM external_tool_launch_session \
          WHERE tenant_id = $1 AND launch_session_id = $2 AND attempt_id = $3 AND actor_id = $4 \
-           AND revoked_at IS NULL AND expires_at > transaction_timestamp() FOR UPDATE",
+           AND revoked_at IS NULL AND expires_at > transaction_timestamp() \
+           AND (activity_lease_expires_at IS NULL OR activity_lease_expires_at <= transaction_timestamp()) FOR UPDATE",
     )
     .bind(tenant.as_uuid())
     .bind(proof.session_id)
@@ -510,7 +823,8 @@ async fn revoke_locked_external_launch(
 ) -> Result<(), StoreError> {
     let changed = sqlx::query(
         "UPDATE external_tool_launch_session SET revoked_at = transaction_timestamp() \
-         WHERE tenant_id = $1 AND launch_session_id = $2 AND revoked_at IS NULL",
+         WHERE tenant_id = $1 AND launch_session_id = $2 AND revoked_at IS NULL \
+           AND (activity_lease_expires_at IS NULL OR activity_lease_expires_at <= transaction_timestamp())",
     )
     .bind(tenant.as_uuid())
     .bind(session_id)

@@ -18,7 +18,7 @@ use axum::{Json, Router};
 use learning_data_access::{
     CreateAssignmentExport, ExportId, ExportJobStore, SessionStore, Store, StoreError,
 };
-use question_model::{AssignmentId, CourseRole, UserRole};
+use question_model::{AssignmentId, CourseMembershipRole};
 
 use crate::auth::{AuthenticatedSession, auth_error_response, no_store, resolve_request_session};
 
@@ -66,6 +66,9 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
+    // Reject hostile request bodies early, but do not rely on this projection:
+    // `create_assignment_export` repeats session and course authority inside
+    // its atomic persistence boundary before it queues anything.
     if let Err(response) =
         require_assignment_management(state.store.as_ref(), &authenticated, assignment).await
     {
@@ -92,9 +95,9 @@ where
         .store
         .create_assignment_export(
             authenticated.tenant_context,
+            authenticated.record.token_hash,
             CreateAssignmentExport {
                 assignment,
-                requested_by: authenticated.record.subject.user(),
                 max_attempts: EXPORT_MAX_ATTEMPTS,
             },
         )
@@ -137,10 +140,9 @@ where
 }
 
 /// The export record is tenant-scoped before this method runs.  Assignment and
-/// course checks stop a same-tenant instructor from creating an export for a
-/// different course.  Reads additionally require the exact original requester
-/// through the private store method above because artifact deliveries are
-/// granted to that person alone.
+/// course checks keep the HTTP boundary quiet before consuming its body. The
+/// authoritative duplicate is in `ExportJobStore`, where session, membership,
+/// assignment, frozen payload, and job insertion are bound atomically.
 async fn require_assignment_management<S>(
     store: &S,
     authenticated: &AuthenticatedSession,
@@ -175,23 +177,13 @@ where
         }
         Err(error) => return Err(store_error_response(error)),
     };
-    let manages = authenticated
-        .record
-        .subject
-        .roles()
-        .contains(&UserRole::Administrator)
-        || matches!(
-            course.role_for(authenticated.record.subject.user()),
-            Some(CourseRole::Instructor | CourseRole::Administrator)
-        );
-    if manages {
-        Ok(())
-    } else {
-        Err(error_response(
-            StatusCode::FORBIDDEN,
-            "assignment export is not authorized",
-        ))
-    }
+    let manages = matches!(
+        course.role_for(authenticated.record.subject.user()),
+        Some(CourseMembershipRole::Instructor)
+    );
+    manages
+        .then_some(())
+        .ok_or_else(|| error_response(StatusCode::FORBIDDEN, "assignment export is not authorized"))
 }
 
 fn store_error_response(error: StoreError) -> Response {
@@ -245,7 +237,7 @@ mod tests {
         ActivityTimestamp, BackendCapabilities, Capability, CourseId, CourseMembership,
         CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
         ObjectId, ProblemId, ProblemVersionRef, PublicationScope, QuestionMetadata, QuestionSource,
-        RunPolicies, TenantId, UserId, VersionId, WorkspaceId,
+        RunPolicies, TenantId, UserId, UserRole, VersionId, WorkspaceId,
     };
     use tower::ServiceExt;
     use uuid::Uuid;
@@ -526,7 +518,7 @@ mod tests {
         assert_eq!(
             other_read.status(),
             StatusCode::NOT_FOUND,
-            "a delivery ACL is requester-specific, so another manager receives no status oracle"
+            "a delivery ACL is requester-specific, so another instructor receives no status oracle"
         );
 
         let student_create = app

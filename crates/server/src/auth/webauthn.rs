@@ -1,18 +1,20 @@
 //! Browser-bound passkey registration and discoverable authentication.
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 
-use axum::extract::{Path, State};
-use axum::http::header::SET_COOKIE;
+use axum::extract::{ConnectInfo, Path, State};
+use axum::http::header::{RETRY_AFTER, SET_COOKIE};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use learning_data_access::{
     AccountIdentityStore, AccountSessionLifetime, AccountSessionStore, AccountSessionTokenHash,
-    BeginWebauthnCeremony, BrowserBindingHash, CompletePasskeyAuthenticationAndCreateSession,
-    CredentialIdHash, PasskeyId, PasskeyRecord, RegisterPasskey, StoreError, WebauthnCeremonyId,
-    WebauthnCeremonyKind, WebauthnCeremonyLifetime, WebauthnState, validated_passkey_label,
+    AuthenticationRateLimitScope, BeginWebauthnCeremony, BrowserBindingHash,
+    CompletePasskeyAuthenticationAndCreateSession, CredentialIdHash, PasskeyId, PasskeyRecord,
+    RegisterPasskey, StoreError, WebauthnCeremonyId, WebauthnCeremonyKind,
+    WebauthnCeremonyLifetime, WebauthnState, validated_passkey_label,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -23,15 +25,19 @@ use webauthn_rs::prelude::{
 };
 
 use super::passwordless::{
-    ACCOUNT_SESSION_COOKIE, ACCOUNT_SESSION_SECONDS, RandomSecret, authenticated_account,
-    authentication_rejected, clear_named_cookie, cookie_secret, passwordless_unavailable,
-    secret_cookie,
+    ACCOUNT_SESSION_COOKIE, ACCOUNT_SESSION_SECONDS, NETWORK_RATE_LIMIT_ATTEMPTS, RandomSecret,
+    authenticated_account, authentication_rejected, clear_named_cookie, consume_rate_limit,
+    cookie_secret, passwordless_unavailable, secret_cookie,
 };
-use super::{SessionConfig, no_store};
+use super::{ClientAddressPolicy, PasswordlessRateLimitIssuer, SessionConfig, no_store};
 
 const WEBAUTHN_CEREMONY_SECONDS: u32 = 10 * 60;
-const WEBAUTHN_BINDING_COOKIE: &str = "ple_webauthn_binding";
+pub(super) const WEBAUTHN_BINDING_COOKIE: &str = "ple_webauthn_binding";
 const MAX_PASSKEY_BODY_BYTES: usize = 96 * 1_024;
+
+pub(super) fn clear_binding_cookie(config: SessionConfig) -> String {
+    clear_named_cookie(WEBAUTHN_BINDING_COOKIE, config)
+}
 
 /// Validated relying-party configuration shared safely across API replicas.
 #[derive(Clone)]
@@ -71,6 +77,8 @@ impl std::fmt::Debug for PasswordlessWebauthn {
 struct PasskeyRouteState<S> {
     store: Arc<S>,
     webauthn: PasswordlessWebauthn,
+    rate_limit_issuer: PasswordlessRateLimitIssuer,
+    client_address_policy: ClientAddressPolicy,
     session_config: SessionConfig,
 }
 
@@ -79,6 +87,8 @@ impl<S> Clone for PasskeyRouteState<S> {
         Self {
             store: Arc::clone(&self.store),
             webauthn: self.webauthn.clone(),
+            rate_limit_issuer: self.rate_limit_issuer.clone(),
+            client_address_policy: self.client_address_policy.clone(),
             session_config: self.session_config,
         }
     }
@@ -87,6 +97,8 @@ impl<S> Clone for PasskeyRouteState<S> {
 pub fn passkey_router<S>(
     store: Arc<S>,
     webauthn: PasswordlessWebauthn,
+    rate_limit_issuer: PasswordlessRateLimitIssuer,
+    client_address_policy: ClientAddressPolicy,
     session_config: SessionConfig,
 ) -> Router
 where
@@ -115,6 +127,8 @@ where
         .with_state(PasskeyRouteState {
             store,
             webauthn,
+            rate_limit_issuer,
+            client_address_policy,
             session_config,
         })
 }
@@ -312,10 +326,34 @@ where
     passkey_result_response(record, state.session_config)
 }
 
-async fn start_authentication<S>(State(state): State<PasskeyRouteState<S>>) -> Response
+async fn start_authentication<S>(
+    State(state): State<PasskeyRouteState<S>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+) -> Response
 where
     S: AccountIdentityStore + AccountSessionStore,
 {
+    let Some(network_key) = state.rate_limit_issuer.key(
+        AuthenticationRateLimitScope::Network,
+        &state
+            .client_address_policy
+            .rate_limit_identity(peer, &headers),
+    ) else {
+        return passwordless_unavailable();
+    };
+    match consume_rate_limit(
+        state.store.as_ref(),
+        AuthenticationRateLimitScope::Network,
+        network_key,
+        NETWORK_RATE_LIMIT_ATTEMPTS,
+    )
+    .await
+    {
+        Ok(true) => {}
+        Ok(false) => return passkey_rate_limited(),
+        Err(()) => return passwordless_unavailable(),
+    }
     let (options, authentication) = match state.webauthn.inner.start_discoverable_authentication() {
         Ok(value) => value,
         Err(_) => return passwordless_unavailable(),
@@ -348,6 +386,27 @@ where
         binding,
         state.session_config,
     )
+}
+
+fn passkey_rate_limited() -> Response {
+    #[derive(Serialize)]
+    struct ErrorBody<'a> {
+        error: &'a str,
+        message: &'a str,
+    }
+
+    let mut response = (
+        StatusCode::TOO_MANY_REQUESTS,
+        Json(ErrorBody {
+            error: "too_many_requests",
+            message: "Too many sign-in attempts. Try again later.",
+        }),
+    )
+        .into_response();
+    response
+        .headers_mut()
+        .insert(RETRY_AFTER, HeaderValue::from_static("900"));
+    no_store(response)
 }
 
 async fn complete_authentication<S>(
@@ -618,6 +677,7 @@ fn passkey_not_found() -> Response {
 mod tests {
     use super::*;
     use axum::body::{Body, to_bytes};
+    use axum::extract::connect_info::MockConnectInfo;
     use axum::http::Request;
     use learning_data_access::in_memory::MemoryStore;
     use tower::ServiceExt;
@@ -651,11 +711,14 @@ mod tests {
             Arc::new(MemoryStore::default()),
             PasswordlessWebauthn::new("localhost", "http://localhost:4173", "PLE local")
                 .expect("local configuration"),
+            PasswordlessRateLimitIssuer::from_server_secret([0x91; 32]),
+            ClientAddressPolicy::direct(),
             SessionConfig::new(
                 learning_data_access::SessionLifetime::from_seconds(60).expect("session lifetime"),
                 super::super::CookieTransport::LocalHttp,
             ),
-        );
+        )
+        .layer(MockConnectInfo(SocketAddr::from(([192, 0, 2, 91], 443))));
         let response = app
             .oneshot(
                 Request::builder()

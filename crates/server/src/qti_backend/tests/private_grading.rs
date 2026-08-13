@@ -1,4 +1,5 @@
 use super::*;
+use image::ImageEncoder as _;
 
 #[tokio::test]
 async fn published_qti_reparses_and_grades_only_through_the_private_grader() {
@@ -104,7 +105,7 @@ async fn foreign_or_tampered_qti_attempt_refuses_before_grading() {
 }
 
 #[tokio::test]
-async fn choice_image_checksum_misbinding_refuses_before_private_grading() {
+async fn qti_asset_resolution_uses_catalog_key_without_public_private_fallback() {
     let tenant = TenantId::from_uuid(uuid::Uuid::from_u128(7_120));
     let context = TenantContext::from_authenticated_session(tenant);
     let reference = ProblemVersionRef {
@@ -114,9 +115,7 @@ async fn choice_image_checksum_misbinding_refuses_before_private_grading() {
     let workspace = WorkspaceId::from_uuid(uuid::Uuid::from_u128(7_123));
     let source_object = ObjectId::from_uuid(uuid::Uuid::from_u128(7_124));
     let replacement_object = ObjectId::from_uuid(uuid::Uuid::from_u128(7_125));
-    let bytes = STANDARD
-        .decode(CHOICE_IMAGE_PACKAGE.trim())
-        .expect("choice-image QTI fixture decodes");
+    let bytes = choice_image_package();
     let parsed = adapter_qti::QtiImporter::default()
         .import(&bytes)
         .expect("choice-image QTI fixture parses");
@@ -131,6 +130,11 @@ async fn choice_image_checksum_misbinding_refuses_before_private_grading() {
         .worker_correct_choice(&imported.item_id)
         .expect("private correct choice exists");
     let objects = Arc::new(MemoryObjectStore::default());
+    let replacement_bytes = still_png([12, 34, 56]);
+    assert!(
+        objects::image_validation::verify_still_image(&replacement_bytes).is_ok(),
+        "the fallback oracle must use an allowed still raster, not malformed bytes"
+    );
     let source = objects
         .put(PutObject {
             key: ObjectKey::ProblemSource {
@@ -154,15 +158,15 @@ async fn choice_image_checksum_misbinding_refuses_before_private_grading() {
                 asset,
                 object: replacement_object,
             },
-            bytes: b"different valid image bytes".to_vec(),
+            bytes: replacement_bytes,
             media_type: "image/png".to_string(),
             license: "CC-BY-4.0".to_string(),
-            provenance: "adversarial replacement fixture".to_string(),
+            provenance: "public-only fallback oracle".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1),
         })
         .await
         .expect("replacement asset stores");
-    assert_ne!(replacement.sha256.to_string(), original_checksum);
+    assert_eq!(replacement.sha256.to_string(), original_checksum);
     let question = QuestionDefinition {
         problem: reference.problem,
         version: reference.version,
@@ -199,7 +203,13 @@ async fn choice_image_checksum_misbinding_refuses_before_private_grading() {
         bindings: vec![CatalogAssetBinding {
             asset,
             object: replacement_object,
-            rendition_checksum: Sha256Digest::compute(b"replacement asset"),
+            key: ObjectKey::RestrictedProblemAsset {
+                problem: reference.problem,
+                version: reference.version,
+                asset,
+                object: replacement_object,
+            },
+            rendition_checksum: replacement.sha256,
             media_type: "image/png".to_string(),
             intrinsic_width: None,
             intrinsic_height: None,
@@ -224,8 +234,44 @@ async fn choice_image_checksum_misbinding_refuses_before_private_grading() {
     assert_eq!(
         grader_calls.load(Ordering::SeqCst),
         0,
-        "asset misbinding must refuse before private grading"
+        "the resolver must use the exact catalog key and never probe the public fallback"
     );
+}
+
+fn choice_image_package() -> Vec<u8> {
+    let image_bytes = still_png([12, 34, 56]);
+    let manifest = "<manifest identifier='package'><resources><resource identifier='choice' type='imsqti_item_xmlv2p1' href='items/choice.xml'/></resources></manifest>";
+    let item = "<assessmentItem identifier='choice-image'><responseDeclaration identifier='R'><correctResponse><value>b</value></correctResponse></responseDeclaration><itemBody><p>Choose the illustrated answer.</p><choiceInteraction responseIdentifier='R' maxChoices='1'><simpleChoice identifier='a'>A</simpleChoice><simpleChoice identifier='b'><img src='../assets/choice.png' alt='choice diagram'/>B</simpleChoice></choiceInteraction></itemBody></assessmentItem>";
+    let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    for (path, bytes) in [
+        ("imsmanifest.xml", manifest.as_bytes()),
+        ("items/choice.xml", item.as_bytes()),
+        ("assets/choice.png", image_bytes.as_slice()),
+    ] {
+        writer
+            .start_file(path, zip::write::SimpleFileOptions::default())
+            .expect("choice-image QTI fixture starts entry");
+        std::io::Write::write_all(&mut writer, bytes)
+            .expect("choice-image QTI fixture writes entry");
+    }
+    writer
+        .finish()
+        .expect("choice-image QTI fixture finishes")
+        .into_inner()
+}
+
+fn still_png(color: [u8; 3]) -> Vec<u8> {
+    let image = image::RgbImage::from_pixel(2, 1, image::Rgb(color));
+    let mut bytes = Vec::new();
+    image::codecs::png::PngEncoder::new(&mut bytes)
+        .write_image(
+            image.as_raw(),
+            image.width(),
+            image.height(),
+            image::ExtendedColorType::Rgb8,
+        )
+        .expect("choice-image PNG fixture encodes");
+    bytes
 }
 
 #[test]

@@ -302,7 +302,7 @@ bootstrap_default_local_configuration() {
 	set_default_env_value PLE_MINIO_IMAGE_SHA256 "$LOCAL_MINIO_IMAGE_SHA256"
 	set_default_env_value PLE_MINIO_MC_IMAGE_SHA256 "$LOCAL_MINIO_MC_IMAGE_SHA256"
 	set_default_env_value PLE_LOCAL_AUTH_HOST_FILE "$REPO_ROOT/$LOCAL_IDENTITY_FILE"
-	set_default_env_value PLE_PUBLIC_ASSET_BASE_URL "http://127.0.0.1:9000/content"
+	set_default_env_value PLE_PUBLIC_ASSET_BASE_URL "http://127.0.0.1:9000/public-assets"
 	set_default_env_value PLE_WEBAUTHN_RP_ID "localhost"
 	set_default_env_value PLE_WEBAUTHN_RP_NAME "Peptidyle Learning Engine"
 	configured_renderer_url="$(env_value PLE_WEBWORK_RENDERER_BASE_URL)"
@@ -454,7 +454,7 @@ fi
 
 if [ "$BUILD_ENABLED" -eq 1 ]; then
 	echo "==> Building Rust, Wasm, generated contracts, fixtures, and the browser client"
-	./build.sh "$BUILD_PROFILE"
+	PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH=1 ./build.sh "$BUILD_PROFILE"
 elif [ ! -f dist/index.html ] || [ ! -f dist/main.js ]; then
 	die "--skip-build requires dist/index.html and dist/main.js; run ./build.sh first"
 fi
@@ -561,7 +561,7 @@ if [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ] || [ "$CANONICAL_WALKTHROUGH" -eq 1 ]; th
 		--student "$LOCAL_STUDENT_ID" \
 		--s3-endpoint "http://127.0.0.1:${minio_port}" \
 		--s3-region "us-east-1" \
-		--content-bucket "content" >"$LOCAL_CHAPTER_ONE_MANIFEST_FILE"
+		--private-content-bucket "private-content" >"$LOCAL_CHAPTER_ONE_MANIFEST_FILE"
 	chmod 600 "$LOCAL_CHAPTER_ONE_MANIFEST_FILE"
 fi
 

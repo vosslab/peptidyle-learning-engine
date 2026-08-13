@@ -37,6 +37,12 @@ pub(super) async fn issue_or_resume_question_attempt(
     }
     let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
     require_course_records_accessible(&state, tenant, assignment.course_id)?;
+    super::super::require_active_learner_membership(
+        &state,
+        tenant,
+        assignment.course_id,
+        command.actor,
+    )?;
     let run_items = state
         .run_items
         .get(&(tenant, command.run))

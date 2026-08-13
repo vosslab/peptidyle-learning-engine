@@ -130,7 +130,7 @@ pub enum CourseRosterImportState {
     Committed,
 }
 
-/// Protected preview safe only for an authorized course manager.
+/// Protected preview safe only for an authorized course instructor.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CourseRosterImportPreview {
     pub id: CourseRosterImportId,

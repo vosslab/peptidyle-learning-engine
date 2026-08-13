@@ -6,7 +6,7 @@ async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
     let tenant = TenantId::from_uuid(id(1));
     let context = TenantContext::from_authenticated_session(tenant);
     let publisher = UserId::from_uuid(id(10));
-    let cookie = issued_cookie(&store, vec![UserRole::Publisher], publisher).await;
+    let cookie = issued_cookie(&store, vec![UserRole::Instructor], publisher).await;
     let app = router(
         Arc::clone(&store),
         Arc::new(FixtureRegistry {
@@ -197,7 +197,7 @@ async fn catalog_search_and_safe_detail_are_authenticated_bounded_and_non_cachea
     let tenant = TenantId::from_uuid(id(1));
     let context = TenantContext::from_authenticated_session(tenant);
     let publisher = UserId::from_uuid(id(901));
-    let cookie = issued_cookie(&store, vec![UserRole::Publisher], publisher).await;
+    let cookie = issued_cookie(&store, vec![UserRole::Instructor], publisher).await;
     let workspace = WorkspaceId::from_uuid(id(902));
     let version = VersionId::from_uuid(id(903));
     let draft_revision = store

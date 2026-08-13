@@ -39,8 +39,8 @@ pub(super) fn validate_workspace_archive(
         || workspace != reference.workspace
         || import != reference.import
         || object != record.id
-        || record.bucket != Bucket::Content
-        || record.key.bucket() != Bucket::Content
+        || record.bucket != Bucket::PrivateContent
+        || record.key.bucket() != Bucket::PrivateContent
         || record.category != ObjectCategory::Source
         || record.key.category() != ObjectCategory::Source
         || record.version.is_some()
@@ -86,7 +86,7 @@ pub(super) fn validate_published_archive(
         || import != current.import.import
         || object != expected_object
         || record.id != expected_object
-        || record.bucket != Bucket::Content
+        || record.bucket != Bucket::PrivateContent
         || record.category != ObjectCategory::Source
         || record.version != Some(reference.version)
         || record.media_type != QTI_PROFILE_ARCHIVE_MEDIA_TYPE

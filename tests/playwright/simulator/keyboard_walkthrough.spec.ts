@@ -206,6 +206,7 @@ test("keyboard pagination waits for an initially loading terminal-page target", 
 test("course pagination reaches a third-page course through visible keyboard controls", async ({
   page,
 }) => {
+  test.setTimeout(2_000);
   const pageOne = Array.from({ length: 50 }, (_, index) => `course-${index}`);
   const pageTwo = Array.from({ length: 50 }, (_, index) => `course-${index + 50}`);
   await loadFixture(page, { itemName: "courses", pages: [pageOne, pageTwo, ["target"]] });

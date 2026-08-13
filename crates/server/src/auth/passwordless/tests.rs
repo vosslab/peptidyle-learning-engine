@@ -2,14 +2,15 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use axum::body::{Body, to_bytes};
-use axum::http::{HeaderMap, HeaderValue, Request, StatusCode};
+use axum::extract::connect_info::MockConnectInfo;
+use axum::http::{Request, StatusCode};
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{CourseRecord, Store, TenantContext};
 use question_model::{CourseMembership, CourseMembershipRole, TenantId, UserId};
 use tower::ServiceExt;
 
 use super::*;
-use crate::auth::clear_session_cookie;
+use crate::auth::{CookieTransport, clear_session_cookie};
 
 #[derive(Default)]
 struct RecordingEmailDelivery {
@@ -81,22 +82,24 @@ fn rate_limit_keys_are_domain_separated_and_never_contain_input() {
             b"student@example.edu",
         )
         .expect("configured issuer");
+    let principal = issuer
+        .key(
+            AuthenticationRateLimitScope::Principal,
+            b"student@example.edu",
+        )
+        .expect("configured issuer");
+    let service = issuer
+        .key(
+            AuthenticationRateLimitScope::Service,
+            b"student@example.edu",
+        )
+        .expect("configured issuer");
     assert_ne!(email, network);
+    assert_ne!(email, principal);
+    assert_ne!(network, service);
     assert_eq!(
         format!("{email:?}"),
         "AuthenticationRateLimitKey([redacted])"
-    );
-}
-
-#[test]
-fn client_network_header_is_one_exact_ip_or_the_shared_unknown_bucket() {
-    let mut headers = HeaderMap::new();
-    headers.insert(CLIENT_IP_HEADER, HeaderValue::from_static("192.0.2.44"));
-    assert_eq!(network_rate_limit_identity(&headers), b"192.0.2.44");
-    headers.append(CLIENT_IP_HEADER, HeaderValue::from_static("192.0.2.45"));
-    assert_eq!(
-        network_rate_limit_identity(&headers),
-        b"unknown-client-network"
     );
 }
 
@@ -108,12 +111,16 @@ async fn repeated_email_starts_keep_uniform_response_and_stop_delivery_at_limit(
         store,
         delivery.clone(),
         PasswordlessRateLimitIssuer::from_server_secret([0x45; 32]),
+        ClientAddressPolicy::direct(),
         SessionConfig::new(
             learning_data_access::SessionLifetime::from_seconds(60).expect("session lifetime"),
             CookieTransport::LocalHttp,
         ),
-    );
-    for _ in 0..=EMAIL_RATE_LIMIT_ATTEMPTS {
+    )
+    .layer(MockConnectInfo(SocketAddr::from(([192, 0, 2, 55], 443))));
+    let mut throttled_without_delivery = false;
+    for _ in 0..100 {
+        let delivered_before = delivery.count();
         let response = app
             .clone()
             .oneshot(
@@ -121,15 +128,22 @@ async fn repeated_email_starts_keep_uniform_response_and_stop_delivery_at_limit(
                     .method("POST")
                     .uri("/api/auth/passwordless/email/start")
                     .header("content-type", "application/json")
-                    .header(CLIENT_IP_HEADER, "192.0.2.55")
+                    .header("x-forwarded-for", "198.51.100.200")
                     .body(Body::from(r#"{"email":"learner@example.edu"}"#))
                     .expect("request"),
             )
             .await
             .expect("response");
         assert_eq!(response.status(), StatusCode::ACCEPTED);
+        if delivery.count() == delivered_before {
+            throttled_without_delivery = true;
+            break;
+        }
     }
-    assert_eq!(delivery.count(), EMAIL_RATE_LIMIT_ATTEMPTS as usize);
+    assert!(
+        throttled_without_delivery,
+        "the uniform endpoint must eventually stop delivering email"
+    );
 }
 
 #[tokio::test]
@@ -146,6 +160,7 @@ async fn account_course_selection_derives_tenant_and_role_from_store_membership(
             id: EmailChallengeId::from_uuid(uuid::Uuid::from_u128(50_002)),
             token_hash: email_token,
             browser_binding: email_binding,
+            email_rate_limit_key: AuthenticationRateLimitKey::compute(b"account-context-limit"),
             email: AuthenticationEmail::parse("teacher@example.edu").expect("email"),
             purpose: EmailAuthenticationPurpose::SignInOrRegister,
             lifetime: EmailChallengeLifetime::from_seconds(600).expect("lifetime"),
@@ -188,15 +203,21 @@ async fn account_course_selection_derives_tenant_and_role_from_store_membership(
         )
         .await
         .expect("course");
+    let session_config = SessionConfig::new(
+        learning_data_access::SessionLifetime::from_seconds(3_600).expect("session lifetime"),
+        CookieTransport::LocalHttp,
+    );
     let app = passwordless_router(
         Arc::clone(&store),
         Arc::new(RecordingEmailDelivery::default()),
         PasswordlessRateLimitIssuer::from_server_secret([0x55; 32]),
-        SessionConfig::new(
-            learning_data_access::SessionLifetime::from_seconds(3_600).expect("session lifetime"),
-            CookieTransport::LocalHttp,
-        ),
-    );
+        ClientAddressPolicy::direct(),
+        session_config,
+    )
+    .merge(crate::auth::session_router(
+        Arc::clone(&store),
+        session_config,
+    ));
     let cookie = format!("{ACCOUNT_SESSION_COOKIE}={}", account_secret.encoded());
 
     let list = app
@@ -221,12 +242,13 @@ async fn account_course_selection_derives_tenant_and_role_from_store_membership(
     assert!(list_json.to_string().find("email").is_none());
 
     let selected = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
                 .uri("/api/auth/account/course-session")
                 .header("content-type", "application/json")
-                .header("cookie", cookie)
+                .header("cookie", &cookie)
                 .body(Body::from(
                     serde_json::json!({ "courseId": course }).to_string(),
                 ))
@@ -235,14 +257,76 @@ async fn account_course_selection_derives_tenant_and_role_from_store_membership(
         .await
         .expect("course selection");
     assert_eq!(selected.status(), StatusCode::OK);
-    assert!(
-        selected
-            .headers()
-            .get_all(SET_COOKIE)
-            .iter()
-            .filter_map(|value| value.to_str().ok())
-            .any(|value| value.starts_with("ple_session="))
+    let tenant_cookie = selected
+        .headers()
+        .get_all(SET_COOKIE)
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .find(|value| value.starts_with("ple_session="))
+        .and_then(|value| value.split(';').next())
+        .expect("course selection should issue tenant session")
+        .to_string();
+    let browser_cookies = format!("{cookie}; {tenant_cookie}");
+
+    let logout = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/logout")
+                .header("cookie", &browser_cookies)
+                .body(Body::empty())
+                .expect("logout request"),
+        )
+        .await
+        .expect("logout response");
+    assert_eq!(logout.status(), StatusCode::OK);
+    let cleared = logout
+        .headers()
+        .get_all(SET_COOKIE)
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .collect::<Vec<_>>();
+    for name in [
+        "ple_session=",
+        "ple_account_session=",
+        "ple_email_binding=",
+        "ple_webauthn_binding=",
+    ] {
+        assert!(
+            cleared
+                .iter()
+                .any(|value| value.starts_with(name) && value.contains("Max-Age=0")),
+            "logout must clear {name}"
+        );
+    }
+    assert_eq!(
+        store
+            .resolve_account_session(AccountSessionTokenHash::compute(&account_secret.0))
+            .await
+            .expect("account-session lookup"),
+        None
     );
+    assert!(matches!(
+        crate::auth::resolve_session(store.as_ref(), Some(&tenant_cookie)).await,
+        Err(AuthError::Unauthenticated)
+    ));
+
+    let replacement = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/account/course-session")
+                .header("content-type", "application/json")
+                .header("cookie", browser_cookies)
+                .body(Body::from(
+                    serde_json::json!({ "courseId": course }).to_string(),
+                ))
+                .expect("replacement request"),
+        )
+        .await
+        .expect("replacement response");
+    assert_eq!(replacement.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
@@ -259,6 +343,7 @@ async fn signed_in_account_changes_email_only_after_new_address_verification() {
             id: EmailChallengeId::from_uuid(uuid::Uuid::from_u128(60_002)),
             token_hash: original_token,
             browser_binding: original_binding,
+            email_rate_limit_key: AuthenticationRateLimitKey::compute(b"original-email-limit"),
             email: AuthenticationEmail::parse("learner@example.edu").expect("original email"),
             purpose: EmailAuthenticationPurpose::SignInOrRegister,
             lifetime: EmailChallengeLifetime::from_seconds(600).expect("lifetime"),
@@ -285,15 +370,18 @@ async fn signed_in_account_changes_email_only_after_new_address_verification() {
         .await
         .expect("account session");
     let delivery = Arc::new(RecordingEmailDelivery::default());
+    let route_delivery: Arc<dyn PasswordlessEmailDelivery> = delivery.clone();
     let app = passwordless_router(
         Arc::clone(&store),
-        delivery.clone(),
+        route_delivery,
         PasswordlessRateLimitIssuer::from_server_secret([0x62; 32]),
+        ClientAddressPolicy::direct(),
         SessionConfig::new(
             learning_data_access::SessionLifetime::from_seconds(3_600).expect("session lifetime"),
             CookieTransport::LocalHttp,
         ),
-    );
+    )
+    .layer(MockConnectInfo(SocketAddr::from(([192, 0, 2, 61], 443))));
     let account_cookie = format!("{ACCOUNT_SESSION_COOKIE}={}", account_secret.encoded());
     let started = app
         .clone()
@@ -365,4 +453,98 @@ async fn signed_in_account_changes_email_only_after_new_address_verification() {
         .await
         .expect("replay response");
     assert_eq!(replay.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn account_email_change_has_principal_network_and_recoverable_retry_budget() {
+    let store = Arc::new(MemoryStore::default());
+    store
+        .set_authoritative_time(question_model::ActivityTimestamp::from_unix_millis(3_000))
+        .expect("fixture clock");
+    let user = UserId::from_uuid(uuid::Uuid::from_u128(60_100));
+    let token_hash = EmailChallengeSecretHash::compute(b"principal-limit-token");
+    let browser_binding = BrowserBindingHash::compute(b"principal-limit-binding");
+    store
+        .begin_email_authentication(BeginEmailAuthentication {
+            id: EmailChallengeId::from_uuid(uuid::Uuid::from_u128(60_101)),
+            token_hash,
+            browser_binding,
+            email_rate_limit_key: AuthenticationRateLimitKey::compute(b"principal-limit-email"),
+            email: AuthenticationEmail::parse("principal@example.edu").expect("email"),
+            purpose: EmailAuthenticationPurpose::SignInOrRegister,
+            lifetime: EmailChallengeLifetime::from_seconds(600).expect("lifetime"),
+        })
+        .await
+        .expect("account challenge");
+    store
+        .complete_email_authentication(CompleteEmailAuthentication {
+            token_hash,
+            browser_binding,
+            proposed_user: user,
+            proposed_display_name: "Principal Learner".to_string(),
+        })
+        .await
+        .expect("account");
+    let account_secret = RandomSecret([0x63; SECRET_BYTES]);
+    store
+        .create_account_session(
+            AccountSessionTokenHash::compute(&account_secret.0),
+            user,
+            AccountSessionLifetime::from_seconds(ACCOUNT_SESSION_SECONDS).expect("lifetime"),
+        )
+        .await
+        .expect("account session");
+    let delivery = Arc::new(RecordingEmailDelivery::default());
+    let route_delivery: Arc<dyn PasswordlessEmailDelivery> = delivery.clone();
+    let app = passwordless_router(
+        Arc::clone(&store),
+        route_delivery,
+        PasswordlessRateLimitIssuer::from_server_secret([0x64; 32]),
+        ClientAddressPolicy::direct(),
+        SessionConfig::new(
+            learning_data_access::SessionLifetime::from_seconds(3_600).expect("session lifetime"),
+            CookieTransport::LocalHttp,
+        ),
+    )
+    .layer(MockConnectInfo(SocketAddr::from(([192, 0, 2, 63], 443))));
+    let account_cookie = format!("{ACCOUNT_SESSION_COOKIE}={}", account_secret.encoded());
+    let mut accepted = 0;
+    let mut throttled = false;
+    for attempt in 0..100 {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/auth/account/email/start")
+                    .header("content-type", "application/json")
+                    .header("cookie", &account_cookie)
+                    .body(Body::from(
+                        serde_json::json!({ "email": format!("new-{attempt}@example.edu") })
+                            .to_string(),
+                    ))
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        match response.status() {
+            StatusCode::ACCEPTED => accepted += 1,
+            StatusCode::TOO_MANY_REQUESTS => {
+                let retry_after = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|value| value.to_str().ok())
+                    .and_then(|value| value.parse::<u32>().ok());
+                assert!(retry_after.is_some_and(|seconds| seconds > 0));
+                throttled = true;
+                break;
+            }
+            status => panic!("unexpected email-change response: {status}"),
+        }
+    }
+    assert!(
+        throttled,
+        "principal quota must bound cross-address retries"
+    );
+    assert_eq!(delivery.count(), accepted);
 }

@@ -4,29 +4,113 @@ use super::backend::ConfiguredImathas;
 use super::*;
 
 pub(super) struct StorageSettings {
+    pub(super) runtime: StorageRuntime,
     pub(super) database_url: String,
-    pub(super) s3_endpoint: String,
-    pub(super) s3_region: String,
-    pub(super) access_key_id: String,
-    pub(super) secret_access_key: String,
-    pub(super) content_bucket: String,
+    pub(super) object_connection: ObjectStorageConnection,
+    pub(super) public_assets_bucket: String,
+    pub(super) private_content_bucket: String,
     pub(super) student_records_bucket: String,
     pub(super) temp_processing_bucket: String,
 }
 
+#[derive(Debug, Clone)]
+pub(super) enum ObjectStorageConnection {
+    LocalMinio(objects::minio::EndpointConfig),
+    AwsContainerRole {
+        client: objects::aws::ContainerRoleConfig,
+        kms_keys: objects::s3::KmsKeyNames,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum StorageRuntime {
+    #[cfg_attr(not(feature = "local-development-auth"), allow(dead_code))]
+    LocalDevelopment,
+    Api,
+    Worker,
+    PublicAssetPublisher,
+}
+
 impl StorageSettings {
-    pub(super) fn from_env() -> Result<Self> {
+    pub(super) fn from_env(runtime: StorageRuntime) -> Result<Self> {
+        let database_variable = match runtime {
+            StorageRuntime::Worker => "PLE_WORKER_DATABASE_URL",
+            StorageRuntime::PublicAssetPublisher => "PLE_PUBLISHER_DATABASE_URL",
+            StorageRuntime::LocalDevelopment | StorageRuntime::Api => "DATABASE_URL",
+        };
+        let region = required_env("PLE_S3_REGION")?;
+        let object_connection = match runtime {
+            StorageRuntime::LocalDevelopment => {
+                ObjectStorageConnection::LocalMinio(objects::minio::EndpointConfig {
+                    endpoint_url: required_env("PLE_S3_ENDPOINT")?,
+                    region,
+                    access_key_id: required_env("AWS_ACCESS_KEY_ID")?,
+                    secret_access_key: required_env("AWS_SECRET_ACCESS_KEY")?,
+                })
+            }
+            StorageRuntime::Api | StorageRuntime::Worker | StorageRuntime::PublicAssetPublisher => {
+                reject_present_env("PLE_S3_ENDPOINT")?;
+                reject_present_env("AWS_ACCESS_KEY_ID")?;
+                reject_present_env("AWS_SECRET_ACCESS_KEY")?;
+                reject_present_env("AWS_SESSION_TOKEN")?;
+                ObjectStorageConnection::AwsContainerRole {
+                    client: objects::aws::ContainerRoleConfig { region },
+                    kms_keys: objects::s3::KmsKeyNames::new(
+                        required_env("PLE_PUBLIC_ASSETS_KMS_KEY_ARN")?,
+                        required_env("PLE_PRIVATE_CONTENT_KMS_KEY_ARN")?,
+                        required_env("PLE_STUDENT_RECORDS_KMS_KEY_ARN")?,
+                        required_env("PLE_TEMP_PROCESSING_KMS_KEY_ARN")?,
+                    )
+                    .map_err(anyhow::Error::msg)?,
+                }
+            }
+        };
+        let public_assets_bucket = required_env("PLE_PUBLIC_ASSETS_BUCKET")?;
+        let private_content_bucket = required_env("PLE_PRIVATE_CONTENT_BUCKET")?;
+        let student_records_bucket = required_env("PLE_STUDENT_RECORDS_BUCKET")?;
+        let temp_processing_bucket = required_env("PLE_TEMP_PROCESSING_BUCKET")?;
+        validate_object_bucket_names(
+            &public_assets_bucket,
+            &private_content_bucket,
+            &student_records_bucket,
+            &temp_processing_bucket,
+        )?;
         Ok(Self {
-            database_url: required_env("DATABASE_URL")?,
-            s3_endpoint: required_env("PLE_S3_ENDPOINT")?,
-            s3_region: required_env("PLE_S3_REGION")?,
-            access_key_id: required_env("AWS_ACCESS_KEY_ID")?,
-            secret_access_key: required_env("AWS_SECRET_ACCESS_KEY")?,
-            content_bucket: required_env("PLE_CONTENT_BUCKET")?,
-            student_records_bucket: required_env("PLE_STUDENT_RECORDS_BUCKET")?,
-            temp_processing_bucket: required_env("PLE_TEMP_PROCESSING_BUCKET")?,
+            runtime,
+            database_url: required_env(database_variable)?,
+            object_connection,
+            public_assets_bucket,
+            private_content_bucket,
+            student_records_bucket,
+            temp_processing_bucket,
         })
     }
+}
+
+/// Rejects deployments which point two security domains at one physical
+/// bucket. KMS separation cannot compensate for this collapse: S3 policies,
+/// object retention, CDN access, and IAM grants are bucket-scoped.
+pub(super) fn validate_object_bucket_names(
+    public_assets: &str,
+    private_content: &str,
+    student_records: &str,
+    temp_processing: &str,
+) -> Result<()> {
+    let names = [
+        public_assets,
+        private_content,
+        student_records,
+        temp_processing,
+    ];
+    if names.iter().any(|name| name.trim() != *name)
+        || names
+            .iter()
+            .enumerate()
+            .any(|(index, name)| names.iter().skip(index + 1).any(|other| name == other))
+    {
+        bail!("object security domains require four distinct, trimmed bucket names");
+    }
+    Ok(())
 }
 
 pub(super) struct LazyStorageDependencies {
@@ -37,24 +121,44 @@ pub(super) struct LazyStorageDependencies {
 }
 
 impl LazyStorageDependencies {
-    pub(super) fn from_settings(settings: &StorageSettings) -> Result<Self> {
-        let pool = lazy_pool(&settings.database_url)
-            .context("DATABASE_URL rejected by PostgreSQL driver")?;
+    pub(super) async fn from_settings(settings: &StorageSettings) -> Result<Self> {
+        let pool = match settings.runtime {
+            StorageRuntime::LocalDevelopment => lazy_pool(&settings.database_url),
+            StorageRuntime::Api => {
+                production_pool(&settings.database_url, ProductionLoginProfile::Api)
+            }
+            StorageRuntime::Worker => {
+                production_pool(&settings.database_url, ProductionLoginProfile::Worker)
+            }
+            StorageRuntime::PublicAssetPublisher => {
+                production_pool(&settings.database_url, ProductionLoginProfile::Publisher)
+            }
+        }
+        .map_err(|_| anyhow::anyhow!("database connection configuration was rejected"))?;
         let store = Arc::new(PostgresStore::new(pool.clone()));
-        let object_client = objects::minio::client(&objects::minio::EndpointConfig {
-            endpoint_url: settings.s3_endpoint.clone(),
-            region: settings.s3_region.clone(),
-            access_key_id: settings.access_key_id.clone(),
-            secret_access_key: settings.secret_access_key.clone(),
-        });
-        let objects = Arc::new(objects::s3::S3ObjectStore::new(
-            object_client.clone(),
-            objects::s3::BucketNames {
-                content: settings.content_bucket.clone(),
-                student_records: settings.student_records_bucket.clone(),
-                temp_processing: settings.temp_processing_bucket.clone(),
-            },
-        ));
+        let buckets = objects::s3::BucketNames {
+            public_assets: settings.public_assets_bucket.clone(),
+            private_content: settings.private_content_bucket.clone(),
+            student_records: settings.student_records_bucket.clone(),
+            temp_processing: settings.temp_processing_bucket.clone(),
+        };
+        let (object_client, objects) = match &settings.object_connection {
+            ObjectStorageConnection::LocalMinio(settings) => {
+                let client = objects::minio::client(settings);
+                let store = objects::s3::S3ObjectStore::new(client.clone(), buckets);
+                (client, store)
+            }
+            ObjectStorageConnection::AwsContainerRole { client, kms_keys } => {
+                let client = objects::aws::container_role_client(client).await;
+                let store = objects::s3::S3ObjectStore::new_kms_encrypted(
+                    client.clone(),
+                    buckets,
+                    kms_keys.clone(),
+                );
+                (client, store)
+            }
+        };
+        let objects = Arc::new(objects);
         Ok(Self {
             store,
             objects,
@@ -64,9 +168,51 @@ impl LazyStorageDependencies {
     }
 }
 
+/// Object-storage and database dependencies for the publisher's distinct
+/// process identity. It never constructs a general `PostgresStore`.
+pub(super) struct PublisherStorageDependencies {
+    pub(super) store: Arc<learning_data_access::postgres::PostgresPublicAssetPublisherStore>,
+    pub(super) objects: Arc<objects::s3::S3ObjectStore>,
+    pub(super) pool: Pool,
+}
+
+impl PublisherStorageDependencies {
+    pub(super) async fn from_settings(settings: &StorageSettings) -> Result<Self> {
+        if settings.runtime != StorageRuntime::PublicAssetPublisher {
+            bail!("publisher dependencies require the publisher runtime");
+        }
+        let pool = production_pool(&settings.database_url, ProductionLoginProfile::Publisher)
+            .map_err(|_| anyhow::anyhow!("database connection configuration was rejected"))?;
+        let buckets = objects::s3::BucketNames {
+            public_assets: settings.public_assets_bucket.clone(),
+            private_content: settings.private_content_bucket.clone(),
+            student_records: settings.student_records_bucket.clone(),
+            temp_processing: settings.temp_processing_bucket.clone(),
+        };
+        let objects = match &settings.object_connection {
+            ObjectStorageConnection::AwsContainerRole { client, kms_keys } => {
+                let client = objects::aws::container_role_client(client).await;
+                objects::s3::S3ObjectStore::new_kms_encrypted(client, buckets, kms_keys.clone())
+            }
+            ObjectStorageConnection::LocalMinio(_) => {
+                bail!("publisher runtime must use workload-owned AWS credentials");
+            }
+        };
+        Ok(Self {
+            store: Arc::new(
+                learning_data_access::postgres::PostgresPublicAssetPublisherStore::new(
+                    pool.clone(),
+                ),
+            ),
+            objects: Arc::new(objects),
+            pool,
+        })
+    }
+}
+
 pub(super) struct ProductionSettings {
     pub(super) storage: StorageSettings,
-    pub(super) public_asset_base_url: String,
+    pub(super) public_asset_base_url: PublicAssetBaseUrl,
     pub(super) webwork: Option<WebworkRendererSettings>,
     pub(super) imathas_provider_key: Option<String>,
     pub(super) qti_runtime_enabled: Option<String>,
@@ -74,6 +220,8 @@ pub(super) struct ProductionSettings {
     pub(super) enrollment_secret: Option<EnrollmentSecretSettings>,
     pub(super) enrollment_email: Option<EnrollmentEmailSettings>,
     pub(super) webauthn: crate::auth::PasswordlessWebauthn,
+    pub(super) browser_boundary: crate::auth::ProductionBrowserBoundary,
+    pub(super) client_address_policy: crate::auth::ClientAddressPolicy,
 }
 
 pub(super) struct EnrollmentEmailSettings {
@@ -99,10 +247,29 @@ pub(super) struct WebworkRendererSettings {
 }
 
 impl ProductionSettings {
-    pub(super) fn from_env() -> Result<Self> {
+    pub(super) fn from_env(runtime: StorageRuntime) -> Result<Self> {
+        let public_asset_base_url = match runtime {
+            StorageRuntime::LocalDevelopment => {
+                PublicAssetBaseUrl::local_development(required_env("PLE_PUBLIC_ASSET_BASE_URL")?)
+            }
+            StorageRuntime::Api | StorageRuntime::Worker | StorageRuntime::PublicAssetPublisher => {
+                PublicAssetBaseUrl::new(required_env("PLE_PUBLIC_ASSET_BASE_URL")?)
+            }
+        }
+        .map_err(|_| anyhow::anyhow!("PLE_PUBLIC_ASSET_BASE_URL is invalid"))?;
+        let client_address_policy = match runtime {
+            StorageRuntime::LocalDevelopment => crate::auth::ClientAddressPolicy::direct(),
+            StorageRuntime::Api | StorageRuntime::Worker | StorageRuntime::PublicAssetPublisher => {
+                crate::auth::ClientAddressPolicy::behind_trusted_proxies(&required_env(
+                    "PLE_TRUSTED_PROXY_CIDRS",
+                )?)
+                .map_err(anyhow::Error::msg)?
+            }
+        };
+        let webauthn_origin = required_env("PLE_WEBAUTHN_ORIGIN")?;
         Ok(Self {
-            storage: StorageSettings::from_env()?,
-            public_asset_base_url: required_env("PLE_PUBLIC_ASSET_BASE_URL")?,
+            storage: StorageSettings::from_env(runtime)?,
+            public_asset_base_url,
             webwork: WebworkRendererSettings::from_env()?,
             imathas_provider_key: std::env::var("PLE_IMATHAS_PROVIDER_KEY").ok(),
             qti_runtime_enabled: std::env::var("PLE_QTI_RUNTIME_ENABLED").ok(),
@@ -111,10 +278,15 @@ impl ProductionSettings {
             enrollment_email: EnrollmentEmailSettings::from_env()?,
             webauthn: crate::auth::PasswordlessWebauthn::new(
                 &required_env("PLE_WEBAUTHN_RP_ID")?,
-                &required_env("PLE_WEBAUTHN_ORIGIN")?,
+                &webauthn_origin,
                 &required_env("PLE_WEBAUTHN_RP_NAME")?,
             )
             .map_err(anyhow::Error::msg)?,
+            browser_boundary: crate::auth::ProductionBrowserBoundary::new(Arc::from(
+                webauthn_origin,
+            ))
+            .map_err(anyhow::Error::msg)?,
+            client_address_policy,
         })
     }
 
@@ -138,14 +310,18 @@ impl ProductionSettings {
         }
         let base = required_env("PLE_IMATHAS_BASE_URL")?;
         let timeout = positive_u64_env("PLE_IMATHAS_REQUEST_TIMEOUT_SECONDS")?;
+        let provider_timeout = std::time::Duration::from_secs(timeout);
+        let external_tool_timing =
+            crate::imathas_backend::ExternalToolTiming::from_provider_timeout(provider_timeout)
+                .map_err(anyhow::Error::msg)?;
         let transport_bytes = positive_usize_env("PLE_IMATHAS_MAX_TRANSPORT_BYTES")?;
         let snapshot_bytes = positive_usize_env("PLE_IMATHAS_MAX_SNAPSHOT_BYTES")?;
         let result_bytes = positive_usize_env("PLE_IMATHAS_MAX_RESULT_BYTES")?;
         let ttl = positive_u64_env("PLE_IMATHAS_LAUNCH_TTL_MILLIS")?;
         let launch_state = decode_secret32("PLE_IMATHAS_LAUNCH_STATE_SECRET")?;
         let correlation_secret = decode_secret32("PLE_IMATHAS_CORRELATION_SECRET")?;
-        let launch_signing = required_env("PLE_IMATHAS_LAUNCH_SIGNING_SECRET")?;
-        let result_verify = required_env("PLE_IMATHAS_RESULT_VERIFICATION_SECRET")?;
+        let launch_signing = decode_secret32("PLE_IMATHAS_LAUNCH_SIGNING_SECRET")?;
+        let result_verify = decode_secret32("PLE_IMATHAS_RESULT_VERIFICATION_SECRET")?;
         let auth_name = std::env::var("PLE_IMATHAS_PROVIDER_AUTH_HEADER_NAME").ok();
         let auth_value = std::env::var("PLE_IMATHAS_PROVIDER_AUTH_VALUE").ok();
         let auth = match (auth_name, auth_value) {
@@ -160,21 +336,14 @@ impl ProductionSettings {
         let profile =
             ScoredEmbedProfileConfig::contracted_self_hosted(provider_key.clone(), true, true)
                 .map_err(|_| anyhow::anyhow!("PLE_IMATHAS contracted profile is invalid"))?;
-        let provider_config = ContractedScoredEmbedConfig::new(
-            profile,
-            launch_signing.as_bytes(),
-            result_verify.as_bytes(),
-            ttl,
-        )
-        .map_err(|_| anyhow::anyhow!("PLE_IMATHAS contracted profile is invalid"))?
-        .with_limits(snapshot_bytes, result_bytes)
-        .map_err(|_| anyhow::anyhow!("PLE_IMATHAS limits are invalid"))?;
-        let transport_config = HttpContractedScoredEmbedConfig::https(
-            &base,
-            std::time::Duration::from_secs(timeout),
-            transport_bytes,
-        )
-        .map_err(|_| anyhow::anyhow!("PLE_IMATHAS transport configuration is invalid"))?;
+        let provider_config =
+            ContractedScoredEmbedConfig::new(profile, launch_signing, result_verify, ttl)
+                .map_err(|_| anyhow::anyhow!("PLE_IMATHAS contracted profile is invalid"))?
+                .with_limits(snapshot_bytes, result_bytes)
+                .map_err(|_| anyhow::anyhow!("PLE_IMATHAS limits are invalid"))?;
+        let transport_config =
+            HttpContractedScoredEmbedConfig::https(&base, provider_timeout, transport_bytes)
+                .map_err(|_| anyhow::anyhow!("PLE_IMATHAS transport configuration is invalid"))?;
         let transport_config = match auth {
             Some(value) => transport_config
                 .with_private_auth(&value)
@@ -200,6 +369,7 @@ impl ProductionSettings {
             Arc::clone(objects),
             adapter,
             Arc::new(CorrelationIssuer::from_server_secret(correlation_secret)),
+            external_tool_timing,
         ));
         Ok(Some(ConfiguredImathas {
             backend,
@@ -395,6 +565,15 @@ pub(super) fn required_env(name: &str) -> Result<String> {
         bail!("{name} must not be empty");
     }
     Ok(value)
+}
+
+fn reject_present_env(name: &str) -> Result<()> {
+    match std::env::var(name) {
+        Err(std::env::VarError::NotPresent) => Ok(()),
+        Ok(_) | Err(std::env::VarError::NotUnicode(_)) => {
+            bail!("{name} is forbidden in production")
+        }
+    }
 }
 
 fn read_secret_file(path: &str, name: &str) -> Result<String> {

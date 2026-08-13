@@ -339,6 +339,14 @@ pub(super) fn encode_payload<T: Serialize>(
 pub(super) fn decode_payload_row<T: DeserializeOwned>(row: &PgRow) -> Result<T, StoreError> {
     let Json(value): Json<Value> = row.try_get("payload").map_err(map_sqlx_error)?;
     let expected: String = row.try_get("payload_sha256").map_err(map_sqlx_error)?;
+    decode_payload_parts(value, expected)
+}
+
+#[cfg(feature = "postgres")]
+pub(super) fn decode_payload_parts<T: DeserializeOwned>(
+    value: Value,
+    expected: String,
+) -> Result<T, StoreError> {
     let bytes =
         serde_json::to_vec(&value).map_err(|error| StoreError::Unavailable(error.to_string()))?;
     if Sha256Digest::compute(&bytes).to_string() != expected {

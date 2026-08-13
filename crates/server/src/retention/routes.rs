@@ -10,7 +10,7 @@ use question_model::CourseId;
 use crate::auth::{auth_error_response, resolve_request_session};
 
 use super::RetentionRouteState;
-use super::access::require_course_manager;
+use super::access::require_course_retention_authority;
 use super::parsing::{
     ArchiveRequest, ExtendRequest, IfMatchError, is_application_json_content_type,
     parse_strict_json, read_body, required_if_match_revision,
@@ -32,7 +32,7 @@ where
         Err(error) => return auth_error_response(error),
     };
     if let Err(response) =
-        require_course_manager(state.store.as_ref(), &authenticated, course).await
+        require_course_retention_authority(state.store.as_ref(), &authenticated, course).await
     {
         return response;
     }
@@ -77,7 +77,7 @@ where
         Err(error) => return auth_error_response(error),
     };
     if let Err(response) =
-        require_course_manager(state.store.as_ref(), &authenticated, course).await
+        require_course_retention_authority(state.store.as_ref(), &authenticated, course).await
     {
         return response;
     }
@@ -125,7 +125,7 @@ where
         Err(error) => return auth_error_response(error),
     };
     if let Err(response) =
-        require_course_manager(state.store.as_ref(), &authenticated, course).await
+        require_course_retention_authority(state.store.as_ref(), &authenticated, course).await
     {
         return response;
     }
@@ -182,7 +182,7 @@ where
         Err(error) => return auth_error_response(error),
     };
     if let Err(response) =
-        require_course_manager(state.store.as_ref(), &authenticated, course).await
+        require_course_retention_authority(state.store.as_ref(), &authenticated, course).await
     {
         return response;
     }
@@ -228,14 +228,20 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    let access = match require_course_manager(state.store.as_ref(), &authenticated, course).await {
+    let access = match require_course_retention_authority(
+        state.store.as_ref(),
+        &authenticated,
+        course,
+    )
+    .await
+    {
         Ok(access) => access,
         Err(response) => return response,
     };
-    if !access.is_admin {
+    if !access.is_sysadmin {
         return error_response(
             StatusCode::FORBIDDEN,
-            "retention extension is administrator-only",
+            "retention extension is sysadmin-only",
         );
     }
     let expected_revision = match expected_revision(&headers) {

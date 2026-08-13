@@ -251,9 +251,9 @@ Three weaknesses neither review named, each becoming a requirement here:
 | Content storage      | Split by role with a size backstop (below)                                                                              | Answers the owner's direct question                                                                                                                                                                                    |
 | Flat question source | Versioned PLE flat-question JSON, compiled into separate public and grader-only values                                  | Keeps ordinary static authoring small and deterministic; QTI remains an import/export adapter instead of defining the internal model                                                                                   |
 | Catalog table split  | `problem_version` metadata separate from hash-partitioned `problem_version_payload`                                     | 10 M payloads is ~100 GB; browse and search must run on the ~2 GB metadata table                                                                                                                                       |
-| Object storage       | S3 with three buckets; MinIO locally                                                                                    | Different retention, access, and logging policies per bucket                                                                                                                                                           |
-| Asset delivery       | CDN with long-lived immutable URLs for public content; authorized short-lived URLs for secure and student-record assets | Routing 50,000 students' image requests through the API is waste; immutable keys make CDN caching safe for non-records                                                                                                 |
-| Rendered output      | Cached by `(version_id, seed)` in the `content` bucket and CDN                                                          | Rendering is deterministic, so a Perl fork becomes a CDN hit. Determinism pays for itself twice                                                                                                                        |
+| Object storage       | S3 with four physical security domains; MinIO locally                                                                   | `public-assets`, `private-content`, `student-records`, and `temp-processing` have distinct IAM/KMS, retention, and delivery policies                                                                                  |
+| Asset delivery       | CloudFront immutable URLs for activated public catalog assets; authorized POST-minted short-lived URLs for private/student records | CDN handles non-record public bytes; a protected navigation cannot mint an access grant                                                                                                                        |
+| Rendered output      | Cached by `(version_id, seed)` in `private-content`; no public renderer feature until externally managed renderer attestation | Rendering remains deterministic, but the renderer is outside the production baseline until its identity and isolation are independently accepted                                                                        |
 | Session storage      | Opaque session ID cookie, session row in the database                                                                   | Works across replicas and stays revocable                                                                                                                                                                              |
 | Timer clock          | Timestamps from PostgreSQL, never a process clock                                                                       | Replica clock skew would otherwise change verdicts                                                                                                                                                                     |
 | Background work      | `worker` container pool on a jobs table with `FOR UPDATE SKIP LOCKED`                                                   | Import, export, and renderer work leave the request path                                                                                                                                                               |
@@ -345,16 +345,18 @@ browser                     ALB          stateless replicas
 |  | NO answers       |  |           +----------------------------+
 |  +------------------+  |             |            |         |
 +------------------------+             v            v         v
-        ^                       PostgreSQL      jobs queue   S3
-        | public assets         one cluster:        |      3 buckets
-   CloudFront (immutable)       shared content      v
-        |                       + tenant rows   worker x N
-   /api/assets (authorized)     + forced RLS    export, import,
-                                                renderer fill
+        ^                       PostgreSQL      jobs queue   S3: four domains
+        | immutable catalog      one cluster:        |      public-assets
+   CloudFront (tag-gated)        shared content      v      private-content
+        |                        + tenant rows   worker x N  student-records
+   POST /api/assets/{id}         + forced RLS    exports,     temp-processing
+   for protected delivery                        imports
                                                      |
+                                                     +--> dedicated public-asset publisher
+                                                     |    (only public-object writer)
                                                      v
-                                              renderer x N
-                                              WeBWorK PG, private
+                                             externally managed renderer
+                                             (disabled until attested)
 ```
 
 ### The sharing boundary
@@ -392,13 +394,21 @@ application connects as a non-superuser role that cannot bypass it, and the tena
 a session variable set from the authenticated session -- never from a client-supplied parameter. A
 test in `tests/e2e/` sets a foreign tenant context and asserts zero rows.
 
-Buckets, separated so retention, access, and logging policies differ:
+Object-storage domains are physically separated so IAM, encryption keys, retention, and delivery
+policy are enforceable rather than conventions:
 
-| Bucket            | Contents                                                      | Delivery                                                                          | Retention                        |
-| ----------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------- |
-| `content`         | Source packages, shared assets, cached renders                | CDN, immutable URLs for public content; authorized 60-min URLs for secure content | Indefinite, versioned            |
-| `student-records` | Student-specific exports, uploaded responses, annotated exams | Authorized 5-min URLs, always logged                                              | Explicit expiration and deletion |
-| `temp-processing` | Extraction and conversion workspaces                          | Never served                                                                      | Lifecycle rule, days             |
+| Domain              | Contents                                                                | Delivery                                                                                       | Authority and retention |
+| ------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ----------------------- |
+| `public-assets`     | Published shared catalog assets only                                    | CloudFront only, immutable keys, exact public tag required                                    | Dedicated publisher is the only writer; published tags/bytes cannot be mutated |
+| `private-content`   | Source packages, restricted institution assets, cached/private renders | Authorized application path only; no CDN origin                                                | API/workers use least privilege; immutable published source/version records |
+| `student-records`   | Student-specific exports, uploads, annotated exams                      | Authorized `POST /api/assets/{id}` then short-lived URL, always logged                         | Explicit expiration and deletion; five-minute signed URLs |
+| `temp-processing`   | Extraction, conversion, and inspection workspaces                       | Never served or signable                                                                        | Isolated worker-only lifecycle in days |
+
+Publication first stores candidate bytes and a pending registry in `private-content` in the same
+catalog transaction that enqueues `PublishPublicAssets`. A dedicated publisher database login and
+service re-resolve the pending record, verify exact source bytes and checksum, write the final tagged
+immutable object to `public-assets`, then lease-conditionally activate the registry. A crash before
+activation leaves the asset unavailable rather than public or partially committed.
 
 Crates and their forbidden dependencies:
 
@@ -493,7 +503,7 @@ What each stage touches:
 Wording matters in the notification, because "reset" sounds like breakage. The instructor-facing copy
 is: _This course ended 30 days ago. Student records are still available. If they are no longer needed,
 archive or delete the course now. Student records will be automatically removed after 100 days unless
-the course is archived or the retention period is extended by an administrator._
+the course is archived or the retention period is extended by a sysadmin._
 
 Retention is configurable per institution because institutional policy varies -- 100 days, one year,
 five years, or never-automatic for a research institution -- with the privacy-preserving default
@@ -573,7 +583,7 @@ Three publication scopes, each a different visibility contract:
 | ------------- | ---------------------------------------------- | ----------------------------------------------------------------------------- |
 | `private`     | The owning workspace and invited collaborators | Nothing                                                                       |
 | `institution` | Every course in the tenant                     | Validation passing                                                            |
-| `public`      | The shared catalog, every tenant               | Publisher role, validation passing, and an optional institutional review gate |
+| `public`      | The shared catalog, every tenant               | Instructor or Sysadmin action, validation passing, and an optional institutional review gate |
 
 The review gate is configurable per institution and off by default, because a two-instructor
 deployment does not need editorial process and a large institution may require it.
@@ -604,9 +614,9 @@ reproducibility record for attempts already taken.
 Keys are immutable and derived from IDs and versions, never from user-supplied filenames:
 
 ```text
-content/problems/{problem_id}/versions/{version_id}/source/qti-package.zip
-content/problems/{problem_id}/versions/{version_id}/assets/{asset_id}.png
-content/problems/{problem_id}/versions/{version_id}/renders/{seed}.html
+private-content/problems/{problem_id}/versions/{version_id}/source/{object_id}
+public-assets/problems/{problem_id}/versions/{version_id}/assets/{asset_id}/{object_id}
+private-content/problems/{problem_id}/versions/{version_id}/restricted-assets/{asset_id}/{object_id}
 student-records/exports/{tenant_id}/{export_id}/exam.pdf
 temp-processing/imports/{import_id}/
 ```
@@ -615,9 +625,11 @@ Every object record carries `object_id`, `bucket`, `key`, `sha256`, `size_bytes`
 `category` (`source` / `asset` / `render` / `export`), `license`, `provenance`, `created_at`.
 
 Requests resolve assets from a known object record and read pre-parsed models, so bucket listings and
-archive parsing stay in the worker at import time. Public content assets are served from the CDN by
-immutable URL; secure and student-record assets go through `/api/assets/{id}`, which authorizes, logs,
-and redirects to a short-lived signed URL.
+archive parsing stay in the worker at import time. Public catalog assets are served from CloudFront by
+an immutable URL only after the publisher activates a precisely tagged `public-assets` record.
+Restricted content and student records require `POST /api/assets/{id}`; the server authenticates and
+authorizes the actor, logs the grant, and returns a bounded short-lived signed URL. There is no
+protected GET route whose browser navigation, history, or speculative fetch can mint authority.
 
 The `renders/{seed}` prefix is what makes the WeBWorK renderer affordable: rendering is deterministic
 given `(version_id, seed)`, so the first render fills the cache and every later student with that seed
@@ -1092,7 +1104,7 @@ table above.
 | Playwright accessibility | Keyboard-only completion of a full run, focus order across attempt phases, live-region announcements, contrast measured against `docs/COLOR_CONTRAST_ACCESSIBILITY.md` |
 | Playwright network       | Offline submit and recovery, slow renderer, expired session mid-run, WASM instantiation failure falling back to server validation                                      |
 | Playwright visual        | Feedback panel states and timer states, where a rendering regression is easier to see than to assert                                                                   |
-| Interaction latency      | Measured and recorded per interaction as a baseline, compared for regression rather than against a chosen number                                                       |
+| Interaction latency      | Recorded during named release or usability investigations; not a permanent browser assertion until PLE has a reproducible benchmark environment and an approved user-facing SLO |
 
 ### Instructor surfaces
 
@@ -1166,7 +1178,7 @@ substitution for a required production path.
 | MOD-API-CAT      | Catalog routes                                                           | `/problems`, taxonomy, publish                                                | MOD-STO, MOD-ID, MOD-CAP                                              | `MemoryStore`                        | Publish refuses on violations; drafts hold no `problem_id`; cursor paging                                                                                                                                                           |
 | MOD-API-COURSE   | Course routes                                                            | `/courses`, `/assignments`                                                    | MOD-STO                                                               | `MemoryStore`                        | Assignments store `(problem_id, version_id)`                                                                                                                                                                                        |
 | MOD-API-RUN      | Run and attempt routes                                                   | `/runs`, `/attempts`, `/submissions`, `/grading`                              | MOD-STO, MOD-RUN, MOD-STATE, MOD-TIME, MOD-GRD                        | `MemoryStore`                        | DB timestamps; idempotent replay; summary updated transactionally; no key in any response                                                                                                                                           |
-| MOD-API-ASSET    | Asset delivery                                                           | `/assets/{id}`                                                                | MOD-OBJ, MOD-STO                                                      | `MemoryObjectStore`                  | Authorizes, logs, short-lived URL; public assets bypass to CDN                                                                                                                                                                      |
+| MOD-API-ASSET    | Asset delivery                                                           | `POST /api/assets/{id}`                                                      | MOD-OBJ, MOD-STO                                                      | `MemoryObjectStore`                  | Authorizes and logs before a bounded signed URL; only activated public catalog assets bypass to CDN                                                                                                                                    |
 | MOD-WORKER       | Jobs queue and worker pool                                               | Enqueue and drain                                                             | MOD-STO                                                               | `MemoryStore`                        | Two workers never claim one job; scales on queue depth                                                                                                                                                                              |
 | MOD-STATS        | Anonymous question statistics                                            | Incremental aggregation, k-anonymity gate                                     | MOD-RUN, MOD-STO                                                      | `MemoryStore`                        | Aggregates match a hand-computed fixture; below-threshold cohorts suppressed; aggregates survive record deletion                                                                                                                    |
 | MOD-RETENTION    | Retention lifecycle                                                      | Scheduled notify, archive, delete; per-institution config                     | MOD-STO, MOD-OBJ, MOD-STATS                                           | `MemoryStore`                        | 30/100/365-day stages fire; deletion removes records and bucket artifacts and leaves catalog content and statistics intact                                                                                                          |
@@ -1175,7 +1187,7 @@ substitution for a required production path.
 | MOD-UI-COURSE    | Course shell and appearance settings                                     | Course-scoped three-color theme, entry banner, instructor appearance workflow | MOD-UI-SHELL, MOD-CLIENT, MOD-API-COURSE, MOD-OBJ                     | Appearance mock repository           | Theme follows all course routes without global bleed; keyboard save/conflict flow; contrast and visual artifact gates                                                                                                               |
 | MOD-UI-WIDGETS   | Response widget set                                                      | One component per response type, with local format validation                 | MOD-WASM, WP-C9                                                       | Reference widget                     | Each widget satisfies `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`, is label-announced, and flags invalid shape without issuing a request                                                                                              |
 | MOD-UI-RENDER    | Question renderer                                                        | Envelope-to-component mapping, asset resolution, math and figure alternatives | MOD-UI-WIDGETS                                                        | Fixture envelopes                    | Every block kind renders; a sanitized-markup fixture renders without script execution; missing accessibility text surfaces as an authoring error                                                                                    |
-| MOD-UI-ATTEMPT   | Attempt loop                                                             | Submit, pending state, feedback disclosure, timer, prefetch, retry            | MOD-UI-RENDER, MOD-CLIENT                                             | Mock handlers                        | Full mastery run; 31st run; timer expiry; offline submit recovers; disclosure policy respected per mode                                                                                                                             |
+| MOD-UI-ATTEMPT   | Attempt loop                                                             | Submit, pending state, feedback disclosure, timer, prefetch, retry            | MOD-UI-RENDER, MOD-CLIENT                                             | Mock handlers                        | Full mastery run; long-history practice remains available; timer expiry; offline submit recovers; disclosure policy respected per mode                                                                                               |
 | MOD-UI-BROWSE    | Catalog browser                                                          | Virtualized cursor-paged list, facets, problem detail                         | MOD-CLIENT                                                            | Mock handlers                        | Ten-thousand-row synthetic list scrolls without a full fetch; facet counts come from aggregates                                                                                                                                     |
 | MOD-UI-EDITOR    | Draft and assignment editors                                             | Draft editing, WASM preview, policy controls, capability gating, publish flow | MOD-UI-RENDER, MOD-WASM                                               | Mock handlers                        | Preview generates a real variant per seed offline; a policy a backend cannot support marks the question and names the capability; publish shows the version diff                                                                    |
 | MOD-UI-GRADEBOOK | Gradebook                                                                | Summary-row views, run-history drill-down                                     | MOD-CLIENT                                                            | Mock handlers                        | Default view issues one summary query regardless of run count                                                                                                                                                                       |
@@ -1200,7 +1212,7 @@ Shared artifacts with exactly one owning module, so lanes never contend:
 | M0  | Foundation and toolchain | Workspace, Solid build, containers, gates                             | Both toolchains green on a hello-path                 |
 | M1  | Contract freeze          | Every contract, reference backend, and conformance suite              | Six or more lanes start without coordinating          |
 | M2  | Core lanes               | Domain, runs, grading boundary, storage, objects, native adapter, API | Parity, secrecy, and tenant-isolation gates green     |
-| M3  | Experience lanes         | Student and instructor UIs, worker pool, export                       | Latency baseline recorded; a 31st run works           |
+| M3  | Experience lanes         | Student and instructor UIs, worker pool, export                       | Long run history remains usable and correctly summarized |
 | M4  | Adapter lanes            | WeBWorK with render cache, QTI, H5P                                   | Three adapters live with zero diff in `crates/domain` |
 | M5  | Integration hardening    | Cross-cutting E2E, isolation, hostile inputs, retention               | Every gate green together, not just per lane          |
 | M6  | Platform and deploy      | LTI, analytics, AWS, autoscaling                                      | Passback verified; burst load scales out              |
@@ -1210,11 +1222,12 @@ Shared artifacts with exactly one owning module, so lanes never contend:
 - Depends on: none.
 - Deliverables: Cargo workspace with every crate present and compiling; Solid app rendering one route;
   `pipeline/build.mjs` producing `dist/main.js` plus the `.wasm` asset; compose bringing up `api`,
-  `postgres`, and `minio`; template defects fixed; `check_codebase.sh` extended with Rust gates.
+  `postgres`, and `minio`; template defects fixed; repository-owned `check_rust.sh` provides the Rust
+  gate without modifying the vendored `check_codebase.sh`.
 - Entry criteria: none.
-- Exit criteria: `./check_codebase.sh`, `cargo fmt --check`, `cargo clippy -- -D warnings`,
-  `cargo test`, and `pytest tests/` green; `podman compose up` yields `/health` 200 backed by a real
-  `SELECT 1` and a MinIO bucket probe.
+- Exit criteria: `./check_codebase.sh`, `./check_rust.sh`, and `pytest tests/` green; the separate
+  one-time local-stack acceptance yields `/health` 200 backed by a real `SELECT 1` and a MinIO bucket
+  probe.
 - Parallel-plan ready: no. Bootstrapping is serial; the workspace must compile before any lane starts.
 
 ### Milestone: M1 contract freeze
@@ -1271,7 +1284,8 @@ widget exist to build against.
   submissions, with the numbers written to the tracker as the baseline later runs compare against;
   end-to-end round trip recorded alongside it for context; a browser network trace confirmed free of
   any answer or key; answer-format validation confirmed to resolve locally with no request issued; a
-  student completes an assignment and starts a 31st run with fresh variants and a correct summary row;
+  student completes an assignment and starts another practice run with fresh variants and a correct
+  summary row after a varied retained history;
   publish refusal names the question and capability; a draft carries no catalog number; two workers
   each claim distinct jobs; four export artifacts produced from one fixture; one instructor changes
   a course theme/banner under CAS and a student sees the theme across every course route without a
@@ -1390,10 +1404,11 @@ permanent credentialed or network test.
 
 - Depends on: M5.
 - Deliverables: LTI Advantage passback; server-side aggregate views reading summaries and anonymous
-  statistics with no client analytics; OpenTofu AWS
-  deployment (Fargate target tracking, RDS PostgreSQL, three buckets, ALB, CloudFront, Secrets
-  Manager, CloudWatch); backup and retention policy; burst load test; FERPA control checklist with
-  evidence.
+  statistics with no client analytics; OpenTofu AWS deployment (Fargate API, worker, and dedicated
+  public-asset publisher; RDS PostgreSQL; four storage domains; ALB, CloudFront, Secrets Manager,
+  KMS, CloudWatch, and WAF); backup and retention policy; burst load test; FERPA control checklist
+  with evidence. The renderer remains externally managed and its feature stays disabled until its
+  production identity, network isolation, and security attestation are accepted.
 - Lanes: (1) MOD-LTI; (2) aggregate observability; (3) MOD-DEPLOY.
 - Entry criteria: M5 exit criteria met.
 - Exit criteria: passback verified against an LMS sandbox; encryption at rest and in transit
@@ -1415,8 +1430,8 @@ or implementer-authored specification is required.
 | WP-F1 | Create the Cargo workspace            | `expert_coder` | none         | Every crate in the boundary table exists and compiles empty; current edition; `Cargo.lock` committed; the forbidden-dependency column encoded as real absences, not comments                                                                                                                                                                                                                                                                                                              |
 | WP-F2 | Add the WASM build path               | `expert_coder` | WP-F1        | `wasm-bindgen` output into a gitignored staging dir; a trivial export callable from Node; current stable toolchain and version-matched runner                                                                                                                                                                                                                                                                                                                                             |
 | WP-F3 | Stand up Solid and the build pipeline | `expert_coder` | WP-F2        | `build_github_pages.sh` delegates to `node pipeline/build.mjs` with `esbuild-plugin-solid` and copies the `.wasm`; `tsconfig.json` gains `"jsx": "preserve"`, `"jsxImportSource": "solid-js"`, and an `exclude` for `OTHER_REPOS` and `target`; `src/log.ts` exists so no `console` appears in `src/`; placeholders filled matching `VERSION`; `clean` points at `devel/dist_clean.sh`                                                                                                    |
-| WP-F4 | Containerize api, postgres, minio     | `expert_coder` | WP-F1        | `containers/Containerfile.api` builds a multi-stage slim image under `podman build`; `containers/compose.yaml` brings up current stable PostgreSQL and MinIO with named volumes and creates three buckets; `/health` returns 200 only after exact migration/checksum compatibility verification and a bucket probe; credentials arrive at run time from the environment; `docs/LOCAL_STACK_OPERATIONS.md` records the commands and `docs/MACOS_PODMAN.md` records the macOS machine setup |
-| WP-F5 | Extend the check gate with Rust steps | `coder`        | WP-F1        | `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test --workspace` through the existing `step_run` helper; loud `SKIP` when `cargo` is absent, matching the script's honesty convention                                                                                                                                                                                                                                                                                         |
+| WP-F4 | Containerize api, postgres, minio     | `expert_coder` | WP-F1        | `containers/Containerfile.api` builds a multi-stage slim image under `podman build`; `containers/compose.yaml` brings up current stable PostgreSQL and MinIO with named volumes and creates the four named storage domains; `/health` returns 200 only after exact migration/checksum compatibility verification and a bucket probe; credentials arrive at run time from the environment; `docs/LOCAL_STACK_OPERATIONS.md` records the commands and `docs/MACOS_PODMAN.md` records the macOS machine setup |
+| WP-F5 | Add the repository-owned Rust gate    | `coder`        | WP-F1        | Root `check_rust.sh` owns contract generation, fixture verification, format, check, strict Clippy, native/all-feature tests and doctests, and the Wasm target check; the vendored `check_codebase.sh` remains untouched and Cargo absence fails with an actionable message                                                                                                                                                                                                            |
 | WP-F6 | Foundation documentation              | `coder`        | WP-F3, WP-F4 | README first paragraph pure prose under 250 chars passing `tests/test_readme_first_paragraph.py`; `docs/CODE_ARCHITECTURE.md` carries the container, boundary, bucket, and crate tables; `pytest tests/` green                                                                                                                                                                                                                                                                            |
 
 ### M1 contract-freeze packages
@@ -1452,10 +1467,11 @@ or implementer-authored specification is required.
 - Acceptance criteria: enrollment, run, and attempt as distinct types; the four policies
   (completion requirement, grade policy, continued practice, variation policy) are independent enums
   that compose freely; within-run completion is a derivation with no stored boolean; the summary
-  projection is a pure function of a run transition so the store can apply it transactionally; a test
-  drives 31 runs and asserts the summary matches a hand-computed expectation.
-- Evidence or review: the 31-run test is the artifact a reviewer reads, because it encodes the owner's
-  observed student behavior as a requirement.
+  projection is a pure function of a run transition so the store can apply it transactionally; compact
+  behavior tests cover varied completion and grade-policy histories against hand-computed outcomes
+  without making an arbitrary run count part of the contract.
+- Evidence or review: the transition examples are the artifact a reviewer reads because they encode
+  the owner's observed student behavior as requirements.
 - Next dependency: WP-C4 and WP-C5 consume this accepted package.
 
 #### Work package: WP-C4 freeze the store and object contracts with reference backends
@@ -1478,9 +1494,9 @@ or implementer-authored specification is required.
 - Owner: `tester`. Module: MOD-GEN (verification). Depends on: WP-C1.
 - Touch points: `crates/domain/tests/seed_vectors.json`, `crates/domain/tests/test_determinism.rs`,
   `crates/wasm/tests/test_determinism_wasm.rs`, `docs/DETERMINISM_CONTRACT.md`.
-- Acceptance criteria: the corpus covers every generator and every branch of its parameter space, with
-  a floor of 50 seeds per generator so coverage rather than a round number sets the size; each entry
-  records its expected output hash; the same assertions run under `cargo test` natively and
+- Acceptance criteria: a compact vector table covers every generator and materially distinct branch
+  of its parameter space; each entry records its expected output hash, but no test asserts a corpus
+  length; the same assertions run under `cargo test` natively and
   `wasm-bindgen-test` in headless Chromium; a failure names the first divergent seed; the contract
   states that `rand_chacha::ChaCha20Rng` is used because its algorithm carries a stability guarantee
   that `StdRng` does not, that `BTreeMap` is used wherever iteration order reaches output, and that
@@ -1494,12 +1510,14 @@ or implementer-authored specification is required.
 
 - Owner: `expert_coder`. Modules: MOD-GRD, MOD-WASM (boundary). Depends on: WP-C1.
 - Touch points: `crates/grading/src/lib.rs`, `crates/wasm/src/lib.rs`,
-  `tests/test_wasm_export_allowlist.mjs`, `tests/test_crate_boundaries.py`, `docs/SECURITY_MODEL.md`.
+  `tests/e2e/e2e_wasm_export_allowlist.mjs`, `tests/test_crate_boundaries.py`,
+  `docs/SECURITY_MODEL.md`.
 - Acceptance criteria: `crates/grading` holds the answer-bearing surface; answer _format_ validation,
   needing no key, stays in `crates/domain` so the browser can call it; the `.wasm` export list is
   compared against a committed allowlist so any new export fails the gate until deliberately added; a
-  second check asserts `crates/grading` is absent from the `wasm32` dependency closure; both run in
-  `check_codebase.sh`; the document states which side new code belongs on.
+  second check asserts `crates/grading` is absent from the `wasm32` dependency closure. The dependency
+  boundary runs in the fast architecture lane; the compiled-export inspection remains the explicit
+  non-browser E2E artifact gate. The document states which side new code belongs on.
 - Evidence or review: the allowlist diff is what a reviewer reads. This makes "answers never reach the
   browser" checkable rather than aspirational.
 - Next dependency: M2 lane 3 consumes this accepted package.
@@ -1508,10 +1526,10 @@ or implementer-authored specification is required.
 
 - Owner: `coder`. Modules: MOD-QM (fixtures), MOD-CLIENT (mocks). Depends on: WP-C3.
 - Touch points: `tests/fixtures/published_problem/`, `src/api/mock/`.
-- Acceptance criteria: one published problem version with two assets, one draft, one assignment
-  reference, one enrollment with three completed runs, and one in-progress run including full
-  reproducibility records; mock handlers cover every route group so both UI lanes start before any
-  route exists; fixtures generated from MOD-QM types so they cannot drift.
+- Acceptance criteria: keep only the explicitly approved published-problem cross-layer corpus whose
+  production serialization is itself under test. Other examples are inline or generated by typed
+  builders. Mock handlers cover the stable behavior needed by a UI lane; neither fixture counts nor
+  complete route-name inventories are permanent assertions.
 - Evidence or review: a UI lane renders the mastery loop against mocks with the API absent, the
   condition that unblocks M3 early.
 - Next dependency: M3 lanes 1 and 2 consume this accepted package.
@@ -1560,7 +1578,7 @@ or implementer-authored specification is required.
   mutation shapes, executable instructor route, and tenant/course-bound candidate/current banner
   object identities are accepted. Candidates are temporary and non-signable; current banners are
   protected course content whose delivery now requires the exact persisted current pointer. Memory
-  and PostgreSQL create and retain the revisioned appearance, revalidate persisted manager authority,
+  and PostgreSQL create and retain the revisioned appearance, revalidate persisted Instructor authority,
   preserve bytes-first copied-object ownership across stale CAS, and run bounded two-phase cleanup.
   Production HTTP now supplies bounded JPEG/PNG/WebP candidate normalization, strong-ETag no-store
   appearance GET/PUT, bytes-first promotion, and current-only protected delivery. The Solid course
@@ -1605,8 +1623,8 @@ or implementer-authored specification is required.
 
 ## Acceptance criteria and gates
 
-- Per-patch gate: `./check_codebase.sh` green (typecheck, wider typecheck, ESLint at zero warnings,
-  Prettier, Node tests, Rust fmt/clippy/test, WASM export allowlist); `pytest tests/` green;
+- Per-patch gate: `./check_codebase.sh` green for its vendored TypeScript/Node lane;
+  `./check_rust.sh` green for Rust/Cargo/Wasm; `pytest tests/` green;
   `docs/CHANGELOG.md` updated in the same patch.
 - Contract gate: changing a frozen contract requires the same patch to update `docs/CONTRACTS.md`,
   every production consumer, and every executable reference/test implementation. A contract change
@@ -1616,30 +1634,33 @@ or implementer-authored specification is required.
   secrecy gate is a release blocker with no workaround.
 - Tenant isolation gate: from M2, a foreign tenant context returns zero rows and the student-facing
   role cannot read any answer-key table.
-- Scale gate: from M2, no `OFFSET` in any query path and no unbounded list endpoint.
+- Scale gate: typed bounded-page Store contracts and behavior tests remain green. A one-time source and
+  query-plan review verifies that new query paths use stable cursor predicates; a repository-wide
+  lexical SQL scanner is not retained as a permanent pytest.
 - Integration gate: `tests/e2e/` and `./run_playwright_tests.sh` green, all in one run at M5.
 - Course appearance gate: the frozen WP-M3-COURSE-APPEARANCE contract, real-role RLS/current-pointer
   oracle, built-browser workflow, computed contrast metrics, and contact sheet are green before the
   appearance capability may be called complete.
-- Performance gate: server-side processing time for grading, attempt issue, and catalog browse compared
-  against the baseline recorded at M3. A regression beyond 25 percent of baseline opens an
-  investigation; the gate exists to catch a change in behavior, so the baseline is re-recorded whenever
-  a deliberate change moves it, with the reason noted in the tracker.
+- Performance evidence: record server-side grading, issue, and browse measurements during a named
+  release or load investigation. Treat the result as one-time environment evidence until an actual
+  user-facing SLO and reproducible benchmark environment exist; do not make a percentage of a local
+  baseline a permanent test.
 - Independent review gate: each lane reviewed by a `reviewer` that did not write it, using
   `audit-code-reviewer` before milestone exit.
 
 ## Test and verification strategy
 
-- `cargo test --workspace`: domain rules, transitions, run and policy combinations, the 31-run summary
-  scenario, timing tables, scoring, identity lifecycle, and both conformance suites against in-memory
-  backends. Fast, no container.
-- `pytest tests/`: repo hygiene, the nondeterminism guard, the crate-boundary assertion, and an
-  `OFFSET` grep guard. Thin and cross-ecosystem; no assertions on collection sizes, dates, or tunable
-  constants.
-- `node --import tsx --test tests/test_*.mjs`: generated-type freshness, WASM export allowlist, API
+- `cargo test --workspace`: domain rules, transitions, run and policy combinations, timing and
+  scoring behavior, identity lifecycle, and conformance suites against in-memory backends. Fast, no
+  container.
+- `pytest tests/`: repo hygiene and durable architecture boundaries only. It performs no real CLI
+  round trips, network work, source-fragment inventories, repository-wide query parsing, or assertions
+  on collection sizes, dates, tunable constants, and file layout.
+- `node --import tsx --test tests/test_*.mjs`: generated-type freshness, API
   client and mock-handler shapes.
-- `tests/playwright/`: mastery loop, a post-completion practice run, timer behavior, latency
-  measurement, publish refusal, and the network trace proving no answer crosses the wire.
+- `tests/playwright/`: mastery loop, a post-completion practice run, timer behavior, publish refusal,
+  and the network trace proving no answer crosses the wire. Timing measurements are diagnostic output,
+  not pass/fail assertions.
 - `tests/e2e/`: container-dependent checks -- restart durability, replica independence, clock-skew
   invariance, submission replay, migration application, RLS foreign-tenant isolation, answer-key
   grants, object round trip, partition pruning on a synthetic large attempt table, render cache hit,
@@ -1654,14 +1675,14 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 | Risk                                               | Impact                                                                       | Trigger                                                                           | Owner            | Mitigation                                                                                                                                                                                                       |
 | -------------------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | An answer or key reaches the browser               | Assessment integrity lost, silent until exploited                            | A new WASM export, or grading code moved into `domain`                            | `expert_coder`   | `grading` absent from the `wasm32` closure; export allowlist gate; M3 network trace (WP-C6)                                                                                                                      |
-| RLS is bypassed or unset                           | Cross-tenant exposure of educational records                                 | Application connects as a bypassing role, or tenant context set from client input | `expert_coder`   | `FORCE ROW LEVEL SECURITY`; non-superuser role; context from the authenticated session only; foreign-context test on every gate                                                                                  |
+| RLS is bypassed, unset, or outlives membership     | Cross-tenant or revoked-learner exposure of educational records               | Application connects as a bypassing role, tenant context comes from client input, or a revoked learner uses stale identifiers | `expert_coder`   | `FORCE ROW LEVEL SECURITY`; non-superuser role; context from authenticated session only; actor-scoped Store reads/mutations lock and recheck active Student membership; foreign-context and revocation-race tests on every gate |
 | A frozen contract turns out incomplete             | Parallel lanes stall or diverge                                              | A lane finds a missing trait method mid-flight                                    | `architect`      | Conformance suites shipped with contracts in M1; contract gate requires consumers updated in the same patch; M1 exit walks every catalog row                                                                     |
 | Native and wasm32 generation diverge               | Historical attempts not reproducible; render cache serves wrong content      | Parity mismatch                                                                   | `tester`         | Ban known causes up front; measure before dependent lanes start; replace the primitive rather than special-case the platform (WP-C5)                                                                             |
 | Attempt tables outgrow the design                  | Slow gradebook, painful migrations                                           | Practice volume beyond 300 M rows per term                                        | `expert_coder`   | Monthly partitions on the four append-only tables from the first migration; summary rows for all grade reads; compact attempt rows; partition-pruning test                                                       |
 | Grade computed by scanning history                 | Course pages time out at scale                                               | A convenient aggregate query in a page path                                       | `expert_coder`   | Summary row is the only grade source; review rejects any aggregate over `question_attempt` in a request path                                                                                                     |
 | Database bloat from payloads in operational tables | Slow backups, restores, replication                                          | A large payload committed to a table                                              | `expert_coder`   | Role-based split; strict 256 KiB flat source/private cap and other bounded payload constraints; oversized writes refuse; hot/cold table split                                                                    |
 | WeBWorK renderer saturates                         | Timed questions fail to load under burst                                     | Many students on WeBWorK questions at once                                        | `expert_coder`   | Deterministic render cache; prefetch; worker pool autoscaled on queue depth, latency, CPU, and timeout rate                                                                                                      |
-| External-tool callback accepted as a grade         | Assessment integrity or tenant isolation lost                                | Browser message, stale launch, or unverifiable provider response reaches grading  | `expert_coder`   | iMathAS browser messages are presentation-only; same-origin attempt launch; server-held correlation and idempotency; authenticated server-to-server verification; recorded forged-message and cross-tenant gates |
+| External-tool callback or retry accepted as a grade | Assessment integrity or tenant isolation lost                               | Browser message, stale launch, an unverifiable provider response, or an ambiguous failed launch POST reaches grading | `expert_coder` | iMathAS browser messages are presentation-only; the same-origin launch is POST-only; a lease-bound dispatch marker is committed before provider contact and blocks retry, grading, new launch, and finalization after an indeterminate outcome; server-held correlation/idempotency and authenticated server-to-server verification have forged-message, cross-tenant, expiry, and crash-window gates |
 | Malicious archive during QTI import                | Remote code execution or disk exhaustion                                     | A crafted ZIP uploaded                                                            | `expert_coder`   | Import in the worker; size, expanded-size, and file-count limits; path and symlink rejection; media sniffing; never serve from an extracted path; hostile corpus test                                            |
 | Course banner exhausts image processing            | Availability failure or active-content exposure                              | Oversized decoded raster, SVG, animation, malformed codec input                   | `expert_coder`   | Pre-read byte cap; decoded-pixel cap; JPEG/PNG/WebP raster allowlist; metadata-stripping normalization; hostile-image tests                                                                                      |
 | Course theme bleeds across route scope             | Wrong course identity or unreadable global/status UI                         | Prior course variables remain after navigation                                    | `ui-ux-engineer` | One course-subtree provider; cross-course/global cleanup tests; computed rendered-pair contrast and contact-sheet review                                                                                         |
@@ -1684,12 +1705,15 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 - [ ] PostgreSQL in private subnets; TLS with certificate verification on every hop.
 - [ ] Application role is non-superuser and cannot bypass RLS; verified in the deployed environment,
       not only in tests.
-- [ ] Three private buckets with server-side encryption, per-bucket lifecycle rules, no public access
-      except the CDN origin path for public content.
+- [ ] Four named storage domains, each encrypted with its own KMS policy and lifecycle: `public-assets`,
+      `private-content`, `student-records`, and `temp-processing`. `public-assets` is readable only
+      through the tag-gated CDN origin and writable only by the dedicated publisher; the other three
+      have no public access.
 - [ ] Secrets in Secrets Manager; no credential in any image layer or in git.
-- [ ] Fargate autoscaling: `api` on request count with minimum two tasks; `worker` and `renderer` on
-      queue depth.
-- [ ] Renderer reachable only on the private network, with CPU, memory, and request-time limits.
+- [ ] Fargate autoscaling: `api` on request count with minimum two tasks; `worker` and the dedicated
+      public-asset publisher use queue/lease work. The externally managed renderer has no activation
+      path until its attested private-network, CPU/memory/request-limit, image-identity, and protocol
+      evidence is accepted.
 - [ ] Class-start burst load test run; replica count and p99 recorded.
 - [ ] Restore-from-backup rehearsed and timed.
 - [ ] FERPA control checklist completed with evidence per control; retention and deletion implemented
@@ -1729,7 +1753,7 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 - Patch 4: WP-F6 (foundation documentation).
 - Patch 5: WP-C1 (question model and taxonomy).
 - Patch 6: WP-C2 (identity and lifecycle).
-- Patch 7: WP-C3 (run, policy, and summary model, including the 31-run test).
+- Patch 7: WP-C3 (run, policy, and summary model with compact policy-history behavior tests).
 - Patch 8: WP-C4 (store and object contracts with reference backends and conformance suites).
 - Patch 9: WP-C5 (seed vectors and parity harness) -- its own patch because it is a gate.
 - Patch 10: WP-C6 (grading boundary) -- its own patch because it is a gate.

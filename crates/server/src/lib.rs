@@ -1,8 +1,7 @@
-//! MOD-SRV: the API server core.
+//! API server core.
 //!
-//! Route groups (auth, catalog, course, run, asset, validation) land in M2.
-//! The deployment composition root remains intentionally small until its later
-//! work package.
+//! Route groups own browser-facing behavior while the small composition root
+//! supplies their production dependencies and security boundaries.
 
 /// Public-CDN and authorized short-lived asset delivery.
 pub mod asset;
@@ -33,6 +32,8 @@ pub mod flat_question_publication;
 pub mod health;
 /// Server-owned verification of original instructional images used by native hotspots.
 pub(crate) mod hotspot_image;
+/// Uniform non-cacheable API response and browser hardening headers.
+pub(crate) mod http_security;
 /// Server-only durable iMathAS broker bridge.  It is intentionally not wired
 /// into the production backend registry until its same-origin launch profile
 /// is configured.
@@ -43,6 +44,8 @@ pub mod item_analysis;
 pub mod item_analysis_worker;
 /// Server composition bridge for first-party native question families.
 pub mod native_backend;
+/// Post-commit materialization of immutable CDN-readable catalog assets.
+pub(crate) mod public_asset_publication_worker;
 /// Immutable published-QTI replay and server-side grading bridge.
 pub mod qti_backend;
 /// Private QTI archive staging worker and claim-bound committer.
@@ -57,10 +60,16 @@ pub mod qti_profile_import;
 mod qti_profile_postgres_live;
 /// Server-only QTI publication preparation; generic publication stays closed.
 pub mod qti_publication;
+/// Process-owned request correlation and bounded shutdown behavior.  This is
+/// deliberately outside individual route groups so future routes cannot opt
+/// out by convention.
+pub mod request_lifecycle;
 /// Instructor-facing retention policy control and status APIs.
 pub mod retention;
 /// Private worker handler for staged retention notification and exact cleanup.
 pub mod retention_worker;
+/// Typed security contract for every public route's HTTP method.
+pub(crate) mod route_policy;
 /// Student runs, question attempts, submissions, and grading summaries.
 pub mod run;
 /// Current-score worker with private staging and generation-fenced publication.

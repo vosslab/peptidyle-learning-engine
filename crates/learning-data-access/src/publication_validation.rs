@@ -370,6 +370,7 @@ pub(crate) fn validate_qti_publication_promotion(
     let mut actual_assets = std::collections::BTreeSet::new();
     for delivery in &promotion.assets {
         validate_asset_delivery(delivery)?;
+        crate::validate_catalog_asset_delivery_scope(delivery, command.scope)?;
         let AssetDeliveryScope::Catalog { asset, reference } = delivery.scope else {
             return Err(StoreError::InvalidRecord(
                 "QTI promotion assets must be catalog assets".to_string(),
@@ -411,8 +412,8 @@ fn validate_workspace_source(
     reference: QtiImportRef,
 ) -> Result<(), StoreError> {
     if record.id != record.key.object_id()
-        || record.bucket != Bucket::Content
-        || record.key.bucket() != Bucket::Content
+        || record.bucket != Bucket::PrivateContent
+        || record.key.bucket() != Bucket::PrivateContent
         || record.category != ObjectCategory::Source
         || record.key.category() != ObjectCategory::Source
         || record.version.is_some()
@@ -433,8 +434,8 @@ fn validate_workspace_asset(
     reference: QtiImportRef,
 ) -> Result<(), StoreError> {
     if record.id != record.key.object_id()
-        || record.bucket != Bucket::Content
-        || record.key.bucket() != Bucket::Content
+        || record.bucket != Bucket::PrivateContent
+        || record.key.bucket() != Bucket::PrivateContent
         || record.category != ObjectCategory::Asset
         || record.key.category() != ObjectCategory::Asset
         || record.version.is_some()
@@ -644,8 +645,8 @@ pub(crate) fn validate_flat_import_publication_promotion(
         || *version != publication.version
         || *object != expected_object
         || archive.id != expected_object
-        || archive.bucket != Bucket::Content
-        || archive.key.bucket() != Bucket::Content
+        || archive.bucket != Bucket::PrivateContent
+        || archive.key.bucket() != Bucket::PrivateContent
         || archive.category != ObjectCategory::Source
         || archive.key.category() != ObjectCategory::Source
         || archive.version != Some(publication.version)
@@ -687,10 +688,10 @@ pub(crate) fn validate_source_artifact_identity(
     if problem != publication.problem
         || version != publication.version
         || object != artifact.object.id
-        || artifact.object.bucket != Bucket::Content
+        || artifact.object.bucket != Bucket::PrivateContent
         || artifact.object.category != ObjectCategory::Source
         || artifact.object.version != Some(publication.version)
-        || artifact.object.key.bucket() != Bucket::Content
+        || artifact.object.key.bucket() != Bucket::PrivateContent
         || artifact.object.key.category() != ObjectCategory::Source
         || artifact.object.size_bytes == 0
         || artifact.object.media_type.trim().is_empty()

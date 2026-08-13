@@ -20,7 +20,7 @@ use question_model::{
     AssignmentSelectionGroup, AssignmentSummary, AssignmentTimingPolicy, AttemptProvenance,
     AttemptResult, AttemptStatus, BackendCapabilities, CatalogLifecycle, CatalogProblemDetail,
     CatalogProblemSummary, CatalogSearchPage, CatalogSearchQuery, CourseGroupId, CourseId,
-    CourseMembership, CourseRole, CourseSummary, DraftQuestionDefinition, EnrollmentId,
+    CourseMembership, CourseMembershipRole, CourseSummary, DraftQuestionDefinition, EnrollmentId,
     GradePolicy, GradebookSummaryRow, PresentationBindingV1, PresentationEnvelopeV1, ProblemId,
     PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionDefinition,
     QuestionStatisticsDisclosure, RunId, RunPolicies, ScoringGeneration, ScoringStatus,
@@ -79,9 +79,10 @@ pub use crate::account_identity::{
     WebauthnCeremonyKind, WebauthnCeremonyLifetime, WebauthnState, validated_account_display_name,
     validated_passkey_label,
 };
+pub(crate) use crate::asset_delivery::validate_catalog_asset_delivery_scope;
 pub use crate::asset_delivery::{
-    AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssetStore,
-    AuthorizedAssetDelivery, CatalogAssetBinding,
+    AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssetPublication,
+    AssetStore, AuthorizedAssetDelivery, CatalogAssetBinding, PublicAssetPublicationStore,
 };
 pub use crate::course_appearance::{
     COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseAppearanceStore, CourseBannerCleanupBatch,
@@ -95,19 +96,21 @@ pub use crate::course_roster::{
     CourseMemberStatus, CourseRosterContact, CourseRosterEntry, CourseRosterError, CourseRosterId,
     CourseRosterImportId, CourseRosterImportLifetime, CourseRosterImportPreview,
     CourseRosterImportRow, CourseRosterImportRowInput, CourseRosterImportState, CourseRosterMember,
-    CourseRosterPage, CourseRosterStore, CourseSignupPosture, CreateCourseInvitation,
-    MAX_ROSTER_IMPORT_ROWS, ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation,
-    RevokeCourseMember, RosterIdempotencyKey, RosterImportInvitation, RosterImportRevision,
-    RosterImportRowStatus, RosterRevision, StageCourseRosterImport, UpsertCourseMember,
+    CourseRosterPage, CourseRosterStore, CourseRosterSupportAction, CourseRosterSupportAudit,
+    CourseSignupPosture, CreateCourseInvitation, MAX_ROSTER_IMPORT_ROWS,
+    ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation, RevokeCourseMember,
+    RosterIdempotencyKey, RosterImportInvitation, RosterImportRevision, RosterImportRowStatus,
+    RosterRevision, StageCourseRosterImport, UpsertCourseMember,
 };
 pub(crate) use crate::external_tool::fresh_external_tool_launch_id;
 pub use crate::external_tool::{
-    BeginExternalToolGradeCommand, CommitExternalToolSubmissionCommand,
+    BeginExternalToolGradeCommand, ClaimExternalToolFinalizationActivityCommand,
+    ClaimedExternalToolActivity, CommitExternalToolSubmissionCommand,
     CommitVerifiedExternalToolSubmissionCommand, CreateExternalToolLaunchSessionCommand,
-    CreatedExternalToolLaunchSession, ExternalToolBegin, ExternalToolBinding,
-    ExternalToolBrokerStore, ExternalToolLaunchProof, ExternalToolLaunchSessionStore,
-    ExternalToolLaunchToken, ExternalToolLease, ExternalToolLeaseToken,
-    ExternalToolVerifiedPending, PersistedCorrelation, ResolvedExternalToolLaunchSession,
+    CreatedExternalToolLaunchSession, ExternalToolActivityClaim, ExternalToolActivityLeaseToken,
+    ExternalToolBegin, ExternalToolBinding, ExternalToolBrokerStore, ExternalToolLaunchProof,
+    ExternalToolLaunchSessionStore, ExternalToolLaunchToken, ExternalToolLease,
+    ExternalToolLeaseToken, ExternalToolVerifiedPending, PersistedCorrelation,
     StageExternalToolVerificationCommand,
 };
 pub use crate::feedback::{

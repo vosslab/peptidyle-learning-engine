@@ -27,7 +27,7 @@ The fixed current notification says:
 
 > This course ended 30 days ago. Student records are still available. If they are no longer needed,
 > archive or delete the course now. Student records will be automatically removed after 100 days
-> unless the course is archived or the retention period is extended by an administrator.
+> unless the course is archived or the retention period is extended by a sysadmin.
 
 In that copy, "removed after 100 days" means archived from ordinary learner access. It is not a
 claim that the relational learner graph is permanently deleted at day 100; the delete stage remains
@@ -35,12 +35,13 @@ scheduled for day 365 by default.
 
 ## Authority and API contract
 
-Only a stored authenticated course instructor, course administrator, or tenant administrator may
-read retention status or request archive/delete. A course administrator or tenant administrator may
-extend a schedule. Authorization derives the tenant, actor, and course role from the session and
-stored course membership; a request never supplies any of them.
+Only a stored authenticated direct course Instructor or Sysadmin may read
+retention status or request archive/delete. Only a Sysadmin may extend a
+schedule. Instructor authority derives from the session and stored course
+membership; Sysadmin authority derives from the operator-approved platform
+role. A request never supplies tenant, actor, or role authority.
 
-The manager API exposes only a coarse lifecycle state, assignment-definition disposition, a strong
+The retention API exposes only a coarse lifecycle state, assignment-definition disposition, a strong
 revision ETag, and the fixed notification projection. It never exposes learner identities, policy
 deadlines, object IDs, object keys, queue jobs, leases, or generations.
 
@@ -49,7 +50,7 @@ deadlines, object IDs, object keys, queue jobs, leases, or generations.
   resulting stage. A retry reports `scheduled`, `inProgress`, or `completed`; it cannot enqueue a
   second current-stage job.
 - Extension also requires the current strong revision, but is a conditional schedule change rather
-  than an archive/delete replay receipt. It is administrator-only and supersedes still-scheduled
+  than an archive/delete replay receipt. It is Sysadmin-only and supersedes still-scheduled
   prior-generation work.
 - An end-course request has an empty body. Archive and extension accept only their closed JSON
   bodies. Delete has an empty body. Request bodies cannot name a tenant, learner, object, job,
@@ -162,6 +163,13 @@ Application deletion is immediate and irreversible through the live product. It 
 historical encrypted backups or point-in-time recovery snapshots taken before deletion. Those copies
 expire under their own infrastructure lifecycle; selective deletion from an older snapshot is not a
 supported claim.
+
+A PostgreSQL backup, WAL/PITR stream, snapshot, replica, logical dump, crash copy, or restored
+database that contains any relation in the
+[radioactive table map](DATABASE_TENANCY.md#radioactive-table-map) is radioactive as a whole. The
+classification survives application deletion until that copy expires. Recovery material therefore
+requires restricted operator access, encryption, an explicit expiry, isolated restoration, and an
+access record; it must not be reused as developer or shared-test data.
 
 There is no deployed backup retention window or production recovery objective yet. WP-RC10 must
 choose encrypted PostgreSQL point-in-time recovery, object-store recovery, backup expiry, restoration

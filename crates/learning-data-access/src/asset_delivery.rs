@@ -1,10 +1,10 @@
 //! Immutable asset registration and protected-delivery authorization.
 
 use async_trait::async_trait;
-use objects::{Bucket, ObjectRecord, Sha256Digest};
+use objects::{Bucket, ObjectKey, ObjectRecord, Sha256Digest};
 use question_model::{
-    ActivityTimestamp, AssetId, CourseBannerId, CourseId, ObjectId, ProblemVersionRef, TenantId,
-    UserId,
+    ActivityTimestamp, AssetId, CourseBannerId, CourseId, ObjectId, ProblemVersionRef,
+    PublicationScope, TenantId, UserId,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -110,6 +110,32 @@ pub struct AssetDeliveryRecord {
     pub intrinsic_height: Option<u32>,
     /// Visibility and ownership linkage checked on every protected request.
     pub scope: AssetDeliveryScope,
+    /// Database-authoritative public-publication state. A catalog record can
+    /// name its final immutable CDN key before that key exists, but the key is
+    /// never delivered until the committed publisher marks it ready.
+    #[serde(default)]
+    pub publication: AssetPublication,
+    /// Private immutable source selected while validating publication. It is
+    /// retained only while [`AssetPublication::Pending`] so a worker can copy
+    /// exact verified bytes after the catalog transaction commits. This is an
+    /// internal persistence field, never a browser delivery value.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending_source: Option<ObjectRecord>,
+}
+
+/// Readiness of a catalog asset whose bytes are published asynchronously.
+///
+/// This deliberately belongs in the durable registry rather than object-store
+/// metadata: CDN visibility must follow a committed catalog decision, and an
+/// object store cannot participate in that transaction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum AssetPublication {
+    /// Bytes are already present at the registered immutable key.
+    #[default]
+    Ready,
+    /// The committed publisher job has not yet materialized the public key.
+    Pending,
 }
 
 /// Immutable logical-to-physical asset mapping for one published catalog version.
@@ -123,6 +149,11 @@ pub struct CatalogAssetBinding {
     pub asset: AssetId,
     /// Exact immutable object selected when this version was published.
     pub object: ObjectId,
+    /// Exact immutable storage key selected by the published catalog record.
+    ///
+    /// The trusted catalog registry, rather than a later storage probe, owns
+    /// the public-versus-restricted domain decision.
+    pub key: ObjectKey,
     /// SHA-256 of the immutable rendition selected at publication.
     pub rendition_checksum: Sha256Digest,
     /// Media type registered for the immutable rendition.
@@ -131,6 +162,40 @@ pub struct CatalogAssetBinding {
     pub intrinsic_width: Option<u32>,
     /// Measured raster height, paired with [`Self::intrinsic_width`].
     pub intrinsic_height: Option<u32>,
+}
+
+/// Confirms that a catalog delivery uses the one storage domain implied by
+/// the immutable publication scope.
+///
+/// This is intentionally a registry invariant, not a caller convention:
+/// public catalog content is the sole class allowed in `PublicAssets`, while
+/// institution content remains in `PrivateContent` behind authorization.
+pub(crate) fn validate_catalog_asset_delivery_scope(
+    record: &AssetDeliveryRecord,
+    publication_scope: PublicationScope,
+) -> Result<(), StoreError> {
+    let AssetDeliveryScope::Catalog { .. } = record.scope else {
+        return Ok(());
+    };
+    let expected = match publication_scope {
+        PublicationScope::Public => "public catalog content must use a ProblemAsset key",
+        PublicationScope::Institution => {
+            "institution catalog content must use a RestrictedProblemAsset key"
+        }
+    };
+    let matches_scope = matches!(
+        (publication_scope, &record.object.key),
+        (PublicationScope::Public, ObjectKey::ProblemAsset { .. })
+            | (
+                PublicationScope::Institution,
+                ObjectKey::RestrictedProblemAsset { .. }
+            )
+    );
+    if matches_scope {
+        Ok(())
+    } else {
+        Err(StoreError::InvalidRecord(expected.to_string()))
+    }
 }
 
 /// Audit payload appended before a protected signed URL is requested.
@@ -202,4 +267,32 @@ pub trait AssetStore: Send + Sync {
         actor: UserId,
         delivery: AssetDeliveryId,
     ) -> Result<AuthorizedAssetDelivery, StoreError>;
+}
+
+/// Durable boundary for the post-commit public-asset publisher.
+///
+/// The worker receives a version reference only, then re-resolves both the
+/// final `ProblemAsset` keys and their private immutable sources from this
+/// registry. `activate_public_asset_publication` must change every pending
+/// record and complete the exact queue lease in one database transaction.
+#[async_trait]
+pub trait PublicAssetPublicationStore: Send + Sync {
+    /// Resolves pending public assets only after the catalog publication has
+    /// committed and only through the exact active publisher lease. An
+    /// institution version has no entries in this outbox.
+    async fn pending_public_asset_publication(
+        &self,
+        job: crate::JobId,
+        lease: crate::JobLeaseToken,
+        reference: ProblemVersionRef,
+    ) -> Result<Vec<AssetDeliveryRecord>, StoreError>;
+
+    /// Atomically activates the prepared immutable assets and completes the
+    /// exact publisher job. A stale/reclaimed lease must fail closed.
+    async fn activate_public_asset_publication(
+        &self,
+        job: crate::JobId,
+        lease: crate::JobLeaseToken,
+        reference: ProblemVersionRef,
+    ) -> Result<(), StoreError>;
 }

@@ -10,16 +10,18 @@ and pointer shortcuts.
 
 ## Status
 
-**Independently ACCEPTED.** This is the fast static simulator-boundary gate,
-not live journey, scoring, onboarding, or final M7 acceptance. See the
+**Independently ACCEPTED AS ONE-TIME DESIGN EVIDENCE.** The source scanner used
+during implementation was retired after the repository test-policy review: it
+encoded Playwright member names and helper layout rather than product behavior
+and broke on harmless refactors. The visible keyboard journeys remain the
+permanent evidence. See the
 [WP-G1 independent review](../audits/wp_g1_harness_independence_independent_review.md).
 
 ## Scope
 
-This workstream adds a fast, static pytest gate for the simulator boundary. It
-inspects only the owned simulator, UI-walkthrough runner, arranger/reporter,
-live-config, and keyboard-journey sources; it does not inspect or alter
-product code.
+This workstream records the one-time static inspection that shaped the
+simulator boundary. It did not inspect or alter product code and is not a
+permanent executable test contract.
 
 ## Contract enforced
 
@@ -52,22 +54,9 @@ sources remains a behavior review rather than an exact-count update.
 
 ## Evidence
 
-`tests/test_ui_walkthrough_harness_independence.py` exposes pure source
-scanners and exercises hostile snippets for product/crate/generated imports,
-dynamic imports, SQL/CTE/PRAGMA/database clients, private browser/API state,
-non-root navigation, pointer/synthetic selection/non-platform keyboard
-actions, residual member aliases, non-focus evaluation, body-text assertions
-including an answer literal, multiline answer-bearing assertions, catch/promise
-hidden pass conversion, and normalized J9/J10 local-identity fallback. Its
-repository scan is fast and offline.
-
-Focused validation is recorded with this workstream after the manager runs:
-
-```bash
-source source_me.sh && python -m pytest tests/test_ui_walkthrough_harness_independence.py
-source source_me.sh && python -m pytest tests/test_pyflakes_code_lint.py
-```
-
-The independent review accepts this static gate. It remains evidence only and
-does not turn blocked onboarding, unwalked journeys, or release gates into a
-pass.
+The historical review records the scanner's conclusions. Permanent coverage
+now comes from the built Playwright keyboard journeys and the runner's public
+input/output contract tests. Re-run source inventories only as untracked
+implementation probes; do not recreate a source-member allowlist in pytest.
+This evidence does not turn blocked onboarding, unwalked journeys, or release
+gates into a pass.

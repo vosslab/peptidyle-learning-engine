@@ -59,6 +59,7 @@ async fn archive_fence_refuses_run_aliases_before_any_backend_call() {
             .body(Body::empty())
             .expect("archived prefetch request"),
         Request::builder()
+            .method("POST")
             .uri(format!("/api/attempts/{}/external-tool-launch", active.id))
             .header("cookie", &student_cookie)
             .body(Body::empty())

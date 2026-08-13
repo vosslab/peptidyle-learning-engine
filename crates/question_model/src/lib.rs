@@ -1,4 +1,4 @@
-//! MOD-QM: the root contract of the Peptidyle Learning Engine.
+//! Browser-safe domain contracts for the Peptidyle Learning Engine.
 //!
 //! Question types, activity records, backend capabilities, identity, and
 //! taxonomy live here.
@@ -11,8 +11,8 @@
 //! belongs here when a browser may safely see it; a type that would reveal a
 //! correct response belongs in `grading`.
 //!
-//! Contracts here are frozen in M1 and changed only alongside every consumer,
-//! as recorded in `docs/CONTRACTS.md`.
+//! Contracts here change only alongside every consumer, as recorded in
+//! `docs/CONTRACTS.md`.
 
 pub mod activity;
 pub mod answer;
@@ -70,8 +70,7 @@ pub use crate::catalog::{
     ProblemVersionRef, PublicationScope, QuestionBackend,
 };
 pub use crate::course::{
-    AssignmentSummary, CourseMembership, CourseMembershipRole, CourseRole, CourseSummary,
-    GradebookSummaryRow,
+    AssignmentSummary, CourseMembership, CourseMembershipRole, CourseSummary, GradebookSummaryRow,
 };
 pub use crate::course_appearance::{
     CourseAppearance, CourseAppearanceRevision, CourseAppearanceUpdate, CourseBannerAltText,

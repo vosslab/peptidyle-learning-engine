@@ -18,12 +18,8 @@ export async function tabTo(
 }
 
 async function targetIsFocused(target: Locator): Promise<boolean> {
-  try {
-    await expect(target).toBeFocused({ timeout: 50 });
-    return true;
-  } catch {
-    return false;
-  }
+  if ((await target.count()) !== 1) return false;
+  return target.evaluate((element) => element.ownerDocument.activeElement === element);
 }
 
 /** Keeps the wider 50-row pagination traversal private to this helper module. */

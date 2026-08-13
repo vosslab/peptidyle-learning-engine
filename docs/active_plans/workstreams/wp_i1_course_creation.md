@@ -14,7 +14,7 @@ unknown fields and whitespace-only titles are rejected before persistence.
 - The browser submits only `{ "title": string }` through a strict request
   decoder; the server accepts the same exact, non-whitespace request shape and
   returns only a strict public course summary response.
-- Only sessions with the global instructor or administrator role render the
+- Only sessions with the approved Instructor or Sysadmin role render the
   native labelled form and Create course button.
 - A direct student POST receives `403` and persists no course.
 - A recoverable error retains the typed title and announces recovery status.
@@ -36,6 +36,6 @@ The independent review found that the browser's strict title decoder was not
 yet mirrored by the production route. The server request model now denies
 unknown fields and the handler rejects whitespace-only titles before it calls
 the Store. A separate focused Rust test proves those two rejections, a student
-POST returns `403` without persistence, and an administrator can still create
+POST returns `403` without persistence, and a Sysadmin can still create
 a course. The test lives in `course_creation.rs` so the broader course test
 module remains below the repository source-file limit.

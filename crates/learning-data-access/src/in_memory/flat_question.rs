@@ -177,7 +177,7 @@ mod tests {
         let object = ObjectId::from_uuid(Uuid::from_u128(seed));
         objects::ObjectRecord {
             id: object,
-            bucket: objects::Bucket::Content,
+            bucket: objects::Bucket::PrivateContent,
             key: objects::ObjectKey::WorkspaceQuestionSource {
                 tenant: tenant(),
                 workspace: workspace(),

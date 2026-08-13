@@ -190,7 +190,7 @@ async fn postgres_profile_upload_worker_conversion_publication_and_grading_are_c
         .expect("live PostgreSQL schema compatibility");
     let store = Arc::new(PostgresStore::new(pool));
     let grader = Arc::new(
-        PostgresGraderStore::connect(&grader_url)
+        PostgresGraderStore::connect_local_development(&grader_url)
             .await
             .expect("dedicated grader credentials are accepted"),
     );

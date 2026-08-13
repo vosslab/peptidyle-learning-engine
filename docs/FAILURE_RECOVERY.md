@@ -151,6 +151,35 @@ Workers log only `StoreError` categories and aggregate pass counts in
 [worker/runtime.rs](../crates/server/src/worker/runtime.rs). Diagnostics must not serialize a raw
 error object because it may contain identifiers or dependency-specific text.
 
+## Effectful external-tool dispatch
+
+An external question engine can receive an effectful POST after PLE has sent
+bytes but before PLE receives a valid response. Retrying that request as though
+nothing happened could duplicate an upstream action or make PLE and the
+provider disagree about the attempt. The external-tool activity lease therefore
+uses a durable pre-dispatch fence:
+
+1. while the exact activity lease is still valid, PLE atomically records an
+   indeterminate marker bound to the lease-token hash before the provider POST;
+2. it sends the one server-built provider request; and
+3. it clears that exact marker only after a valid, accepted response has been
+   processed.
+
+A timeout, transport error, malformed response, process crash, or lease-loss
+after step 1 leaves the marker in place. Reclaim, relaunch, grade finalization,
+and normal revocation reject that attempt rather than issuing another effectful
+provider POST. The browser receives bounded unavailable/conflict behavior and
+must not auto-retry with a new launch. This is deliberately conservative: it
+preserves at-most-once local dispatch rather than guessing whether the external
+side effect occurred.
+
+The marker is durable evidence, not an automatic recovery protocol. Resolving
+an indeterminate external result requires an authorized operator procedure and
+provider-specific evidence that can establish the outcome without replaying
+the POST. Until such a procedure is designed and tested for a provider, the
+attempt remains fenced. Read-only grade/result retrieval must remain
+structurally side-effect-free; it may not be used as a hidden dispatch retry.
+
 ## Object and provider outcomes
 
 Typed object storage is bytes-first and checksum-verified. Its authoritative
@@ -175,8 +204,9 @@ application code must not silently delete mismatched records.
 Private iMathAS and WeBWorK communication is a question-local dependency. It uses bounded private
 transport and server-held credentials. A timeout or outage returns a safe `503` for the affected
 question, does not put credentials or source in browser diagnostics, and does not make API
-readiness fail for unrelated native work. The adapter cache and reproducibility rules are defined
-in [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md).
+readiness fail for unrelated native work. Effectful external activity follows the pre-dispatch
+fence above rather than an automatic POST retry. The adapter cache and reproducibility rules are
+defined in [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md).
 
 ## Schema refusal and restore
 

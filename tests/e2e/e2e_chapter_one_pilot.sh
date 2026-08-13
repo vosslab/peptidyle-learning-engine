@@ -110,7 +110,7 @@ seed_chapters() {
 		--student "$STUDENT_ID" \
 		--s3-endpoint "http://127.0.0.1:$MINIO_PORT" \
 		--s3-region "us-east-1" \
-		--content-bucket content >"$manifest_file"
+		--private-content-bucket private-content >"$manifest_file"
 }
 
 echo "Chapter 1 pilot E2E: publishing two assignments and eight immutable questions"

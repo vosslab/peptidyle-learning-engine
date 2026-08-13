@@ -102,7 +102,7 @@ fn webwork_pilot_requires_all_host_storage_coordinates_without_secret_arguments(
         "http://127.0.0.1:9000".to_string(),
     ]);
     let error = result.expect_err("partial WebWork storage settings must refuse");
-    assert!(error.to_string().contains("--content-bucket"));
+    assert!(error.to_string().contains("--private-content-bucket"));
     assert!(!error.to_string().contains("AWS_SECRET_ACCESS_KEY"));
 }
 
@@ -123,8 +123,8 @@ fn webwork_pilot_storage_settings_are_opt_in_and_deterministic() {
         "http://127.0.0.1:9000".to_string(),
         "--s3-region".to_string(),
         "us-east-1".to_string(),
-        "--content-bucket".to_string(),
-        "content".to_string(),
+        "--private-content-bucket".to_string(),
+        "private-content".to_string(),
     ])
     .expect("complete opt-in settings parse");
     let storage = parsed
@@ -132,7 +132,7 @@ fn webwork_pilot_storage_settings_are_opt_in_and_deterministic() {
         .expect("WebWork pilot settings retained");
     assert_eq!(storage.endpoint_url, "http://127.0.0.1:9000/");
     assert_eq!(storage.region, "us-east-1");
-    assert_eq!(storage.content_bucket, "content");
+    assert_eq!(storage.private_content_bucket, "private-content");
 }
 
 #[test]
@@ -272,7 +272,7 @@ async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster(
             .expect("course read succeeds")
             .expect("course remains")
             .role_for(student),
-        Some(question_model::CourseRole::Student)
+        Some(question_model::CourseMembershipRole::Student)
     );
 }
 
@@ -467,8 +467,8 @@ fn chapter_one_seed_storage_flag_is_explicit_and_mutually_exclusive() {
         "http://127.0.0.1:9000",
         "--s3-region",
         "us-east-1",
-        "--content-bucket",
-        "content",
+        "--private-content-bucket",
+        "private-content",
     ]
     .map(str::to_string);
     let parsed = parse_arguments(&common).expect("complete Chapter 1 storage settings parse");
@@ -621,7 +621,7 @@ async fn webwork_pilot_converges_after_every_persisted_prefix_and_on_rerun() {
     let source_key = webwork_pilot_source_key(reference, ids.source_object);
     let source_record = objects::ObjectRecord {
         id: ids.source_object,
-        bucket: objects::Bucket::Content,
+        bucket: objects::Bucket::PrivateContent,
         key: source_key,
         sha256: objects::Sha256Digest::compute(WEBWORK_PILOT_SOURCE),
         size_bytes: u64::try_from(WEBWORK_PILOT_SOURCE.len()).expect("fixture fits u64"),

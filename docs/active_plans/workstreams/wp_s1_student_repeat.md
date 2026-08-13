@@ -39,7 +39,7 @@ schema-v1 state/report modules remain intact for later WP-E1 migration work.
 ## Offline evidence
 
 - `python3 -m py_compile tests/e2e/e2e_ui_walkthrough.py tests/test_ui_walkthrough_runner.py`
-- `source source_me.sh && python3 -m pytest tests/test_ui_walkthrough_runner.py tests/test_ui_walkthrough_harness_independence.py -q`
+- `source source_me.sh && python3 -m pytest tests/test_ui_walkthrough_runner.py -q`
 - `npx tsc --noEmit`
 - Focused Playwright state/config tests pass; live J1-J4 specs skip outside the
   explicit runner invocation.

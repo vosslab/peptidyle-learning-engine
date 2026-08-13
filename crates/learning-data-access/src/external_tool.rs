@@ -201,7 +201,9 @@ impl std::fmt::Debug for ExternalToolBegin {
     }
 }
 
-/// Input to the atomic exchange claim.
+/// Input to the atomic exchange claim.  A successful claim is an attempt-wide
+/// finalization fence: ordinary provider activity is refused until this
+/// verification either expires, is staged, or is committed.
 #[derive(Clone)]
 pub struct BeginExternalToolGradeCommand {
     pub actor: UserId,
@@ -352,6 +354,34 @@ impl std::fmt::Debug for ExternalToolLaunchToken {
     }
 }
 
+/// Opaque, short-lived capability held by exactly one server replica while it
+/// performs provider I/O for a launch session.  The database stores only its
+/// SHA-256 digest, so a storage read cannot be used to continue the activity.
+#[derive(Clone, PartialEq, Eq)]
+pub struct ExternalToolActivityLeaseToken([u8; 32]);
+
+impl ExternalToolActivityLeaseToken {
+    pub(crate) fn generate() -> Result<Self, StoreError> {
+        let mut bytes = [0_u8; 32];
+        getrandom::fill(&mut bytes).map_err(|error| {
+            StoreError::Unavailable(format!(
+                "external-tool activity lease entropy unavailable: {error}"
+            ))
+        })?;
+        Ok(Self(bytes))
+    }
+
+    pub(crate) fn hash(&self) -> Sha256Digest {
+        Sha256Digest::compute(&self.0)
+    }
+}
+
+impl std::fmt::Debug for ExternalToolActivityLeaseToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("ExternalToolActivityLeaseToken([redacted])")
+    }
+}
+
 /// Server-only proof that the learner still owns the exact same-origin launch
 /// session used for this external-tool submission. It is non-serde and redacts
 /// cookie material in diagnostics.
@@ -395,22 +425,64 @@ impl std::fmt::Debug for CreatedExternalToolLaunchSession {
     }
 }
 
-/// Server-only resolved launch state. It is never serialized into a route.
+/// Server-only launch state coupled to an active activity lease.
+///
+/// The holder must release the exact lease after provider I/O.  A final
+/// submission refuses to consume the launch while any unexpired activity
+/// lease exists, rather than holding a database transaction across the remote
+/// call.
 #[derive(Clone)]
-pub struct ResolvedExternalToolLaunchSession {
+pub struct ClaimedExternalToolActivity {
     pub binding: ExternalToolBinding,
     pub encrypted_provider_state: Option<Vec<u8>>,
+    pub token: ExternalToolActivityLeaseToken,
+    pub expires_at: ActivityTimestamp,
 }
 
-impl std::fmt::Debug for ResolvedExternalToolLaunchSession {
+impl std::fmt::Debug for ClaimedExternalToolActivity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ResolvedExternalToolLaunchSession")
+        f.debug_struct("ClaimedExternalToolActivity")
             .field("binding", &self.binding)
             .field(
                 "encrypted_provider_state",
                 &self.encrypted_provider_state.as_ref().map(|_| "[redacted]"),
             )
-            .finish()
+            .field("expires_at", &self.expires_at)
+            .finish_non_exhaustive()
+    }
+}
+
+/// Result of atomically claiming a launch session for provider I/O.
+#[derive(Clone)]
+pub enum ExternalToolActivityClaim {
+    /// The launch is expired, revoked, or the opaque browser proof is wrong.
+    Unavailable,
+    /// Another replica has a bounded lease; callers should retry later.
+    InProgress,
+    Lease(Box<ClaimedExternalToolActivity>),
+}
+
+/// Exact authority needed to reserve the provider operation used by a
+/// submission finalizer.
+pub struct ClaimExternalToolFinalizationActivityCommand {
+    pub actor: UserId,
+    pub attempt: QuestionAttemptId,
+    pub id: Uuid,
+    pub token: ExternalToolLaunchToken,
+    pub verification_lease: ExternalToolLeaseToken,
+    pub lease_millis: u32,
+}
+
+impl std::fmt::Debug for ExternalToolActivityClaim {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unavailable => f.write_str("ExternalToolActivityClaim::Unavailable"),
+            Self::InProgress => f.write_str("ExternalToolActivityClaim::InProgress"),
+            Self::Lease(lease) => f
+                .debug_tuple("ExternalToolActivityClaim::Lease")
+                .field(lease)
+                .finish(),
+        }
     }
 }
 
@@ -422,14 +494,71 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
         command: CreateExternalToolLaunchSessionCommand,
     ) -> Result<CreatedExternalToolLaunchSession, StoreError>;
 
-    async fn resolve_external_tool_launch_session(
+    /// Atomically authorizes and leases a launch session before provider I/O.
+    /// This deliberately replaces a check-then-use resolution API.
+    async fn claim_external_tool_activity(
         &self,
         context: TenantContext,
         actor: UserId,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolLaunchToken,
-    ) -> Result<Option<ResolvedExternalToolLaunchSession>, StoreError>;
+        lease_millis: u32,
+    ) -> Result<ExternalToolActivityClaim, StoreError>;
+
+    /// Claims the one provider activity needed by the current finalization
+    /// lease.  This is deliberately separate from ordinary activity: a valid
+    /// finalization fence blocks every other provider request for the attempt.
+    async fn claim_external_tool_finalization_activity(
+        &self,
+        context: TenantContext,
+        command: ClaimExternalToolFinalizationActivityCommand,
+    ) -> Result<ExternalToolActivityClaim, StoreError>;
+
+    /// Releases exactly one previously claimed activity lease.  It is safe to
+    /// call after expiry: it can never release a newer holder's lease.
+    async fn release_external_tool_activity(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+        id: Uuid,
+        token: &ExternalToolActivityLeaseToken,
+    ) -> Result<(), StoreError>;
+
+    /// Records that an effectful provider POST is about to be dispatched.
+    /// The exact lease token is its durable operation identifier. A process
+    /// crash after this point is indeterminate and cannot be reclaimed.
+    async fn begin_external_tool_activity_dispatch(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+        id: Uuid,
+        token: &ExternalToolActivityLeaseToken,
+    ) -> Result<(), StoreError>;
+
+    /// Clears only the exact pre-dispatch operation after a valid provider
+    /// response was received. There is intentionally no browser retry path.
+    async fn complete_external_tool_activity_dispatch(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+        token: &ExternalToolActivityLeaseToken,
+    ) -> Result<(), StoreError>;
+
+    /// Permanently fences an attempt after an effectful provider request has
+    /// an indeterminate outcome. A new launch session must never convert an
+    /// unknown upstream effect into an automatic retry.
+    async fn fence_indeterminate_external_tool_activity(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+        id: Uuid,
+        token: &ExternalToolActivityLeaseToken,
+    ) -> Result<(), StoreError>;
 
     async fn revoke_external_tool_launch_session(
         &self,

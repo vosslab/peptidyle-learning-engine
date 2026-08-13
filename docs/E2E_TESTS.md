@@ -7,7 +7,8 @@ End-to-end (E2E) testing conventions for this repo.
 This repo supports two distinct E2E execution models, each with its own folder:
 
 - `tests/playwright/` (and optional `tests/playwright/e2e/` sub-grouping) - **browser-based E2E**: full Playwright walkthroughs and browser-driven tests. TypeScript repos include `PLAYWRIGHT_USAGE.md` in their propagated `docs/` folder.
-- `tests/e2e/` - **non-browser E2E**: shell/Python orchestration for whole-system testing: CLIs, builds, services, multi-suite coordination. This doc focuses on the non-browser model.
+- `tests/e2e/` - **non-browser E2E**: shell, Python, or Node orchestration for whole-system testing:
+  CLIs, builds, services, and multi-suite coordination. This doc focuses on the non-browser model.
 
 Both are excluded from `pytest tests/` via `collect_ignore = ["e2e", "playwright"]` in `tests/conftest.py`.
 
@@ -18,7 +19,8 @@ This repo organizes tests in four tiers, all under the `tests/` umbrella:
 - `tests/test_*.py` - fast pytest unit and integration tests. Run with `pytest tests/`.
 - `tests/test_*.mjs` - pure Node tests, if any (rare; not browser-driven).
 - `tests/playwright/` (with optional `tests/playwright/e2e/` subfolder) - browser-driven Playwright tests. TypeScript repos include `PLAYWRIGHT_USAGE.md` in their propagated `docs/` folder.
-- `tests/e2e/` - non-browser whole-system E2E. Shell/Python orchestration (`e2e_*.sh`, `e2e_*.py`). Run directly, not via pytest.
+- `tests/e2e/` - non-browser whole-system E2E. Shell, Python, or Node orchestration
+  (`e2e_*.sh`, `e2e_*.py`, `e2e_*.mjs`). Run directly, not via pytest.
 
 ## Why tests/e2e/ is excluded from pytest
 
@@ -42,6 +44,7 @@ the `e2e_*` prefix as a secondary, human-readable convention.
 - Recommended naming for readability:
   - `e2e_*.sh` for shell runners.
   - `e2e_*.py` for Python orchestration.
+  - `e2e_*.mjs` for Node or build orchestration.
 - Each E2E script is self-contained and exits non-zero on failure.
 
 `tests/` (excluding `tests/e2e/` and `tests/playwright/`) stays reserved for fast pytest tests (see
@@ -51,10 +54,25 @@ the `e2e_*` prefix as a secondary, human-readable convention.
 
 - Run a single shell runner: `bash tests/e2e/e2e_<name>.sh`.
 - Run a single Python runner: `source source_me.sh && python3 tests/e2e/e2e_<name>.py`.
-- Run all E2E tests: provide a `tests/e2e/run_all.sh` that iterates over the
-  `e2e_*` files and reports pass/fail for each.
+- Run a single Node runner: `node tests/e2e/e2e_<name>.mjs`.
+- Run the maintained non-browser E2E set: `bash tests/e2e/e2e_run_all.sh`.
 - For browser-driven Playwright runs, TypeScript repos include `PLAYWRIGHT_USAGE.md` in their propagated `docs/` folder.
 - Do not invoke E2E tests from `pytest tests/`. Keep the two suites separate.
+
+Some Rust boundary oracles must exercise the real HTTP client or an installed
+artifact reader while retaining access to crate-private parsers. They are
+explicitly ignored by ordinary Cargo runs and are opt-in acceptance, not unit
+tests:
+
+```bash
+cargo test -p adapter_imathas --features http-transport -- --ignored
+cargo test -p adapter_webwork -- --ignored
+cargo test -p export_crate -- --ignored
+```
+
+The adapter commands open only test-owned loopback listeners. The export
+command requires the documented PDF/DOCX reader tools. Record the environment
+when using their results as release evidence.
 
 ## Naming conventions test
 

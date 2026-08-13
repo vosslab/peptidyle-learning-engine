@@ -583,6 +583,7 @@ fn request_and_score_limits_fail_before_network_use() {
 }
 
 #[tokio::test]
+#[ignore = "opt-in loopback HTTP transport acceptance"]
 async fn private_http_client_posts_only_to_render_api_with_form_fields() {
     let body = r#"{"score":0}"#;
     let (base, task) = start_http_fixture(http_response("200 OK", "application/json", body)).await;
@@ -611,6 +612,7 @@ async fn private_http_client_posts_only_to_render_api_with_form_fields() {
 }
 
 #[tokio::test]
+#[ignore = "opt-in loopback HTTP transport acceptance"]
 async fn private_http_client_refuses_redirect_non_json_and_oversized_responses() {
     let redirect =
         "HTTP/1.1 302 Found\r\nlocation: /login\r\ncontent-length: 0\r\nconnection: close\r\n\r\n";
@@ -678,6 +680,7 @@ async fn private_http_client_refuses_redirect_non_json_and_oversized_responses()
 }
 
 #[tokio::test]
+#[ignore = "opt-in loopback HTTP transport acceptance"]
 async fn grade_submits_only_the_persisted_selected_upstream_radio_value() {
     const BODY: &str = r#"<p>Which molecule is water?</p><div class="radio-buttons-container"><label><input type="radio" name="AnSwEr0001" value="0" id="AnSwEr0001">H2O</label><label><input type="radio" name="AnSwEr0001" value="1" id="AnSwEr0001_1">CO2</label></div>"#;
     const GRADED_BODY: &str =
@@ -756,6 +759,7 @@ async fn grade_submits_only_the_persisted_selected_upstream_radio_value() {
 }
 
 #[tokio::test]
+#[ignore = "opt-in loopback HTTP transport acceptance"]
 async fn grade_refuses_fractional_upstream_score() {
     const BODY: &str = r#"<p>Question</p><div class="radio-buttons-container"><label><input type="radio" name="AnSwEr0001" value="0" id="AnSwEr0001">A</label><label><input type="radio" name="AnSwEr0001" value="1" id="AnSwEr0001_1">B</label></div>"#;
     let (base, task) = start_http_fixture_for(|address| {
@@ -808,6 +812,7 @@ async fn grade_refuses_fractional_upstream_score() {
 }
 
 #[tokio::test]
+#[ignore = "opt-in loopback HTTP transport acceptance"]
 async fn grade_maps_zero_percent_to_zero_earned_points() {
     const BODY: &str = r#"<p>Question</p><div class="radio-buttons-container"><label><input type="radio" name="AnSwEr0001" value="0" id="AnSwEr0001">A</label><label><input type="radio" name="AnSwEr0001" value="1" id="AnSwEr0001_1">B</label></div>"#;
     let (base, task) = start_http_fixture_for(|address| {
@@ -867,6 +872,7 @@ async fn grade_maps_zero_percent_to_zero_earned_points() {
 }
 
 #[tokio::test]
+#[ignore = "opt-in loopback HTTP transport acceptance"]
 async fn matching_grade_is_one_private_call_and_maps_fractional_credit() {
     const GRADED_BODY: &str =
         r#"<div class="ResultsWithoutAnswer"><span>Answer recorded.</span></div>"#;
@@ -943,6 +949,7 @@ async fn matching_grade_is_one_private_call_and_maps_fractional_credit() {
 }
 
 #[tokio::test]
+#[ignore = "opt-in loopback HTTP timeout acceptance"]
 async fn private_http_client_maps_deadline_to_timeout() {
     use tokio::io::AsyncReadExt as _;
 

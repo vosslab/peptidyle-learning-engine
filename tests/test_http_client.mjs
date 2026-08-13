@@ -17,6 +17,7 @@ import {
   decodeStudentResponse,
 } from "../src/api/decoders.ts";
 import { ApiProtocolError, ApiRequestError, createHttpApiClient } from "../src/api/http_client.ts";
+import { createHttpLocalCredentialLogin } from "../src/api/http_client/local_development_auth.ts";
 import { createMockFetch, issuedQuestionWireForAttempt } from "../src/api/mock/handlers.ts";
 import { validateResponseFormatInMock } from "../src/api/mock/format_validation.ts";
 import { createFixtureFetch, jsonResponse } from "./http_client_test_support.mjs";
@@ -520,7 +521,15 @@ test("the HTTP client decodes every implemented route and composes a run screen"
       roles: ["student"],
     },
   });
-  assert.equal((await client.loginWithLocalCredential("local-only-token")).authenticated, true);
+  assert.equal(
+    (
+      await createHttpLocalCredentialLogin({ fetch: fixtureFetch, basePath: "/ple/" })(
+        "local-only-token",
+      )
+    ).authenticated,
+    true,
+  );
+  await client.logout();
   assert.equal(
     (await client.listProblems("next page")).items[0].problem,
     fixture.catalogProblem.problem,
@@ -558,11 +567,11 @@ test("the HTTP client decodes every implemented route and composes a run screen"
   const attempts = await client.listAttempts(activeRun.id);
   assert.equal((await client.getAttempt(attempts.items[0].id)).run, activeRun.id);
   const externalToolAttemptId = "0198e000-0000-7000-8000-000000000034";
-  assert.deepEqual(await client.getExternalToolLaunch(externalToolAttemptId), {
+  assert.deepEqual(await client.beginExternalToolLaunch(externalToolAttemptId), {
     launchUrl: `/api/attempts/${externalToolAttemptId}/external-tool/launch`,
   });
   await assert.rejects(
-    client.getExternalToolLaunch("0198e000-0000-7000-8000-000000000030"),
+    client.beginExternalToolLaunch("0198e000-0000-7000-8000-000000000030"),
     (error) => error instanceof ApiRequestError && error.status === 404,
     "HTTP client must not receive launch material for a non-external fixture attempt",
   );
@@ -610,11 +619,23 @@ test("the HTTP client decodes every implemented route and composes a run screen"
     }),
     [],
   );
+  assert.equal(
+    await client.issueProtectedAssetDelivery(fixture.assets[0].id),
+    "https://objects.example.test/signed/asset?expires=12345",
+  );
   assert.equal(client.assetUrl(fixture.assets[0].id), `/ple/api/assets/${fixture.assets[0].id}`);
 
   assert.ok(requests.every((request) => request.credentials === "same-origin"));
   assert.ok(requests.every((request) => request.cache === "no-store"));
   assert.ok(requests.some((request) => request.url.endsWith("?cursor=next+page")));
+  assert.ok(
+    requests.some(
+      (request) =>
+        request.method === "POST" &&
+        request.url.endsWith(`/api/assets/${fixture.assets[0].id}/delivery`),
+    ),
+    "protected delivery must be an explicit POST",
+  );
   assert.ok(
     requests.some(
       (request) =>
@@ -653,7 +674,7 @@ test("course creation sends only a strict public title and rejects malformed inp
     "course creation must reject an all-whitespace title before transport",
   );
   assert.throws(
-    () => client.createCourse({ title: "BIOC 301", role: "administrator" }),
+    () => client.createCourse({ title: "BIOC 301", role: "sysadmin" }),
     DecodeError,
     "course creation must reject fields outside its public request contract",
   );

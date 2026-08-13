@@ -39,12 +39,14 @@ suite:
 
 ```bash
 ./check_codebase.sh
+./check_rust.sh
 source source_me.sh && python3 -m pytest -q tests/
 ```
 
-Success is exit status zero from both commands. `./check_codebase.sh` reports its own stage
-summary; `pytest tests/` intentionally remains a separate fast lane. For a built browser artifact
-without starting containers, run `./build.sh`; it creates `dist/` and `dist_wasm/`.
+Success is exit status zero from all three commands. `./check_codebase.sh` is the vendored
+TypeScript and browser gate, `./check_rust.sh` is the repository-owned Cargo and Rust gate, and
+`pytest tests/` remains the separate fast documentation and hygiene lane. For a built browser
+artifact without starting containers, run `./build.sh`; it creates `dist/` and `dist_wasm/`.
 
 For choosing a focused development gate, use [DEVELOPMENT.md](DEVELOPMENT.md). The durable API,
 storage, tenancy, and server-only-grading boundaries are recorded in [CONTRACTS.md](CONTRACTS.md)
@@ -56,6 +58,9 @@ The normal stack starts PostgreSQL, MinIO, API, worker, gateway, and the standal
 Before first launch, build or obtain the renderer image from the separate
 `webwork-pg-renderer` project under the tag named by `PLE_WEBWORK_RENDERER_IMAGE` (the default is
 `localhost/pg-renderer:latest`). PLE does not build the renderer, run WebWork2, or run MariaDB.
+All local ports are loopback-only, the gateway is intentionally HTTP-only, and
+it does not set HSTS. Local startup is not evidence for the production TLS edge
+or a deployment of the external renderer.
 
 On its first normal run, the launcher creates ignored local configuration, credentials, and
 secrets beneath `containers/`; it does not require copied development secrets.
@@ -109,6 +114,19 @@ The launcher creates the renderer's local JWT secrets, records the selected OCI 
 and probes real render and grade behavior before PLE starts. The renderer has no MariaDB, course
 credentials, volume, or host port; see [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md)
 and [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md).
+
+## Production baseline is separate
+
+The OpenTofu configuration under `deploy/opentofu/` is not installed or applied
+by `npm run setup` or `launch_local_stack.sh`. It defines private no-NAT ECS
+tasks, RDS, four SSE-KMS S3 domains, CloudFront/ALB TLS-origin admission, and
+separate API, worker, and public-asset-publisher roles and secrets. A live AWS
+deployment still requires operator-owned DNS, certificates, Secrets Manager
+values, exact database-role provisioning, and disposable-account probes. The
+external WeBWorK renderer feature remains disabled there until it is separately
+attested for private ingress, immutable image provenance, TLS identity, and no
+database or object-store authority. See
+[MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md#production-baseline-in-opentofu).
 
 ## Known gaps
 

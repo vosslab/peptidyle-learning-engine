@@ -80,7 +80,7 @@ write_local_identity_file() {
 	# unmistakably fake learner to the local-only roster directory without
 	# creating another login secret to manage.
 	jack_fake_student_hash="1111111111111111111111111111111111111111111111111111111111111111"
-	if ! printf '{"credentials":[{"credential_sha256":"%s","learner_alias":"instructor-local","tenant_id":"%s","user_id":"%s","display_name":"Dr. Fake Professor","roles":["instructor","administrator"]},{"credential_sha256":"%s","learner_alias":"student-local","tenant_id":"%s","user_id":"%s","display_name":"Mary Fake Student","roles":["student"]},{"credential_sha256":"%s","learner_alias":"student-jack","tenant_id":"%s","user_id":"00000000-0000-0000-0000-000000000103","display_name":"Jack Fake Student","roles":["student"]}]}\n' \
+	if ! printf '{"credentials":[{"credential_sha256":"%s","learner_alias":"instructor-local","tenant_id":"%s","user_id":"%s","display_name":"Dr. Fake Professor","roles":["instructor","sysadmin"]},{"credential_sha256":"%s","learner_alias":"student-local","tenant_id":"%s","user_id":"%s","display_name":"Mary Fake Student","roles":["student"]},{"credential_sha256":"%s","learner_alias":"student-jack","tenant_id":"%s","user_id":"00000000-0000-0000-0000-000000000103","display_name":"Jack Fake Student","roles":["student"]}]}\n' \
 		"$instructor_hash" "$LOCAL_TENANT_ID" "$LOCAL_INSTRUCTOR_ID" \
 		"$student_hash" "$LOCAL_TENANT_ID" "$LOCAL_STUDENT_ID" \
 		"$jack_fake_student_hash" "$LOCAL_TENANT_ID" >"$temporary_identity_file"; then

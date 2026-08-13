@@ -75,7 +75,7 @@ test.beforeAll(async () => {
           attemptId,
           definition: { kind: "externalTool" },
           validator,
-          getExternalToolLaunch: launch,
+          beginExternalToolLaunch: launch,
           onResponseChange: (response) => changes.push(response),
           onSubmit: async (response) => client.submitResponse(attemptId, response, "mounted-external-key"),
           onEscape: () => {},
@@ -102,7 +102,6 @@ test.beforeAll(async () => {
 
 async function mountFixture(page: Page): Promise<void> {
   await page.goto("/");
-  await page.waitForTimeout(100);
   await page.addScriptTag({ content: fixtureScript });
 }
 

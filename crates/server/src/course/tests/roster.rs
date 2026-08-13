@@ -14,7 +14,7 @@ use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use learning_data_access::{
     AssignmentRecord, AuthenticationEmail, ClaimCourseInvitation, CourseInvitationSecretHash,
-    CourseRecord, CourseRosterStore, Store, TenantContext,
+    CourseRecord, CourseRosterStore, CourseRosterSupportAction, Store, TenantContext,
 };
 use question_model::{
     AssignmentId, CourseId, CourseMembership, CourseMembershipRole, TenantId, UserId, UserRole,
@@ -148,19 +148,19 @@ async fn local_teaching_roster_uses_alias_resolution_and_canonical_member_upsert
         .expect("malformed local teaching request response");
     assert_eq!(malformed_request.status(), StatusCode::UNPROCESSABLE_ENTITY);
 
-    let nonmanager_cookie =
+    let noninstructor_cookie =
         issued_cookie_for_tenant(&store, tenant, vec![UserRole::Student], jack).await;
-    let nonmanager = app
+    let noninstructor = app
         .clone()
         .oneshot(request(
             "POST",
             format!("/api/courses/{course}/local-teaching-members"),
-            &nonmanager_cookie,
+            &noninstructor_cookie,
             Some(serde_json::json!({"learnerAlias": "mary"})),
         ))
         .await
-        .expect("nonmanager response");
-    assert_eq!(nonmanager.status(), StatusCode::NOT_FOUND);
+        .expect("noninstructor response");
+    assert_eq!(noninstructor.status(), StatusCode::NOT_FOUND);
 
     let foreign_cookie = issued_cookie_for_tenant(
         &store,
@@ -293,7 +293,101 @@ fn request(
 }
 
 #[tokio::test]
-async fn roster_http_is_manager_scoped_secret_free_and_idempotent() {
+async fn sysadmin_roster_support_is_audited_without_granting_grade_export() {
+    let store = std::sync::Arc::new(learning_data_access::in_memory::MemoryStore::default());
+    let tenant = TenantId::from_uuid(id(1_080));
+    let instructor = UserId::from_uuid(id(1_081));
+    let sysadmin = UserId::from_uuid(id(1_082));
+    let course = CourseId::from_uuid(id(1_083));
+    let context = TenantContext::from_authenticated_session(tenant);
+    store
+        .upsert_course(
+            context,
+            CourseRecord {
+                id: course,
+                tenant,
+                title: "Roster support".to_string(),
+                members: vec![CourseMembership {
+                    user: instructor,
+                    role: CourseMembershipRole::Instructor,
+                }],
+            },
+        )
+        .await
+        .expect("course fixture");
+    let sysadmin_cookie =
+        issued_cookie_for_tenant(&store, tenant, vec![UserRole::Sysadmin], sysadmin).await;
+    let app = router_with_invitations(
+        std::sync::Arc::clone(&store),
+        CourseInvitationIssuer::from_server_secret([0x61; 32]),
+        std::sync::Arc::new(CapturingInvitationDelivery::default()),
+    );
+
+    let roster = app
+        .clone()
+        .oneshot(request(
+            "GET",
+            format!("/api/courses/{course}/roster"),
+            &sysadmin_cookie,
+            None,
+        ))
+        .await
+        .expect("sysadmin support roster response");
+    assert_eq!(roster.status(), StatusCode::OK);
+
+    let mut invite = request(
+        "POST",
+        format!("/api/courses/{course}/invitations"),
+        &sysadmin_cookie,
+        Some(serde_json::json!({
+            "email": "supported@example.edu",
+            "rosterId": "900108000",
+        })),
+    );
+    invite.headers_mut().insert(
+        "idempotency-key",
+        "sysadmin-support".parse().expect("header"),
+    );
+    let invite = app
+        .oneshot(invite)
+        .await
+        .expect("support invitation response");
+    assert_eq!(invite.status(), StatusCode::ACCEPTED);
+
+    assert_eq!(
+        store
+            .roster_support_audits()
+            .expect("support audit events")
+            .iter()
+            .map(|event| event.action)
+            .collect::<Vec<_>>(),
+        vec![
+            CourseRosterSupportAction::ListRoster,
+            CourseRosterSupportAction::CreateInvitation,
+        ]
+    );
+
+    let export = router_with_invitations(
+        std::sync::Arc::clone(&store),
+        CourseInvitationIssuer::from_server_secret([0x61; 32]),
+        std::sync::Arc::new(CapturingInvitationDelivery::default()),
+    )
+    .oneshot(request(
+        "POST",
+        format!(
+            "/api/courses/{course}/assignments/{}/grade-export.csv",
+            AssignmentId::from_uuid(id(1_084))
+        ),
+        &sysadmin_cookie,
+        None,
+    ))
+    .await
+    .expect("grade export response");
+    assert_eq!(export.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn roster_http_is_instructor_scoped_secret_free_and_idempotent() {
     let store = std::sync::Arc::new(learning_data_access::in_memory::MemoryStore::default());
     let tenant = TenantId::from_uuid(id(1_100));
     let instructor = UserId::from_uuid(id(1_101));

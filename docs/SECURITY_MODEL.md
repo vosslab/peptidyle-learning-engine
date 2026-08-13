@@ -10,6 +10,8 @@ specialized durable contracts own their detailed data shapes and operations:
 
 - [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md) classifies protected data
   and its permitted projections.
+- [USER_ROLES.md](USER_ROLES.md) owns the closed Student, Instructor, and
+  Sysadmin human-role model.
 - [DATABASE_TENANCY.md](DATABASE_TENANCY.md) owns PostgreSQL roles, RLS, and
   transaction-local tenant context.
 - [OBJECT_STORAGE.md](OBJECT_STORAGE.md) owns typed keys, delivery grants, and
@@ -114,10 +116,10 @@ source source_me.sh && python3 -m pytest tests/test_crate_boundaries.py
 
 ## Export allowlist
 
-`tests/test_wasm_export_allowlist.mjs` builds the current bridge, processes it
+`tests/e2e/e2e_wasm_export_allowlist.mjs` builds the current bridge, processes it
 with the lockfile-matched `wasm-bindgen` tooling, and compares every export name
 and kind with a committed allowlist. Its disposable processed module lives
-under ignored `generated/wasm-export-check/`.
+inside a temporary output directory.
 
 The reviewed application exports are currently:
 
@@ -159,14 +161,25 @@ and decides whether a request belongs to that presentation.
 Run the export gate directly:
 
 ```bash
-node --test tests/test_wasm_export_allowlist.mjs
+node tests/e2e/e2e_wasm_export_allowlist.mjs
 ```
 
-Both boundary gates run from `./check_codebase.sh`.
+The crate-closure check remains in the fast repository gate. The export allowlist
+is an explicit non-browser E2E because it builds the Rust target and runs bindgen.
 
 ## Authentication and tenant derivation
 
-Authentication uses one host-only opaque session cookie. The raw 256-bit
+Production authentication is PLE-owned and provider-free: a short-lived,
+single-use email ceremony creates or restores the opaque PLE account, and
+WebAuthn passkeys are optional additional credentials for that same account.
+PLE stores no password verifier. Email remains the recovery authority: loss or
+revocation of a passkey returns the learner to email sign-in, while a signed-in
+email change requires control of the current account. A local-file identity
+provider exists only in a binary built with the explicit
+`local-development-auth` feature and behind the explicit local-development
+launcher; production does not compile or mount its generic login route.
+
+Authentication uses one `__Host-` opaque session cookie. The raw 256-bit
 credential is generated from the operating-system random source, marked
 HttpOnly, and never enters browser `localStorage`, logs, or PostgreSQL. The
 cookie has no `Max-Age` or `Expires` attribute, so ordinary authentication is
@@ -174,17 +187,43 @@ limited to the browser session. Shared session storage contains only its
 SHA-256 hash and database-authoritative creation, bounded expiration, and
 revocation state.
 
-The normal HTTPS cookie policy is `Secure; SameSite=Lax`. LTI embedding must
-explicitly select `SameSite=None; Secure`, and plain HTTP requires the named
-local-development mode. Credential-provider implementations own their
-protocol's replay and CSRF checks; the generic login route also bounds a
-presentation body to 64 KiB.
+Production cookies are `Secure; HttpOnly; SameSite=Lax; Path=/` and have no
+`Domain` attribute. The `__Host-` prefix makes those host-only constraints
+browser-enforceable. Plain HTTP is limited to named local development. There
+is no production embedded `SameSite=None` mode: a future LTI integration must
+introduce and review a separate browser/session design rather than weaken the
+first-party session contract.
 
-`SameSite=None` is not a CSRF defense. Ordinary browser mutations use
-same-origin JSON requests and the server must not add permissive credentialed
-CORS. Before embedded LTI mode is composed for production, its state-changing
-requests require an origin-bound anti-CSRF mechanism in addition to the LTI
-launch protocol's state, nonce, and replay validation.
+Every unsafe cookie-authenticated request must present the exact canonical
+HTTPS `Host` and same `Origin`; duplicate or malformed cookie inputs are
+rejected. The sole narrow exception is the external-tool form POST with
+`Origin: null`: it additionally requires the exact single session and an
+AEAD-protected, HttpOnly, `SameSite=Strict` launch cookie. The API does not
+grant credentialed cross-origin CORS. These checks supplement, rather than
+replace, `SameSite=Lax`.
+
+Passwordless email and passkey ceremonies persist only hashed/serialized
+server state. Email challenges are atomic, browser-bound, short-lived, and
+single-use. Quotas consume keyed, non-reversible composite identities (for
+the normalized email or credential flow and a coarse client network) before
+ceremony persistence. The server trusts `X-Forwarded-For` only from an
+explicit CIDR allowlist; it accepts one bounded canonical chain and otherwise
+uses the transport peer or a fail-closed shared bucket. IPv4 /24 and IPv6 /56
+aggregation bounds abuse without turning a campus NAT into per-device
+tracking.
+
+## Encryption and secret boundary
+
+Managed PostgreSQL, object storage, backups, and deployment volumes use
+provider-managed encryption at rest with scoped KMS keys. This is the durable
+baseline for source, protected records, and image objects. PLE does **not**
+blanket-encrypt public published content in the application: immutable public
+objects need CDN delivery and integrity comes from their canonical SHA-256
+binding, publication authority, and object-store immutability. Application
+encryption is selective: AEAD protects secrets that must be stored and later
+used, such as external-tool launch state. Keys, database URLs, SMTP credentials,
+and provider credentials stay in deployment secret storage and least-privilege
+runtime roles, never tracked configuration or browser DTOs.
 
 ## Contracted iMathAS provider
 
@@ -232,11 +271,18 @@ not included in errors, Debug output, browser DTOs, TypeScript, or WASM.
 
 ## Student-record retention boundary
 
-Student records are tenant-owned and course-scoped; reusable published content is not. Every
+Student records are FERPA data and treated as radioactive: tenant-owned,
+course-scoped, minimized, and excluded from general logs and analytics;
+reusable published content is not. Every
 learner-facing Store and PostgreSQL path checks the same course-retention access predicate, so
 archive cannot be bypassed through runs, summaries, feedback, exports, external tools, or protected
-StudentRecord assets. Manager retention views expose only coarse lifecycle, fixed notification
-copy, and a strong revision-not learner, object, job, lease, or generation identity.
+StudentRecord assets. Instructor/Sysadmin retention views expose only coarse
+lifecycle, fixed notification copy, and a strong revision-not learner, object,
+job, lease, or generation identity. This payload-free lifecycle authority is
+the only Sysadmin exception to direct Instructor membership for FERPA-bearing
+course state other than the separately audited, closed roster-support
+capability. Roster support never grants grade export, item analysis, responses,
+runs, or general course access.
 
 Only the scheduler creates a closed retention job binding. The broker-owned prepare and commit
 functions require the exact tenant, course, stage, generation, job, and active lease. They persist a
@@ -297,9 +343,9 @@ fresh problem identifier for a new work or fork. The store compares and locks
 the same draft before committing metadata, immutable payload, visibility
 grant, and draft deletion in one transaction.
 
-Public publication requires a publisher or administrator role plus the
+Public publication requires Instructor or Sysadmin authority plus the
 institution's optional review gate. Institution publication permits an
-instructor, publisher, or administrator. Post-publication transitions require
+Instructor or Sysadmin. Post-publication transitions require
 both an eligible role and author ownership. Database privileges permit only
 the lifecycle fields to change; published identity, scope, payload,
 capabilities, metadata, authorship, and lineage cannot be updated or deleted by
@@ -317,10 +363,10 @@ an exact new reference; archival additionally blocks new assignments.
 Every course route resolves the shared session before constructing
 `TenantContext`; no request may choose a tenant. A coarse instructor role may
 create a course, but access to an existing course comes from a tenant-owned
-`course_member` row. Tenant administrators may inspect every course through a
-separate effective-authority path. Administrator authority is not a storable
-membership variant, so a membership write cannot accidentally manufacture
-tenant-wide access.
+`course_member` row. `Sysadmin` is not a course membership variant and never
+substitutes for direct Instructor membership when accessing general FERPA
+records. Its closed roster-support exception records actor/course/action/time
+and exposes only roster operations needed to help an Instructor.
 
 Course and membership tables use forced tenant RLS. Nonmembers receive the same
 not-found response as absent courses, limiting identity disclosure. Students
@@ -346,7 +392,7 @@ cannot become a membership or tenant oracle. Memory performs replacement under
 one write lock; PostgreSQL binds tenant, course, assignment, and revision in
 the update transaction and locks every selected version against a concurrent
 lifecycle transition. Stale writes conflict without changing the stored
-assignment. Direct course instructors and tenant administrators may mutate;
+assignment. Direct course instructors may mutate;
 students receive forbidden and unrelated or foreign courses remain absent.
 All success and error responses are `no-store`.
 
@@ -359,6 +405,11 @@ or recipients and cannot become a course or tenant oracle. The Store freezes
 the assignment title and ordered immutable version references, the requester,
 one opaque manifest, and four server-generated private object identities before
 it enqueues one closed export job.
+
+The Store repeats session resolution and exact Instructor membership under the
+course-roster lock. The browser cannot name `requested_by` or turn a stale
+route decision into an export: revocation racing export creation causes the
+transaction to fail.
 
 The worker resolves only that frozen manifest under its tenant context and
 builds the standard and accessible DOCX/PDF bundle from browser-safe published
@@ -398,9 +449,16 @@ than rendering requires. The target render projection retains only public
 input constraints and displayed units while keeping tolerances, normalization
 rules, answer keys, weights, and rubrics server-only.
 
-Run mutations require the authenticated `UserId` stored on the enrollment;
-they never infer authorization by equating that identity with `StudentId`.
-Course instructors and tenant administrators may read enrollment history and
+Run reads and mutations require the authenticated `UserId` stored on the
+enrollment **and an active `Student` course membership at the Store/DB
+boundary**; they never infer authorization by equating that identity with
+`StudentId`. This is repeated for learner run, enrollment, summary, attempt,
+prefetch, feedback-release, issuance, submission, and external-tool paths.
+PostgreSQL checks it in the same transaction with the roster lock, and the
+in-memory Store uses the corresponding atomic lock. Course instructors retain a
+separate, explicitly authorized historical-record projection after removal;
+that Instructor authority never leaks into a learner-scoped Store method.
+Direct course instructors may read enrollment history and
 summaries, but only the enrollment owner may start or submit a run. Nonowners
 receive not found so record existence is not disclosed.
 
@@ -454,6 +512,19 @@ submission authority. Policy-permitted results may contain correctness and
 points, but never an answer key, expected value, private rubric, or checker
 state. Full teaching feedback uses an explicit sanitized disclosure DTO; it
 never serializes the server-only key as a shortcut.
+
+## External-tool indeterminate-effect boundary
+
+An external tool is an untrusted, potentially effectful service. Before PLE
+dispatches a provider `POST`, the Store atomically records a pre-dispatch
+marker tied to the current, unexpired activity-lease token. Only a valid
+provider response can clear that exact marker. A timeout, I/O failure, process
+death, lease expiry, or later launch leaves the attempt permanently
+indeterminate and fail-closed: it cannot be reclaimed, relaunched, graded, or
+finalized automatically. Read-only provider retrieval is structurally a GET;
+the browser has no generic provider proxy. The learner receives a generic
+accessible recovery message directing them to the instructor, rather than
+details that could disclose provider state or invite a duplicate action.
 
 ## Asset delivery boundary
 

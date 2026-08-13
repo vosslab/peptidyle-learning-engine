@@ -313,14 +313,11 @@ where
 
 pub(crate) fn may_publish(roles: &[UserRole], scope: PublicationScope) -> bool {
     match scope {
-        PublicationScope::Institution => roles.iter().any(|role| {
-            matches!(
-                role,
-                UserRole::Instructor | UserRole::Publisher | UserRole::Administrator
-            )
-        }),
+        PublicationScope::Institution => roles
+            .iter()
+            .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin)),
         PublicationScope::Public => roles
             .iter()
-            .any(|role| matches!(role, UserRole::Publisher | UserRole::Administrator)),
+            .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin)),
     }
 }

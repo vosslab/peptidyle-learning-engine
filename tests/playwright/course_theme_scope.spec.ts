@@ -152,6 +152,7 @@ test("instructor editor, gradebook, and settings use the authorized course theme
 });
 
 test("the authorized banner and text title render only at course entry", async ({ page }) => {
+  test.setTimeout(2_000);
   const assignment = publishedProblemFixture.assignment;
   const appearance = {
     theme: "grass",
@@ -165,7 +166,9 @@ test("the authorized banner and text title render only at course entry", async (
     },
   };
   await page.route("**/api/**", async (route) => {
-    const path = new URL(route.request().url()).pathname;
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
     if (path === "/api/auth/session") return await json(route, session(["student"]));
     if (path === `/api/courses/${COURSE_ID}`) {
       return await json(route, publishedProblemFixture.course);
@@ -177,7 +180,18 @@ test("the authorized banner and text title render only at course entry", async (
       return await json(route, { items: [assignment], nextCursor: null });
     }
     if (path === `/api/assignments/${assignment.id}`) return await json(route, assignment);
+    if (path === `/api/assets/${BANNER_ID}/delivery`) {
+      expect(request.method()).toBe("POST");
+      return await json(
+        route,
+        { url: `${url.origin}/api/assets/${BANNER_ID}?signed=course-entry` },
+        200,
+        { "cache-control": "no-store" },
+      );
+    }
     if (path === `/api/assets/${BANNER_ID}`) {
+      expect(request.method()).toBe("GET");
+      expect(url.searchParams.get("signed")).toBe("course-entry");
       return await route.fulfill({ status: 200, contentType: "image/png", body: bannerBytes });
     }
     return await json(route, { error: `unexpected entry-only request ${path}` }, 500);

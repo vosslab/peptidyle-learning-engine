@@ -19,6 +19,7 @@ use launch_state::launch_state_aad;
 pub(crate) use launch_state::{launch_cookie_aad, launch_cookie_value};
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use adapter_imathas::{
     CorrelationIssuer, GradeBinding, ImathasAdapter, ImathasAdapterError, ImathasProvider,
@@ -39,7 +40,62 @@ use crate::run::{
     IssuedAttemptMetadata, RunBackend, RunBackendError, RunSubmission, SubmissionDisposition,
 };
 
-const EXTERNAL_TOOL_LEASE_MILLIS: u32 = 30_000;
+/// A provider call is permitted to use almost all of its configured timeout;
+/// the remaining time is reserved for cancellation and releasing its durable
+/// activity capability. Keep this relationship here, rather than allowing an
+/// independent deployment constant to make a remote call outlive its lease.
+const EXTERNAL_TOOL_ACTIVITY_CANCELLATION_MARGIN_MILLIS: u32 = 5_000;
+const EXTERNAL_TOOL_VERIFICATION_FINALIZATION_MARGIN_MILLIS: u32 = 5_000;
+const MAX_EXTERNAL_TOOL_ACTIVITY_LEASE_MILLIS: u32 = 60_000;
+const MAX_EXTERNAL_TOOL_VERIFICATION_LEASE_MILLIS: u32 = 300_000;
+
+/// Server-side timing derived from the one bounded provider request timeout.
+///
+/// Every remote provider operation is protected by `activity_lease_millis`.
+/// The enclosing verification lease includes another bounded finalization
+/// interval for durable staging and commit after that activity lease releases.
+/// No caller can construct an iMathAS backend without this relationship.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ExternalToolTiming {
+    activity_lease_millis: u32,
+    verification_lease_millis: u32,
+}
+
+impl ExternalToolTiming {
+    pub(crate) fn from_provider_timeout(timeout: Duration) -> Result<Self, &'static str> {
+        let provider_millis = u32::try_from(timeout.as_millis())
+            .map_err(|_| "iMathAS provider request timeout is too large")?;
+        if provider_millis == 0 {
+            return Err("iMathAS provider request timeout must be positive");
+        }
+        let activity_lease_millis = provider_millis
+            .checked_add(EXTERNAL_TOOL_ACTIVITY_CANCELLATION_MARGIN_MILLIS)
+            .ok_or("iMathAS activity lease duration overflow")?;
+        if activity_lease_millis > MAX_EXTERNAL_TOOL_ACTIVITY_LEASE_MILLIS {
+            return Err(
+                "iMathAS provider request timeout exceeds the external activity lease bound",
+            );
+        }
+        let verification_lease_millis = activity_lease_millis
+            .checked_add(EXTERNAL_TOOL_VERIFICATION_FINALIZATION_MARGIN_MILLIS)
+            .ok_or("iMathAS verification lease duration overflow")?;
+        if verification_lease_millis > MAX_EXTERNAL_TOOL_VERIFICATION_LEASE_MILLIS {
+            return Err("iMathAS verification lease exceeds its bound");
+        }
+        Ok(Self {
+            activity_lease_millis,
+            verification_lease_millis,
+        })
+    }
+
+    pub(crate) const fn activity_lease_millis(self) -> u32 {
+        self.activity_lease_millis
+    }
+
+    pub(crate) const fn verification_lease_millis(self) -> u32 {
+        self.verification_lease_millis
+    }
+}
 
 /// Contracted-only marker submission. The launch proof is decoded from the
 /// authenticated same-origin cookie by a later route owner; it can never be
@@ -70,23 +126,31 @@ pub struct ImathasBackend<S, O, P> {
     objects: Arc<O>,
     adapter: Arc<ImathasAdapter<O, P>>,
     correlations: Arc<CorrelationIssuer>,
+    timing: ExternalToolTiming,
 }
 
 impl<S, O, P> ImathasBackend<S, O, P> {
     /// Constructs the bridge from already-configured server dependencies.
     /// No provider endpoint, credential, or browser value enters here.
-    pub fn new(
+    pub(crate) fn new(
         sources: Arc<S>,
         objects: Arc<O>,
         adapter: Arc<ImathasAdapter<O, P>>,
         correlations: Arc<CorrelationIssuer>,
+        timing: ExternalToolTiming,
     ) -> Self {
         Self {
             sources,
             objects,
             adapter,
             correlations,
+            timing,
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) const fn activity_lease_millis(&self) -> u32 {
+        self.timing.activity_lease_millis()
     }
 }
 

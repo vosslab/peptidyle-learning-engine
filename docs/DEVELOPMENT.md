@@ -29,7 +29,8 @@ interface:
 npm run setup
 ./build.sh
 ./check_codebase.sh
-pytest tests/
+./check_rust.sh
+source source_me.sh && python3 -m pytest tests/
 ```
 
 `./build.sh` builds the Rust workspace, WebAssembly bridge, Rust-owned TypeScript definitions,
@@ -56,16 +57,18 @@ process is active, inspect the exact target with `cargo clean --dry-run`, and us
 when discarding the complete workspace build cache is intended. The command does not remove source,
 Git state, `node_modules`, or Podman data.
 
-The check gate is deliberately not a product build. It refreshes the ignored generated TypeScript
-projections, then runs TypeScript typechecks, ESLint, Prettier, Node tests, the focused WASM
-dependency-boundary check, Rust formatting, Clippy, and workspace tests. A missing Rust toolchain
-is reported as `SKIP`; it is not a successful Rust verification.
+The check gates are deliberately not product builds. The vendored `./check_codebase.sh` owns the
+TypeScript typechecks, ESLint, Prettier, and Node tests. The repository-owned `./check_rust.sh`
+owns Rust-generated browser contracts and fixtures, Rust formatting, default and all-feature
+compilation, strict Clippy, workspace tests and doctests, and the browser WebAssembly target check.
+Keeping them separate prevents a vendored codebase-gate refresh from silently removing Rust
+verification.
 
 Cargo features are capability boundaries, not a convention to enable globally. The server selects
 the production PostgreSQL, S3, and adapter capabilities in its manifest, while memory-oriented
-crates keep those dependencies optional. `./check_codebase.sh` checks the workspace configuration
-it owns with `--all-targets`; for a change to an optional capability, read the owning `Cargo.toml`
-and run the focused package command required by the active work package.
+crates keep those dependencies optional. `./check_rust.sh` checks both the default production graph
+and the all-feature, all-target graph. For a change to an optional capability, also read the owning
+`Cargo.toml` and run the focused package command required by the active work package.
 
 ## Generated outputs
 
@@ -86,13 +89,14 @@ current.
 Run the narrowest gate that proves the changed behavior, then the broader gate required by the
 active work package.
 
-| Change or concern                                          | Command                                                     | What it proves                                     |
-| ---------------------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------- |
-| Rust, generated contracts, TypeScript, lint, or formatting | `./check_codebase.sh`                                       | The repository's fast cross-language gate.         |
-| Repository documentation and hygiene                       | `pytest tests/`                                             | Fast Python hygiene and repository-rule checks.    |
-| Built-browser behavior                                     | `./run_playwright_tests.sh --build`                         | A fresh browser artifact and the Playwright suite. |
-| One browser scenario                                       | `./run_playwright_tests.sh tests/playwright/<file>.spec.ts` | The selected built-browser scenario.               |
-| Container-backed behavior                                  | `bash tests/e2e/e2e_<name>.sh`                              | The named disposable whole-system oracle.          |
+| Change or concern                         | Command                                                     | What it proves                                     |
+| ----------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------- |
+| Rust code, features, lints, tests, or Wasm | `./check_rust.sh`                                           | The complete offline Cargo and Rust gate.          |
+| TypeScript, browser lint, format, or tests | `./check_codebase.sh`                                       | The vendored TypeScript and Node gate.             |
+| Repository documentation and hygiene      | `source source_me.sh && python3 -m pytest tests/`            | Fast Python hygiene and repository-rule checks.    |
+| Built-browser behavior                    | `./run_playwright_tests.sh --build`                         | A fresh browser artifact and the Playwright suite. |
+| One browser scenario                      | `./run_playwright_tests.sh tests/playwright/<file>.spec.ts` | The selected built-browser scenario.               |
+| Container-backed behavior                 | `bash tests/e2e/e2e_<name>.sh`                              | The named disposable whole-system oracle.          |
 
 `tests/playwright/` is browser-driven testing and `tests/e2e/` is non-browser whole-system
 orchestration. Both are intentionally excluded from `pytest tests/`; see

@@ -416,6 +416,27 @@ pub trait Store:
         CourseAssignmentStore::get_enrollment_impl(self, context, enrollment).await
     }
 
+    /// Browser learner capability; storage proves current active membership.
+    async fn learner_get_enrollment(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        enrollment: EnrollmentId,
+    ) -> Result<Option<AssignmentEnrollment>, StoreError> {
+        ActivityStore::learner_get_enrollment_impl(self, context, actor, enrollment).await
+    }
+
+    /// Historical instructor capability; the Store rechecks direct course
+    /// membership instead of accepting a coarse platform role.
+    async fn instructor_get_enrollment(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        enrollment: EnrollmentId,
+    ) -> Result<Option<AssignmentEnrollment>, StoreError> {
+        ActivityStore::instructor_get_enrollment_impl(self, context, actor, enrollment).await
+    }
+
     /// Delegates to the focused [`AssignmentPolicyStore`] capability.
     async fn get_assignment_timing(
         &self,
@@ -503,6 +524,15 @@ pub trait Store:
         run: RunId,
     ) -> Result<Vec<AssignmentRunItem>, StoreError> {
         RunStore::assignment_run_items_impl(self, context, run).await
+    }
+
+    async fn learner_assignment_run_items(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        run: RunId,
+    ) -> Result<Option<Vec<AssignmentRunItem>>, StoreError> {
+        RunStore::learner_assignment_run_items_impl(self, context, actor, run).await
     }
 
     /// Delegates to the focused [`RunStore`] capability.
@@ -603,6 +633,25 @@ pub trait Store:
         .await
     }
 
+    async fn learner_get_prefetched_question(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        run: RunId,
+        predecessor: QuestionAttemptId,
+        assignment_position: u32,
+    ) -> Result<Option<PrefetchedQuestion>, StoreError> {
+        RunStore::learner_get_prefetched_question_impl(
+            self,
+            context,
+            actor,
+            run,
+            predecessor,
+            assignment_position,
+        )
+        .await
+    }
+
     /// Delegates to the focused [`RunStore`] capability.
     async fn submission_next_attempt(
         &self,
@@ -621,6 +670,26 @@ pub trait Store:
         run: RunId,
     ) -> Result<Option<QuestionAttemptId>, StoreError> {
         RunStore::pending_submission_for_run_impl(self, context, actor, run).await
+    }
+
+    async fn learner_pending_submission_for_run(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        run: RunId,
+    ) -> Result<Option<QuestionAttemptId>, StoreError> {
+        RunStore::learner_pending_submission_for_run_impl(self, context, actor, run).await
+    }
+
+    /// Browser learner capability for the current enrollment's attempt list.
+    async fn learner_list_question_attempts(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        run: RunId,
+        page: PageRequest,
+    ) -> Result<Option<Page<QuestionAttempt>>, StoreError> {
+        RunStore::learner_list_question_attempts_impl(self, context, actor, run, page).await
     }
 
     /// Delegates to the focused [`RunStore`] capability.
@@ -747,6 +816,16 @@ pub trait Store:
         ActivityStore::get_run_impl(self, context, run).await
     }
 
+    /// Browser learner capability; checks current membership in storage.
+    async fn learner_get_run(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        run: RunId,
+    ) -> Result<Option<AssignmentRun>, StoreError> {
+        ActivityStore::learner_get_run_impl(self, context, actor, run).await
+    }
+
     /// Delegates to the focused [`ActivityStore`] capability.
     async fn list_runs(
         &self,
@@ -755,6 +834,16 @@ pub trait Store:
         page: PageRequest,
     ) -> Result<Page<AssignmentRun>, StoreError> {
         ActivityStore::list_runs_impl(self, context, enrollment, page).await
+    }
+
+    async fn learner_list_runs(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        enrollment: EnrollmentId,
+        page: PageRequest,
+    ) -> Result<Option<Page<AssignmentRun>>, StoreError> {
+        ActivityStore::learner_list_runs_impl(self, context, actor, enrollment, page).await
     }
 
     /// Delegates to the focused [`ActivityStore`] capability.
@@ -766,6 +855,15 @@ pub trait Store:
         ActivityStore::get_question_attempt_impl(self, context, attempt).await
     }
 
+    async fn learner_get_question_attempt(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<QuestionAttempt>, StoreError> {
+        ActivityStore::learner_get_question_attempt_impl(self, context, actor, attempt).await
+    }
+
     /// Delegates to the focused [`ActivityStore`] capability.
     async fn get_summary(
         &self,
@@ -773,6 +871,15 @@ pub trait Store:
         enrollment: EnrollmentId,
     ) -> Result<Option<StudentAssignmentSummary>, StoreError> {
         ActivityStore::get_summary_impl(self, context, enrollment).await
+    }
+
+    async fn learner_get_summary(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        enrollment: EnrollmentId,
+    ) -> Result<Option<StudentAssignmentSummary>, StoreError> {
+        ActivityStore::learner_get_summary_impl(self, context, actor, enrollment).await
     }
 }
 

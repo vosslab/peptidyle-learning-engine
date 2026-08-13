@@ -1,5 +1,40 @@
 # compose.yaml - complete local development stack.
 services:
+  # Rootless Podman creates a new named volume with an engine-owned top-level
+  # directory.  The two upstream stateful images run as fixed, unprivileged
+  # UIDs, so normalize only those durable directories before either daemon
+  # starts.  This one-shot task has no network, writable root filesystem, or
+  # authority over application data after it exits.
+  local-data-volume-permissions:
+    image: docker.io/library/alpine@sha256:${PLE_SECRET_INIT_IMAGE_SHA256:?set PLE_SECRET_INIT_IMAGE_SHA256 to the selected official Alpine Linux image manifest digest}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        mkdir -p /var/lib/postgresql/data /data
+        chown 999:999 /var/lib/postgresql/data
+        chown 10001:10001 /data
+    user: "0:0"
+    volumes:
+      - ple_pgdata:/var/lib/postgresql/data
+      - ple_miniodata:/data
+    network_mode: none
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      # The sole elevated operation is assigning the fixed daemon owners to
+      # the two mounted data directories. Rootless container root has no host
+      # root authority.
+      - CHOWN
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=8m,mode=1777
+    cpus: "0.10"
+    mem_limit: 32m
+    pids_limit: 16
+    restart: "no"
+
   postgres:
     image: docker.io/library/postgres@sha256:${PLE_POSTGRES_IMAGE_SHA256:?set PLE_POSTGRES_IMAGE_SHA256 to the selected official PostgreSQL 17 Linux image manifest digest}
     environment:
@@ -8,6 +43,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-peptidyle}
     volumes:
       - ple_pgdata:/var/lib/postgresql/data
+    depends_on:
+      local-data-volume-permissions:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -15,6 +53,22 @@ services:
       retries: 10
     ports:
       - "127.0.0.1:${PLE_POSTGRES_HOST_PORT:-5432}:5432"
+    # The official image accepts an explicit user once its data directory is
+    # owned by that user. This prevents the entrypoint from retaining root
+    # while it starts the server.
+    user: "999:999"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+      - /var/run/postgresql:rw,noexec,nosuid,size=16m,mode=1777
+    cpus: "2.0"
+    mem_limit: 1g
+    pids_limit: 128
+    restart: on-failure
 
   # Invoked explicitly by launch_local_stack.sh before PostgreSQL starts.  A
   # PostgreSQL data directory is not forward/backward compatible across major
@@ -43,20 +97,24 @@ services:
       - ple_pgdata:/var/lib/postgresql/data:ro
     network_mode: none
     read_only: true
+    user: "999:999"
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
+    cpus: "0.10"
+    mem_limit: 32m
+    pids_limit: 16
     restart: "no"
 
   minio:
     image: quay.io/minio/minio@sha256:${PLE_MINIO_IMAGE_SHA256:?set PLE_MINIO_IMAGE_SHA256 to the selected official MinIO Linux image manifest digest}
     command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in the env file}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in the env file}
     volumes:
       - ple_miniodata:/data
+    depends_on:
+      local-data-volume-permissions:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 5s
@@ -65,6 +123,25 @@ services:
     ports:
       - "127.0.0.1:${PLE_MINIO_API_HOST_PORT:-9000}:9000"
       - "127.0.0.1:${PLE_MINIO_CONSOLE_HOST_PORT:-9001}:9001"
+    # MinIO documents `--user` support when its data directory is writable.
+    # Keep its transient home on an explicit non-executable tmpfs; only /data
+    # remains durable and writable.
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in the env file}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in the env file}
+      HOME: /tmp
+    cpus: "1.0"
+    mem_limit: 512m
+    pids_limit: 128
+    restart: on-failure
 
   createbuckets:
     image: quay.io/minio/mc@sha256:${PLE_MINIO_MC_IMAGE_SHA256:?set PLE_MINIO_MC_IMAGE_SHA256 to the selected official MinIO Client Linux image manifest digest}
@@ -74,15 +151,29 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in the env file}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in the env file}
+      HOME: /tmp
     entrypoint:
       - /bin/sh
       - -c
       - |
         set -e
         mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
-        mc mb --ignore-existing local/content
+        mc mb --ignore-existing local/public-assets
+        mc mb --ignore-existing local/private-content
         mc mb --ignore-existing local/student-records
         mc mb --ignore-existing local/temp-processing
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+    cpus: "0.10"
+    mem_limit: 64m
+    pids_limit: 32
+    restart: "no"
 
   # Copies the host-owned invitation issuer secret into a private volume as
   # the API's fixed runtime UID. This enables copy-link invitations without
@@ -120,6 +211,7 @@ services:
     build:
       context: ..
       dockerfile: containers/Containerfile.api
+      target: local-development
     depends_on:
       postgres:
         condition: service_healthy
@@ -138,7 +230,8 @@ services:
       PLE_GRADER_DATABASE_URL: postgres://ple_grading_reader:${PLE_LOCAL_GRADER_PASSWORD:?set PLE_LOCAL_GRADER_PASSWORD in the env file}@postgres:5432/${POSTGRES_DB:-peptidyle}
       PLE_S3_ENDPOINT: http://minio:9000
       PLE_S3_REGION: us-east-1
-      PLE_CONTENT_BUCKET: content
+      PLE_PUBLIC_ASSETS_BUCKET: public-assets
+      PLE_PRIVATE_CONTENT_BUCKET: private-content
       PLE_STUDENT_RECORDS_BUCKET: student-records
       PLE_TEMP_PROCESSING_BUCKET: temp-processing
       PLE_PUBLIC_ASSET_BASE_URL: ${PLE_PUBLIC_ASSET_BASE_URL:?set PLE_PUBLIC_ASSET_BASE_URL in the env file}
@@ -170,16 +263,37 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
+    # The image itself already selects UID 10001. Declare the runtime
+    # containment here too so an orchestrator cannot silently widen it.
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m,mode=1777
+    cpus: "1.0"
+    mem_limit: 512m
+    pids_limit: 128
+    restart: on-failure
+    # The application stops accepting work then permits a 30-second graceful
+    # drain.  Leave explicit orchestrator margin so it cannot SIGKILL a
+    # request that the application has legitimately admitted.
+    stop_grace_period: 45s
     networks:
       - default
       - renderer_private
       - gateway_api
+      # API-only outbound access is needed only for reviewed providers such as
+      # SMTP and iMathAS. Storage and renderer traffic remain private.
+      - api_outbound
 
   worker:
     # Keep the worker's runtime configuration separate while consuming the
     # single application image built by the `api` service.
     image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
-    command: ["--worker"]
+    command: ["--local-worker"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -189,7 +303,8 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-peptidyle}
       PLE_S3_ENDPOINT: http://minio:9000
       PLE_S3_REGION: us-east-1
-      PLE_CONTENT_BUCKET: content
+      PLE_PUBLIC_ASSETS_BUCKET: public-assets
+      PLE_PRIVATE_CONTENT_BUCKET: private-content
       PLE_STUDENT_RECORDS_BUCKET: student-records
       PLE_TEMP_PROCESSING_BUCKET: temp-processing
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
@@ -201,6 +316,17 @@ services:
     stop_grace_period: 100s
     healthcheck:
       disable: true
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m,mode=1777
+    cpus: "1.0"
+    mem_limit: 512m
+    pids_limit: 128
     networks:
       - default
 
@@ -255,7 +381,9 @@ services:
   # PLE uses only the standalone PG rendering engine. It has no assignment,
   # course, roster, login, session, SQL, or persistent-volume state.
   webwork-renderer:
-    image: ${PLE_WEBWORK_RENDERER_IMAGE:-localhost/pg-renderer:latest}
+    # The checked-in default is the reviewed local OCI manifest digest. An
+    # operator may replace it only with another explicit immutable reference.
+    image: ${PLE_WEBWORK_RENDERER_IMAGE:-localhost/pg-renderer@sha256:35544c77a36d3fca178ccde8af4eb4fc0145554a6c06ee6d57d2704e99e5bce5}
     environment:
       PERL5LIB: /usr/app/lib/PG:/usr/app/lib/WeBWorK/lib:/usr/app/lib
       MOJO_MODE: production
@@ -269,10 +397,17 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    # The renderer evaluates instructor-authored PG/PGML and must not retain
+    # authority outside its explicitly writable, ephemeral directories.
+    user: "10001:10001"
+    read_only: true
     tmpfs:
-      - /usr/app/private:rw,noexec,nosuid,size=16m,mode=0700
-      - /usr/app/logs:rw,noexec,nosuid,size=16m,mode=0700
-      - /usr/app/tmp:rw,noexec,nosuid,size=128m,mode=0700
+      # Compose/Podman portable tmpfs options cannot set a mount owner. Sticky
+      # directories let the fixed non-root UID write without granting one
+      # renderer request authority over another's files.
+      - /usr/app/private:rw,noexec,nosuid,size=16m,mode=1777
+      - /usr/app/logs:rw,noexec,nosuid,size=16m,mode=1777
+      - /usr/app/tmp:rw,noexec,nosuid,size=128m,mode=1777
     cpus: "2.0"
     mem_limit: 2g
     pids_limit: 256
@@ -294,7 +429,10 @@ volumes:
 
 networks:
   default:
+    # PostgreSQL, MinIO, worker, and setup jobs never require Internet access.
+    internal: true
   gateway_api:
     internal: true
   renderer_private:
     internal: true
+  api_outbound:

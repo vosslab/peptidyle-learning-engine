@@ -3,7 +3,9 @@
 use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use objects::Sha256Digest;
-use question_model::{AttemptResult, AttemptStatus, CourseRole, FeedbackContent, ScoringStatus};
+use question_model::{
+    AttemptResult, AttemptStatus, CourseMembershipRole, FeedbackContent, ScoringStatus,
+};
 
 use super::*;
 use crate::{
@@ -39,6 +41,36 @@ impl MemoryManualGradeReceipt {
 
 #[async_trait]
 impl ManualGradingStore for MemoryStore {
+    async fn get_manual_evaluation_with_response_for_edit(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        attempt: QuestionAttemptId,
+    ) -> Result<Option<(ManualEvaluationRecord, StudentResponse)>, StoreError> {
+        let state = self.read_state()?;
+        let tenant = context.tenant_id();
+        let attempt_record = state
+            .attempts
+            .get(&(tenant, attempt))
+            .ok_or(StoreError::NotFound)?;
+        let run = state
+            .runs
+            .get(&(tenant, attempt_record.run))
+            .ok_or(StoreError::NotFound)?;
+        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
+        let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
+        require_course_records_accessible(&state, tenant, assignment.course_id)?;
+        let course = state
+            .courses
+            .get(&(tenant, assignment.course_id))
+            .ok_or(StoreError::NotFound)?;
+        if course.role_for(actor) != Some(CourseMembershipRole::Instructor) {
+            return Err(StoreError::NotFound);
+        }
+        let evaluation = state.manual_evaluations.get(&(tenant, attempt)).cloned();
+        let response = projected_attempt(&state, tenant, attempt_record).response;
+        Ok(evaluation.zip(response))
+    }
     async fn submit_pending_manual_question_attempt(
         &self,
         context: TenantContext,
@@ -71,7 +103,7 @@ impl ManualGradingStore for MemoryStore {
             .courses
             .get(&(tenant, assignment.course_id))
             .ok_or(StoreError::NotFound)?;
-        if course.role_for(actor) != Some(CourseRole::Instructor) {
+        if course.role_for(actor) != Some(CourseMembershipRole::Instructor) {
             return Err(StoreError::NotFound);
         }
         Ok(state.manual_evaluations.get(&(tenant, attempt)).cloned())
@@ -239,7 +271,7 @@ fn set_memory_manual_grade(
         .courses
         .get(&(tenant, assignment.course_id))
         .ok_or(StoreError::NotFound)?;
-    if course.role_for(command.actor) != Some(CourseRole::Instructor) {
+    if course.role_for(command.actor) != Some(CourseMembershipRole::Instructor) {
         return Err(StoreError::NotFound);
     }
     let digest = request_digest(&command);

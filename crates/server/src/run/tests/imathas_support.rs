@@ -341,6 +341,10 @@ pub(super) async fn contracted_route_fixture(
         Arc::new(adapter_imathas::CorrelationIssuer::from_server_secret(
             [83; 32],
         )),
+        crate::imathas_backend::ExternalToolTiming::from_provider_timeout(
+            std::time::Duration::from_secs(15),
+        )
+        .expect("bounded test timing"),
     ));
     let run = store
         .start_or_resume_run(context, actor, assignment, RunId::from_uuid(id(813)))

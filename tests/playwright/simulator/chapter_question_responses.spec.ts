@@ -199,6 +199,7 @@ test("matching candidate ordinals retain visible meaning across fresh rendered I
 test("native four-prompt matching makes candidate one ready through Tab and Space", async ({
   page,
 }) => {
+  test.setTimeout(2_000);
   await mountNativeMatchingFixture(page);
   const fixture = page.locator("#native-matching-fixture");
 

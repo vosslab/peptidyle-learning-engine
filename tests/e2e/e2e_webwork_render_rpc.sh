@@ -222,7 +222,7 @@ AWS_SECRET_ACCESS_KEY="$(env_value MINIO_ROOT_PASSWORD)" \
 		--student "00000000-0000-0000-0000-000000000102" \
 		--s3-endpoint "http://127.0.0.1:${minio_port}" \
 		--s3-region "us-east-1" \
-		--content-bucket "content" >"$MANIFEST_FILE"
+		--private-content-bucket "private-content" >"$MANIFEST_FILE"
 chmod 600 "$MANIFEST_FILE"
 require_file "$MANIFEST_FILE"
 

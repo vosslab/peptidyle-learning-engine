@@ -43,6 +43,13 @@ pub(super) async fn issue_or_resume_question_attempt(
     if enrollment.user != command.actor {
         return Err(StoreError::Forbidden);
     }
+    super::super::transaction_context::require_active_learner_membership(
+        transaction,
+        tenant,
+        enrollment.assignment,
+        command.actor,
+    )
+    .await?;
     assignment_timing::lock_postgres_assignment_policy(transaction, tenant, enrollment.assignment)
         .await?;
     let assignment_guard =

@@ -10,15 +10,21 @@ use crate::{
     ClaimCourseInvitation, ClaimedCourseMembership, CommitCourseRosterImport,
     CommittedCourseRosterImport, CourseEnrollmentPolicy, CourseInvitation, CourseInvitationId,
     CourseMemberId, CourseMemberStatus, CourseRosterContact, CourseRosterImportPreview,
-    CourseRosterMember, CourseRosterPage, CourseRosterStore, CreateCourseInvitation, PageRequest,
-    ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation, RevokeCourseMember, RosterRevision,
-    SessionTokenHash, StageCourseRosterImport, StoreError, TenantContext, UpsertCourseMember,
+    CourseRosterMember, CourseRosterPage, CourseRosterStore, CourseRosterSupportAction,
+    CreateCourseInvitation, PageRequest, ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation,
+    RevokeCourseMember, RosterRevision, SessionTokenHash, StageCourseRosterImport, StoreError,
+    TenantContext, UpsertCourseMember,
 };
 
+#[path = "course_roster/authority.rs"]
+mod authority;
 #[path = "course_roster/enrollment.rs"]
 mod enrollment;
 #[path = "course_roster/import.rs"]
 mod import;
+
+use authority::require_course;
+pub(super) use authority::{require_course_instructor, require_course_roster_authority};
 
 #[async_trait]
 impl CourseRosterStore for PostgresStore {
@@ -31,7 +37,14 @@ impl CourseRosterStore for PostgresStore {
     ) -> Result<CourseRosterPage, StoreError> {
         let mut transaction = self.begin_tenant_snapshot(context).await?;
         require_course(&mut transaction, context.tenant_id(), course).await?;
-        require_manager(&mut transaction, session, course).await?;
+        require_course_roster_authority(
+            &mut transaction,
+            session,
+            course,
+            CourseRosterSupportAction::ListRoster,
+            true,
+        )
+        .await?;
         let policy = load_policy(&mut transaction, context.tenant_id(), course, false).await?;
         let after = page
             .after
@@ -102,9 +115,23 @@ impl CourseRosterStore for PostgresStore {
     ) -> Result<CourseInvitation, StoreError> {
         let tenant = context.tenant_id();
         let mut transaction = self.begin_tenant(context).await?;
-        require_manager(&mut transaction, session, command.course).await?;
+        require_course_roster_authority(
+            &mut transaction,
+            session,
+            command.course,
+            CourseRosterSupportAction::CreateInvitation,
+            false,
+        )
+        .await?;
         lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-        let actor = require_manager(&mut transaction, session, command.course).await?;
+        let actor = require_course_roster_authority(
+            &mut transaction,
+            session,
+            command.course,
+            CourseRosterSupportAction::CreateInvitation,
+            true,
+        )
+        .await?;
         let policy = load_policy(&mut transaction, tenant, command.course, true).await?;
         if !policy.validates(&command.email) {
             return Err(StoreError::InvalidRecord(
@@ -198,9 +225,23 @@ impl CourseRosterStore for PostgresStore {
             .validate_shape()
             .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
         let mut transaction = self.begin_tenant(context).await?;
-        require_manager(&mut transaction, session, command.course).await?;
+        require_course_roster_authority(
+            &mut transaction,
+            session,
+            command.course,
+            CourseRosterSupportAction::ReplaceEnrollmentPolicy,
+            false,
+        )
+        .await?;
         lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-        require_manager(&mut transaction, session, command.course).await?;
+        require_course_roster_authority(
+            &mut transaction,
+            session,
+            command.course,
+            CourseRosterSupportAction::ReplaceEnrollmentPolicy,
+            true,
+        )
+        .await?;
         let current = load_policy(&mut transaction, tenant, command.course, true).await?;
         if current.revision != command.expected_revision {
             return Err(StoreError::Conflict);
@@ -422,9 +463,23 @@ impl CourseRosterStore for PostgresStore {
     ) -> Result<RosterRevision, StoreError> {
         let tenant = context.tenant_id();
         let mut transaction = self.begin_tenant(context).await?;
-        require_manager(&mut transaction, session, command.course).await?;
+        require_course_roster_authority(
+            &mut transaction,
+            session,
+            command.course,
+            CourseRosterSupportAction::RevokeMember,
+            false,
+        )
+        .await?;
         lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-        require_manager(&mut transaction, session, command.course).await?;
+        require_course_roster_authority(
+            &mut transaction,
+            session,
+            command.course,
+            CourseRosterSupportAction::RevokeMember,
+            true,
+        )
+        .await?;
         let current = load_policy(&mut transaction, tenant, command.course, true).await?;
         if current.revision != command.expected_revision {
             return Err(StoreError::Conflict);
@@ -486,9 +541,23 @@ impl CourseRosterStore for PostgresStore {
     ) -> Result<RosterRevision, StoreError> {
         let tenant = context.tenant_id();
         let mut transaction = self.begin_tenant(context).await?;
-        require_manager(&mut transaction, session, command.course).await?;
+        require_course_roster_authority(
+            &mut transaction,
+            session,
+            command.course,
+            CourseRosterSupportAction::RevokeInvitation,
+            false,
+        )
+        .await?;
         lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-        require_manager(&mut transaction, session, command.course).await?;
+        require_course_roster_authority(
+            &mut transaction,
+            session,
+            command.course,
+            CourseRosterSupportAction::RevokeInvitation,
+            true,
+        )
+        .await?;
         let current = load_policy(&mut transaction, tenant, command.course, true).await?;
         if current.revision != command.expected_revision {
             return Err(StoreError::Conflict);
@@ -797,53 +866,6 @@ async fn ensure_student_membership(
             .map_err(map_sqlx_error)?;
             Ok(())
         }
-    }
-}
-
-async fn require_course(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-) -> Result<(), StoreError> {
-    let exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM course \
-         WHERE tenant_id = $1 AND course_id = $2 \
-         AND public.ple_course_records_accessible(tenant_id, course_id))",
-    )
-    .bind(tenant.as_uuid())
-    .bind(course.as_uuid())
-    .fetch_one(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    exists.then_some(()).ok_or(StoreError::NotFound)
-}
-
-pub(super) async fn require_manager(
-    transaction: &mut Transaction<'_, Postgres>,
-    session: SessionTokenHash,
-    course: CourseId,
-) -> Result<UserId, StoreError> {
-    let actor: Option<Uuid> =
-        sqlx::query_scalar("SELECT public.ple_course_roster_actor($1, $2, true)")
-            .bind(session.to_string())
-            .bind(course.as_uuid())
-            .fetch_one(&mut **transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-    if let Some(actor) = actor {
-        return Ok(UserId::from_uuid(actor));
-    }
-    let course_visible: Option<Uuid> =
-        sqlx::query_scalar("SELECT public.ple_course_roster_actor($1, $2, false)")
-            .bind(session.to_string())
-            .bind(course.as_uuid())
-            .fetch_one(&mut **transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-    if course_visible.is_some() {
-        Err(StoreError::Forbidden)
-    } else {
-        Err(StoreError::NotFound)
     }
 }
 

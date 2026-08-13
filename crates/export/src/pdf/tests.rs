@@ -129,6 +129,7 @@ fn long_tokens_wrap_to_embedded_font_width() {
 }
 
 #[test]
+#[ignore = "opt-in external PDF reader and rasterizer acceptance"]
 fn wide_and_narrow_glyphs_stay_inside_pdf_text_area() {
     let font = EmbeddedFont::parse(DEJAVU_SANS_FONT).expect("font");
     let text = format!("{} {}", "W".repeat(200), "i".repeat(600));
@@ -178,6 +179,7 @@ fn wide_and_narrow_glyphs_stay_inside_pdf_text_area() {
 }
 
 #[test]
+#[ignore = "opt-in external PDF text-reader acceptance"]
 fn long_question_keeps_heading_with_first_following_line() {
     let font = EmbeddedFont::parse(DEJAVU_SANS_FONT).expect("font");
     let filler = (0..44)

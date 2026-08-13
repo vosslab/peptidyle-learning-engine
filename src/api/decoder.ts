@@ -23,7 +23,7 @@ export function decodeRecord(value: unknown, path: string): Record<string, unkno
 }
 
 export function decodeField(record: Record<string, unknown>, key: string, path: string): unknown {
-  if (!(key in record)) {
+  if (!Object.prototype.hasOwnProperty.call(record, key)) {
     throw new DecodeError(`${path}.${key}`, "present");
   }
   return record[key];
@@ -131,8 +131,14 @@ export function decodeDictionary<T>(
   decodeValue: Decoder<T>,
 ): Record<string, T> {
   const record = decodeRecord(value, path);
-  const decoded: Record<string, T> = {};
+  // API field names are untrusted. A null prototype prevents a decoded
+  // dictionary from inheriting object behavior if a future caller merges or
+  // enumerates it differently from today's callers.
+  const decoded = Object.create(null) as Record<string, T>;
   for (const [key, entry] of Object.entries(record)) {
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      throw new DecodeError(`${path}.${key}`, "a safe dictionary key");
+    }
     decoded[key] = decodeValue(entry, `${path}.${key}`);
   }
   return decoded;
