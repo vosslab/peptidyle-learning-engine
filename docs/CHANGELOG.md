@@ -2,6 +2,13 @@
 
 ## 2026-08-14
 
+### Additions and New Features
+
+- Accepted WP-R0 catalog discovery evidence: exclusive valid Question ID lookup, normalized lexical
+  relevance with typo recovery, deterministic ranked keyset paging, HMAC-bound snapshot cursors,
+  immediate lifecycle/RLS tightening, and complete bound facets. PostgreSQL is canonical and the
+  Memory backend remains the deterministic conformance model. M0 remains open; WP-R1 is next.
+
 ### Fixes and Maintenance
 
 - Relocated the local Podman controller from root-level scripts into `local_stack_control/` to keep the
@@ -24,6 +31,11 @@
 
 ### Developer Tests and Notes
 
+- WP-R0 final evidence is accepted on the final material tree: 91 Memory library tests, 3 server
+  catalog tests, 1,173 source-line cases, and a clean PostgreSQL 17 baseline with all 32 migrations,
+  idempotence, verification, named Store/continuation/disclosure/plan/broker/RLS/ownership lanes,
+  and maintained baseline coverage. The independent final review returned ACCEPT. This is bounded
+  catalog evidence, not a full-repository, browser, or M0 Validation claim.
 - Completed the local-stack controller Validation suite on the final material tree. The five pure
   controller modules passed 42 cases, the full fast pytest suite passed 4,799 cases, the repository
   code and Rust gates passed, and the ordinary Playwright suite passed all 212 discovered tests with

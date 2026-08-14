@@ -299,6 +299,30 @@ run_live_cargo_test "catalog text and exact human ID search" env PLE_TEST_DATABA
 	postgres_catalog_search_finds_exact_question_id \
 	-- --ignored --exact --test-threads=1
 
+echo "database baseline E2E: ranked catalog Store cursor behavior"
+run_live_cargo_test "ranked catalog Store cursor behavior" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_catalog_search_live \
+	postgres_catalog_search_store_preserves_ranked_cursor_behavior \
+	-- --ignored --exact --test-threads=1
+
+echo "database baseline E2E: ranked catalog continuation snapshot visibility"
+run_live_cargo_test "ranked catalog continuation snapshot visibility" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_catalog_search_live \
+	postgres_catalog_search_continuation_preserves_snapshot_visibility_boundaries \
+	-- --ignored --exact --test-threads=1
+
+echo "database baseline E2E: ranked catalog operator capability"
+run_live_cargo_test "ranked catalog operator capability" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_catalog_search_plan_live \
+	postgres_catalog_discovery_predicates_have_index_capability_evidence \
+	-- --ignored --exact --test-threads=1
+
+echo "database baseline E2E: catalog statistics disclosure broker boundary"
+run_live_cargo_test "catalog statistics disclosure broker boundary" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_catalog_disclosure_live \
+	postgres_catalog_statistics_disclosure_is_brokered_and_visibility_bound \
+	-- --ignored --exact --test-threads=1
+
 echo "database baseline E2E: course appearance revision, role, and current-pointer policy"
 run_live_cargo_test "course appearance revision, role, and current-pointer policy" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_course_appearance_live \

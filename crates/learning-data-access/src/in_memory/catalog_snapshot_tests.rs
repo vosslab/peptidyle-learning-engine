@@ -1,0 +1,226 @@
+use super::*;
+
+fn seed_catalog(store: &MemoryStore, records: impl IntoIterator<Item = PublishedProblemRecord>) {
+    let mut state = store.write_state().expect("catalog fixture state");
+    for record in records {
+        let sequence = state.next_catalog_publication_sequence;
+        state.next_catalog_publication_sequence += 1;
+        state
+            .catalog_publication_sequences
+            .insert((record.problem, record.version), sequence);
+        state
+            .published
+            .insert((record.problem, record.version), record);
+    }
+}
+
+#[tokio::test]
+async fn catalog_search_discovers_broad_terms_and_intent_order_without_backend_score_parity() {
+    let store = MemoryStore::default();
+    let context =
+        TenantContext::from_authenticated_session(TenantId::from_uuid(Uuid::from_u128(81_000)));
+    let mut focused = catalog_search_tests::record(81_001);
+    focused.question.metadata.title = "Peptide binding reaction".to_string();
+    let mut broad = catalog_search_tests::record(81_002);
+    broad.question.metadata.title = "Peptide reaction overview".to_string();
+    seed_catalog(&store, [focused.clone(), broad.clone()]);
+
+    let page = store
+        .search_catalog(
+            context,
+            CatalogSearchQuery {
+                text: Some("peptide binding".to_string()),
+                ..CatalogSearchQuery::default()
+            },
+        )
+        .await
+        .expect("broad catalog discovery");
+
+    assert_eq!(
+        page.items.first().map(|item| item.problem),
+        Some(focused.problem)
+    );
+    assert!(page.items.iter().any(|item| item.problem == broad.problem));
+}
+
+#[tokio::test]
+async fn catalog_search_admits_a_deliberate_word_typo() {
+    let store = MemoryStore::default();
+    let context =
+        TenantContext::from_authenticated_session(TenantId::from_uuid(Uuid::from_u128(82_000)));
+    let record = catalog_search_tests::record(82_001);
+    seed_catalog(&store, [record.clone()]);
+
+    let page = store
+        .search_catalog(
+            context,
+            CatalogSearchQuery {
+                text: Some("peptde".to_string()),
+                ..CatalogSearchQuery::default()
+            },
+        )
+        .await
+        .expect("typo catalog discovery");
+
+    assert_eq!(
+        page.items.first().map(|item| item.problem),
+        Some(record.problem)
+    );
+}
+
+#[tokio::test]
+async fn catalog_search_continuation_is_query_bound_and_has_no_equal_score_duplicates() {
+    let store = MemoryStore::default();
+    let context =
+        TenantContext::from_authenticated_session(TenantId::from_uuid(Uuid::from_u128(83_000)));
+    let first = catalog_search_tests::record(83_001);
+    let second = catalog_search_tests::record(83_002);
+    seed_catalog(&store, [first.clone(), second.clone()]);
+    let query = CatalogSearchQuery {
+        text: Some("peptide".to_string()),
+        page_size: Some(1),
+        ..CatalogSearchQuery::default()
+    };
+    let initial = store
+        .search_catalog(context, query.clone())
+        .await
+        .expect("first catalog page");
+    let cursor = initial
+        .next_cursor
+        .clone()
+        .expect("equal-score continuation");
+
+    let continuation = store
+        .search_catalog(
+            context,
+            CatalogSearchQuery {
+                cursor: Some(cursor.clone()),
+                ..query.clone()
+            },
+        )
+        .await
+        .expect("second catalog page");
+    assert_ne!(initial.items[0].problem, continuation.items[0].problem);
+    assert!(matches!(
+        store
+            .search_catalog(
+                context,
+                CatalogSearchQuery {
+                    text: Some("different".to_string()),
+                    cursor: Some(cursor.clone()),
+                    ..query.clone()
+                }
+            )
+            .await,
+        Err(StoreError::InvalidRecord(_))
+    ));
+    let mut tampered = cursor.into_bytes();
+    tampered[0] = if tampered[0] == b'A' { b'B' } else { b'A' };
+    assert!(matches!(
+        store
+            .search_catalog(
+                context,
+                CatalogSearchQuery {
+                    cursor: Some(String::from_utf8(tampered).expect("cursor remains text")),
+                    ..query
+                }
+            )
+            .await,
+        Err(StoreError::InvalidRecord(_))
+    ));
+}
+
+#[tokio::test]
+async fn catalog_search_continuation_excludes_later_publication_and_keeps_complete_facets() {
+    let store = MemoryStore::default();
+    let context =
+        TenantContext::from_authenticated_session(TenantId::from_uuid(Uuid::from_u128(84_000)));
+    let first = catalog_search_tests::record(84_001);
+    let second = catalog_search_tests::record(84_002);
+    seed_catalog(&store, [first.clone(), second.clone()]);
+    let query = CatalogSearchQuery {
+        text: Some("peptide".to_string()),
+        page_size: Some(1),
+        ..CatalogSearchQuery::default()
+    };
+    let initial = store
+        .search_catalog(context, query.clone())
+        .await
+        .expect("first snapshot page");
+    let later = catalog_search_tests::record(84_003);
+    seed_catalog(&store, [later.clone()]);
+
+    let continuation = store
+        .search_catalog(
+            context,
+            CatalogSearchQuery {
+                cursor: initial
+                    .next_cursor
+                    .map(|cursor| cursor.as_str().to_string()),
+                ..query
+            },
+        )
+        .await
+        .expect("snapshot continuation");
+    assert!(
+        !continuation
+            .items
+            .iter()
+            .any(|item| item.problem == later.problem)
+    );
+    assert_eq!(continuation.facets.statistics.unavailable, 2);
+}
+
+#[tokio::test]
+async fn catalog_search_continuation_preserves_first_statistics_disclosure_boundary() {
+    let store = MemoryStore::default();
+    let tenant = TenantId::from_uuid(Uuid::from_u128(85_000));
+    let context = TenantContext::from_authenticated_session(tenant);
+    let first = catalog_search_tests::record(85_001);
+    let later_disclosure = catalog_search_tests::record(85_002);
+    seed_catalog(&store, [first, later_disclosure.clone()]);
+    let query = CatalogSearchQuery {
+        text: Some("peptide".to_string()),
+        page_size: Some(1),
+        ..CatalogSearchQuery::default()
+    };
+    let initial = store
+        .search_catalog(context, query.clone())
+        .await
+        .expect("first snapshot page");
+    let reference = ProblemVersionRef {
+        problem: later_disclosure.problem,
+        version: later_disclosure.version,
+    };
+    for offset in 0..5_u128 {
+        store
+            .record_question_statistics_contribution(
+                tenant,
+                EnrollmentId::from_uuid(Uuid::from_u128(85_100 + offset)),
+                RunId::from_uuid(Uuid::from_u128(85_200 + offset)),
+                QuestionAttemptId::from_uuid(Uuid::from_u128(85_300 + offset)),
+                reference,
+                CollapsedQuestionObservation::new(0.5, 1, 30, Some(0.5)).expect("observation"),
+            )
+            .expect("statistics contribution");
+    }
+
+    let continuation = store
+        .search_catalog(
+            context,
+            CatalogSearchQuery {
+                cursor: initial
+                    .next_cursor
+                    .map(|cursor| cursor.as_str().to_string()),
+                ..query.clone()
+            },
+        )
+        .await
+        .expect("snapshot continuation");
+    assert_eq!(continuation.facets.statistics.available, 0);
+    let fresh = store
+        .search_catalog(context, query)
+        .await
+        .expect("fresh catalog page");
+    assert_eq!(fresh.facets.statistics.available, 1);
+}

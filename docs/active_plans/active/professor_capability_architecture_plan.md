@@ -743,6 +743,11 @@ relevance-bound cursors, available-statistics rendering, and a live discovery jo
 Question ID behavior intact, broad and misspelled searches return intended fixtures, facets and
 pages snapshot-consistent, representative plans use indexes. Two lanes maximum.
 
+Status on 2026-08-14: WP-R0 is accepted with its named Memory, server, source-line, clean
+PostgreSQL baseline, and independent-review evidence. M0 remains open: WP-R1 is the next
+dependency-ordered package, and M0 still requires its remaining statistics-rendering and live
+discovery evidence.
+
 ### M1 Course spine
 
 Depends on M0 and RC12. M1 is not one serial block. Only a small shared core is genuinely serial;
@@ -825,8 +830,8 @@ P1 finding.
 
 | ID | Owner | Scope | Depends on |
 | --- | --- | --- | --- |
-| WP-R0 | Catalog | Ranked full-text and trigram discovery, same-snapshot facets | none |
-| WP-R1 | UI | Disclosed statistics rendering, live broad-discovery evidence | WP-R0 |
+| WP-R0 | Catalog | Ranked full-text and trigram discovery, same-snapshot facets; accepted 2026-08-14 | none |
+| WP-R1 | UI | Disclosed statistics rendering, live broad-discovery evidence; next after accepted WP-R0 | WP-R0 |
 | WP-S1 | Architect | Record spine decisions in guidance and this plan | RC12 |
 | WP-S2 | Expert coder | Course term, zone, validation, migration (serial core) | WP-S1 |
 | WP-S7 | Expert coder | Typed references, shared value types, migration allocation, RLS, bylines (serial core) | WP-S1 |

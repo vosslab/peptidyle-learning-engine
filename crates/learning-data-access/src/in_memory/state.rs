@@ -202,6 +202,29 @@ impl MemoryStore {
         aggregate
             .record(observation)
             .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+        let was_disclosed = state
+            .question_statistics
+            .get(&aggregate_key)
+            .is_some_and(|current| {
+                matches!(
+                    current.disclose(question_model::StatisticsDisclosurePolicy::default()),
+                    question_model::QuestionStatisticsDisclosure::Available(_)
+                )
+            });
+        let is_disclosed = matches!(
+            aggregate.disclose(question_model::StatisticsDisclosurePolicy::default()),
+            question_model::QuestionStatisticsDisclosure::Available(_)
+        );
+        if is_disclosed && !was_disclosed {
+            let sequence = state.next_catalog_publication_sequence;
+            state.next_catalog_publication_sequence = sequence.checked_add(1).ok_or_else(|| {
+                StoreError::Unavailable("catalog event sequence exhausted".to_string())
+            })?;
+            state
+                .catalog_statistics_disclosure_sequences
+                .entry(aggregate_key)
+                .or_insert(sequence);
+        }
         state.question_statistics.insert(aggregate_key, aggregate);
         state.question_statistics_receipts.insert(
             receipt_key,

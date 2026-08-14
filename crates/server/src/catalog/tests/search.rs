@@ -1,4 +1,6 @@
 use super::*;
+use base64::Engine;
+use objects::Sha256Digest;
 
 #[tokio::test]
 async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
@@ -298,11 +300,107 @@ async fn catalog_search_and_safe_detail_are_authenticated_bounded_and_non_cachea
         .oneshot(
             Request::builder()
                 .uri("/api/problems/search?offset=1")
-                .header("cookie", cookie)
+                .header("cookie", &cookie)
                 .body(Body::empty())
                 .expect("hostile request"),
         )
         .await
         .expect("hostile response");
     assert_eq!(hostile.status(), StatusCode::BAD_REQUEST);
+
+    let malformed_cursor = router(
+        Arc::clone(&store),
+        Arc::new(FixtureRegistry {
+            capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
+        }),
+        Arc::new(ReviewNotRequired),
+    )
+    .oneshot(
+        Request::builder()
+            .uri("/api/problems/search?text=catalog&cursor=AAAA")
+            .header("cookie", cookie)
+            .body(Body::empty())
+            .expect("malformed cursor request"),
+    )
+    .await
+    .expect("malformed cursor response");
+    assert_eq!(malformed_cursor.status(), StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn catalog_search_rejects_a_cursor_forged_with_an_ordinary_sha256() {
+    let store = Arc::new(MemoryStore::default());
+    let tenant = TenantId::from_uuid(id(1));
+    let context = TenantContext::from_authenticated_session(tenant);
+    let publisher = UserId::from_uuid(id(951));
+    let cookie = issued_cookie(&store, vec![UserRole::Instructor], publisher).await;
+    let app = router(
+        Arc::clone(&store),
+        Arc::new(FixtureRegistry {
+            capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
+        }),
+        Arc::new(ReviewNotRequired),
+    );
+    for value in [952_u128, 953] {
+        let workspace = WorkspaceId::from_uuid(id(value));
+        let revision = store
+            .upsert_draft(
+                context,
+                publisher,
+                None,
+                draft(tenant, workspace, VersionId::from_uuid(id(value + 100))),
+            )
+            .await
+            .expect("save search fixture")
+            .revision;
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/problems/{workspace}/publish"))
+                    .header("cookie", &cookie)
+                    .header(IF_MATCH, strong_if_match(revision))
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"scope":"public"}"#))
+                    .expect("publish search fixture"),
+            )
+            .await
+            .expect("publish search fixture response");
+        assert_eq!(response.status(), StatusCode::CREATED);
+    }
+    let first = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/problems/search?text=catalog&pageSize=1")
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .expect("first search request"),
+        )
+        .await
+        .expect("first search response");
+    let first = response_json(first).await;
+    let cursor = first["nextCursor"].as_str().expect("search continuation");
+    let mut forged = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(cursor)
+        .expect("server cursor is base64url");
+    let tag_start = forged.len() - Sha256Digest::compute(b"").as_bytes().len();
+    forged[tag_start - 1] ^= 1;
+    let ordinary_digest = Sha256Digest::compute(&forged[..tag_start]);
+    forged[tag_start..].copy_from_slice(ordinary_digest.as_bytes());
+    let forged = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(forged);
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/problems/search?text=catalog&pageSize=1&cursor={forged}"
+                ))
+                .header("cookie", cookie)
+                .body(Body::empty())
+                .expect("forged search request"),
+        )
+        .await
+        .expect("forged search response");
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }

@@ -130,9 +130,12 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 ## Plan and test discipline
 
 - Avoid overly strict requirements. Ground plan gates and requirements in real behavior and
-  evidence instead of arbitrary numbers such as an unsupported load-time target.
+  actual risk. Use representative qualitative evidence and behavior contracts; a calibrated
+  performance budget needs evidence and user value.
 - Do not require byte-equivalent or pixel-equivalent results when the planned change is an
   improvement and semantic or visual behavior is the real contract.
+- Do not add uncalibrated numeric-equivalence gates, including arbitrary targets such as
+  `<400 ms`, exact counts, scores, query plans, timings, or backend numeric equivalence.
 - Compare every test plan with [docs/REPO_STYLE.md](REPO_STYLE.md),
   [docs/PYTEST_STYLE.md](PYTEST_STYLE.md), [tests/TESTS_README.md](../tests/TESTS_README.md),
   [devel/DEVEL_README.md](../devel/DEVEL_README.md), and the relevant style documents.

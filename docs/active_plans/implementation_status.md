@@ -1,6 +1,6 @@
 # Implementation status and handoff
 
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 This file is a durable execution handoff. The architecture, scope, milestone order, security
 boundaries, and acceptance criteria remain authoritative in `implementation_plan.md`. Durable owner
@@ -52,6 +52,25 @@ The shared tree contains independently reviewed, behavior-tested verticals for:
 
 These statements describe code-first acceptance. Environment-dependent live PostgreSQL, object
 storage, and deployed worker/replica exercises remain one-time deployment gates where documented.
+
+## Accepted task: WP-R0 catalog discovery
+
+WP-R0 is independently accepted on 2026-08-14. It closes the M0 catalog-discovery slice only; M0
+remains open, and WP-R1 is the next dependency-ordered package.
+
+- A valid Question ID uses the exclusive exact-ID branch. Other queries use normalized lexical
+  relevance with deliberate trigram typo recovery.
+- Search ordering is deterministic: descending rank, descending similarity, then ascending problem
+  and version IDs. The HMAC-authenticated cursor binds the query, ranking contract, keyset, and
+  publication/first-disclosure snapshot boundary.
+- Continuations retain their bound publication/disclosure boundary, immediately reevaluate current
+  lifecycle and RLS visibility, and return complete cursor-independent facets for that bound set.
+- PostgreSQL owns the canonical behavior. `MemoryStore` is the deterministic conformance model; no
+  backend numeric-equivalence claim is made.
+- Final evidence: 91 Memory library tests; 3 server catalog tests; 1,173 source-line cases; clean
+  PostgreSQL 17 all-32-migration, idempotence, and verification baseline; named Store,
+  continuation/disclosure, qualitative plan, broker/RLS/ownership, and maintained baseline lanes;
+  and final independent ACCEPT. This is not full-repository, browser, or M0 acceptance.
 
 ## Previously accepted task: MOD-RETENTION R4.3
 

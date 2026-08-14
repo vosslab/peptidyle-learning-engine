@@ -134,6 +134,29 @@ Instructor-history operations use their own contracts. PostgreSQL evaluates thos
 operations in transactions with tenant context and row-level security, while
 the in-memory store supplies the same behavior for conformance testing.
 
+## Catalog discovery and statistics disclosure
+
+Catalog discovery is a Store capability shared by the in-memory and PostgreSQL
+implementations. Its opaque continuation is a versioned, query-bound,
+server-secret HMAC capability that also retains the first-page publication and
+statistics-disclosure event boundary. Both Store implementations reevaluate
+current lifecycle and tenant visibility on every request, while page rows and
+facets describe the same retained ranked snapshot. The database-independent
+ranked-search admission and fixed-point scoring helpers live in
+`crates/learning-data-access/src/in_memory/catalog_search.rs`;
+the in-memory catalog module owns its state projection and snapshot assembly.
+
+PostgreSQL owns canonical full-text and word-similarity discovery in
+`crates/learning-data-access/src/postgres/catalog/search.rs`.
+It runs page and facet queries from one ranked CTE in a tenant snapshot, pins
+the word-similarity threshold, and uses the migration-provided normalized
+search projection and indexes. Migration
+`schemas/migrations/2026081401_ranked_catalog_discovery.sql`
+adds the shared monotonic publication/disclosure event sequence, the
+security-invoker catalog view, and forced-RLS, broker-owned disclosure recording.
+It is the database authority for disclosure events; application readers see
+them only through catalog visibility.
+
 ## External question engines
 
 Adapters normalize supported source formats into PLE question and grading
@@ -229,6 +252,11 @@ evidence that an AWS account has been provisioned or operated correctly.
 - [tests/](../tests/) contains repository-policy and deterministic Node checks.
 - Rust unit and integration tests live beside their crates; data-access
   conformance tests exercise matching in-memory and PostgreSQL behavior.
+- The ignored PostgreSQL Store, disclosure, and plan suites in
+  [crates/learning-data-access/tests/](../crates/learning-data-access/tests/)
+  require the disposable acceptance database. Their exact selectors run from
+  [tests/e2e/e2e_database_baseline.sh](../tests/e2e/e2e_database_baseline.sh),
+  which is the database-baseline runner rather than a fast offline gate.
 - [tests/playwright/](../tests/playwright/) exercises built browser behavior and
   accessibility over HTTP. Its normal suite is distinct from the opt-in live
   aggregate and lane runner.

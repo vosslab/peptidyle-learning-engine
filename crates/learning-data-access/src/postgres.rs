@@ -265,6 +265,7 @@ pub type Pool = PgPool;
 pub struct PostgresStore {
     pool: PgPool,
     question_ids: crate::QuestionIdCodec,
+    catalog_cursors: crate::CatalogCursorCodec,
 }
 
 /// Injected grader-only database handle. Server composition supplies this only
@@ -283,6 +284,7 @@ impl PostgresStore {
         Self {
             pool,
             question_ids: crate::QuestionIdCodec::unavailable(),
+            catalog_cursors: crate::CatalogCursorCodec::unavailable(),
         }
     }
 
@@ -291,6 +293,7 @@ impl PostgresStore {
         Self {
             pool,
             question_ids: crate::QuestionIdCodec::from_server_secret(secret),
+            catalog_cursors: crate::CatalogCursorCodec::from_server_secret(secret),
         }
     }
 

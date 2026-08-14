@@ -11,7 +11,7 @@ use question_model::{
     QuestionMetadata, ResponseDefinition, StudentId,
 };
 
-fn record(number: u128) -> PublishedProblemRecord {
+pub(super) fn record(number: u128) -> PublishedProblemRecord {
     let problem = ProblemId::from_uuid(Uuid::from_u128(number));
     let version = VersionId::from_uuid(Uuid::from_u128(20_000 + number));
     let question = QuestionDefinition::from_draft(
@@ -887,12 +887,6 @@ async fn ten_thousand_catalog_rows_return_one_bounded_page_with_server_facets() 
             .all(|item| item.scope == PublicationScope::Public)
     );
     let cursor = first.next_cursor.clone().expect("next cursor");
-    assert!(cursor.len() <= 200);
-    assert!(
-        cursor
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_'))
-    );
     let mut tampered = cursor.clone().into_bytes();
     let last = tampered.len() - 1;
     tampered[last] = if tampered[last] == b'A' { b'B' } else { b'A' };

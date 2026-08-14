@@ -66,8 +66,12 @@ example, `learning-data-access` is imported as `learning_data_access`.
 crates/learning-data-access/
 +- src/
 |  +- contracts/       Store and capability contracts
+|  |  `- catalog.rs    Catalog query contract and HMAC continuation codec
 |  +- in_memory/       Database-free capability implementations
+|  |  +- catalog.rs    Catalog state projection, pagination, and snapshot assembly
+|  |  `- catalog_search.rs Portable ranked-search admission and fixed-point scoring helpers
 |  +- postgres/        PostgreSQL implementations and connection attestation
+|  |  `- catalog/search.rs Canonical ranked full-text and word-similarity search
 |  +- activity.rs      Actor-scoped learner reads and activity ownership
 |  +- external_tool.rs External broker leases, dispatch, and finalization contracts
 |  +- jobs.rs          Durable job and publication-outbox contracts
@@ -78,7 +82,7 @@ crates/learning-data-access/
 `- tests/
    +- conformance/     Backend-neutral behavior cases
    +- fixtures/        Small safe fixture evidence
-   `- postgres_*_live.rs Disposable PostgreSQL acceptance gates
+   `- postgres_*_live.rs Disposable PostgreSQL acceptance gates, including ignored catalog Store, disclosure, and plan suites
 ```
 
 When a persistence capability changes, update its contract, both
@@ -86,6 +90,15 @@ implementations, and matching conformance evidence. Actor-scoped learner
 methods belong here rather than only in HTTP route checks. PostgreSQL connection
 construction and migrations own production login-profile, capability-role, and
 forced-RLS verification.
+
+The catalog continuation codec is injected into both Store compositions from
+the server secret. The in-memory search helpers intentionally provide portable
+admission, ranking, and snapshot behavior; PostgreSQL owns its canonical
+full-text and word-similarity predicates, ranked CTE, and database snapshot.
+Forward migration
+`schemas/migrations/2026081401_ranked_catalog_discovery.sql`
+adds the monotonic publication/disclosure boundary, normalized search
+projection, discovery indexes, and forced-RLS disclosure broker.
 
 ## Server application
 
@@ -157,7 +170,7 @@ source and replay selection is in
 
 ```text
 schemas/
-`- migrations/        Ordered forward SQL migrations, including auth, RLS, external fences, and publication outbox
+`- migrations/        Ordered forward SQL migrations, including auth, RLS, external fences, publication outbox, and 2026081401 ranked catalog discovery
 
 containers/
 +- compose.yaml       Normal local services, private networks, hardening, and one-shot setup
@@ -233,6 +246,11 @@ hands lifecycle conflict detection and environment sanitization to the controlle
 `tests/playwright/run_validation_lanes.sh` then
 runs the maintained browser and real-stack lanes. Those opt-in commands are
 live acceptance evidence, not part of the fast offline `pytest tests/` suite.
+
+`tests/e2e/e2e_database_baseline.sh` selects the ignored PostgreSQL catalog
+Store, disclosure, and qualitative plan suites by exact test name. It creates
+the disposable database baseline and is live acceptance evidence, not a fast
+offline test.
 
 ## Documentation map
 

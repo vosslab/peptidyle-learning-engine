@@ -275,9 +275,8 @@ impl CatalogStore for MemoryStore {
                     state.next_problem_public_id.checked_add(1).ok_or_else(|| {
                         StoreError::Unavailable("problem public ID limit reached".to_string())
                     })?;
-                let codec = crate::QuestionIdCodec::from_server_secret([0x42; 32]);
                 let question_id = (0..64)
-                    .map(|_| codec.issue())
+                    .map(|_| self.question_ids.issue())
                     .find_map(|candidate| match candidate {
                         Ok(candidate)
                             if !state
@@ -346,6 +345,16 @@ impl CatalogStore for MemoryStore {
             .problem_owner_users
             .entry(record.problem)
             .or_insert(command.publisher);
+        let catalog_sequence = state.next_catalog_publication_sequence;
+        state.next_catalog_publication_sequence = state
+            .next_catalog_publication_sequence
+            .checked_add(1)
+            .ok_or_else(|| {
+                StoreError::Unavailable("catalog publication sequence exhausted".to_string())
+            })?;
+        state
+            .catalog_publication_sequences
+            .insert((record.problem, record.version), catalog_sequence);
         state
             .published
             .insert((record.problem, record.version), record.clone());
@@ -486,8 +495,7 @@ impl CatalogStore for MemoryStore {
         context: TenantContext,
         reference: question_model::ProblemDisplayRef,
     ) -> Result<Option<PublishedProblemRecord>, StoreError> {
-        let codec = crate::QuestionIdCodec::from_server_secret([0x42; 32]);
-        if !codec.validates(&reference.question_id) {
+        if !self.question_ids.validates(&reference.question_id) {
             return Ok(None);
         }
         let state = self.read_state()?;
@@ -554,14 +562,35 @@ impl CatalogStore for MemoryStore {
         let after = page
             .after
             .as_ref()
-            .map(|cursor| decode_catalog_search_cursor(cursor.as_str(), &fingerprint))
+            .map(|cursor| {
+                decode_catalog_search_cursor(&self.catalog_cursors, cursor.as_str(), &fingerprint)
+            })
             .transpose()?
-            .map(|(problem, version)| format!("{problem}/{version}"));
+            .map(|(boundary, rank, similarity, problem, version)| {
+                (
+                    boundary,
+                    rank,
+                    similarity,
+                    ProblemId::from_uuid(problem),
+                    VersionId::from_uuid(version),
+                )
+            });
         let state = self.read_state()?;
+        let snapshot_boundary = after
+            .as_ref()
+            .map(|after| after.0)
+            .unwrap_or_else(|| state_catalog_snapshot_boundary(&state));
         let matching = state
             .published
             .iter()
             .filter_map(|((problem, version), record)| {
+                if state
+                    .catalog_publication_sequences
+                    .get(&(*problem, *version))
+                    .is_some_and(|sequence| *sequence > snapshot_boundary)
+                {
+                    return None;
+                }
                 if !record.lifecycle.is_discoverable()
                     || !catalog_record_visible(&state, context.tenant_id(), record)
                 {
@@ -575,19 +604,54 @@ impl CatalogStore for MemoryStore {
                             aggregate.disclose(StatisticsDisclosurePolicy::default()),
                             QuestionStatisticsDisclosure::Available(_)
                         )
-                    });
-                catalog_search_matches(record, &query, statistics_available)
-                    .then(|| (format!("{problem}/{version}"), record, statistics_available))
+                    })
+                    && state
+                        .catalog_statistics_disclosure_sequences
+                        .get(&(*problem, *version))
+                        .is_some_and(|sequence| *sequence <= snapshot_boundary);
+                super::catalog_search::catalog_search_score(
+                    record,
+                    &query,
+                    &self.question_ids,
+                    statistics_available,
+                )
+                .map(|(rank, similarity)| {
+                    (
+                        rank,
+                        similarity,
+                        *problem,
+                        *version,
+                        record,
+                        statistics_available,
+                    )
+                })
             })
             .collect::<Vec<_>>();
         let facets = catalog_search_facets(
             matching
                 .iter()
-                .map(|(_, record, available)| (*record, *available)),
+                .map(|(_, _, _, _, record, available)| (*record, *available)),
         );
+        let mut matching = matching;
+        matching.sort_by(|left, right| {
+            right
+                .0
+                .cmp(&left.0)
+                .then_with(|| right.1.cmp(&left.1))
+                .then_with(|| left.2.cmp(&right.2))
+                .then_with(|| left.3.cmp(&right.3))
+        });
         let mut selected = matching
             .into_iter()
-            .filter(|(key, _, _)| after.as_ref().is_none_or(|cursor| key > cursor))
+            .filter(|(rank, similarity, problem, version, _, _)| {
+                after.as_ref().is_none_or(|after| {
+                    *rank < after.1
+                        || (*rank == after.1
+                            && (*similarity < after.2
+                                || (*similarity == after.2
+                                    && (*problem, *version) > (after.3, after.4))))
+                })
+            })
             .take(usize::from(page.size.get()) + 1)
             .collect::<Vec<_>>();
         let has_more = selected.len() > usize::from(page.size.get());
@@ -595,20 +659,26 @@ impl CatalogStore for MemoryStore {
             selected.pop();
         }
         let next_cursor = if has_more {
-            selected.last().map(|(_, record, _)| {
-                encode_catalog_search_cursor(
-                    &fingerprint,
-                    record.problem.as_uuid(),
-                    record.version.as_uuid(),
-                )
-            })
+            selected
+                .last()
+                .map(|(rank, similarity, problem, version, _, _)| {
+                    encode_catalog_search_cursor(
+                        &self.catalog_cursors,
+                        &fingerprint,
+                        snapshot_boundary,
+                        *rank,
+                        *similarity,
+                        problem.as_uuid(),
+                        version.as_uuid(),
+                    )
+                })
         } else {
             None
         };
         Ok(CatalogSearchPage {
             items: selected
                 .into_iter()
-                .map(|(_, record, _)| record.summary())
+                .map(|(_, _, _, _, record, _)| record.summary())
                 .collect(),
             next_cursor,
             facets,
@@ -686,6 +756,10 @@ impl CatalogStore for MemoryStore {
         };
         Ok(record.clone())
     }
+}
+
+fn state_catalog_snapshot_boundary(state: &State) -> u64 {
+    state.next_catalog_publication_sequence.saturating_sub(1)
 }
 
 #[async_trait]
@@ -799,74 +873,6 @@ pub(super) fn catalog_search_fingerprint(query: &CatalogSearchQuery) -> String {
     canonical.push('|');
     canonical.push_str(&format!("{:?}", query.statistics));
     Sha256Digest::compute(canonical.as_bytes()).to_string()
-}
-
-fn catalog_record_matches_text(record: &PublishedProblemRecord, text: &str) -> bool {
-    std::iter::once(record.question.metadata.title.as_str())
-        .chain(record.question.metadata.language.split_whitespace())
-        .chain(record.question.metadata.tags.iter().map(|tag| tag.as_str()))
-        .chain(record.question.metadata.taxonomy.iter().flat_map(|term| {
-            [
-                term.scheme.as_str(),
-                term.code.as_str(),
-                term.label.as_str(),
-            ]
-        }))
-        .any(|value| value.to_lowercase().contains(text))
-}
-
-pub(super) fn catalog_search_matches(
-    record: &PublishedProblemRecord,
-    query: &CatalogSearchQuery,
-    statistics_available: bool,
-) -> bool {
-    if matches!(query.statistics, CatalogStatisticsAvailability::Available) && !statistics_available
-    {
-        return false;
-    }
-    if matches!(query.statistics, CatalogStatisticsAvailability::Unavailable)
-        && statistics_available
-    {
-        return false;
-    }
-    if let Some(text) = &query.text {
-        if let Some(question_id) = query.exact_question_id() {
-            let codec = crate::QuestionIdCodec::from_server_secret([0x42; 32]);
-            if codec.validates(&question_id) {
-                if record.question_id != question_id {
-                    return false;
-                }
-            } else if !catalog_record_matches_text(record, text) {
-                return false;
-            }
-        } else {
-            if !catalog_record_matches_text(record, text) {
-                return false;
-            }
-        }
-    }
-    if !query.taxonomy.iter().all(|wanted| {
-        record
-            .question
-            .metadata
-            .taxonomy
-            .iter()
-            .any(|term| term.scheme == wanted.scheme && term.code == wanted.code)
-    }) {
-        return false;
-    }
-    if !query
-        .capabilities
-        .iter()
-        .all(|capability| record.capabilities.supports(*capability))
-    {
-        return false;
-    }
-    query.licenses.is_empty()
-        || query
-            .licenses
-            .iter()
-            .any(|license| license.matches(&record.question.metadata.license))
 }
 
 fn catalog_search_facets<'a>(

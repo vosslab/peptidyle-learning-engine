@@ -1,31 +1,90 @@
 use super::*;
 
+const CATALOG_CURSOR_DOMAIN: &[u8] = b"peptidyle/catalog-search-cursor/v1";
+
+/// Server-held authenticator for opaque catalog continuations.
+///
+/// The key is derived from the configured durable server secret with a domain
+/// separator so a cursor MAC cannot be confused with a Question ID MAC.
+#[derive(Clone)]
+pub(crate) struct CatalogCursorCodec(Option<[u8; 32]>);
+
+impl CatalogCursorCodec {
+    pub(crate) fn from_server_secret(secret: [u8; 32]) -> Self {
+        let mut mac = hmac::Hmac::<sha2::Sha256>::new_from_slice(&secret)
+            .expect("HMAC-SHA256 accepts a 32-byte server secret");
+        mac.update(CATALOG_CURSOR_DOMAIN);
+        Self(Some(mac.finalize().into_bytes().into()))
+    }
+
+    #[cfg(feature = "postgres")]
+    pub(crate) fn unavailable() -> Self {
+        Self(None)
+    }
+
+    fn sign(&self, payload: &[u8]) -> Result<[u8; 32], StoreError> {
+        let secret = self.0.ok_or_else(|| {
+            StoreError::Unavailable("catalog cursor secret is unavailable".to_string())
+        })?;
+        let mut mac = hmac::Hmac::<sha2::Sha256>::new_from_slice(&secret)
+            .expect("HMAC-SHA256 accepts a derived cursor secret");
+        mac.update(payload);
+        Ok(mac.finalize().into_bytes().into())
+    }
+
+    fn verifies(&self, payload: &[u8], tag: &[u8]) -> Result<bool, StoreError> {
+        let secret = self.0.ok_or_else(|| {
+            StoreError::Unavailable("catalog cursor secret is unavailable".to_string())
+        })?;
+        let mut mac = hmac::Hmac::<sha2::Sha256>::new_from_slice(&secret)
+            .expect("HMAC-SHA256 accepts a derived cursor secret");
+        mac.update(payload);
+        Ok(mac.verify_slice(tag).is_ok())
+    }
+}
+
+impl std::fmt::Debug for CatalogCursorCodec {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("CatalogCursorCodec([redacted])")
+    }
+}
+
 /// Encodes a catalog keyset continuation without exposing UUID text in URLs.
 /// The fixed binary layout binds the continuation to the normalized-query
 /// digest; callers still verify it before using it as a SQL cursor.
 pub(crate) fn encode_catalog_search_cursor(
+    codec: &CatalogCursorCodec,
     fingerprint: &str,
+    snapshot_boundary: u64,
+    full_text_rank: i64,
+    similarity: i64,
     problem: Uuid,
     version: Uuid,
 ) -> String {
     debug_assert_eq!(fingerprint.len(), 64);
-    let mut bytes = Vec::with_capacity(129);
-    bytes.push(1);
+    let mut bytes = Vec::with_capacity(154);
+    bytes.extend_from_slice(&[2, 1]); // format, ranking-contract version
     bytes.extend_from_slice(fingerprint.as_bytes());
+    bytes.extend_from_slice(&snapshot_boundary.to_be_bytes());
+    bytes.extend_from_slice(&full_text_rank.to_be_bytes());
+    bytes.extend_from_slice(&similarity.to_be_bytes());
     bytes.extend_from_slice(problem.as_bytes());
     bytes.extend_from_slice(version.as_bytes());
-    let integrity = objects::Sha256Digest::compute(&bytes);
-    bytes.extend_from_slice(integrity.as_bytes());
+    let integrity = codec
+        .sign(&bytes)
+        .expect("catalog search runs only where the cursor secret is configured");
+    bytes.extend_from_slice(&integrity);
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
 /// Decodes a canonical bounded catalog continuation and rejects a different
 /// normalized query before a storage key can be used.
 pub(crate) fn decode_catalog_search_cursor(
+    codec: &CatalogCursorCodec,
     cursor: &str,
     fingerprint: &str,
-) -> Result<(Uuid, Uuid), StoreError> {
-    if cursor.len() > 200 {
+) -> Result<(u64, i64, i64, Uuid, Uuid), StoreError> {
+    if cursor.len() > 240 {
         return Err(StoreError::InvalidRecord(
             "catalog cursor is malformed".to_string(),
         ));
@@ -33,25 +92,43 @@ pub(crate) fn decode_catalog_search_cursor(
     let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(cursor)
         .map_err(|_| StoreError::InvalidRecord("catalog cursor is malformed".to_string()))?;
-    if bytes.len() != 129
-        || bytes[0] != 1
-        || bytes[1..65] != *fingerprint.as_bytes()
-        || objects::Sha256Digest::compute(&bytes[..97]).as_bytes() != &bytes[97..129]
+    if bytes.len() != 154
+        || bytes[..2] != [2, 1]
+        || bytes[2..66] != *fingerprint.as_bytes()
+        || !codec.verifies(&bytes[..122], &bytes[122..154])?
     {
         return Err(StoreError::InvalidRecord(
             "catalog cursor does not belong to this normalized query".to_string(),
         ));
     }
-    let problem = Uuid::from_slice(&bytes[65..81])
+    let snapshot_boundary = u64::from_be_bytes(bytes[66..74].try_into().expect("cursor size"));
+    let full_text_rank = i64::from_be_bytes(bytes[74..82].try_into().expect("cursor size"));
+    let similarity = i64::from_be_bytes(bytes[82..90].try_into().expect("cursor size"));
+    let problem = Uuid::from_slice(&bytes[90..106])
         .map_err(|_| StoreError::InvalidRecord("catalog cursor is malformed".to_string()))?;
-    let version = Uuid::from_slice(&bytes[81..97])
+    let version = Uuid::from_slice(&bytes[106..122])
         .map_err(|_| StoreError::InvalidRecord("catalog cursor is malformed".to_string()))?;
-    if encode_catalog_search_cursor(fingerprint, problem, version) != cursor {
+    if encode_catalog_search_cursor(
+        codec,
+        fingerprint,
+        snapshot_boundary,
+        full_text_rank,
+        similarity,
+        problem,
+        version,
+    ) != cursor
+    {
         return Err(StoreError::InvalidRecord(
             "catalog cursor is malformed".to_string(),
         ));
     }
-    Ok((problem, version))
+    Ok((
+        snapshot_boundary,
+        full_text_rank,
+        similarity,
+        problem,
+        version,
+    ))
 }
 
 /// Encodes a tenant-bound opaque continuation for workspace-draft listing.

@@ -6,8 +6,11 @@ mod activity;
 mod assets;
 mod authoring;
 mod catalog;
+mod catalog_search;
 #[cfg(test)]
 mod catalog_search_tests;
+#[cfg(test)]
+mod catalog_snapshot_tests;
 mod course_appearance;
 mod course_assignments;
 mod course_policy;
@@ -222,9 +225,19 @@ use crate::{QtiImportGradingPayload, QtiImportRegistry};
 use objects::Sha256Digest;
 
 /// Memory backend used by conformance tests and pre-PostgreSQL lanes.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct MemoryStore {
     state: Arc<RwLock<State>>,
+    question_ids: crate::QuestionIdCodec,
+    catalog_cursors: crate::CatalogCursorCodec,
+}
+
+impl Default for MemoryStore {
+    fn default() -> Self {
+        // MemoryStore is a local/offline implementation. Production composition
+        // supplies the durable secret through PostgresStore instead.
+        Self::with_question_id_secret([0x42; 32])
+    }
 }
 
 /// Injected test/local grader capability. It is intentionally a different
@@ -242,6 +255,16 @@ pub struct MemoryFlatQuestionGraderStore {
 }
 
 impl MemoryStore {
+    /// Builds an in-memory store whose Question IDs and catalog cursors derive
+    /// from the same injected server secret, with separate HMAC domains.
+    pub fn with_question_id_secret(secret: [u8; 32]) -> Self {
+        Self {
+            state: Arc::new(RwLock::new(State::default())),
+            question_ids: crate::QuestionIdCodec::from_server_secret(secret),
+            catalog_cursors: crate::CatalogCursorCodec::from_server_secret(secret),
+        }
+    }
+
     /// Builds separately injected application and grader handles for a local
     /// composition. Production code uses the PostgreSQL grader handle instead.
     pub fn with_qti_grader() -> (Self, MemoryQtiGraderStore) {
@@ -249,6 +272,8 @@ impl MemoryStore {
         (
             Self {
                 state: Arc::clone(&state),
+                question_ids: crate::QuestionIdCodec::from_server_secret([0x42; 32]),
+                catalog_cursors: crate::CatalogCursorCodec::from_server_secret([0x42; 32]),
             },
             MemoryQtiGraderStore { state },
         )
@@ -260,6 +285,8 @@ impl MemoryStore {
         (
             Self {
                 state: Arc::clone(&state),
+                question_ids: crate::QuestionIdCodec::from_server_secret([0x42; 32]),
+                catalog_cursors: crate::CatalogCursorCodec::from_server_secret([0x42; 32]),
             },
             MemoryFlatQuestionGraderStore { state },
         )
@@ -304,6 +331,15 @@ struct State {
     problem_owner_tenants: BTreeMap<ProblemId, TenantId>,
     problem_owner_users: BTreeMap<ProblemId, UserId>,
     published: BTreeMap<(ProblemId, VersionId), PublishedProblemRecord>,
+    /// Monotonic publication admission order for catalog continuations.  This
+    /// is deliberately independent of the map's length: a later publication
+    /// must not enter a browse session that already has an opaque boundary.
+    catalog_publication_sequences: BTreeMap<(ProblemId, VersionId), u64>,
+    /// First event at which the aggregate became safely disclosable.  This is
+    /// distinct from the current aggregate, which may continue to grow while
+    /// a catalog continuation remains bound to its first-page event boundary.
+    catalog_statistics_disclosure_sequences: BTreeMap<(ProblemId, VersionId), u64>,
+    next_catalog_publication_sequence: u64,
     source_artifacts: BTreeMap<(ProblemId, VersionId), PublishedSourceArtifact>,
     flat_question_sources: BTreeMap<(TenantId, WorkspaceId), WorkspaceFlatQuestionSource>,
     workspace_flat_question_assets: BTreeMap<

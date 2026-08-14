@@ -1,4 +1,5 @@
 use super::*;
+use hmac::{KeyInit, Mac};
 
 mod catalog;
 mod courses;
