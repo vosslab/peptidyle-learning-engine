@@ -39,6 +39,33 @@ async fn learner_enrollment_for_update(
     Ok(Some(enrollment))
 }
 
+async fn run_page(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    tenant: TenantId,
+    enrollment: EnrollmentId,
+    page: &PageRequest,
+) -> Result<Page<AssignmentRun>, StoreError> {
+    let cursor = page.after.as_ref().map(|value| value.as_str().to_string());
+    let limit = i64::from(page.size.get()) + 1;
+    let rows = sqlx::query(
+        "SELECT lpad(run_number::text, 10, '0') || '/' || run_id::text AS stable_key, \
+                payload, payload_sha256 \
+         FROM assignment_run \
+         WHERE tenant_id = $1 AND enrollment_id = $2 \
+           AND ($3::text IS NULL \
+                OR lpad(run_number::text, 10, '0') || '/' || run_id::text > $3) \
+         ORDER BY run_number, run_id::text LIMIT $4",
+    )
+    .bind(tenant.as_uuid())
+    .bind(enrollment.as_uuid())
+    .bind(cursor)
+    .bind(limit)
+    .fetch_all(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    page_from_rows(rows, page.size.get())
+}
+
 #[async_trait]
 impl crate::ActivityStore for PostgresStore {
     async fn instructor_get_enrollment_impl(
@@ -174,8 +201,6 @@ impl crate::ActivityStore for PostgresStore {
         enrollment: EnrollmentId,
         page: PageRequest,
     ) -> Result<Page<AssignmentRun>, StoreError> {
-        let cursor = page.after.as_ref().map(|value| value.as_str().to_string());
-        let limit = i64::from(page.size.get()) + 1;
         let mut transaction = self.begin_tenant(context).await?;
         let enrollment_exists: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM enrollment \
@@ -189,25 +214,59 @@ impl crate::ActivityStore for PostgresStore {
         if !enrollment_exists {
             return Err(StoreError::NotFound);
         }
-        let rows = sqlx::query(
-            "SELECT lpad(run_number::text, 10, '0') || '/' || run_id::text AS stable_key, \
-                    payload, payload_sha256 \
-             FROM assignment_run \
-             WHERE tenant_id = $1 AND enrollment_id = $2 \
-               AND ($3::text IS NULL \
-                    OR lpad(run_number::text, 10, '0') || '/' || run_id::text > $3) \
-             ORDER BY run_number, run_id::text LIMIT $4",
-        )
-        .bind(context.tenant_id().as_uuid())
-        .bind(enrollment.as_uuid())
-        .bind(cursor)
-        .bind(limit)
-        .fetch_all(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        let result = page_from_rows(rows, page.size.get())?;
+        let result = run_page(&mut transaction, context.tenant_id(), enrollment, &page).await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
+    }
+    async fn instructor_list_runs_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        enrollment: EnrollmentId,
+        page: PageRequest,
+    ) -> Result<Option<Page<AssignmentRun>>, StoreError> {
+        let mut transaction = self.begin_tenant(context).await?;
+        let record =
+            match load_enrollment_for_update(&mut transaction, context.tenant_id(), enrollment)
+                .await
+            {
+                Ok(record) => record,
+                Err(StoreError::NotFound) => return Ok(None),
+                Err(error) => return Err(error),
+            };
+        if record.user == actor {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(None);
+        }
+        let accessible: bool = sqlx::query_scalar(
+            "SELECT public.ple_course_records_accessible(a.tenant_id, a.course_id) \
+             FROM assignment AS a WHERE a.tenant_id = $1 AND a.assignment_id = $2",
+        )
+        .bind(context.tenant_id().as_uuid())
+        .bind(record.assignment.as_uuid())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?
+        .unwrap_or(false);
+        if !accessible {
+            return Err(StoreError::NotFound);
+        }
+        let assignment =
+            load_assignment(&mut transaction, context.tenant_id(), record.assignment).await?;
+        let instructor = postgres_is_course_instructor(
+            &mut transaction,
+            context.tenant_id(),
+            assignment.course_id,
+            actor,
+        )
+        .await?;
+        if !instructor {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(None);
+        }
+        let result = run_page(&mut transaction, context.tenant_id(), enrollment, &page).await?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(Some(result))
     }
     async fn learner_list_runs_impl(
         &self,
@@ -216,8 +275,6 @@ impl crate::ActivityStore for PostgresStore {
         enrollment: EnrollmentId,
         page: PageRequest,
     ) -> Result<Option<Page<AssignmentRun>>, StoreError> {
-        let cursor = page.after.as_ref().map(|value| value.as_str().to_string());
-        let limit = i64::from(page.size.get()) + 1;
         let mut transaction = self.begin_tenant(context).await?;
         if learner_enrollment_for_update(&mut transaction, context.tenant_id(), actor, enrollment)
             .await?
@@ -226,9 +283,7 @@ impl crate::ActivityStore for PostgresStore {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(None);
         }
-        let rows = sqlx::query("SELECT lpad(run_number::text, 10, '0') || '/' || run_id::text AS stable_key, payload, payload_sha256 FROM assignment_run WHERE tenant_id = $1 AND enrollment_id = $2 AND ($3::text IS NULL OR lpad(run_number::text, 10, '0') || '/' || run_id::text > $3) ORDER BY run_number, run_id::text LIMIT $4")
-            .bind(context.tenant_id().as_uuid()).bind(enrollment.as_uuid()).bind(cursor).bind(limit).fetch_all(&mut *transaction).await.map_err(map_sqlx_error)?;
-        let result = page_from_rows(rows, page.size.get())?;
+        let result = run_page(&mut transaction, context.tenant_id(), enrollment, &page).await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(Some(result))
     }

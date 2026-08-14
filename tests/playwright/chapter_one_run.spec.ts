@@ -67,7 +67,11 @@ function liveInputs(): {
   throw new Error("live Chapter 1 inputs are unavailable");
 }
 
-async function signIn(page: Page, credentialValue: string): Promise<void> {
+async function signIn(
+  page: Page,
+  credentialValue: string,
+  workspaceHeading: "Courses you teach" | "Pick up where you left off",
+): Promise<void> {
   const inputs = liveInputs();
   await page.goto(inputs.baseUrl);
   const credential = page.getByLabel("Local development credential");
@@ -78,7 +82,8 @@ async function signIn(page: Page, credentialValue: string): Promise<void> {
   await tabTo(page, signIn);
   await expect(signIn).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: "Pick up where you left off" })).toBeVisible();
+  await expect(page.locator("[data-route-surface=courses]")).toBeVisible();
+  await expect(page.getByRole("heading", { name: workspaceHeading })).toBeVisible();
 }
 
 async function openCourseFromDashboard(page: Page, courseTitle: string): Promise<void> {
@@ -96,6 +101,9 @@ async function openCourseFromDashboard(page: Page, courseTitle: string): Promise
   });
   await expect(course).toHaveCount(1);
   await page.keyboard.press("Enter");
+  await expect(page.locator("[data-route-surface=courseAssignments]")).toBeVisible({
+    timeout: 30_000,
+  });
 }
 
 async function completeChapter(page: Page, chapter: ChapterJourney): Promise<void> {
@@ -157,9 +165,10 @@ test.describe("private live Chapter 1 browser acceptance", () => {
   test("instructor sees a seeded Chapter 1 question under its human identity", async ({ page }) => {
     const inputs = liveInputs();
 
-    await signIn(page, inputs.instructorCredential);
+    await signIn(page, inputs.instructorCredential, "Courses you teach");
     await openCourseFromDashboard(page, CHAPTERS[0]?.course ?? "Genetics Fall 2026 pilot");
     const newAssignment = page.getByRole("link", { name: "New assignment", exact: true });
+    await expect(newAssignment).toBeVisible();
     await tabTo(page, newAssignment);
     await page.keyboard.press("Enter");
     await expect(
@@ -183,7 +192,12 @@ test.describe("private live Chapter 1 browser acceptance", () => {
     await tabTo(page, copyId);
     await page.keyboard.press("Enter");
     await expect(catalogRow.getByRole("status")).toHaveText(`Copied ${displayId}.`);
+    const addByQuestionId = page.getByText("Add by question ID", { exact: true });
+    await expect(addByQuestionId).toBeVisible();
+    await tabTo(page, addByQuestionId);
+    await page.keyboard.press("Enter");
     const questionIds = page.getByLabel("Question IDs");
+    await expect(questionIds).toBeVisible();
     await tabTo(page, questionIds);
     await page.keyboard.press("ControlOrMeta+V");
     await expect(questionIds).toHaveValue(displayId);
@@ -202,7 +216,7 @@ test.describe("private live Chapter 1 browser acceptance", () => {
     test.setTimeout(120_000);
     const inputs = liveInputs();
 
-    await signIn(page, inputs.studentCredential);
+    await signIn(page, inputs.studentCredential, "Pick up where you left off");
     for (const chapter of CHAPTERS) {
       await completeChapter(page, chapter);
       await page.goto(inputs.baseUrl);

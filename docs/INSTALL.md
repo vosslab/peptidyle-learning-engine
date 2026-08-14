@@ -100,7 +100,7 @@ and seeds the local database, starts the stack, and prints the loopback URL and 
 and validates Compose without building, starting a Podman machine, creating local files, or
 changing containers. A first installation needs `start` before `validate` can succeed.
 
-Use `./launch_local_stack.sh --no-open` only when recovering or diagnosing the launcher itself.
+Use `local_stack_control/launch.sh --no-open` only when recovering or diagnosing the private launcher itself.
 It remains the implementation owner for build, bootstrap, migration, seed, renderer checks, and
 semantic readiness; use [USAGE.md](USAGE.md) for ordinary controller commands.
 
@@ -152,7 +152,7 @@ and [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md).
 ## Production baseline is separate
 
 The OpenTofu configuration under `deploy/opentofu/` is not installed or applied
-by `npm run setup` or `launch_local_stack.sh`. It defines private no-NAT ECS
+by `npm run setup` or `local_stack_control/launch.sh`. It defines private no-NAT ECS
 tasks, RDS, four SSE-KMS S3 domains, CloudFront/ALB TLS-origin admission, and
 separate API, worker, and public-asset-publisher roles and secrets. A live AWS
 deployment still requires operator-owned DNS, certificates, Secrets Manager

@@ -95,7 +95,7 @@ active work package.
 | TypeScript, browser lint, format, or tests | `./check_codebase.sh`                                       | The vendored TypeScript and Node gate.             |
 | Repository documentation and hygiene      | `source source_me.sh && python3 -m pytest tests/`            | Fast Python hygiene and repository-rule checks.    |
 | Built-browser behavior                    | `./run_playwright_tests.sh --build`                         | The ordinary mock-backed browser suite, with no skips. |
-| Complete Playwright validation            | `./run_playwright_validation.sh --live`                    | Ordinary browser coverage plus required visual, walkthrough, and live-browser acceptance. |
+| Complete Playwright validation            | `source source_me.sh && python3 local_stack.py acceptance` | Ordinary browser coverage plus required visual, walkthrough, and live-browser acceptance. |
 | One browser scenario                      | `./run_playwright_tests.sh tests/playwright/<file>.spec.ts` | The selected built-browser scenario.               |
 | Container-backed behavior                 | `bash tests/e2e/e2e_<name>.sh`                              | The named disposable whole-system oracle.          |
 | Local stack diagnosis and lifecycle       | `source source_me.sh && python3 local_stack.py <command>`   | The scoped controller contract.                    |
@@ -117,10 +117,10 @@ Run the complete Playwright Validation test suite explicitly when the active pla
 browser claims:
 
 ```bash
-./run_playwright_validation.sh --live
+source source_me.sh && python3 local_stack.py acceptance
 ```
 
-Start from no existing default or disposable PLE stack. The command refuses inherited live-target,
+Start from no existing default or retained walkthrough stack. The command refuses inherited live-target,
 credential, and Compose overrides; it owns the temporary visual output and invokes each live or
 walkthrough owner with its documented private inputs. A failed or skipped required lane is red, so
 the suite is not green until every lane passes. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)

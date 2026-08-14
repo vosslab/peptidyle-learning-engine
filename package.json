@@ -7,7 +7,7 @@
 		"setup": "./devel/setup_typescript.sh",
 		"setup:playwright": "./devel/setup_playwright.sh",
 		"build": "./build.sh",
-		"launch": "./launch_local_stack.sh",
+		"launch": "python3 local_stack.py start",
 		"build:wasm": "./pipeline/build_wasm.sh",
 		"serve": "./run_web_server.sh",
 		"check": "./check_codebase.sh",

@@ -17,7 +17,7 @@ source, follow those sources and correct this file.
 - Complete one dependency-ordered slice, run its behavior gates, obtain an independent review, and
   update `../CHANGELOG.md` before advancing.
 - Use `source source_me.sh && python3 ...` for repository Python commands.
-- Use `local_stack.py` for routine local-stack status, logs, normal stop,
+- Use `python3 local_stack.py` for routine local-stack status, logs, normal stop,
   reset preview, and validation delegation. The launcher remains the startup/bootstrap owner.
 - Keep maintained source ASCII/ISO-8859-1 compatible. Write non-Latin Unicode in Rust fixtures with
   escapes such as `\u{1F9EC}`.
@@ -292,12 +292,12 @@ The WP-QTI-12 independent review and documentation close-out is complete:
   no-mouse audit. The primary route uses Tab, Shift+Tab, Space, explicit submission, and native link
   activation; Arrow, digit, Enter-to-submit, and Escape extensions have separately classified
   component scenarios. Representative VoiceOver and NVDA sessions remain a fall-pilot human gate.
-- `launch_local_stack.sh` is the maintained all-in-one local test front door. It preflights the
+- Private `local_stack_control/launch.sh` is the maintained build/bootstrap seam behind the public controller. It preflights the
   private configuration, generates ignored local identities and secrets, builds the code, migrates
   and seeds PostgreSQL before API/worker startup, provisions the distinct grader login, waits for
   the semantic gateway health response, and opens the browser without deleting persistent volumes.
-  The accepted WeBWorK renderer remains an explicit optional profile using the pinned upstream
-  historical `/render_rpc` compatibility integration.
+  The accepted stateless PG renderer is a required default local-stack service using its pinned
+  external image and private `/render-api` integration.
 - [docs/DATABASE_STRUCTURE.md](../DATABASE_STRUCTURE.md) maps implemented revision, assignment, and
   isolated-score relations. The human owner has superseded the earlier institutional-OIDC-only
   decision: WP-RC8 now owns PLE-managed passwordless accounts, invite-by-email enrollment, passkeys,

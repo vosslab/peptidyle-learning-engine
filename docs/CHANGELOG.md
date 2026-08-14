@@ -1,10 +1,46 @@
 # Changelog
 
+## 2026-08-14
+
+### Fixes and Maintenance
+
+- Relocated the local Podman controller from root-level scripts into `local_stack_control/` to keep the
+  repository root focused. The only public lifecycle and aggregate acceptance surface is now
+  `source source_me.sh && python3 local_stack.py`; `launch.sh`, `_restart.sh`, and `_consumer_cli.py`
+  are private implementation helpers inside that package.
+- Strengthened disposable lifecycle ownership. Every closed owner now uses the one required
+  `podman-compose --in-pod false` boundary, preventing unlabelled pods from escaping label-driven
+  cleanup, and mutation-time ownership revalidates those exact provider arguments. The private
+  launcher accepts a non-default project only when its runner-held mode-0600 capability matches the
+  private environment commitment. The replica owner additionally builds with a nonce-scoped
+  application image and removes only that tag and its generated gateway tag after capability-bound
+  labelled discovery proves the project empty. Cleanup failures retain private recovery evidence
+  and fail the run instead of masking leaked state.
+- Repaired the live Chapter 1 browser journey at the actual UI boundaries. Sign-in waits for the
+  role-specific course workspace, course opening waits for the mounted assignment surface, and the
+  instructor visibly opens the native Add-by-Question-ID disclosure before reaching its textarea.
+  The journey still uses the public Crockford Question ID and native keyboard actions; it adds no
+  fixture, direct focus shortcut, request bypass, or timing sleep.
+
+### Developer Tests and Notes
+
+- Completed the local-stack controller Validation suite on the final material tree. The five pure
+  controller modules passed 42 cases, the full fast pytest suite passed 4,799 cases, the repository
+  code and Rust gates passed, and the ordinary Playwright suite passed all 212 discovered tests with
+  zero skips. The public `python3 local_stack.py acceptance` command then passed
+  all six required lanes: ordinary browser behavior, both visual verifiers, the canonical J1-J5
+  walkthrough, both Chapter 1 journeys, and canonical WebWork render/grade/outage acceptance.
+- Live lifecycle evidence proved a rootless default stop retaining its three named volumes, an exact
+  confirmed reset followed by a clean launcher rebuild, stateless renderer recreation, replica
+  replacement with durable replay, conflict refusal without mutation, and capability-scoped cleanup
+  of every disposable project. The final local state is `containers` stopped with zero containers,
+  three retained data volumes, and zero networks.
+
 ## 2026-08-13
 
 ### Additions and New Features
 
-- Added `local_stack.py`, a Python controller for the rootless local Podman
+- Added the predecessor root-level local-stack controller for the rootless local Podman
   Compose stack. It provides read-only diagnostics, project discovery, status, scoped logs, normal
   stop, stateless restart, deliberate reset preview/confirmation, launcher validation delegation,
   and complete Playwright Validation delegation while keeping the existing launcher as the sole
@@ -93,7 +129,7 @@
   answer-free projection checks remain required. Durable cache and determinism
   contracts now distinguish adapter safe-render cache work from persisted
   snapshot reads.
-- Centralized neutral Podman lifecycle contracts in `local_stack_control/` with typed Compose
+- Centralized neutral Podman lifecycle contracts in the predecessor `local_stack_control/` package with typed Compose
   targets, env-file authority, label-based container/volume/network discovery, designed one-shot and
   long-running service readiness, and destructive reset confirmation. Added offline behavior tests
   for those contracts without adding a live Podman pytest or fragile source-shape assertion.

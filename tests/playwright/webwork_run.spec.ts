@@ -210,9 +210,26 @@ function attachTrace(page: Page): BrowserTrace {
   });
   page.on("response", (response) => {
     if (!response.url().startsWith("http")) return;
-    const location = inspectUrl(response.url(), "response");
-    const bodyReader = response.text().then(
-      (body) => {
+    inspectUrl(response.url(), "response");
+  });
+  page.on("requestfinished", (request) => {
+    if (!request.url().startsWith("http")) return;
+    const parsedUrl = new URL(request.url());
+    if (!parsedUrl.pathname.startsWith("/api/")) return;
+    const location: BrowserLocation = {
+      category: "response",
+      origin: parsedUrl.origin,
+      pathname: parsedUrl.pathname,
+    };
+    // `response` fires after headers; `requestfinished` fires only after the
+    // body is downloaded. This avoids waiting forever on an aborted poll.
+    const bodyReader = request
+      .response()
+      .then(async (response) => {
+        if (response === null) return;
+        const contentType = response.headers()["content-type"]?.toLowerCase() ?? "";
+        if (!contentType.includes("json")) return;
+        const body = await response.text();
         const parsed = parsedJson(body);
         if (parsed.kind === "parsed") {
           inspectJsonForPrivateMaterial(
@@ -239,9 +256,8 @@ function attachTrace(page: Page): BrowserTrace {
             completedRunCorrectness.push(feedback["correctness"]);
           }
         }
-      },
-      () => undefined,
-    );
+      })
+      .catch(() => undefined);
     bodyReaders.push(bodyReader);
   });
   async function waitForBodies(): Promise<void> {
@@ -519,6 +535,10 @@ test("browser session decoding accepts canonical deterministic local UUIDs", () 
 if (configuredLiveWebworkInputs !== undefined) {
   test.describe("private live WebWork browser acceptance", () => {
     test("live WebWork run is answer-free, keyboard-operable, and PLE-only", async ({ page }) => {
+      // This opt-in provider gate completes two independent render/grade runs.
+      // Keep web-first readiness assertions while giving the live boundary the
+      // runner's standard slow-test budget instead of the mock-suite ceiling.
+      test.slow();
       const inputs = configuredLiveWebworkInputs;
       if (inputs === undefined) {
         throw new Error("live WebWork test was declared without validated inputs");

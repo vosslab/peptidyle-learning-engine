@@ -864,6 +864,17 @@ pub trait Store:
         ActivityStore::list_runs_impl(self, context, enrollment, page).await
     }
 
+    /// Historical instructor capability; storage rechecks direct course membership.
+    async fn instructor_list_runs(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        enrollment: EnrollmentId,
+        page: PageRequest,
+    ) -> Result<Option<Page<AssignmentRun>>, StoreError> {
+        ActivityStore::instructor_list_runs_impl(self, context, actor, enrollment, page).await
+    }
+
     async fn learner_list_runs(
         &self,
         context: TenantContext,

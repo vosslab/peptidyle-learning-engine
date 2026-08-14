@@ -152,7 +152,7 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   reusable layer is also the common lifecycle contract for Codex, aggregate Playwright acceptance,
   and canonical walkthrough disposable ownership; do not recreate provider selection, env-file
   sanitization, label discovery, readiness, or generic cleanup in each shell/test runner.
-- Keep `launch_local_stack.sh` as the single build, bootstrap, migration, seed, renderer-probe, and
+- Keep `local_stack_control/launch.sh` as the private build, bootstrap, migration, seed, renderer-probe, and
   readiness owner behind that controller. The controller must delegate that work rather than create a
   second local-stack initialization path.
 - Local-stack lifecycle tools may inspect any Compose project by label, but mutating commands should

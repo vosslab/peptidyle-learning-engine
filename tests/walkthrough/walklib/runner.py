@@ -151,12 +151,12 @@ class WalkthroughRunner:
 			disposable.target,
 			self.sanitized_child_environment(),
 		)
+		environment["PLE_DISPOSABLE_CAPABILITY_FILE"] = str(disposable.capability_file)
 		return environment
 
 	def controller_runner(self) -> walklib.process.WalkthroughControllerRunner:
 		"""Return the shared controller adapter over this runner's child-process seam."""
-		runner = walklib.process.WalkthroughControllerRunner(self.run_command)
-		return runner
+		return walklib.process.WalkthroughControllerRunner(self.run_command)
 
 	def run_required(
 		self,
@@ -409,6 +409,7 @@ class WalkthroughRunner:
 				str(self.private_env_file),
 				False,
 				self.compose_project_name,
+				required_provider=local_stack_control.models.DISPOSABLE_COMPOSE_PROVIDER,
 			)
 			self.disposable_target = local_stack_control.compose.new_disposable_target(
 				target,
@@ -896,7 +897,7 @@ class WalkthroughRunner:
 		)
 
 		self.report_stage = "launcher_check"
-		launcher = str(self.repository_root / "launch_local_stack.sh")
+		launcher = str(self.repository_root / "local_stack_control/launch.sh")
 		self.run_required(
 			[
 				launcher,

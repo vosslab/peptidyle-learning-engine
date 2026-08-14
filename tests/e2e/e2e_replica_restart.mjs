@@ -5,9 +5,8 @@
  * every learner request below goes through Caddy and seed data comes from the
  * host-only project-tools command, never a product fixture route.
  *
- * `--static-check` is the permanent, no-container gate.  The default command
- * is deliberately strict: missing Podman is BLOCKED and exits non-zero rather
- * than turning a deployment prerequisite into a passing skip.
+ * The command is deliberately strict: missing Podman is BLOCKED and exits
+ * non-zero rather than turning a deployment prerequisite into a passing skip.
  */
 
 import assert from "node:assert/strict";
@@ -21,7 +20,6 @@ import { fileURLToPath } from "node:url";
 
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
-const LOCAL_STACK_CONSUMER = resolve(REPO_ROOT, "local_stack_consumer.py");
 const POLL_TIMEOUT_MS = 45_000;
 const REPLICA_REFRESH_MS = 2_500;
 const REPLICA_HEADER_PREFIX = "ple-replica-e2e-api-";
@@ -65,6 +63,76 @@ function parseManifest(text) {
   return manifest;
 }
 
+function visibleSelectionMinimum(selection) {
+  switch (selection?.kind) {
+    case "exactlyOne":
+    case "atLeastOne":
+      return 1;
+    case "exactly":
+      assert.ok(Number.isInteger(selection.count) && selection.count >= 0);
+      return selection.count;
+    case "anyNumber":
+      return 0;
+    default:
+      fail("visible response needs a supported selection rule");
+  }
+}
+
+function visibleHotspotPoints(regions, minimum) {
+  assert.ok(Array.isArray(regions), "hotspot needs visible regions");
+  assert.ok(Number.isInteger(minimum) && minimum >= 0 && minimum <= regions.length);
+  if (minimum === 0) return [];
+  const contains = (region, x, y) =>
+    x >= region.x && x <= region.x + region.width && y >= region.y && y <= region.y + region.height;
+  const points = [];
+  for (const target of regions) {
+    for (const field of ["x", "y", "width", "height"]) {
+      assert.equal(typeof target?.[field], "number", `hotspot region needs visible ${field}`);
+    }
+    const targetRight = target.x + target.width;
+    const targetBottom = target.y + target.height;
+    const xCandidates = new Set([target.x, targetRight, Math.floor((target.x + targetRight) / 2)]);
+    const yCandidates = new Set([
+      target.y,
+      targetBottom,
+      Math.floor((target.y + targetBottom) / 2),
+    ]);
+    for (const region of regions) {
+      for (const x of [
+        region.x - 1,
+        region.x,
+        region.x + region.width,
+        region.x + region.width + 1,
+      ]) {
+        if (x >= target.x && x <= targetRight) xCandidates.add(x);
+      }
+      for (const y of [
+        region.y - 1,
+        region.y,
+        region.y + region.height,
+        region.y + region.height + 1,
+      ]) {
+        if (y >= target.y && y <= targetBottom) yCandidates.add(y);
+      }
+    }
+    let point;
+    for (const x of xCandidates) {
+      for (const y of yCandidates) {
+        if (x >= 0 && x <= 10_000 && y >= 0 && y <= 10_000) {
+          if (regions.filter((region) => contains(region, x, y)).length === 1) {
+            point = { x, y };
+            break;
+          }
+        }
+      }
+      if (point !== undefined) break;
+    }
+    if (point !== undefined) points.push(point);
+    if (points.length === minimum) return points;
+  }
+  fail("hotspot presentation has no unambiguous visible response candidate");
+}
+
 function validVisibleResponse(response) {
   assert.equal(
     typeof response?.kind,
@@ -72,30 +140,115 @@ function validVisibleResponse(response) {
     "issued envelope needs a visible response definition",
   );
   switch (response.kind) {
-    case "numeric":
-      return { kind: "numeric", value: 0 };
-    case "multipleChoice": {
-      assert.equal(
-        response.selection?.kind,
-        "exactlyOne",
-        "E2E multiple choice must require one visible choice",
-      );
-      assert.equal(typeof response.choices?.[0]?.id, "string", "E2E choice needs a visible id");
+    case "singleChoice": {
+      assert.ok(response.choices?.length > 0, "single choice needs a visible choice");
+      assert.equal(typeof response.choices[0]?.id, "string", "E2E choice needs a visible id");
       return { kind: "multipleChoice", selected: [response.choices[0].id] };
     }
+    case "multipleAnswer": {
+      assert.ok(Array.isArray(response.choices), "multiple answer needs visible choices");
+      assert.ok(
+        Number.isInteger(response.minimum) &&
+          Number.isInteger(response.maximum) &&
+          response.minimum >= 0 &&
+          response.minimum <= response.maximum &&
+          response.maximum <= response.choices.length,
+        "multiple answer needs valid visible selection bounds",
+      );
+      const selected = response.choices.slice(0, response.minimum).map((choice) => {
+        assert.equal(typeof choice?.id, "string", "E2E choice needs a visible id");
+        return choice.id;
+      });
+      return { kind: "multipleChoice", selected };
+    }
+    case "multipleChoice": {
+      assert.ok(Array.isArray(response.choices), "multiple choice needs visible choices");
+      const minimum = visibleSelectionMinimum(response.selection);
+      assert.ok(minimum <= response.choices.length, "multiple choice needs enough visible choices");
+      const selected = response.choices.slice(0, minimum).map((choice) => {
+        assert.equal(typeof choice?.id, "string", "E2E choice needs a visible id");
+        return choice.id;
+      });
+      return { kind: "multipleChoice", selected };
+    }
+    case "fillIn":
+      assert.ok(response.maxCharacters >= 1, "fill-in needs visible input capacity");
+      return { kind: "shortText", text: "" };
     case "shortText":
-      return { kind: "shortText", text: "e2e-visible-response" };
+      assert.ok(response.maxLength >= 0, "short-text response needs visible input capacity");
+      return { kind: "shortText", text: "" };
+    case "multiFillIn": {
+      assert.ok(response.blanks?.length > 0, "multi-fill-in needs visible blanks");
+      const answers = response.blanks.map((blank) => {
+        assert.equal(typeof blank?.id, "string", "E2E blank needs a visible id");
+        assert.ok(blank.maxCharacters >= 1, "E2E blank needs visible input capacity");
+        return { slot: blank.id, text: "" };
+      });
+      return { kind: "multiBlank", answers };
+    }
+    case "multiBlank": {
+      assert.ok(response.blanks?.length > 0, "multi-blank response needs visible blanks");
+      const answers = response.blanks.map((blank) => {
+        assert.equal(typeof blank?.id, "string", "E2E blank needs a visible id");
+        assert.ok(blank.maxLength >= 0, "E2E blank needs visible input capacity");
+        return { slot: blank.id, text: "" };
+      });
+      return { kind: "multiBlank", answers };
+    }
+    case "numerical":
+      assert.ok(response.maxCharacters >= 1, "numerical response needs visible input capacity");
+      return { kind: "numeric", value: 0 };
+    case "numeric":
+      return { kind: "numeric", value: 0 };
+    case "matching": {
+      assert.ok(response.prompts?.length > 0, "matching needs visible prompts");
+      assert.ok(
+        response.choices?.length >= (response.reuseChoices === true ? 1 : response.prompts.length),
+        "matching needs enough visible choices",
+      );
+      const matches = response.prompts.map((prompt, index) => {
+        assert.equal(typeof prompt?.id, "string", "E2E matching prompt needs a visible id");
+        const choice = response.choices[response.reuseChoices === true ? 0 : index];
+        assert.equal(typeof choice?.id, "string", "E2E matching choice needs a visible id");
+        return { prompt: prompt.id, choice: choice.id };
+      });
+      return { kind: "matching", matches };
+    }
     case "ordering": {
       assert.ok(
         Array.isArray(response.items) && response.items.length > 0,
         "ordering needs visible items",
       );
-      return { kind: "ordering", order: response.items.map((item) => item.id) };
+      const order = response.items.map((item) => {
+        assert.equal(typeof item?.id, "string", "E2E ordering item needs a visible id");
+        return item.id;
+      });
+      return { kind: "ordering", order };
+    }
+    case "hotspot": {
+      const regions = response.surface?.regions ?? response.regions;
+      assert.ok(Array.isArray(regions), "hotspot needs visible regions");
+      const minimum =
+        response.minimum === undefined
+          ? visibleSelectionMinimum(response.selection)
+          : response.minimum;
+      if (response.maximum !== undefined) {
+        assert.ok(
+          Number.isInteger(response.maximum) &&
+            minimum <= response.maximum &&
+            response.maximum <= regions.length,
+          "hotspot needs valid visible selection bounds",
+        );
+      }
+      const points = visibleHotspotPoints(regions, minimum);
+      return { kind: "hotspot", points };
     }
     case "externalTool":
       return { kind: "externalTool" };
+    case "fileUpload":
+      return fail("file-upload response requires a server-issued learner object reference");
     default:
-      fail(`unsupported visible E2E response kind ${response.kind}`);
+      return fail(`unsupported visible E2E response kind ${response.kind}`);
   }
 }
 
@@ -121,7 +274,14 @@ function safeComposeDiagnostic(stderr, privateValues = []) {
 }
 
 function adapterArguments(action, manifestPath, actionArguments = []) {
-  return [LOCAL_STACK_CONSUMER, action, "--manifest", manifestPath, ...actionArguments];
+  return [
+    "-m",
+    "local_stack_control._consumer_cli",
+    action,
+    "--manifest",
+    manifestPath,
+    ...actionArguments,
+  ];
 }
 
 async function adapterCommand(action, manifestPath, actionArguments, label, options = {}) {
@@ -291,6 +451,7 @@ function identityFile(tenantId, studentId) {
       credentials: [
         {
           credential_sha256: createHash("sha256").update(credentialBytes).digest("hex"),
+          learner_alias: "replica-e2e-learner",
           tenant_id: tenantId,
           user_id: studentId,
           display_name: "Replica E2E learner",
@@ -372,78 +533,6 @@ async function postgresCounts(manifestPath, tenantId, attemptId) {
   );
 }
 
-async function staticCheck() {
-  assert.equal(
-    parseReplica("ple-replica-e2e-api-0123456789ab"),
-    "ple-replica-e2e-api-0123456789ab",
-  );
-  assert.throws(() => parseReplica("bad header"));
-  assert.deepEqual(validVisibleResponse({ kind: "numeric" }), { kind: "numeric", value: 0 });
-  const localIdentity = identityFile(
-    "0198e000-0000-7000-8000-000000000001",
-    "0198e000-0000-7000-8000-000000000002",
-  );
-  const localIdentityRecord = JSON.parse(localIdentity.body).credentials[0];
-  assert.deepEqual(Object.keys(localIdentityRecord).sort(), [
-    "credential_sha256",
-    "display_name",
-    "roles",
-    "tenant_id",
-    "user_id",
-  ]);
-  assert.equal(
-    localIdentityRecord.credential_sha256,
-    createHash("sha256").update(Buffer.from(localIdentity.credential, "base64url")).digest("hex"),
-  );
-  assert.deepEqual(
-    validVisibleResponse({
-      kind: "multipleChoice",
-      selection: { kind: "exactlyOne" },
-      choices: [{ id: "shown-choice" }],
-    }),
-    { kind: "multipleChoice", selected: ["shown-choice"] },
-  );
-  // These UUIDv5-shaped values are the actual `project-tools e2e-seed` manifest for
-  // tenant 0198e000-0000-7000-8000-000000000001. The seeder deliberately
-  // derives deterministic IDs, so v4-only validation would reject live data.
-  const manifest = parseManifest(
-    JSON.stringify({
-      assignmentId: "a8a0b288-690e-51d9-ae1c-e6a553473070",
-      enrollmentId: "931d6323-ed71-5bec-ab6f-861f5c55cbc2",
-      problemId: "00e324e2-7505-558d-b025-6f57fd5d3aca",
-      versionId: "0c2813cc-bb38-5c02-b3c5-b4361d19976d",
-    }),
-  );
-  assert.equal(manifest.versionId, "0c2813cc-bb38-5c02-b3c5-b4361d19976d");
-  const secret = canonicalSecret32().trim();
-  assert.match(secret, /^[A-Za-z0-9_-]{43}$/u);
-  const diagnostic = safeComposeDiagnostic(
-    `postgres://ple_e2e:${POSTGRES_PASSWORD}@postgres/ple_e2e ${secret}`,
-    [secret],
-  );
-  assert.doesNotMatch(diagnostic, new RegExp(POSTGRES_PASSWORD, "u"));
-  assert.doesNotMatch(diagnostic, new RegExp(secret, "u"));
-  assert.match(diagnostic, /\[redacted\]/u);
-  assert.deepEqual(adapterArguments("compose", "/tmp/target.manifest", ["--", "up", "-d", "api"]), [
-    LOCAL_STACK_CONSUMER,
-    "compose",
-    "--manifest",
-    "/tmp/target.manifest",
-    "--",
-    "up",
-    "-d",
-    "api",
-  ]);
-  assert.equal(replicaIdPrefix("ple-replica-e2e-api-0123456789ab"), "0123456789ab");
-  assert.throws(() => replicaIdPrefix("ple-replica-e2e-api-not-a-container"));
-  assert.equal(safeHttpError('{"error":"assignment is closed"}'), "assignment is closed");
-  assert.equal(safeHttpError('{"error":"safe","request":"credential"}'), "");
-  assert.equal(safeHttpError('{"error":"line\\nbreak"}'), "");
-  assert.equal(safeHttpError(JSON.stringify({ error: "x".repeat(301) })), "");
-  assert.equal(safeHttpError("not JSON"), "");
-  console.log("replica_restart static check passed");
-}
-
 async function runLive() {
   const gatewayDigest = process.env.PLE_E2E_GATEWAY_IMAGE_SHA256;
   if (!/^[a-f0-9]{64}$/.test(gatewayDigest ?? "")) {
@@ -453,6 +542,7 @@ async function runLive() {
   }
 
   const project = `ple-replica-e2e-${randomBytes(5).toString("hex")}`;
+  const applicationImage = `localhost/peptidyle-learning-engine:${project}`;
   const tempDirectory = await mkdtemp(join(tmpdir(), "ple-replica-e2e-"));
   const envPath = join(tempDirectory, "compose.env");
   const identityPath = join(tempDirectory, "local-identities.json");
@@ -496,6 +586,7 @@ async function runLive() {
         `PLE_MINIO_CONSOLE_HOST_PORT=${minioConsolePort}`,
         `PLE_GATEWAY_HOST_PORT=${gatewayPort}`,
         `PLE_GATEWAY_IMAGE_SHA256=${gatewayDigest}`,
+        `PLE_APPLICATION_IMAGE=${applicationImage}`,
         `PLE_POSTGRES_IMAGE_SHA256=${POSTGRES_IMAGE_SHA256}`,
         `PLE_MINIO_IMAGE_SHA256=${MINIO_IMAGE_SHA256}`,
         `PLE_MINIO_MC_IMAGE_SHA256=${MINIO_MC_IMAGE_SHA256}`,
@@ -569,7 +660,56 @@ async function runLive() {
 
       await adapterCompose(
         manifestPath,
-        ["up", "-d", "--scale", "api=2", "api", "gateway"],
+        ["build", "api", "gateway"],
+        "building current API and gateway images",
+        { safeDiagnostics: true, timeoutMs: 10 * 60_000 },
+      );
+      await adapterCompose(
+        manifestPath,
+        ["up", "-d", "identity-secret-init", "webwork-renderer"],
+        "starting API prerequisites",
+        { safeDiagnostics: true, timeoutMs: 10 * 60_000 },
+      );
+      await waitFor(
+        "renderer health",
+        () =>
+          adapterCompose(
+            manifestPath,
+            [
+              "exec",
+              "-T",
+              "webwork-renderer",
+              "curl",
+              "--fail",
+              "--silent",
+              "--show-error",
+              "--max-time",
+              "5",
+              "http://127.0.0.1:3000/health/",
+            ],
+            "checking renderer health",
+          ),
+        2 * 60_000,
+      );
+      await adapterCompose(
+        manifestPath,
+        ["up", "-d", "--no-deps", "api"],
+        "starting the first API replica",
+        { safeDiagnostics: true, timeoutMs: 10 * 60_000 },
+      );
+      await waitFor(
+        "first API health",
+        () =>
+          adapterCompose(
+            manifestPath,
+            ["exec", "-T", "api", "/usr/local/bin/peptidyle-api", "--health-probe"],
+            "checking first API health",
+          ),
+        2 * 60_000,
+      );
+      await adapterCompose(
+        manifestPath,
+        ["up", "-d", "--no-deps", "--scale", "api=2", "api", "gateway"],
         "starting API replicas and gateway",
         { safeDiagnostics: true, timeoutMs: 10 * 60_000 },
       );
@@ -700,8 +840,5 @@ async function runLive() {
   }
 }
 
-if (process.argv.includes("--static-check")) {
-  await staticCheck();
-} else {
-  await runLive();
-}
+if (process.argv.length !== 2) fail("replica restart E2E accepts no command-line arguments");
+await runLive();

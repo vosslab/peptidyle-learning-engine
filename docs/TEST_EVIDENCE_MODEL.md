@@ -40,7 +40,7 @@ git diff --cached --check
 
 Add `./run_playwright_tests.sh --build` for ordinary mock-backed built-browser behavior. It must
 finish with zero skips. For a goal that requires the complete browser claim, add
-`./run_playwright_validation.sh --live`; it owns the temporary visual, walkthrough, and dedicated
+`source source_me.sh && python3 local_stack.py acceptance`; it owns the temporary visual, walkthrough, and dedicated
 live-browser lanes, and a required skip is red. Add the named `tests/e2e/` runner for each
 PostgreSQL, MinIO, renderer, migration, restart, or other real-service claim not already owned by
 that validation command. Add the plan-required accessibility, visual, security, architecture, or
@@ -242,8 +242,8 @@ the PLE same-origin gateway.
   explicit configuration rather than silently contacting a real service.
 - The ordinary `./run_playwright_tests.sh --build` collection uses the mock
   preview server and contains no opt-in cases. Run
-  `./run_playwright_validation.sh --live` for the complete browser Validation
-  test suite; it requires no existing PLE stack, owns its temporary visual
+  `source source_me.sh && python3 local_stack.py acceptance` for the complete browser Validation
+  test suite; it requires no existing default or retained walkthrough stack, owns its temporary visual
   evidence and dedicated live runners, and treats every required skip as red.
 - Temporary screenshots, traces, recordings, and Playwright results belong in
   ignored `test-results/` (or the runner's ignored output), not in permanent

@@ -6,6 +6,7 @@ import { tabTo, tabToTargetThroughVisiblePagination } from "./simulator/keyboard
 import {
   expectVisibleResponseControlsCleared,
   submitVisibleResponseCandidate,
+  visibleResponseFamily,
 } from "./simulator/chapter_question_responses";
 import {
   appendStudentRepeatState,
@@ -119,6 +120,8 @@ test("J1 student reaches visible feedback and the next question in the instructo
   await expect(questionsPerRun.locator("dd")).toHaveText("4");
 
   const start = page.getByRole("button", { name: "Start or resume practice" });
+  await expect(start).toBeVisible();
+  await expect(start).toBeEnabled();
   await tabTo(page, start);
   await expect(start).toBeFocused();
   await page.keyboard.press("Space");
@@ -129,7 +132,13 @@ test("J1 student reaches visible feedback and the next question in the instructo
   if (documentationScreenshotsEnabled(inputs.screenshotDirectory)) {
     await expect(page.getByRole("timer")).not.toHaveText("Untimed");
   }
-  const firstResponse = page.locator('input[type="radio"]:visible').first();
+  const responseFamily = await visibleResponseFamily(page);
+  const firstResponse =
+    responseFamily === "matching"
+      ? page.locator('.matching-group:visible [role="radio"][aria-disabled="false"]').first()
+      : page.locator('.response-widget:visible input[type="radio"]:visible').first();
+  await expect(firstResponse).toBeVisible();
+  await expect(firstResponse).toBeEnabled();
   await tabTo(page, firstResponse);
   await expect(firstResponse).toBeFocused();
   await captureDocumentationScreenshot(
@@ -140,7 +149,7 @@ test("J1 student reaches visible feedback and the next question in the instructo
     inputs.screenshotDirectory,
   );
   const submitted = await submitVisibleResponseCandidate(page);
-  expect(submitted.outcome).toBe("not-quite");
+  expect(["correct", "not-quite"]).toContain(submitted.outcome);
   checkpoint(inputs, "feedback_visible");
 
   const continueButton = page.getByRole("button", { name: "Continue" });

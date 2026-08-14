@@ -299,6 +299,39 @@ impl crate::ActivityStore for MemoryStore {
             .collect();
         Ok(page_records(records, &page))
     }
+    async fn instructor_list_runs_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        enrollment: EnrollmentId,
+        page: PageRequest,
+    ) -> Result<Option<Page<AssignmentRun>>, StoreError> {
+        let state = self.read_state()?;
+        let Some(record) = state.enrollments.get(&(context.tenant_id(), enrollment)) else {
+            return Ok(None);
+        };
+        if record.user == actor {
+            return Ok(None);
+        }
+        let assignment = assignment_record(&state, context.tenant_id(), record.assignment)?;
+        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+        let instructor = state
+            .courses
+            .get(&(context.tenant_id(), assignment.course_id))
+            .is_some_and(|course| course.role_for(actor) == Some(CourseMembershipRole::Instructor));
+        if !instructor {
+            return Ok(None);
+        }
+        let records = state
+            .runs
+            .iter()
+            .filter(|((tenant, _), run)| {
+                *tenant == context.tenant_id() && run.enrollment == enrollment
+            })
+            .map(|((_, id), run)| (format!("{:010}/{}", run.run_number, id), run.clone()))
+            .collect();
+        Ok(Some(page_records(records, &page)))
+    }
     async fn learner_list_runs_impl(
         &self,
         context: TenantContext,

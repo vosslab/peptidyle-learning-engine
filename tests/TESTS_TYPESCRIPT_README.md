@@ -16,7 +16,7 @@ is the whole interface: drive the repo through them and you never need to open
 | `./build_github_pages.sh` | Bundle `src/` into `dist/` (the Pages artifact). |
 | `./run_web_server.sh` | Build `dist/`, serve a local preview on a random port. |
 | `./run_playwright_tests.sh` | Run the ordinary mock-backed browser suite; builds `dist/` as needed. |
-| `./run_playwright_validation.sh --live` | Run the complete opt-in Playwright Validation suite. |
+| `source source_me.sh && python3 local_stack.py acceptance` | Run the complete opt-in Playwright Validation suite. |
 | `./dist_clean.sh` | Wipe `dist/`. |
 
 Run `./check_codebase.sh --help` for usage. `./run_web_server.sh` picks a
@@ -26,7 +26,7 @@ test server, and accepts `--build` to force a rebuild first.
 
 The ordinary runner is the daily browser gate. It uses the mock preview server
 and finishes with zero skipped tests; live, walkthrough, and visual acceptance
-cases are outside its collection. Run `./run_playwright_validation.sh --live`
+cases are outside its collection. Run `source source_me.sh && python3 local_stack.py acceptance`
 only when the active plan requires the complete Playwright Validation test
 suite. Start with no existing PLE stack: the validation runner refuses an
 ambient stack and owns its temporary visual output and dedicated live runners.
@@ -54,7 +54,7 @@ The repo has four test tiers. Pick the home by what you are testing.
   automatically through `node --import tsx --test 'tests/test_*.mjs'`.
 - Browser tests live under `tests/playwright/`. Run them with
   `./run_playwright_tests.sh`; this is the mock-backed ordinary lane. The
-  complete opt-in suite uses `./run_playwright_validation.sh --live`. See
+  complete opt-in suite uses `source source_me.sh && python3 local_stack.py acceptance`. See
   [../docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md#playwright-execution-lanes).
 - Whole-system E2E lives under `tests/e2e/` and runs directly, excluded from
   pytest. See `E2E_TESTS.md` for the non-browser E2E conventions.

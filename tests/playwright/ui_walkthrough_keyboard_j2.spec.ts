@@ -96,6 +96,8 @@ async function signInAndStartMastery(page: Page, inputs: UiWalkthroughInputs): P
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
   const start = page.getByRole("button", { name: "Start or resume practice" });
+  await expect(start).toBeVisible();
+  await expect(start).toBeEnabled();
   await tabTo(page, start);
   await expect(start).toBeFocused();
   await captureDocumentationScreenshot(

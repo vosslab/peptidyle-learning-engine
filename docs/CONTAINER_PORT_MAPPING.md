@@ -2,7 +2,7 @@
 
 This document maps the supported local Podman ports. The executable source of
 truth is [containers/compose.yaml](../containers/compose.yaml); the launcher
-selects the gateway host port in [launch_local_stack.sh](../launch_local_stack.sh).
+selects the gateway host port in private `local_stack_control/launch.sh`.
 
 All published ports bind to `127.0.0.1`. They are local-development access
 points, not services exposed to the LAN.

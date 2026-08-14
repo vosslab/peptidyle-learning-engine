@@ -67,6 +67,8 @@ async function signInAndResumeSecondRun(page: Page, inputs: UiWalkthroughInputs)
   await expect(assignment).toBeFocused();
   await page.keyboard.press("Enter");
   const resume = page.getByRole("button", { name: "Start or resume practice" });
+  await expect(resume).toBeVisible();
+  await expect(resume).toBeEnabled();
   await tabTo(page, resume);
   await expect(resume).toBeFocused();
   await page.keyboard.press("Space");

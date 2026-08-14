@@ -62,7 +62,7 @@ the `e2e_*` prefix as a secondary, human-readable convention.
 ## Disposable Podman targets
 
 The local-stack E2Es that create Compose resources use the closed adapter in
-`local_stack_consumer.py`, not a copied `podman compose` lifecycle. The adapter
+the private `python3 -m local_stack_control._consumer_cli`, not a copied `podman compose` lifecycle. The adapter
 accepts only a private mode-0600 manifest from one declared owner:
 `course-appearance`, `chapter-one-pilot`, `database-baseline`,
 `chapter-one-browser`, or `replica-restart`. That manifest fixes the owner,

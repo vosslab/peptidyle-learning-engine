@@ -541,6 +541,9 @@ def disposable_target(tmp_path: pathlib.Path) -> local_stack_control.models.Disp
 	selected_target = dataclasses.replace(
 		selected_target,
 		compose_files=(compose_file.resolve(strict=True),),
+		provider=local_stack_control.models.ComposeProvider(
+			("podman-compose",), "podman-compose"
+		),
 	)
 	raw_capability = b"a" * 32
 	capability_file = tmp_path / "cleanup.capability"
@@ -579,6 +582,24 @@ def test_forged_disposable_owner_policy_cannot_form_cleanup_authority(
 	forged = dataclasses.replace(disposable_target(tmp_path), owner_policy="forged-owner")
 
 	with pytest.raises(local_stack_control.models.ControllerError, match="supported owner policy"):
+		local_stack_control.compose.require_disposable_ownership(forged)
+
+
+#============================================
+def test_forged_disposable_provider_cannot_form_cleanup_authority(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""A hand-built target cannot omit the mandatory no-pod provider arguments."""
+	disposable = disposable_target(tmp_path)
+	forged_target = dataclasses.replace(
+		disposable.target,
+		provider=local_stack_control.models.ComposeProvider(
+			("podman-compose",), "podman-compose"
+		),
+	)
+	forged = dataclasses.replace(disposable, target=forged_target)
+
+	with pytest.raises(local_stack_control.models.ControllerError):
 		local_stack_control.compose.require_disposable_ownership(forged)
 
 

@@ -218,7 +218,7 @@ remain server-derived.
 | ID         | Contract source and state                                                                                                                                                                                                                   | Owner          | Direct consumers      | Reference/test implementation            |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | --------------------- | ---------------------------------------- |
 | MOD-LTI    | Reserved: `crates/server/src/lti.rs`                                                                                                                                                                                                        | `expert_coder` | none; platform edge   | LMS sandbox fixtures                     |
-| MOD-DEPLOY | Implemented local deployment contract: `containers/compose.yaml`, optional `containers/compose.smtp.yaml`, and `launch_local_stack.sh`; production infrastructure under `deploy/` is a reserved boundary and unsupported in this repository | `expert_coder` | none; deployment edge | local stack and focused container checks |
+| MOD-DEPLOY | Implemented local deployment contract: `containers/compose.yaml`, optional `containers/compose.smtp.yaml`, and private `local_stack_control/launch.sh`; production infrastructure under `deploy/` is a reserved boundary and unsupported in this repository | `expert_coder` | none; deployment edge | local stack and focused container checks |
 
 ## Shared artifact ownership
 

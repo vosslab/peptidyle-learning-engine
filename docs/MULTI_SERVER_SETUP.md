@@ -170,7 +170,7 @@ is not permission to execute an undeclared job family.
 ## Required configuration
 
 Copy [containers/env.example](../containers/env.example) to the ignored
-`containers/env.local`, or let [launch_local_stack.sh](../launch_local_stack.sh)
+`containers/env.local`, or let private `local_stack_control/launch.sh`
 bootstrap the default local file. The launcher creates generated local secrets
 and credentials with mode 0600; never commit or reuse them outside local work.
 
@@ -207,7 +207,7 @@ and service readiness. Bare `compose up` against an empty database is not an
 equivalent bootstrap path.
 
 ```bash
-./launch_local_stack.sh --no-open
+source source_me.sh && python3 local_stack.py start --no-open
 ```
 
 After the normal stack is ready, scale API and worker replicas with the same
@@ -278,7 +278,7 @@ evidence rather than permanent pytests.
 
 ```bash
 node tests/e2e/e2e_replica_restart.mjs
-./launch_local_stack.sh --check
+source source_me.sh && python3 local_stack.py validate
 ```
 
 The replica E2E starts two API replicas behind Caddy, logs in, issues a

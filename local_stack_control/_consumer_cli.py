@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Private adapter for closed disposable local-stack E2E owners."""
 
 import argparse
@@ -6,6 +5,7 @@ import pathlib
 import shlex
 import sys
 
+import local_stack_control.compose
 import local_stack_control.consumer
 import local_stack_control.discovery
 import local_stack_control.models
@@ -15,7 +15,10 @@ import local_stack_control.process
 #============================================
 def parse_args(argv: list[str]) -> argparse.Namespace:
 	"""Parse one intentionally small adapter action."""
-	parser = argparse.ArgumentParser(description=__doc__)
+	parser = argparse.ArgumentParser(
+		prog="python3 -m local_stack_control._consumer_cli",
+		description=__doc__,
+	)
 	actions = parser.add_subparsers(dest="action", required=True)
 	compose = actions.add_parser("compose")
 	compose.add_argument("--manifest", required=True, type=pathlib.Path)
@@ -42,14 +45,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 #============================================
-def repo_root() -> pathlib.Path:
+def repo_root(runner: local_stack_control.process.CommandRunner) -> pathlib.Path:
 	"""Anchor this private entry point to its repository checkout."""
-	result = pathlib.Path(__file__).resolve(strict=True).parent
-	if not (result / ".git").exists():
-		raise local_stack_control.models.ControllerError(
-			"local_stack_consumer.py is not located at the repository root"
-		)
-	return result
+	return local_stack_control.compose.repo_root_from_entrypoint(pathlib.Path(__file__), runner)
 
 
 #============================================
@@ -181,9 +179,9 @@ def main() -> None:
 	"""Run a closed Compose call or one exact disposable cleanup."""
 	args = parse_args(sys.argv[1:])
 	try:
-		root = repo_root()
-		manifest = local_stack_control.consumer.load_manifest(root, args.manifest)
 		runner = local_stack_control.process.SubprocessRunner()
+		root = repo_root(runner)
+		manifest = local_stack_control.consumer.load_manifest(root, args.manifest)
 		disposable = local_stack_control.consumer.disposable_target(runner, root, manifest)
 		if args.action != "diagnostics":
 			local_stack_control.process.require_rootless_local_engine(runner, root)

@@ -134,12 +134,17 @@ test("J5 instructor opens gradebook run history with the keyboard after learner 
     await expect(historyButton).toHaveAttribute("aria-expanded", "true");
     const controls = await historyButton.getAttribute("aria-controls");
     if (controls === null) throw new Error("visible gradebook history control has no target");
-    const runHistory = page.locator(`#${controls}`);
+    const runHistory = page.getByRole("region", { name: /^Run history for learner /u });
+    await expect(runHistory).toHaveCount(1);
+    await expect(runHistory).toHaveAttribute("id", controls);
     await expect(runHistory).toBeVisible({ timeout: 30_000 });
     const completedRuns = runHistory.locator(".run-history-list > li");
     await expect(completedRuns).toHaveCount(2, { timeout: 30_000 });
-    await expect(completedRuns.nth(0)).toHaveText(/^Run 1: Completed/u);
-    await expect(completedRuns.nth(1)).toHaveText(/^Run 2: Completed/u);
+    for (const [index, runNumber] of [1, 2].entries()) {
+      const completedRun = completedRuns.nth(index);
+      await expect(completedRun.getByText(`Run ${runNumber}`, { exact: true })).toBeVisible();
+      await expect(completedRun).toContainText("Completed, 100%");
+    }
     await captureDocumentationScreenshot(
       page,
       "instructor_gradebook_mastery_loop.png",

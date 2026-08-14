@@ -95,6 +95,7 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
   };
   const students = page.getByRole("link", { name: "Students", exact: true });
   await expect(students).toHaveCount(1);
+  await expect(students).toBeVisible();
   await tabTo(page, students);
   await expect(students).toBeFocused();
   await page.keyboard.press("Enter");
@@ -125,6 +126,7 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
   await expect(page.getByRole("columnheader", { name: "Email", exact: true })).toHaveCount(0);
   await expect(page.getByRole("columnheader", { name: "Roster ID", exact: true })).toHaveCount(0);
   const addStudent = page.getByRole("button", { name: "Add Mary Fake Student", exact: true });
+  await expect(addStudent).toBeVisible();
   await tabTo(page, addStudent);
   await expect(addStudent).toBeFocused();
   await page.keyboard.press("Enter");
@@ -134,6 +136,7 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
   const activeStudentAnnouncement = page.getByRole("status").filter({
     hasText: "Mary Fake Student is now an active student in this course.",
   });
+  await expect(activeStudentAnnouncement).toHaveCount(1);
   await expect(activeStudentAnnouncement).toHaveText(
     "Mary Fake Student is now an active student in this course.",
   );
@@ -164,15 +167,10 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
     visibleOutcomeCodes: ["visible_local_student_active"],
     diagnostics: [],
   };
-  const backToCourse = page.getByRole("link", { name: "Back to course", exact: true });
-  await expect(backToCourse).toHaveCount(1);
-  await tabTo(page, backToCourse);
-  await expect(backToCourse).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: courseTitle, exact: true })).toBeVisible();
   const newAssignment = page.getByRole("link", { name: "New assignment", exact: true });
   await expect(newAssignment).toHaveCount(1);
-  await tabTo(page, newAssignment);
+  await expect(newAssignment).toBeVisible();
+  await tabTo(page, newAssignment, "backward");
   await expect(newAssignment).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Create assignment", exact: true })).toBeVisible();
@@ -182,6 +180,13 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
   const assignmentTitleInput = page.getByLabel("Assignment title");
   await expect(assignmentTitleInput).toBeFocused();
   await assignmentTitleInput.fill(assignmentTitle);
+  const addByQuestionId = page.getByText("Add by question ID", { exact: true });
+  await expect(addByQuestionId).toBeVisible();
+  await tabTo(page, addByQuestionId);
+  await expect(addByQuestionId).toBeFocused();
+  await page.keyboard.press("Enter");
+  const directImport = page.getByLabel("Question IDs");
+  await expect(directImport).toBeVisible();
   const search = page.getByLabel("Search published questions");
   await tabTo(page, search);
   await expect(search).toBeFocused();
@@ -190,7 +195,6 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
     origin: new URL(inputs.baseUrl).origin,
   });
   const copiedDisplayIds = inputs.catalogDisplayIds;
-  const directImport = page.getByLabel("Question IDs");
   for (const [index, displayId] of copiedDisplayIds.entries()) {
     await search.fill(displayId);
     await tabTo(page, searchCatalog);

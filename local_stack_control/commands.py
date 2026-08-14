@@ -240,7 +240,7 @@ def start(
 		raise local_stack_control.models.ControllerError(
 			"a custom mutating env file must already exist and have mode 0600"
 		)
-	argv = ["bash", str(repo_root / "launch_local_stack.sh")]
+	argv = ["bash", str(repo_root / "local_stack_control/launch.sh")]
 	if args.release:
 		argv.append("--release")
 	if args.skip_build:
@@ -448,7 +448,7 @@ def restart(
 	local_stack_control.compose.require_default_mutation_target(target)
 	argv = [
 		"bash",
-		str(repo_root / "launch_local_stack.sh"),
+		str(repo_root / "local_stack_control/launch.sh"),
 		"--restart",
 		args.service,
 		"--no-open",
@@ -471,7 +471,7 @@ def validate(
 	target = target_from_args(args, runner, repo_root)
 	if target.project != local_stack_control.models.DEFAULT_PROJECT:
 		raise local_stack_control.models.ControllerError("validate is canonical-stack-only")
-	argv = ["bash", str(repo_root / "launch_local_stack.sh"), "--check"]
+	argv = ["bash", str(repo_root / "local_stack_control/launch.sh"), "--check"]
 	if args.with_smtp:
 		argv.append("--with-smtp")
 	if target.env_file != repo_root / local_stack_control.models.DEFAULT_ENV_FILE:

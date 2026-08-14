@@ -17,7 +17,7 @@ acceptance sequence. It proves visible instructor course, local roster, and corp
 setup followed by student keyboard take/score/repeat. Production email and canonical onboarding are
 separate release work and do not gate that walkthrough.
 
-The active local-stack lifecycle controller is owned by
+The completed local-stack lifecycle controller is recorded in
 `docs/active_plans/workstreams/local_stack_controller_implementation.md`.
 It adds one typed Python lifecycle layer around the existing launcher and Compose stack for developers,
 Codex, aggregate browser acceptance, and canonical disposable walkthrough ownership. The shared layer
@@ -204,7 +204,7 @@ instruction directly.
 - M0/M1 contracts, core author/publish/assign/run/grade/feedback/export/statistics paths, retention
   R4.4, QTI profile import WP-QTI-12, the database baseline, keyboard pass, local launcher, and course
   appearance WP-CA1 through WP-CA7/WP-RC1 have accepted evidence.
-- `launch_local_stack.sh` builds, migrates, seeds, starts, waits for semantic health, and opens the
+- Private `local_stack_control/launch.sh` builds, migrates, seeds, starts, waits for semantic health, and opens the
   local application. Its default profile includes the private standalone `webwork-pg-renderer`, but
   does not run WebWork2 or MariaDB.
 - The first forward migration after the accepted six-file baseline is

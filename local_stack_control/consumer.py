@@ -108,7 +108,11 @@ def disposable_target(
 	compose_files = local_stack_control.compose.disposable_policy_compose_files(
 		repo_root, policy.owner
 	)
-	provider = local_stack_control.compose.choose_provider(runner, repo_root)
+	provider = local_stack_control.compose.choose_provider(
+		runner,
+		repo_root,
+		local_stack_control.models.DISPOSABLE_COMPOSE_PROVIDER,
+	)
 	target = local_stack_control.models.ComposeTarget(
 		repo_root=repo_root,
 		project=manifest.project,
@@ -203,6 +207,7 @@ def launch_environment(
 			environment.pop(name)
 	environment["COMPOSE_PROJECT_NAME"] = disposable.target.project
 	environment["PLE_LAUNCH_TIMEOUT_SECONDS"] = str(timeout_seconds)
+	environment["PLE_DISPOSABLE_CAPABILITY_FILE"] = str(disposable.capability_file)
 	return environment
 
 
@@ -213,7 +218,7 @@ def launch_command(
 ) -> tuple[list[str], dict[str, str]]:
 	"""Form the only launcher invocation allowed by the browser owner policy."""
 	environment = launch_environment(disposable, timeout_seconds)
-	launcher = disposable.target.repo_root / "launch_local_stack.sh"
+	launcher = disposable.target.repo_root / "local_stack_control/launch.sh"
 	if not launcher.is_file():
 		raise local_stack_control.models.ControllerError("local stack launcher is unavailable")
 	argv = [str(launcher), "--env-file", str(disposable.target.env_file), "--no-open"]
@@ -233,10 +238,13 @@ def owned_project_images(
 	for Compose cleanup.
 	"""
 	policy = disposable_policy(disposable)
-	if not policy.removes_gateway_image:
-		return ()
-	result = (f"localhost/{disposable.target.project}_gateway:latest",)
-	return result
+	project = disposable.target.project
+	images: list[str] = []
+	if policy.removes_application_image:
+		images.append(f"localhost/peptidyle-learning-engine:{project}")
+	if policy.removes_gateway_image:
+		images.append(f"localhost/{project}_gateway:latest")
+	return tuple(images)
 
 
 #============================================

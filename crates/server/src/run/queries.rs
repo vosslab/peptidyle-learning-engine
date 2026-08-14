@@ -462,25 +462,30 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if let Err(response) =
-        authorized_enrollment(state.store.as_ref(), &authenticated, enrollment_id, false).await
-    {
-        return response;
-    }
+    let enrollment =
+        match authorized_enrollment(state.store.as_ref(), &authenticated, enrollment_id, false)
+            .await
+        {
+            Ok(enrollment) => enrollment,
+            Err(response) => return response,
+        };
     let page = match page_request(query) {
         Ok(page) => page,
         Err(error) => return error_response(StatusCode::BAD_REQUEST, &error.to_string()),
     };
-    match state
-        .store
-        .learner_list_runs(
-            authenticated.tenant_context,
-            authenticated.record.subject.user(),
-            enrollment_id,
-            page,
-        )
-        .await
-    {
+    let actor = authenticated.record.subject.user();
+    let result = if enrollment.user == actor {
+        state
+            .store
+            .learner_list_runs(authenticated.tenant_context, actor, enrollment_id, page)
+            .await
+    } else {
+        state
+            .store
+            .instructor_list_runs(authenticated.tenant_context, actor, enrollment_id, page)
+            .await
+    };
+    match result {
         Ok(Some(page)) => no_store(Json(page).into_response()),
         Ok(None) => error_response(StatusCode::NOT_FOUND, "enrollment not found"),
         Err(error) => store_error_response(error),

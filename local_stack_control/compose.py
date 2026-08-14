@@ -1,5 +1,6 @@
 """Compose provider, target, ownership, and argv construction."""
 
+import dataclasses
 import hashlib
 import os
 import pathlib
@@ -12,13 +13,27 @@ import local_stack_control.process
 
 
 #============================================
-def repo_root_from_entrypoint(entrypoint: pathlib.Path) -> pathlib.Path:
-	"""Return the repository root anchored to the executable entry point."""
+def repo_root_from_entrypoint(
+	entrypoint: pathlib.Path,
+	runner: local_stack_control.process.CommandRunner,
+) -> pathlib.Path:
+	"""Return the Git repository root containing the package entry point."""
 	resolved_entrypoint = entrypoint.resolve(strict=True)
-	root = resolved_entrypoint.parent
-	if not (root / ".git").exists():
+	package_directory = resolved_entrypoint.parent
+	result = runner.run(
+		["git", "rev-parse", "--show-toplevel"],
+		cwd=package_directory,
+	)
+	if not result.ok() or result.stdout.strip() == "":
 		raise local_stack_control.models.ControllerError(
-			f"{resolved_entrypoint} is not located at the repository root"
+			"local stack controller is not inside a Git work tree"
+		)
+	root = pathlib.Path(result.stdout.strip()).resolve(strict=True)
+	public_entrypoint = root / "local_stack.py"
+	private_package = root / "local_stack_control"
+	if resolved_entrypoint != public_entrypoint and package_directory != private_package:
+		raise local_stack_control.models.ControllerError(
+			f"{resolved_entrypoint} is not a local-stack controller entry point"
 		)
 	return root
 
@@ -27,28 +42,30 @@ def repo_root_from_entrypoint(entrypoint: pathlib.Path) -> pathlib.Path:
 def choose_provider(
 	runner: local_stack_control.process.CommandRunner,
 	repo_root: pathlib.Path,
+	required_name: str | None = None,
 ) -> local_stack_control.models.ComposeProvider:
 	"""Select the first usable Podman Compose provider."""
 	environment = local_stack_control.env_file.sanitized_runtime_environment(
 		local_stack_control.process.current_environment()
 	)
-	podman_result = runner.run(
-		["podman", "compose", "version"], environment, repo_root
+	candidates = (
+		local_stack_control.models.ComposeProvider(("podman", "compose"), "podman compose"),
+		local_stack_control.models.ComposeProvider(("podman-compose",), "podman-compose"),
 	)
-	if podman_result.ok():
-		provider = local_stack_control.models.ComposeProvider(
-			argv=("podman", "compose"),
-			name="podman compose",
+	if required_name is not None and required_name not in {item.name for item in candidates}:
+		raise local_stack_control.models.ControllerError(
+			"requested Compose provider is not supported"
 		)
-		return provider
-
-	legacy_result = runner.run(["podman-compose", "version"], environment, repo_root)
-	if legacy_result.ok():
-		provider = local_stack_control.models.ComposeProvider(
-			argv=("podman-compose",),
-			name="podman-compose",
+	for provider in candidates:
+		if required_name is not None and provider.name != required_name:
+			continue
+		result = runner.run([*provider.argv, "version"], environment, repo_root)
+		if result.ok():
+			return provider
+	if required_name is not None:
+		raise local_stack_control.models.ControllerError(
+			f"required Compose provider '{required_name}' is unavailable"
 		)
-		return provider
 
 	raise local_stack_control.models.ControllerError(
 		"neither 'podman compose' nor 'podman-compose' is usable"
@@ -85,9 +102,10 @@ def resolve_target(
 	with_smtp: bool,
 	project: str | None = None,
 	allow_missing_env: bool = False,
+	required_provider: str | None = None,
 ) -> local_stack_control.models.ComposeTarget:
 	"""Resolve an explicit target without consulting ambient project state."""
-	provider = choose_provider(runner, repo_root)
+	provider = choose_provider(runner, repo_root, required_provider)
 	selected_project = local_stack_control.models.DEFAULT_PROJECT
 	if project is not None:
 		selected_project = project
@@ -163,6 +181,24 @@ def require_disposable_target_policy(
 
 
 #============================================
+def require_disposable_no_pod_provider(
+	target: local_stack_control.models.ComposeTarget,
+) -> None:
+	"""Require the exact provider argv that cannot create an unlabelled pod."""
+	expected_argv = (
+		local_stack_control.models.DISPOSABLE_COMPOSE_PROVIDER,
+		*local_stack_control.models.DISPOSABLE_PROVIDER_GLOBAL_ARGS,
+	)
+	if (
+		target.provider.name != local_stack_control.models.DISPOSABLE_COMPOSE_PROVIDER
+		or target.provider.argv != expected_argv
+	):
+		raise local_stack_control.models.ControllerError(
+			"disposable targets require the exact no-pod Compose provider"
+		)
+
+
+#============================================
 def new_disposable_target(
 	target: local_stack_control.models.ComposeTarget,
 	capability_file: pathlib.Path,
@@ -172,6 +208,22 @@ def new_disposable_target(
 	policy = require_disposable_target_policy(target, owner_policy)
 	local_stack_control.env_file.require_mutation_env_file(target.env_file)
 	require_disposable_capability_file(capability_file)
+	if (
+		target.provider.name != local_stack_control.models.DISPOSABLE_COMPOSE_PROVIDER
+		or target.provider.argv
+		!= (local_stack_control.models.DISPOSABLE_COMPOSE_PROVIDER,)
+	):
+		raise local_stack_control.models.ControllerError(
+			"disposable targets require the no-pod Compose provider"
+		)
+	provider = local_stack_control.models.ComposeProvider(
+		argv=(
+			*target.provider.argv,
+			*local_stack_control.models.DISPOSABLE_PROVIDER_GLOBAL_ARGS,
+		),
+		name=target.provider.name,
+	)
+	target = dataclasses.replace(target, provider=provider)
 	disposable = local_stack_control.models.DisposableComposeTarget(
 		target=target,
 		owner_policy=owner_policy,
@@ -179,6 +231,7 @@ def new_disposable_target(
 		project_prefix=policy.project_prefix,
 		private_environment_file=target.env_file,
 	)
+	require_disposable_no_pod_provider(disposable.target)
 	return disposable
 
 
@@ -235,6 +288,7 @@ def require_disposable_ownership(
 ) -> None:
 	"""Verify runner-held capability commitment before a disposable mutation."""
 	policy = require_disposable_target_policy(disposable.target, disposable.owner_policy)
+	require_disposable_no_pod_provider(disposable.target)
 	if disposable.project_prefix != policy.project_prefix:
 		raise local_stack_control.models.ControllerError(
 			"disposable owner policy does not match its project namespace"

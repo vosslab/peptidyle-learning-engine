@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# launch_local_stack.sh - build and open the complete local Podman stack.
+# local_stack_control/launch.sh - build and open the complete local Podman stack.
 #
 # The gateway is the one browser origin. It serves the freshly built Solid/Wasm
 # bundle and proxies same-origin API requests, so this script never starts a
@@ -45,7 +45,7 @@ LOCAL_WEBWORK_RENDERER_IMAGE="localhost/pg-renderer@sha256:d606c4b5d82d425729643
 
 usage() {
 	cat <<'EOF'
-Usage: ./launch_local_stack.sh [options]
+Usage: ./local_stack_control/launch.sh [options]
 
 Build the repository, bootstrap the private local configuration, migrate the
 database, start the supported local stack, wait for gateway health, and open
@@ -395,19 +395,56 @@ fi
 if env_declares_setting COMPOSE_PROJECT_NAME; then
 	die "COMPOSE_PROJECT_NAME must not be declared in $ENV_FILE; set it in the calling environment to isolate a Compose project"
 fi
+if env_declares_setting PLE_DISPOSABLE_CAPABILITY_FILE; then
+	die "PLE_DISPOSABLE_CAPABILITY_FILE must be supplied only by the typed disposable owner"
+fi
 
 if [ "$CHECK_ONLY" -eq 1 ] && [ "$ENV_FILE" = "$LOCAL_ENV_FILE" ]; then
 	for required_setting in PLE_POSTGRES_IMAGE_SHA256 PLE_MINIO_IMAGE_SHA256 PLE_MINIO_MC_IMAGE_SHA256 PLE_GATEWAY_IMAGE_SHA256 PLE_SECRET_INIT_IMAGE_SHA256; do
-		[ -n "$(env_value "$required_setting")" ] || die "--check cannot validate this pre-image-pin env.local; run './launch_local_stack.sh --no-open' once to safely add immutable local image settings"
+		[ -n "$(env_value "$required_setting")" ] || die "--check cannot validate this pre-image-pin env.local; run './local_stack_control/launch.sh --no-open' once to safely add immutable local image settings"
 	done
 fi
 
+COMPOSE_PROJECT_NAME_VALUE="${COMPOSE_PROJECT_NAME:-containers}"
 COMPOSE_COMMAND=()
-if podman compose version >/dev/null 2>&1; then
+if [ "$COMPOSE_PROJECT_NAME_VALUE" != "containers" ]; then
+	if [ "$CHECK_ONLY" -eq 0 ]; then
+		capability_file="${PLE_DISPOSABLE_CAPABILITY_FILE:-}"
+		[ -n "$capability_file" ] \
+			|| die "disposable launch requires the runner-held cleanup capability"
+		case "$capability_file" in
+			/*) ;;
+			*) die "disposable capability file must use an absolute path" ;;
+		esac
+		[ ! -L "$capability_file" ] && [ -f "$capability_file" ] && [ -r "$capability_file" ] \
+			|| die "disposable capability file must be a readable regular file"
+		[ -O "$capability_file" ] \
+			|| die "disposable capability file must be owned by the current user"
+		[ "$(local_file_mode "$capability_file")" = "600" ] \
+			|| die "disposable capability file must have mode 0600"
+		[ "$(wc -c <"$capability_file" | tr -d '[:space:]')" = "32" ] \
+			|| die "disposable capability file must contain exactly 32 bytes"
+		expected_capability_digest="$(env_value PLE_DISPOSABLE_CAPABILITY_SHA256)"
+		printf '%s' "$expected_capability_digest" | grep -Eq '^[0-9a-f]{64}$' \
+			|| die "disposable environment must declare a SHA-256 capability commitment"
+		actual_capability_digest="$(openssl dgst -sha256 -r "$capability_file" | awk '{print $1}')"
+		[ "$actual_capability_digest" = "$expected_capability_digest" ] \
+			|| die "disposable capability does not match its environment commitment"
+	fi
+	unset PLE_DISPOSABLE_CAPABILITY_FILE
+	if command -v podman-compose >/dev/null 2>&1 && podman-compose version >/dev/null 2>&1; then
+		COMPOSE_COMMAND=(podman-compose --in-pod false)
+	else
+		die "disposable stacks require 'podman-compose --in-pod false'"
+	fi
+elif podman compose version >/dev/null 2>&1; then
+	unset PLE_DISPOSABLE_CAPABILITY_FILE
 	COMPOSE_COMMAND=(podman compose)
 elif command -v podman-compose >/dev/null 2>&1 && podman-compose version >/dev/null 2>&1; then
+	unset PLE_DISPOSABLE_CAPABILITY_FILE
 	COMPOSE_COMMAND=(podman-compose)
 else
+	unset PLE_DISPOSABLE_CAPABILITY_FILE
 	die "neither 'podman compose' nor 'podman-compose' is usable"
 fi
 
@@ -420,10 +457,8 @@ while IFS= read -r compose_setting_name; do
 done < <(awk -F= '/^[A-Za-z_][A-Za-z0-9_]*=/ { print $1 }' "$ENV_FILE")
 if [ -n "$RESTART_SERVICE" ] && [ "${COMPOSE_PROJECT_NAME+x}" = x ] \
 	&& [ "$COMPOSE_PROJECT_NAME" != "containers" ]; then
-	die "--restart is limited to the default containers project; use local_stack.py for an owned disposable stack"
+	die "--restart is limited to the default containers project; use the typed disposable local-stack adapter for an owned stack"
 fi
-COMPOSE_PROJECT_NAME_VALUE="${COMPOSE_PROJECT_NAME:-containers}"
-
 compose() {
 	compose_arguments=(-p "$COMPOSE_PROJECT_NAME_VALUE" -f containers/compose.yaml)
 	if [ "$WITH_SMTP" -eq 1 ]; then
@@ -585,7 +620,7 @@ wait_for_required_stack_services() {
 }
 
 
-source "$REPO_ROOT/containers/local_stack_restart.sh"
+source "$REPO_ROOT/local_stack_control/_restart.sh"
 
 print_compose_action() {
 	local compose_arguments=(-p "$COMPOSE_PROJECT_NAME_VALUE" -f containers/compose.yaml)

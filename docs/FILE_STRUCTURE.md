@@ -27,10 +27,11 @@ from this file map.
 +- build.sh              Full local build entry point
 +- check_codebase.sh     Vendored TypeScript and browser gate
 +- check_rust.sh         Repository-owned Cargo and Rust gate
-+- launch_local_stack.sh Local Podman stack launcher
-+- local_stack.py        Local Podman controller command entry point
-+- local_stack_control/  Typed Compose, discovery, status, cleanup, and consumer library
-+- local_stack_consumer.py Closed disposable-E2E Compose adapter
++- local_stack.py        Public local Podman controller entry point
++- local_stack_control/  Local Podman controller package and private lifecycle helpers
+   +- launch.sh          Private launcher for build, bootstrap, migration, seed, and readiness
+   +- _consumer_cli.py   Private disposable-consumer adapter
+   +- _restart.sh        Sourced private stateless-service restart helper
 `- run_playwright_tests.sh Browser test entry point
 ```
 
@@ -182,8 +183,8 @@ The default local services are PostgreSQL, MinIO, API, ordinary worker,
 gateway, and a private standalone renderer. PostgreSQL and MinIO use named
 volumes; the other service containers can be rebuilt from configuration.
 
-`launch_local_stack.sh` owns the local stack's build, bootstrap, migration,
-seed, renderer, and semantic-readiness sequence. `local_stack.py` is the
+`local_stack_control/launch.sh` owns the local stack's build, bootstrap, migration,
+seed, renderer, and semantic-readiness sequence. `python3 local_stack.py` is the
 operator-facing controller and delegates normal start/restart and validation to
 that launcher boundary. Its `local_stack_control/` package is organized by
 concern: `models.py` declares typed targets and inspected resources;
@@ -193,7 +194,7 @@ target environments; `env_file.py` validates safe environment-file metadata;
 readiness; `cleanup.py` constructs scoped stop/reset plans; `commands.py` owns
 operator operations; and `consumer.py` limits disposable E2E ownership.
 
-`local_stack_consumer.py` is intentionally narrower than the public controller.
+`local_stack_control/_consumer_cli.py` is intentionally narrower than the public controller.
 It accepts a private, owner-specific manifest and only runs scoped Compose
 actions or the matching scoped cleanup plan. The controller's default mutation
 target is `containers`; its disposable adapter does not provide arbitrary
@@ -227,9 +228,9 @@ generated/
 directories are reproducible ignored output. Checked-in fixtures under
 `tests/fixtures/` are source evidence and should change deliberately.
 
-`run_playwright_validation.sh` is the explicit live aggregate entry point. It
-hands lifecycle conflict detection and environment sanitization to
-`local_stack.py acceptance`; `tests/playwright/run_validation_lanes.sh` then
+`python3 local_stack.py acceptance` is the explicit live aggregate entry point. It
+hands lifecycle conflict detection and environment sanitization to the controller;
+`tests/playwright/run_validation_lanes.sh` then
 runs the maintained browser and real-stack lanes. Those opt-in commands are
 live acceptance evidence, not part of the fast offline `pytest tests/` suite.
 
@@ -267,8 +268,8 @@ live acceptance evidence, not part of the fast offline `pytest tests/` suite.
 - Put a forward database change in [schemas/migrations/](../schemas/migrations/);
   preserve applied migrations as history.
 - Put normal local-stack lifecycle policy in `local_stack_control/`; use
-  `local_stack.py` for its public command. Keep initialization, migration,
-  seeding, and semantic startup behavior in [launch_local_stack.sh](../launch_local_stack.sh).
+  `python3 local_stack.py` for its public command. Keep initialization, migration,
+  seeding, and semantic startup behavior in private `local_stack_control/launch.sh`.
 - Put a disposable E2E lifecycle owner in `local_stack_control/consumer.py`
   only when it has a closed project namespace, a private manifest, and a
   project-scoped cleanup contract.

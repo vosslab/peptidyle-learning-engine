@@ -20,6 +20,8 @@ DEFAULT_PROJECT = "containers"
 DEFAULT_ENV_FILE = "containers/env.local"
 PRIMARY_COMPOSE_FILE = "containers/compose.yaml"
 SMTP_COMPOSE_FILE = "containers/compose.smtp.yaml"
+DISPOSABLE_COMPOSE_PROVIDER = "podman-compose"
+DISPOSABLE_PROVIDER_GLOBAL_ARGS = ("--in-pod", "false")
 
 BASE_LONG_RUNNING_SERVICES = (
 	"postgres",
@@ -70,6 +72,7 @@ class DisposableOwnerPolicy:
 	project_pattern: re.Pattern[str]
 	compose_relative_paths: tuple[str, ...]
 	removes_gateway_image: bool = False
+	removes_application_image: bool = False
 	stoppable_service: str | None = None
 
 
@@ -110,6 +113,8 @@ DISPOSABLE_OWNER_POLICIES = (
 			PRIMARY_COMPOSE_FILE,
 			"tests/e2e/compose.replica-e2e.yaml",
 		),
+		removes_gateway_image=True,
+		removes_application_image=True,
 		stoppable_service="api",
 	),
 	DisposableOwnerPolicy(

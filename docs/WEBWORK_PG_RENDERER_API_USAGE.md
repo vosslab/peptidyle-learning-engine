@@ -187,7 +187,7 @@ Live acceptance is intentionally separate:
 ```bash
 cargo test -p adapter_webwork --all-targets
 cargo clippy -p adapter_webwork --all-targets -- -D warnings
-./launch_local_stack.sh --check --no-open
+local_stack_control/launch.sh --check --no-open
 tests/e2e/e2e_webwork_render_rpc.sh
 ```
 

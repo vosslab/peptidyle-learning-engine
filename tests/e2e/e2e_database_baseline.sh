@@ -41,7 +41,7 @@ require_command() {
 }
 
 compose() {
-	python3 "$REPO_ROOT/local_stack_consumer.py" compose --manifest "$MANIFEST_FILE" "$@"
+	python3 -m local_stack_control._consumer_cli compose --manifest "$MANIFEST_FILE" "$@"
 }
 
 cleanup() {
@@ -51,7 +51,7 @@ cleanup() {
 		echo "database baseline E2E: preserving disposable project $PROJECT_NAME (manifest $MANIFEST_FILE)"
 	else
 		if [ "$COMPOSE_STARTED" = "1" ]; then
-			python3 "$REPO_ROOT/local_stack_consumer.py" cleanup --manifest "$MANIFEST_FILE" \
+			python3 -m local_stack_control._consumer_cli cleanup --manifest "$MANIFEST_FILE" \
 				|| cleanup_failed=1
 		fi
 		if [ "$cleanup_failed" = "0" ] && [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then

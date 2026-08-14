@@ -3,8 +3,8 @@
 This document answers one operational question: why does each container in the
 PLE local stack exist? The authoritative configuration is
 [`containers/compose.yaml`](../containers/compose.yaml). The normal operator
-path is `local_stack.py`, which delegates bootstrap and startup to
-`launch_local_stack.sh`. This keeps
+path is `python3 local_stack.py`, which delegates bootstrap and startup to the
+private `local_stack_control/launch.sh`. This keeps
 Compose lifecycle discovery, scoped logs, confirmation, and acceptance
 preflight in one Python controller while the launcher remains the only owner
 of build, migration, seed, renderer, and readiness sequencing.
@@ -69,7 +69,7 @@ permissions.
 Stopped successful one-shot containers may appear in `podman ps -a`. They are
 not failed daemons and consume no running CPU after completion.
 
-`local_stack.py status` makes that distinction explicit. A required one-shot
+`python3 local_stack.py status` makes that distinction explicit. A required one-shot
 is complete only when it exited zero; a required long-running service is ready
 only when it is running and healthy, except that the worker is ready when its
 supervised process runs because it has no HTTP health check. The controller
@@ -174,8 +174,8 @@ and MinIO, then proves an exact rerun. The Chapter 1 browser gate completes thos
 through visible keyboard controls in a complete isolated PLE stack. They are explicit E2E evidence,
 not permanent pytest cases or a claim that every PG problem is compatible.
 
-The aggregate live browser command is `source source_me.sh && python3
-local_stack.py acceptance`. It runs a read-only conflict preflight first and
+The aggregate live browser command is
+`source source_me.sh && python3 local_stack.py acceptance`. It runs a read-only conflict preflight first and
 refuses default or walkthrough projects with retained containers, so it cannot
 silently reuse, stop, or delete another local run. The active plan names the
 full Validation test suite; [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite)

@@ -185,20 +185,20 @@ replaceable. [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md) and
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) document its topology
 and operation.
 
-`local_stack.py` is the repository-anchored operator front door for inspection,
+`python3 local_stack.py` is the repository-anchored operator front door for inspection,
 start, stop, restart, reset, validation, logs, and the aggregate live browser
 acceptance handoff. Its `local_stack_control/` package owns typed Compose
 provider selection, environment-file metadata and inherited-environment
 sanitization, label-based Podman discovery, semantic service status, and
 project-scoped cleanup plans. It is deliberately a controller rather than a
-second implementation of local-stack bootstrap: [launch_local_stack.sh](../launch_local_stack.sh)
+second implementation of local-stack bootstrap: private `local_stack_control/launch.sh`
 remains the authority for builds, secret bootstrap, migrations, seed
 publication, renderer checks, and launcher-level readiness.
 
 The controller discovers resources by Compose labels rather than generated
 names. Read-only commands may inspect a named project. Default mutations are
 restricted to the `containers` project. A separate closed disposable-owner
-adapter (`local_stack_consumer.py` and `local_stack_control/consumer.py`) forms
+adapter (`python3 -m local_stack_control._consumer_cli`) forms
 temporary E2E targets only from a private mode-0600 manifest and a runner-held
 cleanup capability. The closed owners are `course-appearance`, `chapter-one-pilot`,
 `database-baseline`, `chapter-one-browser`, and `replica-restart`; each fixes its
@@ -210,7 +210,7 @@ The canonical walkthrough imports the controller's discovery and cleanup
 primitives while retaining its separate private inputs, fixed-port checks,
 visible-action evidence, and report boundary.
 
-`run_playwright_validation.sh --live` is the public aggregate acceptance
+`python3 local_stack.py acceptance` is the public aggregate acceptance
 entry point. It delegates stack-conflict preflight and child-environment
 sanitization to the controller, then invokes the internal ordered lane runner
 under `tests/playwright/`. The lane runner keeps browser-test sequencing but
@@ -257,9 +257,9 @@ not evidence that an unrun deployment path works.
 - Add an external-engine response family only after defining its safe browser
   projection, grading handoff, authorization, and side-effect behavior.
 - Add forward-only schema changes under [schemas/migrations/](../schemas/migrations/).
-- Add a normal local-stack operation in `local_stack_control/` and expose it
-  through `local_stack.py`; keep bootstrap and teaching-data initialization in
-  [launch_local_stack.sh](../launch_local_stack.sh).
+- Add a normal local-stack operation in `local_stack_control/` and expose it through
+  `python3 local_stack.py`; keep bootstrap and teaching-data initialization in
+  private `local_stack_control/launch.sh`.
 - Add a disposable E2E consumer by declaring a closed owner policy and private
   manifest contract in `local_stack_control/consumer.py`, rather than adding a
   general project or cleanup flag.

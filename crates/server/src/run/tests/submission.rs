@@ -420,6 +420,49 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
         (1, 2, None)
     );
 
+    let instructor_cookie =
+        issued_cookie(store.as_ref(), UserId::from_uuid(id(2)), "Instructor").await;
+    let instructor_history_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/enrollments/{enrollment}/runs"))
+                .header("cookie", instructor_cookie)
+                .body(Body::empty())
+                .expect("instructor run history request"),
+        )
+        .await
+        .expect("instructor run history response");
+    assert_eq!(instructor_history_response.status(), StatusCode::OK);
+    assert_eq!(
+        instructor_history_response.headers()["cache-control"],
+        "no-store"
+    );
+    let instructor_history: Page<AssignmentRun> =
+        serde_json::from_value(json(instructor_history_response).await)
+            .expect("instructor run history page");
+    assert_eq!(
+        instructor_history
+            .items
+            .iter()
+            .map(|run| run.run_number)
+            .collect::<Vec<_>>(),
+        vec![1, 2]
+    );
+
+    let outsider_history = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/enrollments/{enrollment}/runs"))
+                .header("cookie", outsider_cookie)
+                .body(Body::empty())
+                .expect("outsider run history request"),
+        )
+        .await
+        .expect("outsider run history response");
+    assert_eq!(outsider_history.status(), StatusCode::NOT_FOUND);
+
     for path in [
         format!("/api/runs/{}/attempts", first.id),
         format!("/api/enrollments/{enrollment}/runs"),

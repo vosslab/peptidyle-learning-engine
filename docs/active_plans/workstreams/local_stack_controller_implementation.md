@@ -1,5 +1,10 @@
 # Local stack controller workstream
 
+## Status
+
+Complete as of 2026-08-14. Every Validation ledger row is green on the final material tree, and the
+three required independent reviews report no unresolved P0-P3 finding.
+
 ## Objective and completion boundary
 
 Build the one supported, Python-based Podman lifecycle layer for PLE's local Compose environments.
@@ -27,7 +32,7 @@ legacy controller or retained local data.
 - The system remains rootless-first and Compose-owned. It does not introduce rootful Podman,
   `sudo`, a Podman pod, Quadlet, host systemd, direct volume mounting, global prune, or a broad
   resource-removal command.
-- [../../../launch_local_stack.sh](../../../launch_local_stack.sh) remains the only owner of build
+- Private `local_stack_control/launch.sh` remains the only owner of build
   order, local-secret bootstrap, migrations, grading-role provisioning, seed publication, renderer
   identity/probe, and semantic service readiness. `start` delegates to it; the controller never
   recreates those decisions.
@@ -56,7 +61,7 @@ legacy controller or retained local data.
 | `stop` | Resolves and prints the default target, then runs scoped `compose down --remove-orphans`; named volumes remain. |
 | `restart SERVICE` | Recreates only the declared stateless service set (`api`, `worker`, `gateway`, `webwork-renderer`) after target resolution. It rejects PostgreSQL and MinIO. |
 | `reset --confirm-project containers` | Prints the exact labelled resources and scoped `compose down --volumes --remove-orphans` command, then removes only the default project's Compose data. `--dry-run` is inspection only. It preserves ignored host configuration and tells the operator to use `start` for reinitialization. |
-| `acceptance` | Starts the existing aggregate `run_playwright_validation.sh --live` path only after the shared preflight establishes that no conflicting PLE target is active. The aggregate runner retains browser-lane sequencing; it no longer owns a separate provider, label, or cleanup implementation. |
+| `acceptance` | Runs the aggregate acceptance lanes after the shared preflight establishes that no conflicting PLE target is active. The internal lane runner retains browser-lane sequencing; it no longer owns a separate provider, label, or cleanup implementation. |
 
 No command accepts arbitrary destructive project, volume, network, image, `all`, `prune`, or force
 semantics. Each mutation displays its resolved non-secret argv and target before it starts. Reset
@@ -65,7 +70,7 @@ the target by labels first.
 
 ### Typed reusable layer
 
-The root command stays intentionally thin. `local_stack_control/` is the neutral, importable owner
+The package command stays intentionally thin. `local_stack_control/` is the neutral, importable owner
 of the controller's durable concepts:
 
 - `ComposeProvider`, `ComposeTarget`, `DisposableComposeTarget`, `ProjectSnapshot`, and typed
@@ -79,7 +84,9 @@ of the controller's durable concepts:
   environment file, explicit compose files, private runner-held cleanup capability, and closed
   owner-policy validation before it can issue cleanup. One neutral typed policy registry owns every
   disposable owner's namespace, full project grammar, and exact ordered Compose files; consumers
-  may add application assertions but cannot restate or widen target shape. It cannot infer
+  may add application assertions but cannot restate or widen target shape. Every disposable target
+  uses the controller-wide `podman-compose --in-pod false` provider contract, so an unlabelled pod
+  cannot escape label-driven cleanup. The controller cannot infer
   authority from a name pattern or a self-asserted token alone.
 
 The implementation uses the Python standard library only: `argparse`, `dataclasses`, `json`,
@@ -94,8 +101,8 @@ The following migration is part of this workstream and is not deferred:
 
 | Consumer | Moves to `local_stack_control` | Retains local ownership |
 | --- | --- | --- |
-| `local_stack.py` and operator docs | Provider selection, default-target/environment handling, labels, preflight, status, logs, stop, restart, reset, and launcher delegation. | Human-facing command wording and normal `containers` target. |
-| [../../../run_playwright_validation.sh](../../../run_playwright_validation.sh) | Its PLE-stack conflict discovery/preflight and aggregate acceptance handoff use the shared project snapshot and typed preflight result. | Ordered browser lanes and their reports. It never deletes a stack it did not create. |
+| `python3 local_stack.py` and operator docs | Provider selection, default-target/environment handling, labels, preflight, status, logs, stop, restart, reset, and launcher delegation. | Human-facing command wording and normal `containers` target. |
+| `python3 local_stack.py acceptance` | Its PLE-stack conflict discovery/preflight and aggregate acceptance handoff use the shared project snapshot and typed preflight result. | Ordered browser lanes and their reports. It never deletes a stack it did not create. |
 | [../../../tests/walkthrough/walklib/runner.py](../../../tests/walkthrough/walklib/runner.py), `podman_preflight.py`, `podman_ownership.py`, and `stack_environment.py` | Compose-provider choice, sanitized private child environment, label discovery, fixed-port preflight, generated-project target construction, exact resource preview, and cleanup execution use the shared typed layer. | Random project identity, private credentials, user-visible walkthrough actions, report redaction, owned images, and failure receipt. The runner retains the cleanup capability and remains the sole authority to request its cleanup. |
 | [../../../tests/e2e/e2e_webwork_render_rpc.sh](../../../tests/e2e/e2e_webwork_render_rpc.sh) | Normal-stack provider/target resolution and the stateless renderer restart route through the controller or a thin explicit adapter around its public library. | WebWork render/grade assertions and its application-specific evidence. |
 | Other disposable E2E owners | Use the shared provider, environment, labelled snapshot, and disposable-target APIs when their own ownership contract is migrated in this workstream; each migration has an explicit target and focused acceptance. | Random ports, isolated seed/input, secrets, test semantics, and only the resources their runner created. |
@@ -121,8 +128,7 @@ script or test runner.
    [../../PYTEST_STYLE.md](../../PYTEST_STYLE.md), [../../../tests/TESTS_README.md](../../../tests/TESTS_README.md),
    and [../../../devel/DEVEL_README.md](../../../devel/DEVEL_README.md). This package lands before
    code or permanent tests.
-2. **Typed controller foundation.** Own [../../../local_stack.py](../../../local_stack.py) and
-   [../../../local_stack_control/](../../../local_stack_control/) with focused modules for models,
+2. **Typed controller foundation.** Own `local_stack_control/` with focused modules for models,
    process execution, environment parsing, Compose target and disposable-owner construction,
    resource discovery, readiness/status, cleanup planning, command behavior, and CLI parsing. Keep
    every authored source below the repository line limit. This package depends only on package 1
@@ -133,12 +139,13 @@ script or test runner.
    [../../CODE_ARCHITECTURE.md](../../CODE_ARCHITECTURE.md), and
    [../../FILE_STRUCTURE.md](../../FILE_STRUCTURE.md). Direct Compose commands remain narrowly
    documented recovery evidence, not a competing normal path. This package depends on package 2.
+   A non-default launcher invocation additionally requires the runner-held capability matching the
+   private environment commitment; an asserted project name or environment path is not authority.
 4. **Aggregate acceptance ownership.** Move provider selection, environment sanitization, project
    conflict preflight, status gating, lifecycle handoff, and failure-safe cleanup into the Python
-   controller. [../../../run_playwright_validation.sh](../../../run_playwright_validation.sh) becomes
-   a thin front door that invokes the Python acceptance command and preserves only ordered browser
-   lanes, report locations, and exit propagation. It must not implement a second Podman lifecycle or
-   delegate without checking the typed result. This package depends on packages 2 and 3; browser
+   controller. The public Python acceptance command invokes the internal ordered browser lanes and
+   preserves their report locations and exit propagation. It must not implement a second Podman
+   lifecycle or delegate without checking the typed result. This package depends on packages 2 and 3; browser
    behavior remains a distinct consumer of the ready stack.
 5. **Disposable-owner migrations.** Migrate [../../../tests/walkthrough/walklib/runner.py](../../../tests/walkthrough/walklib/runner.py),
    `podman_preflight.py`, `podman_ownership.py`, and `stack_environment.py` to the shared typed
@@ -232,9 +239,8 @@ On the explicitly resolved `containers` project, inspect the displayed target, t
 5. The canonical walkthrough runs against its typed disposable target, cleans only that target,
    and leaves the developer default target untouched; the aggregate acceptance preflight rejects a
    conflicting labelled target without mutating it.
-6. `source source_me.sh && python3 local_stack.py acceptance` and
-   `./run_playwright_validation.sh --live` both complete their required no-skip lanes after the
-   lifecycle handoffs are centralized.
+6. `source source_me.sh && python3 local_stack.py acceptance` completes every required no-skip
+   lane after the lifecycle handoffs are centralized.
 
 These are opt-in pre-production data-loss operations. Before each confirmed reset or owned
 disposable cleanup, show the exact project/resources/argv and obtain the operator confirmation
@@ -247,17 +253,17 @@ evidence and does not satisfy this workstream's completion boundary.
 
 | Gate | Command or observation | Status | Final-tree evidence / finding |
 | --- | --- | --- | --- |
-| Focused controller behavior | Five named pure controller modules above | PENDING | |
-| Full pytest | `python3 -m pytest tests/` | PENDING | |
-| Repository build/lint | `./check_codebase.sh` and `./check_rust.sh` | PENDING | |
-| Browser suite | `./run_playwright_tests.sh --build` with no required skip | PENDING | |
-| Diff hygiene | `git diff --check` and `git diff --cached --check` | PENDING | |
-| Read-only controller | help, doctor, projects, validate, status, reset dry run | PENDING | |
-| Retain/reset/rebuild | normal stop, volume observation, confirmed reset, launcher start | PENDING | |
-| Renderer outage | service stop/restart and WebWork render/grade evidence | PENDING | |
-| Disposable ownership | walkthrough cleanup and conflicting-target refusal | PENDING | |
-| Aggregate acceptance | controller and shell front doors complete no-skip lanes | PENDING | |
-| Independent reviews | Python/rules, Podman, walkthrough/acceptance | PENDING | |
+| Focused controller behavior | Five named pure controller modules above | PASS | 2026-08-14: 42 passed; no Podman, browser, network, sleep, or fixture dependency. |
+| Full pytest | `python3 -m pytest tests/` | PASS | 4,799 passed after the permanent-test classification cleanup. |
+| Repository build/lint | `./check_codebase.sh` and `./check_rust.sh` | PASS | Both complete generation, type, lint, format, Clippy, test, doc-test, and Wasm gates exited successfully. |
+| Browser suite | `./run_playwright_tests.sh --build` with no required skip | PASS | 212 passed in 9.5 seconds; ordinary discovery has zero skips. |
+| Diff hygiene | `git diff --check` and `git diff --cached --check` | PASS | Both passed after the final implementation and evidence documentation edits. |
+| Read-only controller | help, doctor, projects, validate, status, reset dry run | PASS | Help exposed the closed command set; doctor proved Podman 6.0.2 rootless with the running macOS machine and Compose provider; validate changed no state; ready and stopped-with-data status were both reported semantically; reset preview named only `containers` resources. |
+| Retain/reset/rebuild | normal stop, volume observation, confirmed reset, launcher start | PASS | Label-resolved stop retained three named volumes. From that stopped state, confirmed reset removed only those three previewed volumes; the relocated launcher rebuilt and restored every one-shot and long-running readiness check. A final stop left 0 containers, 3 retained volumes, and 0 networks. |
+| Renderer outage | service stop/restart and WebWork render/grade evidence | PASS | Scoped renderer stop and launcher-owned restart passed identity, provenance, health, render, grade, outage-isolation, and private-material checks; the maintained browser lane passed 4 tests. |
+| Disposable ownership | walkthrough cleanup and conflicting-target refusal | PASS | Canonical walkthroughs passed through J5 and each removed exactly 9 containers, 3 volumes, and 4 networks. Replica replacement preserved durable replay and removed only its nonce-scoped images after empty proof. A separately active labelled walkthrough was refused before mutation; the default target was never cleaned by a disposable owner. |
+| Aggregate acceptance | public controller completes no-skip lanes | PASS | `python3 local_stack.py acceptance` passed all six required lanes after the final capability handoff: 212 ordinary tests, two visual verifiers, the canonical walkthrough, two Chapter 1 journeys, and four WebWork tests. |
+| Independent reviews | Python/rules, Podman, walkthrough/acceptance | PASS | 2026-08-14: all three fresh final-tree reviews found no unresolved P0-P3. They independently verified the mutation-time exact-provider check, capability-bound private launch, rootless pod-free stopped state, six-lane ordering, visible-action/private-report boundaries, and zero-skip discovery. |
 
 ### Required independent reviews
 

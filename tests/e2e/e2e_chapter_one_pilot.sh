@@ -31,7 +31,7 @@ require_command() {
 }
 
 compose() {
-	python3 "$REPO_ROOT/local_stack_consumer.py" compose --manifest "$MANIFEST_FILE" "$@"
+	python3 -m local_stack_control._consumer_cli compose --manifest "$MANIFEST_FILE" "$@"
 }
 
 cleanup() {
@@ -40,7 +40,7 @@ cleanup() {
 	if [ "${PLE_E2E_KEEP:-0}" = "1" ]; then
 		echo "Chapter 1 pilot E2E: preserving disposable project $PROJECT_NAME (manifest $MANIFEST_FILE)"
 	elif [ "$COMPOSE_STARTED" = "1" ]; then
-		python3 "$REPO_ROOT/local_stack_consumer.py" cleanup --manifest "$MANIFEST_FILE" \
+		python3 -m local_stack_control._consumer_cli cleanup --manifest "$MANIFEST_FILE" \
 			|| cleanup_failed=1
 	fi
 	if [ "${PLE_E2E_KEEP:-0}" != "1" ] && [ "$cleanup_failed" = "0" ]; then

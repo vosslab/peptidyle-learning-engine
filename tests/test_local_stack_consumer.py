@@ -7,31 +7,6 @@ import pytest
 
 import local_stack_control.consumer
 import local_stack_control.models
-import local_stack_control.process
-
-
-class ProviderRunner(local_stack_control.process.CommandRunner):
-	"""Offline provider result used to construct a disposable target."""
-
-	#============================================
-	def run(
-		self,
-		argv: list[str],
-		environment: dict[str, str] | None = None,
-		cwd: pathlib.Path | None = None,
-	) -> local_stack_control.models.CommandResult:
-		"""Report the preferred provider as available without starting it."""
-		return local_stack_control.models.CommandResult(tuple(argv), 0, "", "")
-
-	#============================================
-	def stream(
-		self,
-		argv: list[str],
-		environment: dict[str, str] | None = None,
-		cwd: pathlib.Path | None = None,
-	) -> int:
-		"""This pure construction test never streams a process."""
-		raise RuntimeError("stream is not used by this test")
 
 
 #============================================
@@ -68,7 +43,9 @@ def test_resource_capability_rejects_missing_or_foreign_digest(
 		project="ple-chapter-one-browser-0123456789ab",
 		env_file=env_file,
 		compose_files=(compose_file.resolve(strict=True),),
-		provider=local_stack_control.models.ComposeProvider(("podman", "compose"), "test"),
+		provider=local_stack_control.models.ComposeProvider(
+			("podman-compose", "--in-pod", "false"), "podman-compose"
+		),
 		with_smtp=False,
 		env_setting_names=("POSTGRES_PASSWORD", "PLE_DISPOSABLE_CAPABILITY_SHA256"),
 	)

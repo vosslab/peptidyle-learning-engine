@@ -130,7 +130,9 @@ export async function tabToTargetThroughVisiblePagination(
 ): Promise<void> {
   const copy = paginationCopy(itemName);
   const loadMore = page.getByRole("button", { name: copy.loadMore, exact: true });
-  const loading = page.getByRole("button", { name: copy.loading, exact: true });
+  const loading = page
+    .getByRole("button", { name: copy.loading, exact: true })
+    .and(page.locator("button:disabled"));
   const loaded = page.getByRole("status").filter({ hasText: copy.loaded });
   const complete = page.getByRole("status").filter({ hasText: copy.complete });
   const error = page.getByRole("alert").filter({ hasText: copy.error });
@@ -202,7 +204,6 @@ export async function tabToTargetThroughVisiblePagination(
     await expect(loadMore).toBeFocused();
     await page.keyboard.press("Space");
     await expect(loading).toBeVisible();
-    await expect(loading).toBeDisabled();
 
     await expect
       .poll(

@@ -112,7 +112,7 @@ shared prefix.
 
 ## First run
 
-`local_stack.py` is the normal operator-facing lifecycle. It resolves the
+`python3 local_stack.py` is the normal operator-facing lifecycle. It resolves the
 explicit `containers` project and selected environment, reports labelled
 resources, and delegates startup or bounded restart work to the launcher. It
 does not replace the launcher's build, bootstrap, migration, seed, renderer,
@@ -170,11 +170,11 @@ always target the explicit default `containers` project. `validate` performs
 the launcher's canonical configuration check and then reports the observed
 runtime state; it does not start or repair containers.
 
-Use `local_stack.py validate` for a read-only configuration preflight,
+Use `python3 local_stack.py validate` for a read-only configuration preflight,
 `--no-open` on a headless machine, or `--skip-build` when the existing `dist/`
 bundle is intentionally current. A custom `--env-file` is never rewritten or
 seeded and must provide every required secret itself. `npm run launch` remains
-an optional launcher alias for recovery work.
+an optional alias for the normal public `start` command.
 
 The API reads the mode-0600 invitation issuer and Question ID capability from a
 read-only named volume populated by a networkless one-shot initializer running
@@ -221,7 +221,7 @@ continue to work, while email sign-in remains unavailable until the external
 provider is configured. PLE does not manage sender reputation, DNS mail policy,
 bounces, or provider accounts.
 
-The root launcher is the maintained startup path because API/worker startup is
+The private `local_stack_control/launch.sh` seam is the maintained startup path because API/worker startup is
 deliberately later than migration and grader-role provisioning. Running a bare
 `compose up` against an empty database is therefore not equivalent.
 
@@ -324,6 +324,11 @@ interface. Exercise a deliberate database-outage rehearsal only through its
 own disposable E2E runner, rather than interrupting teaching data in the
 default project.
 
+The private launcher accepts a non-default project only when its closed runner
+supplies the mode-0600 cleanup capability whose SHA-256 commitment is recorded
+in that project's private environment. A project name and environment path
+alone do not authorize a disposable launch.
+
 ## Common commands
 
 ```bash
@@ -384,12 +389,16 @@ mode-0600 capability files. It does not run a global Podman prune, arbitrary
 image deletion, or disposable walkthrough cleanup.
 
 Disposable E2E runners use their own private manifest plus a runner-held
-cleanup capability through `local_stack_consumer.py`; that adapter is not a
+cleanup capability through private `local_stack_control/_consumer_cli.py`; that adapter is not a
 general operator cleanup command. On cleanup failure, the runner exits
 nonzero and retains its private evidence directory or manifest path for
 inspection. Do not delete that evidence before the label-resolved target is
 inspected and its exact cleanup is retried. `PLE_E2E_KEEP=1` intentionally
 retains the owner-created target and its evidence for diagnosis.
+
+Every disposable owner uses `podman-compose --in-pod false`. Disposable pods are intentionally
+forbidden because Podman Compose does not attach the resource labels needed for the controller's
+capability-bound discovery and cleanup proof to a provider-created pod.
 
 The disposable capability coordinates cooperative processes running as the
 same local user; mode 0600 prevents accidental disclosure but does not isolate
@@ -412,8 +421,11 @@ It is designed to exercise the Wasm bridge, PostgreSQL migration/RLS/live
 oracle suite, and a real learner submission across two API replicas after
 stopping the replica that issued the question. The gateway image is derived from that pinned
 official digest and strips Caddy's unnecessary low-port file capability before
-running as UID 1000 with `cap_drop: ALL`. Generated projects and volumes are
-removed on both success and failure; the runner never targets a long-lived
+running as UID 1000 with `cap_drop: ALL`. The replica lane builds the current
+checkout into exact nonce-scoped application and gateway tags, then removes
+only those tags after label discovery proves the project is empty. Cleanup is
+attempted on both success and failure; an unproved cleanup fails nonzero and
+retains its private recovery evidence. The runner never targets a long-lived
 development project.
 
 Permanent fast tests protect controller parsing, ownership, topology, and

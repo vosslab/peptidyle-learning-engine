@@ -98,7 +98,7 @@ ID separately as renderer-version provenance.
 ## PostgreSQL retained volumes
 
 The local stack is pinned to PostgreSQL 17. Before it starts PostgreSQL,
-`launch_local_stack.sh` runs the maintenance-profile `postgres-major-guard`.
+Private `local_stack_control/launch.sh` runs the maintenance-profile `postgres-major-guard`.
 The guard mounts `ple_pgdata` read-only and checks its `PG_VERSION` file. A
 populated volume declaring a major other than `17` is refused before the
 database service starts.

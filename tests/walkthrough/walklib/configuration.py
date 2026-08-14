@@ -57,7 +57,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	parser.add_argument(
 		"--build",
 		action="store_true",
-		help="Force launch_local_stack.sh to rebuild dist/.",
+		help="Force local_stack_control/launch.sh to rebuild dist/.",
 	)
 	parser.add_argument(
 		"--instructor-setup-only",

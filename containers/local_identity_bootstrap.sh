@@ -1,4 +1,4 @@
-# Local identity bootstrap helpers sourced by launch_local_stack.sh.
+# Local identity bootstrap helpers sourced by local_stack_control/launch.sh.
 #
 # Required caller contract: `die`, `local_credential_record`, LOCAL_IDENTITY_FILE,
 # LOCAL_CREDENTIAL_FILE, LOCAL_TENANT_ID, LOCAL_INSTRUCTOR_ID, and

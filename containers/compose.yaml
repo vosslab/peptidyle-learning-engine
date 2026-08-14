@@ -77,7 +77,7 @@ services:
     pids_limit: 128
     restart: on-failure
 
-  # Invoked explicitly by launch_local_stack.sh before PostgreSQL starts.  A
+  # Invoked explicitly by local_stack_control/launch.sh before PostgreSQL starts.  A
   # PostgreSQL data directory is not forward/backward compatible across major
   # versions, so the guard refuses a populated volume whose declared major is
   # not the pinned PostgreSQL 17 contract.  It mounts the data read-only.

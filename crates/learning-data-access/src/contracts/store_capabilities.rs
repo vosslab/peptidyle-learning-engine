@@ -643,6 +643,15 @@ pub trait ActivityStore: Send + Sync {
         page: PageRequest,
     ) -> Result<Page<AssignmentRun>, StoreError>;
 
+    /// Lists retained runs only for a current direct course instructor.
+    async fn instructor_list_runs_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        enrollment: EnrollmentId,
+        page: PageRequest,
+    ) -> Result<Option<Page<AssignmentRun>>, StoreError>;
+
     /// Browser learner capability for an active enrollment's run list.
     async fn learner_list_runs_impl(
         &self,

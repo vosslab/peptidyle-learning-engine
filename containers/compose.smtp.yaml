@@ -1,4 +1,4 @@
-# Applied only by launch_local_stack.sh --with-smtp. PLE connects to an
+# Applied only by local_stack_control/launch.sh --with-smtp. PLE connects to an
 # operator-selected external SMTP submission service; this overlay does not
 # run a mail server or add a mail-deliverability component to the stack.
 services:

@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# Restart-only helpers.  This file is sourced by launch_local_stack.sh after
+# Restart-only helpers. This file is sourced by local_stack_control/launch.sh after
 # its shared Compose, environment, and readiness helpers are available.
 
 restart_refusal() {

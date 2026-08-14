@@ -18,7 +18,7 @@ run_lane() {
 }
 
 if [ "$#" -ne 0 ]; then
-	fail "the lane runner accepts no arguments; use ./run_playwright_validation.sh --live"
+	fail "the lane runner accepts no arguments; use python3 local_stack.py acceptance"
 fi
 
 run_lane "ordinary built mock-browser suite" bash run_playwright_tests.sh --build

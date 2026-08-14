@@ -36,7 +36,7 @@ cleanup() {
 		echo "Chapter 1 browser E2E: preserving $PROJECT_NAME and $TEMP_DIRECTORY"
 	else
 		if [ "$STACK_OWNED" = "1" ]; then
-			python3 "$REPO_ROOT/local_stack_consumer.py" cleanup --manifest "$MANIFEST_FILE" \
+			python3 -m local_stack_control._consumer_cli cleanup --manifest "$MANIFEST_FILE" \
 				|| cleanup_failed=1
 		fi
 		if [ "$cleanup_failed" -ne 0 ]; then
@@ -153,7 +153,7 @@ write_private_target
 
 echo "Chapter 1 browser E2E: building and starting an isolated complete PLE stack"
 STACK_OWNED=1
-python3 "$REPO_ROOT/local_stack_consumer.py" launch --manifest "$MANIFEST_FILE" \
+python3 -m local_stack_control._consumer_cli launch --manifest "$MANIFEST_FILE" \
 	--timeout-seconds 240
 
 database_url="postgres://ple_chapter_browser:${postgres_password}@127.0.0.1:${POSTGRES_PORT}/ple_chapter_browser"

@@ -50,7 +50,8 @@ The optional `tests/playwright/e2e/` subfolder groups full-path browser walkthro
 The Podman-backed adapter E2Es do not select Compose projects from shell
 arguments. Their runner creates a private mode-0600 manifest with a declared
 owner, isolated project, private environment path, and runner-held cleanup
-capability. `local_stack_consumer.py` and `local_stack_control/consumer.py` then
+capability. The private `python3 -m local_stack_control._consumer_cli` adapter and
+`local_stack_control/_consumer_cli.py` then
 enforce a closed owner policy:
 
 - `course-appearance`, `chapter-one-pilot`, and `database-baseline` use their

@@ -127,7 +127,7 @@ after WP-RC12 closes.
 | Objects                            | `crates/objects`                                                | Typed keys, checksums, role-based delivery, inventory and reconciliation                                                                          |
 | HTTP and workers                   | `crates/server`                                                 | Same-origin, bounded request handling; protected asset grants and external-tool launch are POST-only; durable jobs carry explicit least authority |
 | Browser                            | `src/`                                                          | Strict decoders, accessible visible flows, no source archive parsing                                                                              |
-| Local stack                        | `local_stack.py`, `launch_local_stack.sh`, and `containers/`     | One maintained controller front door around the existing build/start/migrate/seed/wait/open path                                                  |
+| Local stack                        | `local_stack_control/` and `containers/`                                | One maintained `python3 local_stack.py` front door around the existing build/start/migrate/seed/wait/open path                                  |
 | Production deployment              | `deploy/opentofu/`                                              | Declarative, reviewable, drift-detectable, disposable before activation                                                                           |
 
 ## Dependency map
@@ -432,7 +432,7 @@ tests/`; both diff checks. The contact sheet and exact theme inventory are not p
   `containers/webwork/probe_render_rpc.sh`, `containers/webwork/webwork2.mojolicious.yml`,
   `containers/webwork/site.conf`, `containers/webwork/course.conf`, and
   `containers/webwork/init_render_course.sh` for exact-source OCI build, private MariaDB, and
-  render-course configuration; `launch_local_stack.sh`; the immutable fixture and provenance under
+  render-course configuration; private `local_stack_control/launch.sh`; the immutable fixture and provenance under
   `content/pilot/webwork/`; `crates/project-tools/src/e2e_seed.rs`;
   `tests/e2e/e2e_webwork_api_secret_mode.sh`, `tests/e2e/e2e_webwork_render_rpc.sh`,
   `tests/playwright/webwork_live_config.ts` and `tests/playwright/webwork_run.spec.ts`; container,
@@ -446,7 +446,7 @@ tests/`; both diff checks. The contact sheet and exact theme inventory are not p
   correct answers, credentials, unexpected protected fields/scripts/resources, redirects, oversized
   bodies, identity/version drift, malformed output, and unsupported controls. One question outage does
   not stop native questions or API health.
-- **Success:** `./launch_local_stack.sh --with-webwork` builds/starts a private WeBWorK plus MariaDB
+- **Success:** `source source_me.sh && python3 local_stack.py start --with-webwork` builds/starts a private WeBWorK plus MariaDB
   profile from exact unmodified upstream revisions, verifies the resulting OCI digest, renders the exact
   immutable licensed `content/pilot/webwork/which_hydrophobic-simple.pgml` RadioButtons fixture twice
   with the same seed and stable result, grades correct and incorrect submissions, proves a cache hit,
@@ -468,7 +468,7 @@ tests/`; both diff checks. The contact sheet and exact theme inventory are not p
 - **Files:** `crates/adapters/webwork/src/http_renderer/`, its protocol owner and tests;
   `crates/server/src/composition/` settings/tests; `containers/compose.yaml`,
   `containers/env.example`, `containers/webwork/probe_render_api.sh`, and
-  `launch_local_stack.sh`; the WebWork E2E/Playwright/container tests; current contract,
+  private `local_stack_control/launch.sh`; the WebWork E2E/Playwright/container tests; current contract,
   architecture, operation, status, and changelog docs.
 - **Behavior:** consume a declared private image built and maintained by the external
   `webwork-pg-renderer` project. PLE records the selected OCI identity and sends only trusted
@@ -482,7 +482,7 @@ tests/`; both diff checks. The contact sheet and exact theme inventory are not p
   Podman machine never performs concurrent duplicate Cargo builds.
   Every `OTHER_REPOS/` path remains reference-only and cannot be a build context, import, mount, or
   runtime source.
-- **Success:** `./launch_local_stack.sh` starts PLE PostgreSQL, MinIO, API, worker,
+- **Success:** `source source_me.sh && python3 local_stack.py start` starts PLE PostgreSQL, MinIO, API, worker,
   gateway, and one private stateless PG renderer. No MariaDB service, WebWork2 application, render
   course, render user, or renderer password exists. The licensed pilot renders twice with a stable
   seed, grades correct and incorrect submissions, proves the cache/replay behavior, survives

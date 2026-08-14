@@ -57,7 +57,7 @@ forward ledger forever.
   migration projection through restricted roles.
 - `tests/e2e/e2e_database_baseline.sh` already proves an empty database, a second no-op apply,
   status, verification, checksum detection, RLS/grant behavior, and selected live database contracts.
-- `./launch_local_stack.sh` runs migrations and then the host-only deterministic E2E seed. Today the
+- Private `local_stack_control/launch.sh` runs migrations and then the host-only deterministic E2E seed. Today the
   seed requires `--apply-migrations` and invokes the migration ledger again; this is normally a
   no-op, but it leaves schema authority in a command intended to own demonstration data.
 - The active release plan remains the authority for package acceptance and deployment order.
@@ -212,7 +212,7 @@ it owns only disposable teaching data outside the baseline migration.
 ### DB-BL3: Prove runtime and recovery
 
 - Owner: local-stack integrator.
-- Touch points: `launch_local_stack.sh`, `crates/project-tools/src/e2e_seed.rs`, its focused modules,
+- Touch points: `local_stack_control/launch.sh`, `crates/project-tools/src/e2e_seed.rs`, its focused modules,
   `tests/e2e/`, `tests/playwright/`, and operations docs only where the ownership contract changes.
 - Depends on: DB-BL2 and DB-BL2R.
 - Acceptance criteria: the seed refuses an absent or incompatible baseline without applying DDL;
@@ -246,7 +246,7 @@ it owns only disposable teaching data outside the baseline migration.
   authorized access; cross-tenant and answer-key reads fail as before.
 - Data-separation gate: the baseline is valid before any seed runs; the seed command has no
   migration flag or DDL path, refuses an incompatible database, and changes teaching data only.
-- Real-stack gate: `./launch_local_stack.sh` succeeds from a newly created local volume, then
+- Real-stack gate: `source source_me.sh && python3 local_stack.py start --no-open` succeeds from a newly created local volume, then
   `./run_playwright_tests.sh` passes only after all required Podman services are healthy.
 - Independent review gate: an independent PostgreSQL/security reviewer and an operations reviewer
   approve the comparison, runtime evidence, and recovery procedure.

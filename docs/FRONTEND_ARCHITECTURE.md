@@ -78,7 +78,7 @@ fixtures directly; mock data stays behind the same client interface a future
 HTTP transport implements.
 
 The ordinary browser build excludes the local-development credential form.
-`launch_local_stack.sh` alone opts its build into that UI with the exact
+Private `local_stack_control/launch.sh` alone opts its build into that UI with the exact
 `PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH=1` build capability, matching the server's
 separately feature-gated local route composition. Production does not mount the
 endpoint or include the form or local-login transport in its emitted browser

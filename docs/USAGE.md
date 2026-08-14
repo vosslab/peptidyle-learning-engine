@@ -16,7 +16,7 @@ source source_me.sh && python3 local_stack.py start
 The direct launcher is reserved for recovering or diagnosing launcher behavior:
 
 ```bash
-./launch_local_stack.sh
+source source_me.sh && ./local_stack_control/launch.sh
 ```
 
 The launcher prints the loopback application URL and the path to ignored local instructor and
@@ -51,8 +51,8 @@ source source_me.sh && python3 local_stack.py start --skip-build --no-open
 If the controller itself is being diagnosed, the direct launcher equivalents are:
 
 ```bash
-./launch_local_stack.sh --no-open
-./launch_local_stack.sh --skip-build --no-open
+source source_me.sh && ./local_stack_control/launch.sh --no-open
+source source_me.sh && ./local_stack_control/launch.sh --skip-build --no-open
 ```
 
 `--skip-build` requires an already-built `dist/index.html` and `dist/main.js`; use it only after a
@@ -121,7 +121,7 @@ walkthrough stack that the suite could mistake for its own:
 source source_me.sh && python3 local_stack.py acceptance
 ```
 
-This is equivalent to `./run_playwright_validation.sh --live`; both require every live lane to
+This is the only public aggregate command; it requires every live lane to
 finish without skips and preserve a conflicting caller-owned stack by refusing before mutation.
 
 ## Instructor and student guides
@@ -174,7 +174,7 @@ source source_me.sh && python3 local_stack.py validate
 
 This checks tool availability, required environment values, and Compose configuration without
 starting a Podman machine, building artifacts, creating local secrets, or changing containers. A
-first local installation has no `containers/env.local`, so use `local_stack.py start --no-open`
+first local installation has no `containers/env.local`, so use `python3 local_stack.py start --no-open`
 once to bootstrap it before expecting validation to succeed.
 
 `validate` never bootstraps an environment. This is equally true for a custom
@@ -209,7 +209,7 @@ require WebWork2 source pins, render-course credentials, or a MariaDB password.
 ./check_codebase.sh        # vendored TypeScript and browser gate
 ./check_rust.sh            # repository-owned Cargo and Rust gate
 ./run_playwright_tests.sh --build       # ordinary mock-backed browser suite
-./run_playwright_validation.sh --live   # complete opt-in Playwright validation suite
+source source_me.sh && python3 local_stack.py acceptance   # complete opt-in Playwright validation suite
 ```
 
 The ordinary Playwright command uses the mock preview server and proves built-browser behavior, not
@@ -217,9 +217,9 @@ the Podman stack. It finishes with zero skipped tests: real-stack, walkthrough, 
 are deliberately not ordinary collection. Use it for the daily browser gate, even when a local
 stack happens to be running.
 
-`./run_playwright_validation.sh --live` is the complete Playwright Validation test suite. Begin
-with no existing PLE stack; the command refuses a caller-owned default or disposable stack instead
-of stopping it. It runs the ordinary suite, temporary-only visual checks, the canonical UI
+`source source_me.sh && python3 local_stack.py acceptance` is the complete Playwright Validation test suite. Begin
+with no existing default or retained walkthrough stack; the command refuses either caller-owned
+target instead of stopping it. It runs the ordinary suite, temporary-only visual checks, the canonical UI
 walkthrough, and the dedicated Chapter 1 and WebWork browser owners. It accepts no URL, credential,
 or Compose-project override. Any required lane that fails or skips is red. The command starts only
 the disposable or canonical local stacks that its owning runners create and clean up.
@@ -227,7 +227,7 @@ the disposable or canonical local stacks that its owning runners create and clea
 Use a focused `cargo test -p <package> <filter>` while editing one Rust behavior, then run
 `./check_rust.sh` for the complete offline Rust acceptance gate.
 
-`npm run build` and `npm run launch` are aliases for `./build.sh` and `./launch_local_stack.sh`.
+`npm run build` remains an alias for `./build.sh`; use the Python controller for local-stack lifecycle.
 Both accept `--release` for optimized artifacts.
 
 To validate or run a pre-existing non-default environment file, pass its path explicitly. The
