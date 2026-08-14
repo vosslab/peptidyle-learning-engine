@@ -25,6 +25,7 @@ export const mockCourseAppearance: CourseAppearance = {
 export const secondaryMockCourse: CourseSummary = {
   ...publishedProblemFixture.course,
   id: "0198e000-0000-7000-8000-000000000015",
+  publicId: 2,
   title: "Genetics pilot",
 };
 

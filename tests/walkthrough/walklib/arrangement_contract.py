@@ -9,7 +9,7 @@ UUID_TEXT = re.compile(
 	"^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
 	re.IGNORECASE,
 )
-DISPLAY_ID = re.compile(r"^P-[1-9][0-9]*-v[1-9][0-9]*$")
+QUESTION_ID = re.compile(r"^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$")
 
 
 def parse_arrangement_output(stdout: str) -> tuple[list[dict[str, object]], list[dict[str, str]] | None]:
@@ -49,7 +49,7 @@ def parse_arrangement_output(stdout: str) -> tuple[list[dict[str, object]], list
 				not isinstance(question, dict)
 				or set(question) != {"displayId", "problemId", "versionId"}
 				or not all(isinstance(question[key], str) for key in question)
-				or not DISPLAY_ID.fullmatch(question["displayId"])
+				or not QUESTION_ID.fullmatch(question["displayId"])
 				or not UUID_TEXT.fullmatch(question["problemId"])
 				or not UUID_TEXT.fullmatch(question["versionId"])
 			):

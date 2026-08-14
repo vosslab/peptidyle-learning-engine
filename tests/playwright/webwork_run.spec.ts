@@ -9,6 +9,7 @@
 
 import { configuredLiveWebworkInputs, mockPreviewServerEnabled } from "../../playwright.config";
 import { decodeAuthSession } from "../../src/api/decoders";
+import { isAssignmentReference, isCourseReference } from "./simulator/public_references";
 import { liveInputsFromEnvironment, type LiveWebworkInputs } from "./webwork_live_config";
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
@@ -275,10 +276,25 @@ async function signInAsDeterministicStudent(page: Page, inputs: LiveWebworkInput
   await expect(page.getByRole("heading", { name: "Pick up where you left off" })).toBeVisible();
 }
 
-async function openWebworkAssignment(page: Page, inputs: LiveWebworkInputs): Promise<void> {
-  if (inputs.assignmentId === undefined) {
-    throw new Error("the focused WeBWorK journey requires PLE_WEBWORK_LIVE_ASSIGNMENT_ID");
+function assertPublicAssignmentRoute(href: string): void {
+  const match = /^\/courses\/(C-[1-9][0-9]{0,9})\/assignments\/(A-[1-9][0-9]{0,9})$/u.exec(href);
+  if (match === null || !isCourseReference(match[1]) || !isAssignmentReference(match[2])) {
+    throw new Error(
+      "visible assignment link must use canonical public course and assignment routes",
+    );
   }
+}
+
+test("WebWork assignment navigation requires a human public route", () => {
+  expect(() => assertPublicAssignmentRoute("/courses/C-42/assignments/A-99")).not.toThrow();
+  expect(() =>
+    assertPublicAssignmentRoute(
+      "/courses/0198e000-0000-7000-8000-000000000042/assignments/0198e000-0000-7000-8000-000000000099",
+    ),
+  ).toThrow("canonical public course and assignment routes");
+});
+
+async function openWebworkAssignment(page: Page): Promise<void> {
   const course = page.locator(".course-card").filter({
     has: page.getByRole("heading", { name: WEBWORK_COURSE_TITLE }),
   });
@@ -290,7 +306,9 @@ async function openWebworkAssignment(page: Page, inputs: LiveWebworkInputs): Pro
   });
   await expect(assignment).toHaveCount(1);
   const review = assignment.getByRole("link", { name: "Review assignment" });
-  await expect(review).toHaveAttribute("href", new RegExp(inputs.assignmentId, "u"));
+  const href = await review.getAttribute("href");
+  if (href === null) throw new Error("visible assignment link is unavailable");
+  assertPublicAssignmentRoute(href);
   await review.click();
   await expect(page.getByRole("heading", { name: WEBWORK_ASSIGNMENT_TITLE })).toBeVisible();
   await page.getByRole("button", { name: "Start or resume practice" }).click();
@@ -498,47 +516,44 @@ test("browser session decoding accepts canonical deterministic local UUIDs", () 
   expect(session.user.roles).toEqual(["student"]);
 });
 
-test.describe("private live WebWork browser acceptance", () => {
-  test.skip(
-    configuredLiveWebworkInputs === undefined,
-    "requires the explicit private live-stack invocation",
-  );
+if (configuredLiveWebworkInputs !== undefined) {
+  test.describe("private live WebWork browser acceptance", () => {
+    test("live WebWork run is answer-free, keyboard-operable, and PLE-only", async ({ page }) => {
+      const inputs = configuredLiveWebworkInputs;
+      if (inputs === undefined) {
+        throw new Error("live WebWork test was declared without validated inputs");
+      }
 
-  test("live WebWork run is answer-free, keyboard-operable, and PLE-only", async ({ page }) => {
-    const inputs = configuredLiveWebworkInputs;
-    if (inputs === undefined) {
-      throw new Error("the declaration-time live WebWork skip did not apply");
-    }
+      await signInAsDeterministicStudent(page, inputs);
+      const trace = attachTrace(page);
+      await openWebworkAssignment(page);
 
-    await signInAsDeterministicStudent(page, inputs);
-    const trace = attachTrace(page);
-    await openWebworkAssignment(page, inputs);
+      const radios = page.getByRole("radio");
+      await expect(radios).toHaveCount(5);
+      const labels = await page.locator(".choice-card").allTextContents();
+      expect(labels).toHaveLength(5);
+      for (const radio of await radios.all()) {
+        await expect(radio).toHaveAccessibleName(/\S/u);
+      }
 
-    const radios = page.getByRole("radio");
-    await expect(radios).toHaveCount(5);
-    const labels = await page.locator(".choice-card").allTextContents();
-    expect(labels).toHaveLength(5);
-    for (const radio of await radios.all()) {
-      await expect(radio).toHaveAccessibleName(/\S/u);
-    }
+      const wrongIndex = visibleChoiceIndex(labels, HYDROPHILIC_LABELS);
+      await selectChoiceWithTabAndArrows(page, wrongIndex);
+      await submitWithEnter(page, "Not quite");
+      await completeRun(page, "Not quite");
 
-    const wrongIndex = visibleChoiceIndex(labels, HYDROPHILIC_LABELS);
-    await selectChoiceWithTabAndArrows(page, wrongIndex);
-    await submitWithEnter(page, "Not quite");
-    await completeRun(page, "Not quite");
+      await startFreshRun(page);
+      const correctLabels = await page.locator(".choice-card").allTextContents();
+      const correctIndex = visibleChoiceIndex(correctLabels, HYDROCARBON_LABELS);
+      await selectChoiceWithTabAndArrows(page, correctIndex);
+      await submitWithEnter(page, "Correct");
+      await completeRun(page, "Correct");
 
-    await startFreshRun(page);
-    const correctLabels = await page.locator(".choice-card").allTextContents();
-    const correctIndex = visibleChoiceIndex(correctLabels, HYDROCARBON_LABELS);
-    await selectChoiceWithTabAndArrows(page, correctIndex);
-    await submitWithEnter(page, "Correct");
-    await completeRun(page, "Correct");
-
-    await trace.waitForBodies();
-    // Deferred feedback remains hidden until this one-question run completes;
-    // the completed receipt and summary then expose only policy-approved results.
-    expect(trace.completedRunCorrectness).toEqual([false, true]);
-    const storage = await inspectBrowserStorage(page);
-    assertPrivateMaterialNeverCrossedBrowser(inputs, trace, storage);
+      await trace.waitForBodies();
+      // Deferred feedback remains hidden until this one-question run completes;
+      // the completed receipt and summary then expose only policy-approved results.
+      expect(trace.completedRunCorrectness).toEqual([false, true]);
+      const storage = await inspectBrowserStorage(page);
+      assertPrivateMaterialNeverCrossedBrowser(inputs, trace, storage);
+    });
   });
-});
+}

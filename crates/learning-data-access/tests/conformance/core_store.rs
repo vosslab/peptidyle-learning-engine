@@ -31,7 +31,7 @@ where
         tenant,
         course_id,
         title: "Molar mass mastery".to_string(),
-        items: fixed_items(vec![PublishedVersionRef { problem, version }]),
+        items: fixed_items(vec![ProblemVersionRef { problem, version }]),
         selection_groups: Vec::new(),
         policies: policies(),
     };
@@ -160,7 +160,8 @@ where
     let summary_fields = summary_json
         .as_object()
         .expect("workspace summary should be an object");
-    assert_eq!(summary_fields.len(), 3);
+    assert_eq!(summary_fields.len(), 4);
+    assert!(summary_fields.contains_key("publicId"));
     for forbidden in [
         "problem", "version", "source", "grading", "object", "asset", "prompt", "response",
     ] {
@@ -472,6 +473,7 @@ where
             ActivityTransition::StartRun {
                 run: AssignmentRun {
                     id: run_id,
+                    public_id: question_model::RunPublicId::new(1).expect("valid public run ID"),
                     tenant,
                     enrollment: enrollment_id,
                     run_number: 1,
@@ -553,6 +555,7 @@ where
             ActivityTransition::StartRun {
                 run: AssignmentRun {
                     id: practice_run_id,
+                    public_id: question_model::RunPublicId::new(2).expect("valid public run ID"),
                     tenant,
                     enrollment: enrollment_id,
                     run_number: 2,

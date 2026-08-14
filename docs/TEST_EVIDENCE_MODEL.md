@@ -12,6 +12,47 @@ acceptance gates in the active implementation plan. Read
 [E2E_TESTS.md](E2E_TESTS.md), and [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) before adding or
 changing a test.
 
+## Validation test suite
+
+Every active goal or work package must name its Validation test suite before implementation reaches
+completion review. The suite is the complete set of permanent gates, scope-specific integration or
+live gates, one-time acceptance evidence, and required independent review that proves that goal's
+claims. The active plan owns the exact scope; a focused test used while editing does not replace it.
+
+A goal may be marked complete only when the whole named suite is green on the final material tree:
+
+- Every required command exits zero and reports no failed test.
+- A required environment-backed or release gate passes; `SKIP`, unavailable, or unrun is not green.
+- Any material change after a passing run triggers the affected gate again.
+- Every required independent review has no unresolved blocking finding.
+- The handoff and `docs/CHANGELOG.md` record the commands, results, intentional optional skips, and
+  any acceptance evidence that is deliberately one-time.
+
+The default repository completion suite for a goal that changes executable behavior is:
+
+```bash
+./check_codebase.sh
+./check_rust.sh
+source source_me.sh && python3 -m pytest tests/
+git diff --check
+git diff --cached --check
+```
+
+Add `./run_playwright_tests.sh --build` for ordinary mock-backed built-browser behavior. It must
+finish with zero skips. For a goal that requires the complete browser claim, add
+`./run_playwright_validation.sh --live`; it owns the temporary visual, walkthrough, and dedicated
+live-browser lanes, and a required skip is red. Add the named `tests/e2e/` runner for each
+PostgreSQL, MinIO, renderer, migration, restart, or other real-service claim not already owned by
+that validation command. Add the plan-required accessibility, visual, security, architecture, or
+release review when automation cannot establish the acceptance criterion. Documentation-only goals
+may name the focused repository hygiene modules plus both diff checks when no executable, generated,
+configuration, or runtime contract changed.
+
+One-time probes may be required completion evidence without becoming permanent tests. Classify them
+under this document and apply the permanent-test checklist before retaining anything in the suite.
+When evidence is missing or a required gate is red, keep the goal active; use blocked status only
+under the repository's blocking rules. Never report "complete except for validation."
+
 ## The five evidence classes
 
 | Evidence class                                 | Kept in the repository?                        | Normal execution                                    | Answers                                                                                           | Does not answer                                                                                    |
@@ -199,6 +240,11 @@ the PLE same-origin gateway.
   `check_rust.sh`'s ordinary workspace tests.
 - Live Playwright specs remain in `tests/playwright/`, but must require
   explicit configuration rather than silently contacting a real service.
+- The ordinary `./run_playwright_tests.sh --build` collection uses the mock
+  preview server and contains no opt-in cases. Run
+  `./run_playwright_validation.sh --live` for the complete browser Validation
+  test suite; it requires no existing PLE stack, owns its temporary visual
+  evidence and dedicated live runners, and treats every required skip as red.
 - Temporary screenshots, traces, recordings, and Playwright results belong in
   ignored `test-results/` (or the runner's ignored output), not in permanent
   fixtures unless their durable, reviewed role is explicitly established.

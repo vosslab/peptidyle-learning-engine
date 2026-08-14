@@ -63,7 +63,7 @@ test("retry and repeated cursor pages retain stable, duplicate-free immutable ro
   const page = {
     items: [
       {
-        displayId: "P-1-v1",
+        displayId: "7K3-M9QP",
         problemId: "problem-a",
         versionId: "version-a",
         title: "A",
@@ -98,7 +98,7 @@ test("retry and repeated cursor pages retain stable, duplicate-free immutable ro
 test("a failed load-more keeps the last good aggregates and retries only that cursor", async () => {
   const aggregates = [{ group: "taxonomy", value: "Bio", count: 2 }];
   const row = (suffix) => ({
-    displayId: `P-${suffix === "one" ? 1 : 2}-v1`,
+    displayId: suffix === "one" ? "7K3-M9QP" : "ABC-123T",
     problemId: `problem-${suffix}`,
     versionId: `version-${suffix}`,
     title: `Problem ${suffix}`,
@@ -155,7 +155,7 @@ test("a query change during a request discards its late page and starts at a fre
       return {
         items: [
           {
-            displayId: "P-1-v1",
+            displayId: "7K3-M9QP",
             problemId: "problem-fresh",
             versionId: "version-fresh",
             title: "Fresh result",
@@ -195,7 +195,7 @@ test("hostile catalog data is rejected before it reaches the library UI", () => 
   assert.throws(() =>
     decodeCatalogBrowsePage({
       items: Array.from({ length: 101 }, () => ({
-        displayId: "P-1-v1",
+        displayId: "7K3-M9QP",
         problemId: "p",
         versionId: "v",
         title: "t",
@@ -223,7 +223,7 @@ test("production catalog repository uses the accepted mock search and immutable 
   const page = await repository.search(EMPTY_CATALOG_QUERY, null);
   const decoded = decodeCatalogBrowsePage(page);
   assert.equal(decoded.items.length, 1);
-  assert.equal(decoded.items[0].displayId, "P-1-v1");
+  assert.equal(decoded.items[0].displayId, "7K3-M9QP");
   assert.equal(decoded.nextCursor, null);
   assert.ok(decoded.aggregates.some((facet) => facet.group === "taxonomy"));
   assert.ok(decoded.aggregates.some((facet) => facet.group === "capability"));

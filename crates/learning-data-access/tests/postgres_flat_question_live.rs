@@ -8,8 +8,8 @@ use learning_data_access::postgres::{
 use learning_data_access::{
     CatalogSourceStore, CatalogStore, DraftRecord, FlatQuestionGradingPayload,
     FlatQuestionGradingStore, FlatQuestionPublicationPromotion, FlatQuestionStore,
-    PublishDraftCommand, PublishedSourceArtifact, Store, StoreError, TenantContext,
-    UpsertFlatQuestionCommand,
+    PublishDraftCommand, PublishedSourceArtifact, QuestionIdCodec, Store, StoreError,
+    TenantContext, UpsertFlatQuestionCommand,
 };
 use objects::{ObjectCategory, ObjectKey, ObjectRecord, Sha256Digest};
 use question_model::response::{ChoiceId, MatchPair, StudentResponse};
@@ -162,15 +162,20 @@ async fn seed_non_flat_answer_key(
         problem: ProblemId::from_uuid(id()),
         version: VersionId::from_uuid(id()),
     };
+    let question_id = QuestionIdCodec::from_server_secret([0x42; 32])
+        .issue()
+        .expect("live fixture Question ID issues");
     let source = match family {
         Some(family) => serde_json::json!({ "backend": "native", "family": family }),
         None => serde_json::json!({ "backend": backend }),
     };
     sqlx::query(
-        "INSERT INTO public.problem (problem_id, owner_tenant_id, owner_user_id, visibility, license) \
-         VALUES ($1, $2, $3, 'public', 'CC0-1.0')",
+        "INSERT INTO public.problem \
+         (problem_id, question_id, owner_tenant_id, owner_user_id, visibility, license) \
+         VALUES ($1, $2, $3, $4, 'public', 'CC0-1.0')",
     )
     .bind(reference.problem.as_uuid())
+    .bind(question_id.compact())
     .bind(tenant.as_uuid())
     .bind(Uuid::from_u128(1))
     .execute(pool)
@@ -224,7 +229,7 @@ async fn postgres_flat_question_publication_preserves_private_grading_boundary()
     verify_application_schema(&pool)
         .await
         .expect("live PostgreSQL schema compatibility");
-    let store = PostgresStore::new(pool.clone());
+    let store = PostgresStore::with_question_id_secret(pool.clone(), [0x42; 32]);
     let grader = PostgresGraderStore::connect_local_development(&grader_url)
         .await
         .expect("dedicated grader credentials are accepted");

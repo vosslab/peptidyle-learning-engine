@@ -1,6 +1,6 @@
 // run_page.tsx - server-issued, key-free learner attempt loop.
 
-import { createAsync, useNavigate, useParams } from "@solidjs/router";
+import { useNavigate } from "@solidjs/router";
 import {
   createEffect,
   createSignal,
@@ -25,6 +25,11 @@ import type {
 import { ApiProtocolError, ApiRequestError } from "../api/http_client";
 import { useApiRuntime } from "../api/runtime";
 import { useCourseThemeRouteData } from "../features/course_appearance/course_theme_context";
+import {
+  assignmentRouteReference,
+  courseRouteReference,
+  runRouteReference,
+} from "../navigation/public_route";
 import { QuestionRenderer } from "../components/question_renderer";
 import { FeedbackPanel, type FeedbackDisclosure } from "../components/feedback_panel";
 import { ResponseWidget } from "../components/response_widget";
@@ -144,9 +149,14 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
     validateSavedResponse: validator.validateResponseFormat,
     onStateChange: setState,
   });
+  // Establish the first answer state during component construction so the
+  // response controls do not wait for a post-paint mount callback.
+  machine.start(props.initialScreen.issuedQuestion.response);
 
   function escapeToAssignment(): void {
-    navigate(`/courses/${screen().course.summary.id}/assignments/${screen().assignment.id}`);
+    navigate(
+      `/courses/${courseRouteReference(screen().course.summary.publicId)}/assignments/${assignmentRouteReference(screen().assignment.publicId)}`,
+    );
   }
 
   function responseChanged(response: StudentResponse, validation: ResponseFormatReport): void {
@@ -288,7 +298,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
     setPracticeError(null);
     try {
       const run = await runtime.client.startRun(screen().assignment.id);
-      navigate(`/runs/${run.id}`);
+      navigate(`/runs/${runRouteReference(run.publicId)}`);
     } catch (error: unknown) {
       setPracticeError(
         error instanceof Error ? error.message : "Could not start another practice run.",
@@ -311,7 +321,6 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
   }
 
   onMount(() => {
-    machine.start(props.initialScreen.issuedQuestion.response);
     requestPrefetch(props.initialScreen.attempt.id);
     const timer = globalThis.setInterval(() => machine.tick(), 1_000);
     globalThis.addEventListener("online", online);
@@ -567,24 +576,14 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
 }
 
 export function RunPage(): JSX.Element {
-  const runtime = useApiRuntime();
-  const params = useParams();
   const scopedRoute = useCourseThemeRouteData();
   if (scopedRoute?.kind === "runAttempt") {
     return <AttemptExperience initialScreen={scopedRoute.screen} />;
   }
-  const runScreen = createAsync(() => {
-    const runId = params["runId"];
-    if (runId === undefined) return Promise.reject(new Error("Run route is missing runId"));
-    return runtime.queries.runScreen(runId);
-  });
-
   return (
-    <Show
-      when={runScreen()}
-      fallback={<p class="loading-state">Loading the current question...</p>}
-    >
-      {(screen) => <AttemptExperience initialScreen={screen()} />}
-    </Show>
+    <section class="route-error" role="alert">
+      <h1>Practice run unavailable</h1>
+      <p>Return to the assignment and open the practice run again.</p>
+    </section>
   );
 }

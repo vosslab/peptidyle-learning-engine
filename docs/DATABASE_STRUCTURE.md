@@ -28,15 +28,15 @@ capabilities.
 
 ## Migration ledger
 
-The checked-in chain has eighteen migrations. The immutable accepted baseline is the first seven
+The checked-in chain has 31 migrations. The immutable accepted baseline is the first seven
 migrations and its historical inventory is 80 top-level relations: the first six are the accepted
 pre-data baseline, and `2026080907_course_appearance.sql` is the first accepted forward migration.
-That 80-relation number is not the current schema size. Migrations 0908, 0909, and 0914 through 0922
-are also present, and the complete 18-migration chain passes the current disposable PostgreSQL
-baseline. Owning product packages that remain open are identified below; a successful migration
-gate does not silently accept them. SQLx's ledger and runtime-created partition children are
-excluded from the historical inventory. Relation counts are drift checks, not capacity metrics or
-a reason to avoid a necessary normalized relation.
+That 80-relation number is not the current schema size. Later migrations through 0935 are also
+present, and the complete 31-migration chain requires the current disposable PostgreSQL baseline.
+Owning product packages that remain open are identified below; a successful migration gate does not
+silently accept them. SQLx's ledger and runtime-created partition children are excluded from the
+historical inventory. Relation counts are drift checks, not capacity metrics or a reason to avoid a
+necessary normalized relation.
 
 | Version    | File                                                                              | State             | Owns                                                                  |
 | ---------- | --------------------------------------------------------------------------------- | ----------------- | --------------------------------------------------------------------- |
@@ -91,14 +91,21 @@ data that does not exist. The active release plan decides which versions are acc
 | 2026080911 | WP-RC9           | LTI 1.3 / Advantage launches and passback                                                               | Reserved; no migration file yet                              |
 | 2026080912 | WP-FU            | Secure learner upload capability                                                                        | Reserved; no migration file yet                              |
 | 2026080914 | WP-RC4           | Flat-question v2 grading                                                                                | File present; package acceptance open                        |
-| 2026080915 | WP-HG1           | Human-readable catalog display identifier range                                                         | File present; WP-HG1 live gate accepted                      |
+| 2026080915 | WP-HG1           | Historical internal catalog display-number range                                                        | File present; public use superseded by 2026080931             |
 | 2026080916 | Receipt closeout | Submission receipt presentation payload/checksum and derived disclosure                                 | File present; live receipt oracle passed                     |
 | 2026080917 | Receipt closeout | Issued presentation capability/payload and successor receipt descriptor                                 | File present; live receipt oracle passed                     |
-| 2026080918 | WP-RC5           | Immutable workspace flat-question asset descriptors and delivery bindings                               | File present; acceptance open                                |
+| 2026080918 | WP-RC5           | Immutable workspace flat-question asset descriptors and delivery bindings                               | Unaccepted source corrected to canonical `private-content` descriptor bucket; live oracle pending |
 | 2026080919 | Receipt closeout | Issued private grading envelope for presentation-bearing attempts                                       | File present; live receipt oracle passed                     |
 | 2026080920 | WP-RC5           | Rebound private flat-question HOTSPOT grading for version-scoped assets                                 | File present; acceptance open                                |
 | 2026080921 | Receipt closeout | Issued private flat-question grading contract for first submission                                      | File present; live receipt oracle passed                     |
 | 2026080922 | Receipt closeout | Issued private WeBWorK definition contract for first submission                                         | File present; live receipt oracle passed                     |
+| 2026080929 | WP-UI1           | Human route references for courses, assignments, runs, and workspaces                                   | File present; browser route contract implemented             |
+| 2026080930 | WP-UI1           | Account-backed standard or increased-contrast presentation preference                                   | Unaccepted source uses a session-hash broker; live oracle pending |
+| 2026080931 | Question ID      | Crockford Base32 Question ID, current-question projection, and owner-correction propagation              | File present; Memory/browser gates passed                    |
+| 2026080932 | Question ID      | Recreate `catalog_search_view` after 0931 to project `question_id`, preserving `security_invoker`, statistics, and grants | File present; disposable migration baseline passed; acceptance open |
+| 2026080933 | Security repair  | Replace the boolean audit switch with a non-action precheck and an audited Sysadmin actor, use built-in SHA-256, grant the broker only `UPDATE (tenant_id)` needed for `FOR KEY SHARE`, and retain the dedicated `ple_roster_support_broker` SECURITY DEFINER owner | File present; focused static/offline checks pending live baseline |
+| 2026080934 | Security repair  | Require current-tenant ownership, not catalog visibility, to append catalog tenant grants, immutable version payloads, or source artifacts | File present; focused live RLS oracle pending |
+| 2026080935 | Question ID      | Require a live original-instructor session capability for owner corrections; propagate only future assignment definitions through a narrow broker while preserving issued evidence | File present; focused static/offline checks pending live baseline |
 
 The upload migration follows the reserved identity/reconciliation/LTI sequence and remains planned while
 learner file responses fail closed. See the
@@ -112,6 +119,13 @@ actor only; the disposable no-contact learner seed calls canonical
 this checked-in schema is pre-production-only, a changed migration baseline requires
 a clean disposable PostgreSQL volume rather than an in-place ledger edit.
 
+The unaccepted `2026080930_account_presentation_preference.sql` derives presentation
+preference reads and writes only from a live, opaque 32-byte account-session hash.
+`ple_auth` has no direct preference-table privilege; its two callable functions are
+owned by the membership-free, forced-RLS `ple_account_presentation_broker`.  The
+database-baseline oracle creates its own accounts and sessions to prove default/save/get,
+isolation, expiry failure, direct-access denial, and broker metadata.
+
 ## Data ownership
 
 PLE keeps shared catalog facts, tenant teaching configuration, learner records, and
@@ -122,7 +136,7 @@ are not stored in these relations.
 | Data class                 | Primary relations                                                                                                                                      | Ownership and mutability                                                                                                    |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
 | PLE account authentication | `ple_account`, `email_authentication_challenge`, `authentication_rate_limit`, `account_authentication_session`, `webauthn_ceremony`, `account_passkey` | Global opaque account and private credential state under the authentication role; email is mutable and never a primary key. |
-| Catalog and publication    | `problem`, `problem_version`, `problem_version_payload`, `answer_key`, `published_source_artifact`                                                     | Shared immutable published content; a correction creates another version.                                                   |
+| Catalog and publication    | `problem`, `problem_version`, `problem_version_payload`, `answer_key`, `published_source_artifact`                                                     | One human Question ID names the current question; hidden immutable snapshots preserve grading and provenance.                |
 | Private authoring          | `workspace_draft` and `workspace_*` import/source relations                                                                                            | Tenant-private mutable work before publication.                                                                             |
 | Course activity            | `course`, `course_member`, `tenant_learner_identity`, `course_roster_*`, `course_invitation`, `assignment`, `assignment_item`, `enrollment`            | Tenant/course configuration, protected roster PII, membership, and enrollment.                                              |
 | Learner evidence           | `assignment_run`, `assignment_run_item`, `question_attempt`, `submission`, `submission_evaluation`                                                     | Tenant-owned educational records.                                                                                           |
@@ -217,7 +231,7 @@ The migration owns indexes alongside the query contract. Representative hot path
 
 | Query path                                                | Owning indexes or constraint                                                              |
 | --------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Published catalog exact `P-n-vn` identity and text search | `catalog_search_document_public_id_idx` and `catalog_search_document_search_idx`          |
+| Current Question ID and text search | `catalog_search_document_question_id_idx` and `catalog_search_document_search_idx`          |
 | Course assignment paging and selected item order          | `assignment_course_page_idx` and `assignment_item_assignment_idx`                         |
 | Gradebook enrollment paging                               | `enrollment_gradebook_summary_page_idx` over the current summary join key                 |
 | One active run and run-attempt cursor paging              | `assignment_run_one_active_idx` and `question_attempt_run_summary_cursor_idx`             |
@@ -248,6 +262,7 @@ enrollment or require exact instructor course membership.
 | `ple_retention_broker`              | Retention-manifest and learner-record cleanup work under its RLS policies.        |
 | `ple_statistics_broker`             | Identity-free aggregate/statistics contribution work.                             |
 | `ple_qti_*_broker`                  | Narrow staging/provenance capabilities for QTI import.                            |
+| `ple_roster_support_broker`          | RLS-obeying owner for the non-action roster precheck and narrow audited Sysadmin roster-support actor; it has only the `UPDATE (tenant_id)` privilege needed to take a membership key-share lock. |
 
 Grants do not replace RLS, and RLS does not prove individual learner ownership by itself.
 Production acceptance must exercise the deployed roles and transaction context, including

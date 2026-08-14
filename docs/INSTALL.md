@@ -34,7 +34,13 @@ Rust uses the repository toolchain file and Cargo lockfile.
 
 ## Verify install
 
-Verify the cross-language build gate and the separate fast documentation and repository-hygiene
+Confirm that the repository environment can load the primary local-stack command:
+
+```bash
+source source_me.sh && python3 local_stack.py --help
+```
+
+Then verify the cross-language build gate and the separate fast documentation and repository-hygiene
 suite:
 
 ```bash
@@ -56,8 +62,25 @@ and [SECURITY_MODEL.md](SECURITY_MODEL.md), rather than inferred from local laun
 
 The normal stack starts PostgreSQL, MinIO, API, worker, gateway, and the standalone PG renderer.
 Before first launch, build or obtain the renderer image from the separate
-`webwork-pg-renderer` project under the tag named by `PLE_WEBWORK_RENDERER_IMAGE` (the default is
-`localhost/pg-renderer:latest`). PLE does not build the renderer, run WebWork2, or run MariaDB.
+`webwork-pg-renderer` project under a convenient local tag, inspect its immutable OCI repository
+digest, and set
+`PLE_WEBWORK_RENDERER_IMAGE` to the reviewed immutable `repository@sha256:<64-lowercase-hex>`
+reference. The tracked default is
+`localhost/pg-renderer@sha256:d606c4b5d82d425729643c4f36d093d549759a416d0527f0340ae0a7319a8456`.
+PLE does not build the renderer, run WebWork2, or run MariaDB.
+
+For example, from the separately maintained renderer checkout, build under a local tag and copy
+its immutable repository digest before recording that full reference in `containers/env.local`:
+
+```bash
+podman build --tag localhost/pg-renderer:reviewed .
+podman image inspect localhost/pg-renderer:reviewed --format '{{index .RepoDigests 0}}'
+```
+
+Use the returned full `localhost/pg-renderer@sha256:...` reference only after review; the launcher
+rejects mutable tags such as `latest`. This repository digest is the configured image reference.
+After resolving it locally, PLE separately records the resolved image configuration ID as the
+renderer-version provenance for the running stack.
 All local ports are loopback-only, the gateway is intentionally HTTP-only, and
 it does not set HSTS. Local startup is not evidence for the production TLS edge
 or a deployment of the external renderer.
@@ -66,15 +89,20 @@ On its first normal run, the launcher creates ignored local configuration, crede
 secrets beneath `containers/`; it does not require copied development secrets.
 
 ```bash
-./launch_local_stack.sh --no-open
-./launch_local_stack.sh --check
+source source_me.sh && python3 local_stack.py start --no-open
+source source_me.sh && python3 local_stack.py validate
 ```
 
-The first command creates a mode-0600 environment file, credentials, and secrets (with a
-non-secret identity-hash file), builds the repository, migrates and seeds the local database,
-starts the stack, and prints the loopback URL and local sign-in file. `--check` then reads the
-existing environment and validates Compose without building, starting a Podman machine, creating
-local files, or changing containers.
+The first command delegates to the maintained launcher. It creates a mode-0600 environment file,
+credentials, and secrets (with a non-secret identity-hash file), builds the repository, migrates
+and seeds the local database, starts the stack, and prints the loopback URL and local sign-in file.
+`validate` delegates to the launcher's read-only `--check` path: it reads the existing environment
+and validates Compose without building, starting a Podman machine, creating local files, or
+changing containers. A first installation needs `start` before `validate` can succeed.
+
+Use `./launch_local_stack.sh --no-open` only when recovering or diagnosing the launcher itself.
+It remains the implementation owner for build, bootstrap, migration, seed, renderer checks, and
+semantic readiness; use [USAGE.md](USAGE.md) for ordinary controller commands.
 
 ## Local identity boundary
 
@@ -97,7 +125,13 @@ prepare it from [containers/env.example](../containers/env.example). The launche
 database, object-store, local-auth, invitation-secret, image-pin, and renderer settings. Keep
 operator-managed credentials and secret values out of tracked files; see
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for the complete contract
-and `docs/CONTAINER_PORT_MAPPING.md` for loopback port use.
+and [CONTAINER_PORT_MAPPING.md](CONTAINER_PORT_MAPPING.md) for loopback port use.
+
+Every custom environment must set `PLE_QUESTION_ID_SECRET_HOST_FILE` to an absolute, regular,
+non-symlink, mode-0600 file containing exactly one canonical 32-byte base64url secret. This durable
+server-only HMAC key validates human Question IDs. Rotating it invalidates all current human
+Question IDs, so rotate only as a coordinated identity change; see
+[QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md#secret-handling).
 
 An external SMTP account is an optional production connection. PLE uses the established Rust
 `lettre` client to connect to an operator-selected provider; it does not install, operate, or

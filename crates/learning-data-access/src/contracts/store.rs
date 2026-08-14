@@ -68,9 +68,11 @@ pub trait CatalogStore: Send + Sync {
         reference: ProblemVersionRef,
     ) -> Result<Option<PublishedProblemRecord>, StoreError>;
 
-    /// Resolves a copyable catalog reference under the caller's visibility.
-    /// A stable reference selects the latest assignable version; an exact
-    /// reference never silently upgrades to another version.
+    /// Resolves a Question ID to the current assignable question under the caller's authorization.
+    ///
+    /// The returned summary retains its internal immutable version identity for
+    /// storage and grading, but this display reference never promises an exact
+    /// caller-visible version or upgrade contract.
     async fn resolve_catalog_problem(
         &self,
         context: TenantContext,
@@ -129,6 +131,30 @@ pub trait CatalogStore: Send + Sync {
     ) -> Result<PublishedProblemRecord, StoreError>;
 }
 
+/// Server-only authority required for an original-owner correction.
+///
+/// The session hash is a one-way capability resolved by the server from the
+/// authenticated cookie; browser request bodies never supply it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OwnerCorrectionAuthority {
+    /// Authenticated original owner who is publishing the correction.
+    pub actor: UserId,
+    /// Active server-resolved session capability.
+    pub session: SessionTokenHash,
+}
+
+/// Exceptional catalog publication path for original-owner bug corrections.
+#[async_trait]
+pub trait OwnerCorrectionStore: Send + Sync {
+    /// Atomically publishes a successor of an existing published question.
+    async fn publish_owner_correction(
+        &self,
+        context: TenantContext,
+        authority: OwnerCorrectionAuthority,
+        command: PublishDraftCommand,
+    ) -> Result<PublishedProblemRecord, StoreError>;
+}
+
 /// Private catalog bridge from an exact visible version to its source bytes.
 ///
 /// This trait is intentionally not part of any browser DTO or public asset
@@ -157,6 +183,8 @@ pub trait Store:
     + RunStore
     + FeedbackStore
     + ActivityStore
+    + NavigationReferenceStore
+    + AccountPresentationStore
 {
     /// Delegates to the focused [`StatisticsStore`] capability.
     async fn question_statistics(
@@ -894,5 +922,7 @@ impl<T> Store for T where
         + RunStore
         + FeedbackStore
         + ActivityStore
+        + NavigationReferenceStore
+        + AccountPresentationStore
 {
 }

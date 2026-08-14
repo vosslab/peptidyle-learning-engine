@@ -14,6 +14,15 @@ TypeScript subprocesses used for corpus arrangement, cross-actor binding, and
 redacted report rendering. Browser journeys remain under `tests/playwright/`
 because the repository requires every Playwright import to live there.
 
+The walkthrough owns its random project, private inputs, fixed-port checks,
+visible actions, and redacted report. It delegates Compose-provider choice,
+sanitized child environment, label discovery, target construction, and exact
+cleanup to `local_stack_control/`. Its private state, environment file, and
+runner-held cleanup capability are required to form a disposable target;
+neither a project-like name nor a caller-supplied cleanup flag grants
+authority. A cleanup failure is a failed walkthrough and preserves its private
+receipt/evidence for the owner to inspect rather than hiding the target.
+
 The old `tests/e2e/e2e_ui_walkthrough.sh` and Python path are compatibility
 entry points and delegate here. They do not own implementation.
 

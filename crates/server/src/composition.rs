@@ -87,7 +87,7 @@ pub(super) use adapter_webwork::{HttpWebworkRenderer, HttpWebworkRendererConfig,
 /// with explicit development-only configuration.
 pub async fn production_router_from_env() -> Result<Router> {
     let persistent = PersistentDependencies::from_env(StorageRuntime::Api).await?;
-    Ok(persistent.production_router())
+    persistent.production_router()
 }
 
 /// Builds the explicitly opted-in local-development router.

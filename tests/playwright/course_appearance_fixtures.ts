@@ -7,7 +7,9 @@ import type { Page, Route } from "@playwright/test";
 import { publishedProblemFixture } from "../../generated/fixtures/published_problem";
 
 export const COURSE_ID = publishedProblemFixture.course.id;
-export const APPEARANCE_PATH = `/instructor/courses/${COURSE_ID}/appearance`;
+export const COURSE_REFERENCE = `C-${publishedProblemFixture.course.publicId}`;
+export const ASSIGNMENT_REFERENCE = `A-${publishedProblemFixture.assignment.publicId}`;
+export const APPEARANCE_PATH = `/instructor/courses/${COURSE_REFERENCE}/appearance`;
 export const CANDIDATE_ID = "0198e000-0000-7000-8000-000000000811";
 export const SECOND_CANDIDATE_ID = "0198e000-0000-7000-8000-000000000812";
 export const BANNER_ID = "0198e000-0000-7000-8000-000000000813";
@@ -83,6 +85,13 @@ export function session(roles: ReadonlyArray<string>): unknown {
 
 export function appearanceHeaders(revision: string): Record<string, string> {
   return { "cache-control": "no-store", etag: `"${revision}"` };
+}
+
+/** Resolves the one visible course reference used by appearance browser fixtures. */
+export function resolveCourseReference(route: Route, path: string): Promise<void> | null {
+  return path === `/api/navigation/${COURSE_REFERENCE}`
+    ? json(route, { kind: "course", courseId: COURSE_ID })
+    : null;
 }
 
 export async function openAppearance(page: Page): Promise<void> {

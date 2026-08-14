@@ -30,6 +30,11 @@ impl crate::CourseAssignmentStore for MemoryStore {
             scoring_status: ScoringStatus::Current,
         };
         let snapshot = state.clone();
+        super::navigation_references::ensure_assignment_public_id(
+            &mut state,
+            stored.record.tenant,
+            stored.record.id,
+        )?;
         state.assignments.insert(key, stored.record.clone());
         state.assignment_revisions.insert(key, stored.revision);
         state.assignment_timing.insert(

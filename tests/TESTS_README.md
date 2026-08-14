@@ -45,6 +45,29 @@ Playwright is a tool; E2E is a scope. Not every Playwright test is end-to-end (a
 
 The optional `tests/playwright/e2e/` subfolder groups full-path browser walkthroughs separately from smoke tests and regression checks.
 
+## Disposable stack ownership
+
+The Podman-backed adapter E2Es do not select Compose projects from shell
+arguments. Their runner creates a private mode-0600 manifest with a declared
+owner, isolated project, private environment path, and runner-held cleanup
+capability. `local_stack_consumer.py` and `local_stack_control/consumer.py` then
+enforce a closed owner policy:
+
+- `course-appearance`, `chapter-one-pilot`, and `database-baseline` use their
+  isolated data-stack Compose definition.
+- `chapter-one-browser` owns its isolated full teaching stack and derived
+  gateway image.
+- `replica-restart` owns the replica Compose overlay and may stop one exact API
+  replica only after it proves a peer remains running.
+- The UI walkthrough uses controller primitives directly with its own private
+  state and cleanup capability; it is not a generic adapter consumer.
+
+The shared adapter controls provider selection, environment sanitization,
+label discovery, scoped diagnostics, and cleanup. Runners keep their test data,
+ports, secrets, application assertions, and failure receipts. A failed cleanup
+is a failed E2E: retain the private manifest/evidence and inspect the exact
+label-resolved target instead of deleting the receipt or broadening cleanup.
+
 ## How pytest stays fast
 
 `tests/conftest.py` declares

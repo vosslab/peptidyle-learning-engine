@@ -7,7 +7,7 @@ import { expect, test, type Locator, type Page, type Route } from "@playwright/t
 const workspace = "00000000-0000-4000-8000-000000000010";
 const tenant = "00000000-0000-4000-8000-000000000011";
 const user = "00000000-0000-4000-8000-000000000012";
-const workspacePath = `/workspace/${workspace}`;
+const workspacePath = "/workspace/W-1";
 const flatSourcePath = `/api/workspaces/${workspace}/flat-question`;
 const flatMediaType = "application/vnd.peptidyle.flat-question+json";
 
@@ -255,6 +255,9 @@ async function installQtiRouteHarness(
       flatRevision = '"8"';
       serverRevision = options.staleAfterFlatSave === true ? '"9"' : flatRevision;
       return await json(route, publicDraft(source), 200, { etag: flatRevision });
+    }
+    if (path === "/api/navigation/W-1" && method === "GET") {
+      return await json(route, { kind: "workspace", workspaceId: workspace });
     }
     if (path === `/api/workspaces/${workspace}` && method === "GET") {
       return await json(route, publicDraft(source), 200, { etag: serverRevision });

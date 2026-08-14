@@ -1,40 +1,32 @@
 """Fail-closed Podman ownership checks for one disposable walkthrough project."""
 
+import pathlib
 import shlex
 
+import local_stack_control.discovery
+import local_stack_control.models
+import local_stack_control.process
+
 import walklib.models
-
-
-PROJECT_LABEL_KEYS = (
-	"io.podman.compose.project",
-	"com.docker.compose.project",
-)
-PROJECT_RESOURCE_COMMANDS = (
-	("containers", ("podman", "ps", "--all", "--quiet")),
-	("volumes", ("podman", "volume", "ls", "--quiet")),
-	("networks", ("podman", "network", "ls", "--quiet")),
-)
 
 
 #============================================
 def assert_no_stale_project_resources(
 	project_name: str,
-	run_command: walklib.models.CommandRunner,
+	repository_root: pathlib.Path,
+	runner: local_stack_control.process.CommandRunner,
 ) -> None:
-	"""Refuse to claim a disposable project when any recognized labeled resource exists."""
-	for resource_type, command_prefix in PROJECT_RESOURCE_COMMANDS:
-		for label_key in PROJECT_LABEL_KEYS:
-			label = f"{label_key}={project_name}"
-			command = [*command_prefix, "--filter", f"label={label}"]
-			result = run_command(command, None)
-			if result.returncode != 0:
-				raise walklib.models.RunnerError(
-					f"cannot inspect walkthrough {resource_type} before E2E"
-				)
-			if result.stdout.strip():
-				raise walklib.models.RunnerError(
-					f"generated walkthrough project has stale {resource_type}; retry the walkthrough"
-				)
+	"""Refuse a project claim when shared label discovery finds any owned resource."""
+	try:
+		snapshot = local_stack_control.discovery.discover_snapshot(
+			runner, repository_root, project_name
+		)
+	except local_stack_control.models.ControllerError as error:
+		raise walklib.models.RunnerError("cannot inspect walkthrough resources before E2E") from error
+	if len(snapshot.containers) + len(snapshot.volumes) + len(snapshot.networks) > 0:
+		raise walklib.models.RunnerError(
+			"generated walkthrough project has stale labelled resources; retry the walkthrough"
+		)
 
 
 #============================================
@@ -44,7 +36,7 @@ def keep_instruction(
 	"""Return one exact read-only command for inspecting a retained disposable project."""
 	ps_arguments = [
 		"podman", "ps", "--all", "--filter",
-		f"label=io.podman.compose.project={project_name}",
+		f"label={local_stack_control.models.COMPOSE_PROJECT_LABELS[0]}={project_name}",
 	]
 	command = shlex.join(ps_arguments)
 	message = (

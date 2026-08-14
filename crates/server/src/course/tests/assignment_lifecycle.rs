@@ -6,10 +6,10 @@ use axum::body::Body;
 use axum::http::Request;
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
-    JobLeaseDuration, JobPayload, JobStore, RetentionWorkerCommand, RetentionWorkerStore,
-    TenantContext,
+    CourseRosterStore, JobLeaseDuration, JobPayload, JobStore, RetentionWorkerCommand,
+    RetentionWorkerStore, TenantContext, UpsertCourseMember,
 };
-use question_model::{ActivityTimestamp, ObjectId, StudentId, TenantId, UserId};
+use question_model::{ActivityTimestamp, ObjectId, TenantId, UserId};
 use tower::ServiceExt;
 
 #[tokio::test]
@@ -401,21 +401,17 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
     );
 
     store
-        .create_enrollment(
+        .upsert_course_member(
             context,
-            question_model::AssignmentEnrollment {
-                id: question_model::EnrollmentId::from_uuid(id(40)),
-                tenant,
-                assignment,
+            UpsertCourseMember {
+                course,
                 user: student,
-                student: StudentId::from_uuid(id(41)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
+                display_name: "Biochemistry Learner".to_string(),
+                roster_contact: None,
             },
         )
         .await
-        .expect("gradebook fixture enrollment");
+        .expect("gradebook fixture roster member");
 
     let gradebook = app
         .clone()
@@ -452,12 +448,14 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
             "tenant",
             "courseId",
             "enrollmentId",
+            "learnerName",
             "studentId",
             "assignmentId",
             "assignmentTitle",
             "summary",
         ])
     );
+    assert_eq!(row["learnerName"], "Biochemistry Learner");
     assert_eq!(row["summary"]["tenant"], row["tenant"]);
 
     let sysadmin_gradebook = app

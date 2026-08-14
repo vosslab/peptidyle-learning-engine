@@ -27,7 +27,7 @@ use crate::{
 const AUTH_EXPIRY_CLEANUP_BATCH: i64 = 128;
 
 impl PostgresStore {
-    async fn begin_auth(&self) -> Result<Transaction<'_, Postgres>, StoreError> {
+    pub(super) async fn begin_auth(&self) -> Result<Transaction<'_, Postgres>, StoreError> {
         let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
         sqlx::query("SET LOCAL ROLE ple_auth")
             .execute(&mut *transaction)

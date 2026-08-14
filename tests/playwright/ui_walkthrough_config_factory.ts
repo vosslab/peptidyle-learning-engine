@@ -5,6 +5,8 @@ import { dirname, isAbsolute, relative, resolve } from "node:path";
 
 import { defineConfig, type PlaywrightTestConfig } from "@playwright/test";
 
+import { isAssignmentReference, isCourseReference } from "./simulator/public_references";
+
 interface SharedWalkthroughInputs {
   readonly baseUrl: string;
   readonly credentialFile: string;
@@ -17,8 +19,8 @@ interface SharedWalkthroughInputs {
 
 export interface UiWalkthroughInputs extends SharedWalkthroughInputs {
   readonly stage: "learner_journey";
-  readonly courseId: string;
-  readonly masteryAssignmentId: string;
+  readonly courseReference: string;
+  readonly masteryAssignmentReference: string;
   readonly j1CheckpointFile: string;
   readonly j2CheckpointFile: string;
 }
@@ -31,8 +33,7 @@ export interface InstructorSetupInputs extends SharedWalkthroughInputs {
 
 export type ValidatedUiWalkthroughInputs = UiWalkthroughInputs | InstructorSetupInputs;
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
-const DISPLAY_ID = /^P-[1-9][0-9]*-v[1-9][0-9]*$/u;
+const QUESTION_ID = /^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u;
 const SCREENSHOT_DIRECTORY_PARENT = "/private/tmp";
 const SCREENSHOT_DIRECTORY_PREFIX = "ple-docs-screenshots.";
 
@@ -120,10 +121,13 @@ function validatedMasterSeed(
   return { masterSeed: value, masterSeedText: String(value) };
 }
 
-function validatedUuid(value: unknown, error: string): string {
-  const identifier = stringValue(value, error);
-  if (!UUID.test(identifier)) throw new Error(error);
-  return identifier;
+function validatedReference(
+  value: unknown,
+  validator: (candidate: unknown) => candidate is string,
+  error: string,
+): string {
+  if (!validator(value)) throw new Error(error);
+  return value;
 }
 
 function validatedChildFile(
@@ -176,22 +180,22 @@ function validatedScreenshotDirectory(value: unknown): string | undefined {
 
 function validatedCatalogDisplayIds(value: unknown): InstructorSetupInputs["catalogDisplayIds"] {
   if (!Array.isArray(value) || value.length !== 4) {
-    throw new Error("walkthrough catalog display IDs must be four exact public IDs");
+    throw new Error("walkthrough Question IDs must contain four exact public IDs");
   }
   const displayIds = value.map((candidate) => {
-    const displayId = stringValue(candidate, "walkthrough catalog display ID is invalid");
-    if (!DISPLAY_ID.test(displayId)) throw new Error("walkthrough catalog display ID is invalid");
+    const displayId = stringValue(candidate, "walkthrough Question ID is invalid");
+    if (!QUESTION_ID.test(displayId)) throw new Error("walkthrough Question ID is invalid");
     return displayId;
   });
   if (new Set(displayIds).size !== 4) {
-    throw new Error("walkthrough catalog display IDs must be distinct");
+    throw new Error("walkthrough Question IDs must be distinct");
   }
   const first = displayIds[0];
   const second = displayIds[1];
   const third = displayIds[2];
   const fourth = displayIds[3];
   if (first === undefined || second === undefined || third === undefined || fourth === undefined) {
-    throw new Error("walkthrough catalog display IDs must be four exact public IDs");
+    throw new Error("walkthrough Question IDs must contain four exact public IDs");
   }
   return [first, second, third, fourth];
 }
@@ -255,8 +259,8 @@ export function readUiWalkthroughInputs(inputPath: string): ValidatedUiWalkthrou
         "journeyStateFile",
         "j1CheckpointFile",
         "j2CheckpointFile",
-        "courseId",
-        "masteryAssignmentId",
+        "courseReference",
+        "masteryAssignmentReference",
         "screenshotDirectory",
       ],
       "walkthrough learner inputs have an invalid schema",
@@ -277,10 +281,15 @@ export function readUiWalkthroughInputs(inputPath: string): ValidatedUiWalkthrou
         "j2-checkpoint.txt",
         "walkthrough J2 checkpoint must remain beside private state",
       ),
-      courseId: validatedUuid(value["courseId"], "walkthrough course ID is invalid"),
-      masteryAssignmentId: validatedUuid(
-        value["masteryAssignmentId"],
-        "walkthrough mastery assignment ID is invalid",
+      courseReference: validatedReference(
+        value["courseReference"],
+        isCourseReference,
+        "walkthrough course reference is invalid",
+      ),
+      masteryAssignmentReference: validatedReference(
+        value["masteryAssignmentReference"],
+        isAssignmentReference,
+        "walkthrough mastery assignment reference is invalid",
       ),
     };
   }

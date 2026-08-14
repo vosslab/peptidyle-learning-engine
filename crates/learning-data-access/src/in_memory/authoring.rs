@@ -47,6 +47,11 @@ impl crate::AuthoringStore for MemoryStore {
             return Err(StoreError::Conflict);
         }
         let revision = WorkspaceDraftRevision::INITIAL;
+        super::navigation_references::ensure_workspace_public_id(
+            &mut state,
+            draft.tenant,
+            draft.question.workspace,
+        )?;
         state.drafts.insert(key, draft.clone());
         state.draft_revisions.insert(key, revision);
         state.draft_access.insert(
@@ -109,7 +114,13 @@ impl crate::AuthoringStore for MemoryStore {
                         .draft_access
                         .contains_key(&(context.tenant_id(), *workspace, actor))
             })
-            .map(|((_, workspace), draft)| (*workspace, draft.question.workspace_summary()))
+            .filter_map(|((tenant, workspace), draft)| {
+                let public_id = state
+                    .workspace_public_ids
+                    .get(&(*tenant, *workspace))
+                    .copied()?;
+                Some((*workspace, draft.question.workspace_summary(public_id)))
+            })
             .collect();
         drafts.sort_by_key(|(workspace, _)| workspace.as_uuid());
         let mut selected: Vec<_> = drafts

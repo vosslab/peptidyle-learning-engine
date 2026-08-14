@@ -43,12 +43,29 @@ pub(in crate::postgres) async fn require_course_instructor(
     concealed_course_authority_error(transaction, session, course).await
 }
 
-pub(in crate::postgres) async fn require_course_roster_authority(
+pub(in crate::postgres) async fn precheck_course_roster_authority(
+    transaction: &mut Transaction<'_, Postgres>,
+    session: SessionTokenHash,
+    course: CourseId,
+) -> Result<UserId, StoreError> {
+    let actor: Option<Uuid> =
+        sqlx::query_scalar("SELECT public.ple_course_roster_support_precheck($1, $2)")
+            .bind(session.to_string())
+            .bind(course.as_uuid())
+            .fetch_one(&mut **transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+    if let Some(actor) = actor {
+        return Ok(UserId::from_uuid(actor));
+    }
+    concealed_course_authority_error(transaction, session, course).await
+}
+
+pub(in crate::postgres) async fn require_audited_course_roster_actor(
     transaction: &mut Transaction<'_, Postgres>,
     session: SessionTokenHash,
     course: CourseId,
     action: CourseRosterSupportAction,
-    audit_sysadmin: bool,
 ) -> Result<UserId, StoreError> {
     let action = match action {
         CourseRosterSupportAction::ListRoster => "listRoster",
@@ -60,11 +77,10 @@ pub(in crate::postgres) async fn require_course_roster_authority(
         CourseRosterSupportAction::CommitImport => "commitImport",
     };
     let actor: Option<Uuid> =
-        sqlx::query_scalar("SELECT public.ple_course_roster_support_actor($1, $2, $3, $4)")
+        sqlx::query_scalar("SELECT public.ple_course_roster_support_actor($1, $2, $3)")
             .bind(session.to_string())
             .bind(course.as_uuid())
             .bind(action)
-            .bind(audit_sysadmin)
             .fetch_one(&mut **transaction)
             .await
             .map_err(map_sqlx_error)?;

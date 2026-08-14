@@ -52,6 +52,7 @@ import {
   decodeCursor,
   decodeCursorPage,
   decodeIdentifier,
+  decodePublicRouteNumber,
   decodeSha256,
   decodeTaxonomyTerm,
   decodeTimestamp,
@@ -216,6 +217,7 @@ export function decodeAssignmentRun(value: unknown, path = "response"): Assignme
   const record = decodeRecord(value, path);
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
+    publicId: decodePublicRouteNumber(field(record, "publicId", path), `${path}.publicId`),
     tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
     enrollment: decodeIdentifier(field(record, "enrollment", path), `${path}.enrollment`),
     runNumber: decodePositiveInteger(field(record, "runNumber", path), `${path}.runNumber`),
@@ -240,6 +242,7 @@ function decodeStrictAssignmentRun(value: unknown, path: string): AssignmentRun 
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
+    "publicId",
     "tenant",
     "enrollment",
     "runNumber",
@@ -432,6 +435,7 @@ export function decodeGradebookSummaryRow(value: unknown, path = "response"): Gr
     "courseId",
     "enrollmentId",
     "studentId",
+    "learnerName",
     "assignmentId",
     "assignmentTitle",
     "summary",
@@ -464,6 +468,7 @@ export function decodeGradebookSummaryRow(value: unknown, path = "response"): Gr
     courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
     enrollmentId,
     studentId: decodeIdentifier(field(record, "studentId", path), `${path}.studentId`),
+    learnerName: decodeNonemptyString(field(record, "learnerName", path), `${path}.learnerName`),
     assignmentId: decodeIdentifier(field(record, "assignmentId", path), `${path}.assignmentId`),
     assignmentTitle: decodeNonemptyString(
       field(record, "assignmentTitle", path),

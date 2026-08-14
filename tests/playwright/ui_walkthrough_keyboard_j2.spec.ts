@@ -25,7 +25,12 @@ test.setTimeout(90_000);
 function appendPassedJourneyState(inputs: UiWalkthroughInputs, elapsedMs: number): void {
   appendStudentRepeatState(
     inputs.journeyStateFile,
-    passedStudentRepeatFragment("J2", inputs.courseId, inputs.masteryAssignmentId, elapsedMs),
+    passedStudentRepeatFragment(
+      "J2",
+      inputs.courseReference,
+      inputs.masteryAssignmentReference,
+      elapsedMs,
+    ),
   );
 }
 
@@ -55,7 +60,7 @@ async function signInAndStartMastery(page: Page, inputs: UiWalkthroughInputs): P
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-route-surface=courses]")).toBeVisible();
   checkpoint(inputs, "signed_in");
-  const courseLink = page.locator(`a[href="/courses/${inputs.courseId}"]`);
+  const courseLink = page.locator(`a[href="/courses/${inputs.courseReference}"]`);
   await tabToTargetThroughVisiblePagination(page, {
     target: courseLink,
     renderedItems: page.locator(".course-card"),
@@ -72,7 +77,7 @@ async function signInAndStartMastery(page: Page, inputs: UiWalkthroughInputs): P
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
   const assignmentLink = page.locator(
-    `a[href="/courses/${inputs.courseId}/assignments/${inputs.masteryAssignmentId}"]`,
+    `a[href="/courses/${inputs.courseReference}/assignments/${inputs.masteryAssignmentReference}"]`,
   );
   await tabToTargetThroughVisiblePagination(page, {
     target: assignmentLink,

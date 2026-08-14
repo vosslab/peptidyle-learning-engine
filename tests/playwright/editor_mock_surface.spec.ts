@@ -193,7 +193,7 @@ test.beforeAll(async () => {
           const method = init?.method ?? "GET";
           const body = typeof init?.body === "string" ? init.body : null;
           calls.push({ method, path: url.pathname + url.search, body, ifMatch: init?.headers?.["if-match"] ?? null });
-          if (url.pathname === "/api/workspaces" && method === "GET") return json({ items: [{ workspace, title: "Saved workspace draft", sourceBackend: "native" }], nextCursor: null });
+          if (url.pathname === "/api/workspaces" && method === "GET") return json({ items: [{ workspace, publicId: 1, title: "Saved workspace draft", sourceBackend: "native" }], nextCursor: null });
           if (url.pathname === "/api/workspaces/foreign" && method === "GET") return json({ error: "not found" }, 404);
           if (url.pathname === "/api/workspaces/" + workspace && method === "GET") {
             return json(
@@ -309,8 +309,8 @@ test("editor retains authored input and visible capability guidance through reco
   ).toContainText("Peptide-bond geometry cannot provide hints");
 
   await fixture.getByRole("button", { name: "Review publication changes" }).click();
-  await expect(fixture.getByText("Version comparison")).toBeVisible();
-  await fixture.getByRole("button", { name: "Confirm immutable publication" }).click();
+  await expect(fixture.getByRole("heading", { name: "Publication changes" })).toBeVisible();
+  await fixture.getByRole("button", { name: "Confirm publication" }).click();
   await expect(fixture.getByText("Publication service temporarily unavailable")).toBeVisible();
   await expect(title).toHaveValue("Preserved instructor revision");
   expect(requests.filter((url) => new URL(url).pathname.startsWith("/api/"))).toEqual([]);
@@ -466,7 +466,7 @@ test("live editor preserves drafts across publication refusals and publishes sco
   await fixture.getByLabel("Require hints").check();
   await expect(fixture.getByText("cannot provide hints")).toBeVisible();
   await expect(fixture.getByText("cannot provide per question timing")).toBeVisible();
-  await expect(fixture.getByText("Version comparison")).toHaveCount(0);
+  await expect(fixture.getByRole("heading", { name: "Publication changes" })).toHaveCount(0);
 
   await title.fill("Edited title survives readiness refusal");
   await fixture.getByLabel("Require hints").uncheck();
@@ -476,27 +476,27 @@ test("live editor preserves drafts across publication refusals and publishes sco
   await expect(title).toHaveValue("Edited title survives readiness refusal");
 
   await fixture.getByRole("button", { name: "Review publication changes" }).click();
-  await expect(fixture.getByText("First published version")).toBeVisible();
+  await expect(fixture.getByText("This is the question's first publication.")).toBeVisible();
   await expect(fixture.getByText("Publishing saved title:")).toContainText(
     "Edited title survives readiness refusal",
   );
   await expect(fixture.getByLabel("Publication scope")).toHaveValue("institution");
   await fixture.getByLabel("Publication scope").selectOption("public");
-  await fixture.getByRole("button", { name: "Confirm immutable publication" }).click();
-  await expect(fixture.getByText("Published immutable version")).toContainText(
-    "0198e000-0000-7000-8000-000000000099",
-  );
+  await fixture.getByRole("button", { name: "Confirm publication" }).click();
+  await expect(
+    fixture.getByRole("status").filter({
+      hasText: "The current question is now available in the library.",
+    }),
+  ).toBeVisible();
 
   await title.fill("Post-diff local revision");
   await fixture.getByRole("button", { name: "Review publication changes" }).click();
-  await expect(fixture.getByText(/Previous version:/)).toBeVisible();
-  await fixture.getByRole("button", { name: "Confirm immutable publication" }).click();
+  await expect(fixture.getByText("This updates the current published question.")).toBeVisible();
+  await fixture.getByRole("button", { name: "Confirm publication" }).click();
   await expect(
     fixture.getByRole("alert").filter({ hasText: "Reload, save your edits" }),
   ).toBeVisible();
-  await expect(fixture.getByRole("button", { name: "Confirm immutable publication" })).toHaveCount(
-    0,
-  );
+  await expect(fixture.getByRole("button", { name: "Confirm publication" })).toHaveCount(0);
   await expect(title).toHaveValue("Post-diff local revision");
   await fixture.getByRole("button", { name: "Reload newest draft" }).click();
   await expect(title).toHaveValue("Collaborator saved title");
@@ -508,10 +508,12 @@ test("live editor preserves drafts across publication refusals and publishes sco
   await expect(fixture.getByText("Publishing saved title:")).toContainText(
     "Recovered intended title",
   );
-  await fixture.getByRole("button", { name: "Confirm immutable publication" }).click();
-  await expect(fixture.getByText("Published immutable version")).toContainText(
-    "0198e000-0000-7000-8000-000000000099",
-  );
+  await fixture.getByRole("button", { name: "Confirm publication" }).click();
+  await expect(
+    fixture.getByRole("status").filter({
+      hasText: "The current question is now available in the library.",
+    }),
+  ).toBeVisible();
 
   const evidence = await page.evaluate(async () => {
     const fixtureWindow = window as unknown as EditorFixtureWindow;

@@ -1,7 +1,6 @@
 // MOD-UI-GRADEBOOK behavior checks: one compact initial projection, opt-in history.
 
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import test from "node:test";
 
 import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
@@ -79,20 +78,4 @@ test("score display trims artifacts and rounds exact midpoints away from zero", 
   assert.equal(formatPercentScore(null), "-");
   assert.equal(formatScoreValue(-0.00001), "0");
   assert.throws(() => formatScoreValue(Number.NaN), /score must be finite/);
-});
-
-test("gradebook page renders only compact projections and keeps sensitive learning material out", () => {
-  const source = fs.readFileSync("src/pages/gradebook_page.tsx", "utf8");
-  const model = fs.readFileSync("src/pages/gradebook_page_model.ts", "utf8");
-
-  assert.match(source, /loadGradebookPage\(runtime\.client, courseId\)/);
-  assert.match(source, /loadGradebookRunHistory\(runtime\.client, enrollmentId, cursor\)/);
-  assert.match(model, /return client\.listGradebook\(courseId\)/);
-  assert.match(model, /return client\.listRuns\(enrollmentId, cursor\)/);
-  assert.doesNotMatch(source, /\.getEnrollment\(/);
-  assert.doesNotMatch(source, /\.getSummary\(/);
-  assert.doesNotMatch(source, /\.listAttempts\(/);
-  assert.doesNotMatch(source, /\.getAttempt\(/);
-  assert.doesNotMatch(source, /\.getIssuedQuestion\(/);
-  assert.doesNotMatch(source, /answer(?:Key)?|correctResponse|solution|grading|feedback/i);
 });

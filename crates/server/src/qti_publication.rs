@@ -11,9 +11,9 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use learning_data_access::{
     AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, CatalogStore, DraftRecord,
-    PublishDraftCommand, PublishedSourceArtifact, QtiImportItem, QtiImportRegistry, QtiImportStore,
-    QtiPublicationPromotion, SessionStore, Store, StoreError, TenantContext,
-    WorkspaceDraftRevision,
+    OwnerCorrectionStore, PublishDraftCommand, PublishedSourceArtifact, QtiImportItem,
+    QtiImportRegistry, QtiImportStore, QtiPublicationPromotion, SessionStore, Store, StoreError,
+    TenantContext, WorkspaceDraftRevision,
 };
 use objects::{ObjectCategory, ObjectKey, ObjectRecord, ObjectStore, PutObject, Sha256Digest};
 use question_model::{
@@ -24,8 +24,8 @@ use serde::Deserialize;
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 use crate::catalog::{
-    BackendRegistry, BackendRegistryError, PublicReviewGate, error_response, may_publish,
-    mint_publication_reference, store_error_response,
+    BackendRegistry, BackendRegistryError, PublicReviewGate, dispatch_publication, error_response,
+    may_publish, mint_publication_reference, store_error_response,
 };
 
 const MAX_QTI_PUBLICATION_BODY_BYTES: usize = 4 * 1024;
@@ -60,7 +60,7 @@ pub fn router<S, O, B, R>(
     review_gate: Arc<R>,
 ) -> Router
 where
-    S: Store + CatalogStore + QtiImportStore + SessionStore + 'static,
+    S: Store + CatalogStore + OwnerCorrectionStore + QtiImportStore + SessionStore + 'static,
     O: ObjectStore + 'static,
     B: BackendRegistry + 'static,
     R: PublicReviewGate + 'static,
@@ -147,7 +147,7 @@ async fn publish_qti_problem<S, O, B, R>(
     Json(request): Json<QtiPublishRequest>,
 ) -> Response
 where
-    S: Store + CatalogStore + QtiImportStore + SessionStore + 'static,
+    S: Store + CatalogStore + OwnerCorrectionStore + QtiImportStore + SessionStore + 'static,
     O: ObjectStore + 'static,
     B: BackendRegistry + 'static,
     R: PublicReviewGate + 'static,
@@ -283,11 +283,7 @@ where
         scope: request.scope,
         capabilities,
     };
-    match state
-        .store
-        .publish_draft(authenticated.tenant_context, publisher, command)
-        .await
-    {
+    match dispatch_publication(state.store.as_ref(), &authenticated, command).await {
         Ok(record) => no_store((StatusCode::CREATED, Json(record.question)).into_response()),
         Err(error) => store_error_response(error),
     }

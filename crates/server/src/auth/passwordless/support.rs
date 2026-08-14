@@ -18,6 +18,41 @@ use super::{
     SECRET_BYTES,
 };
 
+/// Account identity coupled to the redacted proof that authorized it.
+///
+/// Route handlers may pass the hash to a capability-scoped store operation but
+/// must not reconstruct authorization from the account's user ID.
+pub(in crate::auth) struct AuthenticatedAccountSession {
+    pub(in crate::auth) account: AccountRecord,
+    pub(in crate::auth) token_hash: AccountSessionTokenHash,
+}
+
+pub(in crate::auth) async fn authenticated_account_session<S>(
+    store: &S,
+    headers: &HeaderMap,
+) -> Result<AuthenticatedAccountSession, Response>
+where
+    S: AccountIdentityStore + AccountSessionStore,
+{
+    let token =
+        cookie_secret(headers, ACCOUNT_SESSION_COOKIE).ok_or_else(authentication_rejected)?;
+    let token_hash = AccountSessionTokenHash::compute(&token.0);
+    let session = store
+        .resolve_account_session(token_hash)
+        .await
+        .map_err(|_| passwordless_unavailable())?
+        .ok_or_else(authentication_rejected)?;
+    let account = store
+        .get_account(session.user)
+        .await
+        .map_err(|_| passwordless_unavailable())?
+        .ok_or_else(authentication_rejected)?;
+    Ok(AuthenticatedAccountSession {
+        account,
+        token_hash,
+    })
+}
+
 pub(in crate::auth) async fn authenticated_account<S>(
     store: &S,
     headers: &HeaderMap,
@@ -25,18 +60,9 @@ pub(in crate::auth) async fn authenticated_account<S>(
 where
     S: AccountIdentityStore + AccountSessionStore,
 {
-    let token =
-        cookie_secret(headers, ACCOUNT_SESSION_COOKIE).ok_or_else(authentication_rejected)?;
-    let session = store
-        .resolve_account_session(AccountSessionTokenHash::compute(&token.0))
+    authenticated_account_session(store, headers)
         .await
-        .map_err(|_| passwordless_unavailable())?
-        .ok_or_else(authentication_rejected)?;
-    store
-        .get_account(session.user)
-        .await
-        .map_err(|_| passwordless_unavailable())?
-        .ok_or_else(authentication_rejected)
+        .map(|session| session.account)
 }
 
 /// Revokes the short-lived account credential presented by this browser.

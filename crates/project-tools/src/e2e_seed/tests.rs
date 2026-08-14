@@ -425,7 +425,7 @@ async fn chapter_one_webwork_publishers_converge_on_one_current_immutable_versio
     assert!(!projected.contains(source_text));
     assert!(!projected.contains("correctResponse"));
 
-    let mut versions = store
+    let versions = store
         .list_catalog(
             context,
             PageRequest::first(PageSize::new(10).expect("page size is valid")),
@@ -434,14 +434,13 @@ async fn chapter_one_webwork_publishers_converge_on_one_current_immutable_versio
         .expect("catalog listing succeeds")
         .items
         .into_iter()
-        .filter(|item| item.public_id == published.public_id)
-        .map(|item| item.version_number.value())
+        .filter(|item| item.question_id == published.question_id)
+        .map(|item| item.version)
         .collect::<Vec<_>>();
-    versions.sort_unstable();
     assert_eq!(
         versions,
-        vec![1],
-        "concurrent publication does not create a synthetic successor"
+        vec![published.version],
+        "concurrent publication retains one current question instead of creating a synthetic successor"
     );
 
     let rerun = publish_webwork_question(&store, &objects, context, publisher, &question, &ids)

@@ -75,15 +75,16 @@ continued-practice semantics; this is part of their owning release package, not 
 
 ### Drafts and publications are different identities
 
-**Decision.** An instructor's mutable draft is tenant-owned. Publication mints a separate immutable
-shared problem version; corrections publish a new version rather than editing history.
+**Decision.** An instructor's mutable draft is tenant-owned. Publication mints a current shared
+question plus hidden immutable snapshot. An original-owner correction creates another hidden
+snapshot while preserving the Question ID and historical grading evidence.
 
 **Why.** This prevents the classic LMS failure where a later edit changes what an earlier learner
 was assessed on, and it lets tenant record deletion leave shared educational content intact.
 
-**Consequence.** Assignments and attempts pin an immutable version. Browser requests never choose a
-new published identity, and publication atomically records the immutable payload, provenance, and
-visibility state.
+**Consequence.** Existing runs pin an immutable snapshot. Current assignment definitions move to an
+original-owner correction for future runs. Browser requests see one current question and never
+choose a hidden version; publication atomically records payload, provenance, and visibility.
 
 **Owner.** [DATABASE_TENANCY.md](DATABASE_TENANCY.md#ownership-boundary),
 [SECURITY_MODEL.md](SECURITY_MODEL.md#catalog-publication-boundary), and the identity/catalog rows
@@ -95,21 +96,22 @@ compatibility paths. It does not rewrite already published versions once those e
 
 ### Instructor-facing problem identities are operational
 
-**Decision.** `P-<number>-v<version>` is the human-facing identity of one immutable published
-problem version. Instructors copy it from the library and paste it into an assignment's add-by-ID
-control; problem and version UUIDs remain internal routing and persistence identities.
+**Decision.** `AAA-BBBB` is the single human-facing Crockford Base32 Question ID. The first six
+characters are random and the seventh is an HMAC-SHA256 validation character. Instructors may copy
+it from the library, but assignment reuse and checklists are the preferred group workflow. UUIDs,
+sequential numbers, and hidden snapshot versions remain internal.
 
 **Why.** An identifier shown to a person needs to support the work that person actually does:
 recognizing, communicating, copying, and entering an exact question. A UUID is valuable at internal
 boundaries, but it is oversized and hostile for this instructor task.
 
-**Consequence.** The assignment editor accepts one or more exact display IDs, resolves every one
-before changing the draft, and adds only the corresponding immutable versions. Invalid, unavailable,
-unauthorized, or duplicate input preserves the pasted text and leaves the assignment unchanged.
-Human-readable labels are therefore an operational contract, not presentation-only decoration.
+**Consequence.** The assignment editor accepts one or more Question IDs, normalizes documented
+Crockford transcription aliases, and requires server validation before changing the draft. Invalid,
+unavailable, unauthorized, or duplicate input preserves the pasted text and assignment. Original
+owner corrections retain the ID; a substantive derivative is a fork with a new ID.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#teaching-and-product-priorities),
-`crates/question_model/src/catalog.rs`, and MOD-API-CAT in
+[`QUESTION_ID_SPEC.md`](QUESTION_ID_SPEC.md), `crates/question_model/src/catalog.rs`, and MOD-API-CAT in
 [CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
 
 ## Grading and learner traffic

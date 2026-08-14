@@ -3,8 +3,9 @@
 import { closeSync, constants, fstatSync, lstatSync, openSync, readSync } from "node:fs";
 import { basename, dirname } from "node:path";
 
+import { isAssignmentReference, isCourseReference } from "./public_references";
+
 const MAX_ELAPSED_MS = 30 * 60 * 1000;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 const JOURNEY_CODES = {
   J11: ["visible_course_created", "visible_course_opened"],
@@ -41,8 +42,8 @@ export interface V2JourneyFragment {
   readonly journey: V2Journey;
   readonly status: "PASS";
   readonly elapsedMs: number;
-  readonly courseId: string;
-  readonly assignmentId?: string;
+  readonly courseReference: string;
+  readonly assignmentReference?: string;
   readonly selectedDisplayIds?: readonly [string, string, string, string];
   readonly visibleOutcomeCodes: readonly V2VisibleOutcomeCode[];
   readonly diagnostics: readonly [];
@@ -184,37 +185,49 @@ function parseFragment(value: unknown, journey: V2Journey): V2JourneyFragment | 
   const schemaVersion = ownValue(value, "schemaVersion");
   const status = ownValue(value, "status");
   const elapsedMs = ownValue(value, "elapsedMs");
-  const courseId = ownValue(value, "courseId");
+  const courseReference = ownValue(value, "courseReference");
   const receivedJourney = ownValue(value, "journey");
   if (
     schemaVersion !== 2 ||
     receivedJourney !== journey ||
     status !== "PASS" ||
     !validElapsed(elapsedMs) ||
-    typeof courseId !== "string" ||
-    !UUID.test(courseId) ||
+    typeof courseReference !== "string" ||
+    !isCourseReference(courseReference) ||
     !isExactStringArray(ownValue(value, "visibleOutcomeCodes"), JOURNEY_CODES[journey]) ||
     !isExactEmptyArray(ownValue(value, "diagnostics"))
   )
     return undefined;
 
   if (journey === "J13") {
-    const assignmentId = ownValue(value, "assignmentId");
+    const assignmentReference = ownValue(value, "assignmentReference");
     const selectedDisplayIds = ownValue(value, "selectedDisplayIds");
-    if (!validUuid(assignmentId) || !validSelectedDisplayIds(selectedDisplayIds)) return undefined;
-    return createFragment(journey, elapsedMs, courseId, assignmentId, selectedDisplayIds);
+    if (
+      !isAssignmentReference(assignmentReference) ||
+      !validSelectedDisplayIds(selectedDisplayIds)
+    ) {
+      return undefined;
+    }
+    return createFragment(
+      journey,
+      elapsedMs,
+      courseReference,
+      assignmentReference,
+      selectedDisplayIds,
+    );
   }
-  if (journey === "J11" || journey === "J12") return createFragment(journey, elapsedMs, courseId);
-  const assignmentId = ownValue(value, "assignmentId");
-  if (!validUuid(assignmentId)) return undefined;
-  return createFragment(journey, elapsedMs, courseId, assignmentId);
+  if (journey === "J11" || journey === "J12")
+    return createFragment(journey, elapsedMs, courseReference);
+  const assignmentReference = ownValue(value, "assignmentReference");
+  if (!isAssignmentReference(assignmentReference)) return undefined;
+  return createFragment(journey, elapsedMs, courseReference, assignmentReference);
 }
 
 function createFragment(
   journey: V2Journey,
   elapsedMs: number,
-  courseId: string,
-  assignmentId?: string,
+  courseReference: string,
+  assignmentReference?: string,
   selectedDisplayIds?: readonly [string, string, string, string],
 ): V2JourneyFragment {
   const base = {
@@ -222,24 +235,30 @@ function createFragment(
     journey,
     status: "PASS" as const,
     elapsedMs,
-    courseId,
+    courseReference,
     visibleOutcomeCodes: JOURNEY_CODES[journey],
     diagnostics: [] as const,
   };
-  if (journey === "J13" && assignmentId !== undefined && selectedDisplayIds !== undefined) {
-    return { ...base, assignmentId, selectedDisplayIds };
+  if (journey === "J13" && assignmentReference !== undefined && selectedDisplayIds !== undefined) {
+    return { ...base, assignmentReference, selectedDisplayIds };
   }
-  if (assignmentId !== undefined) return { ...base, assignmentId };
+  if (assignmentReference !== undefined) return { ...base, assignmentReference };
   return base;
 }
 
 function keysForJourney(journey: V2Journey): readonly string[] {
-  const base = ["schemaVersion", "journey", "status", "elapsedMs", "courseId"];
+  const base = ["schemaVersion", "journey", "status", "elapsedMs", "courseReference"];
   if (journey === "J13")
-    return [...base, "assignmentId", "selectedDisplayIds", "visibleOutcomeCodes", "diagnostics"];
+    return [
+      ...base,
+      "assignmentReference",
+      "selectedDisplayIds",
+      "visibleOutcomeCodes",
+      "diagnostics",
+    ];
   if (journey === "J11" || journey === "J12")
     return [...base, "visibleOutcomeCodes", "diagnostics"];
-  return [...base, "assignmentId", "visibleOutcomeCodes", "diagnostics"];
+  return [...base, "assignmentReference", "visibleOutcomeCodes", "diagnostics"];
 }
 
 function validSelectedDisplayIds(
@@ -248,24 +267,26 @@ function validSelectedDisplayIds(
   return (
     Array.isArray(value) &&
     value.length === 4 &&
-    value.every((id) => typeof id === "string" && /^P-[1-9][0-9]*-v[1-9][0-9]*$/u.test(id)) &&
+    value.every(
+      (id) => typeof id === "string" && /^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u.test(id),
+    ) &&
     new Set(value).size === 4
   );
 }
 
 function matchesPublicBindings(fragments: readonly V2JourneyFragment[]): boolean {
   const setup = fragments[2];
-  if (setup === undefined || setup.assignmentId === undefined) return false;
-  const courseId = setup.courseId;
-  const assignmentId = setup.assignmentId;
+  if (setup === undefined || setup.assignmentReference === undefined) return false;
+  const courseReference = setup.courseReference;
+  const assignmentReference = setup.assignmentReference;
   return fragments.every(matchesSetupBinding);
 
   function matchesSetupBinding(fragment: V2JourneyFragment): boolean {
-    if (fragment.courseId !== courseId) return false;
+    if (fragment.courseReference !== courseReference) return false;
     return (
       fragment.journey === "J11" ||
       fragment.journey === "J12" ||
-      fragment.assignmentId === assignmentId
+      fragment.assignmentReference === assignmentReference
     );
   }
 }
@@ -345,10 +366,6 @@ function validElapsed(value: unknown): value is number {
     value >= 0 &&
     value <= MAX_ELAPSED_MS
   );
-}
-
-function validUuid(value: unknown): value is string {
-  return typeof value === "string" && UUID.test(value);
 }
 
 function openPrivateState(path: string): number {

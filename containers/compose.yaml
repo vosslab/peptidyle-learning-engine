@@ -1,18 +1,24 @@
 # compose.yaml - complete local development stack.
+x-ple-disposable-capability-label: &ple-disposable-capability-label
+  org.peptidyle.disposable.capability-sha256: "${PLE_DISPOSABLE_CAPABILITY_SHA256:-normal}"
+
 services:
   # Rootless Podman creates a new named volume with an engine-owned top-level
   # directory.  The two upstream stateful images run as fixed, unprivileged
-  # UIDs, so normalize only those durable directories before either daemon
-  # starts.  This one-shot task has no network, writable root filesystem, or
-  # authority over application data after it exits.
+  # UIDs, so normalize the PostgreSQL root and MinIO tree before either daemon
+  # starts. The MinIO repair preserves retained local data created by an older
+  # root-running image; PostgreSQL already owns its mode-0700 descendants. This
+  # one-shot task has no network, writable root filesystem, or authority over
+  # application data after it exits.
   local-data-volume-permissions:
+    labels: *ple-disposable-capability-label
     image: docker.io/library/alpine@sha256:${PLE_SECRET_INIT_IMAGE_SHA256:?set PLE_SECRET_INIT_IMAGE_SHA256 to the selected official Alpine Linux image manifest digest}
     entrypoint: ["/bin/sh", "-ec"]
     command:
       - |
         mkdir -p /var/lib/postgresql/data /data
         chown 999:999 /var/lib/postgresql/data
-        chown 10001:10001 /data
+        chown -R 10001:10001 /data
     user: "0:0"
     volumes:
       - ple_pgdata:/var/lib/postgresql/data
@@ -36,6 +42,7 @@ services:
     restart: "no"
 
   postgres:
+    labels: *ple-disposable-capability-label
     image: docker.io/library/postgres@sha256:${PLE_POSTGRES_IMAGE_SHA256:?set PLE_POSTGRES_IMAGE_SHA256 to the selected official PostgreSQL 17 Linux image manifest digest}
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in the env file}
@@ -75,6 +82,7 @@ services:
   # versions, so the guard refuses a populated volume whose declared major is
   # not the pinned PostgreSQL 17 contract.  It mounts the data read-only.
   postgres-major-guard:
+    labels: *ple-disposable-capability-label
     image: docker.io/library/postgres@sha256:${PLE_POSTGRES_IMAGE_SHA256:?set PLE_POSTGRES_IMAGE_SHA256 to the selected official PostgreSQL 17 Linux image manifest digest}
     profiles: ["maintenance"]
     entrypoint: ["/bin/sh", "-ec"]
@@ -108,6 +116,7 @@ services:
     restart: "no"
 
   minio:
+    labels: *ple-disposable-capability-label
     image: quay.io/minio/minio@sha256:${PLE_MINIO_IMAGE_SHA256:?set PLE_MINIO_IMAGE_SHA256 to the selected official MinIO Linux image manifest digest}
     command: server /data --console-address ":9001"
     volumes:
@@ -144,6 +153,7 @@ services:
     restart: on-failure
 
   createbuckets:
+    labels: *ple-disposable-capability-label
     image: quay.io/minio/mc@sha256:${PLE_MINIO_MC_IMAGE_SHA256:?set PLE_MINIO_MC_IMAGE_SHA256 to the selected official MinIO Client Linux image manifest digest}
     depends_on:
       minio:
@@ -175,10 +185,10 @@ services:
     pids_limit: 32
     restart: "no"
 
-  # Copies the host-owned invitation issuer secret into a private volume as
-  # the API's fixed runtime UID. This enables copy-link invitations without
-  # requiring SMTP, and keeps the raw secret out of the API environment.
+  # Copies host-owned identity capabilities into a private volume as the
+  # API's fixed runtime UID. Raw secrets never enter the API environment.
   identity-secret-init:
+    labels: *ple-disposable-capability-label
     image: docker.io/library/alpine@sha256:${PLE_SECRET_INIT_IMAGE_SHA256:?set PLE_SECRET_INIT_IMAGE_SHA256 to the selected official Alpine Linux image manifest digest}
     volumes:
       - type: bind
@@ -187,8 +197,14 @@ services:
         read_only: true
         bind:
           create_host_path: false
+      - type: bind
+        source: ${PLE_QUESTION_ID_SECRET_HOST_FILE:?set PLE_QUESTION_ID_SECRET_HOST_FILE to an operator-created mode-0600 canonical 32-byte base64url file}
+        target: /run/source/question_id_secret
+        read_only: true
+        bind:
+          create_host_path: false
       - ple_identity_runtime:/run/ple-secrets
-    command: ["/bin/sh", "-ec", "cp /run/source/invitation_token_secret /run/ple-secrets/invitation_token_secret; chmod 600 /run/ple-secrets/invitation_token_secret; chown 10001:10001 /run/ple-secrets/invitation_token_secret"]
+    command: ["/bin/sh", "-ec", "cp /run/source/invitation_token_secret /run/ple-secrets/invitation_token_secret; cp /run/source/question_id_secret /run/ple-secrets/question_id_secret; chmod 600 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret; chown 10001:10001 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret"]
     network_mode: none
     read_only: true
     cap_drop:
@@ -204,6 +220,7 @@ services:
     restart: "no"
 
   api:
+    labels: *ple-disposable-capability-label
     # `api` is the sole Compose build owner for the shared Rust application
     # image. The worker consumes this exact local image below, which avoids
     # concurrent duplicate Cargo builds on constrained Podman machines.
@@ -239,6 +256,7 @@ services:
       PLE_WEBAUTHN_ORIGIN: ${PLE_WEBAUTHN_ORIGIN:?set PLE_WEBAUTHN_ORIGIN in the env file}
       PLE_WEBAUTHN_RP_NAME: ${PLE_WEBAUTHN_RP_NAME:?set PLE_WEBAUTHN_RP_NAME in the env file}
       PLE_INVITATION_TOKEN_SECRET_FILE: /run/ple-secrets/invitation_token_secret
+      PLE_QUESTION_ID_SECRET_FILE: /run/ple-secrets/question_id_secret
       PLE_WEBWORK_RENDERER_BASE_URL: http://webwork-renderer:3000/
       PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:-15}
       PLE_WEBWORK_MAX_RESPONSE_BYTES: ${PLE_WEBWORK_MAX_RESPONSE_BYTES:-1048576}
@@ -290,6 +308,7 @@ services:
       - api_outbound
 
   worker:
+    labels: *ple-disposable-capability-label
     # Keep the worker's runtime configuration separate while consuming the
     # single application image built by the `api` service.
     image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
@@ -331,6 +350,7 @@ services:
       - default
 
   gateway:
+    labels: *ple-disposable-capability-label
     build:
       context: ..
       dockerfile: containers/Containerfile.gateway
@@ -381,9 +401,10 @@ services:
   # PLE uses only the standalone PG rendering engine. It has no assignment,
   # course, roster, login, session, SQL, or persistent-volume state.
   webwork-renderer:
+    labels: *ple-disposable-capability-label
     # The checked-in default is the reviewed local OCI manifest digest. An
     # operator may replace it only with another explicit immutable reference.
-    image: ${PLE_WEBWORK_RENDERER_IMAGE:-localhost/pg-renderer@sha256:35544c77a36d3fca178ccde8af4eb4fc0145554a6c06ee6d57d2704e99e5bce5}
+    image: ${PLE_WEBWORK_RENDERER_IMAGE:-localhost/pg-renderer@sha256:d606c4b5d82d425729643c4f36d093d549759a416d0527f0340ae0a7319a8456}
     environment:
       PERL5LIB: /usr/app/lib/PG:/usr/app/lib/WeBWorK/lib:/usr/app/lib
       MOJO_MODE: production
@@ -393,6 +414,13 @@ services:
       baseURL: ""
       formURL: /render-api
       STRICT_JWT: "0"
+    volumes:
+      - type: bind
+        source: ./webwork/render_app.conf
+        target: /usr/app/render_app.conf
+        read_only: true
+        bind:
+          create_host_path: false
     cap_drop:
       - ALL
     security_opt:
@@ -424,15 +452,22 @@ services:
 
 volumes:
   ple_pgdata:
+    labels: *ple-disposable-capability-label
   ple_miniodata:
+    labels: *ple-disposable-capability-label
   ple_identity_runtime:
+    labels: *ple-disposable-capability-label
 
 networks:
   default:
+    labels: *ple-disposable-capability-label
     # PostgreSQL, MinIO, worker, and setup jobs never require Internet access.
     internal: true
   gateway_api:
+    labels: *ple-disposable-capability-label
     internal: true
   renderer_private:
+    labels: *ple-disposable-capability-label
     internal: true
   api_outbound:
+    labels: *ple-disposable-capability-label

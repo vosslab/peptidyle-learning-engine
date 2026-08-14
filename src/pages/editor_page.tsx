@@ -113,7 +113,7 @@ export interface EditorPageProps {
   readonly responseValidator: WasmFacade;
   readonly initialWorkspace?: WorkspaceId;
   /** Live routing may open a selected draft directly without changing fixture behavior. */
-  readonly onOpenDraft?: (workspace: WorkspaceId) => void;
+  readonly onOpenDraft?: (draft: WorkspaceDraftSummary) => void;
   /** The live workspace list can start a complete flat-question draft. */
   readonly onCreateFlatQuestion?: () => Promise<void>;
   /** Reports the strong revision and local-change state represented by this editor. */
@@ -265,9 +265,10 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     }
   }
 
-  async function chooseDraft(workspace: WorkspaceId): Promise<void> {
+  async function chooseDraft(summary: WorkspaceDraftSummary): Promise<void> {
+    const workspace = summary.workspace;
     if (props.onOpenDraft !== undefined) {
-      props.onOpenDraft(workspace);
+      props.onOpenDraft(summary);
       return;
     }
     const current = ready();
@@ -542,7 +543,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
       <p class="page-lede">
         Start with the prompt and response learners will see. Preview uses a seed-controlled,
         key-free local variant; an explicit instructor action can request a protected answer
-        presentation. Publication creates the immutable teaching record only after review.
+        presentation. Publication updates the current question only after review.
       </p>
       <p class="sr-only" role="status" aria-live="polite">
         {creationMessage() ?? saveMessage() ?? ""}
@@ -602,7 +603,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                         aria-current={
                           draft.workspace === current().draft.workspace ? "page" : undefined
                         }
-                        onClick={() => void chooseDraft(draft.workspace)}
+                        onClick={() => void chooseDraft(draft)}
                       >
                         <strong>{draft.title}</strong>
                         <br />
@@ -617,9 +618,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                   Load more drafts
                 </button>
               </Show>
-              <p class="editor-guidance">
-                Drafts are private to this workspace and do not have a published version.
-              </p>
+              <p class="editor-guidance">Drafts are private until you publish them.</p>
             </aside>
 
             <div class="editor-preview">
@@ -853,9 +852,9 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
               </section>
 
               <section class="editor-panel" aria-labelledby="publish-heading">
-                <h2 id="publish-heading">Publish an immutable version</h2>
+                <h2 id="publish-heading">Publish question</h2>
                 <p>
-                  Review the exact structural change before minting a durable version. Your draft
+                  Review the exact content change before updating the current question. Your draft
                   remains open if publication is refused.
                 </p>
                 <Show when={props.repository.capabilities?.publication === false}>
@@ -866,11 +865,11 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                 <Show when={publishConfirm()}>
                   {(state) => (
                     <div aria-live="polite">
-                      <h3>Version comparison</h3>
+                      <h3>Publication changes</h3>
                       <p>
                         {state().diff.priorVersion === null
-                          ? "First published version"
-                          : `Previous version: ${state().diff.priorVersion}`}
+                          ? "This is the question's first publication."
+                          : "This updates the current published question."}
                       </p>
                       <p>
                         Publishing saved title: <strong>{state().diff.proposedTitle}</strong>
@@ -904,19 +903,14 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                         type="button"
                         onClick={() => void publishDraft()}
                       >
-                        Confirm immutable publication
+                        Confirm publication
                       </button>
                     </div>
                   )}
                 </Show>
                 <Show when={published()}>
                   <p class="saved-notice" role="status">
-                    Published immutable version {published()?.version ?? ""}.{" "}
-                    <a
-                      href={`/library/${published()?.problem ?? ""}/versions/${published()?.version ?? ""}`}
-                    >
-                      View published version
-                    </a>
+                    The current question is now available in the <a href="/library">library</a>.
                   </p>
                 </Show>
                 <Show when={publishError()}>

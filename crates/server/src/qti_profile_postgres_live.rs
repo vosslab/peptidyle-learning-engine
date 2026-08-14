@@ -188,7 +188,7 @@ async fn postgres_profile_upload_worker_conversion_publication_and_grading_are_c
     verify_application_schema(&pool)
         .await
         .expect("live PostgreSQL schema compatibility");
-    let store = Arc::new(PostgresStore::new(pool));
+    let store = Arc::new(PostgresStore::with_question_id_secret(pool, [0x42; 32]));
     let grader = Arc::new(
         PostgresGraderStore::connect_local_development(&grader_url)
             .await

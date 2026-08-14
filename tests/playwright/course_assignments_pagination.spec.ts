@@ -57,6 +57,7 @@ test.beforeAll(async () => {
         const courseId = "${COURSE_ID}";
         const firstPage = Array.from({ length: 50 }, (_, index) => ({
           id: "0198e000-0000-7000-8000-" + String(index + 100).padStart(12, "0"),
+          publicId: index + 100,
           courseId,
           title: "Assignment " + String(index + 1),
           items: [],
@@ -64,6 +65,7 @@ test.beforeAll(async () => {
         }));
         const secondPage = Array.from({ length: 50 }, (_, index) => ({
           id: "0198e000-0000-7000-8000-" + String(index + 200).padStart(12, "0"),
+          publicId: index + 200,
           courseId,
           title: "Assignment " + String(index + 51),
           items: [],
@@ -71,12 +73,13 @@ test.beforeAll(async () => {
         }));
         const target = {
           id: "0198e000-0000-7000-8000-000000000999",
+          publicId: 999,
           courseId,
           title: "Assignment 101",
           items: [],
           selectionGroups: [],
         };
-        const terminalTarget = { ...target, id: "0198e000-0000-7000-8000-000000001000", title: "Assignment 102" };
+        const terminalTarget = { ...target, id: "0198e000-0000-7000-8000-000000001000", publicId: 1000, title: "Assignment 102" };
         const requests = [];
         let scenario = "success";
         let reloads = 0;
@@ -104,8 +107,10 @@ test.beforeAll(async () => {
           get children() {
             return createComponent(AssignmentList, {
               courseId,
+              courseReference: "C-1",
               initialPage: { items: firstPage, nextCursor: "after-50" },
               reloadAssignments: async () => { reloads += 1; },
+              canCreateAssignment: true,
             });
           },
         }), mount);

@@ -2,17 +2,16 @@
 
 import type { ProblemVersionRef } from "../../generated/api/ProblemVersionRef";
 import type { Capability } from "../../generated/api/Capability";
-import type { ProblemPublicId } from "../../generated/api/ProblemPublicId";
-import type { ProblemVersionNumber } from "../../generated/api/ProblemVersionNumber";
+import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { AssignmentCapabilityViolation, AssignmentEditorInput } from "../api/contracts";
 import { DEFAULT_MASTERY_TIME_LIMIT_SECONDS } from "../../generated/api/DEFAULT_MASTERY_TIME_LIMIT_SECONDS";
 import { MAX_ASSIGNMENT_TIME_LIMIT_SECONDS } from "../../generated/api/MAX_ASSIGNMENT_TIME_LIMIT_SECONDS";
+import { normalizeQuestionIdSyntax } from "../question_id";
 
 export interface AssignmentCatalogRow {
   readonly reference: ProblemVersionRef;
-  readonly publicId: ProblemPublicId;
-  readonly versionNumber: ProblemVersionNumber;
+  readonly questionId: QuestionId;
   readonly title: string;
   readonly backend: QuestionBackend;
 }
@@ -26,12 +25,9 @@ export interface AssignmentEditorDraft extends AssignmentEditorInput {
 }
 
 const MAX_DIRECT_IMPORT_REFERENCES = 50;
-/** Must match question_model::catalog::MAX_CATALOG_DISPLAY_NUMBER. */
-const MAX_CATALOG_DISPLAY_NUMBER = 2_147_483_647n;
-const EXACT_PROBLEM_DISPLAY_REFERENCE = /^P-([1-9][0-9]{0,19})-v([1-9][0-9]{0,19})$/u;
-
 /**
- * Parses the instructor's copy/paste format without accepting an unstable "latest" alias.
+ * Parses the instructor's stable Question IDs. The browser normalizes common
+ * transcription variants; authoritative validation stays server-side.
  * Commas and line breaks allow a small curated question set to be added in one task.
  */
 export function parseExactProblemDisplayReferences(value: string): ReadonlyArray<string> {
@@ -40,27 +36,25 @@ export function parseExactProblemDisplayReferences(value: string): ReadonlyArray
     .map((reference) => reference.trim())
     .filter((reference) => reference.length > 0);
   if (references.length === 0) {
-    throw new Error("Paste at least one question ID, such as P-12-v3.");
+    throw new Error("Paste at least one Question ID, such as 7K3-M9QP.");
   }
   if (references.length > MAX_DIRECT_IMPORT_REFERENCES) {
     throw new Error(`Add at most ${MAX_DIRECT_IMPORT_REFERENCES} question IDs at a time.`);
   }
   const seen = new Set<string>();
+  const normalized: string[] = [];
   for (const reference of references) {
-    const match = EXACT_PROBLEM_DISPLAY_REFERENCE.exec(reference);
-    if (
-      match === null ||
-      BigInt(match[1] ?? "0") > MAX_CATALOG_DISPLAY_NUMBER ||
-      BigInt(match[2] ?? "0") > MAX_CATALOG_DISPLAY_NUMBER
-    ) {
-      throw new Error(`${reference} is not an exact question ID. Use the form P-12-v3.`);
+    const questionId = normalizeQuestionIdSyntax(reference);
+    if (questionId === null) {
+      throw new Error(`${reference} is not a Question ID. Use the form 7K3-M9QP.`);
     }
-    if (seen.has(reference)) {
-      throw new Error(`${reference} appears more than once. Remove the duplicate and try again.`);
+    if (seen.has(questionId)) {
+      throw new Error(`${questionId} appears more than once. Remove the duplicate and try again.`);
     }
-    seen.add(reference);
+    seen.add(questionId);
+    normalized.push(questionId);
   }
-  return references;
+  return normalized;
 }
 
 /**
@@ -196,7 +190,7 @@ export function capabilityLabel(capability: Capability): string {
 
 /** Copyable instructor-facing identity; UUID tuples remain transport-only. */
 export function assignmentProblemLabel(row: AssignmentCatalogRow): string {
-  return `P-${row.publicId}-v${row.versionNumber}`;
+  return row.questionId;
 }
 
 export function questionBackendLabel(backend: QuestionBackend): string {

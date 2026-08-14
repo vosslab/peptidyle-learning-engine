@@ -234,7 +234,7 @@ async fn postgres_submission_replay_requires_its_immutable_receipt_snapshot() {
     verify_application_schema(&pool)
         .await
         .expect("live PostgreSQL schema compatibility");
-    let store = PostgresStore::new(pool.clone());
+    let store = PostgresStore::with_question_id_secret(pool.clone(), [0x42; 32]);
     let tenant = TenantId::from_uuid(id());
     let context = TenantContext::from_authenticated_session(tenant);
     let course = CourseId::from_uuid(id());

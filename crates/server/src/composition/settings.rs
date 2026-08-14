@@ -6,6 +6,7 @@ use super::*;
 pub(super) struct StorageSettings {
     pub(super) runtime: StorageRuntime,
     pub(super) database_url: String,
+    pub(super) question_id_secret: Option<[u8; 32]>,
     pub(super) object_connection: ObjectStorageConnection,
     pub(super) public_assets_bucket: String,
     pub(super) private_content_bucket: String,
@@ -26,6 +27,8 @@ pub(super) enum ObjectStorageConnection {
 pub(super) enum StorageRuntime {
     #[cfg_attr(not(feature = "local-development-auth"), allow(dead_code))]
     LocalDevelopment,
+    #[cfg_attr(not(feature = "local-development-auth"), allow(dead_code))]
+    LocalDevelopmentWorker,
     Api,
     Worker,
     PublicAssetPublisher,
@@ -36,11 +39,24 @@ impl StorageSettings {
         let database_variable = match runtime {
             StorageRuntime::Worker => "PLE_WORKER_DATABASE_URL",
             StorageRuntime::PublicAssetPublisher => "PLE_PUBLISHER_DATABASE_URL",
-            StorageRuntime::LocalDevelopment | StorageRuntime::Api => "DATABASE_URL",
+            StorageRuntime::LocalDevelopment
+            | StorageRuntime::LocalDevelopmentWorker
+            | StorageRuntime::Api => "DATABASE_URL",
+        };
+        let question_id_secret = match runtime {
+            StorageRuntime::LocalDevelopment => {
+                let path = required_env("PLE_QUESTION_ID_SECRET_FILE")?;
+                let encoded = read_secret_file(&path, "PLE_QUESTION_ID_SECRET_FILE")?;
+                Some(parse_secret32("PLE_QUESTION_ID_SECRET_FILE", &encoded)?)
+            }
+            StorageRuntime::Api => Some(decode_secret32("PLE_QUESTION_ID_SECRET")?),
+            StorageRuntime::LocalDevelopmentWorker
+            | StorageRuntime::Worker
+            | StorageRuntime::PublicAssetPublisher => None,
         };
         let region = required_env("PLE_S3_REGION")?;
         let object_connection = match runtime {
-            StorageRuntime::LocalDevelopment => {
+            StorageRuntime::LocalDevelopment | StorageRuntime::LocalDevelopmentWorker => {
                 ObjectStorageConnection::LocalMinio(objects::minio::EndpointConfig {
                     endpoint_url: required_env("PLE_S3_ENDPOINT")?,
                     region,
@@ -78,6 +94,7 @@ impl StorageSettings {
         Ok(Self {
             runtime,
             database_url: required_env(database_variable)?,
+            question_id_secret,
             object_connection,
             public_assets_bucket,
             private_content_bucket,
@@ -123,7 +140,9 @@ pub(super) struct LazyStorageDependencies {
 impl LazyStorageDependencies {
     pub(super) async fn from_settings(settings: &StorageSettings) -> Result<Self> {
         let pool = match settings.runtime {
-            StorageRuntime::LocalDevelopment => lazy_pool(&settings.database_url),
+            StorageRuntime::LocalDevelopment | StorageRuntime::LocalDevelopmentWorker => {
+                lazy_pool(&settings.database_url)
+            }
             StorageRuntime::Api => {
                 production_pool(&settings.database_url, ProductionLoginProfile::Api)
             }
@@ -135,7 +154,10 @@ impl LazyStorageDependencies {
             }
         }
         .map_err(|_| anyhow::anyhow!("database connection configuration was rejected"))?;
-        let store = Arc::new(PostgresStore::new(pool.clone()));
+        let store = Arc::new(match settings.question_id_secret {
+            Some(secret) => PostgresStore::with_question_id_secret(pool.clone(), secret),
+            None => PostgresStore::new(pool.clone()),
+        });
         let buckets = objects::s3::BucketNames {
             public_assets: settings.public_assets_bucket.clone(),
             private_content: settings.private_content_bucket.clone(),
@@ -220,7 +242,7 @@ pub(super) struct ProductionSettings {
     pub(super) enrollment_secret: Option<EnrollmentSecretSettings>,
     pub(super) enrollment_email: Option<EnrollmentEmailSettings>,
     pub(super) webauthn: crate::auth::PasswordlessWebauthn,
-    pub(super) browser_boundary: crate::auth::ProductionBrowserBoundary,
+    pub(super) browser_boundary: Option<crate::auth::ProductionBrowserBoundary>,
     pub(super) client_address_policy: crate::auth::ClientAddressPolicy,
 }
 
@@ -249,7 +271,7 @@ pub(super) struct WebworkRendererSettings {
 impl ProductionSettings {
     pub(super) fn from_env(runtime: StorageRuntime) -> Result<Self> {
         let public_asset_base_url = match runtime {
-            StorageRuntime::LocalDevelopment => {
+            StorageRuntime::LocalDevelopment | StorageRuntime::LocalDevelopmentWorker => {
                 PublicAssetBaseUrl::local_development(required_env("PLE_PUBLIC_ASSET_BASE_URL")?)
             }
             StorageRuntime::Api | StorageRuntime::Worker | StorageRuntime::PublicAssetPublisher => {
@@ -258,7 +280,9 @@ impl ProductionSettings {
         }
         .map_err(|_| anyhow::anyhow!("PLE_PUBLIC_ASSET_BASE_URL is invalid"))?;
         let client_address_policy = match runtime {
-            StorageRuntime::LocalDevelopment => crate::auth::ClientAddressPolicy::direct(),
+            StorageRuntime::LocalDevelopment | StorageRuntime::LocalDevelopmentWorker => {
+                crate::auth::ClientAddressPolicy::direct()
+            }
             StorageRuntime::Api | StorageRuntime::Worker | StorageRuntime::PublicAssetPublisher => {
                 crate::auth::ClientAddressPolicy::behind_trusted_proxies(&required_env(
                     "PLE_TRUSTED_PROXY_CIDRS",
@@ -267,6 +291,15 @@ impl ProductionSettings {
             }
         };
         let webauthn_origin = required_env("PLE_WEBAUTHN_ORIGIN")?;
+        let browser_boundary = match runtime {
+            StorageRuntime::LocalDevelopment | StorageRuntime::LocalDevelopmentWorker => None,
+            StorageRuntime::Api | StorageRuntime::Worker | StorageRuntime::PublicAssetPublisher => {
+                Some(
+                    crate::auth::ProductionBrowserBoundary::new(Arc::from(webauthn_origin.clone()))
+                        .map_err(anyhow::Error::msg)?,
+                )
+            }
+        };
         Ok(Self {
             storage: StorageSettings::from_env(runtime)?,
             public_asset_base_url,
@@ -282,10 +315,7 @@ impl ProductionSettings {
                 &required_env("PLE_WEBAUTHN_RP_NAME")?,
             )
             .map_err(anyhow::Error::msg)?,
-            browser_boundary: crate::auth::ProductionBrowserBoundary::new(Arc::from(
-                webauthn_origin,
-            ))
-            .map_err(anyhow::Error::msg)?,
+            browser_boundary,
             client_address_policy,
         })
     }

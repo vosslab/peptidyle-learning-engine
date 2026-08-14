@@ -38,8 +38,8 @@ function privateInputFile(value: Record<string, unknown>): {
       journeyStateFile,
       j1CheckpointFile: join(directory, "j1-checkpoint.txt"),
       j2CheckpointFile: join(directory, "j2-checkpoint.txt"),
-      courseId: "123e4567-e89b-12d3-a456-426614174000",
-      masteryAssignmentId: "123e4567-e89b-12d3-a456-426614174001",
+      courseReference: "C-42",
+      masteryAssignmentReference: "A-73",
       screenshotDirectory: null,
       ...value,
     }),
@@ -91,6 +91,15 @@ test("explicit learner input configures the live origin without environment stat
   }
 });
 
+test("learner input rejects an internal UUID in place of a visible route reference", () => {
+  const temporary = privateInputFile({ courseReference: "123e4567-e89b-12d3-a456-426614174000" });
+  try {
+    expect(() => readUiWalkthroughInputs(temporary.input)).toThrow("course reference is invalid");
+  } finally {
+    rmSync(temporary.directory, { recursive: true, force: true });
+  }
+});
+
 test("explicit input rejects an unrecognized stage before browser creation", () => {
   const temporary = privateInputFile({ stage: "arrange" });
   try {
@@ -112,11 +121,11 @@ test("explicit input rejects a noncanonical private JSON file", () => {
 });
 
 test("instructor input retains only four human-readable catalog IDs", () => {
-  const temporary = privateInstructorInputFile(["P-1-v1", "P-2-v1", "P-3-v1", "P-4-v1"]);
+  const temporary = privateInstructorInputFile(["7K3-M9QP", "ABC-123T", "PEP-T1D3", "GEN-E42K"]);
   try {
     expect(readUiWalkthroughInputs(temporary.input)).toMatchObject({
       stage: "instructor_setup",
-      catalogDisplayIds: ["P-1-v1", "P-2-v1", "P-3-v1", "P-4-v1"],
+      catalogDisplayIds: ["7K3-M9QP", "ABC-123T", "PEP-T1D3", "GEN-E42K"],
     });
     writeFileSync(
       temporary.input,
@@ -130,19 +139,19 @@ test("instructor input retains only four human-readable catalog IDs", () => {
         instructorSetupCheckpointFile: join(temporary.directory, "instructor-setup-checkpoint.txt"),
         catalogDisplayIds: [
           {
-            displayId: "P-1-v1",
-            problemId: "123e4567-e89b-12d3-a456-426614174002",
+            displayId: "7K3-M9QP",
+            problemId: "A-74",
             versionId: "123e4567-e89b-12d3-a456-426614174003",
           },
-          "P-2-v1",
-          "P-3-v1",
-          "P-4-v1",
+          "ABC-123T",
+          "PEP-T1D3",
+          "GEN-E42K",
         ],
         screenshotDirectory: null,
       }),
       { encoding: "ascii", mode: 0o600 },
     );
-    expect(() => readUiWalkthroughInputs(temporary.input)).toThrow("catalog display ID is invalid");
+    expect(() => readUiWalkthroughInputs(temporary.input)).toThrow("Question ID is invalid");
   } finally {
     rmSync(temporary.directory, { recursive: true, force: true });
   }

@@ -759,9 +759,6 @@ function QuestionContent(props: QuestionRendererProps): JSX.Element {
   return (
     <section class="question-renderer" aria-labelledby="question-prompt-heading">
       <style>{QUESTION_RENDERER_STYLES}</style>
-      <p class="question-renderer__status" role="status" aria-live="polite">
-        Question content ready.
-      </p>
       <div class="question-renderer__prompt">
         <h2 id="question-prompt-heading">Question</h2>
         <For each={props.presentation.prompt}>

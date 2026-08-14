@@ -43,7 +43,7 @@ export interface ChapterOneQuestionReference {
   readonly versionId: string;
 }
 
-const DISPLAY_ID = /^P-[1-9][0-9]*-v[1-9][0-9]*$/u;
+const QUESTION_ID = /^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u;
 const GENETICS_CHAPTER_ONE_SLUGS = [
   "genetics-disorders-webwork-mc",
   "genetics-disorders-webwork-matching",
@@ -97,7 +97,7 @@ export function chapterOneGeneticsQuestions(
     // catalog's exact human ID is the authoritative selection key.
     if (
       typeof displayId !== "string" ||
-      !DISPLAY_ID.test(displayId) ||
+      !QUESTION_ID.test(displayId) ||
       !isUuid(problemId) ||
       !isUuid(versionId)
     ) {

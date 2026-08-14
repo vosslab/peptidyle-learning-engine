@@ -5,14 +5,16 @@ set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 readonly REPO_ROOT
-readonly COMPOSE_FILE="$REPO_ROOT/tests/e2e/compose.course-appearance.yaml"
-readonly PROJECT_NAME="ple_course_appearance_$$"
 readonly POSTGRES_USER="ple_course_appearance"
 readonly POSTGRES_DB="ple_course_appearance"
 readonly POSTGRES_PORT="${PLE_COURSE_APPEARANCE_POSTGRES_PORT:-$((49000 + RANDOM % 500))}"
 readonly MINIO_PORT="${PLE_COURSE_APPEARANCE_MINIO_PORT:-$((50000 + RANDOM % 500))}"
 
 COMPOSE_STARTED=0
+ENV_FILE=""
+MANIFEST_FILE=""
+CAPABILITY_FILE=""
+PROJECT_NAME=""
 
 fail() {
 	echo "course appearance E2E: $*" >&2
@@ -24,23 +26,55 @@ require_command() {
 }
 
 compose() {
-	env POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
-		POSTGRES_DB="$POSTGRES_DB" PLE_POSTGRES_HOST_PORT="$POSTGRES_PORT" \
-		MINIO_ROOT_USER="$MINIO_ROOT_USER" MINIO_ROOT_PASSWORD="$MINIO_ROOT_PASSWORD" \
-		PLE_MINIO_API_HOST_PORT="$MINIO_PORT" podman-compose \
-		-p "$PROJECT_NAME" -f "$COMPOSE_FILE" "$@"
+	python3 "$REPO_ROOT/local_stack_consumer.py" compose --manifest "$MANIFEST_FILE" "$@"
 }
 
 cleanup() {
 	local status="$?"
+	local cleanup_failed=0
 	if [ "${PLE_E2E_KEEP:-0}" = "1" ]; then
-		echo "course appearance E2E: preserving disposable project $PROJECT_NAME"
+		echo "course appearance E2E: preserving disposable project $PROJECT_NAME (manifest $MANIFEST_FILE)"
 	elif [ "$COMPOSE_STARTED" = "1" ]; then
-		compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+		python3 "$REPO_ROOT/local_stack_consumer.py" cleanup --manifest "$MANIFEST_FILE" \
+			|| cleanup_failed=1
+	fi
+	if [ "${PLE_E2E_KEEP:-0}" != "1" ] && [ "$cleanup_failed" = "0" ]; then
+		[ -n "$ENV_FILE" ] && rm -f -- "$ENV_FILE"
+		[ -n "$MANIFEST_FILE" ] && rm -f -- "$MANIFEST_FILE"
+		[ -n "$CAPABILITY_FILE" ] && rm -f -- "$CAPABILITY_FILE"
+	fi
+	if [ "$cleanup_failed" = "1" ]; then
+		echo "course appearance E2E: cleanup failed; inspect project $PROJECT_NAME with manifest $MANIFEST_FILE" >&2
+		[ "$status" -ne 0 ] || status=1
 	fi
 	exit "$status"
 }
 trap cleanup EXIT
+
+write_private_target() {
+	local project_token capability_digest
+	project_token="$(python3 -c 'import secrets; print(secrets.token_hex(12))')"
+	PROJECT_NAME="ple_course_appearance_${project_token}"
+	ENV_FILE="$(mktemp "${TMPDIR:-/tmp}/ple-course-appearance.XXXXXX.env")"
+	MANIFEST_FILE="$(mktemp "${TMPDIR:-/tmp}/ple-course-appearance.XXXXXX.manifest")"
+	CAPABILITY_FILE="$(mktemp "${TMPDIR:-/tmp}/ple-course-appearance.XXXXXX.capability")"
+	capability_digest="$(python3 -c 'import hashlib, os, secrets, sys; raw = secrets.token_bytes(32); fd = os.open(sys.argv[1], os.O_WRONLY | os.O_TRUNC, 0o600); os.write(fd, raw); os.close(fd); os.chmod(sys.argv[1], 0o600); print(hashlib.sha256(raw).hexdigest())' "$CAPABILITY_FILE")"
+	chmod 600 "$ENV_FILE" "$MANIFEST_FILE" "$CAPABILITY_FILE"
+	printf '%s\n' \
+		"POSTGRES_USER=$POSTGRES_USER" \
+		"POSTGRES_PASSWORD=$POSTGRES_PASSWORD" \
+		"POSTGRES_DB=$POSTGRES_DB" \
+		"PLE_POSTGRES_HOST_PORT=$POSTGRES_PORT" \
+		"MINIO_ROOT_USER=$MINIO_ROOT_USER" \
+		"MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD" \
+		"PLE_MINIO_API_HOST_PORT=$MINIO_PORT" \
+		"PLE_DISPOSABLE_CAPABILITY_SHA256=$capability_digest" >"$ENV_FILE"
+	printf '%s\n' \
+		"OWNER=course-appearance" \
+		"PROJECT=$PROJECT_NAME" \
+		"ENV_FILE=$ENV_FILE" \
+		"CAPABILITY_FILE=$CAPABILITY_FILE" >"$MANIFEST_FILE"
+}
 
 wait_for_postgres() {
 	for _ in {1..30}; do
@@ -66,9 +100,7 @@ wait_for_minio() {
 cd "$REPO_ROOT"
 require_command cargo
 require_command podman
-require_command podman-compose
 require_command python3
-[ -f "$COMPOSE_FILE" ] || fail "missing Compose definition: $COMPOSE_FILE"
 
 # Repository Python commands always run through the maintained environment.
 # shellcheck disable=SC1091
@@ -77,10 +109,11 @@ POSTGRES_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24)
 MINIO_ROOT_USER="ple-course-appearance"
 MINIO_ROOT_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
 export POSTGRES_PASSWORD MINIO_ROOT_USER MINIO_ROOT_PASSWORD
+write_private_target
 
 echo "course appearance E2E: starting isolated PostgreSQL and MinIO"
-compose up -d postgres minio
 COMPOSE_STARTED=1
+compose up -d postgres minio
 wait_for_postgres
 wait_for_minio
 compose run --rm createbuckets

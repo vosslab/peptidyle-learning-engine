@@ -111,8 +111,11 @@ impl crate::RunStore for MemoryStore {
             .unwrap_or(0)
             .checked_add(1)
             .ok_or_else(|| StoreError::InvalidRecord("run number overflow".to_string()))?;
+        let public_id =
+            super::navigation_references::ensure_run_public_id(&mut state, tenant, proposed_run)?;
         let run = AssignmentRun {
             id: proposed_run,
+            public_id,
             tenant,
             enrollment: enrollment.id,
             run_number,

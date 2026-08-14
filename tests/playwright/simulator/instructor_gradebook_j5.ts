@@ -11,8 +11,8 @@ export type J5VisibleOutcomeCode = (typeof J5_CODES)[number];
 export type J5SummaryVisibleOutcomeCode = (typeof J5_SCORE_CODES)[number];
 
 /** Returns the exact-course selector for the instructor's rendered Gradebook link. */
-export function instructorGradebookLinkSelector(courseId: string): string {
-  return `a[href="/instructor/courses/${courseId}/gradebook"]`;
+export function instructorGradebookLinkSelector(courseReference: string): string {
+  return `a[href="/instructor/courses/${courseReference}/gradebook"]`;
 }
 
 /**
@@ -24,15 +24,15 @@ export interface J5JourneyFragment {
   readonly journey: "J5";
   readonly status: "PASS";
   readonly elapsedMs: number;
-  readonly courseId: string;
-  readonly assignmentId: string;
+  readonly courseReference: string;
+  readonly assignmentReference: string;
   readonly visibleOutcomeCodes: readonly J5VisibleOutcomeCode[];
   readonly diagnostics: readonly [];
 }
 
 export function passedW4Fragment(
-  courseId: string,
-  assignmentId: string,
+  courseReference: string,
+  assignmentReference: string,
   elapsedMs: number,
 ): J5JourneyFragment {
   return {
@@ -40,8 +40,8 @@ export function passedW4Fragment(
     journey: "J5",
     status: "PASS",
     elapsedMs,
-    courseId,
-    assignmentId,
+    courseReference,
+    assignmentReference,
     visibleOutcomeCodes: J5_CODES,
     diagnostics: [],
   };
@@ -57,16 +57,16 @@ export interface J5SummaryEvidence {
   readonly journey: "J5";
   readonly status: "PASS";
   readonly elapsedMs: number;
-  readonly courseId: string;
-  readonly assignmentId: string;
+  readonly courseReference: string;
+  readonly assignmentReference: string;
   readonly visibleOutcomeCodes: readonly J5SummaryVisibleOutcomeCode[];
   readonly diagnostics: readonly [];
 }
 
 /** Builds the closed J5 evidence after the browser has visibly proved score and history. */
 export function passedJ5SummaryEvidence(
-  courseId: string,
-  assignmentId: string,
+  courseReference: string,
+  assignmentReference: string,
   elapsedMs: number,
 ): J5SummaryEvidence {
   return {
@@ -74,8 +74,8 @@ export function passedJ5SummaryEvidence(
     journey: "J5",
     status: "PASS",
     elapsedMs,
-    courseId,
-    assignmentId,
+    courseReference,
+    assignmentReference,
     visibleOutcomeCodes: J5_SCORE_CODES,
     diagnostics: [],
   };

@@ -260,7 +260,7 @@ async fn postgres_item_analysis_is_current_private_and_generation_fenced() {
     verify_application_schema(&pool)
         .await
         .expect("baseline schema");
-    let store = PostgresStore::new(pool.clone());
+    let store = PostgresStore::with_question_id_secret(pool.clone(), [0x42; 32]);
     let tenant = question_model::TenantId::from_uuid(id());
     let foreign_tenant = question_model::TenantId::from_uuid(id());
     let context = TenantContext::from_authenticated_session(tenant);

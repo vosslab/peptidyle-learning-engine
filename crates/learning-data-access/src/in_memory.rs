@@ -1,6 +1,7 @@
-//! In-memory Store backend (WP-C4, MOD-STO).
+//! In-memory Store backend for deterministic contract and server tests.
 
 mod account_identity;
+mod account_presentation;
 mod activity;
 mod assets;
 mod authoring;
@@ -20,6 +21,7 @@ mod flat_question;
 mod flat_question_assets;
 mod item_analysis;
 mod manual_grade_export;
+mod navigation_references;
 mod qti;
 mod qti_ingress;
 mod queue;
@@ -269,7 +271,21 @@ impl MemoryStore {
 struct State {
     authoritative_time: ActivityTimestamp,
     next_problem_public_id: u64,
+    next_course_public_id: u32,
+    next_assignment_public_id: u32,
+    next_run_public_id: u32,
+    next_workspace_public_id: u32,
+    course_public_ids: BTreeMap<(TenantId, CourseId), question_model::CoursePublicId>,
+    courses_by_public_id: BTreeMap<(TenantId, question_model::CoursePublicId), CourseId>,
+    assignment_public_ids: BTreeMap<(TenantId, AssignmentId), question_model::AssignmentPublicId>,
+    assignments_by_public_id:
+        BTreeMap<(TenantId, question_model::AssignmentPublicId), AssignmentId>,
+    run_public_ids: BTreeMap<(TenantId, RunId), question_model::RunPublicId>,
+    runs_by_public_id: BTreeMap<(TenantId, question_model::RunPublicId), RunId>,
+    workspace_public_ids: BTreeMap<(TenantId, WorkspaceId), question_model::WorkspacePublicId>,
+    workspaces_by_public_id: BTreeMap<(TenantId, question_model::WorkspacePublicId), WorkspaceId>,
     accounts: BTreeMap<UserId, AccountRecord>,
+    account_presentation: BTreeMap<UserId, crate::AccountPresentationPreference>,
     account_by_email: BTreeMap<String, UserId>,
     authentication_rate_limits: BTreeMap<
         (AuthenticationRateLimitScope, AuthenticationRateLimitKey),
@@ -286,6 +302,7 @@ struct State {
     draft_revisions: BTreeMap<(TenantId, WorkspaceId), WorkspaceDraftRevision>,
     draft_access: BTreeMap<(TenantId, WorkspaceId, UserId), WorkspaceDraftRole>,
     problem_owner_tenants: BTreeMap<ProblemId, TenantId>,
+    problem_owner_users: BTreeMap<ProblemId, UserId>,
     published: BTreeMap<(ProblemId, VersionId), PublishedProblemRecord>,
     source_artifacts: BTreeMap<(ProblemId, VersionId), PublishedSourceArtifact>,
     flat_question_sources: BTreeMap<(TenantId, WorkspaceId), WorkspaceFlatQuestionSource>,

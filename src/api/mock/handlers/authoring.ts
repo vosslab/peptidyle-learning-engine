@@ -166,10 +166,12 @@ export async function respondAuthoring(
     if (requestFailure !== undefined) return requestFailure;
     const validationFailure = assignmentValidationFailure(input);
     if (validationFailure !== undefined) return validationFailure;
+    const publicId = Number(state.nextId);
     const id = mockAssignmentId(state.nextId);
     state.nextId += 1n;
     state.assignment = {
       id,
+      publicId,
       tenant: publishedProblemFixture.assignment.tenant,
       courseId: publishedProblemFixture.course.id,
       title: input.title,

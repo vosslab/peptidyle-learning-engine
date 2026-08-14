@@ -515,10 +515,10 @@ This is the baseline TypeScript repository layout:
 - `src/style.css` &mdash; stylesheet copied verbatim into `dist/`.
 - `dist/` &mdash; only build output (canonical GitHub Pages artifact).
 
-Entry point: `src/main.ts` (or `src/main.tsx` for JSX/Solid) is canonical. `src/init.ts` is
-LEGACY: `build_github_pages.sh` still accepts it as a fallback and prints a rename warning, so
-migrate it to `src/main.ts`. The names are not co-equal; `main.ts`/`main.tsx` is the target
-and `init.ts` is deprecated.
+Entry point: `src/main.ts` (or `src/main.tsx` for JSX/Solid) is the only supported canonical
+entry. Builds fail clearly when neither file is present, so migrate any older `src/init.ts`
+entry to `src/main.ts`. The names are not co-equal: `main.ts`/`main.tsx` is the supported
+contract.
 
 This is the canonical floor, not a ceiling. Per-repo additions (`src/*.ts` modules, `tests/test_*.mjs`, `tests/playwright/*.spec.ts`) are expected and not constrained. `src/` modules use snake_case filenames and may be organized into grouping subdirectories as a repo grows. `check_codebase.sh` step 6 (`node --import tsx --test 'tests/test_*.mjs'`) SKIPs cleanly (does not fail the gate) when no `tests/test_*.mjs` files are present, so a fresh consumer can land its first test without a placeholder smoke file shipped by the template.
 

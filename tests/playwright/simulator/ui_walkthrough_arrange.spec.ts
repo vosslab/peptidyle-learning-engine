@@ -32,22 +32,22 @@ test("private parser accepts only the instructor and the launcher baseline refer
 test("instructor setup retains the four launcher Chapter 1 Genetics references", () => {
   const output = instructorSetupArrangementOutput([
     {
-      displayId: "P-11-v1",
+      displayId: "7K3-M9QP",
       problemId: "123e4567-e89b-12d3-a456-426614174001",
       versionId: "123e4567-e89b-12d3-a456-426614174002",
     },
     {
-      displayId: "P-12-v1",
+      displayId: "ABC-123T",
       problemId: "123e4567-e89b-12d3-a456-426614174003",
       versionId: "123e4567-e89b-12d3-a456-426614174004",
     },
     {
-      displayId: "P-13-v1",
+      displayId: "PEP-T1D3",
       problemId: "123e4567-e89b-12d3-a456-426614174005",
       versionId: "123e4567-e89b-12d3-a456-426614174006",
     },
     {
-      displayId: "P-14-v1",
+      displayId: "GEN-E42K",
       problemId: "123e4567-e89b-12d3-a456-426614174007",
       versionId: "123e4567-e89b-12d3-a456-426614174008",
     },

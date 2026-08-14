@@ -2,8 +2,12 @@
 
 This document answers one operational question: why does each container in the
 PLE local stack exist? The authoritative configuration is
-[`containers/compose.yaml`](../containers/compose.yaml). The maintained startup
-path is [`launch_local_stack.sh`](../launch_local_stack.sh).
+[`containers/compose.yaml`](../containers/compose.yaml). The normal operator
+path is `local_stack.py`, which delegates bootstrap and startup to
+`launch_local_stack.sh`. This keeps
+Compose lifecycle discovery, scoped logs, confirmation, and acceptance
+preflight in one Python controller while the launcher remains the only owner
+of build, migration, seed, renderer, and readiness sequencing.
 
 The normal stack includes PLE's standalone WeBWorK PG renderer. SMTP is the one
 optional overlay because PLE connects to an external mail provider rather than
@@ -44,8 +48,8 @@ has a read-only root filesystem, drops all Linux capabilities, sets
 budgets. The exception is not a broad privilege grant: the networkless,
 one-shot `local-data-volume-permissions` helper starts as root inside the
 rootless Podman user namespace with only `CAP_CHOWN`, then exits after setting
-the two volume-directory owners. These controls contain accidental service
-escape and resource exhaustion; they do not make a host or Podman-socket
+the PostgreSQL volume root and retained MinIO tree owners. These controls
+contain accidental service escape and resource exhaustion; they do not make a host or Podman-socket
 administrator unable to read local development data.
 
 ## One-shot services
@@ -56,14 +60,23 @@ permissions.
 
 | Service                | Necessary role                                                                                                     | Safety property                                                                                                             |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `local-data-volume-permissions` | Assigns the two fresh named-volume top directories to the fixed database and object-store UIDs. | Rootless, networkless, one-shot, read-only-root task with only `CAP_CHOWN`; it neither traverses data nor remains running. |
+| `local-data-volume-permissions` | Assigns the PostgreSQL volume root and retained MinIO tree to the fixed daemon UIDs. | Rootless, networkless, one-shot, read-only-root task with only `CAP_CHOWN`; it changes ownership metadata and does not remain running. |
 | `postgres-major-guard` | Reads an existing `PG_VERSION` before PostgreSQL starts.                                                           | Read-only volume, no network, and refusal when the retained volume is not PostgreSQL 17. It never migrates or deletes data. |
 | `createbuckets`        | Creates the four required MinIO buckets idempotently.                                                              | It exits after setup; API and worker do not need bucket-administration behavior.                                            |
-| `identity-secret-init` | Copies the host-owned invitation issuer secret into an API-readable runtime volume with the API UID and mode 0600. | No network and a minimal capability set; the host path is not exposed to the API.                                           |
+| `identity-secret-init` | Copies the host-owned invitation issuer and Question ID capabilities into an API-only runtime volume with the fixed API UID and mode 0600. | Networkless with a minimal capability set; raw host paths are not mounted into the API, and the worker does not receive this volume. |
 | `smtp-secret-init`     | When the SMTP overlay is selected, copies an external provider credential into an API-readable runtime volume.     | No network; PLE never starts a mail-transfer service.                                                                       |
 
 Stopped successful one-shot containers may appear in `podman ps -a`. They are
 not failed daemons and consume no running CPU after completion.
+
+`local_stack.py status` makes that distinction explicit. A required one-shot
+is complete only when it exited zero; a required long-running service is ready
+only when it is running and healthy, except that the worker is ready when its
+supervised process runs because it has no HTTP health check. The controller
+reports duplicate labelled service instances as a failure rather than choosing
+one. Selecting `--with-smtp` requires `smtp-secret-init`, and status also
+infers that overlay from its labelled initializer or runtime volume when the
+operator omitted the flag.
 
 ## Volumes
 
@@ -71,7 +84,7 @@ not failed daemons and consume no running CPU after completion.
 | ---------------------- | --------------------------------- | -------------------------------------------------------------------------------------- |
 | `ple_pgdata`           | PostgreSQL                        | Durable relational authority. Preserve it across normal `down` and rebuild operations. |
 | `ple_miniodata`        | MinIO                             | Durable object bytes and metadata. Preserve it with the relational volume.             |
-| `ple_identity_runtime` | Secret initializer and API        | Runtime-only permission-normalized invitation secret copy, not an educational record.  |
+| `ple_identity_runtime` | Secret initializer and API        | Runtime-only permission-normalized invitation issuer and Question ID capability copies, mounted only by the API; not educational records. |
 | `ple_smtp_runtime`     | Optional SMTP initializer and API | Runtime-only external provider credential copy. Present only with the SMTP overlay.    |
 
 PostgreSQL, MinIO, and `createbuckets` use fixed non-root identities, immutable
@@ -87,12 +100,12 @@ storage, IAM, and KMS controls.
 The normal stop command intentionally omits `--volumes`:
 
 ```bash
-podman compose -f containers/compose.yaml \
-  --env-file containers/env.local down --remove-orphans
+source source_me.sh && python3 local_stack.py stop
 ```
 
-An explicit backup or migration procedure should precede any operation that
-removes `ple_pgdata` or `ple_miniodata`.
+The controller requires `reset --confirm-project containers` before removing default-stack named
+volumes. An explicit backup or migration procedure should precede any operation that removes
+`ple_pgdata` or `ple_miniodata`.
 
 ## Networks
 
@@ -129,7 +142,10 @@ whether the PLE launcher may manage a container.
 - If the renderer is unavailable while the API is running, WeBWorK-backed
   questions fail closed. Native questions and stored records remain intact.
 - Restarting or recreating the renderer requires no data recovery.
-- Restarting PostgreSQL or MinIO reattaches their named volumes.
+- A supported full start reattaches PostgreSQL and MinIO to their named volumes.
+- The controller limits individual restart to the stateless API, worker,
+  gateway, and renderer services; it does not independently restart stateful
+  storage services.
 - Worker failure leaves durable jobs available for a later worker lease.
 - Gateway failure removes browser reachability but does not mutate records.
 
@@ -137,8 +153,8 @@ whether the PLE launcher may manage a container.
 
 Fast permanent tests inspect durable topology and security properties: the
 renderer has no database, volume, host port, or browser network; required
-services remain in the normal stack; and the launcher exposes no legacy
-WebWork option.
+services remain in the normal stack; and controller parsing, project ownership,
+and cleanup confirmation preserve their bounded contracts.
 
 Live container and browser behavior belongs in the explicit E2E lane:
 
@@ -157,6 +173,13 @@ Chapter 1 publication gate publishes the exact two-by-four release matrix into i
 and MinIO, then proves an exact rerun. The Chapter 1 browser gate completes those eight questions
 through visible keyboard controls in a complete isolated PLE stack. They are explicit E2E evidence,
 not permanent pytest cases or a claim that every PG problem is compatible.
+
+The aggregate live browser command is `source source_me.sh && python3
+local_stack.py acceptance`. It runs a read-only conflict preflight first and
+refuses default or walkthrough projects with retained containers, so it cannot
+silently reuse, stop, or delete another local run. The active plan names the
+full Validation test suite; [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite)
+defines why permanent offline checks and opt-in live acceptance remain separate.
 
 See [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for operating commands and
 [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md) for replica and production

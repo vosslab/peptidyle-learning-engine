@@ -19,19 +19,19 @@ const EXPECTED_ROUTE_PATHS = [
   "/auth/account/email/complete",
   "/course-invitations/redeem",
   "/account/security",
-  "/courses/:courseId",
-  "/courses/:courseId/assignments/:assignmentId",
-  "/runs/:runId",
-  "/runs/:runId/summary",
+  "/courses/:courseRef",
+  "/courses/:courseRef/assignments/:assignmentRef",
+  "/runs/:runRef",
+  "/runs/:runRef/summary",
   "/library",
-  "/library/:problemId/versions/:versionId",
+  "/library/:problemRef",
   "/workspace",
-  "/workspace/:workspaceId",
-  "/instructor/courses/:courseId/assignments/new",
-  "/instructor/courses/:courseId/assignments/:assignmentId/edit",
-  "/instructor/courses/:courseId/gradebook",
-  "/instructor/courses/:courseId/appearance",
-  "/instructor/courses/:courseId/students",
+  "/workspace/:workspaceRef",
+  "/instructor/courses/:courseRef/assignments/new",
+  "/instructor/courses/:courseRef/assignments/:assignmentRef/edit",
+  "/instructor/courses/:courseRef/gradebook",
+  "/instructor/courses/:courseRef/appearance",
+  "/instructor/courses/:courseRef/students",
 ];
 
 test("the product route data matches the frozen route contract", () => {
@@ -319,7 +319,8 @@ test("the learner route renders only its issued envelope through question-agnost
   assert.match(source, /<QuestionRenderer/);
   assert.match(source, /<ResponseWidget/);
   assert.match(source, /createAttemptStateMachine/);
-  assert.match(source, /runtime\.queries\.runScreen/);
+  assert.match(source, /useCourseThemeRouteData/);
+  assert.doesNotMatch(source, /runtime\.queries\.runScreen/);
   assert.doesNotMatch(source, /MultipleChoiceResponse/);
   assert.doesNotMatch(source, /QuestionDefinition/);
   assert.doesNotMatch(source, /answerKey|correctResponse|grading/iu);

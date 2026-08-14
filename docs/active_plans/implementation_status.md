@@ -1,6 +1,6 @@
 # Implementation status and handoff
 
-Last updated: 2026-08-12
+Last updated: 2026-08-13
 
 This file is a durable execution handoff. The architecture, scope, milestone order, security
 boundaries, and acceptance criteria remain authoritative in `implementation_plan.md`. Durable owner
@@ -17,6 +17,8 @@ source, follow those sources and correct this file.
 - Complete one dependency-ordered slice, run its behavior gates, obtain an independent review, and
   update `../CHANGELOG.md` before advancing.
 - Use `source source_me.sh && python3 ...` for repository Python commands.
+- Use `local_stack.py` for routine local-stack status, logs, normal stop,
+  reset preview, and validation delegation. The launcher remains the startup/bootstrap owner.
 - Keep maintained source ASCII/ISO-8859-1 compatible. Write non-Latin Unicode in Rust fixtures with
   escapes such as `\u{1F9EC}`.
 - `../CLAUDE_HOOK_USAGE_GUIDE.md` is intentionally removed and does not govern Codex work.
@@ -262,11 +264,13 @@ The WP-QTI-12 independent review and documentation close-out is complete:
 
 - The 2026-08-11 Human Guidance reconciliation remains active; its completed content and
   instructor-identifier sub-slice does not close the broader guidance audit. The assignment editor
-  resolves catalog titles and displays copyable `P-...-v...` identities plus backend labels rather
-  than presenting UUID tuples as problem numbers. Its **Add by question ID** control accepts one or
-  more comma- or newline-separated exact IDs, resolves all of them before changing the draft, and
-  preserves both pasted input and the assignment for malformed, unavailable, unauthorized, or
-  duplicate IDs. The Chapter 1 source corpus now contains the owner-specified eight
+  resolves catalog titles and displays copyable canonical `AAA-BBBB` Crockford Question IDs plus
+  backend labels rather than presenting UUID tuples as problem numbers. Server-side checksum
+  validation and tenant/actor authorization resolve the current assignable question; hidden
+  immutable snapshots and version identity remain internal for grading and provenance. Its
+  **Add by question ID** control accepts one or more comma- or newline-separated exact IDs,
+  resolves all of them before changing the draft, and preserves both pasted input and the assignment
+  for malformed, unavailable, unauthorized, or duplicate IDs. The Chapter 1 source corpus now contains the owner-specified eight
   reviewed questions: one WeBWorK MC, WeBWorK MATCH, PLE flat MC, and PLE flat MATCH in each of
   Genetics and Biochemistry. `cargo tools pilot-content` proves the source/compiler contract, and
   `bash tests/e2e/e2e_chapter_one_pilot.sh` now passes the real PostgreSQL/MinIO publication path,
@@ -359,9 +363,11 @@ are clean; and three independent reviewers reported no P0/P1/P2.
   lifecycle guard prevents delayed course A responses from changing course B.
 - The default canonical walkthrough now also requires two owner-requested human-guidance checks
   without widening the public schema-v2 report: J13 verifies an operational human-readable
-  `P-...-v...` catalog identity plus backend label rather than UUID text, copies/pastes the four
-  exact Genetics Chapter 1 IDs, and visibly observes four selected immutable versions before
-  creation. The complete two-chapter eight-question sweep remains the isolated release oracle.
+  `AAA-BBBB` Question ID plus backend label rather than UUID text, copies/pastes the four exact
+  Genetics Chapter 1 IDs, and visibly observes four selected questions before creation. Server-side
+  checksum validation and tenant/actor authorization resolve the current assignable question;
+  immutable snapshots and version identity remain internal for grading and provenance. The complete
+  two-chapter eight-question sweep remains the isolated release oracle.
 - The current runner refactor replaces inherited hidden Python walkthrough switches with documented
   arguments and one explicit schema-versioned private child-input boundary. Focused offline tests
   cover its validation and environment isolation. The rebuilt Podman/Playwright execution passed
@@ -401,7 +407,7 @@ does not silently accept a future package.
 | Human-guidance area                                               | Current disposition                                           | Evidence or remaining owner                                                                                                                                                                                                                                                                      |
 | ----------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Device priorities and visual density                              | Accepted for the current instructor and learner surfaces      | Canonical 1280 by 800 clean-stack screenshots, 800 by 1280 student/tablet task coverage, one narrow-phone compatibility guard, and the compact-interface browser gates. CSS Grid/Flexbox plus media/container queries remain the default; no responsive-menu dependency was added.               |
-| Human-readable instructor identifiers                             | Accepted                                                      | The live instructor path copies and pastes the four exact Genetics `P-n-v1` references, while malformed/unavailable/unauthorized/duplicate recovery remains covered by permanent behavior tests.                                                                                                 |
+| Human-readable instructor identifiers                             | Accepted                                                      | The live instructor path copies and pastes four exact Genetics `AAA-BBBB` Question IDs. Server checksum validation and tenant/actor authorization resolve current assignable questions, while malformed/unavailable/unauthorized/duplicate recovery remains covered by permanent behavior tests. |
 | Teaching loop, timing, repeat practice, and gradebook             | Accepted as WP-HG1                                            | The visible no-email J11/J12/J13/J1--J5/J8 path, 15-minute run, fresh second run, and two-run gradebook passed with redacted private evidence.                                                                                                                                                   |
 | Student keyboard interaction and native-family recovery           | Accepted for implemented surfaces                             | Platform Tab/Shift+Tab plus Enter/Space works through the live learner path; all eight native widgets have keyboard controls, answer-free progress, and unsubmitted reset/recovery behavior.                                                                                                     |
 | Native flat v2 authoring and runtime                              | Implemented; integrated package acceptance remains WP-RC4/RC5 | All eight closed v2 source families, protected visual editors, server-only grading, immutable HOTSPOT publication, and issue-time asset binding are implemented. Full all-family PostgreSQL/object-store author-to-learner lifecycle and screen-reader closeout remain open.                     |

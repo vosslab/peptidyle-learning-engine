@@ -35,6 +35,8 @@ pub mod identity;
 pub mod lifecycle;
 /// Browser-safe, attempt-presentation-scoped question contracts.
 pub mod presentation;
+/// Human-facing route locators that resolve to internal identities under authorization.
+pub mod public_route;
 pub mod response;
 pub mod run_policy;
 /// Browser-safe anonymous-statistics projections and disclosure policy.
@@ -66,8 +68,9 @@ pub use crate::catalog::{
     CatalogProblemDetail, CatalogProblemSummary, CatalogSearchFacets, CatalogSearchPage,
     CatalogSearchQuery, CatalogSearchQueryError, CatalogStatisticsAvailability,
     CatalogStatisticsFacet, CatalogStatisticsStatus, CatalogTaxonomyFacet, CatalogTaxonomyFilter,
-    MAX_CATALOG_TAXONOMY_FACETS, ProblemDisplayRef, ProblemPublicId, ProblemVersionNumber,
-    ProblemVersionRef, PublicationScope, QuestionBackend,
+    MAX_CATALOG_TAXONOMY_FACETS, MAX_QUESTION_ID_COUNT, ProblemDisplayRef, ProblemPublicId,
+    ProblemVersionNumber, ProblemVersionRef, PublicationScope, QUESTION_ID_ALPHABET,
+    QUESTION_ID_COMPACT_LENGTH, QUESTION_ID_IDENTIFIER_LENGTH, QuestionBackend, QuestionId,
 };
 pub use crate::course::{
     AssignmentSummary, CourseMembership, CourseMembershipRole, CourseSummary, GradebookSummaryRow,
@@ -95,6 +98,9 @@ pub use crate::presentation::{
     LearnerRunScreenV1, PresentationBindingV1, PresentationDigestTokenV1, PresentationDigestV1,
     PresentationEnvelopeV1, PresentationNonceV1, PresentedBlankV1, PresentedChoiceV1,
     PresentedHotspotRegionV1, PresentedHotspotSurfaceV1, RenderedItemIdV1, ResponseSchemaV1,
+};
+pub use crate::public_route::{
+    AssignmentPublicId, CoursePublicId, MAX_PUBLIC_ROUTE_NUMBER, RunPublicId, WorkspacePublicId,
 };
 pub use crate::response::{ResponseDefinition, StudentResponse};
 pub use crate::run_policy::{

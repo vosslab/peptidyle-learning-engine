@@ -481,6 +481,7 @@ fn authenticated_for_test(context: TenantContext) -> AuthenticatedSession {
             expires_at: ActivityTimestamp::from_unix_millis(20_000),
         },
         tenant_context: context,
+        session_hash: SessionTokenHash::compute(b"run-route-test-session"),
     }
 }
 

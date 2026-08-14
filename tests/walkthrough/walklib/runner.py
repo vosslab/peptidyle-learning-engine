@@ -9,6 +9,10 @@ import stat
 import sys
 import tempfile
 
+import local_stack_control.compose
+import local_stack_control.env_file
+import local_stack_control.models
+
 import walklib.arrangement_contract
 import walklib.configuration
 import walklib.instructor_handoff
@@ -66,8 +70,7 @@ RunnerError = walklib.models.RunnerError
 RunnerInputs = walklib.models.RunnerInputs
 CommandResult = walklib.models.CommandResult
 CommandRunner = walklib.models.CommandRunner
-
-
+WalkthroughControllerRunner = walklib.process.WalkthroughControllerRunner
 parse_args = walklib.configuration.parse_args
 resolve_inputs = walklib.configuration.resolve_inputs
 validate_regular_readable_file = walklib.configuration.validate_regular_readable_file
@@ -100,7 +103,8 @@ class WalkthroughRunner:
 		self.repository_root = repository_root
 		self.environ = environ
 		self.run_command = run_command
-		self.compose_command: list[str] = []
+		self.disposable_target: local_stack_control.models.DisposableComposeTarget | None = None
+		self.disposable_capability_file: pathlib.Path | None = None
 		self.compose_project_name = create_compose_project_name(secrets.token_hex(8))
 		self.stack_launch_attempted = False
 		self.report_directory = repository_root / "test-results" / "ui_walkthrough"
@@ -126,22 +130,34 @@ class WalkthroughRunner:
 		self.instructor_setup_checkpoint_identity: tuple[int, int] | None = None
 		self.instructor_setup_failure_checkpoint: str | None = None
 
-	#============================================
 	def sanitized_child_environment(self) -> dict[str, str]:
 		"""Remove ambient runner controls before every runner-owned child process."""
 		environment = {
 			name: value
-			for name, value in self.environ.items()
+			for name, value in local_stack_control.env_file.sanitized_runtime_environment(self.environ).items()
 			if not name.startswith("PLE_") and name != "COMPOSE_PROJECT_NAME"
 		}
 		return environment
 
-	#============================================
 	def compose_child_environment(self) -> dict[str, str]:
 		"""Pass the generated project name only to stack-owning child processes."""
-		return self.sanitized_child_environment() | dict(COMPOSE_PROJECT_NAME=self.compose_project_name)
+		disposable = self.disposable_target
+		if disposable is None:
+			# Pre-target validation is still isolated from every ambient PLE setting.
+			return self.sanitized_child_environment() | dict(
+				COMPOSE_PROJECT_NAME=self.compose_project_name
+			)
+		environment = local_stack_control.compose.target_environment(
+			disposable.target,
+			self.sanitized_child_environment(),
+		)
+		return environment
 
-	#============================================
+	def controller_runner(self) -> walklib.process.WalkthroughControllerRunner:
+		"""Return the shared controller adapter over this runner's child-process seam."""
+		runner = walklib.process.WalkthroughControllerRunner(self.run_command)
+		return runner
+
 	def run_required(
 		self,
 		command: list[str],
@@ -168,37 +184,27 @@ class WalkthroughRunner:
 		print(f"UI walkthrough: {self.report_stage} completed")
 		return result
 
-	#============================================
 	def configure_compose(self) -> None:
-		"""Select a usable Podman Compose provider before touching report or stack state."""
-		podman_available = shutil.which("podman")
-		podman_compose_available = (
-			podman_available is not None
-			and self.run_command(["podman", "compose", "version"], None).returncode == 0
-		)
-		if podman_compose_available:
-			self.compose_command = ["podman", "compose"]
-			return
-		if (
-			shutil.which("podman-compose")
-			and self.run_command(["podman-compose", "version"], None).returncode == 0
-		):
-			self.compose_command = ["podman-compose"]
-			return
-		raise RunnerError("no usable Podman Compose provider is available")
+		"""Resolve the provider through the shared controller before stack lifecycle work."""
+		try:
+			local_stack_control.compose.choose_provider(self.controller_runner(), self.repository_root)
+			walklib.stack_environment.require_rootless_engine(self.controller_runner(), self.repository_root)
+		except local_stack_control.models.ControllerError as error:
+			raise RunnerError("no usable Podman Compose provider is available") from error
 
-	#============================================
 	def assert_no_existing_stack(self) -> None:
 		"""Refuse a generated project that has any stale Podman-owned resource."""
-		assert_no_stale_project_resources(self.compose_project_name, self.run_command)
+		assert_no_stale_project_resources(
+			self.compose_project_name,
+			self.repository_root,
+			self.controller_runner(),
+		)
 
-	#============================================
 	def prepare_report_directory(self) -> None:
 		"""Create a private report parent only after all preflight and ownership checks pass."""
 		self.ensure_report_directory()
 		self.report_ready = True
 
-	#============================================
 	def ensure_report_directory(self) -> None:
 		"""Revalidate and recreate only the private report directory without following links."""
 		walklib.result_receipt.ensure_private_report_directory(
@@ -207,7 +213,6 @@ class WalkthroughRunner:
 			self.report_path,
 		)
 
-	#============================================
 	def write_report(self) -> None:
 		"""Atomically write the minimal private result record without credentials or service output."""
 		if not self.report_ready:
@@ -231,20 +236,18 @@ class WalkthroughRunner:
 			payload,
 		)
 
-	#============================================
 	def compose_down(self) -> None:
 		"""Remove the generated stack and volumes that this runner exclusively owns."""
 		if not self.stack_launch_attempted or self.inputs.keep:
 			return
+		disposable = self.disposable_target
+		if disposable is None:
+			raise RunnerError("walkthrough disposable Compose target is unavailable")
 		walklib.stack_environment.remove_disposable_stack(
-			self.compose_command,
-			self.stack_env_file(),
-			self.compose_project_name,
-			self.compose_child_environment(),
-			self.run_command,
+			disposable,
+			self.controller_runner(),
 		)
 
-	#============================================
 	def arrange(self) -> None:
 		"""Run only the repository-fixed arranger and retain its public IDs after strict parsing."""
 		arranger = self.repository_root / ARRANGER_RELATIVE_PATH
@@ -289,7 +292,6 @@ class WalkthroughRunner:
 		if len(self.arrangements) == 1:
 			return
 
-	#============================================
 	def arrange_instructor_setup(self) -> None:
 		"""Use the launcher-produced four-question Genetics corpus before browser setup."""
 		manifest = self.stack_env_file().parent / "local-chapter-one-pilot.json"
@@ -310,10 +312,9 @@ class WalkthroughRunner:
 		if set(corpus) != {"label"} or corpus["label"] != "launcher-chapter-one-genetics":
 			raise RunnerError("instructor setup arrangement emitted invalid output")
 
-	#============================================
 	def hand_off_instructor_setup(self) -> None:
 		"""Pass only validated public J11/J12/J13 identifiers to fixed student children."""
-		course_id, assignment_id = walklib.instructor_handoff.read_handoff(
+		course_reference, assignment_reference = walklib.instructor_handoff.read_handoff(
 			self.journey_state_file,
 			self.arrangements,
 			self.instructor_catalog_display_ids,
@@ -327,13 +328,12 @@ class WalkthroughRunner:
 				journey_state_file=self.journey_state_file,
 				j1_checkpoint_file=self.j1_checkpoint_file,
 				j2_checkpoint_file=self.j2_checkpoint_file,
-				course_id=course_id,
-				mastery_assignment_id=assignment_id,
+				course_reference=course_reference,
+				mastery_assignment_reference=assignment_reference,
 				screenshot_directory=self.inputs.screenshot_directory,
 			)
 		)
 
-	#============================================
 	def prepare_journey_state(self) -> None:
 		"""Create one private runner-owned state file outside Playwright's artifact tree."""
 		try:
@@ -384,7 +384,6 @@ class WalkthroughRunner:
 		self.playwright_config_file = directory / PLAYWRIGHT_CONFIG_FILE
 		self.write_private_playwright_config()
 
-	#============================================
 	def create_private_stack_environment(self) -> None:
 		"""Copy the selected file into runner state and reserve its application image tag."""
 		source = self.inputs.env_file.read_text(encoding="ascii")
@@ -392,24 +391,45 @@ class WalkthroughRunner:
 		directory = self.private_state_directory
 		if directory is None:
 			raise RunnerError("private walkthrough Compose environment is unavailable")
-		contents = walklib.stack_environment.render_private_environment(source, image, directory)
+		capability_file, capability_digest = walklib.stack_environment.create_cleanup_capability(
+			directory
+		)
+		self.disposable_capability_file = capability_file
+		contents = walklib.stack_environment.render_private_environment(
+			source,
+			image,
+			directory,
+			capability_digest,
+		)
 		self.private_env_file = self.write_private_file("compose.env", contents)
+		try:
+			target = local_stack_control.compose.resolve_target(
+				self.controller_runner(),
+				self.repository_root,
+				str(self.private_env_file),
+				False,
+				self.compose_project_name,
+			)
+			self.disposable_target = local_stack_control.compose.new_disposable_target(
+				target,
+				capability_file,
+				"ui-walkthrough",
+			)
+		except local_stack_control.models.ControllerError as error:
+			raise RunnerError("walkthrough disposable Compose target is unavailable") from error
 
-	#============================================
 	def stack_env_file(self) -> pathlib.Path:
 		"""Return the private Compose configuration used by launcher and cleanup only."""
 		if self.private_env_file is None:
 			raise RunnerError("private walkthrough Compose environment is unavailable")
 		return self.private_env_file
 
-	#============================================
 	def base_url(self) -> str:
 		"""Return the explicit loopback gateway origin selected by the env file."""
 		gateway_port = effective_gateway_port(self.inputs)
 		base_url = f"http://127.0.0.1:{gateway_port}"
 		return base_url
 
-	#============================================
 	def private_state_descriptor(self) -> int:
 		"""Open the exact private directory without following a replacement symlink."""
 		directory = self.private_state_directory
@@ -430,7 +450,6 @@ class WalkthroughRunner:
 			raise RunnerError("private walkthrough input directory is unavailable")
 		return descriptor
 
-	#============================================
 	def child_input_payload(
 		self,
 		inputs: walklib.models.ArrangementChildInputs | walklib.models.WalkthroughChildInputs,
@@ -464,15 +483,15 @@ class WalkthroughRunner:
 				inputs.journey_state_file is None
 				or inputs.j1_checkpoint_file is None
 				or inputs.j2_checkpoint_file is None
-				or inputs.course_id is None
-				or inputs.mastery_assignment_id is None
+				or inputs.course_reference is None
+				or inputs.mastery_assignment_reference is None
 			):
 				raise RunnerError("learner journey inputs are incomplete")
 			payload["journeyStateFile"] = str(inputs.journey_state_file)
 			payload["j1CheckpointFile"] = str(inputs.j1_checkpoint_file)
 			payload["j2CheckpointFile"] = str(inputs.j2_checkpoint_file)
-			payload["courseId"] = inputs.course_id
-			payload["masteryAssignmentId"] = inputs.mastery_assignment_id
+			payload["courseReference"] = inputs.course_reference
+			payload["masteryAssignmentReference"] = inputs.mastery_assignment_reference
 		else:
 			raise RunnerError("walkthrough input stage is invalid")
 		payload["screenshotDirectory"] = (
@@ -480,7 +499,6 @@ class WalkthroughRunner:
 		)
 		return payload
 
-	#============================================
 	def write_private_file(self, filename: str, contents: bytes) -> pathlib.Path:
 		"""Atomically replace one bounded canonical file in the private state directory."""
 		if len(contents) == 0 or len(contents) > 8192 or any(byte > 0x7f for byte in contents):
@@ -528,7 +546,6 @@ class WalkthroughRunner:
 			raise RunnerError("private walkthrough input file is unavailable")
 		return path
 
-	#============================================
 	def write_private_child_inputs(
 		self,
 		inputs: walklib.models.ArrangementChildInputs | walklib.models.WalkthroughChildInputs,
@@ -539,7 +556,6 @@ class WalkthroughRunner:
 		path = self.write_private_file(CHILD_INPUTS_FILE, encoded)
 		self.child_inputs_file = path
 
-	#============================================
 	def write_private_playwright_config(self) -> None:
 		"""Point Playwright's standard config argument at the current private input path."""
 		if self.child_inputs_file is None:
@@ -560,7 +576,6 @@ class WalkthroughRunner:
 		path = self.write_private_file(PLAYWRIGHT_CONFIG_FILE, content.encode("ascii"))
 		self.playwright_config_file = path
 
-	#============================================
 	def read_journey_failure_checkpoint(
 		self,
 		path: pathlib.Path | None,
@@ -623,7 +638,6 @@ class WalkthroughRunner:
 			if directory_descriptor >= 0:
 				os.close(directory_descriptor)
 
-	#============================================
 	def read_j1_failure_checkpoint(self) -> str:
 		"""Read only the bounded J1 learner-stage vocabulary."""
 		return self.read_journey_failure_checkpoint(
@@ -632,7 +646,6 @@ class WalkthroughRunner:
 			J1_CHECKPOINTS,
 		)
 
-	#============================================
 	def read_j2_failure_checkpoint(self) -> str:
 		"""Read only the bounded J2 learner-stage vocabulary."""
 		return self.read_journey_failure_checkpoint(
@@ -641,7 +654,6 @@ class WalkthroughRunner:
 			J2_CHECKPOINTS,
 		)
 
-	#============================================
 	def read_instructor_setup_failure_checkpoint(self) -> str:
 		"""Read only a canonical runner-owned instructor stage without retaining child output."""
 		path = self.instructor_setup_checkpoint_file
@@ -703,7 +715,6 @@ class WalkthroughRunner:
 			if directory_descriptor >= 0:
 				os.close(directory_descriptor)
 
-	#============================================
 	def collect_visible_outcomes(self) -> None:
 		"""Run only the fixed v2 renderer and retain its bounded public journey result."""
 		if self.journey_state_file is None or self.journey_state_file.is_symlink():
@@ -733,7 +744,6 @@ class WalkthroughRunner:
 		except ValueError as error:
 			raise RunnerError("visible outcome renderer emitted invalid output") from error
 
-	#============================================
 	def append_cross_actor_evidence(self) -> None:
 		"""Run the fixed silent J8 child after the browser commits the J5 evidence."""
 		if self.journey_state_file is None or self.journey_state_file.is_symlink():
@@ -768,7 +778,7 @@ class WalkthroughRunner:
 
 	#============================================
 	def remove_private_state(self) -> None:
-		"""Remove only the exact runner-created private state directory on every finish path."""
+		"""Remove only the exact runner-created private state directory after safe cleanup."""
 		if self.private_state_directory is None:
 			return
 		identity = self.private_state_identity
@@ -788,10 +798,35 @@ class WalkthroughRunner:
 		self.child_inputs_file = None
 		self.playwright_config_file = None
 		self.private_env_file = None
+		self.disposable_capability_file = None
 		self.j1_checkpoint_file = None
 		self.j2_checkpoint_file = None
 		self.instructor_setup_checkpoint_file = None
 		self.instructor_setup_checkpoint_identity = None
+
+	#============================================
+	def retained_private_state_instruction(self) -> str | None:
+		"""Describe a verified private recovery directory without exposing its contents."""
+		directory = self.private_state_directory
+		identity = self.private_state_identity
+		if directory is None or identity is None:
+			return None
+		try:
+			metadata = directory.lstat()
+		except OSError:
+			return None
+		if (
+			stat.S_ISLNK(metadata.st_mode)
+			or not stat.S_ISDIR(metadata.st_mode)
+			or stat.S_IMODE(metadata.st_mode) != 0o700
+			or (metadata.st_dev, metadata.st_ino) != identity
+		):
+			return None
+		message = (
+			f"UI walkthrough: private recovery state retained at {directory}. "
+			"It is mode 0700 and may contain local credentials; remove it after diagnosing cleanup."
+		)
+		return message
 
 	#============================================
 	def finish(self, success: bool) -> int:
@@ -814,9 +849,13 @@ class WalkthroughRunner:
 			self.compose_down()
 		except (OSError, RunnerError, UnicodeError) as error:
 			cleanup_failed = True
+			preserve_private_state = True
 			self.report_status = "FAIL"
 			self.report_stage = "cleanup"
 			print(f"FAIL: cleanup failed: {error}", file=sys.stderr)
+			instruction = self.retained_private_state_instruction()
+			if instruction is not None:
+				print(instruction, file=sys.stderr)
 		if not preserve_private_state:
 			try:
 				self.remove_private_state()
@@ -839,22 +878,31 @@ class WalkthroughRunner:
 		effective_stack_ports(self.inputs)
 		reject_external_compose_project_name(self.inputs, self.environ)
 		self.configure_compose()
-		assert_no_active_ple_stack(self.run_command)
-		assert_ports_available(effective_stack_ports(self.inputs), self.run_command)
+		assert_no_active_ple_stack(self.repository_root, self.controller_runner())
+		assert_ports_available(
+			effective_stack_ports(self.inputs),
+			self.repository_root,
+			self.controller_runner(),
+		)
 		self.assert_no_existing_stack()
 		self.prepare_report_directory()
 		self.prepare_journey_state()
 		self.create_private_stack_environment()
+		disposable = self.disposable_target
+		if disposable is None:
+			raise RunnerError("walkthrough disposable Compose target is unavailable")
+		walklib.stack_environment.require_empty_disposable_preflight(
+			disposable, self.controller_runner()
+		)
 
 		self.report_stage = "launcher_check"
 		launcher = str(self.repository_root / "launch_local_stack.sh")
 		self.run_required(
 			[
 				launcher,
-				"--canonical-walkthrough",
 				"--check",
 				"--env-file",
-				str(self.stack_env_file()),
+				str(self.inputs.env_file),
 			],
 			self.compose_child_environment(),
 		)
@@ -891,6 +939,8 @@ class WalkthroughRunner:
 				screenshot_directory=self.inputs.screenshot_directory,
 			)
 		)
+		self.report_stage = "playwright_gateway_smoke"
+		self.run_playwright("tests/playwright/ui_walkthrough_smoke.spec.ts")
 		self.report_stage = "playwright_instructor_setup"
 		self.run_playwright(
 			"tests/playwright/ui_walkthrough_instructor_setup.spec.ts"
@@ -918,7 +968,6 @@ class WalkthroughRunner:
 		self.run_playwright("tests/playwright/ui_walkthrough_keyboard_j5.spec.ts")
 		self.append_cross_actor_evidence()
 		self.collect_visible_outcomes()
-
 
 #============================================
 def main(argv: list[str]) -> int:

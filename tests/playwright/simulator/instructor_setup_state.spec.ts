@@ -12,8 +12,8 @@ import {
   type InstructorSetupFragment,
 } from "./instructor_setup_state";
 
-const courseId = "123e4567-e89b-12d3-a456-426614174000";
-const assignmentId = "123e4567-e89b-12d3-a456-426614174001";
+const courseReference = "C-42";
+const assignmentReference = "A-73";
 
 function statePath(): string {
   const directory = mkdtempSync(join(tmpdir(), "ple-instructor-state-"));
@@ -29,7 +29,7 @@ function j11(): Extract<InstructorSetupFragment, { readonly journey: "J11" }> {
     journey: "J11",
     status: "PASS",
     elapsedMs: 1,
-    courseId,
+    courseReference,
     visibleOutcomeCodes: ["visible_course_created", "visible_course_opened"],
     diagnostics: [],
   };
@@ -41,7 +41,7 @@ function j12(): Extract<InstructorSetupFragment, { readonly journey: "J12" }> {
     journey: "J12",
     status: "PASS",
     elapsedMs: 2,
-    courseId,
+    courseReference,
     visibleOutcomeCodes: ["visible_local_student_active"],
     diagnostics: [],
   };
@@ -53,9 +53,9 @@ function j13(): Extract<InstructorSetupFragment, { readonly journey: "J13" }> {
     journey: "J13",
     status: "PASS",
     elapsedMs: 3,
-    courseId,
-    assignmentId,
-    selectedDisplayIds: ["P-11-v1", "P-12-v1", "P-13-v1", "P-14-v1"],
+    courseReference,
+    assignmentReference,
+    selectedDisplayIds: ["7K3-M9QP", "ABC-123T", "PEP-T1D3", "GEN-E42K"],
     visibleOutcomeCodes: [
       "visible_assignment_created",
       "visible_catalog_problem_selected",
@@ -85,7 +85,7 @@ test("schema-v2 state rejects private identity fields, symlinks, and reordered f
   const path = statePath();
   writeFileSync(
     path,
-    `[{"schemaVersion":2,"journey":"J11","status":"PASS","elapsedMs":1,"courseId":"${courseId}","learnerAlias":"private","visibleOutcomeCodes":["visible_course_created","visible_course_opened"],"diagnostics":[]}]\n`,
+    `[{"schemaVersion":2,"journey":"J11","status":"PASS","elapsedMs":1,"courseReference":"${courseReference}","learnerAlias":"private","visibleOutcomeCodes":["visible_course_created","visible_course_opened"],"diagnostics":[]}]\n`,
     { encoding: "ascii", mode: 0o600 },
   );
   expect(() => readInstructorSetupPrefix(path)).toThrow("unsafe");
@@ -101,22 +101,22 @@ test("schema-v2 state rejects private identity fields, symlinks, and reordered f
   );
 });
 
-test("schema-v2 state rejects duplicate JSON, upper-case IDs, oversized files, and parent replacement", () => {
+test("schema-v2 state rejects duplicate JSON, malformed references, oversized files, and parent replacement", () => {
   const duplicatePath = statePath();
   writeFileSync(
     duplicatePath,
-    `[{"schemaVersion":2,"journey":"J11","journey":"J11","status":"PASS","elapsedMs":1,"courseId":"${courseId}","visibleOutcomeCodes":["visible_course_created","visible_course_opened"],"diagnostics":[]}]\n`,
+    `[{"schemaVersion":2,"journey":"J11","journey":"J11","status":"PASS","elapsedMs":1,"courseReference":"${courseReference}","visibleOutcomeCodes":["visible_course_created","visible_course_opened"],"diagnostics":[]}]\n`,
     { encoding: "ascii", mode: 0o600 },
   );
   expect(() => readInstructorSetupPrefix(duplicatePath)).toThrow("unsafe");
 
-  const uppercasePath = statePath();
+  const malformedReferencePath = statePath();
   writeFileSync(
-    uppercasePath,
-    `[{"schemaVersion":2,"journey":"J11","status":"PASS","elapsedMs":1,"courseId":"${courseId.toUpperCase()}","visibleOutcomeCodes":["visible_course_created","visible_course_opened"],"diagnostics":[]}]\n`,
+    malformedReferencePath,
+    `[{"schemaVersion":2,"journey":"J11","status":"PASS","elapsedMs":1,"courseReference":"C-0","visibleOutcomeCodes":["visible_course_created","visible_course_opened"],"diagnostics":[]}]\n`,
     { encoding: "ascii", mode: 0o600 },
   );
-  expect(() => readInstructorSetupPrefix(uppercasePath)).toThrow("unsafe");
+  expect(() => readInstructorSetupPrefix(malformedReferencePath)).toThrow("unsafe");
 
   const oversizedPath = statePath();
   writeFileSync(oversizedPath, "x".repeat(4097), { encoding: "ascii", mode: 0o600 });
@@ -139,8 +139,8 @@ test("schema-v2 state rejects duplicate JSON, upper-case IDs, oversized files, a
 
 test("schema-v2 parser rejects inherited, hidden, and symbol fields in a public handoff", () => {
   const inherited: Record<string, unknown> = { ...j11() };
-  delete inherited["courseId"];
-  Object.setPrototypeOf(inherited, { courseId });
+  delete inherited["courseReference"];
+  Object.setPrototypeOf(inherited, { courseReference });
   expect(parseInstructorSetupFragments([inherited, j12(), j13()])).toBeUndefined();
 
   const hidden = { ...j11() };
@@ -151,9 +151,9 @@ test("schema-v2 parser rejects inherited, hidden, and symbol fields in a public 
   expect(parseInstructorSetupFragments([symbol, j12(), j13()])).toBeUndefined();
 
   const accessor = { ...j11() } as Record<string, unknown>;
-  Object.defineProperty(accessor, "courseId", {
+  Object.defineProperty(accessor, "courseReference", {
     enumerable: true,
-    get: () => courseId,
+    get: () => courseReference,
   });
   expect(parseInstructorSetupFragments([accessor, j12(), j13()])).toBeUndefined();
 });

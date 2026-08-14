@@ -1,16 +1,22 @@
 // gradebook_page.tsx - compact instructor projection with opt-in run history.
 
-import { useParams } from "@solidjs/router";
 import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+
+import "./instructor_data_tables.css";
 
 import type { AssignmentRun } from "../../generated/api/AssignmentRun";
 import type { CourseId } from "../../generated/api/CourseId";
-import type { EnrollmentId } from "../../generated/api/EnrollmentId";
+import type { CoursePublicId } from "../../generated/api/CoursePublicId";
 import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
 import { useApiRuntime } from "../api/runtime";
+import { CourseManagementNav } from "../components/course_management_nav";
 import { formatPercentScore } from "../score_format";
 import { CursorPageSession, type CursorPageSessionState } from "./cursor_page_session";
 import { loadGradebookPage, loadGradebookRunHistory } from "./gradebook_page_model";
+import {
+  courseRouteData,
+  useCourseThemeRouteData,
+} from "../features/course_appearance/course_theme_context";
 
 type GradebookState =
   | { readonly kind: "loading" }
@@ -40,7 +46,7 @@ function formatRunStatus(run: AssignmentRun): string {
   if (run.completedAt === null) {
     return "In progress";
   }
-  return run.score === null ? "Completed" : `Completed * ${formatPercentScore(run.score)}`;
+  return run.score === null ? "Completed" : `Completed, ${formatPercentScore(run.score)}`;
 }
 
 function gradebookRowKey(row: GradebookSummaryRow): string {
@@ -53,12 +59,15 @@ function gradebookHistoryControlId(row: GradebookSummaryRow): string {
 
 interface GradebookCoursePageProps {
   readonly courseId: CourseId;
+  readonly coursePublicId: CoursePublicId;
 }
 
 function GradebookCoursePage(props: GradebookCoursePageProps): JSX.Element {
   const runtime = useApiRuntime();
   const [gradebook, setGradebook] = createSignal<GradebookState>({ kind: "loading" });
   const [histories, setHistories] = createSignal<Readonly<Record<string, RunHistoryState>>>({});
+  const [selectedHistoryKey, setSelectedHistoryKey] = createSignal<string | null>(null);
+  const [selectedHistoryRow, setSelectedHistoryRow] = createSignal<GradebookSummaryRow>();
   const [announcement, setAnnouncement] = createSignal("");
   let gradebookSession: CursorPageSession<GradebookSummaryRow> | undefined;
   let paginationRecoveryButton: HTMLButtonElement | undefined;
@@ -74,6 +83,9 @@ function GradebookCoursePage(props: GradebookCoursePageProps): JSX.Element {
     const generation = ++loadGeneration;
     const courseId = props.courseId;
     setGradebook({ kind: "loading" });
+    setSelectedHistoryKey(null);
+    setSelectedHistoryRow(undefined);
+    setHistories({});
     try {
       const page = await loadGradebookPage(runtime.client, courseId);
       if (disposed || generation !== loadGeneration) return;
@@ -150,12 +162,12 @@ function GradebookCoursePage(props: GradebookCoursePageProps): JSX.Element {
     });
   }
 
-  async function loadHistory(enrollmentId: EnrollmentId, cursor?: string): Promise<void> {
-    const key = enrollmentId;
+  async function loadHistory(row: GradebookSummaryRow, cursor?: string): Promise<void> {
+    const key = gradebookRowKey(row);
     const previous = histories()[key];
     setHistories((current) => ({ ...current, [key]: { kind: "loading" } }));
     try {
-      const page = await loadGradebookRunHistory(runtime.client, enrollmentId, cursor);
+      const page = await loadGradebookRunHistory(runtime.client, row.enrollmentId, cursor);
       if (disposed) return;
       const previousRuns = cursor === undefined || previous?.kind !== "ready" ? [] : previous.runs;
       const runs = [...previousRuns, ...page.items];
@@ -175,10 +187,13 @@ function GradebookCoursePage(props: GradebookCoursePageProps): JSX.Element {
     }
   }
 
-  function openHistory(enrollmentId: EnrollmentId): void {
-    const existing = histories()[enrollmentId];
+  function openHistory(row: GradebookSummaryRow): void {
+    const key = gradebookRowKey(row);
+    const existing = histories()[key];
+    setSelectedHistoryKey(key);
+    setSelectedHistoryRow(row);
     if (existing === undefined) {
-      void loadHistory(enrollmentId);
+      void loadHistory(row);
     }
   }
 
@@ -199,6 +214,7 @@ function GradebookCoursePage(props: GradebookCoursePageProps): JSX.Element {
         A compact view of assignment progress. Open a learner's run history only when you need the
         detail.
       </p>
+      <CourseManagementNav coursePublicId={props.coursePublicId} active="gradebook" />
       <p class="gradebook-status" role="status" aria-live="polite" aria-atomic="true">
         {announcement()}
       </p>
@@ -244,7 +260,7 @@ function GradebookCoursePage(props: GradebookCoursePageProps): JSX.Element {
                 <thead>
                   <tr>
                     <th scope="col">Assignment</th>
-                    <th scope="col">Learner ID</th>
+                    <th scope="col">Learner</th>
                     <th scope="col">Best</th>
                     <th scope="col">Latest</th>
                     <th scope="col">Completed</th>
@@ -254,116 +270,126 @@ function GradebookCoursePage(props: GradebookCoursePageProps): JSX.Element {
                     </th>
                   </tr>
                 </thead>
-                <tbody>
-                  <For each={ready().items}>
-                    {(row) => {
-                      const history = (): RunHistoryState | undefined =>
-                        histories()[row.enrollmentId];
-                      const readyHistory = ():
-                        Extract<RunHistoryState, { readonly kind: "ready" }> | undefined => {
-                        const state = history();
-                        return state?.kind === "ready" ? state : undefined;
-                      };
-                      return (
-                        <>
-                          <tr class="gradebook-row">
-                            <th data-label="Assignment" scope="row">
-                              {row.assignmentTitle}
-                            </th>
-                            <td data-label="Learner ID">
-                              <code>{row.studentId}</code>
-                            </td>
-                            <td data-label="Best">{formatPercentScore(row.summary.bestScore)}</td>
-                            <td data-label="Latest">
-                              {formatPercentScore(row.summary.latestScore)}
-                            </td>
-                            <td data-label="Completed">{row.summary.completedRunCount}</td>
-                            <td data-label="Last activity">
-                              {formatActivity(row.summary.lastActivityAt)}
-                            </td>
-                            <td class="gradebook-history-control">
-                              <button
-                                id={gradebookHistoryControlId(row)}
-                                class="quiet-action"
-                                type="button"
-                                aria-expanded={history() !== undefined}
-                                aria-controls={`run-history-${row.enrollmentId}`}
-                                onClick={() => openHistory(row.enrollmentId)}
-                              >
-                                View run history
-                              </button>
-                            </td>
-                          </tr>
-                          <Show when={history()}>
-                            {(state) => (
-                              <tr class="gradebook-history-row">
-                                <td colSpan={7}>
-                                  <section
-                                    id={`run-history-${row.enrollmentId}`}
-                                    aria-label={`Run history for learner ${row.studentId}`}
-                                  >
-                                    <Show when={state().kind === "loading"}>
-                                      <p role="status">Loading run history...</p>
-                                    </Show>
-                                    <Show when={state().kind === "error"}>
-                                      <div class="inline-error" role="alert">
-                                        <p>Run history could not load.</p>
-                                        <button
-                                          class="quiet-action"
-                                          type="button"
-                                          onClick={() => void loadHistory(row.enrollmentId)}
-                                        >
-                                          Try history again
-                                        </button>
-                                      </div>
-                                    </Show>
-                                    <Show when={readyHistory()}>
-                                      {(loaded) => (
-                                        <>
-                                          <Show
-                                            when={loaded().runs.length > 0}
-                                            fallback={<p>No runs have been started yet.</p>}
-                                          >
-                                            <ul class="run-history-list">
-                                              <For each={loaded().runs}>
-                                                {(run) => (
-                                                  <li>
-                                                    Run {run.runNumber}: {formatRunStatus(run)} *
-                                                    started {formatActivity(run.startedAt)}
-                                                  </li>
-                                                )}
-                                              </For>
-                                            </ul>
-                                          </Show>
-                                          <Show when={loaded().nextCursor !== null}>
-                                            <button
-                                              class="quiet-action"
-                                              type="button"
-                                              onClick={() =>
-                                                void loadHistory(
-                                                  row.enrollmentId,
-                                                  loaded().nextCursor ?? undefined,
-                                                )
-                                              }
-                                            >
-                                              Load older runs
-                                            </button>
-                                          </Show>
-                                        </>
-                                      )}
-                                    </Show>
-                                  </section>
-                                </td>
-                              </tr>
-                            )}
-                          </Show>
-                        </>
-                      );
-                    }}
-                  </For>
-                </tbody>
+                <For each={ready().items}>
+                  {(row) => {
+                    const key = gradebookRowKey(row);
+                    const expanded = (): boolean => selectedHistoryKey() === key;
+                    return (
+                      <tbody>
+                        <tr class="gradebook-row">
+                          <th data-label="Assignment" scope="row">
+                            {row.assignmentTitle}
+                          </th>
+                          <td data-label="Learner">{row.learnerName}</td>
+                          <td data-label="Best">{formatPercentScore(row.summary.bestScore)}</td>
+                          <td data-label="Latest">{formatPercentScore(row.summary.latestScore)}</td>
+                          <td data-label="Completed">{row.summary.completedRunCount}</td>
+                          <td data-label="Last activity">
+                            {formatActivity(row.summary.lastActivityAt)}
+                          </td>
+                          <td class="gradebook-history-control">
+                            <button
+                              id={gradebookHistoryControlId(row)}
+                              class="quiet-action"
+                              type="button"
+                              aria-expanded={expanded()}
+                              aria-controls={`run-history-${key}`}
+                              onClick={() => openHistory(row)}
+                            >
+                              View run history
+                            </button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    );
+                  }}
+                </For>
               </table>
             </div>
+            <Show when={selectedHistoryRow()}>
+              {(row) => {
+                const key = gradebookRowKey(row());
+                const history = (): RunHistoryState | undefined => histories()[key];
+                const readyHistory = ():
+                  Extract<RunHistoryState, { readonly kind: "ready" }> | undefined => {
+                  const state = history();
+                  return state?.kind === "ready" ? state : undefined;
+                };
+                return (
+                  <section
+                    id={`run-history-${key}`}
+                    class="gradebook-history-panel"
+                    aria-label={`Run history for learner ${row().learnerName}`}
+                  >
+                    <div class="gradebook-history-panel__heading">
+                      <div>
+                        <p class="card-kicker">Run history</p>
+                        <h2>{row().assignmentTitle}</h2>
+                        <p>{row().learnerName}</p>
+                      </div>
+                      <button
+                        class="quiet-action"
+                        type="button"
+                        onClick={() => {
+                          setSelectedHistoryKey(null);
+                          setSelectedHistoryRow(undefined);
+                        }}
+                      >
+                        Close history
+                      </button>
+                    </div>
+                    <Show when={history()?.kind === "loading"}>
+                      <p role="status">Loading run history...</p>
+                    </Show>
+                    <Show when={history()?.kind === "error"}>
+                      <div class="inline-error" role="alert">
+                        <p>Run history could not load.</p>
+                        <button
+                          class="quiet-action"
+                          type="button"
+                          onClick={() => void loadHistory(row())}
+                        >
+                          Try history again
+                        </button>
+                      </div>
+                    </Show>
+                    <Show when={readyHistory()}>
+                      {(loaded) => (
+                        <>
+                          <Show
+                            when={loaded().runs.length > 0}
+                            fallback={<p>No runs have been started yet.</p>}
+                          >
+                            <ul class="run-history-list">
+                              <For each={loaded().runs}>
+                                {(run) => (
+                                  <li>
+                                    <strong>Run {run.runNumber}</strong>
+                                    <span>{formatRunStatus(run)}</span>
+                                    <span>Started {formatActivity(run.startedAt)}</span>
+                                  </li>
+                                )}
+                              </For>
+                            </ul>
+                          </Show>
+                          <Show when={loaded().nextCursor !== null}>
+                            <button
+                              class="quiet-action"
+                              type="button"
+                              onClick={() =>
+                                void loadHistory(row(), loaded().nextCursor ?? undefined)
+                              }
+                            >
+                              Load older runs
+                            </button>
+                          </Show>
+                        </>
+                      )}
+                    </Show>
+                  </section>
+                );
+              }}
+            </Show>
             <section
               id="gradebook-pagination"
               class="gradebook-pagination"
@@ -427,11 +453,12 @@ function GradebookCoursePage(props: GradebookCoursePageProps): JSX.Element {
 
 /** Recreates course-owned pagination and history state whenever the route course changes. */
 export function GradebookPage(): JSX.Element {
-  const params = useParams();
+  const scopedRoute = useCourseThemeRouteData();
+  const course = scopedRoute?.kind === "course" ? courseRouteData(scopedRoute).summary : undefined;
 
   return (
     <Show
-      when={params["courseId"]}
+      when={course}
       keyed
       fallback={
         <section class="page gradebook-page" data-route-surface="gradebook">
@@ -443,7 +470,7 @@ export function GradebookPage(): JSX.Element {
         </section>
       }
     >
-      {(courseId) => <GradebookCoursePage courseId={courseId} />}
+      {(course) => <GradebookCoursePage courseId={course.id} coursePublicId={course.publicId} />}
     </Show>
   );
 }

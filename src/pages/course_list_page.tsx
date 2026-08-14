@@ -7,6 +7,7 @@ import type { CourseSummary, CursorPage } from "../api/contracts";
 import { useApiRuntime } from "../api/runtime";
 import { useSessionBootstrap } from "../auth/session_context";
 import { CursorPageSession, type CursorPageSessionState } from "./cursor_page_session";
+import { courseRouteReference } from "../navigation/public_route";
 
 interface CourseCardProps {
   readonly course: CourseSummary;
@@ -28,8 +29,8 @@ function CourseCard(props: CourseCardProps): JSX.Element {
       <p>Review the current assignment or resume an in-progress practice run.</p>
       <A
         class="primary-link"
-        href={`/courses/${props.course.id}`}
-        id={`course-open-${props.course.id}`}
+        href={`/courses/${courseRouteReference(props.course.publicId)}`}
+        id={`course-open-${courseRouteReference(props.course.publicId)}`}
         ref={(element: HTMLAnchorElement) => props.registerLink(props.course, element)}
       >
         Open course
@@ -73,7 +74,9 @@ export function CourseList(props: CourseListProps): JSX.Element {
   function focusFirstAppended(appended: ReadonlyArray<CourseSummary>): void {
     const first = appended[0];
     if (first === undefined) return;
-    requestAnimationFrame(() => document.getElementById(`course-open-${first.id}`)?.focus());
+    requestAnimationFrame(() =>
+      document.getElementById(`course-open-${courseRouteReference(first.publicId)}`)?.focus(),
+    );
   }
 
   function focusRecoveryButton(kind: "protocol" | "transport"): void {
@@ -257,10 +260,12 @@ export function CourseListPage(): JSX.Element {
 
   return (
     <section class="page" data-route-surface="courses">
-      <p class="eyebrow">Your courses</p>
-      <h1>Pick up where you left off</h1>
+      <p class="eyebrow">{mayCreateCourse() ? "Instructor workspace" : "Your courses"}</p>
+      <h1>{mayCreateCourse() ? "Courses you teach" : "Pick up where you left off"}</h1>
       <p class="page-lede">
-        Practice is open-book. Choose a course, explain your reasoning, and learn from each attempt.
+        {mayCreateCourse()
+          ? "Open a course to manage assignments, learners, progress, and its visual identity."
+          : "Practice is open-book. Choose a course, explain your reasoning, and learn from each attempt."}
       </p>
       <Show when={mayCreateCourse()}>
         <form
@@ -268,18 +273,20 @@ export function CourseListPage(): JSX.Element {
           aria-busy={isCreating()}
           onSubmit={(event) => void createCourse(event)}
         >
-          <h2>Create a course</h2>
-          <label for="course-title">Course title</label>
-          <input
-            id="course-title"
-            name="title"
-            type="text"
-            value={title()}
-            onInput={(event) => setTitle(event.currentTarget.value)}
-            autocomplete="off"
-            required
-            aria-describedby="course-create-status"
-          />
+          <h2>Start another course</h2>
+          <label for="course-title">
+            Course title
+            <input
+              id="course-title"
+              name="title"
+              type="text"
+              value={title()}
+              onInput={(event) => setTitle(event.currentTarget.value)}
+              autocomplete="off"
+              required
+              aria-describedby="course-create-status"
+            />
+          </label>
           <button class="primary-action" type="submit" disabled={isCreating()}>
             {isCreating() ? "Creating course..." : "Create course"}
           </button>

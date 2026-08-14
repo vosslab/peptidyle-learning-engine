@@ -205,7 +205,14 @@ test("workspace CRUD uses no-store, exact ETags, and never permits a path/body m
       if (init?.method === "DELETE") return new Response(null, { status: 204 });
       if (String(input).startsWith("/api/workspaces?")) {
         return jsonResponse({
-          items: [{ workspace, title: draft.metadata.title, sourceBackend: draft.source.backend }],
+          items: [
+            {
+              workspace,
+              publicId: 1,
+              title: draft.metadata.title,
+              sourceBackend: draft.source.backend,
+            },
+          ],
           nextCursor: null,
         });
       }

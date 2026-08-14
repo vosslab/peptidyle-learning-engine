@@ -6,13 +6,28 @@ use super::*;
 /// caller that owns a visible lineage may mint its next immutable version.
 pub(super) async fn exercise_publication_identity_boundary<S>(store: &S)
 where
-    S: Store + CatalogStore,
+    S: Store + CatalogStore + OwnerCorrectionStore + SessionStore,
 {
     let tenant = TenantId::from_uuid(uuid(600));
     let foreign_tenant = TenantId::from_uuid(uuid(601));
     let context = TenantContext::from_authenticated_session(tenant);
     let foreign_context = TenantContext::from_authenticated_session(foreign_tenant);
     let publisher = UserId::from_uuid(uuid(602));
+    let correction_session = SessionTokenHash::compute(b"publication-correction-owner");
+    store
+        .create_session(
+            correction_session,
+            SessionSubject::new(
+                tenant,
+                publisher,
+                "Correction owner",
+                vec![UserRole::Instructor],
+            )
+            .expect("correction owner session subject should be valid"),
+            SessionLifetime::from_seconds(3_600).expect("positive session lifetime"),
+        )
+        .await
+        .expect("correction owner session should persist");
     let foreign_author = UserId::from_uuid(uuid(603));
     let capabilities = BackendCapabilities::from_iter([Capability::ServerGrading]);
 
@@ -110,6 +125,39 @@ where
     assert_eq!(base_record.previous_version, None);
     assert_eq!(base_record.derived_from, None);
 
+    let correction_course = CourseId::from_uuid(uuid(627));
+    let correction_assignment = AssignmentId::from_uuid(uuid(628));
+    store
+        .upsert_course(
+            context,
+            CourseRecord {
+                id: correction_course,
+                tenant,
+                title: "Correction propagation".to_string(),
+                members: vec![CourseMembership {
+                    user: publisher,
+                    role: CourseMembershipRole::Instructor,
+                }],
+            },
+        )
+        .await
+        .expect("correction fixture course should save");
+    store
+        .create_untimed_assignment(
+            context,
+            AssignmentRecord {
+                id: correction_assignment,
+                tenant,
+                course_id: correction_course,
+                title: "Uses the current question".to_string(),
+                items: fixed_items(vec![base]),
+                selection_groups: Vec::new(),
+                policies: policies(),
+            },
+        )
+        .await
+        .expect("correction fixture assignment should save");
+
     let fork_workspace = WorkspaceId::from_uuid(uuid(610));
     let fork_draft = DraftRecord {
         tenant,
@@ -165,9 +213,12 @@ where
         .await
         .expect("revision draft should save");
     let revision_record = store
-        .publish_draft(
+        .publish_owner_correction(
             context,
-            publisher,
+            OwnerCorrectionAuthority {
+                actor: publisher,
+                session: correction_session,
+            },
             PublishDraftCommand {
                 expected_draft: revision_draft,
                 expected_revision: saved_revision_draft.revision,
@@ -187,39 +238,32 @@ where
     assert_ne!(revision_record.version, base.version);
     assert_eq!(revision_record.previous_version, Some(base.version));
     assert_eq!(revision_record.public_id, base_record.public_id);
+    assert_eq!(revision_record.question_id, base_record.question_id);
     assert_eq!(base_record.version_number.value(), 1);
     assert_eq!(revision_record.version_number.value(), 2);
     assert_ne!(fork_record.public_id, base_record.public_id);
+    assert_ne!(fork_record.question_id, base_record.question_id);
     assert_eq!(fork_record.version_number.value(), 1);
+    let propagated = store
+        .get_assignment_for_edit(context, correction_assignment)
+        .await
+        .expect("propagated assignment lookup should succeed")
+        .expect("propagated assignment should remain present");
+    assert_eq!(propagated.revision.value(), 2);
+    assert_eq!(propagated.record.items[0].reference, revision);
     assert_eq!(
         store
             .resolve_catalog_problem(
                 context,
                 question_model::ProblemDisplayRef {
-                    problem: base_record.public_id,
-                    version: None,
+                    question_id: base_record.question_id.clone(),
                 },
             )
             .await
-            .expect("stable public ID lookup should succeed")
+            .expect("Question ID lookup should succeed")
             .map(|record| record.version),
         Some(revision.version),
-        "a stable public ID resolves the latest assignable version"
-    );
-    assert_eq!(
-        store
-            .resolve_catalog_problem(
-                context,
-                question_model::ProblemDisplayRef {
-                    problem: base_record.public_id,
-                    version: Some(base_record.version_number),
-                },
-            )
-            .await
-            .expect("exact public reference lookup should succeed")
-            .map(|record| record.version),
-        Some(base.version),
-        "an exact public reference never silently upgrades"
+        "one Question ID resolves the current owner-corrected question"
     );
 
     let foreign_author_workspace = WorkspaceId::from_uuid(uuid(615));
@@ -300,7 +344,7 @@ where
                 },
             )
             .await,
-        Err(StoreError::InvalidRecord(_))
+        Err(StoreError::Forbidden)
     ));
     assert_eq!(
         store

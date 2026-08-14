@@ -82,7 +82,7 @@ are not substitutes for durable ownership and authorization.
 
 | Value | Purpose | Do not use it as |
 | --- | --- | --- |
-| `ProblemPublicId` / `ProblemVersionNumber` | Copyable catalog locator such as `P-123-v4` | Authorization, a draft ID, or the exact version when the version number is omitted. |
+| `QuestionId` | Single non-sequential Crockford Base32 locator such as `7K3-M9QP`; stable across owner corrections, new on fork | Authorization, a hidden snapshot ID, or a version selector. |
 | `ProblemVersionRef` | Exact immutable `(ProblemId, VersionId)` reference | A learner attempt or mutable assignment-item identity. |
 | `ChoiceId` | Stable internal semantic ID for an authored choice, slot, match endpoint, order item, or hotspot region | A display label, screen position, or presentation-scoped response token. |
 | `Seed` plus generator version | Reproduces a generated variant under immutable content | Learner authority to select a new variant. |
@@ -181,7 +181,7 @@ Compact identifiers are appropriate only when their scope is intentionally
 small:
 
 - use `RenderedItemIdV1` for attempt-presentation selection and ordering;
-- use a display reference such as `P-123-v4` for a human catalog locator;
+- use a validated `AAA-BBBB` Question ID for a human catalog locator;
 - use a generation number for stale-work fencing; and
 - use a nonce, digest token, or capability only for its explicit protocol
   purpose.

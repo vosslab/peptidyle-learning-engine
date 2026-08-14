@@ -37,6 +37,8 @@ const CAPABILITIES = [
 export const MAX_CURSOR_LENGTH = 512;
 /** Matches the server-owned PageSize::MAX for every cursor-list response. */
 export const MAX_CURSOR_PAGE_ITEMS = 100;
+/** Largest public route number accepted by the Rust public-reference contract. */
+export const MAX_PUBLIC_ROUTE_NUMBER = 2_147_483_647;
 export const QUESTION_BACKENDS = [
   "native",
   "webwork",
@@ -164,6 +166,15 @@ export function decodeTimestamp(value: unknown, path: string): number {
 
 export function decodeIdentifier(value: unknown, path: string): string {
   return decodeUuid(value, path);
+}
+
+/** Decodes a compact positive database identity that is safe to show to people. */
+export function decodePublicRouteNumber(value: unknown, path: string): number {
+  const decoded = decodeSafeInteger(value, path);
+  if (decoded < 1 || decoded > MAX_PUBLIC_ROUTE_NUMBER) {
+    throw new DecodeError(path, `an integer from 1 through ${MAX_PUBLIC_ROUTE_NUMBER}`);
+  }
+  return decoded;
 }
 
 export function decodeSha256(value: unknown, path: string): string {

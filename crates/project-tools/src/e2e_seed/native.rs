@@ -10,7 +10,7 @@ pub(super) async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
             .await
             .context("applying embedded migrations for e2e seed")?;
     }
-    let store = learning_data_access::postgres::PostgresStore::new(pool);
+    let store = question_id_store(pool)?;
     let context = TenantContext::from_authenticated_session(arguments.tenant);
     let ids = SeedIds::for_tenant(arguments.tenant);
     let draft = DraftRecord {

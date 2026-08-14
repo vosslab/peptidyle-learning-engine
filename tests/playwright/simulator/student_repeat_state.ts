@@ -18,9 +18,9 @@ import {
   parseInstructorSetupFragments,
   type InstructorSetupPrefix,
 } from "./instructor_setup_state";
+import { isAssignmentReference, isCourseReference } from "./public_references";
 
 const MAX_STATE_BYTES = 4096;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 const STUDENT_CODES = {
   J1: ["visible_feedback", "visible_response", "visible_retry", "visible_submit"],
@@ -37,8 +37,8 @@ export interface StudentRepeatFragment {
   readonly journey: StudentJourney;
   readonly status: "PASS";
   readonly elapsedMs: number;
-  readonly courseId: string;
-  readonly assignmentId: string;
+  readonly courseReference: string;
+  readonly assignmentReference: string;
   readonly visibleOutcomeCodes: readonly StudentOutcomeCode[];
   readonly diagnostics: readonly [];
 }
@@ -46,12 +46,12 @@ export interface StudentRepeatFragment {
 /** Builds one public-only student fragment after visible keyboard outcomes. */
 export function passedStudentRepeatFragment(
   journey: StudentJourney,
-  courseId: string,
-  assignmentId: string,
+  courseReference: string,
+  assignmentReference: string,
   elapsedMs: number,
 ): StudentRepeatFragment {
-  if (!UUID.test(courseId) || !UUID.test(assignmentId)) {
-    throw new Error("student repeat evidence requires public UUID identifiers");
+  if (!isCourseReference(courseReference) || !isAssignmentReference(assignmentReference)) {
+    throw new Error("student repeat evidence requires public route references");
   }
   if (!Number.isSafeInteger(elapsedMs) || elapsedMs < 0 || elapsedMs > 30 * 60 * 1000) {
     throw new Error("student repeat evidence elapsed time is outside the allowed range");
@@ -61,8 +61,8 @@ export function passedStudentRepeatFragment(
     journey,
     status: "PASS",
     elapsedMs,
-    courseId,
-    assignmentId,
+    courseReference,
+    assignmentReference,
     visibleOutcomeCodes: STUDENT_CODES[journey],
     diagnostics: [],
   };
@@ -183,8 +183,8 @@ function validStudentFragment(value: unknown): value is StudentRepeatFragment {
       "journey",
       "status",
       "elapsedMs",
-      "courseId",
-      "assignmentId",
+      "courseReference",
+      "assignmentReference",
       "visibleOutcomeCodes",
       "diagnostics",
     ])
@@ -199,8 +199,8 @@ function validStudentFragment(value: unknown): value is StudentRepeatFragment {
     !Number.isSafeInteger(record["elapsedMs"]) ||
     (record["elapsedMs"] as number) < 0 ||
     (record["elapsedMs"] as number) > 30 * 60 * 1000 ||
-    !UUID.test(String(record["courseId"])) ||
-    !UUID.test(String(record["assignmentId"])) ||
+    !isCourseReference(record["courseReference"]) ||
+    !isAssignmentReference(record["assignmentReference"]) ||
     !Array.isArray(record["diagnostics"]) ||
     record["diagnostics"].length !== 0 ||
     !Array.isArray(record["visibleOutcomeCodes"]) ||
@@ -232,6 +232,7 @@ function hasExactEnumerableStringKeys(
 function matchesSetup(instructor: InstructorSetupPrefix, student: StudentRepeatFragment): boolean {
   const assignment = instructor[2];
   return (
-    student.courseId === assignment.courseId && student.assignmentId === assignment.assignmentId
+    student.courseReference === assignment.courseReference &&
+    student.assignmentReference === assignment.assignmentReference
   );
 }

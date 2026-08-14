@@ -55,6 +55,7 @@ test.beforeAll(async () => {
         const role = "student";
         const course = (number) => ({
           id: "0198e000-0000-7000-8000-" + String(number).padStart(12, "0"),
+          publicId: number,
           tenant: "0198e000-0000-7000-8000-000000000001",
           title: "Visible course " + number,
           role,

@@ -48,11 +48,15 @@ import type {
   PublicationResult,
   PublicationValidationResponse,
   PrefetchedNextQuestion,
+  NavigationResolution,
 } from "./contracts";
+import type { PublicRouteReference } from "../navigation/public_route";
 
 /** Browser-safe client contract. A future HTTP transport implements this interface. */
 export interface ApiClient extends CourseRosterClient {
   readonly getSession: () => Promise<AuthSession>;
+  /** Resolves a compact visible reference inside the current authorization boundary. */
+  readonly resolveNavigation: (reference: PublicRouteReference) => Promise<NavigationResolution>;
   /** Revokes both account and tenant credentials for this browser. */
   readonly logout: () => Promise<void>;
   readonly listWorkspaceDrafts: (cursor?: string) => Promise<WorkspaceDraftPage>;

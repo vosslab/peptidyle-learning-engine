@@ -1,6 +1,6 @@
 // editor_live_pages.tsx - route composition for accepted workspace CRUD only.
 
-import { useNavigate, useParams } from "@solidjs/router";
+import { useLocation, useNavigate, useParams } from "@solidjs/router";
 import { Show, createResource, createSignal, type JSX } from "solid-js";
 
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
@@ -22,12 +22,8 @@ import { QtiProfileImportPage } from "../features/qti_profile_import/qti_profile
 import { WasmEditorPage } from "./editor_page";
 import { createInstructorPreviewClient } from "./editor_instructor_preview";
 import { createWorkspaceEditorRepository } from "./editor_workspace_repository";
-
-function currentWorkspace(
-  params: Readonly<Record<string, string | undefined>>,
-): WorkspaceId | undefined {
-  return params["workspaceId"];
-}
+import { workspaceRouteReference } from "../navigation/public_route";
+import { resolveWorkspaceRoute } from "../navigation/resolved_route";
 
 function mayAuthorWorkspace(): boolean {
   const session = useSessionBootstrap().state();
@@ -54,24 +50,25 @@ export function WorkspaceListLivePage(): JSX.Element {
   async function createFlatQuestion(): Promise<void> {
     const workspace: WorkspaceId = globalThis.crypto.randomUUID();
     await flatRepository.save(workspace, createDefaultFlatQuestionSource());
-    navigate(`/workspace/${workspace}`);
+    navigate("/workspace/new", { state: { workspace } });
   }
   return (
     <WasmEditorPage
       repository={createWorkspaceEditorRepository(runtime.client, createInstructorPreviewClient())}
-      onOpenDraft={(workspace) => navigate(`/workspace/${workspace}`)}
+      onOpenDraft={(draft) => navigate(`/workspace/${workspaceRouteReference(draft.publicId)}`)}
       onCreateFlatQuestion={createFlatQuestion}
     />
   );
 }
 
-/** `/workspace/:workspaceId`: requests exactly the private workspace selected by the route. */
-export function WorkspaceEditorLivePage(): JSX.Element {
+interface WorkspaceEditorResolvedProps {
+  readonly workspace: WorkspaceId;
+}
+
+function WorkspaceEditorResolved(props: WorkspaceEditorResolvedProps): JSX.Element {
   const runtime = useApiRuntime();
   const wasm = useWasmFacade();
-  const params = useParams();
-  if (!mayAuthorWorkspace()) return <WorkspaceAuthoringDenied />;
-  const workspace = currentWorkspace(params);
+  const workspace = props.workspace;
   const flatRepository = createFlatQuestionRepository(createFlatQuestionClient());
   const flatQuestionAssetClient = createFlatQuestionAssetClient();
   const qtiClient = createQtiProfileImportClient();
@@ -98,7 +95,6 @@ export function WorkspaceEditorLivePage(): JSX.Element {
     if (flatRead.state !== "ready") return null;
     return flatRead() ?? null;
   };
-  if (workspace === undefined) return fallback();
   return (
     <>
       <QtiProfileImportPage
@@ -151,5 +147,43 @@ export function WorkspaceEditorLivePage(): JSX.Element {
         </Show>
       </Show>
     </>
+  );
+}
+
+/** Resolves a visible `W-n` locator before mounting the private editor transport. */
+export function WorkspaceEditorLivePage(): JSX.Element {
+  const runtime = useApiRuntime();
+  const params = useParams();
+  const location = useLocation<{ readonly workspace?: unknown }>();
+  if (!mayAuthorWorkspace()) return <WorkspaceAuthoringDenied />;
+  const [workspace] = createResource(
+    () => params["workspaceRef"],
+    async (reference): Promise<WorkspaceId> => {
+      if (reference === "new") {
+        const state = location.state;
+        if (typeof state?.workspace !== "string") {
+          throw new Error("This new draft address has expired. Start again from the workspace.");
+        }
+        return state.workspace;
+      }
+      return await resolveWorkspaceRoute(runtime.client, reference);
+    },
+  );
+  return (
+    <Show
+      when={workspace()}
+      keyed
+      fallback={
+        <section class="page" aria-busy={workspace.loading}>
+          <p role={workspace.error === undefined ? "status" : "alert"}>
+            {workspace.error === undefined
+              ? "Opening private workspace..."
+              : "This private draft is unavailable. Return to the workspace and choose it again."}
+          </p>
+        </section>
+      }
+    >
+      {(selected) => <WorkspaceEditorResolved workspace={selected} />}
+    </Show>
   );
 }

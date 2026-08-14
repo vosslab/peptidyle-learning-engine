@@ -31,7 +31,7 @@ passed on 2026-08-12 under
   `--inputs PATH` for arrangement, cross-actor evidence, and report rendering.
 - The current live suite covers visible instructor setup followed by J1--J5
   and J8. J13 uses the published catalog to visibly copy each exact
-  `P-n-vn` reference and paste the growing list into the add-by-ID control;
+  `AAA-BBBB` Question ID and paste the growing list into the add-by-ID control;
   it does not read or write the clipboard through page evaluation and does not
   extract a UUID from the DOM.
 

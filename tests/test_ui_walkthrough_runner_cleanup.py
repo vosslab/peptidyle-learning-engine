@@ -5,6 +5,8 @@ import json
 import pathlib
 import sys
 
+import pytest
+
 
 WALKTHROUGH_DIRECTORY = pathlib.Path(__file__).resolve().parent / "walkthrough"
 sys.path.insert(0, str(WALKTHROUGH_DIRECTORY))
@@ -19,14 +21,36 @@ class CleanupCommands:
 		cleanup_code: int = 0,
 		image_cleanup_code: int = 0,
 		missing_image: str = "",
+		with_owned_volume: bool = False,
 	) -> None:
 		self.cleanup_code = cleanup_code
 		self.image_cleanup_code = image_cleanup_code
 		self.missing_image = missing_image
+		self.with_owned_volume = with_owned_volume
+		self.project = ""
+		self.capability_digest = ""
 		self.calls: list[tuple[list[str], dict[str, str] | None]] = []
 
 	def __call__(self, command: list[str], environ: dict[str, str] | None) -> object:
 		self.calls.append((command, environ))
+		if command[:4] == ["podman", "info", "--format", "json"]:
+			return walkthrough.CommandResult(0, '{"host":{"security":{"rootless":true}}}', "")
+		if self.with_owned_volume and command[:3] == ["podman", "volume", "ls"]:
+			return walkthrough.CommandResult(
+				0,
+				json.dumps(
+					[
+						{
+							"Name": "walkthrough-retained",
+							"Labels": {
+								"io.podman.compose.project": self.project,
+								"org.peptidyle.disposable.capability-sha256": self.capability_digest,
+							},
+						}
+					]
+				),
+				"",
+			)
 		if "down" in command:
 			return walkthrough.CommandResult(self.cleanup_code, "", "cleanup failure")
 		if command[:3] == ["podman", "image", "exists"] and command[-1] == self.missing_image:
@@ -42,6 +66,7 @@ def runner_for(tmp_path: pathlib.Path, commands: CleanupCommands) -> object:
 	env_file = repository / "containers/env.local"
 	env_file.parent.mkdir(parents=True)
 	env_file.write_text("PLE_GATEWAY_HOST_PORT=3010\n", encoding="ascii")
+	(repository / "containers/compose.yaml").write_text("services: {}\n", encoding="ascii")
 	inputs = walkthrough.resolve_inputs(walkthrough.parse_args(["--master-seed", "42"]), repository)
 	return walkthrough.WalkthroughRunner(inputs, repository, {}, commands)
 
@@ -62,21 +87,44 @@ def test_finish_removes_private_state_and_does_not_publish_secret(tmp_path: path
 	assert secret not in runner.report_path.read_text(encoding="ascii")
 
 
-def test_cleanup_failure_cannot_return_a_passing_receipt(tmp_path: pathlib.Path) -> None:
-	"""A failed Podman cleanup changes the visible receipt and process status to failure."""
-	runner = runner_for(tmp_path, CleanupCommands(7))
-	runner.compose_command = ["podman", "compose"]
-	runner.stack_launch_attempted = True
+def test_compose_cleanup_failure_retains_private_recovery_state(
+	tmp_path: pathlib.Path,
+	capsys: pytest.CaptureFixture[str],
+) -> None:
+	"""A failed typed cleanup keeps its private recovery evidence and fails the run."""
+	commands = CleanupCommands(7, with_owned_volume=True)
+	runner = runner_for(tmp_path, commands)
 	runner.prepare_report_directory()
+	runner.prepare_journey_state()
+	runner.create_private_stack_environment()
+	commands.project = runner.compose_project_name
+	private_env = runner.private_env_file
+	assert private_env is not None
+	commands.capability_digest = next(
+		line.split("=", 1)[1]
+		for line in private_env.read_text(encoding="ascii").splitlines()
+		if line.startswith("PLE_DISPOSABLE_CAPABILITY_SHA256=")
+	)
+	private_directory = runner.private_state_directory
+	secret = "student=private"
+	runner.write_private_child_inputs(
+		walkthrough.walklib.models.ArrangementChildInputs(tmp_path / f"{secret}-manifest.json")
+	)
+	runner.stack_launch_attempted = True
 
-	assert runner.finish(True) == 1
-	assert json.loads(runner.report_path.read_text(encoding="ascii"))["status"] == "FAIL"
+	result = runner.finish(True)
+	output = capsys.readouterr().err
+
+	assert result == 1 and private_directory is not None and private_directory.exists()
+	assert str(private_directory) in output and secret not in output
+	assert any("down" in command for command, _environment in commands.calls)
 
 
 #============================================
 def test_image_cleanup_failure_cannot_return_a_passing_receipt(tmp_path: pathlib.Path) -> None:
-	"""An exact generated-image removal failure fails the run rather than leaking a passing result."""
-	runner = runner_for(tmp_path, CleanupCommands(image_cleanup_code=7))
+	"""An exact generated-image removal failure fails the run rather than passing it."""
+	commands = CleanupCommands(image_cleanup_code=7)
+	runner = runner_for(tmp_path, commands)
 	runner.compose_command = ["podman", "compose"]
 	runner.prepare_report_directory()
 	runner.prepare_journey_state()
@@ -85,47 +133,7 @@ def test_image_cleanup_failure_cannot_return_a_passing_receipt(tmp_path: pathlib
 
 	assert runner.finish(True) == 1
 	assert json.loads(runner.report_path.read_text(encoding="ascii"))["stage"] == "cleanup"
-
-
-#============================================
-def test_partial_build_missing_image_is_not_a_cleanup_failure(tmp_path: pathlib.Path) -> None:
-	"""A launcher that failed before one image build leaves no false cleanup failure."""
-	runner = runner_for(tmp_path, CleanupCommands(missing_image="localhost/missing_gateway:latest"))
-	runner.compose_command = ["podman", "compose"]
-	runner.prepare_journey_state()
-	runner.create_private_stack_environment()
-	runner.stack_launch_attempted = True
-	runner.compose_project_name = "missing"
-
-	runner.compose_down()
-
-	assert runner.run_command.calls[-1][0] == ["podman", "image", "exists", "localhost/missing_gateway:latest"]
-
-
-#============================================
-def test_cleanup_removes_only_the_generated_project_volumes(tmp_path: pathlib.Path) -> None:
-	"""Normal completion scopes volume removal to the private generated Compose project."""
-	commands = CleanupCommands()
-	runner = runner_for(tmp_path, commands)
-	runner.compose_command = ["podman", "compose"]
-	runner.prepare_journey_state()
-	runner.create_private_stack_environment()
-	private_env = runner.stack_env_file()
-	runner.stack_launch_attempted = True
-	runner.compose_down()
-	command, environment = commands.calls[0]
-	image_commands = commands.calls[1:]
-	runner.remove_private_state()
-
-	assert "--volumes" in command and "--remove-orphans" in command
-	assert environment is not None
-	assert environment["COMPOSE_PROJECT_NAME"] == runner.compose_project_name
-	assert str(private_env) in command and not private_env.exists()
-	assert all(environment is not None and environment["COMPOSE_PROJECT_NAME"] == runner.compose_project_name for _command, environment in image_commands)
-	assert [command for command, _environment in image_commands if command[2] == "rm"] == [
-		["podman", "image", "rm", f"localhost/peptidyle-learning-engine:{runner.compose_project_name}"],
-		["podman", "image", "rm", f"localhost/{runner.compose_project_name}_gateway:latest"],
-	]
+	assert not any("down" in command for command, _environment in commands.calls)
 
 
 def test_j2_failure_receipt_keeps_only_the_last_safe_visible_stage(tmp_path: pathlib.Path) -> None:

@@ -23,7 +23,7 @@ use axum::{Json, Router};
 use learning_data_access::{
     AuthoritativeTimeStore, CatalogStore, DraftRecord, FlatImportProvenanceStore,
     FlatImportPublicationPromotion, FlatQuestionAssetStore, FlatQuestionGradingPayload,
-    FlatQuestionPublicationPromotion, FlatQuestionStore, PublishDraftCommand,
+    FlatQuestionPublicationPromotion, FlatQuestionStore, OwnerCorrectionStore, PublishDraftCommand,
     PublishedSourceArtifact, QTI_PROFILE_ARCHIVE_MEDIA_TYPE, SessionStore, Store, StoreError,
     TenantContext, UpsertFlatQuestionCommand, WorkspaceDraft, WorkspaceDraftRevision,
     WorkspaceFlatImportOrigin,
@@ -40,8 +40,8 @@ use serde::Deserialize;
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 use crate::catalog::{
-    BackendRegistry, BackendRegistryError, PublicReviewGate, error_response, may_publish,
-    mint_publication_reference,
+    BackendRegistry, BackendRegistryError, PublicReviewGate, dispatch_publication, error_response,
+    may_publish, mint_publication_reference,
 };
 
 mod hotspot_assets;
@@ -58,6 +58,7 @@ pub fn router<S, O, B, R>(
 where
     S: Store
         + CatalogStore
+        + OwnerCorrectionStore
         + FlatQuestionAssetStore
         + FlatQuestionStore
         + FlatImportProvenanceStore
@@ -98,6 +99,7 @@ async fn read_flat_question_source<S, O, B, R>(
 where
     S: Store
         + CatalogStore
+        + OwnerCorrectionStore
         + FlatQuestionAssetStore
         + FlatQuestionStore
         + FlatImportProvenanceStore
@@ -370,6 +372,7 @@ async fn publish_flat_question<S, O, B, R>(
 where
     S: Store
         + CatalogStore
+        + OwnerCorrectionStore
         + FlatQuestionAssetStore
         + FlatQuestionStore
         + FlatImportProvenanceStore
@@ -645,11 +648,7 @@ where
         scope: request.scope,
         capabilities,
     };
-    match state
-        .store
-        .publish_draft(authenticated.tenant_context, publisher, command)
-        .await
-    {
+    match dispatch_publication(state.store.as_ref(), &authenticated, command).await {
         Ok(record) => no_store((StatusCode::CREATED, Json(record.question)).into_response()),
         Err(error) => {
             // The catalog transaction refused the candidate. Only the fresh

@@ -7,6 +7,7 @@ import {
   decodeAccountAuthenticated,
   decodeAccountEmailChanged,
   decodeAccountCoursePage,
+  decodeAccountPresentationPreference,
   decodeCourseInvitationAccepted,
   decodeCourseRosterPage,
   decodeLocalTeachingMemberAccepted,
@@ -45,20 +46,39 @@ test("passwordless and roster decoders reject authority and secret fields", () =
 
   assert.deepEqual(decodeAccountEmailChanged({ changed: true }), { changed: true });
   assert.throws(() => decodeAccountEmailChanged({ changed: false }), /true/u);
+  assert.deepEqual(decodeAccountPresentationPreference({ contrast: "standard" }), {
+    contrast: "standard",
+  });
+  assert.throws(
+    () => decodeAccountPresentationPreference({ contrast: "maximum" }),
+    /one of standard, increased/u,
+  );
+  assert.throws(
+    () => decodeAccountPresentationPreference({ contrast: "increased", course: COURSE }),
+    /field allowed by this response contract/u,
+  );
   assert.deepEqual(
     decodeAccountCoursePage({
-      courses: [{ courseId: COURSE, title: "Biochemistry", role: "student" }],
+      courses: [{ courseId: COURSE, coursePublicId: 1, title: "Biochemistry", role: "student" }],
       nextCursor: null,
     }),
     {
-      courses: [{ courseId: COURSE, title: "Biochemistry", role: "student" }],
+      courses: [{ courseId: COURSE, coursePublicId: 1, title: "Biochemistry", role: "student" }],
       nextCursor: null,
     },
   );
   assert.throws(
     () =>
       decodeAccountCoursePage({
-        courses: [{ courseId: COURSE, title: "Biochemistry", role: "student", tenant: "hidden" }],
+        courses: [
+          {
+            courseId: COURSE,
+            coursePublicId: 1,
+            title: "Biochemistry",
+            role: "student",
+            tenant: "hidden",
+          },
+        ],
         nextCursor: null,
       }),
     /field allowed by this response contract/u,
@@ -140,6 +160,51 @@ test("passwordless and roster decoders reject authority and secret fields", () =
         redemptionPath: `https://attacker.example/${REDEMPTION_PATH}`,
       }),
     /same-origin one-time invitation path/u,
+  );
+});
+
+test("account contrast preference uses one strict account-owned read and update route", async () => {
+  const requests = [];
+  let saved = { contrast: "standard" };
+  const client = createHttpApiClient({
+    fetch: (input, init = {}) => {
+      const url = new URL(String(input), "https://ple.example");
+      requests.push({ path: url.pathname, init });
+      if (url.pathname !== "/api/auth/account/presentation") {
+        throw new Error(`unexpected request ${url.pathname}`);
+      }
+      if (init.method === "PUT") {
+        saved = JSON.parse(String(init.body));
+      }
+      return Promise.resolve(json(saved));
+    },
+  });
+
+  assert.deepEqual(await client.getAccountPresentation(), { contrast: "standard" });
+  assert.deepEqual(await client.saveAccountPresentation({ contrast: "increased" }), {
+    contrast: "increased",
+  });
+  assert.deepEqual(
+    requests.map((request) => ({
+      path: request.path,
+      method: request.init.method ?? "GET",
+      cache: request.init.cache,
+      body: request.init.body,
+    })),
+    [
+      {
+        path: "/api/auth/account/presentation",
+        method: "GET",
+        cache: "no-store",
+        body: undefined,
+      },
+      {
+        path: "/api/auth/account/presentation",
+        method: "PUT",
+        cache: "no-store",
+        body: JSON.stringify({ contrast: "increased" }),
+      },
+    ],
   );
 });
 

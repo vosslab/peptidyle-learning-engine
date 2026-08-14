@@ -82,7 +82,7 @@ two-actor testing capability, not a weakened production identity path.
 - Add an instructor-visible new-assignment route that searches the published
   problem corpus, selects immutable problem versions, configures policies, and
   creates the assignment.
-- Make the displayed `P-<number>-v<version>` reference operational: the
+- Make the displayed `AAA-BBBB` Question ID operational: the
   instructor copies and pastes the four exact Genetics Chapter 1 references
   into the visible add-by-ID control, then observes the four selected immutable
   versions before creating the assignment. UUIDs are not part of this human
@@ -161,7 +161,7 @@ The fixed walkthrough tells one coherent story:
    active member. The application visibly confirms the active roster row.
 4. The instructor creates a Mastery assignment, searches the published problem
    corpus for the four Genetics Chapter 1 questions, copies their displayed
-   `P-n-vn` references, pastes them into the visible add-by-ID control, observes
+   `AAA-BBBB` Question IDs, pastes them into the visible add-by-ID control, observes
    all four selected immutable versions, selects continued-practice policies,
    and confirms the assignment in the course.
 5. The local student signs in through a separate browser context, opens that
@@ -476,7 +476,7 @@ remain path-only private inputs and never enter the handoff or report.
   - J11 creates and opens a unique course through visible controls.
   - J12 adds and observes the active local student through Students.
   - J13 searches the published catalog through visible controls, copies and
-    pastes the four displayed Genetics Chapter 1 `P-n-vn` references into the
+    reuses the Genetics Chapter 1 assignment or pastes its four displayed `AAA-BBBB` Question IDs into the
     add-by-ID control, observes exactly four selected immutable versions, then
     creates the corpus-backed Mastery assignment and observes its course
     card/link.
@@ -518,7 +518,7 @@ remain path-only private inputs and never enter the handoff or report.
   coverage for default, conversion, toggle, validation, recovery, and timed/untimed display. These
   do not retain timing snapshots or implementation-string checks.
 - One-time acceptance evidence: a real Podman PostgreSQL plus `webwork-pg-renderer` J13/J1--J4 run
-  creates the Genetics assignment from copied `P-n-vn` references, visibly keeps the 15-minute
+  creates the Genetics assignment through assignment reuse or copied `AAA-BBBB` Question IDs, visibly keeps the 15-minute
   default, and captures the server-backed countdown, retry, and fresh timed run for guide review.
 - Obvious follow-ons: WP-S1, WP-S2, and WP-E1.
 
@@ -632,7 +632,7 @@ remain path-only private inputs and never enter the handoff or report.
   creation each pass focused authorization, keyboard, recovery, and independent
   review before live integration.
 - Human-reference gate: browser and server accept the same bounded exact
-  `P-n-vn` domain; no UUID is an instructor entry value or test-only DOM
+  `AAA-BBBB` Question ID domain; no UUID is an instructor entry value or test-only DOM
   extraction path. The successful J13 path uses copied visible references and
   selects exactly the requested four immutable versions. Batch recovery leaves
   the assignment draft unchanged until all references resolve.
@@ -774,6 +774,13 @@ or child output.
 - Existing learner evidence is preserved. The strengthened four-ID copy/paste path,
   explicit-input real-stack run, refreshed screenshots, and independent review passed on
   2026-08-12; broader release and integrated HOTSPOT acceptance remain separate.
+- **Corrective evidence, 2026-08-13:** the opt-in disposable Podman run now waits for successful
+  one-shots and every required long-running service before seed or Playwright. It passed the
+  instructor setup and two complete four-question learner chapters in two tests in 9.4 seconds
+  after the full stack reported ready. The renderer's PID-only, secret-free configuration passed its
+  real render/grade probe, and cleanup exited 0 after removing the exact generated project and
+  gateway image. This live proof repairs stack and journey composition only; it adds no permanent
+  pytest, fixture, or ordinary networked test.
 
 ## Open questions and decisions needed
 

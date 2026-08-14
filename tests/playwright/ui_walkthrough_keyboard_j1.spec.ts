@@ -28,7 +28,12 @@ test.setTimeout(90_000);
 function appendPassedJourneyState(inputs: UiWalkthroughInputs, elapsedMs: number): void {
   appendStudentRepeatState(
     inputs.journeyStateFile,
-    passedStudentRepeatFragment("J1", inputs.courseId, inputs.masteryAssignmentId, elapsedMs),
+    passedStudentRepeatFragment(
+      "J1",
+      inputs.courseReference,
+      inputs.masteryAssignmentReference,
+      elapsedMs,
+    ),
   );
 }
 
@@ -59,7 +64,7 @@ test("J1 student reaches visible feedback and the next question in the instructo
   await expect(page.locator("[data-route-surface=courses]")).toBeVisible();
   checkpoint(inputs, "signed_in");
 
-  const courseLink = page.locator(`a[href="/courses/${inputs.courseId}"]`);
+  const courseLink = page.locator(`a[href="/courses/${inputs.courseReference}"]`);
   await tabToTargetThroughVisiblePagination(page, {
     target: courseLink,
     renderedItems: page.locator(".course-card"),
@@ -82,7 +87,7 @@ test("J1 student reaches visible feedback and the next question in the instructo
   checkpoint(inputs, "course_opened");
 
   const assignmentLink = page.locator(
-    `a[href="/courses/${inputs.courseId}/assignments/${inputs.masteryAssignmentId}"]`,
+    `a[href="/courses/${inputs.courseReference}/assignments/${inputs.masteryAssignmentReference}"]`,
   );
   await tabToTargetThroughVisiblePagination(page, {
     target: assignmentLink,

@@ -20,18 +20,16 @@ pub(super) async fn validate_postgres_assignment_references(
         ));
     }
     for reference in assignment.references() {
-        // The RLS-protected version table resolves visibility under the active
-        // tenant. Deprecated immutable versions remain assignable; archived
-        // versions are historical-only.
-        let lifecycle: Option<String> = sqlx::query_scalar(
-            "SELECT lifecycle FROM problem_version \
-             WHERE problem_id = $1 AND version_id = $2 FOR SHARE",
-        )
-        .bind(reference.problem.as_uuid())
-        .bind(reference.version.as_uuid())
-        .fetch_optional(&mut **transaction)
-        .await
-        .map_err(map_sqlx_error)?;
+        // The broker performs the exact public-or-granted visibility check and
+        // retains a share lock through this transaction. Deprecated immutable
+        // versions remain assignable; archived versions are historical-only.
+        let lifecycle: Option<String> =
+            sqlx::query_scalar("SELECT public.ple_lock_assignable_problem_version($1, $2)")
+                .bind(reference.problem.as_uuid())
+                .bind(reference.version.as_uuid())
+                .fetch_one(&mut **transaction)
+                .await
+                .map_err(map_sqlx_error)?;
         if !matches!(lifecycle.as_deref(), Some("published" | "deprecated")) {
             return Err(StoreError::InvalidRecord(format!(
                 "assignment references a missing, hidden, or inactive published version {}/{}",

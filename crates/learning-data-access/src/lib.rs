@@ -31,6 +31,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 mod account_identity;
+mod account_presentation;
 mod activity_policy;
 mod asset_delivery;
 mod course_appearance;
@@ -47,6 +48,7 @@ mod item_analysis;
 pub mod jobs;
 mod manual_grade_export;
 mod manual_grading;
+mod navigation_references;
 /// Cursor and bounded-page types shared by every list method.
 pub mod pagination;
 mod policy;
@@ -55,6 +57,7 @@ pub mod postgres;
 mod publication_validation;
 mod qti;
 mod qti_ingress;
+mod question_id;
 /// Pure retention lifecycle policy; persistence and worker execution land in MOD-RETENTION R2+.
 pub mod retention;
 /// Explicit tenant context used by every educational-record operation.
@@ -64,6 +67,8 @@ mod score_precision;
 /// Provider-neutral, replica-safe authentication session contract.
 pub mod session;
 mod statistics;
+
+pub use crate::question_id::QuestionIdCodec;
 
 pub use crate::account_identity::{
     AccountCourseContext, AccountIdentityError, AccountIdentityStore, AccountRecord,
@@ -78,6 +83,9 @@ pub use crate::account_identity::{
     EmailDomain, PasskeyId, PasskeyRecord, RegisterPasskey, WebauthnCeremony, WebauthnCeremonyId,
     WebauthnCeremonyKind, WebauthnCeremonyLifetime, WebauthnState, validated_account_display_name,
     validated_passkey_label,
+};
+pub use crate::account_presentation::{
+    AccountPresentationPreference, AccountPresentationStore, PresentationContrast,
 };
 pub(crate) use crate::asset_delivery::validate_catalog_asset_delivery_scope;
 pub use crate::asset_delivery::{
@@ -153,6 +161,7 @@ pub use crate::manual_grading::{
     ManualGradeActionId, ManualGradeReceipt, ManualGradingStore, SetManualGradeCommand,
     SubmitPendingManualQuestionAttemptCommand,
 };
+pub use crate::navigation_references::{AssignmentRouteIdentity, NavigationReferenceStore};
 pub use crate::pagination::{Cursor, Page, PageRequest, PageSize, PaginationError};
 pub use crate::policy::{
     AssignmentExceptionLimit, AssignmentExceptionTimestamp, AssignmentPolicyException,

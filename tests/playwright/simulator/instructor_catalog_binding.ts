@@ -2,21 +2,24 @@
 
 import { expect, type Locator, type Page } from "@playwright/test";
 
-/** Finds one exact human-readable published version without opaque UUIDs. */
-export async function catalogResultByVersion(
+/** Finds one exact human-readable current question without exposing opaque UUIDs. */
+export async function catalogResultByQuestionId(
   page: Page,
   catalogSearchTitle: string,
-  versionNumber: number,
+  questionId?: string,
 ): Promise<Locator> {
-  if (!Number.isSafeInteger(versionNumber) || versionNumber < 1) {
-    throw new Error("catalog version number must be a positive safe integer");
+  if (
+    questionId !== undefined &&
+    !/^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u.test(questionId)
+  ) {
+    throw new Error("catalog Question ID must be canonical");
   }
-  const displayIdSuffix = new RegExp(`-v${versionNumber}$`, "u");
-  const catalogRow = page
-    .locator(".assignment-editor-catalog-results article", {
-      has: page.getByRole("heading", { name: catalogSearchTitle, exact: true }),
-    })
-    .filter({ has: page.locator("code", { hasText: displayIdSuffix }) });
+  let catalogRow = page.locator(".assignment-editor-catalog-results article", {
+    has: page.getByRole("heading", { name: catalogSearchTitle, exact: true }),
+  });
+  if (questionId !== undefined) {
+    catalogRow = catalogRow.filter({ has: page.locator("code", { hasText: questionId }) });
+  }
   await expect(catalogRow).toHaveCount(1);
   await expect(catalogRow).toBeVisible();
   return catalogRow;

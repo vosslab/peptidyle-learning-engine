@@ -79,16 +79,21 @@ docker.io/library/alpine@sha256:${PLE_SECRET_INIT_IMAGE_SHA256}
 Copy it to ignored `containers/env.local` and retain the pins; do not replace
 them with a tag such as `latest`. The gateway takes a fully qualified
 digest-pinned Caddy value. The external renderer image is owned and built by the
-separate `webwork-pg-renderer` project; PLE records the selected local OCI ID.
+separate `webwork-pg-renderer` project; PLE records the resolved image configuration ID separately
+from the selected immutable repository digest.
 
 These references are not all runtime images. `postgres`, `minio`,
 `createbuckets`, and `identity-secret-init` run their specified external
 images. `api` builds the shared local application image from
 `containers/Containerfile.api`, and `worker` consumes that exact image;
 `gateway` is built locally from `containers/Containerfile.gateway` using the
-pinned Caddy build argument. The `webwork-renderer` is an existing external-project image. Its default
-`localhost/pg-renderer:latest` name is a local build result from that sibling
-project, not a PLE-owned renderer build.
+pinned Caddy build argument. The `webwork-renderer` is an existing external-project image. Build
+that sibling under a convenient local tag, copy its reviewed `RepoDigests` manifest reference, then set
+`PLE_WEBWORK_RENDERER_IMAGE` to its reviewed immutable
+`repository@sha256:<64-lowercase-hex>` reference (the tracked default is
+`localhost/pg-renderer@sha256:d606c4b5d82d425729643c4f36d093d549759a416d0527f0340ae0a7319a8456`).
+PLE does not build that image and rejects mutable tags; it records the resolved image configuration
+ID separately as renderer-version provenance.
 
 ## PostgreSQL retained volumes
 

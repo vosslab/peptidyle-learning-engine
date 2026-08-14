@@ -1503,7 +1503,7 @@ BEGIN
            AND import_row.import_id = NEW.import_id
            AND import_row.source_object_id = NEW.source_archive_object_id
            AND import_row.payload #>> '{source,id}' = NEW.source_archive_object_id::text
-           AND import_row.payload #>> '{source,bucket}' = 'content'
+           AND import_row.payload #>> '{source,bucket}' = 'private-content'
            AND import_row.payload #>> '{source,key,kind}' = 'workspaceSource'
            AND import_row.payload #>> '{source,key,tenant}' = NEW.tenant_id::text
            AND import_row.payload #>> '{source,key,workspace}' = NEW.workspace_id::text

@@ -194,7 +194,7 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
     verify_application_schema(&pool)
         .await
         .expect("live PostgreSQL schema compatibility");
-    let store = PostgresStore::new(pool.clone());
+    let store = PostgresStore::with_question_id_secret(pool.clone(), [0x42; 32]);
 
     let tenant = TenantId::from_uuid(fresh_uuid());
     let foreign_context =

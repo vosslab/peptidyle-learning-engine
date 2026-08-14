@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::routing::{get, post};
-use learning_data_access::{CatalogStore, SessionStore, Store};
+use learning_data_access::{CatalogStore, OwnerCorrectionStore, SessionStore, Store};
 
 use super::{BackendRegistry, PublicReviewGate};
 use super::{lifecycle, publication, query};
@@ -13,7 +13,7 @@ const MAX_CATALOG_BODY_BYTES: usize = 64 * 1_024;
 /// Builds the authenticated `/api/problems` and `/api/taxonomy` route group.
 pub fn router<S, B, R>(store: Arc<S>, backends: Arc<B>, review_gate: Arc<R>) -> Router
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store + CatalogStore + OwnerCorrectionStore + SessionStore + 'static,
     B: BackendRegistry + 'static,
     R: PublicReviewGate + 'static,
 {

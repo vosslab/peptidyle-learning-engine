@@ -2,13 +2,28 @@ use super::*;
 
 async fn exercise_catalog_store<S>(store: &S)
 where
-    S: Store + CatalogStore,
+    S: Store + CatalogStore + OwnerCorrectionStore + SessionStore,
 {
     let tenant = TenantId::from_uuid(uuid(301));
     let foreign_tenant = TenantId::from_uuid(uuid(302));
     let context = TenantContext::from_authenticated_session(tenant);
     let foreign_context = TenantContext::from_authenticated_session(foreign_tenant);
     let publisher = UserId::from_uuid(uuid(303));
+    let correction_session = SessionTokenHash::compute(b"catalog-correction-owner");
+    store
+        .create_session(
+            correction_session,
+            SessionSubject::new(
+                tenant,
+                publisher,
+                "Catalog correction owner",
+                vec![UserRole::Instructor],
+            )
+            .expect("correction owner session subject should be valid"),
+            SessionLifetime::from_seconds(3_600).expect("positive session lifetime"),
+        )
+        .await
+        .expect("correction owner session should persist");
     let other_user = UserId::from_uuid(uuid(304));
     let tenant_course = CourseId::from_uuid(uuid(317));
     let foreign_course = CourseId::from_uuid(uuid(318));
@@ -302,8 +317,8 @@ where
                 },
             )
             .await,
-        Err(StoreError::NotFound),
-        "a visible public version cannot be revised by the same user ID in a foreign tenant"
+        Err(StoreError::Forbidden),
+        "ordinary publication cannot use the owner-correction path"
     );
     assert_eq!(
         store
@@ -342,10 +357,41 @@ where
         .upsert_draft(context, publisher, None, revision_draft.clone())
         .await
         .expect("revision draft should save");
+    assert_eq!(
+        store
+            .publish_owner_correction(
+                context,
+                OwnerCorrectionAuthority {
+                    actor: publisher,
+                    session: correction_session,
+                },
+                PublishDraftCommand {
+                    expected_draft: revision_draft.clone(),
+                    expected_revision: saved_revision_draft.revision,
+                    publication: ProblemVersionRef {
+                        problem: public_problem,
+                        version: VersionId::from_uuid(uuid(322)),
+                    },
+                    published_source: published_source(),
+                    source_artifact: None,
+                    qti_promotion: None,
+                    flat_question_promotion: None,
+                    publisher,
+                    scope: PublicationScope::Institution,
+                    capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
+                },
+            )
+            .await,
+        Err(StoreError::Forbidden),
+        "an owner correction cannot widen or narrow its published scope"
+    );
     let revision = store
-        .publish_draft(
+        .publish_owner_correction(
             context,
-            publisher,
+            OwnerCorrectionAuthority {
+                actor: publisher,
+                session: correction_session,
+            },
             PublishDraftCommand {
                 expected_draft: revision_draft,
                 expected_revision: saved_revision_draft.revision,
@@ -384,23 +430,63 @@ where
         Err(StoreError::Forbidden)
     );
     let deprecated = store
-        .transition_catalog_problem(
+        .get_catalog_problem(
             context,
-            publisher,
             ProblemVersionRef {
                 problem: public_problem,
                 version: public_version,
             },
-            CatalogTransition::Deprecate {
-                reason: " Correction available ".to_string(),
-            },
         )
         .await
-        .expect("author should deprecate");
+        .expect("hidden correction source should remain readable")
+        .expect("hidden correction source should remain stored");
     assert!(matches!(
         deprecated.lifecycle,
-        CatalogLifecycle::Deprecated { ref reason } if reason == "Correction available"
+        CatalogLifecycle::Archived { ref reason }
+            if reason == "Superseded by an owner correction"
     ));
+    let archived_workspace = WorkspaceId::from_uuid(uuid(323));
+    let archived_draft = DraftRecord {
+        tenant,
+        question: draft_question(archived_workspace),
+        revises: Some(ProblemVersionRef {
+            problem: public_problem,
+            version: public_version,
+        }),
+        derived_from: None,
+    };
+    let saved_archived_draft = store
+        .upsert_draft(context, publisher, None, archived_draft.clone())
+        .await
+        .expect("archived-predecessor draft should save before refusal");
+    assert_eq!(
+        store
+            .publish_owner_correction(
+                context,
+                OwnerCorrectionAuthority {
+                    actor: publisher,
+                    session: correction_session,
+                },
+                PublishDraftCommand {
+                    expected_draft: archived_draft,
+                    expected_revision: saved_archived_draft.revision,
+                    publication: ProblemVersionRef {
+                        problem: public_problem,
+                        version: VersionId::from_uuid(uuid(324)),
+                    },
+                    published_source: published_source(),
+                    source_artifact: None,
+                    qti_promotion: None,
+                    flat_question_promotion: None,
+                    publisher,
+                    scope: PublicationScope::Public,
+                    capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
+                },
+            )
+            .await,
+        Err(StoreError::Forbidden),
+        "an archived predecessor cannot be corrected again"
+    );
     let exact_deprecated = store
         .get_catalog_problem(
             foreign_context,
@@ -415,24 +501,6 @@ where
         exact_deprecated.is_some(),
         "existing references remain resolvable"
     );
-    store
-        .create_untimed_assignment(
-            context,
-            AssignmentRecord {
-                id: AssignmentId::from_uuid(uuid(315)),
-                tenant,
-                course_id: tenant_course,
-                title: "Deprecated exact reference".to_string(),
-                items: fixed_items(vec![ProblemVersionRef {
-                    problem: public_problem,
-                    version: public_version,
-                }]),
-                selection_groups: Vec::new(),
-                policies: policies(),
-            },
-        )
-        .await
-        .expect("a deprecated version remains assignable by exact reference");
     let browse_after_deprecation = store
         .list_catalog(
             foreign_context,
@@ -443,22 +511,6 @@ where
     assert_eq!(browse_after_deprecation.items.len(), 1);
     assert_eq!(browse_after_deprecation.items[0].version, revision_version);
 
-    let archived = store
-        .transition_catalog_problem(
-            context,
-            publisher,
-            ProblemVersionRef {
-                problem: public_problem,
-                version: public_version,
-            },
-            CatalogTransition::Archive,
-        )
-        .await
-        .expect("deprecated version should archive");
-    assert!(matches!(
-        archived.lifecycle,
-        CatalogLifecycle::Archived { .. }
-    ));
     assert!(matches!(
         store
             .create_untimed_assignment(

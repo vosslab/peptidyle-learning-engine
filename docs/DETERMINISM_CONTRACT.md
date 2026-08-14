@@ -174,9 +174,12 @@ The cache is a reproducibility optimization, not a promise that no renderer
 work occurs. On a cache hit during **issue**, current code invokes the private
 renderer once with the same source and seed to reconstruct its private replay
 mapping and compares the resulting safe render with the immutable cached
-render. Reproduction of an already-issued safe envelope reads the cache only.
-This distinction is important for latency estimates and for interpreting the
-`ple.webwork.cache` `renderer_call` and `cache_hit` witnesses.
+render. That adapter work emits the `ple.webwork.cache` `renderer_call` and
+`cache_hit` witnesses. In contrast, an already-issued attempt's active or
+submitted `GET` returns its persisted presentation or receipt snapshot; it
+does not call adapter `reproduce`, read the safe-render cache, call the
+renderer, or emit either witness. This distinction is important for latency
+estimates and operational evidence.
 
 The Store persists a bounded `WebworkGradeReplayStateV1`: immutable
 problem/version/source/seed/renderer provenance, presentation digest, and a

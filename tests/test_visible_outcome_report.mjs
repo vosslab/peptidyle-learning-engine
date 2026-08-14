@@ -33,30 +33,37 @@ import {
   isFinalSurfaceTerminal,
 } from "./playwright/simulator/post_start_surface.ts";
 
-const COURSE = "123e4567-e89b-12d3-a456-426614174000";
-const ASSIGNMENT = "123e4567-e89b-12d3-a456-426614174001";
+const COURSE = "C-42";
+const ASSIGNMENT = "A-73";
+const EXAM_ASSIGNMENT = "A-74";
 const PROBLEM = "123e4567-e89b-12d3-a456-426614174002";
 const VERSION = "123e4567-e89b-12d3-a456-426614174003";
-const EXAM = "123e4567-e89b-12d3-a456-426614174004";
+const BASELINE_ASSIGNMENT = "123e4567-e89b-12d3-a456-426614174004";
 
 function arrangements() {
   return [
-    { label: "api-exam-assignment", publicIds: { examAssignmentId: EXAM, courseId: COURSE } },
+    {
+      label: "api-exam-assignment",
+      publicIds: { examAssignmentReference: EXAM_ASSIGNMENT, courseReference: COURSE },
+    },
     { label: "launcher-seeded-enrollment", publicIds: {} },
     {
       label: "api-retry-corpus-publication",
       publicIds: { versionId: VERSION, problemId: PROBLEM },
     },
-    { label: "launcher-baseline-assignment", publicIds: { baselineAssignmentId: ASSIGNMENT } },
+    {
+      label: "launcher-baseline-assignment",
+      publicIds: { baselineAssignmentId: BASELINE_ASSIGNMENT },
+    },
     {
       label: "api-mastery-assignment",
-      publicIds: { masteryAssignmentId: ASSIGNMENT, courseId: COURSE },
+      publicIds: { masteryAssignmentReference: ASSIGNMENT, courseReference: COURSE },
     },
   ];
 }
 
 function journeys() {
-  const j4 = passedStudentCompletionPolicyEvidence(COURSE, ASSIGNMENT, EXAM, 14);
+  const j4 = passedStudentCompletionPolicyEvidence(COURSE, ASSIGNMENT, EXAM_ASSIGNMENT, 14);
   const j5 = passedW4Fragment(COURSE, ASSIGNMENT, 15);
   return [
     passedW1Fragment(COURSE, ASSIGNMENT, 12),
@@ -105,16 +112,22 @@ test("report rendering sorts arrangements and retains the public-only outcome re
       stage: "complete",
       elapsedMs: 68,
       arrangements: [
-        { label: "api-exam-assignment", publicIds: { courseId: COURSE, examAssignmentId: EXAM } },
+        {
+          label: "api-exam-assignment",
+          publicIds: { courseReference: COURSE, examAssignmentReference: EXAM_ASSIGNMENT },
+        },
         {
           label: "api-mastery-assignment",
-          publicIds: { courseId: COURSE, masteryAssignmentId: ASSIGNMENT },
+          publicIds: { courseReference: COURSE, masteryAssignmentReference: ASSIGNMENT },
         },
         {
           label: "api-retry-corpus-publication",
           publicIds: { problemId: PROBLEM, versionId: VERSION },
         },
-        { label: "launcher-baseline-assignment", publicIds: { baselineAssignmentId: ASSIGNMENT } },
+        {
+          label: "launcher-baseline-assignment",
+          publicIds: { baselineAssignmentId: BASELINE_ASSIGNMENT },
+        },
         { label: "launcher-seeded-enrollment", publicIds: {} },
       ],
       journeys: allJourneys,
@@ -152,16 +165,22 @@ test("the renderer rejects duplicate arrangements and invalid first-run outcomes
   );
 });
 
-test("the direct renderer rejects answer-like records and uppercase public identifiers", () => {
+test("the direct renderer rejects answer-like records and invalid public references", () => {
   const fragment = passedW1Fragment(COURSE, ASSIGNMENT, 12);
   const correctChoice = arrangements().map((arrangement) =>
     arrangement.label === "api-mastery-assignment"
-      ? { ...arrangement, publicIds: { courseId: COURSE, correctChoice: ASSIGNMENT } }
+      ? { ...arrangement, publicIds: { courseReference: COURSE, correctChoice: ASSIGNMENT } }
       : arrangement,
   );
   const uppercase = arrangements().map((arrangement) =>
     arrangement.label === "api-exam-assignment"
-      ? { ...arrangement, publicIds: { courseId: COURSE.toUpperCase(), examAssignmentId: EXAM } }
+      ? {
+          ...arrangement,
+          publicIds: {
+            courseReference: COURSE.toLowerCase(),
+            examAssignmentReference: EXAM_ASSIGNMENT,
+          },
+        }
       : arrangement,
   );
   assert.equal(

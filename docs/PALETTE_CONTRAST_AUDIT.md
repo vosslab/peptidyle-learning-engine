@@ -94,6 +94,14 @@ PLE_CAPTURE_COURSE_APPEARANCE_VISUALS=1 \
   npx playwright test tests/playwright/course_appearance_visual.spec.ts
 ```
 
+The direct command intentionally refreshes ignored generated evidence. For a disposable Validation
+test-suite check that validates PNG dimensions, nonempty regular files, and palette metrics without
+changing `generated/ui/`, run:
+
+```bash
+node tests/playwright/verify_course_appearance_visuals.mjs
+```
+
 This document therefore does not claim a single white-background ratio for
 every raw course swatch. The catalog table preserves the source palette; the
 tests above are the current numerical oracle for the rendered pairs users see.

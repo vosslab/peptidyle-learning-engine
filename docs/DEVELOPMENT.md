@@ -94,14 +94,38 @@ active work package.
 | Rust code, features, lints, tests, or Wasm | `./check_rust.sh`                                           | The complete offline Cargo and Rust gate.          |
 | TypeScript, browser lint, format, or tests | `./check_codebase.sh`                                       | The vendored TypeScript and Node gate.             |
 | Repository documentation and hygiene      | `source source_me.sh && python3 -m pytest tests/`            | Fast Python hygiene and repository-rule checks.    |
-| Built-browser behavior                    | `./run_playwright_tests.sh --build`                         | A fresh browser artifact and the Playwright suite. |
+| Built-browser behavior                    | `./run_playwright_tests.sh --build`                         | The ordinary mock-backed browser suite, with no skips. |
+| Complete Playwright validation            | `./run_playwright_validation.sh --live`                    | Ordinary browser coverage plus required visual, walkthrough, and live-browser acceptance. |
 | One browser scenario                      | `./run_playwright_tests.sh tests/playwright/<file>.spec.ts` | The selected built-browser scenario.               |
 | Container-backed behavior                 | `bash tests/e2e/e2e_<name>.sh`                              | The named disposable whole-system oracle.          |
+| Local stack diagnosis and lifecycle       | `source source_me.sh && python3 local_stack.py <command>`   | The scoped controller contract.                    |
 
 `tests/playwright/` is browser-driven testing and `tests/e2e/` is non-browser whole-system
 orchestration. Both are intentionally excluded from `pytest tests/`; see
 [E2E_TESTS.md](E2E_TESTS.md) for the test-tier boundary. Install the browser binaries once with
 `npm run setup:playwright` before running Playwright.
+
+### Playwright execution lanes
+
+`./run_playwright_tests.sh --build` is the ordinary fast browser gate. It builds `dist/`, starts
+the mock preview server configured in `playwright.config.ts`, and must finish with no skipped
+tests. It neither requires nor reuses a Podman PLE stack. Real-stack, walkthrough, and visual
+evidence cases are deliberately outside its collection; they are not ordinary tests that happened
+to skip.
+
+Run the complete Playwright Validation test suite explicitly when the active plan requires all
+browser claims:
+
+```bash
+./run_playwright_validation.sh --live
+```
+
+Start from no existing default or disposable PLE stack. The command refuses inherited live-target,
+credential, and Compose overrides; it owns the temporary visual output and invokes each live or
+walkthrough owner with its documented private inputs. A failed or skipped required lane is red, so
+the suite is not green until every lane passes. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)
+for the evidence boundary and [USAGE.md](USAGE.md#build-and-validation-commands) for operator
+preconditions.
 
 In-memory and other offline contract tests belong in the normal Rust and Node gates. PostgreSQL,
 MinIO, role/RLS, migration, restart, and private-renderer claims require their named E2E runner and
@@ -134,20 +158,53 @@ keyboard-driven learner path through the built PLE browser and private renderer.
 
 ## Run local services
 
-Use the launcher when a work package needs the supported local PostgreSQL, MinIO, API, worker,
-gateway, and external stateless WeBWorK PG renderer:
+Use the controller when a work package needs the supported local PostgreSQL,
+MinIO, API, worker, gateway, and external stateless WeBWorK PG renderer:
 
 ```bash
-./launch_local_stack.sh --check
-./launch_local_stack.sh --no-open
+source source_me.sh && python3 local_stack.py doctor
+source source_me.sh && python3 local_stack.py validate
+source source_me.sh && python3 local_stack.py start --no-open
+source source_me.sh && python3 local_stack.py status
+source source_me.sh && python3 local_stack.py logs gateway api worker
+source source_me.sh && python3 local_stack.py restart api
+source source_me.sh && python3 local_stack.py stop
 ```
 
-`--check` validates configuration without changing state. A normal launcher run can create ignored
-local credentials and starts the supported stack; do not copy those local secret files into source
-control. It uses an already-built `webwork-pg-renderer` image rather than building a second WeBWorK
-platform or database. SMTP is an operator-selected external service enabled only with `--with-smtp`.
-[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) documents the stack, configuration,
-recovery, and service commands.
+`doctor`, `projects`, `status`, `logs`, and `validate` are read-only. `start`
+delegates the application bootstrap to the launcher; a default first start can
+create ignored local credentials and starts the supported stack. Do not copy
+those local secret files into source control. `stop` retains named volumes.
+`restart` is restricted to the stateless API, worker, gateway, and renderer
+services, and delegates back to the launcher for readiness verification.
+
+For deliberately disposable default data, run `reset --dry-run` first, inspect
+its exact labelled project/resource preview, and then use
+`reset --confirm-project containers`. Reset preserves local host credentials
+and does not perform global Podman pruning or image deletion. Raw Compose is a
+diagnosis or recovery interface only; normal changes should not bypass the
+controller's project and environment handling.
+
+The controller uses an already-built `webwork-pg-renderer` image rather than
+building a second WeBWorK platform or database. SMTP is an operator-selected
+external service enabled only with `--with-smtp`; status safely infers a
+persisted SMTP overlay from its labelled resources. [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md)
+documents the stack, configuration, recovery, and service commands.
+
+### Validation classes
+
+Keep controller parsing, ownership, confirmation, and topology behavior in
+fast deterministic permanent tests. Run Podman, PostgreSQL, MinIO, renderer,
+restart, visual, walkthrough, and browser evidence only through their named
+opt-in disposable/live commands. A focused probe while rebuilding a workflow
+is useful evidence, but does not become a permanent test unless it satisfies
+the repository checklist in [PYTEST_STYLE.md](PYTEST_STYLE.md#is-this-a-good-pytest).
+
+Every goal must finish the active plan's full Validation test suite on the
+final material tree. The suite includes all required permanent gates, named
+service/browser acceptance, and independent reviews; an unrun or required
+skipped live gate is not green. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite)
+for the evidence model and completion rule.
 
 ## Prepare a handoff
 

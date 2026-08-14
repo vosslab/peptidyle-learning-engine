@@ -201,6 +201,28 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
     for answer_bearing_field in ["answerKey", "expected", "rubric", "grading"] {
         assert!(!serialized_envelope.contains(answer_bearing_field));
     }
+    let repeated_question_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/attempts/{}/question", issued.id))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("repeated issued question request"),
+        )
+        .await
+        .expect("repeated issued question response");
+    assert_eq!(repeated_question_response.status(), StatusCode::OK);
+    assert_eq!(
+        json(repeated_question_response).await,
+        envelope,
+        "active GET returns the immutable issuance snapshot"
+    );
+    assert_eq!(
+        backend.reproduce_calls.load(Ordering::SeqCst),
+        0,
+        "active GET reads its persisted issuance snapshot instead of the mutable backend",
+    );
 
     let submission_body = serde_json::json!({
         "response": { "kind": "numeric", "value": 18.0 }

@@ -318,6 +318,29 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
 
   const client: ApiClient = {
     ...createMockEnrollmentClient(),
+    resolveNavigation: (reference) => {
+      if (reference === `C-${publishedProblemFixture.course.publicId}`) {
+        return Promise.resolve({ kind: "course", courseId: publishedProblemFixture.course.id });
+      }
+      if (reference === `C-${secondaryMockCourse.publicId}`) {
+        return Promise.resolve({ kind: "course", courseId: secondaryMockCourse.id });
+      }
+      if (reference === `A-${publishedProblemFixture.assignment.publicId}`) {
+        return Promise.resolve({
+          kind: "assignment",
+          courseId: publishedProblemFixture.assignment.courseId,
+          assignmentId: publishedProblemFixture.assignment.id,
+        });
+      }
+      const run = publishedProblemFixture.runs.find(
+        (candidate) => reference === `R-${candidate.publicId}`,
+      );
+      if (run !== undefined) return Promise.resolve({ kind: "run", runId: run.id });
+      if (reference === "W-1" && workspaceDraft !== undefined) {
+        return Promise.resolve({ kind: "workspace", workspaceId: workspaceDraft.workspace });
+      }
+      return Promise.reject(new Error(`Mock navigation target ${reference} is not found`));
+    },
     getSession: () => {
       const expected: AuthSession = {
         authenticated: true,
@@ -346,6 +369,7 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
             : [
                 {
                   workspace: draft.workspace,
+                  publicId: 1,
                   title: draft.metadata.title,
                   sourceBackend: draft.source.backend,
                 },

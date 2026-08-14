@@ -1,16 +1,16 @@
 // run_summary_page.tsx - bounded, server-projected learner run history.
 
-import { useNavigate, useParams } from "@solidjs/router";
+import { useNavigate } from "@solidjs/router";
 import { createSignal, For, onMount, Show, type JSX } from "solid-js";
 
 import type { RunSummaryOutcome, RunSummaryResponse } from "../api/contracts";
 import { FeedbackPanel } from "../components/feedback_panel";
 import { useApiRuntime } from "../api/runtime";
 import { useCourseThemeRouteData } from "../features/course_appearance/course_theme_context";
+import { runRouteReference } from "../navigation/public_route";
 
 export function RunSummaryPage(): JSX.Element {
   const runtime = useApiRuntime();
-  const params = useParams();
   const navigate = useNavigate();
   const scopedRoute = useCourseThemeRouteData();
   const initialSummary = scopedRoute?.kind === "runSummary" ? scopedRoute.response : undefined;
@@ -30,7 +30,7 @@ export function RunSummaryPage(): JSX.Element {
   }
 
   async function load(cursor?: string): Promise<void> {
-    const runId = params["runId"];
+    const runId = summary()?.run.id ?? initialSummary?.run.id;
     if (runId === undefined || loading() || (cursor !== undefined && seen.has(cursor))) return;
     if (cursor === undefined) seen.clear();
     setLoading(true);
@@ -70,7 +70,7 @@ export function RunSummaryPage(): JSX.Element {
     setPracticeError(null);
     try {
       const run = await runtime.client.startRun(assignment);
-      navigate(`/runs/${run.id}`);
+      navigate(`/runs/${runRouteReference(run.publicId)}`);
     } catch {
       setPracticeError("Could not start a fresh practice run. Your summary is still available.");
     }

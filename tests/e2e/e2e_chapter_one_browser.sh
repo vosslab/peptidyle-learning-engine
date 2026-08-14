@@ -5,8 +5,7 @@ set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 readonly REPO_ROOT
-readonly PROJECT_NAME="ple_chapter_one_browser_$$"
-readonly GATEWAY_IMAGE="localhost/${PROJECT_NAME}_gateway:latest"
+readonly WEBWORK_RENDERER_IMAGE="localhost/pg-renderer@sha256:d606c4b5d82d425729643c4f36d093d549759a416d0527f0340ae0a7319a8456"
 readonly TENANT_ID="00000000-0000-0000-0000-000000000100"
 readonly INSTRUCTOR_ID="00000000-0000-0000-0000-000000000101"
 readonly STUDENT_ID="00000000-0000-0000-0000-000000000102"
@@ -16,8 +15,10 @@ readonly MINIO_CONSOLE_PORT="${PLE_CHAPTER_ONE_BROWSER_MINIO_CONSOLE_PORT:-$((52
 readonly GATEWAY_PORT="${PLE_CHAPTER_ONE_BROWSER_GATEWAY_PORT:-$((53000 + RANDOM % 400))}"
 
 TEMP_DIRECTORY=""
+MANIFEST_FILE=""
+CAPABILITY_FILE=""
+PROJECT_NAME=""
 STACK_OWNED=0
-COMPOSE=()
 
 fail() {
 	echo "Chapter 1 browser E2E: $*" >&2
@@ -28,47 +29,23 @@ require_command() {
 	command -v "$1" >/dev/null 2>&1 || fail "missing required command: $1"
 }
 
-configure_compose() {
-	if podman compose version >/dev/null 2>&1; then
-		COMPOSE=(podman compose)
-	elif command -v podman-compose >/dev/null 2>&1 && podman-compose version >/dev/null 2>&1; then
-		COMPOSE=(podman-compose)
-	else
-		fail "no usable Podman Compose provider is available"
-	fi
-}
-
-compose() {
-	COMPOSE_PROJECT_NAME="$PROJECT_NAME" "${COMPOSE[@]}" \
-		-f containers/compose.yaml --env-file "$TEMP_DIRECTORY/env.local" "$@"
-}
-
 cleanup() {
 	local status="$?"
 	local cleanup_failed=0
-	local image_status=0
 	if [ "${PLE_E2E_KEEP:-0}" = "1" ]; then
 		echo "Chapter 1 browser E2E: preserving $PROJECT_NAME and $TEMP_DIRECTORY"
 	else
 		if [ "$STACK_OWNED" = "1" ]; then
-			compose down --volumes --remove-orphans >/dev/null 2>&1 || cleanup_failed=1
-			if podman image exists "$GATEWAY_IMAGE" >/dev/null 2>&1; then
-				podman image rm "$GATEWAY_IMAGE" >/dev/null 2>&1 || cleanup_failed=1
-			else
-				image_status="$?"
-				if [ "$image_status" -ne 1 ]; then
-					cleanup_failed=1
-				fi
-			fi
-		fi
-		if [ -n "$TEMP_DIRECTORY" ] && [ -d "$TEMP_DIRECTORY" ]; then
-			rm -rf -- "$TEMP_DIRECTORY"
+			python3 "$REPO_ROOT/local_stack_consumer.py" cleanup --manifest "$MANIFEST_FILE" \
+				|| cleanup_failed=1
 		fi
 		if [ "$cleanup_failed" -ne 0 ]; then
-			echo "Chapter 1 browser E2E: exact disposable cleanup failed" >&2
+			echo "Chapter 1 browser E2E: exact disposable cleanup failed; preserving $TEMP_DIRECTORY" >&2
 			if [ "$status" -eq 0 ]; then
 				status=1
 			fi
+		elif [ -n "$TEMP_DIRECTORY" ] && [ -d "$TEMP_DIRECTORY" ]; then
+			rm -rf -- "$TEMP_DIRECTORY"
 		fi
 	fi
 	exit "$status"
@@ -93,6 +70,7 @@ write_private_inputs() {
 	local minio_password="$6"
 	local grader_password="$7"
 	local invitation_secret="$8"
+	local question_id_secret="$9"
 
 	umask 077
 	printf 'instructor=%s\nstudent=%s\n' \
@@ -101,7 +79,9 @@ write_private_inputs() {
 		"$instructor_hash" "$TENANT_ID" "$INSTRUCTOR_ID" \
 		"$student_hash" "$TENANT_ID" "$STUDENT_ID" >"$TEMP_DIRECTORY/local-identities.json"
 	printf '%s' "$invitation_secret" >"$TEMP_DIRECTORY/invitation-secret"
-	chmod 600 "$TEMP_DIRECTORY/local-login.txt" "$TEMP_DIRECTORY/invitation-secret"
+	printf '%s' "$question_id_secret" >"$TEMP_DIRECTORY/question-id-secret"
+	chmod 600 "$TEMP_DIRECTORY/local-login.txt" "$TEMP_DIRECTORY/invitation-secret" \
+		"$TEMP_DIRECTORY/question-id-secret"
 	chmod 644 "$TEMP_DIRECTORY/local-identities.json"
 
 	printf '%s\n' \
@@ -125,7 +105,8 @@ write_private_inputs() {
 		"PLE_WEBAUTHN_ORIGIN=http://localhost:$GATEWAY_PORT" \
 		"PLE_WEBAUTHN_RP_NAME=Peptidyle Learning Engine" \
 		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE=$TEMP_DIRECTORY/invitation-secret" \
-		"PLE_WEBWORK_RENDERER_IMAGE=localhost/pg-renderer:latest" \
+		"PLE_QUESTION_ID_SECRET_HOST_FILE=$TEMP_DIRECTORY/question-id-secret" \
+		"PLE_WEBWORK_RENDERER_IMAGE=$WEBWORK_RENDERER_IMAGE" \
 		"PLE_WEBWORK_RENDERER_ID=vosslab-webwork-pg-renderer" \
 		"PLE_WEBWORK_PROBLEM_JWT_SECRET=$(openssl rand -hex 32)" \
 		"PLE_WEBWORK_SESSION_JWT_SECRET=$(openssl rand -hex 32)" \
@@ -134,12 +115,27 @@ write_private_inputs() {
 	chmod 600 "$TEMP_DIRECTORY/env.local"
 }
 
+write_private_target() {
+	local capability_digest
+	PROJECT_NAME="ple-chapter-one-browser-$(openssl rand -hex 6)"
+	MANIFEST_FILE="$TEMP_DIRECTORY/disposable.manifest"
+	CAPABILITY_FILE="$TEMP_DIRECTORY/disposable.capability"
+	capability_digest="$(python3 -c 'import hashlib, os, secrets, sys; raw = secrets.token_bytes(32); fd = os.open(sys.argv[1], os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600); os.write(fd, raw); os.close(fd); print(hashlib.sha256(raw).hexdigest())' "$CAPABILITY_FILE")"
+	printf 'PLE_DISPOSABLE_CAPABILITY_SHA256=%s\n' "$capability_digest" >>"$TEMP_DIRECTORY/env.local"
+	printf '%s\n' \
+		"OWNER=chapter-one-browser" \
+		"PROJECT=$PROJECT_NAME" \
+		"ENV_FILE=$TEMP_DIRECTORY/env.local" \
+		"CAPABILITY_FILE=$CAPABILITY_FILE" >"$MANIFEST_FILE"
+	chmod 600 "$MANIFEST_FILE" "$CAPABILITY_FILE"
+}
+
 cd "$REPO_ROOT"
 for command_name in awk cargo curl git npx openssl podman python3; do
 	require_command "$command_name"
 done
-configure_compose
 TEMP_DIRECTORY="$(mktemp -d)"
+chmod 700 "$TEMP_DIRECTORY"
 
 instructor_credential="$(base64url_random 32)"
 student_credential="$(base64url_random 32)"
@@ -147,22 +143,23 @@ postgres_password="$(openssl rand -hex 24)"
 minio_password="$(openssl rand -hex 24)"
 grader_password="$(openssl rand -hex 24)"
 invitation_secret="$(base64url_random 32)"
+question_id_secret="$(base64url_random 32)"
 write_private_inputs \
 	"$instructor_credential" "$student_credential" \
 	"$(credential_hash "$instructor_credential")" "$(credential_hash "$student_credential")" \
-	"$postgres_password" "$minio_password" "$grader_password" "$invitation_secret"
+	"$postgres_password" "$minio_password" "$grader_password" "$invitation_secret" \
+	"$question_id_secret"
+write_private_target
 
-echo "Chapter 1 browser E2E: building the browser and host artifacts"
-./build.sh
-
-echo "Chapter 1 browser E2E: starting an isolated complete PLE stack"
+echo "Chapter 1 browser E2E: building and starting an isolated complete PLE stack"
 STACK_OWNED=1
-COMPOSE_PROJECT_NAME="$PROJECT_NAME" PLE_LAUNCH_TIMEOUT_SECONDS=240 \
-	./launch_local_stack.sh --env-file "$TEMP_DIRECTORY/env.local" --skip-build --no-open
+python3 "$REPO_ROOT/local_stack_consumer.py" launch --manifest "$MANIFEST_FILE" \
+	--timeout-seconds 240
 
 database_url="postgres://ple_chapter_browser:${postgres_password}@127.0.0.1:${POSTGRES_PORT}/ple_chapter_browser"
 echo "Chapter 1 browser E2E: publishing the exact two-by-four teaching corpus"
 AWS_ACCESS_KEY_ID=ple-chapter-browser AWS_SECRET_ACCESS_KEY="$minio_password" \
+	PLE_QUESTION_ID_SECRET_FILE="$TEMP_DIRECTORY/question-id-secret" \
 	cargo tools e2e-seed --chapter-one-pilot \
 	--database-url "$database_url" \
 	--apply-migrations \

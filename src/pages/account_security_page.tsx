@@ -5,6 +5,7 @@ import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 import type { PasskeySummary } from "../api/enrollment";
 import { registerPasskeyWithBrowser } from "../api/http_client/enrollment";
 import { useApiRuntime } from "../api/runtime";
+import { usePresentationContrast } from "../presentation/contrast_context";
 
 type PasskeyState =
   | { readonly kind: "loading" }
@@ -26,6 +27,7 @@ function passkeyActivity(passkey: PasskeySummary): string {
 
 export function AccountSecurityPage(): JSX.Element {
   const runtime = useApiRuntime();
+  const presentation = usePresentationContrast();
   const [state, setState] = createSignal<PasskeyState>({ kind: "loading" });
   const [label, setLabel] = createSignal("");
   const [newEmail, setNewEmail] = createSignal("");
@@ -97,6 +99,37 @@ export function AccountSecurityPage(): JSX.Element {
       <p class="sr-only" role="status" aria-live="polite">
         {announcement()}
       </p>
+
+      <section class="auth-panel presentation-preference" aria-labelledby="presentation-heading">
+        <div>
+          <h2 id="presentation-heading">Visual contrast</h2>
+          <p>
+            Standard keeps each course palette expressive. Increased contrast strengthens text,
+            controls, and separators without changing the course theme.
+          </p>
+        </div>
+        <label for="account-contrast">Contrast level</label>
+        <select
+          id="account-contrast"
+          value={presentation.contrast()}
+          disabled={presentation.saving()}
+          onChange={(event) =>
+            void presentation.setContrast(
+              event.currentTarget.value === "increased" ? "increased" : "standard",
+            )
+          }
+        >
+          <option value="standard">Standard theme</option>
+          <option value="increased">Increased contrast</option>
+        </select>
+        <Show when={presentation.error()}>
+          {(message) => (
+            <p class="inline-error" role="alert">
+              {message()}
+            </p>
+          )}
+        </Show>
+      </section>
 
       <Show when={state().kind === "loading"}>
         <p class="loading-state" role="status">

@@ -1,4 +1,5 @@
 use super::*;
+use crate::{OwnerCorrectionAuthority, OwnerCorrectionStore};
 
 #[async_trait]
 impl CatalogStore for MemoryStore {
@@ -8,6 +9,10 @@ impl CatalogStore for MemoryStore {
         actor: UserId,
         command: PublishDraftCommand,
     ) -> Result<PublishedProblemRecord, StoreError> {
+        if command.expected_draft.revises.is_some() && context.owner_correction_session().is_none()
+        {
+            return Err(StoreError::Forbidden);
+        }
         ensure_tenant(context, command.expected_draft.tenant)?;
         validate_draft(&command.expected_draft)?;
         crate::validate_publication_source(&command.expected_draft, &command.published_source)?;
@@ -193,7 +198,7 @@ impl CatalogStore for MemoryStore {
             return Err(StoreError::AlreadyExists);
         }
 
-        let (authors, previous_version, derived_from, public_id, version_number) =
+        let (authors, previous_version, derived_from, question_id, public_id, version_number) =
             if let Some(revises) = command.expected_draft.revises {
                 if publication.problem != revises.problem {
                     return Err(StoreError::InvalidRecord(
@@ -210,7 +215,15 @@ impl CatalogStore for MemoryStore {
                 {
                     return Err(StoreError::NotFound);
                 }
+                if base.scope != command.scope
+                    || !matches!(base.lifecycle, CatalogLifecycle::Published)
+                {
+                    return Err(StoreError::Forbidden);
+                }
                 if !base.authors.contains(&command.publisher) {
+                    return Err(StoreError::Forbidden);
+                }
+                if state.problem_owner_users.get(&revises.problem) != Some(&command.publisher) {
                     return Err(StoreError::Forbidden);
                 }
                 if state.published.values().any(|record| {
@@ -223,6 +236,7 @@ impl CatalogStore for MemoryStore {
                     base.authors.clone(),
                     Some(revises.version),
                     base.derived_from,
+                    base.question_id.clone(),
                     base.public_id,
                     base.version_number
                         .value()
@@ -235,6 +249,12 @@ impl CatalogStore for MemoryStore {
                         })?,
                 )
             } else {
+                if state.problem_owner_tenants.len() as u64 >= question_model::MAX_QUESTION_ID_COUNT
+                {
+                    return Err(StoreError::Unavailable(
+                        "Question ID product limit reached".to_string(),
+                    ));
+                }
                 if state
                     .published
                     .keys()
@@ -255,10 +275,30 @@ impl CatalogStore for MemoryStore {
                     state.next_problem_public_id.checked_add(1).ok_or_else(|| {
                         StoreError::Unavailable("problem public ID limit reached".to_string())
                     })?;
+                let codec = crate::QuestionIdCodec::from_server_secret([0x42; 32]);
+                let question_id = (0..64)
+                    .map(|_| codec.issue())
+                    .find_map(|candidate| match candidate {
+                        Ok(candidate)
+                            if !state
+                                .published
+                                .values()
+                                .any(|record| record.question_id == candidate) =>
+                        {
+                            Some(Ok(candidate))
+                        }
+                        Ok(_) => None,
+                        Err(error) => Some(Err(error)),
+                    })
+                    .transpose()?
+                    .ok_or_else(|| {
+                        StoreError::Unavailable("Question ID collision retry exhausted".to_string())
+                    })?;
                 (
                     vec![command.publisher],
                     None,
                     command.expected_draft.derived_from,
+                    question_id,
                     ProblemPublicId::new(state.next_problem_public_id).ok_or_else(|| {
                         StoreError::Unavailable("problem public ID limit reached".to_string())
                     })?,
@@ -279,6 +319,7 @@ impl CatalogStore for MemoryStore {
         );
         let record = PublishedProblemRecord {
             problem: publication.problem,
+            question_id,
             public_id,
             version: publication.version,
             version_number,
@@ -302,8 +343,67 @@ impl CatalogStore for MemoryStore {
             .entry(record.problem)
             .or_insert(context.tenant_id());
         state
+            .problem_owner_users
+            .entry(record.problem)
+            .or_insert(command.publisher);
+        state
             .published
             .insert((record.problem, record.version), record.clone());
+        if let Some(revises) = command.expected_draft.revises {
+            let predecessor_grants = state
+                .catalog_grants
+                .iter()
+                .filter(|(_, problem, version)| {
+                    *problem == revises.problem && *version == revises.version
+                })
+                .map(|(tenant, _, _)| *tenant)
+                .collect::<Vec<_>>();
+            let previous = state
+                .published
+                .get_mut(&(revises.problem, revises.version))
+                .expect("validated correction source remains present");
+            previous.lifecycle = CatalogLifecycle::Archived {
+                reason: "Superseded by an owner correction".to_string(),
+            };
+
+            let replacement = ProblemVersionRef {
+                problem: record.problem,
+                version: record.version,
+            };
+            for tenant in predecessor_grants {
+                state
+                    .catalog_grants
+                    .insert((tenant, record.problem, record.version));
+            }
+            let assignment_keys = state.assignments.keys().copied().collect::<Vec<_>>();
+            for key in assignment_keys {
+                let assignment = state
+                    .assignments
+                    .get_mut(&key)
+                    .expect("collected assignment key remains present");
+                let mut changed = false;
+                for item in &mut assignment.items {
+                    if item.reference == revises {
+                        item.reference = replacement;
+                        changed = true;
+                    }
+                }
+                for group in &mut assignment.selection_groups {
+                    for candidate in &mut group.candidates {
+                        if candidate.reference == revises {
+                            candidate.reference = replacement;
+                            changed = true;
+                        }
+                    }
+                }
+                if changed {
+                    let revision = state.assignment_revisions.get_mut(&key).ok_or_else(|| {
+                        StoreError::Unavailable("stored assignment revision is missing".to_string())
+                    })?;
+                    *revision = revision.next()?;
+                }
+            }
+        }
         if let Some(artifact) = command.source_artifact {
             state
                 .source_artifacts
@@ -386,17 +486,18 @@ impl CatalogStore for MemoryStore {
         context: TenantContext,
         reference: question_model::ProblemDisplayRef,
     ) -> Result<Option<PublishedProblemRecord>, StoreError> {
+        let codec = crate::QuestionIdCodec::from_server_secret([0x42; 32]);
+        if !codec.validates(&reference.question_id) {
+            return Ok(None);
+        }
         let state = self.read_state()?;
         Ok(state
             .published
             .values()
             .filter(|record| {
-                record.public_id == reference.problem
+                record.question_id == reference.question_id
                     && record.lifecycle.is_assignable()
                     && catalog_record_visible(&state, context.tenant_id(), record)
-                    && reference
-                        .version
-                        .is_none_or(|version| record.version_number == version)
             })
             .max_by_key(|record| record.version_number)
             .cloned())
@@ -588,6 +689,42 @@ impl CatalogStore for MemoryStore {
 }
 
 #[async_trait]
+impl OwnerCorrectionStore for MemoryStore {
+    async fn publish_owner_correction(
+        &self,
+        context: TenantContext,
+        authority: OwnerCorrectionAuthority,
+        command: PublishDraftCommand,
+    ) -> Result<PublishedProblemRecord, StoreError> {
+        if command.expected_draft.revises.is_none() || authority.actor != command.publisher {
+            return Err(StoreError::Forbidden);
+        }
+        let authorized = {
+            let state = self.read_state()?;
+            let Some(active) = super::sessions::active_subject(&state, context, authority.session)
+            else {
+                return Err(StoreError::Forbidden);
+            };
+            active.user() == authority.actor
+                && active
+                    .roles()
+                    .iter()
+                    .any(|role| matches!(role, question_model::UserRole::Instructor))
+        };
+        if !authorized {
+            return Err(StoreError::Forbidden);
+        }
+        CatalogStore::publish_draft(
+            self,
+            context.with_owner_correction_session(authority.session),
+            authority.actor,
+            command,
+        )
+        .await
+    }
+}
+
+#[async_trait]
 impl CatalogSourceStore for MemoryStore {
     async fn catalog_source_artifact(
         &self,
@@ -664,6 +801,20 @@ pub(super) fn catalog_search_fingerprint(query: &CatalogSearchQuery) -> String {
     Sha256Digest::compute(canonical.as_bytes()).to_string()
 }
 
+fn catalog_record_matches_text(record: &PublishedProblemRecord, text: &str) -> bool {
+    std::iter::once(record.question.metadata.title.as_str())
+        .chain(record.question.metadata.language.split_whitespace())
+        .chain(record.question.metadata.tags.iter().map(|tag| tag.as_str()))
+        .chain(record.question.metadata.taxonomy.iter().flat_map(|term| {
+            [
+                term.scheme.as_str(),
+                term.code.as_str(),
+                term.label.as_str(),
+            ]
+        }))
+        .any(|value| value.to_lowercase().contains(text))
+}
+
 pub(super) fn catalog_search_matches(
     record: &PublishedProblemRecord,
     query: &CatalogSearchQuery,
@@ -679,25 +830,17 @@ pub(super) fn catalog_search_matches(
         return false;
     }
     if let Some(text) = &query.text {
-        if let Some(reference) = query.exact_display_version() {
-            if record.public_id != reference.problem
-                || Some(record.version_number) != reference.version
-            {
+        if let Some(question_id) = query.exact_question_id() {
+            let codec = crate::QuestionIdCodec::from_server_secret([0x42; 32]);
+            if codec.validates(&question_id) {
+                if record.question_id != question_id {
+                    return false;
+                }
+            } else if !catalog_record_matches_text(record, text) {
                 return false;
             }
         } else {
-            let metadata_match = std::iter::once(record.question.metadata.title.as_str())
-                .chain(record.question.metadata.language.split_whitespace())
-                .chain(record.question.metadata.tags.iter().map(|tag| tag.as_str()))
-                .chain(record.question.metadata.taxonomy.iter().flat_map(|term| {
-                    [
-                        term.scheme.as_str(),
-                        term.code.as_str(),
-                        term.label.as_str(),
-                    ]
-                }))
-                .any(|value| value.to_lowercase().contains(text));
-            if !metadata_match {
+            if !catalog_record_matches_text(record, text) {
                 return false;
             }
         }

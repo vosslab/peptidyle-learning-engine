@@ -1,8 +1,8 @@
 // Instructor course-level roster, invitation, import, policy, and manual export workflow.
 
-import { A } from "@solidjs/router";
 import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js";
-import { useParams } from "@solidjs/router";
+
+import "./instructor_data_tables.css";
 
 import type { AssignmentSummary } from "../api/contracts";
 import type {
@@ -13,8 +13,13 @@ import type {
   RosterImportPreview,
 } from "../api/enrollment";
 import { ApiRequestError } from "../api/http_client/error";
+import { CourseManagementNav } from "../components/course_management_nav";
 import { newIdempotencyKey, readyRosterRows } from "../api/http_client/enrollment";
 import { useApiRuntime } from "../api/runtime";
+import {
+  courseRouteData,
+  useCourseThemeRouteData,
+} from "../features/course_appearance/course_theme_context";
 
 type RosterState =
   | { readonly kind: "loading" }
@@ -89,8 +94,9 @@ function downloadExport(filename: string, csv: Blob): void {
 
 export function CourseRosterPage(): JSX.Element {
   const runtime = useApiRuntime();
-  const params = useParams();
-  const courseId = params["courseId"];
+  const scopedRoute = useCourseThemeRouteData();
+  const course = scopedRoute?.kind === "course" ? courseRouteData(scopedRoute).summary : undefined;
+  const courseId = course?.id;
   const [state, setState] = createSignal<RosterState>({ kind: "loading" });
   const [email, setEmail] = createSignal("");
   const [rosterId, setRosterId] = createSignal("");
@@ -415,9 +421,11 @@ export function CourseRosterPage(): JSX.Element {
       <p class="page-lede">
         Review active students, add configured local learners when available, and export grades.
       </p>
-      <A class="quiet-link" href={`/courses/${courseId ?? ""}`}>
-        Back to course
-      </A>
+      <Show when={course}>
+        {(currentCourse) => (
+          <CourseManagementNav coursePublicId={currentCourse().publicId} active="students" />
+        )}
+      </Show>
       <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {announcement()}
       </p>

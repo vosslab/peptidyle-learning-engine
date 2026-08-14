@@ -21,7 +21,7 @@ pub(super) struct PersistentDependencies {
     passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
     passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
     webauthn: crate::auth::PasswordlessWebauthn,
-    browser_boundary: crate::auth::ProductionBrowserBoundary,
+    browser_boundary: Option<crate::auth::ProductionBrowserBoundary>,
     client_address_policy: crate::auth::ClientAddressPolicy,
     health: Arc<HealthState>,
 }
@@ -109,7 +109,7 @@ impl PersistentDependencies {
         let grader_database_url = settings.grader_database_url()?;
         let grader = Arc::new(
             match settings.storage.runtime {
-                StorageRuntime::LocalDevelopment => {
+                StorageRuntime::LocalDevelopment | StorageRuntime::LocalDevelopmentWorker => {
                     PostgresGraderStore::connect_local_development(grader_database_url).await
                 }
                 StorageRuntime::Api
@@ -160,8 +160,12 @@ impl PersistentDependencies {
     /// The direct passwordless routes own account sessions and tenant-session
     /// selection, so this graph intentionally has no provider-backed legacy
     /// `/api/auth/login` route and does not inspect local-development setup.
-    pub(super) fn production_router(&self) -> Router {
-        crate::http_security::apply_api_security_headers(
+    pub(super) fn production_router(&self) -> Result<Router> {
+        let browser_boundary = self
+            .browser_boundary
+            .clone()
+            .context("production browser boundary is unavailable")?;
+        Ok(crate::http_security::apply_api_security_headers(
             self.passwordless_router(
                 Arc::new(crate::catalog::ReviewNotRequired),
                 production_session_config(),
@@ -171,10 +175,10 @@ impl PersistentDependencies {
             // boundary so even an early 403/421 remains non-cacheable and
             // gets the same browser hardening headers as a routed response.
             .layer(axum::middleware::from_fn_with_state(
-                self.browser_boundary.clone(),
+                browser_boundary,
                 crate::auth::production_cookie_boundary,
             )),
-        )
+        ))
     }
 
     fn passwordless_router<R>(

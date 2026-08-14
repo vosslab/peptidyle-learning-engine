@@ -248,13 +248,10 @@ async fn catalog_search_and_safe_detail_are_authenticated_bounded_and_non_cachea
     assert_eq!(search["facets"]["statistics"]["available"], 0);
     assert_eq!(search["facets"]["statistics"]["unavailable"], 1);
 
-    let display_reference = format!(
-        "P-{}-v{}",
-        search["items"][0]["publicId"].as_u64().expect("public ID"),
-        search["items"][0]["versionNumber"]
-            .as_u64()
-            .expect("version number"),
-    );
+    let display_reference = search["items"][0]["questionId"]
+        .as_str()
+        .expect("Question ID")
+        .to_string();
     let exact_search = app
         .clone()
         .oneshot(
@@ -270,8 +267,8 @@ async fn catalog_search_and_safe_detail_are_authenticated_bounded_and_non_cachea
     let exact_search = response_json(exact_search).await;
     assert_eq!(exact_search["items"].as_array().map(Vec::len), Some(1));
     assert_eq!(
-        exact_search["items"][0]["publicId"],
-        search["items"][0]["publicId"]
+        exact_search["items"][0]["questionId"],
+        search["items"][0]["questionId"]
     );
     assert_eq!(
         exact_search["items"][0]["versionNumber"],

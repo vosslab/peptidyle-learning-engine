@@ -19,6 +19,7 @@ publish = false
 adapter_native.workspace = true
 adapter_webwork.workspace = true
 anyhow.workspace = true
+base64.workspace = true
 csv.workspace = true
 domain.workspace = true
 grading.workspace = true

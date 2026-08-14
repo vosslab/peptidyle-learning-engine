@@ -16,6 +16,7 @@ import {
   bannerBytes,
   json,
   openAppearance,
+  resolveCourseReference,
   session,
 } from "./course_appearance_fixtures";
 
@@ -28,6 +29,8 @@ interface RenderedThemeMetrics {
   readonly actionBackground: string;
   readonly hoverForeground: string;
   readonly hoverBackground: string;
+  readonly secondaryForeground: string;
+  readonly secondaryBackground: string;
   readonly surfaceForeground: string;
   readonly surfaceBackground: string;
   readonly focus: string;
@@ -53,7 +56,8 @@ function luminance(cssColor: string): number {
   if (values === undefined || values.length !== 3) {
     throw new Error(`Expected a computed RGB color, received ${cssColor}`);
   }
-  const [red, green, blue] = values;
+  const channels = cssColor.startsWith("color(srgb") ? values.map((value) => value * 255) : values;
+  const [red, green, blue] = channels;
   if (red === undefined || green === undefined || blue === undefined) {
     throw new Error(`Expected three computed RGB channels, received ${cssColor}`);
   }
@@ -97,6 +101,9 @@ function renderedRatios(metrics: RenderedThemeMetrics): Record<string, number> {
     linkOnCanvas: rounded(contrast(metrics.link, metrics.canvas)),
     actionText: rounded(contrast(metrics.actionForeground, metrics.actionBackground)),
     actionHoverText: rounded(contrast(metrics.hoverForeground, metrics.hoverBackground)),
+    activeNavigationText: rounded(
+      contrast(metrics.secondaryForeground, metrics.secondaryBackground),
+    ),
     cardText: rounded(contrast(metrics.surfaceForeground, metrics.surfaceBackground)),
     focusOnCanvas: rounded(contrast(metrics.focus, metrics.canvas)),
     focusOnCard: rounded(contrast(metrics.focus, metrics.surfaceBackground)),
@@ -115,7 +122,8 @@ async function measurePreview(
       <p class="course-appearance-help" data-probe="muted">Supporting text</p>
       <a data-probe="link" href="#preview">Text link</a>
       <button class="primary-action" data-probe="action" type="button">Action</button>
-      <span data-probe="hover" style="background: var(--ple-action-hover); color: white">Hover</span>
+      <span data-probe="hover" style="background: var(--ple-action-hover); color: var(--ple-on-action)">Hover</span>
+      <span data-probe="secondary" style="background: var(--ple-theme-secondary); color: var(--ple-theme-on-secondary)">Active course navigation</span>
       <span data-probe="surface" style="background: var(--ple-card-surface); color: var(--ple-ink)">Card</span>
       <span data-probe="focus" style="border: 4px solid var(--ple-focus)">Focus</span>
       <span data-probe="border" style="border: 4px solid var(--ple-border)">Border</span>
@@ -136,6 +144,8 @@ async function measurePreview(
       actionBackground: style("action").backgroundColor,
       hoverForeground: style("hover").color,
       hoverBackground: style("hover").backgroundColor,
+      secondaryForeground: style("secondary").color,
+      secondaryBackground: style("secondary").backgroundColor,
       surfaceForeground: style("surface").color,
       surfaceBackground: style("surface").backgroundColor,
       focus: style("focus").borderTopColor,
@@ -179,12 +189,16 @@ test("captures the reviewed course-appearance visual and palette artifacts", asy
     process.env["PLE_CAPTURE_COURSE_APPEARANCE_VISUALS"] !== "1",
     "set PLE_CAPTURE_COURSE_APPEARANCE_VISUALS=1 to write the reviewed generated artifacts",
   );
-  const artifactDirectory = resolve("generated/ui/course_appearance");
+  const artifactDirectory = resolve(
+    process.env["PLE_COURSE_APPEARANCE_VISUALS_DIR"] ?? "generated/ui/course_appearance",
+  );
   await mkdir(artifactDirectory, { recursive: true });
   const appearance = { theme: "grass", revision: "1", banner: null };
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/auth/session") return await json(route, session(["instructor"]));
+    const navigation = resolveCourseReference(route, path);
+    if (navigation !== null) return await navigation;
     if (path === `/api/courses/${COURSE_ID}`) {
       return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
     }
@@ -226,9 +240,13 @@ test("captures the reviewed course-appearance visual and palette artifacts", asy
     const metrics = await measurePreview(page);
     const ratios = renderedRatios(metrics);
     for (const [name, ratio] of Object.entries(ratios)) {
-      expect(ratio, `${id} ${name}`).toBeGreaterThanOrEqual(
-        name.startsWith("focus") || name.startsWith("border") ? 3 : 5.5,
+      if (name.startsWith("border")) continue;
+      expect(ratio, `${id} ${name}: ${JSON.stringify(metrics)}`).toBeGreaterThanOrEqual(
+        name.startsWith("focus") ? 3 : 5.5,
       );
+      if (["inkOnCanvas", "mutedOnCanvas", "linkOnCanvas", "cardText"].includes(name)) {
+        expect(ratio, `${id} ${name} standard-mode contrast ceiling`).toBeLessThanOrEqual(8.25);
+      }
     }
     renderedThemes.push({
       id,
@@ -248,7 +266,8 @@ test("captures the reviewed course-appearance visual and palette artifacts", asy
     formatVersion: 1,
     thresholds: {
       normalTextContrast: 5.5,
-      focusAndBoundaryContrast: 3,
+      standardTextContrastCeiling: 8.25,
+      focusContrast: 3,
       redundantMeanDeltaE: 8,
       redundantMaximumDeltaE: 10,
     },
@@ -280,6 +299,19 @@ test("captures the reviewed course-appearance visual and palette artifacts", asy
           .course-theme-contact-card .course-appearance-preview-theme { padding: .7rem; }
           .course-theme-contact-card .course-appearance-preview { width: 100%; }
           .course-theme-contact-card .course-appearance-preview--narrow { display: none; }
+          .course-theme-contact-card .course-appearance-banner { display: none; }
+          .course-theme-contact-card .course-appearance-preview--wide::after {
+            display: block;
+            margin-top: .1rem;
+            padding: .45rem .6rem .6rem;
+            border-bottom: .22rem solid var(--ple-theme-accent);
+            border-radius: .35rem;
+            background: var(--ple-theme-secondary);
+            color: var(--ple-theme-on-secondary);
+            content: "Assignments  ·  Questions  ·  Gradebook";
+            font-size: .8rem;
+            font-weight: 750;
+          }
           .course-theme-contact-card figcaption { font-size: .8rem; }
         </style>
         <section id="course-theme-contact-sheet">

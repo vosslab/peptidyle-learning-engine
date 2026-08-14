@@ -38,7 +38,7 @@ async function signInAndOpenGradebook(
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-route-surface=courses]")).toBeVisible({ timeout: 30_000 });
 
-  const courseLink = page.locator(`a[href="/courses/${inputs.courseId}"]`);
+  const courseLink = page.locator(`a[href="/courses/${inputs.courseReference}"]`);
   await tabToTargetThroughVisiblePagination(page, {
     target: courseLink,
     renderedItems: page.locator(".course-card"),
@@ -59,7 +59,7 @@ async function signInAndOpenGradebook(
   });
 
   const assignmentLink = page.locator(
-    `a[href="/courses/${inputs.courseId}/assignments/${inputs.masteryAssignmentId}"]`,
+    `a[href="/courses/${inputs.courseReference}/assignments/${inputs.masteryAssignmentReference}"]`,
   );
   await tabToTargetThroughVisiblePagination(page, {
     target: assignmentLink,
@@ -81,7 +81,7 @@ async function signInAndOpenGradebook(
   const title = (await assignmentHeading.innerText()).trim();
   if (title === "") throw new Error("visible assignment card has no heading");
 
-  const gradebookLink = page.locator(instructorGradebookLinkSelector(inputs.courseId));
+  const gradebookLink = page.locator(instructorGradebookLinkSelector(inputs.courseReference));
   await expect(gradebookLink).toHaveCount(1);
   await tabTo(page, gradebookLink);
   await expect(gradebookLink).toBeFocused();
@@ -148,10 +148,10 @@ test("J5 instructor opens gradebook run history with the keyboard after learner 
       inputs.screenshotDirectory,
     );
 
-    const publicIds = j5V2Input(inputs.courseId, inputs.masteryAssignmentId);
+    const publicIds = j5V2Input(inputs.courseReference, inputs.masteryAssignmentReference);
     evidence = passedJ5SummaryEvidence(
-      publicIds.courseId,
-      publicIds.assignmentId,
+      publicIds.courseReference,
+      publicIds.assignmentReference,
       Math.round(performance.now() - startedAt),
     );
   } finally {

@@ -1,6 +1,6 @@
 // student_completion_policy_evidence.ts - public evidence for visible completion-policy behavior.
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+import { isAssignmentReference, isCourseReference } from "./public_references";
 const MAX_ELAPSED_MS = 30 * 60 * 1000;
 
 export const STUDENT_COMPLETION_POLICY_VISIBLE_OUTCOME_CODES = [
@@ -16,22 +16,26 @@ export interface StudentCompletionPolicyEvidence {
   readonly journey: "J4";
   readonly status: "PASS";
   readonly elapsedMs: number;
-  readonly courseId: string;
-  readonly masteryAssignmentId: string;
-  readonly examAssignmentId: string;
+  readonly courseReference: string;
+  readonly masteryAssignmentReference: string;
+  readonly examAssignmentReference: string;
   readonly visibleOutcomeCodes: readonly (typeof STUDENT_COMPLETION_POLICY_VISIBLE_OUTCOME_CODES)[number][];
   readonly diagnostics: readonly [];
 }
 
 /** Builds the later-report-safe record for a paired visible policy contrast. */
 export function passedStudentCompletionPolicyEvidence(
-  courseId: string,
-  masteryAssignmentId: string,
-  examAssignmentId: string,
+  courseReference: string,
+  masteryAssignmentReference: string,
+  examAssignmentReference: string,
   elapsedMs: number,
 ): StudentCompletionPolicyEvidence {
-  if (!UUID.test(courseId) || !UUID.test(masteryAssignmentId) || !UUID.test(examAssignmentId)) {
-    throw new Error("completion-policy evidence requires public UUID identifiers");
+  if (
+    !isCourseReference(courseReference) ||
+    !isAssignmentReference(masteryAssignmentReference) ||
+    !isAssignmentReference(examAssignmentReference)
+  ) {
+    throw new Error("completion-policy evidence requires public route references");
   }
   if (!Number.isSafeInteger(elapsedMs) || elapsedMs < 0 || elapsedMs > MAX_ELAPSED_MS) {
     throw new Error("completion-policy evidence elapsed time is outside the allowed range");
@@ -41,9 +45,9 @@ export function passedStudentCompletionPolicyEvidence(
     journey: "J4",
     status: "PASS",
     elapsedMs,
-    courseId,
-    masteryAssignmentId,
-    examAssignmentId,
+    courseReference,
+    masteryAssignmentReference,
+    examAssignmentReference,
     visibleOutcomeCodes: STUDENT_COMPLETION_POLICY_VISIBLE_OUTCOME_CODES,
     diagnostics: [],
   };

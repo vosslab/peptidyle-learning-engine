@@ -561,8 +561,13 @@ where
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "course appearance not found"))?;
+    let public_id = store
+        .course_public_id(authenticated.tenant_context, actor, course_id)
+        .await
+        .map_err(store_error_response)?
+        .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "course not found"))?;
     Ok(CourseRouteData {
-        summary: record.summary(role),
+        summary: record.summary(role, public_id),
         appearance,
     })
 }

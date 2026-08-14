@@ -5,6 +5,7 @@ import {
   decodeAccountAuthenticated,
   decodeAccountEmailChanged,
   decodeAccountCoursePage,
+  decodeAccountPresentationPreference,
   decodeClaimedCourseInvitation,
   decodeCourseEnrollmentPolicyResult,
   decodeCourseInvitationAccepted,
@@ -175,6 +176,21 @@ export function createEnrollmentClient(
   basePath: string,
 ): CourseRosterClient {
   return {
+    getAccountPresentation: () =>
+      requestJson(
+        fetchImplementation,
+        basePath,
+        "/api/auth/account/presentation",
+        decodeAccountPresentationPreference,
+      ),
+    saveAccountPresentation: (preference) =>
+      requestJson(
+        fetchImplementation,
+        basePath,
+        "/api/auth/account/presentation",
+        decodeAccountPresentationPreference,
+        { method: "PUT", body: preference },
+      ),
     startEmailAuthentication: (email) =>
       requestJson(
         fetchImplementation,

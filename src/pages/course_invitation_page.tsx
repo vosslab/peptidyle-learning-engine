@@ -6,6 +6,7 @@ import { Show, createSignal, type JSX } from "solid-js";
 import { useApiRuntime } from "../api/runtime";
 import { useSessionBootstrap } from "../auth/session_context";
 import { consumeTokenFragment } from "../auth/secret_fragment";
+import { courseRouteReference } from "../navigation/public_route";
 
 type InvitationState =
   | { readonly kind: "ready" }
@@ -47,7 +48,7 @@ export function CourseInvitationPage(): JSX.Element {
     try {
       const claimed = await runtime.client.redeemCourseInvitation(invitationToken);
       await session.retry();
-      navigate(`/courses/${claimed.courseId}`);
+      navigate(`/courses/${courseRouteReference(claimed.coursePublicId)}`);
     } catch {
       setState({
         kind: "error",

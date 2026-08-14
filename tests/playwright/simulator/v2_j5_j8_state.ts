@@ -15,10 +15,10 @@ import {
 import { basename, dirname } from "node:path";
 
 import type { J5SummaryEvidence } from "./instructor_gradebook_j5";
+import { isAssignmentReference, isCourseReference } from "./public_references";
 
 const MAX_STATE_BYTES = 4096;
 const MAX_ELAPSED_MS = 30 * 60 * 1000;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 const CODES = {
   J11: ["visible_course_created", "visible_course_opened"],
@@ -45,8 +45,8 @@ interface V2Fragment {
   readonly journey: PrefixJourney | "J5" | "J8";
   readonly status: "PASS";
   readonly elapsedMs: number;
-  readonly courseId: string;
-  readonly assignmentId?: string;
+  readonly courseReference: string;
+  readonly assignmentReference?: string;
   readonly selectedDisplayIds?: readonly [string, string, string, string];
   readonly visibleOutcomeCodes: readonly string[];
   readonly diagnostics: readonly [];
@@ -57,8 +57,8 @@ export interface V2J8Fragment {
   readonly journey: "J8";
   readonly status: "PASS";
   readonly elapsedMs: number;
-  readonly courseId: string;
-  readonly assignmentId: string;
+  readonly courseReference: string;
+  readonly assignmentReference: string;
   readonly visibleOutcomeCodes: readonly [
     "visible_instructor_gradebook",
     "visible_learner_completion",
@@ -74,7 +74,7 @@ export function setV2J5J8OpenHookForTest(hook: (() => void) | undefined): void {
   beforeChildOpenForTest = hook;
 }
 
-/** Appends J5 only after the exact J11 through J4 public-ID prefix is present. */
+/** Appends J5 only after the exact J11 through J4 public-reference prefix is present. */
 export function appendV2J5State(path: string, next: J5SummaryEvidence): void {
   if (!validJ5(next)) throw new Error("private v2 J5/J8 state is unsafe");
   append(path, "J5", next);
@@ -100,8 +100,9 @@ export function appendV2J8State(path: string, elapsedMs: number): void {
       throw new Error("private v2 J5/J8 state does not match next journey");
     }
     const setup = prefix[2];
-    if (setup?.assignmentId === undefined) throw new Error("private v2 J5/J8 state is unsafe");
-    const next = passedV2J8Tail(setup.courseId, setup.assignmentId, elapsedMs);
+    if (setup?.assignmentReference === undefined)
+      throw new Error("private v2 J5/J8 state is unsafe");
+    const next = passedV2J8Tail(setup.courseReference, setup.assignmentReference, elapsedMs);
     writeAppend(descriptor, [...prefix, next]);
   } finally {
     closeSync(descriptor);
@@ -110,11 +111,15 @@ export function appendV2J8State(path: string, elapsedMs: number): void {
 
 /** The J8 fragment deliberately contains only cross-actor public bindings. */
 export function passedV2J8Tail(
-  courseId: string,
-  assignmentId: string,
+  courseReference: string,
+  assignmentReference: string,
   elapsedMs: number,
 ): V2J8Fragment {
-  if (!UUID.test(courseId) || !UUID.test(assignmentId) || !validElapsed(elapsedMs)) {
+  if (
+    !isCourseReference(courseReference) ||
+    !isAssignmentReference(assignmentReference) ||
+    !validElapsed(elapsedMs)
+  ) {
     throw new Error("J8 requires matching canonical public observations");
   }
   return {
@@ -122,8 +127,8 @@ export function passedV2J8Tail(
     journey: "J8",
     status: "PASS",
     elapsedMs,
-    courseId,
-    assignmentId,
+    courseReference,
+    assignmentReference,
     visibleOutcomeCodes: CODES.J8,
     diagnostics: [],
   };
@@ -136,10 +141,10 @@ function append(path: string, expectedJourney: "J5", next: J5SummaryEvidence): v
     const setup = prefix[2];
     if (
       prefix.length !== 7 ||
-      setup?.assignmentId === undefined ||
+      setup?.assignmentReference === undefined ||
       next.journey !== expectedJourney ||
-      next.courseId !== setup.courseId ||
-      next.assignmentId !== setup.assignmentId
+      next.courseReference !== setup.courseReference ||
+      next.assignmentReference !== setup.assignmentReference
     ) {
       throw new Error("private v2 J5/J8 state does not match next journey");
     }
@@ -225,14 +230,14 @@ function parsePrefix(value: readonly unknown[]): readonly V2Fragment[] {
   }
   const parsed = fragments as V2Fragment[];
   const setup = parsed[2];
-  if (setup?.assignmentId === undefined) throw new Error("private v2 J5/J8 state is unsafe");
+  if (setup?.assignmentReference === undefined) throw new Error("private v2 J5/J8 state is unsafe");
   if (
     !parsed.every(
       (fragment) =>
-        fragment.courseId === setup.courseId &&
+        fragment.courseReference === setup.courseReference &&
         (fragment.journey === "J11" ||
           fragment.journey === "J12" ||
-          fragment.assignmentId === setup.assignmentId),
+          fragment.assignmentReference === setup.assignmentReference),
     )
   ) {
     throw new Error("private v2 J5/J8 state is unsafe");
@@ -246,32 +251,31 @@ function parseFragment(
 ): V2Fragment | undefined {
   if (journey === undefined || !isExactDataObject(value, keysFor(journey))) return undefined;
   const record = value;
-  const courseId = own(record, "courseId");
+  const courseReference = own(record, "courseReference");
   const elapsedMs = own(record, "elapsedMs");
   if (
     own(record, "schemaVersion") !== 2 ||
     own(record, "journey") !== journey ||
     own(record, "status") !== "PASS" ||
-    typeof courseId !== "string" ||
-    !UUID.test(courseId) ||
+    !isCourseReference(courseReference) ||
     !validElapsed(elapsedMs) ||
     !sameStrings(own(record, "visibleOutcomeCodes"), CODES[journey]) ||
     !isExactEmptyArray(own(record, "diagnostics"))
   )
     return undefined;
-  const assignmentId = own(record, "assignmentId");
+  const assignmentReference = own(record, "assignmentReference");
   if (journey === "J11" || journey === "J12") {
     return {
       schemaVersion: 2,
       journey,
       status: "PASS",
       elapsedMs,
-      courseId,
+      courseReference,
       visibleOutcomeCodes: CODES[journey],
       diagnostics: [],
     };
   }
-  if (typeof assignmentId !== "string" || !UUID.test(assignmentId)) return undefined;
+  if (!isAssignmentReference(assignmentReference)) return undefined;
   if (journey === "J13") {
     const selectedDisplayIds = own(record, "selectedDisplayIds");
     if (!validSelectedDisplayIds(selectedDisplayIds)) return undefined;
@@ -280,8 +284,8 @@ function parseFragment(
       journey,
       status: "PASS",
       elapsedMs,
-      courseId,
-      assignmentId,
+      courseReference,
+      assignmentReference,
       selectedDisplayIds,
       visibleOutcomeCodes: CODES[journey],
       diagnostics: [],
@@ -292,8 +296,8 @@ function parseFragment(
     journey,
     status: "PASS",
     elapsedMs,
-    courseId,
-    assignmentId,
+    courseReference,
+    assignmentReference,
     visibleOutcomeCodes: CODES[journey],
     diagnostics: [],
   };
@@ -315,12 +319,18 @@ function writeAppend(descriptor: number, values: readonly unknown[]): void {
 }
 
 function keysFor(journey: PrefixJourney | "J5"): readonly string[] {
-  const base = ["schemaVersion", "journey", "status", "elapsedMs", "courseId"];
+  const base = ["schemaVersion", "journey", "status", "elapsedMs", "courseReference"];
   if (journey === "J13")
-    return [...base, "assignmentId", "selectedDisplayIds", "visibleOutcomeCodes", "diagnostics"];
+    return [
+      ...base,
+      "assignmentReference",
+      "selectedDisplayIds",
+      "visibleOutcomeCodes",
+      "diagnostics",
+    ];
   if (journey === "J11" || journey === "J12")
     return [...base, "visibleOutcomeCodes", "diagnostics"];
-  return [...base, "assignmentId", "visibleOutcomeCodes", "diagnostics"];
+  return [...base, "assignmentReference", "visibleOutcomeCodes", "diagnostics"];
 }
 
 function validSelectedDisplayIds(
@@ -329,7 +339,9 @@ function validSelectedDisplayIds(
   return (
     Array.isArray(value) &&
     value.length === 4 &&
-    value.every((id) => typeof id === "string" && /^P-[1-9][0-9]*-v[1-9][0-9]*$/u.test(id)) &&
+    value.every(
+      (id) => typeof id === "string" && /^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u.test(id),
+    ) &&
     new Set(value).size === 4
   );
 }

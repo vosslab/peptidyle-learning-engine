@@ -11,7 +11,7 @@ async fn postgres_flat_import_conversion_edit_and_publication_are_atomic_and_pri
     verify_application_schema(&pool)
         .await
         .expect("live PostgreSQL schema compatibility");
-    let store = PostgresStore::new(pool.clone());
+    let store = PostgresStore::with_question_id_secret(pool.clone(), [0x42; 32]);
     let grader = PostgresGraderStore::connect_local_development(&grader_url)
         .await
         .expect("dedicated grader credentials are accepted");

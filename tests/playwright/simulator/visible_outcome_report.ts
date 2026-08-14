@@ -1,6 +1,8 @@
 // visible_outcome_report.ts - canonical public-only walkthrough outcome records.
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+import { isAssignmentReference, isCourseReference } from "./public_references";
+
+const PRIVATE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const OUTCOMES = ["PASS", "BLOCKED", "NOT_APPLICABLE", "FAIL"] as const;
 const W1_CODES = [
   "visible_completion",
@@ -22,8 +24,8 @@ const ARRANGEMENT_KEYS: Readonly<Record<string, readonly string[]>> = {
   "launcher-seeded-enrollment": [],
   "launcher-baseline-assignment": ["baselineAssignmentId"],
   "api-retry-corpus-publication": ["problemId", "versionId"],
-  "api-mastery-assignment": ["courseId", "masteryAssignmentId"],
-  "api-exam-assignment": ["courseId", "examAssignmentId"],
+  "api-mastery-assignment": ["courseReference", "masteryAssignmentReference"],
+  "api-exam-assignment": ["courseReference", "examAssignmentReference"],
 };
 
 export type JourneyOutcome = (typeof OUTCOMES)[number];
@@ -34,8 +36,8 @@ interface JourneyFragmentBase {
   readonly schemaVersion: 1;
   readonly status: JourneyOutcome;
   readonly elapsedMs: number;
-  readonly courseId: string;
-  readonly assignmentId: string;
+  readonly courseReference: string;
+  readonly assignmentReference: string;
   readonly diagnostics: readonly string[];
 }
 
@@ -59,9 +61,9 @@ export interface J4JourneyFragment {
   readonly journey: "J4";
   readonly status: JourneyOutcome;
   readonly elapsedMs: number;
-  readonly courseId: string;
-  readonly masteryAssignmentId: string;
-  readonly examAssignmentId: string;
+  readonly courseReference: string;
+  readonly masteryAssignmentReference: string;
+  readonly examAssignmentReference: string;
   readonly visibleOutcomeCodes: readonly (
     | "visible_back_action"
     | "visible_exam_closed"
@@ -112,8 +114,8 @@ const MAX_DIAGNOSTICS = 4;
 const MAX_DIAGNOSTIC_LENGTH = 96;
 
 export function passedW1Fragment(
-  courseId: string,
-  assignmentId: string,
+  courseReference: string,
+  assignmentReference: string,
   elapsedMs: number,
 ): W1JourneyFragment {
   return {
@@ -121,16 +123,16 @@ export function passedW1Fragment(
     journey: "J1",
     status: "PASS",
     elapsedMs,
-    courseId,
-    assignmentId,
+    courseReference,
+    assignmentReference,
     visibleOutcomeCodes: W1_CODES,
     diagnostics: [],
   };
 }
 
 export function passedW2Fragment(
-  courseId: string,
-  assignmentId: string,
+  courseReference: string,
+  assignmentReference: string,
   elapsedMs: number,
 ): W2JourneyFragment {
   return {
@@ -138,8 +140,8 @@ export function passedW2Fragment(
     journey: "J2",
     status: "PASS",
     elapsedMs,
-    courseId,
-    assignmentId,
+    courseReference,
+    assignmentReference,
     visibleOutcomeCodes: W2_CODES,
     diagnostics: [],
   };
@@ -153,8 +155,8 @@ export function parseW1JourneyFragment(value: unknown): W1JourneyFragment | unde
     journey: "J1",
     status: parsed.status,
     elapsedMs: parsed.elapsedMs,
-    courseId: parsed.courseId,
-    assignmentId: parsed.assignmentId,
+    courseReference: parsed.courseReference,
+    assignmentReference: parsed.assignmentReference,
     visibleOutcomeCodes: parsed.visibleOutcomeCodes,
     diagnostics: parsed.diagnostics,
   };
@@ -168,8 +170,8 @@ export function parseW2JourneyFragment(value: unknown): W2JourneyFragment | unde
     journey: "J2",
     status: parsed.status,
     elapsedMs: parsed.elapsedMs,
-    courseId: parsed.courseId,
-    assignmentId: parsed.assignmentId,
+    courseReference: parsed.courseReference,
+    assignmentReference: parsed.assignmentReference,
     visibleOutcomeCodes: parsed.visibleOutcomeCodes,
     diagnostics: parsed.diagnostics,
   };
@@ -208,16 +210,16 @@ export function parseJourneyFragments(
     j4 === undefined ||
     j5 === undefined ||
     j8 === undefined ||
-    w1.courseId !== w2.courseId ||
-    w1.assignmentId !== w2.assignmentId ||
-    w1.courseId !== j3.courseId ||
-    w1.assignmentId !== (j3 as J3JourneyFragment).assignmentId ||
-    w1.courseId !== j4.courseId ||
-    w1.assignmentId !== j4.masteryAssignmentId ||
-    w1.courseId !== j5.courseId ||
-    w1.assignmentId !== (j5 as J5JourneyFragment).assignmentId ||
-    w1.courseId !== j8.courseId ||
-    w1.assignmentId !== (j8 as J8JourneyFragment).assignmentId
+    w1.courseReference !== w2.courseReference ||
+    w1.assignmentReference !== w2.assignmentReference ||
+    w1.courseReference !== j3.courseReference ||
+    w1.assignmentReference !== (j3 as J3JourneyFragment).assignmentReference ||
+    w1.courseReference !== j4.courseReference ||
+    w1.assignmentReference !== j4.masteryAssignmentReference ||
+    w1.courseReference !== j5.courseReference ||
+    w1.assignmentReference !== (j5 as J5JourneyFragment).assignmentReference ||
+    w1.courseReference !== j8.courseReference ||
+    w1.assignmentReference !== (j8 as J8JourneyFragment).assignmentReference
   )
     return undefined;
   return [w1, w2, j3 as J3JourneyFragment, j4, j5 as J5JourneyFragment, j8 as J8JourneyFragment];
@@ -271,9 +273,9 @@ function parseJ4JourneyFragment(value: unknown): J4JourneyFragment | undefined {
       "journey",
       "status",
       "elapsedMs",
-      "courseId",
-      "masteryAssignmentId",
-      "examAssignmentId",
+      "courseReference",
+      "masteryAssignmentReference",
+      "examAssignmentReference",
       "visibleOutcomeCodes",
       "diagnostics",
     ])
@@ -292,9 +294,9 @@ function parseJ4JourneyFragment(value: unknown): J4JourneyFragment | undefined {
     ownValue(value, "journey") !== "J4" ||
     ownValue(value, "status") !== "PASS" ||
     !isElapsed(ownValue(value, "elapsedMs")) ||
-    !isUuid(ownValue(value, "courseId")) ||
-    !isUuid(ownValue(value, "masteryAssignmentId")) ||
-    !isUuid(ownValue(value, "examAssignmentId")) ||
+    !isCourseReference(ownValue(value, "courseReference")) ||
+    !isAssignmentReference(ownValue(value, "masteryAssignmentReference")) ||
+    !isAssignmentReference(ownValue(value, "examAssignmentReference")) ||
     !sameStrings(parsedCodes ?? [], codes) ||
     !Array.isArray(ownValue(value, "diagnostics")) ||
     (ownValue(value, "diagnostics") as unknown[]).length !== 0
@@ -320,8 +322,8 @@ function parseJourneyFragment(
       "journey",
       "status",
       "elapsedMs",
-      "courseId",
-      "assignmentId",
+      "courseReference",
+      "assignmentReference",
       "visibleOutcomeCodes",
       "diagnostics",
     ])
@@ -331,8 +333,8 @@ function parseJourneyFragment(
   const actualJourney = ownValue(value, "journey");
   const status = ownValue(value, "status");
   const elapsedMs = ownValue(value, "elapsedMs");
-  const courseId = ownValue(value, "courseId");
-  const assignmentId = ownValue(value, "assignmentId");
+  const courseReference = ownValue(value, "courseReference");
+  const assignmentReference = ownValue(value, "assignmentReference");
   const diagnostics = ownValue(value, "diagnostics");
   const visibleOutcomeCodes = ownValue(value, "visibleOutcomeCodes");
   if (
@@ -340,8 +342,8 @@ function parseJourneyFragment(
     actualJourney !== journey ||
     !isOutcome(status) ||
     !isElapsed(elapsedMs) ||
-    !isUuid(courseId) ||
-    !isUuid(assignmentId) ||
+    !isCourseReference(courseReference) ||
+    !isAssignmentReference(assignmentReference) ||
     !isStringArray(diagnostics) ||
     diagnostics.length > MAX_DIAGNOSTICS ||
     diagnostics.some((diagnostic) => !isDiagnostic(diagnostic))
@@ -360,8 +362,8 @@ function parseJourneyFragment(
     journey,
     status,
     elapsedMs,
-    courseId,
-    assignmentId,
+    courseReference,
+    assignmentReference,
     visibleOutcomeCodes: codes,
     diagnostics: [...diagnostics].sort(),
   };
@@ -424,7 +426,7 @@ function parseArrangement(value: unknown): ArrangementRecord | undefined {
   const parsedPublicIds: Record<string, string> = {};
   for (const key of expectedKeys) {
     const identifier = ownValue(publicIds, key);
-    if (!isUuid(identifier)) return undefined;
+    if (!validArrangementIdentifier(key, identifier)) return undefined;
     parsedPublicIds[key] = identifier;
   }
   return { label, publicIds: parsedPublicIds };
@@ -490,8 +492,12 @@ function isElapsed(value: unknown): value is number {
 function isUint32(value: number): boolean {
   return Number.isInteger(value) && value >= 0 && value <= 0xffffffff;
 }
-function isUuid(value: unknown): value is string {
-  return typeof value === "string" && UUID.test(value);
+function validArrangementIdentifier(key: string, value: unknown): value is string {
+  if (key === "courseReference") return isCourseReference(value);
+  if (key === "masteryAssignmentReference" || key === "examAssignmentReference") {
+    return isAssignmentReference(value);
+  }
+  return typeof value === "string" && PRIVATE_UUID.test(value);
 }
 function isStringArray(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");

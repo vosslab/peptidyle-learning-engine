@@ -55,12 +55,14 @@ test("gradebook mock serves compact summary rows through the course route", asyn
     "assignmentTitle",
     "courseId",
     "enrollmentId",
+    "learnerName",
     "studentId",
     "summary",
     "tenant",
   ]);
   assert.equal(payload.items[0].summary.tenant, payload.items[0].tenant);
   assert.equal(payload.items[0].summary.enrollment, payload.items[0].enrollmentId);
+  assert.equal(payload.items[0].learnerName, "Jordan Learner");
   assert.equal("runs" in payload.items[0], false);
   assert.equal("attempts" in payload.items[0], false);
 });

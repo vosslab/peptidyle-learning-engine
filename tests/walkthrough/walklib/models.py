@@ -43,8 +43,8 @@ class WalkthroughChildInputs:
 	j1_checkpoint_file: pathlib.Path | None = None
 	j2_checkpoint_file: pathlib.Path | None = None
 	catalog_display_ids: tuple[str, str, str, str] | None = None
-	course_id: str | None = None
-	mastery_assignment_id: str | None = None
+	course_reference: str | None = None
+	mastery_assignment_reference: str | None = None
 	screenshot_directory: pathlib.Path | None = None
 
 

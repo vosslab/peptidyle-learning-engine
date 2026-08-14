@@ -701,14 +701,14 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
       return;
     }
     transition({ kind: "publishStarted" });
-    setStatus("Publishing immutable question version...");
+    setStatus("Publishing the current question...");
     try {
-      const result = await props.repository.publish(props.workspace, scope());
+      await props.repository.publish(props.workspace, scope());
       transition({
         kind: "publishSucceeded",
-        reference: `/library/${result.problem}/versions/${result.version}`,
+        reference: "/library",
       });
-      setStatus("Published an immutable question version.");
+      setStatus("The current question is published.");
     } catch (error: unknown) {
       transition({
         kind: "publishFailed",
@@ -750,8 +750,8 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
           Flat question
         </h1>
         <p>
-          Build a clear learner question, save it privately, then review and publish an immutable
-          version when it is ready.
+          Build a clear learner question, save it privately, then review and publish it when it is
+          ready.
         </p>
       </header>
       <Show when={status()}>
@@ -773,7 +773,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
       </Show>
       <Show when={isConflict()}>
         <section class="flat-question-authoring__error" role="alert">
-          <p>A newer saved draft exists. Your local version remains visible for comparison.</p>
+          <p>A newer saved draft exists. Your local edits remain visible for comparison.</p>
           <button type="button" class="primary-action" onClick={() => void reload()}>
             Reload newest draft
           </button>
@@ -912,9 +912,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
               </section>
               <section class="editor-panel" aria-labelledby="flat-publish-heading">
                 <h2 id="flat-publish-heading">Publish review</h2>
-                <p>
-                  Publication creates an immutable version. Student preview never sends a request.
-                </p>
+                <p>Review the saved content before updating the current question.</p>
                 <Show when={review() === null}>
                   <button
                     type="button"
@@ -934,8 +932,9 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
                         <strong>Question:</strong> {activeReview().title}
                       </p>
                       <p>
-                        <strong>Previous version:</strong>{" "}
-                        {activeReview().priorVersion ?? "First published version"}
+                        {activeReview().priorVersion === null
+                          ? "This is the question's first publication."
+                          : "This updates the current published question."}
                       </p>
                       <h3>Changed sections</h3>
                       <ul>
@@ -955,7 +954,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
                           <option value="public">Public</option>
                         </select>
                       </label>
-                      <p>Confirming publishes this saved private draft as an immutable version.</p>
+                      <p>Confirming publishes this saved private draft as the current question.</p>
                       <button
                         type="button"
                         class="primary-action"
@@ -976,7 +975,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
         {(reference) => (
           <section class="editor-panel" role="status">
             <h2>Published</h2>
-            <a href={reference()}>Open published version</a>
+            <a href={reference()}>Open question library</a>
           </section>
         )}
       </Show>

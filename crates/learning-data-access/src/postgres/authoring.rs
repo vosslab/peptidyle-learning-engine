@@ -149,7 +149,7 @@ impl crate::AuthoringStore for PostgresStore {
         let limit = i64::from(page.size.get()) + 1;
         let mut transaction = self.begin_tenant(context).await?;
         let rows = sqlx::query(
-            "SELECT d.workspace_id, d.payload, d.payload_sha256 FROM workspace_draft AS d \
+            "SELECT d.workspace_id, d.public_id, d.payload, d.payload_sha256 FROM workspace_draft AS d \
              JOIN workspace_draft_access AS a \
                ON a.tenant_id = d.tenant_id AND a.workspace_id = d.workspace_id \
              WHERE d.tenant_id = $1 AND a.user_id = $2 \
@@ -167,6 +167,13 @@ impl crate::AuthoringStore for PostgresStore {
             .iter()
             .map(|row| {
                 let workspace: Uuid = row.try_get("workspace_id").map_err(map_sqlx_error)?;
+                let public_number: i32 = row.try_get("public_id").map_err(map_sqlx_error)?;
+                let public_id = question_model::WorkspacePublicId::new(public_number as u64)
+                    .ok_or_else(|| {
+                        StoreError::Unavailable(
+                            "stored workspace route number is invalid".to_string(),
+                        )
+                    })?;
                 let draft: DraftRecord = decode_payload_row(row)?;
                 if draft.tenant != context.tenant_id()
                     || draft.question.workspace.as_uuid() != workspace
@@ -177,7 +184,7 @@ impl crate::AuthoringStore for PostgresStore {
                 }
                 Ok((
                     WorkspaceId::from_uuid(workspace),
-                    draft.question.workspace_summary(),
+                    draft.question.workspace_summary(public_id),
                 ))
             })
             .collect::<Result<Vec<_>, StoreError>>()?;
@@ -331,7 +338,7 @@ impl crate::AuthoringStore for PostgresStore {
     ) -> Result<Option<PublishedProblemRecord>, StoreError> {
         let mut transaction = self.begin_app().await?;
         let row = sqlx::query(
-            "SELECT pv.problem_id, p.public_id, pv.version_id, pv.version_number, \
+            "SELECT pv.problem_id, p.public_id, p.question_id, pv.version_id, pv.version_number, \
                     pvp.payload, pvp.payload_sha256, pv.lifecycle, pv.lifecycle_reason \
              FROM problem_version AS pv \
              JOIN problem AS p USING (problem_id) \

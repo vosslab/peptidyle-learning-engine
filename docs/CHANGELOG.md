@@ -2,26 +2,167 @@
 
 ## 2026-08-13
 
+### Additions and New Features
+
+- Added `local_stack.py`, a Python controller for the rootless local Podman
+  Compose stack. It provides read-only diagnostics, project discovery, status, scoped logs, normal
+  stop, stateless restart, deliberate reset preview/confirmation, launcher validation delegation,
+  and complete Playwright Validation delegation while keeping the existing launcher as the sole
+  build, bootstrap, migration, seed, renderer-probe, and readiness owner.
+- Added the PLE interface design guide and an active dependency-ordered UI workstream. The durable
+  contract now centers dense instructor work at 1280 by 800, keeps student questions responsively
+  composed, restores course palettes in standard presentation, defines optional account-backed
+  increased contrast, and requires human-facing typed route references instead of UUID navigation.
+- Added one non-sequential Crockford Base32 Question ID per current question, including server-only
+  HMAC validation, durable secret configuration, a 100,000,000-question cap, canonical input
+  normalization, and stable test vectors. Added assignment-level reuse with whole-assignment and
+  per-question checklist actions so instructors do not reconstruct question sets from ID ranges.
+- Added the implemented page-level interface review with canonical instructor, tablet, phone,
+  standard-theme, and increased-contrast evidence. Shared `--ple-*` density tokens now own the shell,
+  rhythm, panels, rows, controls, instructor columns, catalogs, tables, course canvas, and compact
+  navigation so later distance adjustments remain coherent and low-risk.
+- Added a dedicated 13-page instructor visual corpus using one coherent simulated course, assignment,
+  roster, gradebook, library, workspace, and account data set. The reproducible 1280 by 800 capture
+  rejects visible, announced, or address-bar UUID exposure before atomically refreshing the docs, and
+  keeps normal-flow assignment actions non-overlapping across the captured states.
+- Added a concise repository TODO and an execution-ready pre-production database roadmap. They keep
+  the current 28-file SQLx history unchanged during feature acceptance, require one reviewed
+  clean-cluster baseline before the first deployment, keep schema creation separate from demo
+  seeding, and begin the durable forward-only migration ledger only after that baseline ships.
+
+### Behavior or Interface Changes
+
+- Defined the plan-scoped Validation test suite as a mandatory goal-completion contract. A goal now
+  remains incomplete until every named permanent, integration, live, one-time acceptance, and
+  independent-review gate is green on the final material tree; required skips and unrun gates do not
+  count as green, and later material changes invalidate the affected evidence.
+- Superseded the older universal high-contrast and oversized-target assumptions. Standard
+  presentation retains semantic accessibility and a 5.5:1 ordinary-text target without forcing
+  theme colors toward near-black-on-white; focus is element-sized, pointer-oriented instructor
+  controls may be compact, and UUIDs are prohibited from visible or announced content, address-bar
+  routes, and copyable application links while remaining available to protected internal requests.
+- Superseded instructor-facing numbered/versioned question identities. Original-owner corrections
+  retain the Question ID, archive the replaced snapshot, and advance future assignment definitions;
+  existing run snapshots remain immutable, while a substantive fork receives a new Question ID.
+- Revisited all 15 course palettes without rewriting their stored three-color anchors. A centralized
+  palette recipe now projects the full canvas plus distinct work, grouping, reading-card, text,
+  action, boundary, and active-navigation roles; the theme chooser and contact sheet preview that
+  applied system instead of an almost-white panel dominated by the same banner fixture. Standard
+  ordinary theme text now measures 5.50:1 through 7.92:1 under a 5.5:1 floor and 8.25:1 ceiling.
+  Increased contrast remains an optional presentation-only preference and intentionally has no
+  upper contrast ceiling.
+
 ### Fixes and Maintenance
 
+- Repaired the unaccepted account-presentation preference source in place: account
+  contrast now derives exclusively from a live 32-byte account-session hash through
+  two narrow `SECURITY DEFINER` functions owned by a membership-free, forced-RLS
+  broker. `ple_auth` no longer has direct preference-table access. The disposable
+  PostgreSQL baseline invokes a self-contained SQL oracle rather than adding a
+  fixture-driven pytest for this live authorization boundary.
+- Added forward migration `2026080935_owner_correction_authority.sql` and an explicit
+  server-only owner-correction publication authority. Ordinary publication now rejects a revision;
+  only a live original-instructor session can publish the successor. The narrow correction broker
+  copies institutional grants and repoints future assignment definitions across tenants while
+  preserving issued evidence and recording source and affected-assignment audit events.
+- Corrected the unaccepted `2026080918_workspace_flat_question_assets.sql`
+  descriptor constraint to require the canonical serialized private bucket
+  name, `private-content`. This aligns the durable JSONB identity check with
+  the typed `Bucket::PrivateContent` model without introducing a compatibility
+  migration or changing the private workspace-asset contract.
+- Added forward migration `2026080934_catalog_owner_insert_rls.sql`. Catalog visibility remains
+  readable by the current tenant, but only a problem's owning tenant can append a tenant grant,
+  immutable version payload, or published source artifact. This closes foreign self-grants and
+  visibility-based writes without changing owner publication or institution catalog behavior.
+- Added forward migration `2026080933_roster_support_actor_repair.sql`, which
+  replaces the applied roster-support actor's `pgcrypto` digest call with built-in
+  SHA-256, separates a non-action precheck from the audited Sysadmin actor, and
+  moves both `SECURITY DEFINER` functions to the narrow RLS-obeying
+  `ple_roster_support_broker` role. The audited actor has no boolean audit
+  switch; each successful Sysadmin roster operation records one in-transaction
+  event, while direct Instructor membership remains unaudited. The broker has
+  only `UPDATE (tenant_id)` on `course_member`, which PostgreSQL requires for
+  its `FOR KEY SHARE` membership lock.
+- Corrected the WebWork live acceptance contract so same-attempt question GETs
+  prove exact persisted attempt/receipt snapshot replay with no adapter
+  `renderer_call` or `cache_hit` witness. A fresh continued-practice issuance
+  proves exactly one required private replay-mapping renderer call. Its random
+  seed/key normally misses the safe cache but can rarely collide, so the live
+  cache-hit delta may be zero or one; offline adapter tests own the deterministic
+  safe-cache-hit contract. Grading, outage isolation, browser evidence, and
+  answer-free projection checks remain required. Durable cache and determinism
+  contracts now distinguish adapter safe-render cache work from persisted
+  snapshot reads.
+- Centralized neutral Podman lifecycle contracts in `local_stack_control/` with typed Compose
+  targets, env-file authority, label-based container/volume/network discovery, designed one-shot and
+  long-running service readiness, and destructive reset confirmation. Added offline behavior tests
+  for those contracts without adding a live Podman pytest or fragile source-shape assertion.
+- Corrected the opt-in local-stack acceptance path so its launcher and browser runner wait for
+  successful one-shot services and every required long-running service before seeding or running
+  Playwright. The selected environment file now owns local composition, the worker receives only
+  the secrets it needs, and the renderer stores its runtime PID on a writable temporary mount.
+  Repaired the strict keyboard journey's natural tab order, the public navigation route's
+  fail-closed policy and camelCase representation, and the catalog-search view's Question ID
+  projection. The gradebook pagination harness now uses CSS-capable in-memory esbuild output; its
+  five affected tests are green.
+- Restored every reported Rust and repository-hygiene gate without adding an exemption, fixture, or
+  brittle test. The PostgreSQL ownership oracle now clones its consumed Question ID reference; the
+  seed convergence test asserts one current question through `question_id` and the internal version;
+  the account-presentation store passes its existing UUID directly; and `sha2` again follows the
+  workspace's open latest-first dependency policy. The UI review now links durable documentation
+  screenshots instead of ignored generated artifacts. Extracted the assignment policy composition
+  and shared instructor data-table styles into capability-owned modules, and condensed completed
+  plan history into an explicit permanent-test versus one-time-evidence boundary so all authored
+  sources remain below the repository limit without an override.
 - Reclassified plan validation under the permanent-test checklist. Removed ten fast-suite pytests
   that inspected current shell, Compose, Containerfile, Caddy, SQL, or dated walkthrough artifacts,
   plus their unreferenced baseline fixture; the stable behavior remains covered by its Rust, Node,
   Playwright, or opt-in E2E owner. Loopback adapter and installed-document-reader Rust checks are now
   explicit ignored acceptance tests, while ordinary worker timing uses paused Tokio time and browser
-  tests no longer sleep for eventual state. The fast suite now runs 4,433 tests in 2.31 seconds with
-  no test call above 0.01 seconds; all 203 enabled Playwright cases pass below two seconds. The active
-  plans and test guides now distinguish permanent tests, one-time scratch evidence, opt-in live
-  acceptance, and justified serialized fixtures. The PortSwigger review reference is self-contained
-  and no longer names untracked local books.
+  tests no longer sleep for eventual state. In the intermediate August 13 measurement, the fast suite
+  ran 4,433 tests in 2.31 seconds with no test call above 0.01 seconds, and 203 enabled Playwright
+  cases passed below two seconds. The final aggregate is recorded below. The active plans and test
+  guides now distinguish permanent tests, one-time scratch evidence, opt-in live acceptance, and
+  justified serialized fixtures. The PortSwigger review reference is self-contained and no longer
+  names untracked local books.
 - Repaired four browser regressions without weakening the application boundary. Course-banner
   tests now exercise protected `POST /api/assets/{id}/delivery` authorization before loading the
   returned image URL, and course-creation and gradebook recovery assertions select their own
   visible status instead of colliding with the global screen-reader announcer. Each repaired
   scenario has a two-second Playwright ceiling. Removed a cumulative 50 ms retry from every native
   Tab step in the shared keyboard helper, reducing the three over-budget pagination/matching cases
-  below 800 ms even in the fully parallel suite. All 203 enabled browser tests now complete below
-  two seconds on the development machine.
+  below 800 ms even in the fully parallel suite. In that intermediate August 13 run, all 203 enabled
+  browser tests completed below two seconds on the development machine.
+- Rebuilt the separately owned stateless PG renderer after an authorized complete local Podman reset
+  and refreshed PLE's reviewed immutable repository manifest reference. The launcher now rejects
+  mutable renderer tags before image inspection, records the distinct resolved image configuration
+  identity, and retains the external ownership boundary. Operator guidance now distinguishes those
+  two OCI identities and gives one reproducible build, inspect, review, and configure path.
+
+### Developer Tests and Notes
+
+- One-time, opt-in real-stack evidence exercised the corrected disposable Podman path: instructor
+  setup and two complete four-question learner chapters passed in two Playwright tests in 9.4
+  seconds after every required service reported ready. The renderer's PID-only, secret-free
+  configuration passed its real render/grade probe, and cleanup removed the exact generated project
+  and gateway image with exit status 0. No new permanent pytest, fixture, or ordinary networked test
+  was added.
+- The simulated instructor capture completed with its opt-in Playwright case passing in 1.2 seconds.
+  All 13 documentation PNGs are 1280 by 800, below the one-megabyte asset budget, and passed a
+  combined contact-sheet review. `./check_codebase.sh` passed typecheck, lint, formatting, and all
+  273 Node behavior tests. The final one-time validation record is 4,548 fast pytest cases passing;
+  the full ordinary Playwright suite has 210 passing cases and 12 intentional
+  opt-in skips. It also includes 13 focused assignment-editor and gradebook browser behaviors, a
+  clean production build, and the complete `./check_rust.sh` generation/check/Clippy/test/doc-test/
+  Wasm gate passing. Live PostgreSQL, MinIO, renderer, and external document-reader cases remain
+  explicit acceptance runs rather than regular networked tests.
+- A zero-state rebuild removed all prior local Podman containers, pods, images, volumes, custom
+  networks, and build cache, then reconstructed PostgreSQL, MinIO, the immutable external renderer,
+  API, worker, and gateway without relying on retained state. The exact launcher passed its fresh
+  migration, separate seed, renderer render/grade probe, one-shot, health, and six-service readiness
+  gates. After readiness, the ordinary Playwright suite again passed 210 cases with 12 intentional
+  opt-in skips in 10.0 seconds; the bootstrapped fast suite passed 4,548 cases in 2.61 seconds, and
+  the full Rust gate passed again. No container-state probe was added to the permanent pytest suite.
 
 ## 2026-08-12
 

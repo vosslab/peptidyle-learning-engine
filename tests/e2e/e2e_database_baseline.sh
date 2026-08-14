@@ -11,8 +11,6 @@ set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 readonly REPO_ROOT
-readonly COMPOSE_FILE="$REPO_ROOT/tests/e2e/compose.database-baseline.yaml"
-readonly PROJECT_NAME="ple_database_baseline_$$"
 readonly DATABASE_NAME="ple_e2e_baseline_$$"
 readonly TENANT_A="00000000-0000-4000-8000-0000000000a1"
 readonly TENANT_B="00000000-0000-4000-8000-0000000000b2"
@@ -23,6 +21,10 @@ readonly POSTGRES_DB="postgres"
 TEMP_DIR=""
 COMPOSE_STARTED=0
 GATE_FAILURES=0
+ENV_FILE=""
+MANIFEST_FILE=""
+CAPABILITY_FILE=""
+PROJECT_NAME=""
 
 fail() {
 	echo "database baseline E2E: $*" >&2
@@ -38,30 +40,61 @@ require_command() {
 	command -v "$1" >/dev/null 2>&1 || fail "missing required command: $1"
 }
 
+compose() {
+	python3 "$REPO_ROOT/local_stack_consumer.py" compose --manifest "$MANIFEST_FILE" "$@"
+}
+
 cleanup() {
 	local status="$?"
+	local cleanup_failed=0
 	if [ "${PLE_E2E_KEEP:-0}" = "1" ]; then
-		echo "database baseline E2E: preserving disposable project $PROJECT_NAME"
+		echo "database baseline E2E: preserving disposable project $PROJECT_NAME (manifest $MANIFEST_FILE)"
 	else
 		if [ "$COMPOSE_STARTED" = "1" ]; then
-			env POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
-				POSTGRES_DB="$POSTGRES_DB" PLE_POSTGRES_HOST_PORT="$E2E_PORT" podman-compose \
-			-p "$PROJECT_NAME" -f "$COMPOSE_FILE" \
-			down --volumes --remove-orphans >/dev/null 2>&1 || true
+			python3 "$REPO_ROOT/local_stack_consumer.py" cleanup --manifest "$MANIFEST_FILE" \
+				|| cleanup_failed=1
 		fi
-		if [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
+		if [ "$cleanup_failed" = "0" ] && [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
 			rm -rf -- "$TEMP_DIR"
 		fi
+		if [ "$cleanup_failed" = "0" ]; then
+			[ -n "$ENV_FILE" ] && rm -f -- "$ENV_FILE"
+			[ -n "$MANIFEST_FILE" ] && rm -f -- "$MANIFEST_FILE"
+			[ -n "$CAPABILITY_FILE" ] && rm -f -- "$CAPABILITY_FILE"
+		fi
+	fi
+	if [ "$cleanup_failed" = "1" ]; then
+		echo "database baseline E2E: cleanup failed; inspect project $PROJECT_NAME with manifest $MANIFEST_FILE" >&2
+		[ "$status" -ne 0 ] || status=1
 	fi
 	exit "$status"
 }
 trap cleanup EXIT
 
 psql_in_container() {
-	env POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
-		POSTGRES_DB="$POSTGRES_DB" PLE_POSTGRES_HOST_PORT="$E2E_PORT" podman-compose \
-		-p "$PROJECT_NAME" -f "$COMPOSE_FILE" \
-		exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" "$@"
+	compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" "$@"
+}
+
+write_private_target() {
+	local project_token capability_digest
+	project_token="$(python3 -c 'import secrets; print(secrets.token_hex(12))')"
+	PROJECT_NAME="ple_database_baseline_${project_token}"
+	ENV_FILE="$(mktemp "${TMPDIR:-/tmp}/ple-database-baseline.XXXXXX.env")"
+	MANIFEST_FILE="$(mktemp "${TMPDIR:-/tmp}/ple-database-baseline.XXXXXX.manifest")"
+	CAPABILITY_FILE="$(mktemp "${TMPDIR:-/tmp}/ple-database-baseline.XXXXXX.capability")"
+	capability_digest="$(python3 -c 'import hashlib, os, secrets, sys; raw = secrets.token_bytes(32); fd = os.open(sys.argv[1], os.O_WRONLY | os.O_TRUNC, 0o600); os.write(fd, raw); os.close(fd); os.chmod(sys.argv[1], 0o600); print(hashlib.sha256(raw).hexdigest())' "$CAPABILITY_FILE")"
+	chmod 600 "$ENV_FILE" "$MANIFEST_FILE" "$CAPABILITY_FILE"
+	printf '%s\n' \
+		"POSTGRES_USER=$POSTGRES_USER" \
+		"POSTGRES_PASSWORD=$POSTGRES_PASSWORD" \
+		"POSTGRES_DB=$POSTGRES_DB" \
+		"PLE_POSTGRES_HOST_PORT=$E2E_PORT" \
+		"PLE_DISPOSABLE_CAPABILITY_SHA256=$capability_digest" >"$ENV_FILE"
+	printf '%s\n' \
+		"OWNER=database-baseline" \
+		"PROJECT=$PROJECT_NAME" \
+		"ENV_FILE=$ENV_FILE" \
+		"CAPABILITY_FILE=$CAPABILITY_FILE" >"$MANIFEST_FILE"
 }
 
 wait_for_postgres() {
@@ -105,6 +138,23 @@ PY
 run_project_tools() {
 	env DATABASE_URL="$DATABASE_URL" PLE_MIGRATION_DATABASE_URL="$DATABASE_URL" \
 		cargo tools database "$@"
+}
+
+# Cargo exits successfully when a filter selects zero tests.  This acceptance
+# runner names individual live contracts, so a green zero-test invocation is
+# evidence of nothing and must fail closed.
+run_live_cargo_test() {
+	local label="$1"
+	shift
+	local output
+	if ! output="$("$@" 2>&1)"; then
+		printf '%s\n' "$output" >&2
+		fail "$label cargo test command failed"
+	fi
+	printf '%s\n' "$output"
+	if ! grep -Eq 'test result: ok\. [1-9][0-9]* passed;' <<<"$output"; then
+		fail "$label selected no live tests; update its exact test target"
+	fi
 }
 
 run_role_matrix() {
@@ -178,21 +228,20 @@ SQL
 
 cd "$REPO_ROOT"
 require_command podman
-require_command podman-compose
 require_command cargo
 require_command python3
-[ -f "$COMPOSE_FILE" ] || fail "missing Compose definition: $COMPOSE_FILE"
+# shellcheck disable=SC1091
+source "$REPO_ROOT/source_me.sh"
 POSTGRES_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
 GRADER_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
 case "$DATABASE_NAME" in
 	*[!a-z0-9_]* | '') fail "internal disposable database name is invalid" ;;
 esac
+write_private_target
 
 echo "database baseline E2E: starting isolated project $PROJECT_NAME on loopback port $E2E_PORT"
-env POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
-	POSTGRES_DB="$POSTGRES_DB" PLE_POSTGRES_HOST_PORT="$E2E_PORT" podman-compose \
-	-p "$PROJECT_NAME" -f "$COMPOSE_FILE" up -d postgres
 COMPOSE_STARTED=1
+compose up -d postgres
 wait_for_postgres
 
 psql_in_container -d postgres -c "CREATE DATABASE $DATABASE_NAME"
@@ -216,60 +265,60 @@ psql_in_container -d "$DATABASE_NAME" -c \
 	"ALTER ROLE ple_grading_reader PASSWORD '$GRADER_PASSWORD'"
 
 echo "database baseline E2E: bounded SQLx serialization retry"
-PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+run_live_cargo_test "bounded SQLx serialization retry" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	postgres::connection::tests::concurrent_serialization_failure_is_retried_and_commits \
 	--lib -- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: passwordless account, roster, and role separation"
-PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+run_live_cargo_test "passwordless account, roster, and role separation" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_enrollment_live \
 	postgres_enrollment_capability_is_locked_unique_and_role_separated \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: family-filtered concurrent worker claims"
-PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+run_live_cargo_test "family-filtered concurrent worker claims" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_worker_filter_live \
 	postgres_worker_claim_filter_is_concurrent_and_leaves_reserved_work_untouched \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: tenant-qualified public catalog ownership"
-PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+run_live_cargo_test "tenant-qualified public catalog ownership" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_catalog_ownership_live \
 	postgres_public_catalog_writes_require_owner_tenant \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: exact human catalog ID resolves only within its institution"
-PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+run_live_cargo_test "exact human catalog ID resolves only within its institution" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_catalog_ownership_live \
-	postgres_catalog_resolver_hides_foreign_institution_exact_reference \
+	postgres_catalog_resolver_hides_foreign_institution_question_id \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: catalog text and exact human ID search"
-PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+run_live_cargo_test "catalog text and exact human ID search" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_catalog_ownership_live \
-	postgres_catalog_search_finds_exact_human_version_reference \
+	postgres_catalog_search_finds_exact_question_id \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: course appearance revision, role, and current-pointer policy"
-PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+run_live_cargo_test "course appearance revision, role, and current-pointer policy" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_course_appearance_live \
 	postgres_course_appearance_is_revisioned_role_bound_and_current_only \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: atomic assignment-editor timing and active-run reschedule"
-PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+run_live_cargo_test "atomic assignment-editor timing and active-run reschedule" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_assignment_timing_live \
 	postgres_assignment_editor_timing_is_atomic_and_reschedules_active_work \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: immutable submission replay receipt"
-PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+run_live_cargo_test "immutable submission replay receipt" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_submission_replay_live \
 	postgres_submission_replay_requires_its_immutable_receipt_snapshot \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: immutable private flat-question image registry"
-PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+run_live_cargo_test "immutable private flat-question image registry" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_flat_question_assets_live \
 	postgres_flat_question_asset_registry_is_immutable_private_and_checksum_bound \
 	-- --ignored --exact --test-threads=1
@@ -279,7 +328,7 @@ psql_in_container -d "$DATABASE_NAME" < \
 	"$REPO_ROOT/tests/e2e/postgres_partition_pruning.sql"
 
 echo "database baseline E2E: QTI partial import, provenance, and tenant isolation"
-PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+run_live_cargo_test "QTI partial import, provenance, and tenant isolation" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_qti_import_live \
 	postgres_qti_import_preserves_partial_results_provenance_and_rls \
 	-- --ignored --exact --test-threads=1
@@ -292,36 +341,43 @@ echo "database baseline E2E: flat-question current grading persistence oracle"
 psql_in_container -d "$DATABASE_NAME" < \
 	"$REPO_ROOT/tests/e2e/postgres_flat_question_current_grading.sql"
 
+echo "database baseline E2E: account-presentation session broker authority"
+psql_in_container -d "$DATABASE_NAME" < \
+	"$REPO_ROOT/tests/e2e/postgres_account_presentation_authority.sql"
+
 echo "database baseline E2E: recognized QTI profile full authoring and grading path"
-PLE_TEST_DATABASE_URL="$DATABASE_URL" \
-PLE_TEST_GRADER_DATABASE_URL="$(grader_database_url)" \
+run_live_cargo_test "recognized QTI profile full authoring and grading path" env \
+	PLE_TEST_DATABASE_URL="$DATABASE_URL" \
+	PLE_TEST_GRADER_DATABASE_URL="$(grader_database_url)" \
 	cargo test -p server_core \
 	qti_profile_postgres_live::postgres_profile_upload_worker_conversion_publication_and_grading_are_complete \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: QTI-profile-to-flat atomic conversion and private provenance"
-PLE_TEST_DATABASE_URL="$DATABASE_URL" \
-PLE_TEST_GRADER_DATABASE_URL="$(grader_database_url)" \
+run_live_cargo_test "QTI-profile-to-flat atomic conversion and private provenance" env \
+	PLE_TEST_DATABASE_URL="$DATABASE_URL" \
+	PLE_TEST_GRADER_DATABASE_URL="$(grader_database_url)" \
 	cargo test -p learning-data-access --features postgres \
 	--test postgres_flat_import_provenance_live \
 	-- --ignored --test-threads=1
 
 echo "database baseline E2E: flat-question private grading boundary"
-PLE_TEST_DATABASE_URL="$DATABASE_URL" \
-PLE_TEST_GRADER_DATABASE_URL="$(grader_database_url)" \
+run_live_cargo_test "flat-question private grading boundary" env \
+	PLE_TEST_DATABASE_URL="$DATABASE_URL" \
+	PLE_TEST_GRADER_DATABASE_URL="$(grader_database_url)" \
 	cargo test -p learning-data-access --features postgres \
 	--test postgres_flat_question_live \
 	postgres_flat_question_publication_preserves_private_grading_boundary \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: course-local item-analysis generation fence and privacy"
-PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+run_live_cargo_test "course-local item-analysis generation fence and privacy" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_item_analysis_live \
 	postgres_item_analysis_is_current_private_and_generation_fenced \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: mixed automatic/manual generation fence"
-PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+run_live_cargo_test "mixed automatic/manual generation fence" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_manual_grading_live \
 	postgres_mixed_automatic_and_manual_grading_is_generation_fenced \
 	-- --ignored --exact --test-threads=1
@@ -347,11 +403,12 @@ psql_in_container -d "$DATABASE_NAME" -c \
 # a tenant-A grant, and a tenant-B-only key. Values are written as the isolated
 # database owner, then read as ple_grader under tenant-A context below.
 psql_in_container -d "$DATABASE_NAME" <<SQL
-INSERT INTO public.problem (problem_id, owner_tenant_id, owner_user_id, visibility, license)
+INSERT INTO public.problem
+    (problem_id, question_id, owner_tenant_id, owner_user_id, visibility, license)
 VALUES
-    ('00000000-0000-4000-8000-000000000101', '$TENANT_B'::uuid, '00000000-0000-4000-8000-000000000201', 'public', 'CC0-1.0'),
-    ('00000000-0000-4000-8000-000000000102', '$TENANT_B'::uuid, '00000000-0000-4000-8000-000000000202', 'institution', 'CC0-1.0'),
-    ('00000000-0000-4000-8000-000000000103', '$TENANT_B'::uuid, '00000000-0000-4000-8000-000000000203', 'institution', 'CC0-1.0');
+    ('00000000-0000-4000-8000-000000000101', 'C9V2R74', '$TENANT_B'::uuid, '00000000-0000-4000-8000-000000000201', 'public', 'CC0-1.0'),
+    ('00000000-0000-4000-8000-000000000102', 'H5Q8X32', '$TENANT_B'::uuid, '00000000-0000-4000-8000-000000000202', 'institution', 'CC0-1.0'),
+    ('00000000-0000-4000-8000-000000000103', 'N7P4Y98', '$TENANT_B'::uuid, '00000000-0000-4000-8000-000000000203', 'institution', 'CC0-1.0');
 INSERT INTO public.problem_version
     (problem_id, version_id, version_number, content_sha256, workspace_id, title, publication_scope, authors)
 VALUES

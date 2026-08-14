@@ -1,7 +1,11 @@
 # Disposable PostgreSQL and MinIO oracle for course-appearance acceptance.
 # The launcher supplies a unique project, credentials, ports, and volumes.
+x-ple-disposable-capability-label: &ple-disposable-capability-label
+  org.peptidyle.disposable.capability-sha256: "${PLE_DISPOSABLE_CAPABILITY_SHA256:?set by the disposable owner}"
+
 services:
   postgres:
+    labels: *ple-disposable-capability-label
     image: docker.io/library/postgres@sha256:7958605b474b3d264a969cb3a123d6aa00ad1e1fe9da8a69984dabb704d93317
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?set by e2e_course_appearance.sh}
@@ -18,6 +22,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   minio:
+    labels: *ple-disposable-capability-label
     image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     command: server /data
     environment:
@@ -34,6 +39,7 @@ services:
       - minio_data:/data
 
   createbuckets:
+    labels: *ple-disposable-capability-label
     image: quay.io/minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
     depends_on:
       minio:
@@ -54,4 +60,10 @@ services:
 
 volumes:
   postgres_data:
+    labels: *ple-disposable-capability-label
   minio_data:
+    labels: *ple-disposable-capability-label
+
+networks:
+  default:
+    labels: *ple-disposable-capability-label

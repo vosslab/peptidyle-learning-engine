@@ -21,14 +21,19 @@ import { fileURLToPath } from "node:url";
 
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
-const COMPOSE_FILES = ["containers/compose.yaml", "tests/e2e/compose.replica-e2e.yaml"];
+const LOCAL_STACK_CONSUMER = resolve(REPO_ROOT, "local_stack_consumer.py");
 const POLL_TIMEOUT_MS = 45_000;
 const REPLICA_REFRESH_MS = 2_500;
 const REPLICA_HEADER_PREFIX = "ple-replica-e2e-api-";
 const POSTGRES_USER = "ple_e2e";
 const POSTGRES_DATABASE = "ple_e2e";
 const POSTGRES_PASSWORD = "ple-e2e-local-only";
-let composeProvider = { file: "podman", prefix: ["compose"] };
+const POSTGRES_IMAGE_SHA256 = "7958605b474b3d264a969cb3a123d6aa00ad1e1fe9da8a69984dabb704d93317";
+const MINIO_IMAGE_SHA256 = "14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e";
+const MINIO_MC_IMAGE_SHA256 = "a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727";
+const SECRET_INIT_IMAGE_SHA256 = "48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d";
+const WEBWORK_RENDERER_IMAGE =
+  "localhost/pg-renderer@sha256:d606c4b5d82d425729643c4f36d093d549759a416d0527f0340ae0a7319a8456";
 
 function fail(message) {
   throw new Error(message);
@@ -103,87 +108,86 @@ function parseReplica(value) {
   return value;
 }
 
-function composeArguments(project, envPath, tail) {
-  return [
-    ...composeProvider.prefix,
-    "-p",
-    project,
-    "--env-file",
-    envPath,
-    ...COMPOSE_FILES.flatMap((path) => ["-f", path]),
-    ...tail,
-  ];
-}
-
-function cleanupArguments(project, envPath) {
-  // This is generated here rather than accepted from a caller.  The guard
-  // makes the only destructive operation unable to target a developer stack.
-  assert.match(project, /^ple-replica-e2e-[a-f0-9]{10}$/);
-  return composeArguments(project, envPath, ["down", "--volumes", "--remove-orphans"]);
-}
-
-async function withProjectCleanup(project, envPath, operation, cleanup) {
-  // Validate the generated project before the callback can make its first
-  // Compose call, not only when failure later reaches cleanup.
-  const cleanupArgs = cleanupArguments(project, envPath);
-  let composeAttempted = false;
-  const armCleanup = () => {
-    composeAttempted = true;
-  };
-  try {
-    return await operation(armCleanup);
-  } finally {
-    if (composeAttempted) await cleanup(cleanupArgs);
+function safeComposeDiagnostic(stderr, privateValues = []) {
+  let redacted = stderr;
+  for (const privateValue of privateValues) {
+    redacted = redacted.replaceAll(privateValue, "[redacted]");
   }
-}
-
-function exactProjectNames(output, project) {
-  const prefix = `${project}_`;
-  return output
-    .trim()
-    .split(/\s+/u)
-    .filter((name) => name.startsWith(prefix));
-}
-
-function exactProjectContainerIds(output, project) {
-  const prefix = `${project}_`;
-  return output
-    .trim()
-    .split("\n")
-    .map((line) => line.trim().split(/\s+/u, 2))
-    .filter((parts) => parts.length === 2 && parts[1].startsWith(prefix))
-    .map(([id]) => id);
-}
-
-function exactProjectServiceContainerIds(output, project, service) {
-  assert.match(project, /^ple-replica-e2e-[a-f0-9]{10}$/u);
-  assert.match(service, /^[a-z][a-z0-9-]*$/u);
-  const prefix = `${project}_${service}_`;
-  return output
-    .trim()
-    .split("\n")
-    .map((line) => line.trim().split(/\s+/u, 2))
-    .filter((parts) => parts.length === 2 && parts[1].startsWith(prefix))
-    .map(([id]) => id);
-}
-
-function safeComposeDiagnostic(stderr) {
-  return stderr
+  return redacted
     .replaceAll(POSTGRES_PASSWORD, "[redacted]")
     .replaceAll("ple-e2e-minio-password", "[redacted]")
     .replace(/postgres:\/\/[^@\s]+@/gu, "postgres://[redacted]@")
     .slice(-2_000);
 }
 
+function adapterArguments(action, manifestPath, actionArguments = []) {
+  return [LOCAL_STACK_CONSUMER, action, "--manifest", manifestPath, ...actionArguments];
+}
+
+async function adapterCommand(action, manifestPath, actionArguments, label, options = {}) {
+  // Adapter failures do not echo raw Compose output. The only deployment
+  // detail exposed by this runner comes from its bounded, redacted diagnostics
+  // action below.
+  const adapterOptions = { ...options, safeDiagnostics: false };
+  return command(
+    "python3",
+    adapterArguments(action, manifestPath, actionArguments),
+    label,
+    adapterOptions,
+  );
+}
+
+async function adapterCompose(manifestPath, tail, label, options = {}) {
+  // The private adapter owns provider selection, the fixed Compose files,
+  // target project, and environment isolation. The sentinel keeps a Compose
+  // option such as `-d` in the structured tail rather than this adapter argv.
+  return adapterCommand("compose", manifestPath, ["--", ...tail], label, options);
+}
+
+async function deploymentDiagnostics(manifestPath) {
+  const result = await adapterCommand(
+    "diagnostics",
+    manifestPath,
+    ["--service", "api", "--service", "gateway"],
+    "reading E2E deployment diagnostics",
+    { allowFailure: true },
+  );
+  return result.stdout ?? result.stderr ?? "";
+}
+
+function replicaIdPrefix(replica) {
+  assert.ok(replica.startsWith(REPLICA_HEADER_PREFIX), "unexpected replica attribution prefix");
+  const suffix = replica.slice(REPLICA_HEADER_PREFIX.length);
+  assert.match(suffix, /^[a-f0-9]{12}$/, "replica attribution must carry a container short ID");
+  return suffix;
+}
+
+async function stopIssuingReplica(manifestPath, replica) {
+  const idPrefix = replicaIdPrefix(replica);
+  await adapterCommand(
+    "stop-instance",
+    manifestPath,
+    ["--service", "api", "--id-prefix", idPrefix],
+    "stopping the replica that issued the question",
+  );
+}
+
 async function command(
   file,
   args,
   label,
-  { allowFailure = false, safeDiagnostics = false, timeoutMs } = {},
+  {
+    allowFailure = false,
+    environment = {},
+    privateValues = [],
+    safeDiagnostics = false,
+    timeoutMs,
+  } = {},
 ) {
   try {
     return await execFileAsync(file, args, {
       cwd: REPO_ROOT,
+      env: { ...process.env, ...environment },
       encoding: "utf8",
       maxBuffer: 4 * 1024 * 1024,
       timeout: timeoutMs,
@@ -198,67 +202,13 @@ async function command(
       };
     // Do not include argv/stdout/stderr here: the seed command receives a DB
     // URL and the test owns a local identity credential.
-    const diagnostic = safeDiagnostics ? safeComposeDiagnostic(error.stderr ?? "") : "";
+    const diagnostic = safeDiagnostics
+      ? safeComposeDiagnostic(error.stderr ?? "", privateValues)
+      : "";
     fail(
       `${label} failed (${String(error.code ?? "unknown error")})${diagnostic ? `\n${diagnostic}` : ""}`,
     );
   }
-}
-
-async function cleanupProject(project, cleanupArgs) {
-  assert.match(project, /^ple-replica-e2e-[a-f0-9]{10}$/u);
-  await command(composeProvider.file, cleanupArgs, "cleaning E2E project", {
-    allowFailure: true,
-  });
-
-  const containerList = await command(
-    "podman",
-    ["ps", "--all", "--format", "{{.ID}} {{.Names}}"],
-    "listing E2E cleanup containers",
-    { allowFailure: true },
-  );
-  if (!containerList.failed) {
-    const containerIds = exactProjectContainerIds(containerList.stdout, project);
-    if (containerIds.length > 0) {
-      await command("podman", ["rm", "--force", ...containerIds], "removing E2E containers", {
-        allowFailure: true,
-      });
-    }
-  }
-
-  for (const resource of ["volume", "network"]) {
-    const list = await command(
-      "podman",
-      [resource, "ls", "--format", "{{.Name}}"],
-      `listing E2E ${resource}s`,
-      { allowFailure: true },
-    );
-    if (list.failed) continue;
-    const names = exactProjectNames(list.stdout, project);
-    if (names.length > 0) {
-      await command("podman", [resource, "rm", ...names], `removing E2E ${resource}s`, {
-        allowFailure: true,
-      });
-    }
-  }
-}
-
-async function deploymentDiagnostics(project, envPath) {
-  const status = await command(
-    composeProvider.file,
-    composeArguments(project, envPath, ["ps"]),
-    "reading E2E service status",
-    { allowFailure: true },
-  );
-  const logs = await command(
-    composeProvider.file,
-    composeArguments(project, envPath, ["logs", "--no-color", "--tail", "80", "api", "gateway"]),
-    "reading E2E service logs",
-    { allowFailure: true },
-  );
-  return safeComposeDiagnostic(
-    [status.stdout ?? "", status.stderr ?? "", logs.stdout ?? "", logs.stderr ?? ""].join("\n"),
-  );
 }
 
 async function waitFor(label, operation, timeoutMs = POLL_TIMEOUT_MS) {
@@ -351,27 +301,40 @@ function identityFile(tenantId, studentId) {
   };
 }
 
-async function inspectReplicaContainer(project, replica) {
-  assert.ok(replica.startsWith(REPLICA_HEADER_PREFIX), "unexpected replica attribution prefix");
-  const suffix = replica.slice(REPLICA_HEADER_PREFIX.length);
-  assert.match(suffix, /^[a-f0-9]{12}$/, "replica attribution must carry a container short ID");
-  const listing = await command(
-    "podman",
-    ["ps", "--format", "{{.ID}} {{.Names}}"],
-    "listing API replicas",
-  );
-  const ids = exactProjectServiceContainerIds(listing.stdout, project, "api");
-  assert.ok(ids.length >= 2, "expected two API replicas");
-  for (const id of ids) {
-    // The server accepts only the twelve hex characters from its container
-    // hostname and stamps a fixed prefix. Match that suffix against IDs from
-    // this Compose project, never a global container listing.
-    if (id.startsWith(suffix)) return id;
-  }
-  fail("issued replica header did not map to this Compose project's API containers");
+function canonicalSecret32() {
+  const secret = randomBytes(32).toString("base64url");
+  assert.equal(secret.length, 43, "secret must be canonical 32-byte base64url");
+  return `${secret}\n`;
 }
 
-async function postgresCounts(project, envPath, tenantId, attemptId) {
+async function writePrivateSecret32(path) {
+  await writeFile(path, canonicalSecret32(), { mode: 0o600 });
+}
+
+async function provisionGradingReader(manifestPath, password) {
+  const sql = `ALTER ROLE ple_grading_reader PASSWORD '${password}';`;
+  await adapterCompose(
+    manifestPath,
+    [
+      "exec",
+      "-T",
+      "postgres",
+      "psql",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-U",
+      POSTGRES_USER,
+      "-d",
+      POSTGRES_DATABASE,
+      "-c",
+      sql,
+    ],
+    "provisioning the E2E grading reader",
+    { privateValues: [password], safeDiagnostics: true },
+  );
+}
+
+async function postgresCounts(manifestPath, tenantId, attemptId) {
   const tenant = requireUuid(tenantId, "database count tenant");
   const attempt = requireUuid(attemptId, "database count attempt");
   const sql = [
@@ -382,9 +345,9 @@ async function postgresCounts(project, envPath, tenantId, attemptId) {
     `(SELECT count(*) FROM submission_evaluation WHERE tenant_id = '${tenant}'::uuid AND attempt_id = '${attempt}'::uuid),`,
     `(SELECT count(*) FROM attempt_score_current WHERE tenant_id = '${tenant}'::uuid AND attempt_id = '${attempt}'::uuid);`,
   ].join(" ");
-  const result = await command(
-    composeProvider.file,
-    composeArguments(project, envPath, [
+  const result = await adapterCompose(
+    manifestPath,
+    [
       "exec",
       "-T",
       "postgres",
@@ -398,7 +361,7 @@ async function postgresCounts(project, envPath, tenantId, attemptId) {
       "|",
       "-c",
       sql,
-    ]),
+    ],
     "checking durable submission rows",
     { safeDiagnostics: true },
   );
@@ -452,95 +415,36 @@ async function staticCheck() {
     }),
   );
   assert.equal(manifest.versionId, "0c2813cc-bb38-5c02-b3c5-b4361d19976d");
-  const args = cleanupArguments("ple-replica-e2e-0123456789", "/tmp/identities.env");
-  assert.deepEqual(args.slice(0, 6), [
-    "compose",
-    "-p",
-    "ple-replica-e2e-0123456789",
-    "--env-file",
-    "/tmp/identities.env",
-    "-f",
-  ]);
-  assert.ok(args.includes("--volumes"), "cleanup uses volumes only with its explicit project name");
-  assert.throws(() => cleanupArguments("ple", "/tmp/identities.env"));
+  const secret = canonicalSecret32().trim();
+  assert.match(secret, /^[A-Za-z0-9_-]{43}$/u);
   const diagnostic = safeComposeDiagnostic(
-    `postgres://ple_e2e:${POSTGRES_PASSWORD}@postgres/ple_e2e ple-e2e-minio-password`,
+    `postgres://ple_e2e:${POSTGRES_PASSWORD}@postgres/ple_e2e ${secret}`,
+    [secret],
   );
   assert.doesNotMatch(diagnostic, new RegExp(POSTGRES_PASSWORD, "u"));
-  assert.doesNotMatch(diagnostic, /ple-e2e-minio-password/u);
+  assert.doesNotMatch(diagnostic, new RegExp(secret, "u"));
   assert.match(diagnostic, /\[redacted\]/u);
+  assert.deepEqual(adapterArguments("compose", "/tmp/target.manifest", ["--", "up", "-d", "api"]), [
+    LOCAL_STACK_CONSUMER,
+    "compose",
+    "--manifest",
+    "/tmp/target.manifest",
+    "--",
+    "up",
+    "-d",
+    "api",
+  ]);
+  assert.equal(replicaIdPrefix("ple-replica-e2e-api-0123456789ab"), "0123456789ab");
+  assert.throws(() => replicaIdPrefix("ple-replica-e2e-api-not-a-container"));
   assert.equal(safeHttpError('{"error":"assignment is closed"}'), "assignment is closed");
   assert.equal(safeHttpError('{"error":"safe","request":"credential"}'), "");
   assert.equal(safeHttpError('{"error":"line\\nbreak"}'), "");
   assert.equal(safeHttpError(JSON.stringify({ error: "x".repeat(301) })), "");
   assert.equal(safeHttpError("not JSON"), "");
-  assert.deepEqual(
-    exactProjectNames(
-      "ple-replica-e2e-0123456789_data other_data ple-replica-e2e-0123456789_network",
-      "ple-replica-e2e-0123456789",
-    ),
-    ["ple-replica-e2e-0123456789_data", "ple-replica-e2e-0123456789_network"],
-  );
-  assert.deepEqual(
-    exactProjectServiceContainerIds(
-      [
-        "0123456789abcdef ple-replica-e2e-0123456789_api_1",
-        "abcdef0123456789 ple-replica-e2e-0123456789_api_2",
-        "9999999999999999 ple-replica-e2e-0123456789_gateway_1",
-        "8888888888888888 other_api_1",
-      ].join("\n"),
-      "ple-replica-e2e-0123456789",
-      "api",
-    ),
-    ["0123456789abcdef", "abcdef0123456789"],
-  );
-  let observedCleanup;
-  await assert.rejects(
-    withProjectCleanup(
-      "ple-replica-e2e-0123456789",
-      "/tmp/identities.env",
-      async (armCleanup) => {
-        armCleanup();
-        throw new Error("simulated first compose up failure");
-      },
-      async (cleanup) => {
-        observedCleanup = cleanup;
-      },
-    ),
-    /simulated first compose up failure/,
-  );
-  assert.deepEqual(observedCleanup, args, "a failed first compose up must still clean the project");
   console.log("replica_restart static check passed");
 }
 
 async function runLive() {
-  const podman = await command("podman", ["info", "--format", "{{.Host.OS}}"], "checking Podman", {
-    allowFailure: true,
-  });
-  if (podman.failed) {
-    console.error("BLOCKED: Podman machine is unavailable; replica restart E2E was not run.");
-    process.exitCode = 2;
-    return;
-  }
-  const nativeCompose = await command("podman", ["compose", "version"], "checking Podman Compose", {
-    allowFailure: true,
-  });
-  if (nativeCompose.failed) {
-    const standaloneCompose = await command(
-      "podman-compose",
-      ["--version"],
-      "checking standalone Podman Compose",
-      { allowFailure: true },
-    );
-    if (standaloneCompose.failed) {
-      console.error(
-        "BLOCKED: neither Podman Compose provider is available; replica E2E was not run.",
-      );
-      process.exitCode = 2;
-      return;
-    }
-    composeProvider = { file: "podman-compose", prefix: [] };
-  }
   const gatewayDigest = process.env.PLE_E2E_GATEWAY_IMAGE_SHA256;
   if (!/^[a-f0-9]{64}$/.test(gatewayDigest ?? "")) {
     fail(
@@ -552,6 +456,12 @@ async function runLive() {
   const tempDirectory = await mkdtemp(join(tmpdir(), "ple-replica-e2e-"));
   const envPath = join(tempDirectory, "compose.env");
   const identityPath = join(tempDirectory, "local-identities.json");
+  const invitationSecretPath = join(tempDirectory, "invitation_token_secret");
+  const questionIdSecretPath = join(tempDirectory, "question_id_secret");
+  const capabilityPath = join(tempDirectory, "disposable_capability");
+  const manifestPath = join(tempDirectory, "target.manifest");
+  const retainEvidence = process.env.PLE_E2E_KEEP === "1";
+  let preserveEvidence = retainEvidence;
   try {
     const [postgresPort, minioPort, minioConsolePort, gatewayPort] = await Promise.all([
       unusedLoopbackPort(),
@@ -563,10 +473,16 @@ async function runLive() {
     const instructorId = randomUUID();
     const studentId = randomUUID();
     const identity = identityFile(tenantId, studentId);
+    const gradingReaderPassword = randomBytes(24).toString("hex");
+    const capability = randomBytes(32);
+    const capabilitySha256 = createHash("sha256").update(capability).digest("hex");
     // The containing temporary directory remains 0700. The mounted file holds
     // only a high-entropy credential hash plus fixture IDs, so 0644 lets the
     // image's non-root UID read it without exposing the bearer credential.
     await writeFile(identityPath, identity.body, { mode: 0o644 });
+    await writePrivateSecret32(invitationSecretPath);
+    await writePrivateSecret32(questionIdSecretPath);
+    await writeFile(capabilityPath, capability, { mode: 0o600 });
     await writeFile(
       envPath,
       [
@@ -580,175 +496,207 @@ async function runLive() {
         `PLE_MINIO_CONSOLE_HOST_PORT=${minioConsolePort}`,
         `PLE_GATEWAY_HOST_PORT=${gatewayPort}`,
         `PLE_GATEWAY_IMAGE_SHA256=${gatewayDigest}`,
+        `PLE_POSTGRES_IMAGE_SHA256=${POSTGRES_IMAGE_SHA256}`,
+        `PLE_MINIO_IMAGE_SHA256=${MINIO_IMAGE_SHA256}`,
+        `PLE_MINIO_MC_IMAGE_SHA256=${MINIO_MC_IMAGE_SHA256}`,
+        `PLE_SECRET_INIT_IMAGE_SHA256=${SECRET_INIT_IMAGE_SHA256}`,
         `PLE_LOCAL_AUTH_HOST_FILE=${identityPath}`,
+        `PLE_INVITATION_TOKEN_SECRET_HOST_FILE=${invitationSecretPath}`,
+        `PLE_QUESTION_ID_SECRET_HOST_FILE=${questionIdSecretPath}`,
+        `PLE_LOCAL_GRADER_PASSWORD=${gradingReaderPassword}`,
         `PLE_PUBLIC_ASSET_BASE_URL=http://127.0.0.1:${minioPort}/public-assets`,
-        "PLE_WEBWORK_RENDERER_IMAGE_REPOSITORY=example.invalid/unused-renderer",
-        `PLE_WEBWORK_RENDERER_IMAGE_SHA256=${"0".repeat(64)}`,
-        "PLE_WEBWORK_RENDERER_BASE_URL=http://webwork-renderer:8080",
-        "PLE_WEBWORK_RENDERER_ID=unused-e2e-renderer",
-        "PLE_WEBWORK_RENDERER_VERSION=1",
+        "PLE_WEBAUTHN_RP_ID=localhost",
+        `PLE_WEBAUTHN_ORIGIN=http://localhost:${gatewayPort}`,
+        "PLE_WEBAUTHN_RP_NAME=PLE replica E2E",
+        `PLE_WEBWORK_RENDERER_IMAGE=${WEBWORK_RENDERER_IMAGE}`,
+        "PLE_WEBWORK_RENDERER_ID=vosslab-webwork-pg-renderer",
+        `PLE_WEBWORK_PROBLEM_JWT_SECRET=${randomBytes(32).toString("hex")}`,
+        `PLE_WEBWORK_SESSION_JWT_SECRET=${randomBytes(32).toString("hex")}`,
         "PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS=15",
         "PLE_WEBWORK_MAX_RESPONSE_BYTES=1048576",
-        "PLE_WEBWORK_RENDERER_HEALTHCHECK=true",
+        `PLE_DISPOSABLE_CAPABILITY_SHA256=${capabilitySha256}`,
+      ].join("\n") + "\n",
+      { mode: 0o600 },
+    );
+    await writeFile(
+      manifestPath,
+      [
+        "OWNER=replica-restart",
+        `PROJECT=${project}`,
+        `ENV_FILE=${envPath}`,
+        `CAPABILITY_FILE=${capabilityPath}`,
       ].join("\n") + "\n",
       { mode: 0o600 },
     );
 
-    await withProjectCleanup(
-      project,
-      envPath,
-      async (armCleanup) => {
-        // Arm before invoking Compose: a partially-created initial stack still
-        // owns project-scoped containers/volumes that must be removed.
-        armCleanup();
-        await command(
-          composeProvider.file,
-          composeArguments(project, envPath, ["up", "-d", "postgres", "minio", "createbuckets"]),
-          "starting E2E backing services",
-          { safeDiagnostics: true, timeoutMs: 10 * 60_000 },
-        );
-        const seeded = await command(
-          "cargo",
-          [
-            "run",
-            "-q",
-            "-p",
-            "project-tools",
-            "--",
-            "e2e-seed",
-            "--database-url",
-            `postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:${postgresPort}/${POSTGRES_DATABASE}`,
-            "--apply-migrations",
-            "--tenant",
-            tenantId,
-            "--instructor",
-            instructorId,
-            "--student",
-            studentId,
-          ],
-          "seeding E2E data",
-        );
-        const manifest = parseManifest(seeded.stdout);
+    let cleanupArmed = false;
+    let operationFailure;
+    let cleanupFailure;
+    try {
+      // Arm before the first adapter Compose request: a partially-created
+      // stack remains target-owned and needs label-derived cleanup.
+      cleanupArmed = true;
+      await adapterCompose(
+        manifestPath,
+        ["up", "-d", "postgres", "minio", "createbuckets"],
+        "starting E2E backing services",
+        { safeDiagnostics: true, timeoutMs: 10 * 60_000 },
+      );
+      const seeded = await command(
+        "cargo",
+        [
+          "run",
+          "-q",
+          "-p",
+          "project-tools",
+          "--",
+          "e2e-seed",
+          "--database-url",
+          `postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:${postgresPort}/${POSTGRES_DATABASE}`,
+          "--apply-migrations",
+          "--tenant",
+          tenantId,
+          "--instructor",
+          instructorId,
+          "--student",
+          studentId,
+        ],
+        "seeding E2E data",
+        { environment: { PLE_QUESTION_ID_SECRET_FILE: questionIdSecretPath } },
+      );
+      const manifest = parseManifest(seeded.stdout);
+      await provisionGradingReader(manifestPath, gradingReaderPassword);
 
-        await command(
-          composeProvider.file,
-          composeArguments(project, envPath, ["up", "-d", "--scale", "api=2", "api", "gateway"]),
-          "starting API replicas and gateway",
-          { safeDiagnostics: true, timeoutMs: 10 * 60_000 },
-        );
-        const baseUrl = `http://127.0.0.1:${gatewayPort}`;
-        try {
-          await waitFor("gateway", async () => {
-            const response = await fetch(`${baseUrl}/health`, {
-              signal: AbortSignal.timeout(2_000),
-            });
-            if (!response.ok) fail(`gateway health returned ${response.status}`);
+      await adapterCompose(
+        manifestPath,
+        ["up", "-d", "--scale", "api=2", "api", "gateway"],
+        "starting API replicas and gateway",
+        { safeDiagnostics: true, timeoutMs: 10 * 60_000 },
+      );
+      const baseUrl = `http://127.0.0.1:${gatewayPort}`;
+      try {
+        await waitFor("gateway", async () => {
+          const response = await fetch(`${baseUrl}/health`, {
+            signal: AbortSignal.timeout(2_000),
           });
-        } catch (error) {
-          const diagnostic = await deploymentDiagnostics(project, envPath);
-          fail(`${error instanceof Error ? error.message : "gateway failed"}\n${diagnostic}`);
-        }
-
-        const login = await fetchJson(`${baseUrl}/api/auth/login`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ credential: identity.credential }),
+          if (!response.ok) fail(`gateway health returned ${response.status}`);
         });
-        const cookie = login.response.headers.get("set-cookie")?.split(";", 1)[0];
-        assert.match(
-          cookie ?? "",
-          /^ple_session=/,
-          "local login did not establish a session cookie",
-        );
-        const studentHeaders = { cookie, "content-type": "application/json" };
-        const startedRun = await fetchJson(`${baseUrl}/api/runs`, {
-          method: "POST",
-          headers: studentHeaders,
-          body: JSON.stringify({ assignmentId: manifest.assignmentId }),
-        });
-        assert.equal(typeof startedRun.body.id, "string", "start run did not return a run id");
-        const attempts = await fetchJson(
-          `${baseUrl}/api/runs/${encodeURIComponent(startedRun.body.id)}/attempts`,
-          {
-            headers: { cookie },
-          },
-        );
-        assert.ok(
-          Array.isArray(attempts.body.items) && attempts.body.items.length === 1,
-          "new E2E run needs exactly one initial attempt",
-        );
-        const attemptId = attempts.body.items[0]?.id;
-        assert.equal(typeof attemptId, "string", "attempt id is missing");
+      } catch (error) {
+        const diagnostic = await deploymentDiagnostics(manifestPath);
+        fail(`${error instanceof Error ? error.message : "gateway failed"}\n${diagnostic}`);
+      }
 
-        const initialQuestion = await fetchJson(
+      const login = await fetchJson(`${baseUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ credential: identity.credential }),
+      });
+      const cookie = login.response.headers.get("set-cookie")?.split(";", 1)[0];
+      assert.match(cookie ?? "", /^ple_session=/, "local login did not establish a session cookie");
+      const studentHeaders = { cookie, "content-type": "application/json" };
+      const startedRun = await fetchJson(`${baseUrl}/api/runs`, {
+        method: "POST",
+        headers: studentHeaders,
+        body: JSON.stringify({ assignmentId: manifest.assignmentId }),
+      });
+      assert.equal(typeof startedRun.body.id, "string", "start run did not return a run id");
+      const attempts = await fetchJson(
+        `${baseUrl}/api/runs/${encodeURIComponent(startedRun.body.id)}/attempts`,
+        {
+          headers: { cookie },
+        },
+      );
+      assert.ok(
+        Array.isArray(attempts.body.items) && attempts.body.items.length === 1,
+        "new E2E run needs exactly one initial attempt",
+      );
+      const attemptId = attempts.body.items[0]?.id;
+      assert.equal(typeof attemptId, "string", "attempt id is missing");
+
+      const initialQuestion = await fetchJson(
+        `${baseUrl}/api/attempts/${encodeURIComponent(attemptId)}/question`,
+        {
+          headers: { cookie },
+        },
+      );
+      const initialReplica = parseReplica(
+        initialQuestion.response.headers.get("x-ple-e2e-replica"),
+      );
+      const initialEnvelope = initialQuestion.body;
+      await stopIssuingReplica(manifestPath, initialReplica);
+      await new Promise((resolveWait) => setTimeout(resolveWait, REPLICA_REFRESH_MS));
+
+      const resumedQuestion = await waitFor("a distinct API replica after restart", async () => {
+        const question = await fetchJson(
           `${baseUrl}/api/attempts/${encodeURIComponent(attemptId)}/question`,
-          {
-            headers: { cookie },
-          },
+          { headers: { cookie } },
         );
-        const initialReplica = parseReplica(
-          initialQuestion.response.headers.get("x-ple-e2e-replica"),
-        );
-        const initialEnvelope = initialQuestion.body;
-        const stoppedContainer = await inspectReplicaContainer(project, initialReplica);
-        await command(
-          "podman",
-          ["stop", stoppedContainer],
-          "stopping the replica that issued the question",
-        );
-        await new Promise((resolveWait) => setTimeout(resolveWait, REPLICA_REFRESH_MS));
+        const replica = parseReplica(question.response.headers.get("x-ple-e2e-replica"));
+        if (replica === initialReplica) fail("Caddy still selected the stopped API replica");
+        return { question, replica };
+      });
+      assert.notEqual(
+        resumedQuestion.replica,
+        initialReplica,
+        "replay must cross an API replica boundary",
+      );
+      assert.deepEqual(
+        resumedQuestion.question.body,
+        initialEnvelope,
+        "issued question envelope changed across replicas",
+      );
 
-        const resumedQuestion = await waitFor("a distinct API replica after restart", async () => {
-          const question = await fetchJson(
-            `${baseUrl}/api/attempts/${encodeURIComponent(attemptId)}/question`,
-            { headers: { cookie } },
-          );
-          const replica = parseReplica(question.response.headers.get("x-ple-e2e-replica"));
-          if (replica === initialReplica) fail("Caddy still selected the stopped API replica");
-          return { question, replica };
-        });
-        assert.notEqual(
-          resumedQuestion.replica,
-          initialReplica,
-          "replay must cross an API replica boundary",
-        );
-        assert.deepEqual(
-          resumedQuestion.question.body,
-          initialEnvelope,
-          "issued question envelope changed across replicas",
-        );
-
-        const response = validVisibleResponse(initialEnvelope.response);
-        const idempotencyKey = `replica-e2e-${randomUUID()}`;
-        const submissionOptions = {
-          method: "POST",
-          headers: { ...studentHeaders, "idempotency-key": idempotencyKey },
-          body: JSON.stringify({ response }),
-        };
-        const firstReceipt = await fetchJson(
-          `${baseUrl}/api/submissions/${encodeURIComponent(attemptId)}`,
-          submissionOptions,
-        );
-        const replayReceipt = await fetchJson(
-          `${baseUrl}/api/submissions/${encodeURIComponent(attemptId)}`,
-          submissionOptions,
-        );
-        assert.deepEqual(
-          replayReceipt.body,
-          firstReceipt.body,
-          "same idempotency key did not return the original durable receipt",
-        );
-        await postgresCounts(project, envPath, tenantId, attemptId);
-        console.log(
-          `replica restart E2E passed: ${initialReplica} -> ${resumedQuestion.replica}; exact envelope and durable replay verified.`,
-        );
-      },
-      async (cleanup) => {
-        await cleanupProject(project, cleanup);
-      },
-    );
+      const response = validVisibleResponse(initialEnvelope.response);
+      const idempotencyKey = `replica-e2e-${randomUUID()}`;
+      const submissionOptions = {
+        method: "POST",
+        headers: { ...studentHeaders, "idempotency-key": idempotencyKey },
+        body: JSON.stringify({ response }),
+      };
+      const firstReceipt = await fetchJson(
+        `${baseUrl}/api/submissions/${encodeURIComponent(attemptId)}`,
+        submissionOptions,
+      );
+      const replayReceipt = await fetchJson(
+        `${baseUrl}/api/submissions/${encodeURIComponent(attemptId)}`,
+        submissionOptions,
+      );
+      assert.deepEqual(
+        replayReceipt.body,
+        firstReceipt.body,
+        "same idempotency key did not return the original durable receipt",
+      );
+      await postgresCounts(manifestPath, tenantId, attemptId);
+      console.log(
+        `replica restart E2E passed: ${initialReplica} -> ${resumedQuestion.replica}; exact envelope and durable replay verified.`,
+      );
+    } catch (error) {
+      operationFailure = error;
+    } finally {
+      if (cleanupArmed && !retainEvidence) {
+        try {
+          await adapterCommand("cleanup", manifestPath, [], "cleaning E2E project");
+        } catch (error) {
+          preserveEvidence = true;
+          cleanupFailure = error;
+        }
+      }
+    }
+    if (operationFailure !== undefined && cleanupFailure !== undefined) {
+      throw new AggregateError(
+        [operationFailure, cleanupFailure],
+        "replica E2E operation and owned cleanup both failed",
+      );
+    }
+    if (operationFailure !== undefined) throw operationFailure;
+    if (cleanupFailure !== undefined) throw cleanupFailure;
   } finally {
-    await rm(tempDirectory, { recursive: true, force: true });
+    if (preserveEvidence) {
+      const reason = retainEvidence ? "PLE_E2E_KEEP=1" : "cleanup failed";
+      console.log(`${reason} retained replica E2E evidence in ${tempDirectory}`);
+    } else {
+      await rm(tempDirectory, { recursive: true, force: true });
+    }
   }
 }
 

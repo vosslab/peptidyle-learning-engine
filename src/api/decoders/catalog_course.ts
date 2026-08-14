@@ -67,6 +67,7 @@ import {
   decodeEnvelopeTitle,
   decodeIdentifier,
   decodeProblemVersionRef,
+  decodePublicRouteNumber,
   decodeQuestionMetadata,
   decodeTaxonomyTerm,
   decodeTimestamp,
@@ -75,6 +76,14 @@ import {
   requireOnlyFields,
 } from "./shared";
 import { decodeContentBlock } from "./question_model";
+
+function decodeQuestionId(value: unknown, path: string): string {
+  const questionId = decodeString(value, path);
+  if (!/^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u.test(questionId)) {
+    throw new Error(`${path} must be a canonical Question ID`);
+  }
+  return questionId;
+}
 
 export function decodeCatalogProblemSummary(
   value: unknown,
@@ -85,9 +94,8 @@ export function decodeCatalogProblemSummary(
   if (strict) {
     requireOnlyFields(record, path, [
       "problem",
-      "publicId",
+      "questionId",
       "version",
-      "versionNumber",
       "backend",
       "capabilities",
       "metadata",
@@ -101,12 +109,8 @@ export function decodeCatalogProblemSummary(
   }
   const decoded = {
     problem: decodeIdentifier(field(record, "problem", path), `${path}.problem`),
-    publicId: decodePositiveInteger(field(record, "publicId", path), `${path}.publicId`),
+    questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
     version: decodeIdentifier(field(record, "version", path), `${path}.version`),
-    versionNumber: decodePositiveInteger(
-      field(record, "versionNumber", path),
-      `${path}.versionNumber`,
-    ),
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
       "native",
       "webwork",
@@ -420,9 +424,10 @@ export function decodeCourseSummary(
   strict = false,
 ): CourseSummary {
   const record = decodeRecord(value, path);
-  if (strict) requireOnlyFields(record, path, ["id", "tenant", "title", "role"]);
+  if (strict) requireOnlyFields(record, path, ["id", "publicId", "tenant", "title", "role"]);
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
+    publicId: decodePublicRouteNumber(field(record, "publicId", path), `${path}.publicId`),
     tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     role: decodeStringEnum(field(record, "role", path), `${path}.role`, ["student", "instructor"]),
@@ -683,6 +688,7 @@ export function decodeAssignmentSummary(
   if (strict) {
     requireOnlyFields(record, path, [
       "id",
+      "publicId",
       "tenant",
       "courseId",
       "title",
@@ -693,6 +699,7 @@ export function decodeAssignmentSummary(
   }
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
+    publicId: decodePublicRouteNumber(field(record, "publicId", path), `${path}.publicId`),
     tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
     courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
@@ -745,6 +752,7 @@ export function decodeAssignmentEditorDetail(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
+    "publicId",
     "tenant",
     "courseId",
     "title",
@@ -756,6 +764,7 @@ export function decodeAssignmentEditorDetail(
   const summary = decodeAssignmentSummary(record, path, false);
   const decoded = {
     id: summary.id,
+    publicId: summary.publicId,
     tenant: summary.tenant,
     courseId: summary.courseId,
     title: summary.title,

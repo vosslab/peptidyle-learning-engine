@@ -42,6 +42,7 @@ import {
   decodeIdentifier,
   decodeLicense,
   decodeProblemVersionRef,
+  decodePublicRouteNumber,
   decodeTaxonomyTerm,
   field,
   kind,
@@ -389,9 +390,10 @@ export function decodeWorkspaceDraftSummary(
   path = "response",
 ): WorkspaceDraftSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["workspace", "title", "sourceBackend"]);
+  requireOnlyFields(record, path, ["workspace", "publicId", "title", "sourceBackend"]);
   return {
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
+    publicId: decodePublicRouteNumber(field(record, "publicId", path), `${path}.publicId`),
     title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
     sourceBackend: decodeStringEnum(
       field(record, "sourceBackend", path),

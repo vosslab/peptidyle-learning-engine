@@ -192,12 +192,18 @@ impl crate::CourseStore for PostgresStore {
             .map(|row| {
                 let key: String = row.try_get("stable_key").map_err(map_sqlx_error)?;
                 let id = CourseId::from_uuid(row.try_get("course_id").map_err(map_sqlx_error)?);
+                let public_number: i32 = row.try_get("public_id").map_err(map_sqlx_error)?;
+                let public_id = question_model::CoursePublicId::new(public_number as u64)
+                    .ok_or_else(|| {
+                        StoreError::Unavailable("stored course route number is invalid".to_string())
+                    })?;
                 let title = row.try_get("title").map_err(map_sqlx_error)?;
                 let role: String = row.try_get("role").map_err(map_sqlx_error)?;
                 Ok((
                     key,
                     CourseSummary {
                         id,
+                        public_id,
                         tenant: context.tenant_id(),
                         title,
                         role: parse_course_membership_role(&role)?,

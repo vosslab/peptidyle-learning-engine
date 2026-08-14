@@ -1,18 +1,22 @@
 // Assignment editor selectors: src/pages/assignment_editor_page.tsx accessible labels and buttons.
 
 import { expect, test, type Page, type Route } from "@playwright/test";
+import { mkdir } from "node:fs/promises";
+import { resolve } from "node:path";
 
 import { publishedProblemFixture } from "../../generated/fixtures/published_problem";
 import { tabTo } from "./simulator/keyboard_walkthrough";
 
 const courseId = publishedProblemFixture.course.id;
 const assignmentId = publishedProblemFixture.assignment.id;
+const courseReference = `C-${publishedProblemFixture.course.publicId}`;
+const assignmentReference = `A-${publishedProblemFixture.assignment.publicId}`;
 const assignmentProblems = publishedProblemFixture.assignment.items
   .filter((item) => item.deliveryState === "active")
   .sort((left, right) => left.position - right.position)
   .map((item) => item.reference);
-const editPath = `/instructor/courses/${courseId}/assignments/${assignmentId}/edit`;
-const createPath = `/instructor/courses/${courseId}/assignments/new`;
+const editPath = `/instructor/courses/${courseReference}/assignments/${assignmentReference}/edit`;
+const createPath = `/instructor/courses/${courseReference}/assignments/new`;
 const appearance = { theme: "grass", revision: "1", banner: null } as const;
 const untimedAssignmentEditor = {
   ...publishedProblemFixture.assignment,
@@ -21,12 +25,45 @@ const untimedAssignmentEditor = {
 const secondCatalogProblem = {
   ...publishedProblemFixture.catalogProblem,
   problem: "0198e000-0000-7000-8000-000000000097",
-  publicId: publishedProblemFixture.catalogProblem.publicId + 1,
+  questionId: "ABC-123T",
   version: "0198e000-0000-7000-8000-000000000096",
   metadata: {
     ...publishedProblemFixture.catalogProblem.metadata,
     title: "Second immutable peptide version",
   },
+};
+
+function fixtureUuid(number: number): string {
+  return `0198e000-0000-7000-8000-${number.toString().padStart(12, "0")}`;
+}
+
+const denseCatalogProblems = Array.from({ length: 4 }, (_, index) => ({
+  ...publishedProblemFixture.catalogProblem,
+  problem: fixtureUuid(90 + index * 2),
+  questionId: ["7K3-M9QP", "ABC-123T", "PEP-T1D3", "GEN-E42K"][index] as string,
+  version: fixtureUuid(91 + index * 2),
+  metadata: {
+    ...publishedProblemFixture.catalogProblem.metadata,
+    title: [
+      "Peptide bond resonance",
+      "Ramachandran angle interpretation",
+      "Protein folding energy landscape",
+      "Enzyme active-site geometry",
+    ][index] as string,
+  },
+}));
+
+const denseAssignmentEditor = {
+  ...untimedAssignmentEditor,
+  title: "Biochemistry concept check",
+  items: denseCatalogProblems.map((problem, index) => ({
+    id: fixtureUuid(120 + index),
+    reference: { problem: problem.problem, version: problem.version },
+    position: index,
+    pointsPossible: "1",
+    deliveryState: "active" as const,
+    scoringMode: "normal" as const,
+  })),
 };
 
 function json(
@@ -55,6 +92,22 @@ function appearanceJson(route: Route): Promise<void> {
   return json(route, appearance, 200, { "cache-control": "no-store", etag: '"1"' });
 }
 
+async function routeShellRequest(route: Route, path: string): Promise<boolean> {
+  if (path === "/api/auth/account/presentation") {
+    await json(route, { contrast: "standard" });
+    return true;
+  }
+  if (path === `/api/navigation/${courseReference}`) {
+    await json(route, { kind: "course", courseId });
+    return true;
+  }
+  if (path === `/api/navigation/${assignmentReference}`) {
+    await json(route, { kind: "assignment", courseId, assignmentId });
+    return true;
+  }
+  return false;
+}
+
 async function useProductionTransport(page: Page): Promise<void> {
   await page.addInitScript(() => {
     Object.defineProperty(window, "__PLE_USE_MOCK_API__", {
@@ -78,6 +131,11 @@ async function openEditor(page: Page, path = editPath): Promise<void> {
   }, path);
 }
 
+async function openQuestionIdImport(page: Page): Promise<void> {
+  await page.getByText("Add by question ID", { exact: true }).click();
+  await expect(page.getByLabel("Question IDs")).toBeVisible();
+}
+
 async function routeCourseAssignments(
   page: Page,
   roles: ReadonlyArray<string>,
@@ -89,6 +147,7 @@ async function routeCourseAssignments(
     const path = new URL(request.url()).pathname;
     requests.push({ method: request.method(), path });
     if (path === "/api/auth/session") return await json(route, session(roles));
+    if (await routeShellRequest(route, path)) return;
     if (path === "/api/courses") {
       return await json(route, {
         items: [{ ...publishedProblemFixture.course, role: courseRole }],
@@ -123,6 +182,7 @@ async function routeStudentCourse(page: Page, requests: string[]): Promise<void>
     const path = new URL(request.url()).pathname;
     requests.push(path);
     if (path === "/api/auth/session") return await json(route, session(["instructor"]));
+    if (await routeShellRequest(route, path)) return;
     if (path === `/api/courses/${courseId}`) {
       return await json(route, { ...publishedProblemFixture.course, role: "student" });
     }
@@ -144,7 +204,7 @@ test("course instructor reaches New assignment from the visible course page by k
   await tabTo(page, newAssignment);
   await expect(newAssignment).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(new RegExp(`${courseId}/assignments/new$`, "u"));
+  await expect(page).toHaveURL(new RegExp(`${courseReference}/assignments/new$`, "u"));
   await expect(page.getByRole("heading", { name: "Create assignment" })).toBeVisible();
   expect(requests.some((request) => request.method === "POST")).toBe(false);
 });
@@ -177,7 +237,7 @@ test("student and global instructor who is a course learner see no assignment ed
   ).toBe(false);
 });
 
-test("direct student route stops before the course, assignment, and catalog clients", async ({
+test("direct student route stops before course-detail, assignment, and catalog clients", async ({
   page,
 }) => {
   const requests: string[] = [];
@@ -185,13 +245,200 @@ test("direct student route stops before the course, assignment, and catalog clie
     const path = new URL(route.request().url()).pathname;
     requests.push(path);
     if (path === "/api/auth/session") return await json(route, session(["student"]));
+    if (path === "/api/auth/account/presentation") {
+      return await json(route, { contrast: "standard" });
+    }
     return await json(route, { error: "student editor transport must not run" }, 500);
   });
   await openEditor(page);
   await expect(
     page.getByRole("heading", { name: "Assignment editing is not available for this account" }),
   ).toBeVisible();
-  expect(requests).toEqual(["/api/auth/session"]);
+  expect(requests).toContain("/api/auth/session");
+  expect(
+    requests.some(
+      (path) =>
+        path === `/api/courses/${courseId}` ||
+        path.includes("assignments") ||
+        path.includes("problems") ||
+        path.includes("workspaces") ||
+        path.includes("catalog"),
+    ),
+  ).toBe(false);
+});
+
+test("four-question instructor editing uses the 1280 by 800 workspace deliberately", async ({
+  page,
+}) => {
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/auth/session") return await json(route, session(["instructor"]));
+    if (await routeShellRequest(route, path)) return;
+    if (path === `/api/courses/${courseId}`) {
+      return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
+    }
+    if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
+    if (path === `/api/assignments/${assignmentId}`) {
+      return await json(route, denseAssignmentEditor, 200, { etag: '"7"' });
+    }
+    const detail = denseCatalogProblems.find(
+      (problem) => path === `/api/problems/${problem.problem}/versions/${problem.version}/detail`,
+    );
+    if (detail !== undefined) {
+      return await json(route, { summary: detail, prompt: [], statistics: "unavailable" });
+    }
+    if (path === "/api/problems/search") {
+      return await json(route, {
+        items: [],
+        nextCursor: null,
+        facets: {
+          taxonomy: [],
+          capabilities: [],
+          licenses: [],
+          statistics: { available: 0, unavailable: 0 },
+        },
+      });
+    }
+    return await json(route, { error: `unexpected desktop layout request ${path}` }, 500);
+  });
+
+  await page.setViewportSize({ width: 1_280, height: 800 });
+  await openEditor(page);
+  await expect(page.getByRole("heading", { name: "Assignment editor" })).toBeVisible();
+  await expect(page.locator(".assignment-editor-row")).toHaveCount(4);
+  await expect(page.getByRole("heading", { name: "Run policies" })).toBeVisible();
+  await page.getByLabel("Timed", { exact: true }).check();
+  const runMinutes = page.getByLabel("Minutes per practice run");
+  await expect(runMinutes).toBeVisible();
+  await expect(runMinutes).toBeFocused();
+
+  const geometry = await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".assignment-editor-grid");
+    const rows = Array.from(
+      document.querySelectorAll<HTMLElement>(".assignment-editor-list .assignment-editor-row"),
+    );
+    const timingPolicy = document.querySelector<HTMLElement>(".assignment-editor-run-timing");
+    const actions = document.querySelector<HTMLElement>(".assignment-editor-actions");
+    const saveAction = actions?.querySelector<HTMLElement>(".primary-action");
+    const policySelects = Array.from(
+      document.querySelectorAll<HTMLSelectElement>(".assignment-editor-policy-set select"),
+    );
+    if (
+      editor === null ||
+      timingPolicy === null ||
+      actions === null ||
+      saveAction === null ||
+      saveAction === undefined
+    ) {
+      throw new Error("desktop editor geometry is missing");
+    }
+    const editorBox = editor.getBoundingClientRect();
+    const timingPolicyBox = timingPolicy.getBoundingClientRect();
+    return {
+      editorWidth: Math.round(editorBox.width),
+      lastQuestionBottom: Math.round(rows[rows.length - 1]?.getBoundingClientRect().bottom ?? 0),
+      timingPolicyTop: Math.round(timingPolicyBox.top),
+      timingPolicyBottom: Math.round(timingPolicyBox.bottom),
+      actionsTop: Math.round(actions.getBoundingClientRect().top),
+      actionsBottom: Math.round(actions.getBoundingClientRect().bottom),
+      saveActionBottom: Math.round(saveAction.getBoundingClientRect().bottom),
+      policySelectsFit: policySelects.every((select) => select.scrollWidth <= select.clientWidth),
+      viewportHeight: window.innerHeight,
+      horizontalOverflow:
+        document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  expect(geometry.editorWidth).toBeGreaterThanOrEqual(1_100);
+  expect(geometry.lastQuestionBottom).toBeLessThan(geometry.viewportHeight);
+  expect(geometry.saveActionBottom).toBeLessThanOrEqual(geometry.viewportHeight);
+  expect(geometry.actionsBottom).toBeLessThanOrEqual(geometry.timingPolicyTop);
+  expect(geometry.policySelectsFit).toBe(true);
+  expect(geometry.horizontalOverflow).toBe(0);
+  await expect(page.locator("footer")).toHaveCount(0);
+
+  if (process.env["PLE_CAPTURE_UI_DESIGN_VISUALS"] === "1") {
+    const directory = resolve("generated/ui/ui_design");
+    await mkdir(directory, { recursive: true });
+    await page.screenshot({ path: resolve(directory, "assignment_editor_1280x800.png") });
+  }
+});
+
+test("instructor copies an entire assignment or a human checklist without exposing UUIDs", async ({
+  page,
+}) => {
+  const sourceAssignmentId = fixtureUuid(180);
+  const sourceAssignment = {
+    ...publishedProblemFixture.assignment,
+    id: sourceAssignmentId,
+    publicId: 18,
+    title: "Protein structure review",
+    items: [
+      ...publishedProblemFixture.assignment.items,
+      {
+        ...publishedProblemFixture.assignment.items[0],
+        id: fixtureUuid(181),
+        reference: {
+          problem: secondCatalogProblem.problem,
+          version: secondCatalogProblem.version,
+        },
+        position: 1,
+      },
+    ],
+  };
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path === "/api/auth/session") return await json(route, session(["instructor"]));
+    if (await routeShellRequest(route, path)) return;
+    if (path === `/api/courses/${courseId}`) {
+      return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
+    }
+    if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
+    if (path === `/api/assignments/${assignmentId}`) {
+      return await json(route, untimedAssignmentEditor, 200, { etag: '"7"' });
+    }
+    if (path === `/api/courses/${courseId}/assignments` && request.method() === "GET") {
+      return await json(route, {
+        items: [publishedProblemFixture.assignment, sourceAssignment],
+        nextCursor: null,
+      });
+    }
+    if (
+      path ===
+      `/api/problems/${publishedProblemFixture.catalogProblem.problem}/versions/${publishedProblemFixture.catalogProblem.version}/detail`
+    ) {
+      return await json(route, {
+        summary: publishedProblemFixture.catalogProblem,
+        prompt: [],
+        statistics: "unavailable",
+      });
+    }
+    if (
+      path ===
+      `/api/problems/${secondCatalogProblem.problem}/versions/${secondCatalogProblem.version}/detail`
+    ) {
+      return await json(route, {
+        summary: secondCatalogProblem,
+        prompt: [],
+        statistics: "unavailable",
+      });
+    }
+    return await json(route, { error: "unexpected request" }, 500);
+  });
+
+  await openEditor(page);
+  await page.getByText("Reuse questions from an existing assignment", { exact: true }).click();
+  await expect(page.getByLabel("Source assignment")).toHaveValue("0");
+  await expect(page.getByText("Second immutable peptide version", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Add entire assignment" }).click();
+  await expect(page.locator(".assignment-editor-list")).toContainText("ABC-123T");
+  await expect(page.locator(".assignment-editor-actions")).toContainText(
+    "Copied 1 question from Protein structure review.",
+  );
+  const markup = await page.content();
+  expect(markup).not.toContain(sourceAssignmentId);
+  expect(markup).not.toContain(secondCatalogProblem.problem);
+  expect(markup).not.toContain(secondCatalogProblem.version);
 });
 
 test("hostile cross-tenant assignment detail is rejected before editor state adopts its revision", async ({
@@ -202,6 +449,7 @@ test("hostile cross-tenant assignment detail is rejected before editor state ado
     const path = new URL(route.request().url()).pathname;
     requests.push(path);
     if (path === "/api/auth/session") return await json(route, session(["instructor"]));
+    if (await routeShellRequest(route, path)) return;
     if (path === `/api/courses/${courseId}`) {
       return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
     }
@@ -238,6 +486,7 @@ test("direct question-ID lookup keeps the draft and pasted ID after access or se
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/auth/session") return await json(route, session(["instructor"]));
+    if (await routeShellRequest(route, path)) return;
     if (path === `/api/courses/${courseId}`) {
       return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
     }
@@ -255,10 +504,10 @@ test("direct question-ID lookup keeps the draft and pasted ID after access or se
         statistics: "unavailable",
       });
     }
-    if (path === "/api/problems/by-id/P-2-v1") {
+    if (path === "/api/problems/by-id/PEP-T1D3") {
       return await json(route, { error: "not shared with this instructor" }, 403);
     }
-    if (path === "/api/problems/by-id/P-3-v1") {
+    if (path === "/api/problems/by-id/GEN-E42K") {
       return await json(route, { error: "temporary catalog outage" }, 503);
     }
     return await json(route, { error: "unexpected request" }, 500);
@@ -266,25 +515,26 @@ test("direct question-ID lookup keeps the draft and pasted ID after access or se
 
   await openEditor(page);
   const selected = page.locator(".assignment-editor-list");
+  await openQuestionIdImport(page);
   const questionIds = page.getByLabel("Question IDs");
   const add = page.getByRole("button", { name: "Add questions by ID" });
-  await expect(selected).toContainText("P-1-v1");
+  await expect(selected).toContainText("7K3-M9QP");
 
-  await questionIds.fill("P-2-v1");
+  await questionIds.fill("PEP-T1D3");
   await add.click();
   await expect(page.getByRole("alert")).toHaveText(
-    "You do not have access to P-2-v1. Ask its owner to publish or share it.",
+    "You do not have access to PEP-T1D3. Ask its owner to publish or share it.",
   );
-  await expect(questionIds).toHaveValue("P-2-v1");
-  await expect(selected).toHaveText(/P-1-v1/u);
+  await expect(questionIds).toHaveValue("PEP-T1D3");
+  await expect(selected).toHaveText(/7K3-M9QP/u);
 
-  await questionIds.fill("P-3-v1");
+  await questionIds.fill("GEN-E42K");
   await add.click();
   await expect(page.getByRole("alert")).toHaveText(
-    "Could not look up P-3-v1. Your pasted IDs and assignment are unchanged. Try again.",
+    "Could not look up GEN-E42K. Your pasted IDs and assignment are unchanged. Try again.",
   );
-  await expect(questionIds).toHaveValue("P-3-v1");
-  await expect(selected).toHaveText(/P-1-v1/u);
+  await expect(questionIds).toHaveValue("GEN-E42K");
+  await expect(selected).toHaveText(/7K3-M9QP/u);
 });
 
 test("authorized editor saves exact immutable refs with CAS, retains all violations, and recovers from conflict", async ({
@@ -309,6 +559,7 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
       revision: request.headers()["if-match"] ?? null,
     });
     if (path === "/api/auth/session") return await json(route, session(["instructor"]));
+    if (await routeShellRequest(route, path)) return;
     if (path === `/api/courses/${courseId}`) {
       return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
     }
@@ -341,8 +592,8 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
         },
       });
     }
-    if (path === "/api/problems/by-id/P-2-v1") return await json(route, secondCatalogProblem);
-    if (path === "/api/problems/by-id/P-99-v1") {
+    if (path === "/api/problems/by-id/ABC-123T") return await json(route, secondCatalogProblem);
+    if (path === "/api/problems/by-id/B10-CHMD") {
       return await json(route, { error: "problem reference not found" }, 404);
     }
     if (
@@ -396,39 +647,38 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
   await expect(page.getByLabel("Minutes per practice run")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Save assignment" })).toBeVisible();
   const selectedProblems = page.locator(".assignment-editor-list");
-  await expect(selectedProblems).toContainText(
-    `P-${publishedProblemFixture.catalogProblem.publicId}-v${publishedProblemFixture.catalogProblem.versionNumber}`,
-  );
+  await expect(selectedProblems).toContainText(publishedProblemFixture.catalogProblem.questionId);
   await expect(selectedProblems).not.toContainText(publishedProblemFixture.catalogProblem.problem);
   await expect(selectedProblems).not.toContainText(publishedProblemFixture.catalogProblem.version);
 
+  await openQuestionIdImport(page);
   const questionIds = page.getByLabel("Question IDs");
-  await questionIds.fill("P-1-v1");
+  await questionIds.fill("7K3-M9QP");
   await page.getByRole("button", { name: "Add questions by ID" }).click();
-  await expect(page.getByRole("alert")).toContainText("P-1-v1 is already in this assignment");
-  await expect(questionIds).toHaveValue("P-1-v1");
+  await expect(page.getByRole("alert")).toContainText("7K3-M9QP is already in this assignment");
+  await expect(questionIds).toHaveValue("7K3-M9QP");
   await questionIds.fill("P-2");
   await page.getByRole("button", { name: "Add questions by ID" }).click();
-  await expect(page.getByRole("alert")).toContainText("P-2 is not an exact question ID");
+  await expect(page.getByRole("alert")).toContainText("P-2 is not a Question ID");
   await expect(questionIds).toHaveValue("P-2");
-  await questionIds.fill("P-2-v1, P-99-v1");
+  await questionIds.fill("ABC-123T, B10-CHMD");
   await page.getByRole("button", { name: "Add questions by ID" }).click();
   await expect(page.getByRole("alert")).toContainText(
-    "P-99-v1 is not an available published question",
+    "B10-CHMD is not an available published question",
   );
-  await expect(questionIds).toHaveValue("P-2-v1, P-99-v1");
+  await expect(questionIds).toHaveValue("ABC-123T, B10-CHMD");
   await expect(page.getByText("Second immutable peptide version")).toHaveCount(0);
 
   // The instructor obtains the identifier from a visible catalog result, then uses the
   // same clipboard and keyboard path available in the real editor. No UUID is entered.
-  const search = page.getByLabel("Search published problems");
+  const search = page.getByLabel("Search published questions");
   await search.fill("Second immutable peptide version");
   await page.getByRole("button", { name: "Search catalog" }).click();
   const secondCatalogRow = page.locator(".assignment-editor-catalog-results article", {
     has: page.getByRole("heading", { name: "Second immutable peptide version", exact: true }),
   });
   const copiedId = await secondCatalogRow.locator("code").innerText();
-  await expect(secondCatalogRow.locator("code")).toHaveText("P-2-v1");
+  await expect(secondCatalogRow.locator("code")).toHaveText("ABC-123T");
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
     origin: new URL(page.url()).origin,
   });
@@ -449,7 +699,7 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
   await page.keyboard.press("Enter");
   await expect(page.getByText("Second immutable peptide version").first()).toBeVisible();
   await expect(page.locator(".assignment-editor-import-success")).toContainText(
-    "Added P-2-v1 to the unsaved selection",
+    "Added ABC-123T to the unsaved selection",
   );
   await expect(page.locator(".assignment-editor-actions")).toContainText(
     "Unsaved assignment changes.",
@@ -514,6 +764,7 @@ test("instructor creates a Mastery assignment from public immutable catalog tupl
     const body = request.postDataJSON() as unknown;
     requests.push({ method: request.method(), path, body });
     if (path === "/api/auth/session") return await json(route, session(["instructor"]));
+    if (await routeShellRequest(route, path)) return;
     if (path === `/api/courses/${courseId}`) {
       return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
     }
@@ -530,7 +781,7 @@ test("instructor creates a Mastery assignment from public immutable catalog tupl
         },
       });
     }
-    if (path === "/api/problems/by-id/P-1-v1") {
+    if (path === "/api/problems/by-id/7K3-M9QP") {
       return await json(route, publishedProblemFixture.catalogProblem);
     }
     if (path === `/api/courses/${courseId}/assignments` && request.method() === "POST") {
@@ -540,6 +791,7 @@ test("instructor creates a Mastery assignment from public immutable catalog tupl
         {
           ...untimedAssignmentEditor,
           id: createdId,
+          publicId: 2,
           title: (body as { readonly title: string }).title,
           policies: (body as { readonly policies: unknown }).policies,
           assignmentTiming: (body as { readonly assignmentTiming: unknown }).assignmentTiming,
@@ -579,19 +831,20 @@ test("instructor creates a Mastery assignment from public immutable catalog tupl
   await runMinutes.fill("15");
 
   await title.fill("Fall pilot peptide mastery");
-  await page.getByLabel("Question IDs").fill("P-1-v1");
+  await openQuestionIdImport(page);
+  await page.getByLabel("Question IDs").fill("7K3-M9QP");
   const add = page.getByRole("button", { name: "Add questions by ID" });
   await add.focus();
   await page.keyboard.press("Enter");
   await expect(page.locator(".assignment-editor-import-success")).toHaveText(
-    "Added P-1-v1 to the unsaved selection.",
+    "Added 7K3-M9QP to the unsaved selection.",
   );
   await page.getByRole("button", { name: "Create assignment" }).focus();
   await page.keyboard.press("Enter");
 
   const open = page.getByRole("link", { name: "Open Fall pilot peptide mastery" });
   await expect(open).toBeVisible();
-  await expect(open).toHaveAttribute("href", `/courses/${courseId}/assignments/${createdId}`);
+  await expect(open).toHaveAttribute("href", `/courses/${courseReference}/assignments/A-2`);
   const posts = requests.filter((request) => request.method === "POST");
   expect(posts).toHaveLength(1);
   expect(posts[0]).toEqual({
@@ -621,6 +874,7 @@ test("a loaded non-terminating minute value survives an unrelated save exactly",
     const request = route.request();
     const path = new URL(request.url()).pathname;
     if (path === "/api/auth/session") return await json(route, session(["instructor"]));
+    if (await routeShellRequest(route, path)) return;
     if (path === `/api/courses/${courseId}`) {
       return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
     }

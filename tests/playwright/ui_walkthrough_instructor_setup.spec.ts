@@ -6,6 +6,7 @@ import {
   commitInstructorSetupState,
   type InstructorSetupFragment,
 } from "./simulator/instructor_setup_state";
+import { isAssignmentReference, isCourseReference } from "./simulator/public_references";
 import { writeInstructorSetupCheckpoint } from "./simulator/instructor_setup_checkpoint";
 import { tabTo } from "./simulator/keyboard_walkthrough";
 import { credentialFromValidatedFile } from "./ui_walkthrough_config_factory";
@@ -49,7 +50,7 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
   await tabTo(page, signIn);
   await expect(signIn).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: "Pick up where you left off" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Courses you teach" })).toBeVisible();
   writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "signed_in");
 
   const courseTitleInput = page.getByLabel("Course title");
@@ -71,7 +72,10 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
   await expect(openCourse).toBeVisible();
   await expect(openCourse).toBeFocused();
   await page.keyboard.press("Enter");
+  await expect(page.locator("[data-route-surface=courseAssignments]")).toBeVisible();
   await expect(page.getByRole("heading", { name: courseTitle, exact: true })).toBeVisible();
+  const courseReference = new URL(page.url()).pathname.split("/")[2];
+  if (!isCourseReference(courseReference)) throw new Error("visible course link is unavailable");
   writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "course_opened");
   await captureDocumentationScreenshot(
     page,
@@ -80,15 +84,12 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
     undefined,
     inputs.screenshotDirectory,
   );
-  const courseId = new URL(page.url()).pathname.split("/")[2];
-  if (courseId === undefined || !/^[0-9a-f-]{36}$/iu.test(courseId))
-    throw new Error("visible course link is unavailable");
   const j11: InstructorSetupFragment = {
     schemaVersion: 2,
     journey: "J11",
     status: "PASS",
     elapsedMs: elapsedSince(startedAt),
-    courseId,
+    courseReference,
     visibleOutcomeCodes: ["visible_course_created", "visible_course_opened"],
     diagnostics: [],
   };
@@ -130,7 +131,10 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
   const activeRow = page.getByRole("row", { name: /Mary Fake Student.*active/u });
   await expect(activeRow).toHaveCount(1);
   await expect(activeRow).toHaveAttribute("tabindex", "-1");
-  await expect(page.getByRole("status")).toHaveText(
+  const activeStudentAnnouncement = page.getByRole("status").filter({
+    hasText: "Mary Fake Student is now an active student in this course.",
+  });
+  await expect(activeStudentAnnouncement).toHaveText(
     "Mary Fake Student is now an active student in this course.",
   );
   await expect(activeRow).toBeFocused();
@@ -156,7 +160,7 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
     journey: "J12",
     status: "PASS",
     elapsedMs: elapsedSince(startedAt),
-    courseId,
+    courseReference,
     visibleOutcomeCodes: ["visible_local_student_active"],
     diagnostics: [],
   };
@@ -178,7 +182,7 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
   const assignmentTitleInput = page.getByLabel("Assignment title");
   await expect(assignmentTitleInput).toBeFocused();
   await assignmentTitleInput.fill(assignmentTitle);
-  const search = page.getByLabel("Search published problems");
+  const search = page.getByLabel("Search published questions");
   await tabTo(page, search);
   await expect(search).toBeFocused();
   const searchCatalog = page.getByRole("button", { name: "Search catalog", exact: true });
@@ -201,7 +205,7 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
       await captureDocumentationScreenshot(
         page,
         "instructor_problem_catalog.png",
-        page.getByRole("heading", { name: "Published problem catalog", exact: true }),
+        page.getByRole("heading", { name: "Question catalog", exact: true }),
         72,
         inputs.screenshotDirectory,
       );
@@ -272,16 +276,16 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
   if (typeof assignmentHref !== "string") {
     throw new Error("visible assignment link is unavailable");
   }
-  const assignmentId = assignmentHref.slice(assignmentHref.lastIndexOf("/") + 1);
-  if (!/^[0-9a-f-]{36}$/iu.test(assignmentId))
+  const assignmentReference = assignmentHref.slice(assignmentHref.lastIndexOf("/") + 1);
+  if (!isAssignmentReference(assignmentReference))
     throw new Error("visible assignment link is unavailable");
   const j13: Extract<InstructorSetupFragment, { readonly journey: "J13" }> = {
     schemaVersion: 2,
     journey: "J13",
     status: "PASS",
     elapsedMs: elapsedSince(startedAt),
-    courseId,
-    assignmentId,
+    courseReference,
+    assignmentReference,
     selectedDisplayIds: [...inputs.catalogDisplayIds] as [string, string, string, string],
     visibleOutcomeCodes: [
       "visible_assignment_created",

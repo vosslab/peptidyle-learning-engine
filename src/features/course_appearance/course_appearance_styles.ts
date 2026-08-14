@@ -51,15 +51,20 @@ export const COURSE_APPEARANCE_STYLES = `
 }
 
 .course-appearance-theme-card {
+  position: relative;
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
   gap: 0.5rem;
   min-height: var(--ple-response-min-height, 2.75rem);
-  padding: 0.35rem 0.5rem;
-  border: 2px solid var(--ple-border);
+  padding: 0.52rem 0.5rem 0.35rem;
+  overflow: hidden;
+  border: 2px solid color-mix(in srgb, var(--ple-border) 72%, transparent);
   border-radius: var(--ple-radius-control, 0.25rem);
-  background: var(--ple-card-surface);
+  background:
+    linear-gradient(90deg, var(--ple-theme-secondary), var(--ple-theme-accent)) top / 100% 0.22rem
+      no-repeat,
+    var(--ple-theme-canvas);
   color: var(--ple-ink);
   cursor: pointer;
 }
@@ -70,8 +75,9 @@ export const COURSE_APPEARANCE_STYLES = `
 }
 
 .course-appearance-theme-card:focus-within {
-  outline: 3px solid var(--ple-card-surface);
-  box-shadow: 0 0 0 6px var(--ple-focus);
+  outline: 2px solid var(--ple-focus);
+  outline-offset: 1px;
+  box-shadow: none;
 }
 
 .course-appearance-theme-card input {
@@ -94,7 +100,7 @@ export const COURSE_APPEARANCE_STYLES = `
 }
 
 .course-appearance-swatch {
-  border: 1px solid var(--ple-border);
+  border: 1px solid color-mix(in srgb, var(--ple-ink) 24%, transparent);
   border-radius: 0.125rem;
 }
 
@@ -175,10 +181,18 @@ export const COURSE_APPEARANCE_STYLES = `
   display: grid;
   gap: 0.5rem;
   min-width: 0;
-  padding: 0.5rem 0 0;
-  border-top: 1px solid var(--ple-border);
-  border-radius: 0;
-  background: var(--ple-surface);
+  padding: 0.75rem;
+  border: 0;
+  border-radius: var(--ple-radius-group, 0.7rem);
+  background:
+    radial-gradient(
+      circle at 92% 0%,
+      color-mix(in srgb, var(--ple-theme-accent) 14%, transparent),
+      transparent 20rem
+    ),
+    linear-gradient(90deg, var(--ple-theme-secondary), var(--ple-theme-accent)) top / 100% 0.3rem
+      no-repeat,
+    var(--ple-theme-canvas);
   color: var(--ple-ink);
 }
 

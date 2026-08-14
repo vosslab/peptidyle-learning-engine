@@ -37,8 +37,7 @@ function draft() {
 test("assignment editor retains ordered immutable tuples and emits only editable input", () => {
   const row = {
     reference,
-    publicId: publishedProblemFixture.catalogProblem.publicId,
-    versionNumber: publishedProblemFixture.catalogProblem.versionNumber,
+    questionId: publishedProblemFixture.catalogProblem.questionId,
     title: "Peptide bond resonance and planarity",
     backend: publishedProblemFixture.catalogProblem.backend,
   };
@@ -63,7 +62,7 @@ test("assignment editor retains ordered immutable tuples and emits only editable
   assert.equal("workspace" in assignmentInput(twice), false);
   assert.equal("source" in assignmentInput(twice), false);
   assert.equal("capabilities" in assignmentInput(twice), false);
-  assert.equal(assignmentProblemLabel(row), "P-1-v1");
+  assert.equal(assignmentProblemLabel(row), "7K3-M9QP");
   assert.equal(questionBackendLabel(row.backend), "PLE native");
 });
 
@@ -101,22 +100,14 @@ test("run timing minutes parse exactly and reject values outside the storage dom
   );
 });
 
-test("direct assignment import accepts only bounded exact human-readable versions", () => {
-  assert.deepEqual(parseExactProblemDisplayReferences(" P-12-v3,\nP-41-v1 "), [
-    "P-12-v3",
-    "P-41-v1",
+test("direct assignment import normalizes bounded human-readable Question IDs", () => {
+  assert.deepEqual(parseExactProblemDisplayReferences(" 7k3m9qp,\nABC-123T "), [
+    "7K3-M9QP",
+    "ABC-123T",
   ]);
-  assert.deepEqual(parseExactProblemDisplayReferences("P-2147483647-v2147483647"), [
-    "P-2147483647-v2147483647",
-  ]);
-  for (const value of ["", "P-12", "12-v3", "P-0-v1", "P-12-v0", "P-12-v3, P-12-v3"]) {
+  assert.deepEqual(parseExactProblemDisplayReferences("O00-00IX"), ["000-001X"]);
+  for (const value of ["", "P-12", "12-v3", "7K3-M9Q", "7K3-M9QU", "ABC-123T, abc123t"]) {
     assert.throws(() => parseExactProblemDisplayReferences(value));
-  }
-  for (const value of ["P-2147483648-v1", "P-1-v2147483648"]) {
-    assert.throws(
-      () => parseExactProblemDisplayReferences(value),
-      new Error(`${value} is not an exact question ID. Use the form P-12-v3.`),
-    );
   }
 });
 
@@ -149,8 +140,7 @@ test("assignment editor repository creates a bounded catalog query and passes th
   const repository = createAssignmentEditorRepository(client);
   const rows = await repository.searchPublished(" peptide bond ");
   assert.deepEqual(rows[0].reference, reference);
-  assert.equal(rows[0].publicId, publishedProblemFixture.catalogProblem.publicId);
-  assert.equal(rows[0].versionNumber, publishedProblemFixture.catalogProblem.versionNumber);
+  assert.equal(rows[0].questionId, publishedProblemFixture.catalogProblem.questionId);
   assert.equal(rows[0].backend, publishedProblemFixture.catalogProblem.backend);
   assert.deepEqual(calls[0].query, {
     text: "peptide bond",
@@ -162,9 +152,9 @@ test("assignment editor repository creates a bounded catalog query and passes th
     pageSize: 20,
   });
 
-  const resolved = await repository.resolvePublished("P-1-v1");
+  const resolved = await repository.resolvePublished("7K3-M9QP");
   assert.deepEqual(resolved, rows[0]);
-  assert.deepEqual(calls[1], { displayReference: "P-1-v1" });
+  assert.deepEqual(calls[1], { displayReference: "7K3-M9QP" });
 
   const described = await repository.describePublished([reference]);
   assert.deepEqual(described, rows);
@@ -188,4 +178,39 @@ test("assignment editor repository creates a bounded catalog query and passes th
     input,
     revision: '"7"',
   });
+});
+
+test("assignment reuse returns a human checklist while keeping assignment identities internal", async () => {
+  const requestedDetails = [];
+  const repository = createAssignmentEditorRepository({
+    listAssignments: async () => ({
+      items: [publishedProblemFixture.assignment],
+      nextCursor: null,
+    }),
+    getCatalogProblemDetail: async (problem, version) => {
+      requestedDetails.push({ problem, version });
+      return {
+        summary: publishedProblemFixture.catalogProblem,
+        prompt: [],
+        statistics: "unavailable",
+      };
+    },
+  });
+
+  const reusable = await repository.listReusableAssignments(publishedProblemFixture.course.id);
+  assert.deepEqual(reusable, [
+    {
+      title: "Peptide bond mastery",
+      questions: [
+        {
+          reference,
+          questionId: "7K3-M9QP",
+          title: "Peptide bond resonance and planarity",
+          backend: "native",
+        },
+      ],
+    },
+  ]);
+  assert.equal("id" in reusable[0], false);
+  assert.deepEqual(requestedDetails, [reference]);
 });

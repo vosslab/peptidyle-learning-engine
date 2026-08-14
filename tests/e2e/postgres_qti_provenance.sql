@@ -62,6 +62,42 @@ CREATE FUNCTION pg_temp.qti_profile_defaults() RETURNS jsonb
             'detail', 'PLE default applied: no feedback.')
     );
 
+-- Keep the trusted registry source descriptor in one local constructor. The
+-- capability and trigger each verify this exact persisted shape; negative
+-- provenance cases below remain inline so their divergent values stay visible.
+CREATE FUNCTION pg_temp.qti_workspace_source_descriptor(
+    p_tenant_id uuid,
+    p_workspace_id uuid,
+    p_import_id uuid,
+    p_object_id uuid,
+    p_sha256 text,
+    p_size_bytes bigint,
+    p_media_type text,
+    p_license text,
+    p_provenance text,
+    p_created_at timestamptz
+) RETURNS jsonb
+    LANGUAGE sql
+    RETURN jsonb_build_object(
+        'id', p_object_id::text,
+        'bucket', 'private-content',
+        'key', jsonb_build_object(
+            'kind', 'workspaceSource',
+            'tenant', p_tenant_id::text,
+            'workspace', p_workspace_id::text,
+            'import', p_import_id::text,
+            'object', p_object_id::text
+        ),
+        'category', 'source',
+        'version', NULL,
+        'sha256', p_sha256,
+        'sizeBytes', p_size_bytes,
+        'mediaType', p_media_type,
+        'license', p_license,
+        'provenance', p_provenance,
+        'createdAt', floor(extract(epoch FROM p_created_at) * 1000)::bigint
+    );
+
 INSERT INTO qti_provenance_probe
 SELECT
     '11111111-1111-4111-8111-0000000000a1'::uuid,
@@ -101,17 +137,10 @@ SELECT tenant_id, workspace_id, 1, repeat('4', 64), flat_source_object_id,
 INSERT INTO public.workspace_qti_import
     (tenant_id, workspace_id, import_id, source_object_id, payload, payload_sha256, state)
 SELECT tenant_id, workspace_id, import_id, source_archive_object_id,
-       jsonb_build_object('source', jsonb_build_object(
-           'id', source_archive_object_id::text, 'bucket', 'content',
-           'key', jsonb_build_object(
-               'kind', 'workspaceSource', 'tenant', tenant_id::text,
-               'workspace', workspace_id::text, 'import', import_id::text,
-               'object', source_archive_object_id::text
-           ), 'category', 'source', 'version', NULL,
-           'sha256', source_archive_sha256,
-           'sizeBytes', source_archive_size_bytes, 'mediaType', source_archive_media_type,
-           'license', source_archive_license, 'provenance', source_archive_provenance,
-           'createdAt', floor(extract(epoch FROM source_archive_created_at) * 1000)::bigint
+       jsonb_build_object('source', pg_temp.qti_workspace_source_descriptor(
+           tenant_id, workspace_id, import_id, source_archive_object_id,
+           source_archive_sha256, source_archive_size_bytes, source_archive_media_type,
+           source_archive_license, source_archive_provenance, source_archive_created_at
        ), 'profileSummary', jsonb_build_object(
            'profileId', profile_id, 'profileVersion', profile_version,
            'mappingVersion', mapping_version,
@@ -136,8 +165,9 @@ INSERT INTO public.workspace_qti_import_grading
 SELECT tenant_id, workspace_id, import_id, source_item_identifier,
        decode('01', 'hex'), repeat('a', 64)
   FROM qti_provenance_probe;
-INSERT INTO public.problem (problem_id, owner_tenant_id, owner_user_id, visibility, license)
-SELECT problem_id, tenant_id, actor_id, 'institution', 'CC0-1.0'
+INSERT INTO public.problem
+    (problem_id, question_id, owner_tenant_id, owner_user_id, visibility, license)
+SELECT problem_id, 'M4Y9K21', tenant_id, actor_id, 'institution', 'CC0-1.0'
   FROM qti_provenance_probe;
 INSERT INTO public.problem_version
     (problem_id, version_id, version_number, content_sha256, workspace_id, title,
@@ -579,17 +609,13 @@ VALUES ('22222222-2222-4222-8222-0000000000b1',
         '22222222-2222-4222-8222-0000000000b2',
         '22222222-2222-4222-8222-0000000000b3',
         '22222222-2222-4222-8222-0000000000b4',
-        jsonb_build_object('source', jsonb_build_object(
-            'id', '22222222-2222-4222-8222-0000000000b4', 'bucket', 'content',
-            'key', jsonb_build_object(
-                'kind', 'workspaceSource',
-                'tenant', '22222222-2222-4222-8222-0000000000b1',
-                'workspace', '22222222-2222-4222-8222-0000000000b2',
-                'import', '22222222-2222-4222-8222-0000000000b3',
-                'object', '22222222-2222-4222-8222-0000000000b4'
-            ), 'category', 'source', 'version', NULL, 'sha256', repeat('a', 64),
-            'sizeBytes', 42, 'mediaType', 'application/zip', 'license', 'CC0-1.0',
-            'provenance', 'e2e qti archive', 'createdAt', 1786147200000
+        jsonb_build_object('source', pg_temp.qti_workspace_source_descriptor(
+            '22222222-2222-4222-8222-0000000000b1',
+            '22222222-2222-4222-8222-0000000000b2',
+            '22222222-2222-4222-8222-0000000000b3',
+            '22222222-2222-4222-8222-0000000000b4',
+            repeat('a', 64), 42, 'application/zip', 'CC0-1.0', 'e2e qti archive',
+            '2026-08-08 00:00:00+00'::timestamptz
         ), 'profileSummary', jsonb_build_object(
             'profileId', 'canvas-qti-1.2-static-single-choice/v1',
             'profileVersion', 'v1', 'mappingVersion', 'v1',
@@ -619,8 +645,10 @@ INSERT INTO public.workspace_flat_import_choice_map
 VALUES ('22222222-2222-4222-8222-0000000000b1',
         '22222222-2222-4222-8222-0000000000b2',
         encode(pg_catalog.sha256(decode('0304', 'hex')), 'hex'), decode('0304', 'hex'));
-INSERT INTO public.problem (problem_id, owner_tenant_id, owner_user_id, visibility, license)
+INSERT INTO public.problem
+    (problem_id, question_id, owner_tenant_id, owner_user_id, visibility, license)
 VALUES ('22222222-2222-4222-8222-0000000000b6',
+        'T6X3W85',
         '22222222-2222-4222-8222-0000000000b1',
         '22222222-2222-4222-8222-0000000000b5', 'institution', 'CC0-1.0');
 INSERT INTO public.problem_version

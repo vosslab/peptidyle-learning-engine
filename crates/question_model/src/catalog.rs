@@ -12,6 +12,123 @@ use crate::{
 /// Maximum taxonomy facet values returned with one bounded catalog page.
 pub const MAX_CATALOG_TAXONOMY_FACETS: usize = 64;
 
+/// Crockford Base32 alphabet used by the one human-facing Question ID.
+pub const QUESTION_ID_ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+/// Number of random identity characters before the validation character.
+pub const QUESTION_ID_IDENTIFIER_LENGTH: usize = 6;
+
+/// Total compact Question ID length, including its validation character.
+pub const QUESTION_ID_COMPACT_LENGTH: usize = 7;
+
+/// Product limit kept independent of the larger encoded namespace.
+pub const MAX_QUESTION_ID_COUNT: u64 = 100_000_000;
+
+/// One stable, non-sequential human-facing identity for a current question.
+///
+/// The canonical display is `AAA-BBBB`. Parsing accepts unhyphenated and
+/// lowercase Crockford input plus the documented `O` to `0` and `I`/`L` to
+/// `1` transcription aliases. This type validates syntax only; the server-held
+/// HMAC secret validates the final character before resolution.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct QuestionId(String);
+
+impl QuestionId {
+    /// Canonical seven-character storage value without the display hyphen.
+    pub fn compact(&self) -> String {
+        self.0
+            .chars()
+            .filter(|character| *character != '-')
+            .collect()
+    }
+
+    /// Returns the six-character identity without allocating.
+    pub fn identifier_compact(&self) -> String {
+        self.compact()[..QUESTION_ID_IDENTIFIER_LENGTH].to_string()
+    }
+
+    /// Canonical validation character.
+    pub fn validation_character(&self) -> char {
+        self.0.as_bytes()[7] as char
+    }
+
+    /// Builds a canonical ID from server-generated canonical components.
+    pub fn from_canonical_parts(identifier: &str, validation: char) -> Result<Self, &'static str> {
+        if identifier.len() != QUESTION_ID_IDENTIFIER_LENGTH
+            || !identifier
+                .bytes()
+                .all(|character| QUESTION_ID_ALPHABET.contains(&character))
+            || !validation.is_ascii()
+            || !QUESTION_ID_ALPHABET.contains(&(validation as u8))
+        {
+            return Err("question ID components are not canonical Crockford Base32");
+        }
+        Ok(Self(format!(
+            "{}-{}{}",
+            &identifier[..3],
+            &identifier[3..],
+            validation
+        )))
+    }
+}
+
+impl std::fmt::Display for QuestionId {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl std::str::FromStr for QuestionId {
+    type Err = &'static str;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let trimmed = value.trim();
+        if trimmed.contains('-')
+            && (trimmed.chars().count() != 8
+                || trimmed.chars().nth(3) != Some('-')
+                || trimmed
+                    .chars()
+                    .filter(|character| *character == '-')
+                    .count()
+                    != 1)
+        {
+            return Err("question ID hyphen must use the canonical 3-4 grouping");
+        }
+        let normalized: String = trimmed
+            .chars()
+            .filter(|character| *character != '-')
+            .map(|character| match character.to_ascii_uppercase() {
+                'O' => '0',
+                'I' | 'L' => '1',
+                other => other,
+            })
+            .collect();
+        if normalized.len() != QUESTION_ID_COMPACT_LENGTH
+            || !normalized
+                .bytes()
+                .all(|character| QUESTION_ID_ALPHABET.contains(&character))
+        {
+            return Err("question ID must contain seven Crockford Base32 characters");
+        }
+        Self::from_canonical_parts(&normalized[..6], normalized.as_bytes()[6] as char)
+    }
+}
+
+impl TryFrom<String> for QuestionId {
+    type Error = &'static str;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<QuestionId> for String {
+    fn from(value: QuestionId) -> Self {
+        value.0
+    }
+}
+
 /// Largest value for either component of a copyable catalog locator.
 ///
 /// The catalog is scoped to this product, rather than to every object ever
@@ -91,22 +208,16 @@ impl ProblemVersionNumber {
     }
 }
 
-/// Copyable catalog locator accepted by instructor import and direct lookup.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Copyable Question ID accepted by instructor import and direct lookup.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ProblemDisplayRef {
-    /// Stable human-facing problem identity.
-    pub problem: ProblemPublicId,
-    /// Exact version when supplied; otherwise resolve the latest assignable version.
-    pub version: Option<ProblemVersionNumber>,
+    /// Stable human-facing question identity. Hidden versions never enter it.
+    pub question_id: QuestionId,
 }
 
 impl std::fmt::Display for ProblemDisplayRef {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "{}", self.problem)?;
-        if let Some(version) = self.version {
-            write!(formatter, "-v{}", version.value())?;
-        }
-        Ok(())
+        write!(formatter, "{}", self.question_id)
     }
 }
 
@@ -114,28 +225,9 @@ impl std::str::FromStr for ProblemDisplayRef {
     type Err = &'static str;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let Some(rest) = value.strip_prefix("P-") else {
-            return Err("problem reference must look like P-123456 or P-123456-v3");
-        };
-        let (problem, version) = match rest.rsplit_once("-v") {
-            Some((problem, version)) => {
-                if version.is_empty()
-                    || version.len() > 10
-                    || !version.bytes().all(|byte| byte.is_ascii_digit())
-                {
-                    return Err("problem version must be a positive decimal value");
-                }
-                let version = version
-                    .parse::<u64>()
-                    .ok()
-                    .and_then(ProblemVersionNumber::new)
-                    .ok_or("problem version must be a positive 31-bit decimal value")?;
-                (problem, Some(version))
-            }
-            None => (rest, None),
-        };
-        let problem = format!("P-{problem}").parse()?;
-        Ok(Self { problem, version })
+        Ok(Self {
+            question_id: value.parse()?,
+        })
     }
 }
 
@@ -242,12 +334,10 @@ impl From<&DraftQuestionSource> for QuestionBackend {
 pub struct CatalogProblemSummary {
     /// Stable published problem.
     pub problem: ProblemId,
-    /// Copyable human-facing identity of the stable problem.
-    pub public_id: ProblemPublicId,
+    /// Copyable human-facing identity of the current question.
+    pub question_id: QuestionId,
     /// Exact immutable version represented by this row.
     pub version: VersionId,
-    /// One-based human-facing version within the stable problem.
-    pub version_number: ProblemVersionNumber,
     /// Adapter family, without private source-locator fields.
     pub backend: QuestionBackend,
     /// Capabilities declared by the owning adapter at publication time.
@@ -425,19 +515,13 @@ impl std::fmt::Display for CatalogSearchQueryError {
 impl std::error::Error for CatalogSearchQueryError {}
 
 impl CatalogSearchQuery {
-    /// Returns the immutable catalog version named by an exact human-facing
-    /// display reference in the text field.  Catalog text remains
-    /// case-insensitive, while the returned value is canonicalized before it
-    /// reaches a store.  A stable `P-n` reference is deliberately not a
-    /// search shortcut: only `P-n-vn` identifies one immutable version.
-    pub fn exact_display_version(&self) -> Option<ProblemDisplayRef> {
+    /// Returns the current question named by a human-facing Question ID in the
+    /// text field. Catalog text remains case-insensitive, while the ID is
+    /// canonicalized before it reaches a store. Hidden snapshot identity never
+    /// appears in this search primitive.
+    pub fn exact_question_id(&self) -> Option<QuestionId> {
         let text = self.text.as_deref()?;
-        let rest = text
-            .strip_prefix("P-")
-            .or_else(|| text.strip_prefix("p-"))?;
-        let reference = format!("P-{rest}");
-        let reference = reference.parse::<ProblemDisplayRef>().ok()?;
-        reference.version.is_some().then_some(reference)
+        text.parse::<QuestionId>().ok()
     }
 
     /// Produces the canonical query used for both rows and facet aggregates.
@@ -591,48 +675,56 @@ mod tests {
     use super::*;
 
     #[test]
-    fn human_problem_references_are_unambiguous_and_round_trip() {
-        let stable: ProblemDisplayRef = "P-123456".parse().expect("stable reference parses");
-        assert_eq!(stable.problem.value(), 123_456);
-        assert_eq!(stable.version, None);
-        assert_eq!(stable.to_string(), "P-123456");
+    fn question_ids_normalize_forgiving_input_without_accepting_other_characters() {
+        let canonical: QuestionId = "7K3-M9QX".parse().expect("canonical ID parses");
+        assert_eq!(canonical.to_string(), "7K3-M9QX");
+        assert_eq!(canonical.compact(), "7K3M9QX");
+        assert_eq!(canonical.identifier_compact(), "7K3M9Q");
+        assert_eq!(canonical.validation_character(), 'X');
+        assert_eq!(
+            "7k3m9qx".parse::<QuestionId>().expect("lowercase parses"),
+            canonical
+        );
+        assert_eq!(
+            "o11-1lix"
+                .parse::<QuestionId>()
+                .expect("aliases parse")
+                .to_string(),
+            "011-111X"
+        );
+        for invalid in ["7K3-M9Q", "7K3-M9QXX", "7K3-M9QU", "7K3 M9QX"] {
+            assert!(invalid.parse::<QuestionId>().is_err(), "{invalid}");
+        }
+    }
 
-        let exact: ProblemDisplayRef = "P-123456-v3".parse().expect("exact reference parses");
-        assert_eq!(exact.problem.value(), 123_456);
-        assert_eq!(exact.version.expect("exact version").value(), 3);
-        assert_eq!(exact.to_string(), "P-123456-v3");
+    #[test]
+    fn question_id_wire_uses_the_canonical_display_form() {
+        let identifier: QuestionId = "7k3m9qx".parse().expect("ID parses");
+        assert_eq!(
+            serde_json::to_value(&identifier).expect("ID serializes"),
+            serde_json::json!("7K3-M9QX")
+        );
+        assert_eq!(
+            serde_json::from_value::<QuestionId>(serde_json::json!("7k3-m9qx"))
+                .expect("wire aliases normalize"),
+            identifier
+        );
+    }
 
-        for invalid in ["123", "P-0", "P-12-v0", "P--1", "P-12-vx"] {
+    #[test]
+    fn human_question_references_are_unambiguous_and_version_free() {
+        let reference: ProblemDisplayRef = "7k3m9qx".parse().expect("Question ID parses");
+        assert_eq!(reference.question_id.to_string(), "7K3-M9QX");
+        assert_eq!(reference.to_string(), "7K3-M9QX");
+
+        for invalid in ["P-123456", "P-12-v3", "7K3-M9Q", "7K3-M9QU"] {
             assert!(invalid.parse::<ProblemDisplayRef>().is_err(), "{invalid}");
         }
     }
 
     #[test]
-    fn human_problem_references_stay_within_the_lossless_cross_layer_range() {
-        let maximum = MAX_CATALOG_DISPLAY_NUMBER.to_string();
-        let exact: ProblemDisplayRef = format!("P-{maximum}-v{maximum}")
-            .parse()
-            .expect("the positive 31-bit boundary should parse");
-        assert_eq!(exact.problem.value(), MAX_CATALOG_DISPLAY_NUMBER);
-        assert_eq!(
-            exact
-                .version
-                .expect("exact reference has a version")
-                .value(),
-            MAX_CATALOG_DISPLAY_NUMBER
-        );
-
+    fn hidden_numeric_storage_identifiers_stay_within_the_lossless_cross_layer_range() {
         let first_out_of_range = u64::from(MAX_CATALOG_DISPLAY_NUMBER) + 1;
-        assert!(
-            format!("P-{first_out_of_range}")
-                .parse::<ProblemDisplayRef>()
-                .is_err()
-        );
-        assert!(
-            format!("P-1-v{first_out_of_range}")
-                .parse::<ProblemDisplayRef>()
-                .is_err()
-        );
         assert!(ProblemPublicId::new(first_out_of_range).is_none());
         assert!(ProblemVersionNumber::new(first_out_of_range).is_none());
 
@@ -655,24 +747,24 @@ mod tests {
     }
 
     #[test]
-    fn catalog_text_recognizes_only_exact_human_version_references() {
+    fn catalog_text_recognizes_one_human_question_id_without_a_version() {
         let exact = CatalogSearchQuery {
-            text: Some(" p-70-v1 ".to_string()),
+            text: Some(" 7k3-m9qx ".to_string()),
             ..CatalogSearchQuery::default()
         }
         .normalized()
         .expect("search text normalizes")
-        .exact_display_version()
-        .expect("exact reference is recognized");
-        assert_eq!(exact.to_string(), "P-70-v1");
+        .exact_question_id()
+        .expect("Question ID is recognized");
+        assert_eq!(exact.to_string(), "7K3-M9QX");
 
-        let stable = CatalogSearchQuery {
-            text: Some("P-70".to_string()),
+        let old_versioned = CatalogSearchQuery {
+            text: Some("P-70-v1".to_string()),
             ..CatalogSearchQuery::default()
         }
         .normalized()
         .expect("search text normalizes");
-        assert_eq!(stable.exact_display_version(), None);
+        assert_eq!(old_versioned.exact_question_id(), None);
     }
 
     #[test]
@@ -745,9 +837,8 @@ mod tests {
         let detail = CatalogProblemDetail {
             summary: CatalogProblemSummary {
                 problem: ProblemId::from_uuid(uuid::Uuid::from_u128(1)),
-                public_id: ProblemPublicId::new(1).expect("fixture ID is positive"),
+                question_id: "7K3-M9QX".parse().expect("fixture Question ID parses"),
                 version: VersionId::from_uuid(uuid::Uuid::from_u128(2)),
-                version_number: ProblemVersionNumber::new(1).expect("fixture version is positive"),
                 backend: QuestionBackend::Native,
                 capabilities: BackendCapabilities::none(),
                 metadata: QuestionMetadata {

@@ -42,6 +42,7 @@ pub(super) fn compose_router<S, O, C, B, P, R>(
 where
     S: Store
         + CatalogStore
+        + learning_data_access::OwnerCorrectionStore
         + learning_data_access::FlatQuestionAssetStore
         + FlatQuestionStore
         + FlatImportProvenanceStore
@@ -119,6 +120,7 @@ pub(super) fn compose_passwordless_router<S, O, C, B, R>(
 where
     S: Store
         + CatalogStore
+        + learning_data_access::OwnerCorrectionStore
         + learning_data_access::FlatQuestionAssetStore
         + FlatQuestionStore
         + FlatImportProvenanceStore
@@ -202,6 +204,7 @@ where
             invitation_delivery,
             local_teaching_roster,
         ))
+        .merge(crate::navigation::router(Arc::clone(&store)))
         .merge(crate::course_appearance::router(
             Arc::clone(&store),
             Arc::clone(&objects),

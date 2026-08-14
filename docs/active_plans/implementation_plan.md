@@ -17,6 +17,13 @@ acceptance sequence. It proves visible instructor course, local roster, and corp
 setup followed by student keyboard take/score/repeat. Production email and canonical onboarding are
 separate release work and do not gate that walkthrough.
 
+The active local-stack lifecycle controller is owned by
+`docs/active_plans/workstreams/local_stack_controller_implementation.md`.
+It adds one typed Python lifecycle layer around the existing launcher and Compose stack for developers,
+Codex, aggregate browser acceptance, and canonical disposable walkthrough ownership. The shared layer
+centralizes provider/env/project resolution, label discovery, preflight/status, and scoped cleanup;
+the launcher remains the sole build, bootstrap, migration, seed, renderer, and readiness owner.
+
 ADAPT (`OTHER_REPOS/adapt/`) is the surface model and the source of the sharpest lessons, because its
 weaknesses are visible in its own schema. Three review passes (`reviewer_commments.md`,
 `reviewer_commments_2.md`, `reviewer_commments_3.md`) plus the owner's operating experience moved this
@@ -121,9 +128,10 @@ Cited from [REPO_STYLE.md](../REPO_STYLE.md):
   dedicated search service can replace PostgreSQL full-text without touching callers.
 - **Atomic task decomposition.** The module catalog gives every module one owner, one contract, one
   independent verification.
-- **Long-term over short-term.** Immutable published versions, globally unique external IDs, tenant
-  IDs on every record, and cursor pagination land in the first schema, because all four are painful
-  to retrofit and free to adopt now.
+- **Long-term over short-term.** Hidden immutable publication snapshots, random checked Question
+  IDs, tenant IDs on every record, and cursor pagination are foundational because all four are
+  painful to retrofit. The snapshots preserve grading; instructors still work with one current
+  question rather than a version catalog.
 - **Perfect is the enemy of good.** No Kubernetes, Redis, Kafka, sharding, dedicated search index, or
   microservice fleet. M0 through M4 run on `podman compose` with MinIO.
 
@@ -184,7 +192,8 @@ instruction directly.
 - Serve every asset through a stored object record.
 - Read grades from `student_assignment_summary`.
 - Paginate every list endpoint with a cursor.
-- Model assignments as tenant-owned course artifacts that reference shared published versions.
+- Model assignments as tenant-owned course artifacts that select shared current questions while
+  retaining the exact hidden publication snapshot needed for grading reproducibility.
 - Use executable in-memory reference backends for fast tests and PostgreSQL for every environment
   holding durable student records.
 
@@ -196,8 +205,8 @@ instruction directly.
   R4.4, QTI profile import WP-QTI-12, the database baseline, keyboard pass, local launcher, and course
   appearance WP-CA1 through WP-CA7/WP-RC1 have accepted evidence.
 - `launch_local_stack.sh` builds, migrates, seeds, starts, waits for semantic health, and opens the
-  local application. Its default profile intentionally excludes WeBWorK until WP-RC3 replaces the
-  invented private dialect with the shipped upstream service contract.
+  local application. Its default profile includes the private standalone `webwork-pg-renderer`, but
+  does not run WebWork2 or MariaDB.
 - The first forward migration after the accepted six-file baseline is
   `schemas/migrations/2026080907_course_appearance.sql`; later filenames and owners are reserved in
   the release-completion plan.
@@ -242,10 +251,10 @@ Three weaknesses neither review named, each becoming a requirement here:
 | Grading location     | **Server only**                                                                                                         | Owner-selected. No answer, key, or grading code reaches the browser                                                                                                                                                    |
 | H5P grading          | Native H5P is ungraded practice; `serverGrading: false`                                                                 | Owner's observation: H5P ships answer evaluation to the browser                                                                                                                                                        |
 | WASM contents        | Parameter generation, answer-format validation, timer display, state transitions                                        | Non-secret work only, enforced by the dependency graph                                                                                                                                                                 |
-| Sharing boundary     | **Shared educational content; tenant-owned records and course artifacts**                                               | Owner-selected, refined by reviewers. Assignments reference immutable published versions and are never copied                                                                                                          |
+| Sharing boundary     | **Shared educational content; tenant-owned records and course artifacts**                                               | Owner-selected, refined by reviewers. Assignments may be imported or copied as teaching structures while authorization and course records remain tenant-owned                                                          |
 | Activity model       | `assignment_enrollment` / `assignment_run` / `question_attempt`                                                         | Owner's 30-runs observation. Completion is not terminal; practice continues with new variants                                                                                                                          |
 | Grade computation    | Transactionally maintained summary rows; never scan attempt history                                                     | At 300 M+ attempt rows, scanning for a course page is not an option                                                                                                                                                    |
-| Problem identity     | `workspace_id`, `problem_id`, `version_id`; external IDs are UUIDv7 or random                                           | Only publication mints a durable `problem_id`. Non-sequential IDs distribute S3 prefixes and index inserts                                                                                                             |
+| Question identity    | One random checked `AAA-BBBB` Question ID; hidden UUIDs and snapshots remain internal                                 | The Question ID is the only human-facing identity. It is non-sequential, copiable, stable across owner corrections, and never carries a version suffix                                                                  |
 | Partitioning         | Monthly range partitions on the four highest-volume append-only tables only                                             | 300 M rows per term makes this non-speculative; everything else stays unpartitioned per reviewer 3                                                                                                                     |
 | Pagination           | Cursor only; `OFFSET` banned by lint and review                                                                         | Large `OFFSET` scans are unusable at catalog and history scale                                                                                                                                                         |
 | Content storage      | Split by role with a size backstop (below)                                                                              | Answers the owner's direct question                                                                                                                                                                                    |
@@ -548,26 +557,29 @@ Three design consequences, because this cannot be bolted on afterward:
   that student's record, so a k-anonymity threshold (default 5) gates publication. The reviewer did
   not raise this; it is the difference between an anonymous statistic and a re-identifiable one.
 
-## Problem identity and lifecycle
+## Question identity and lifecycle
 
-The fix for a sandbox full of junk carrying official numbers. Three IDs with distinct jobs:
+One human identity sits above three implementation identities with distinct jobs:
 
-| ID             | Scope                                          | Mutability                      | Visibility                                 |
-| -------------- | ---------------------------------------------- | ------------------------------- | ------------------------------------------ |
-| `workspace_id` | One instructor's sandbox item, tenant-owned    | Freely editable and deletable   | Private to owner and invited collaborators |
-| `problem_id`   | A reusable published problem in shared content | Stable forever once minted      | Globally discoverable and citable          |
-| `version_id`   | One immutable revision                         | Never changes after publication | Referenced by assignments and attempts     |
+| ID             | Scope                                           | Mutability                       | Visibility                                 |
+| -------------- | ----------------------------------------------- | -------------------------------- | ------------------------------------------ |
+| Question ID    | One reusable current question                   | Stable across owner corrections  | Human-facing, discoverable, and citable    |
+| `workspace_id` | One instructor's sandbox item, tenant-owned     | Freely editable and deletable    | Private implementation identity            |
+| `problem_id`   | One shared-content persistence identity         | Stable forever once minted       | Hidden implementation identity             |
+| `version_id`   | One immutable historical publication snapshot  | Never changes after publication  | Hidden grading and provenance identity     |
 
 Lifecycle: `draft -> validated -> published -> deprecated -> archived`.
 
 - A draft gets an internal UUID immediately so it can be referenced and collaborated on, but that
   UUID is never presented as a problem number.
 - Only the publish transition mints a `problem_id`, and only after validation passes.
-- Editing a published problem creates a new `version_id`; it never mutates an existing one.
+- Editing a published problem creates a hidden immutable snapshot with a new `version_id`; it never
+  mutates the historical snapshot, but the instructor continues to see one current Question ID.
 - Replacing an image creates a new asset object with a new checksum and key; the old object stays so
   historical attempts remain reproducible.
-- Assignments reference `(problem_id, version_id)`. Publishing a new version changes no existing
-  assignment; adopting it is an explicit instructor action.
+- Assignments retain hidden `(problem_id, version_id)` snapshot evidence. An original-owner bug fix
+  advances future uses of that Question ID while completed attempts retain their exact historical
+  snapshot. Independently changed content is a fork with a new Question ID.
 - `deprecated` hides a version from search while keeping it resolvable for existing assignments;
   `archived` additionally blocks new references. Deprecation carries a stated reason, which is how an
   author signals "this version contains an error."
@@ -589,25 +601,19 @@ The review gate is configurable per institution and off by default, because a tw
 deployment does not need editorial process and a large institution may require it.
 
 Conflicting revisions from multiple authors are prevented structurally rather than merged. A published
-problem has an owning author or author set and a **linear version chain**; a third party cannot publish
-a new version into someone else's `problem_id`. Instead they **fork**: a new `problem_id` recording
-`derived_from` the source `version_id`, preserving attribution and license lineage. That keeps every
-version chain single-writer, which is why no merge semantics are needed anywhere in the model. The
-`derived_from` field is the reason this decision touches the schema.
+question has an owning author or author set and one human-facing Question ID. The owner may advance
+its hidden snapshot chain for bug corrections; a third party cannot publish into that chain. Instead
+they **fork**: a new `problem_id` and Question ID record `derived_from` the source `version_id`,
+preserving attribution and license lineage. That keeps every history single-writer without making
+version management an instructor task.
 
-### Telling institutions a better version exists
+### Propagating question corrections and teaching sets
 
-Immutability plus manual adoption means a defect fix could sit unnoticed, which would make a shared
-catalog untrustworthy. Publishing a new version therefore emits a **version-available notification** to
-every tenant holding an assignment that references an earlier version, carrying a severity:
-
-- `correction` -- the earlier version is wrong. Surfaced prominently, with a diff, and recorded in the
-  instructor's action list.
-- `improvement` -- wording, clarity, or added variants. Surfaced quietly.
-
-Adoption stays a manual instructor action in both cases. Silent upgrades are refused on purpose:
-changing a published version mid-term would change what students see and would break the
-reproducibility record for attempts already taken.
+The original owner may correct a bug under the same Question ID. Future question issuance uses the
+current hidden snapshot while every completed attempt retains the exact snapshot it received. A
+substantive independent change is a fork, not a correction. Assignment import/copy and selectable
+checklists from existing assignments are the normal way to propagate a teaching set; direct Question
+ID entry is a bounded lookup tool, not a range or batch-selection language.
 
 ## Object storage and content identity
 
@@ -732,11 +738,12 @@ version, and parameter specification are authoritative.** The normalized
 question model in `problem_version_payload` is a derived, cached projection for
 rendering and search, regenerable from the pinned generator at any time.
 
-The consequence that matters: **a generator evolving leaves every existing published version intact.**
-Generator version is part of the published version's identity, so improving a generator produces a
-_new_ `version_id` and every existing assignment and attempt keeps resolving to what it already had.
-Generator versions are therefore additive-only; removing one is a breaking change requiring explicit
-deprecation of every version that pins it.
+The consequence that matters: **a generator evolving leaves every historical publication snapshot
+intact.** Generator version remains part of hidden snapshot identity. An original-owner correction
+updates the current question and future use under the same Question ID while completed attempts keep
+resolving to the snapshot they received. A substantively independent change is a fork with a new
+Question ID. Generator implementations are therefore additive-only while referenced by historical
+grading evidence.
 
 For a static flat question, **the canonical, versioned PLE flat-question JSON
 source is authoritative.** Publication preserves it as a private immutable
@@ -890,19 +897,24 @@ governs palette contrast.
 
 ### Route map
 
+Human-facing route parameters are typed public references. The server resolves them inside the
+authenticated tenant and role boundary before loading the existing internal UUID model. Public
+references are locators, never authorization. Internal UUIDs may remain in background API and asset
+requests, but they do not appear in the address bar or user-copyable navigation links.
+
 | Route                                                          | Surface                                              | Notes                                                 |
 | -------------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------- |
 | `/`                                                            | Course list for the signed-in role                   | Student and instructor views diverge below this       |
-| `/courses/:courseId`                                           | Assignment list with progress and run counts         | Reads summary rows                                    |
-| `/courses/:courseId/assignments/:assignmentId`                 | Assignment overview, run history, start or resume    | Entry point for a new run                             |
-| `/runs/:runId`                                                 | The attempt loop, one question at a time             | The screen that must feel instant                     |
-| `/runs/:runId/summary`                                         | Run result, per-question outcomes, start another run | Where practice re-entry lives                         |
+| `/courses/:courseRef`                                          | Assignment list with progress and run counts         | `C-n`; reads summary rows                             |
+| `/courses/:courseRef/assignments/:assignmentRef`               | Assignment overview, run history, start or resume    | `C-n` and `A-n`; entry point for a run                |
+| `/runs/:runRef`                                                | The attempt loop, one question at a time             | `R-n`; the screen that must feel instant              |
+| `/runs/:runRef/summary`                                        | Run result, per-question outcomes, start another run | `R-n`; where practice re-entry lives                  |
 | `/library`                                                     | Problem browser over the shared catalog              | Virtualized, faceted, cursor-paged                    |
-| `/library/:problemId/versions/:versionId`                      | Problem detail, statistics, version chain            | Shows anonymous statistics and `derived_from` lineage |
+| `/library/:questionId`                                        | Current question detail and statistics                | `AAA-BBBB`; hidden snapshot lineage is not UI state   |
 | `/workspace`                                                   | Instructor drafts                                    | Private, pre-publication                              |
-| `/workspace/:workspaceId`                                      | Draft editor with validation and preview             | Preview renders through WASM generation               |
-| `/instructor/courses/:courseId/assignments/:assignmentId/edit` | Assignment editor with policy configuration          | Capability gating surfaces inline                     |
-| `/instructor/courses/:courseId/gradebook`                      | Gradebook                                            | Reads summary rows only                               |
+| `/workspace/:workspaceRef`                                     | Draft editor with validation and preview             | `W-n`; preview renders through WASM generation        |
+| `/instructor/courses/:courseRef/assignments/:assignmentRef/edit` | Assignment editor with policy configuration        | `C-n` and `A-n`; capability gating surfaces inline    |
+| `/instructor/courses/:courseRef/gradebook`                     | Gradebook                                            | `C-n`; reads summary rows only                        |
 
 ### Reactivity contract
 
@@ -1034,9 +1046,11 @@ widget extensions with separate scenarios so their failures do not hide a platfo
 Every widget carries a programmatic label and
 announces its validation state through a live region, so a screen-reader user learns that an entry is
 malformed at the same moment a sighted user sees it. Timers announce at meaningful intervals rather
-than on every tick. Touch targets meet the 56 px floor, which also serves benchtop tablet use. Contrast
-is verified against `docs/PALETTE_CONTRAST_AUDIT.md` with measured values, and color never carries
-meaning alone: correct and incorrect states pair their color with an icon and text. MATCH, FIB,
+than on every tick. Student primary response controls provide comfortable 44 CSS-pixel targets,
+while pointer-oriented instructor controls may use a compact 36 CSS-pixel control height with
+adequate separation. Contrast is verified against `docs/PALETTE_CONTRAST_AUDIT.md` with measured
+values in both standard and increased-contrast presentation, and color never carries meaning alone:
+correct and incorrect states pair their color with an icon and text. MATCH, FIB,
 MULTI-FIB, and HOTSPOT must pass both their platform path and separately scoped extension behavior
 before WP-RC5 acceptance.
 
@@ -1056,7 +1070,8 @@ Browser persistence is deliberately narrow, since anything stored is data at res
 
 | Store            | Contents                                                                            | Cleared                                      |
 | ---------------- | ----------------------------------------------------------------------------------- | -------------------------------------------- |
-| `localStorage`   | UI preferences only: theme, sound, reduced motion                                   | On explicit reset                            |
+| Account settings | Presentation contrast preference; default standard, optional increased contrast     | On user change or explicit reset             |
+| `localStorage`   | Device-local sound and reduced-motion preferences only                               | On explicit reset                            |
 | `sessionStorage` | In-progress response text keyed by question attempt, for crash and refresh recovery | On successful submit, run exit, and sign-out |
 | Memory only      | One exact key-free next-question envelope and its receipt-binding descriptor        | On advance, mismatch, run exit, or unmount   |
 | Nothing          | Session tokens, keys, grades, and any answer-bearing value                          | n/a                                          |
@@ -1116,21 +1131,32 @@ aggregates so the UI never triggers a full scan. Search is a single input over f
 matching, and the component boundary keeps the query behind a repository call so a dedicated search
 service can replace it without a UI change.
 
-**Assignment editor.** Question selection uses exact immutable versions from the catalog; a workspace
-draft must be published before it can be selected. The editor exposes the four assignment-level
-`RunPolicies` controls with their current values visible. Timing and attempt policies remain immutable
-properties of each published question rather than assignment overrides. The browser submits only the
-ordered version references and policy choices. The server resolves every version through tenant-visible
-catalog state, uses the persisted immutable capability declaration, and returns the complete deterministic
+**Assignment editor.** Question selection uses one current Question ID from the catalog; a workspace
+draft must be published before it can be selected. Internal references retain the exact snapshot
+needed for deterministic grading without exposing a version choice. The editor exposes the four
+assignment-level `RunPolicies` controls with their current values visible. Timing and attempt
+policies remain properties of each published question rather than assignment overrides. The browser
+submits only the ordered resolved references and policy choices. The server resolves every Question
+ID through tenant-visible catalog state, uses the persisted capability declaration, and returns the
+complete deterministic
 `validate_assignment_config` violation list. Capability failures render beside the affected selections so
 the instructor sees every violation at once rather than one per submission.
+
+At the canonical 1280 by 800 viewport, assignment organization uses the useful page width instead of
+confining the catalog to an aside. Selected questions form compact scan rows with drag ordering,
+small directional controls, and direct position selection; these mechanisms share one ordered-list
+mutation contract. Four questions, the policy summary, and the save action fit in the initial
+workspace. Permanent explanatory copy becomes contextual help where it does not affect the current
+decision.
 
 **Draft editor and preview.** A draft renders through the same question components as the student view,
 generating parameters in WASM so an author sees a real variant per seed without a server round trip.
 The preview shows the student view and the answer-key view side by side, since an author needs both.
 
-**Publish flow.** Validation results, the target scope, and a diff against the previous version when
-one exists. Publishing states plainly that the version becomes immutable and shareable.
+**Publish flow.** Validation results, the target scope, and a content diff against the current
+question when one exists. The interface distinguishes a first publication from updating the current
+question, never presents a historical snapshot ID, and provides an explicit fork when changes should
+become independently owned content.
 
 **Course appearance.** One focused instructor surface selects a closed, measured three-color biome
 or habitat theme and optionally uploads one small centered banner. The theme is authoritative
@@ -1144,7 +1170,8 @@ accessibility, and atomic work-package contracts are frozen in
 
 **Gradebook.** Reads summary rows only, showing best and latest scores, completed run count, and
 last activity. A student's run history is a drill-down that loads on demand, so the default view stays
-a summary query regardless of how many practice runs a class has accumulated.
+a summary query regardless of how many practice runs a class has accumulated. Rows show the
+learner's display name and never render a learner UUID.
 
 ## Module catalog
 
@@ -1444,7 +1471,8 @@ or implementer-authored specification is required.
   eight flags; response and grading shapes are enums whose invalid combinations do not compile; tags,
   taxonomy, and licensing types included as shared-content data; **no answer-bearing type defined
   here**; every public item documented per `docs/RUST_STYLE.md` section 13; `ts-rs` derives on every
-  boundary type; external IDs are UUIDv7 or random, never sequential.
+  boundary type; the public Question ID follows `docs/QUESTION_ID_SPEC.md`, is random rather than
+  sequential, and internal UUIDs never become browser-facing question identities.
 - Evidence or review: `reviewer` confirms no capability is a bare `bool` that two call sites must
   re-check, per `docs/RUST_STYLE.md` section 9.
 - Next dependency: WP-C2 and WP-C3 consume this accepted package.

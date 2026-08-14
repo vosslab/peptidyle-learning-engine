@@ -294,9 +294,9 @@ test("instructor authors, resolves a stale draft, and publishes only the reviewe
   await expect(page.getByRole("button", { name: "Confirm and publish" })).toBeVisible();
   await page.getByLabel("Publication scope").selectOption("public");
   await page.getByRole("button", { name: "Confirm and publish" }).click();
-  await expect(page.getByRole("link", { name: "Open published version" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Open question library" })).toHaveAttribute(
     "href",
-    "/library/00000000-0000-4000-8000-000000000011/versions/00000000-0000-4000-8000-000000000012",
+    "/library",
   );
 
   const protectedPut = await fixtureValue<{ readonly body: string; readonly ifMatch: string }[]>(

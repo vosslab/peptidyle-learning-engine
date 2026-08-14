@@ -1,25 +1,23 @@
-// problem_detail_page.tsx - safe immutable catalog detail and lineage projection.
+// problem_detail_page.tsx - safe current-question catalog detail and lineage projection.
 
 import { A, createAsync, useParams } from "@solidjs/router";
 import { For, Show, Suspense, type JSX } from "solid-js";
 
 import { useApiRuntime } from "../api/runtime";
 import { CopyableProblemId } from "../components/copyable_problem_id";
-
-function versionLink(problem: string, version: string): string {
-  return `/library/${encodeURIComponent(problem)}/versions/${encodeURIComponent(version)}`;
-}
+import { parseProblemRouteReference } from "../navigation/public_route";
 
 export function ProblemDetailPage(): JSX.Element {
   const runtime = useApiRuntime();
   const params = useParams();
   const detail = createAsync(() => {
-    const problemId = params["problemId"];
-    const versionId = params["versionId"];
-    if (problemId === undefined || versionId === undefined) {
-      throw new Error("The problem version address is incomplete.");
+    const problemReference = params["problemRef"];
+    if (problemReference === undefined || parseProblemRouteReference(problemReference) === null) {
+      throw new Error("The Question ID address is incomplete.");
     }
-    return runtime.queries.catalogDetail(problemId, versionId);
+    return runtime.client
+      .resolveCatalogProblem(problemReference)
+      .then((summary) => runtime.queries.catalogDetail(summary.problem, summary.version));
   });
   return (
     <section class="page problem-detail-page" data-route-surface="problemDetail">
@@ -29,7 +27,7 @@ export function ProblemDetailPage(): JSX.Element {
       <Suspense
         fallback={
           <p class="loading-state" role="status">
-            Loading immutable problem version...
+            Loading question...
           </p>
         }
       >
@@ -37,18 +35,16 @@ export function ProblemDetailPage(): JSX.Element {
           when={detail()}
           fallback={
             <section class="route-error" role="alert">
-              <h1>Problem version unavailable</h1>
+              <h1>Question unavailable</h1>
               <p>Return to the library and try again.</p>
             </section>
           }
         >
           {(record) => (
             <article>
-              <p class="eyebrow">Immutable published version</p>
+              <p class="eyebrow">Published question</p>
               <h1>{record().summary.metadata.title}</h1>
-              <CopyableProblemId
-                displayId={`P-${record().summary.publicId}-v${record().summary.versionNumber}`}
-              />
+              <CopyableProblemId displayId={record().summary.questionId} />
               <p>{`Backend: ${record().summary.backend}`}</p>
               <p>
                 {record().statistics === "unavailable"
@@ -72,24 +68,10 @@ export function ProblemDetailPage(): JSX.Element {
                   )}
                 </For>
               </section>
-              <Show when={record().summary.previousVersion}>
-                <p>
-                  <A
-                    href={versionLink(
-                      record().summary.problem,
-                      record().summary.previousVersion ?? "",
-                    )}
-                  >
-                    View previous version
-                  </A>
-                </p>
-              </Show>
               <Show when={record().summary.derivedFrom}>
-                {(origin) => (
+                {(_origin) => (
                   <p>
-                    <A href={versionLink(origin().problem, origin().version)}>
-                      View source version
-                    </A>
+                    <span>Source lineage is available from the problem library.</span>
                   </p>
                 )}
               </Show>

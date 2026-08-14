@@ -69,6 +69,7 @@ test.beforeAll(async () => {
         import { publishedProblemFixture } from "./generated/fixtures/published_problem.ts";
         import { createHttpApiClient } from "./src/api/http_client.ts";
         import { ApiRuntimeProvider } from "./src/api/runtime.tsx";
+        import { CourseThemeRouteContext } from "./src/features/course_appearance/course_theme_context.ts";
         import { RunSummaryPage } from "./src/pages/run_summary_page.tsx";
 
         const runId = "0198e000-0000-7000-8000-000000000023";
@@ -151,6 +152,7 @@ test.beforeAll(async () => {
             return new Response(JSON.stringify({
               ...run,
               id: "0198e000-0000-7000-8000-000000000024",
+              publicId: 5,
               runNumber: 5,
               startedAt: 1786000005000,
               completedAt: null,
@@ -171,10 +173,17 @@ test.beforeAll(async () => {
         const mount = document.createElement("div");
         mount.id = "run-summary-fixture";
         document.body.appendChild(mount);
-        render(() => createComponent(ApiRuntimeProvider, {
-          runtime: { client },
-          get children() { return createComponent(RunSummaryPage, {}); },
-        }), mount);
+        void client.getRunSummary(runId, undefined, 30).then((initialSummary) => {
+          render(() => createComponent(ApiRuntimeProvider, {
+            runtime: { client },
+            get children() {
+              return createComponent(CourseThemeRouteContext.Provider, {
+                value: { kind: "runSummary", response: initialSummary },
+                get children() { return createComponent(RunSummaryPage, {}); },
+              });
+            },
+          }), mount);
+        });
       `,
       loader: "tsx",
       resolveDir: process.cwd(),
@@ -198,7 +207,7 @@ test("direct run-summary route appends the bounded 31st outcome without duplicat
   await page.evaluate((runId) => {
     history.pushState({}, "", `/runs/${runId}/summary`);
     dispatchEvent(new PopStateEvent("popstate"));
-  }, RUN_ID);
+  }, "R-4");
   await expect(page.getByRole("heading", { name: "Run summary" })).toBeVisible();
   await expect(page.locator(".feedback-panel")).toHaveCount(30);
   await page.getByRole("button", { name: "Load more responses" }).click();
@@ -288,5 +297,5 @@ test("built run summary retries a bounded cursor and a fresh-practice start with
   expect(
     fixtureEvidence.requests.filter((request) => request.path.includes("feedback-release")),
   ).toEqual([]);
-  expect(fixtureEvidence.navigations).toEqual(["/runs/0198e000-0000-7000-8000-000000000024"]);
+  expect(fixtureEvidence.navigations).toEqual(["/runs/R-5"]);
 });

@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::ProblemVersionRef;
+use crate::RunPublicId;
 use crate::UserId;
 use crate::generation::GeneratorReference;
 use crate::identity::{ObjectId, ProblemId, VersionId};
@@ -195,6 +196,8 @@ pub enum RunMode {
 pub struct AssignmentRun {
     /// Durable run identity.
     pub id: RunId,
+    /// Stable typed locator used in application navigation.
+    pub public_id: RunPublicId,
     /// RLS boundary carried directly on this educational record.
     pub tenant: TenantId,
     /// Enrollment that owns this run.

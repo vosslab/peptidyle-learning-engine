@@ -14,9 +14,10 @@ import {
 } from "node:fs";
 import { basename, dirname } from "node:path";
 
+import { isAssignmentReference, isCourseReference } from "./public_references";
+
 const MAX_STATE_BYTES = 4096;
 const MAX_ELAPSED_MS = 30 * 60 * 1000;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 type InstructorJourney = "J11" | "J12" | "J13";
 
@@ -26,7 +27,7 @@ export type InstructorSetupFragment =
       readonly journey: "J11";
       readonly status: "PASS";
       readonly elapsedMs: number;
-      readonly courseId: string;
+      readonly courseReference: string;
       readonly visibleOutcomeCodes: readonly ["visible_course_created", "visible_course_opened"];
       readonly diagnostics: readonly [];
     }
@@ -35,7 +36,7 @@ export type InstructorSetupFragment =
       readonly journey: "J12";
       readonly status: "PASS";
       readonly elapsedMs: number;
-      readonly courseId: string;
+      readonly courseReference: string;
       readonly visibleOutcomeCodes: readonly ["visible_local_student_active"];
       readonly diagnostics: readonly [];
     }
@@ -44,9 +45,9 @@ export type InstructorSetupFragment =
       readonly journey: "J13";
       readonly status: "PASS";
       readonly elapsedMs: number;
-      readonly courseId: string;
-      readonly assignmentId: string;
-      /** Four visible P-n-vn locators prove the canonical Chapter 1 selection. */
+      readonly courseReference: string;
+      readonly assignmentReference: string;
+      /** Four visible canonical AAA-BBBB Question IDs prove the current Chapter 1 selection. */
       readonly selectedDisplayIds: readonly [string, string, string, string];
       readonly visibleOutcomeCodes: readonly [
         "visible_assignment_created",
@@ -228,11 +229,11 @@ function validFragment(value: unknown): value is InstructorSetupFragment {
     "journey",
     "status",
     "elapsedMs",
-    "courseId",
+    "courseReference",
     "visibleOutcomeCodes",
     "diagnostics",
   ];
-  const j13Keys = ["assignmentId", "selectedDisplayIds"];
+  const j13Keys = ["assignmentReference", "selectedDisplayIds"];
   const hasKnownKeys =
     hasExactEnumerableStringKeys(record, commonKeys) ||
     hasExactEnumerableStringKeys(record, [...commonKeys, ...j13Keys]);
@@ -246,7 +247,7 @@ function validFragment(value: unknown): value is InstructorSetupFragment {
     !Number.isSafeInteger(record["elapsedMs"]) ||
     (record["elapsedMs"] as number) < 0 ||
     (record["elapsedMs"] as number) > MAX_ELAPSED_MS ||
-    !UUID.test(String(record["courseId"]))
+    !isCourseReference(record["courseReference"])
   )
     return false;
   if (!Array.isArray(record["diagnostics"]) || record["diagnostics"].length !== 0) return false;
@@ -258,7 +259,7 @@ function validFragment(value: unknown): value is InstructorSetupFragment {
     return false;
   if (journey === "J13")
     return (
-      UUID.test(String(record["assignmentId"])) &&
+      isAssignmentReference(record["assignmentReference"]) &&
       validSelectedDisplayIds(record["selectedDisplayIds"])
     );
   return journey === "J11" || journey === "J12";
@@ -270,7 +271,9 @@ function validSelectedDisplayIds(
   return (
     Array.isArray(value) &&
     value.length === 4 &&
-    value.every((id) => typeof id === "string" && /^P-[1-9][0-9]*-v[1-9][0-9]*$/u.test(id)) &&
+    value.every(
+      (id) => typeof id === "string" && /^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u.test(id),
+    ) &&
     new Set(value).size === 4
   );
 }
@@ -300,5 +303,5 @@ function matchesPrefix(
   next: InstructorSetupFragment,
 ): boolean {
   const first = prefix[0];
-  return first === undefined || next.courseId === first.courseId;
+  return first === undefined || next.courseReference === first.courseReference;
 }

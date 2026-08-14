@@ -136,6 +136,8 @@ use run_lifecycle::*;
 #[cfg(feature = "postgres")]
 mod account_identity;
 #[cfg(feature = "postgres")]
+mod account_presentation;
+#[cfg(feature = "postgres")]
 mod assets;
 #[cfg(feature = "postgres")]
 mod assignment_timing;
@@ -177,6 +179,8 @@ mod jobs;
 mod manual_grade_export;
 #[cfg(feature = "postgres")]
 mod migrations;
+#[cfg(feature = "postgres")]
+mod navigation_references;
 #[cfg(feature = "postgres")]
 mod publisher;
 #[cfg(feature = "postgres")]
@@ -220,13 +224,18 @@ struct AttemptSupportAuditPayload {
 /// lookup index; this query itself is intentionally the complete page path.
 #[cfg(feature = "postgres")]
 const GRADEBOOK_SUMMARY_PAGE_SQL: &str = "SELECT \
-    e.enrollment_id, e.student_id, a.assignment_id, a.title AS assignment_title, \
+    e.enrollment_id, e.student_id, \
+    COALESCE(crm.display_name, 'Learner') AS learner_name, \
+    a.assignment_id, a.title AS assignment_title, \
     sas.payload, sas.payload_sha256 \
  FROM assignment AS a \
  JOIN enrollment AS e \
    ON e.tenant_id = a.tenant_id AND e.assignment_id = a.assignment_id \
  JOIN student_assignment_summary AS sas \
    ON sas.tenant_id = e.tenant_id AND sas.enrollment_id = e.enrollment_id \
+ LEFT JOIN course_roster_member AS crm \
+   ON crm.tenant_id = e.tenant_id AND crm.course_id = a.course_id \
+  AND crm.student_id = e.student_id \
  WHERE a.tenant_id = $1 AND a.course_id = $2 \
    AND public.ple_course_records_accessible(a.tenant_id, a.course_id) \
    AND ($3::uuid IS NULL \
@@ -237,7 +246,7 @@ const GRADEBOOK_SUMMARY_PAGE_SQL: &str = "SELECT \
 /// an archived course from its learners at the database query boundary.
 #[cfg(feature = "postgres")]
 const MEMBER_COURSE_PAGE_SQL: &str = "SELECT \
-    c.course_id::text AS stable_key, c.course_id, c.title, cm.role \
+    c.course_id::text AS stable_key, c.course_id, c.public_id, c.title, cm.role \
  FROM course AS c JOIN course_member AS cm \
    ON cm.tenant_id = c.tenant_id AND cm.course_id = c.course_id \
  WHERE c.tenant_id = $1 AND cm.user_id = $2 \
@@ -255,6 +264,7 @@ pub type Pool = PgPool;
 #[derive(Clone)]
 pub struct PostgresStore {
     pool: PgPool,
+    question_ids: crate::QuestionIdCodec,
 }
 
 /// Injected grader-only database handle. Server composition supplies this only
@@ -270,7 +280,18 @@ pub struct PostgresGraderStore {
 impl PostgresStore {
     /// Wraps a pool whose login can assume the migration-owned `ple_app` role.
     pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+        Self {
+            pool,
+            question_ids: crate::QuestionIdCodec::unavailable(),
+        }
+    }
+
+    /// Wraps an application pool with the dedicated durable Question ID key.
+    pub fn with_question_id_secret(pool: PgPool, secret: [u8; 32]) -> Self {
+        Self {
+            pool,
+            question_ids: crate::QuestionIdCodec::from_server_secret(secret),
+        }
     }
 
     async fn begin_app(&self) -> Result<Transaction<'_, Postgres>, StoreError> {
@@ -292,6 +313,13 @@ impl PostgresStore {
             .execute(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
+        if let Some(session) = context.owner_correction_session() {
+            sqlx::query("SELECT set_config('ple.session_hash', $1, true)")
+                .bind(session.to_string())
+                .execute(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+        }
         Ok(transaction)
     }
 
@@ -304,6 +332,30 @@ impl PostgresStore {
     ) -> Result<Transaction<'_, Postgres>, StoreError> {
         let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
         sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        sqlx::query("SET LOCAL ROLE ple_app")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
+            .bind(context.tenant_id().to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        Ok(transaction)
+    }
+
+    /// Starts a writable tenant transaction whose reads observe one PostgreSQL
+    /// snapshot. This is reserved for a read-shaped operation that must commit
+    /// an in-transaction disclosure audit event.
+    async fn begin_tenant_writable_snapshot(
+        &self,
+        context: TenantContext,
+    ) -> Result<Transaction<'_, Postgres>, StoreError> {
+        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ WRITE")
             .execute(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;

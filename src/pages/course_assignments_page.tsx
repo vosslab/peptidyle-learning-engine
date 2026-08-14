@@ -1,6 +1,6 @@
 // course_assignments_page.tsx - cursor-ready assignment list for one course.
 
-import { A, createAsync, revalidate, useParams } from "@solidjs/router";
+import { A, createAsync, revalidate } from "@solidjs/router";
 import { For, Show, Suspense, createSignal, type JSX } from "solid-js";
 
 import type { CourseId } from "../../generated/api/CourseId";
@@ -12,16 +12,24 @@ import {
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
 import { useSessionBootstrap } from "../auth/session_context";
+import { CourseManagementNav } from "../components/course_management_nav";
 import { CursorPageSession, type CursorPageSessionState } from "./cursor_page_session";
+import {
+  assignmentRouteReference,
+  courseRouteReference,
+  type CourseRouteReference,
+} from "../navigation/public_route";
 
 export interface AssignmentListProps {
   readonly courseId: CourseId;
+  readonly courseReference: CourseRouteReference;
   readonly initialPage: CursorPage<AssignmentSummary>;
   readonly reloadAssignments: () => Promise<void>;
+  readonly canCreateAssignment: boolean;
 }
 
-function assignmentLinkId(assignmentId: string): string {
-  const id = `assignment-review-${assignmentId}`;
+function assignmentLinkId(assignment: AssignmentSummary): string {
+  const id = `assignment-review-${assignmentRouteReference(assignment.publicId)}`;
   return id;
 }
 
@@ -111,7 +119,24 @@ export function AssignmentList(props: AssignmentListProps): JSX.Element {
       </Show>
       <Show
         when={state().items.length > 0 || state().nextCursor !== null}
-        fallback={<p class="empty-state">No assignments are available in this course.</p>}
+        fallback={
+          <section class="empty-state" aria-label="No assignments yet">
+            <h2>No assignments yet</h2>
+            <p>
+              {props.canCreateAssignment
+                ? "Build the first practice assignment from published questions."
+                : "Your instructor has not published an assignment for this course yet."}
+            </p>
+            <Show when={props.canCreateAssignment}>
+              <A
+                class="primary-link"
+                href={`/instructor/courses/${props.courseReference}/assignments/new`}
+              >
+                Create the first assignment
+              </A>
+            </Show>
+          </section>
+        }
       >
         <div class="card-grid" aria-busy={state().loading}>
           <For each={state().items}>
@@ -128,9 +153,9 @@ export function AssignmentList(props: AssignmentListProps): JSX.Element {
                   questions in each new run.
                 </p>
                 <A
-                  class="primary-link"
-                  href={`/courses/${assignment.courseId}/assignments/${assignment.id}`}
-                  id={assignmentLinkId(assignment.id)}
+                  class="quiet-link"
+                  href={`/courses/${props.courseReference}/assignments/${assignmentRouteReference(assignment.publicId)}`}
+                  id={assignmentLinkId(assignment)}
                   ref={(element) => reviewLinks.set(assignment.id, element)}
                 >
                   Review assignment
@@ -206,12 +231,13 @@ export function AssignmentList(props: AssignmentListProps): JSX.Element {
 export function CourseAssignmentsPage(): JSX.Element {
   const runtime = useApiRuntime();
   const session = useSessionBootstrap();
-  const params = useParams();
   const courseScope = useCourseThemeRouteData();
+  const course = courseScope?.kind === "course" ? courseRouteData(courseScope).summary : undefined;
+  const courseId = course?.id;
+  const courseReference = course === undefined ? undefined : courseRouteReference(course.publicId);
   const assignments = createAsync(() => {
-    const courseId = params["courseId"];
     if (courseId === undefined) {
-      return Promise.reject(new Error("Course route is missing courseId"));
+      return Promise.reject(new Error("Course route is unavailable"));
     }
     return runtime.queries.assignments(courseId);
   });
@@ -225,7 +251,6 @@ export function CourseAssignmentsPage(): JSX.Element {
     return role === "instructor";
   };
   async function reloadAssignments(): Promise<void> {
-    const courseId = params["courseId"];
     if (courseId === undefined) return;
     await revalidate(runtime.queries.assignments.keyFor(courseId));
   }
@@ -234,15 +259,10 @@ export function CourseAssignmentsPage(): JSX.Element {
     <section class="page" data-route-surface="courseAssignments">
       <CourseEntryIdentity />
       <h2>Assignments</h2>
-      <Show when={canManageCourse() && params["courseId"] !== undefined}>
-        <nav class="course-management-nav" aria-label="Course management">
-          <A href={`/instructor/courses/${params["courseId"] ?? ""}/assignments/new`}>
-            New assignment
-          </A>
-          <A href={`/instructor/courses/${params["courseId"] ?? ""}/students`}>Students</A>
-          <A href={`/instructor/courses/${params["courseId"] ?? ""}/gradebook`}>Gradebook</A>
-          <A href={`/instructor/courses/${params["courseId"] ?? ""}/appearance`}>Appearance</A>
-        </nav>
+      <Show when={canManageCourse() ? course : undefined}>
+        {(currentCourse) => (
+          <CourseManagementNav coursePublicId={currentCourse().publicId} active="assignments" />
+        )}
       </Show>
       <Suspense fallback={<p class="loading-state">Loading assignments...</p>}>
         <Show
@@ -251,14 +271,15 @@ export function CourseAssignmentsPage(): JSX.Element {
           fallback={<p class="empty-state">No assignments are available in this course.</p>}
         >
           {(page) => {
-            const courseId = params["courseId"];
-            return courseId === undefined ? (
+            return courseId === undefined || courseReference === undefined ? (
               <p class="empty-state">No assignments are available in this course.</p>
             ) : (
               <AssignmentList
                 courseId={courseId}
+                courseReference={courseReference}
                 initialPage={page}
                 reloadAssignments={reloadAssignments}
+                canCreateAssignment={canManageCourse()}
               />
             );
           }}

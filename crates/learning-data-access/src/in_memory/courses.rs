@@ -43,6 +43,7 @@ impl crate::CourseStore for MemoryStore {
             })
             .collect::<BTreeSet<_>>();
         let snapshot = state.clone();
+        super::navigation_references::ensure_course_public_id(&mut state, tenant, course_id)?;
         state.courses.insert((tenant, course_id), course);
         state
             .course_appearances
@@ -99,7 +100,11 @@ impl crate::CourseStore for MemoryStore {
                 {
                     return None;
                 }
-                Some((course_id.to_string(), record.summary(role)))
+                let public_id = state
+                    .course_public_ids
+                    .get(&(*tenant, *course_id))
+                    .copied()?;
+                Some((course_id.to_string(), record.summary(role, public_id)))
             })
             .collect();
         Ok(page_records(records, &page))

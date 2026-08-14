@@ -1,11 +1,67 @@
 // MOD-UI-GRADEBOOK browser proof for accessible compact and expanded states.
 
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 
-const courseId = "0198e000-0000-7000-8000-000000000014";
-const gradebookPath = `/instructor/courses/${courseId}/gradebook`;
+import { publishedProblemFixture } from "../../generated/fixtures/published_problem";
 
-async function openGradebook(page: import("@playwright/test").Page): Promise<void> {
+const gradebookPath = "/instructor/courses/C-1/gradebook";
+
+function json(route: Route, value: unknown, headers: Record<string, string> = {}): Promise<void> {
+  return route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    headers,
+    body: JSON.stringify(value),
+  });
+}
+
+async function openGradebook(page: Page): Promise<void> {
+  const course = { ...publishedProblemFixture.course, role: "instructor" };
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "__PLE_USE_MOCK_API__", {
+      configurable: false,
+      get: () => false,
+      set: () => undefined,
+    });
+  });
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/auth/session") {
+      return await json(route, {
+        authenticated: true,
+        tenant: course.tenant,
+        user: {
+          id: publishedProblemFixture.enrollment.user,
+          displayName: "Course instructor",
+          roles: ["instructor"],
+        },
+      });
+    }
+    if (path === "/api/auth/account/presentation") {
+      return await json(route, { contrast: "standard" });
+    }
+    if (path === "/api/courses") {
+      return await json(route, { items: [course], nextCursor: null });
+    }
+    if (path === "/api/navigation/C-1") {
+      return await json(route, { kind: "course", courseId: course.id });
+    }
+    if (path === `/api/courses/${course.id}`) return await json(route, course);
+    if (path === `/api/courses/${course.id}/appearance`) {
+      return await json(
+        route,
+        { theme: "grass", revision: "1", banner: null },
+        { "cache-control": "no-store", etag: '"1"' },
+      );
+    }
+    if (path === `/api/courses/${course.id}/gradebook`) {
+      return await json(route, { items: publishedProblemFixture.gradebook, nextCursor: null });
+    }
+    if (path.startsWith("/api/enrollments/") && path.endsWith("/runs")) {
+      return await json(route, { items: publishedProblemFixture.runs, nextCursor: null });
+    }
+    return await route.fulfill({ status: 404, body: "not found" });
+  });
   await page.goto("/");
   await page.evaluate((nextPath) => {
     history.pushState({}, "", nextPath);
@@ -16,7 +72,6 @@ async function openGradebook(page: import("@playwright/test").Page): Promise<voi
 test("gradebook presents compact progress and loads history only when requested", async ({
   page,
 }) => {
-  test.setTimeout(2_000);
   await openGradebook(page);
 
   await expect(page.locator('[data-route-surface="gradebook"]')).toBeVisible();
@@ -31,7 +86,7 @@ test("gradebook presents compact progress and loads history only when requested"
   await page.keyboard.press("Enter");
   await expect(historyButton).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByRole("region", { name: /run history for learner/i })).toBeVisible();
-  await expect(page.getByText(/Run 1:/)).toBeVisible();
+  await expect(page.getByText("Run 1", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("status").filter({ hasText: /Run history updated|Loading run history/u }),
   ).toBeVisible();

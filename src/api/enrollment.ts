@@ -2,6 +2,7 @@
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { CourseId } from "../../generated/api/CourseId";
+import type { CoursePublicId } from "../../generated/api/CoursePublicId";
 import {
   DecodeError,
   decodeArray,
@@ -15,7 +16,7 @@ import {
   decodeStringEnum,
   decodeUuid,
 } from "./decoder";
-import { decodeCursor, requireOnlyFields } from "./decoders/shared";
+import { decodeCursor, decodePublicRouteNumber, requireOnlyFields } from "./decoders/shared";
 
 export type CourseRosterRole = "student";
 export type CourseRosterMemberStatus = "active" | "revoked";
@@ -38,8 +39,15 @@ export interface AccountEmailChanged {
   readonly changed: true;
 }
 
+export type PresentationContrast = "standard" | "increased";
+
+export interface AccountPresentationPreference {
+  readonly contrast: PresentationContrast;
+}
+
 export interface AccountCourse {
   readonly courseId: CourseId;
+  readonly coursePublicId: CoursePublicId;
   readonly title: string;
   readonly role: "student" | "instructor";
 }
@@ -57,6 +65,7 @@ export interface SelectedCourseSession {
 
 export interface ClaimedCourseInvitation {
   readonly courseId: CourseId;
+  readonly coursePublicId: CoursePublicId;
   readonly membershipStatus: "active";
 }
 
@@ -179,6 +188,10 @@ export interface ManualGradeExport {
 }
 
 export interface CourseRosterClient {
+  readonly getAccountPresentation: () => Promise<AccountPresentationPreference>;
+  readonly saveAccountPresentation: (
+    preference: AccountPresentationPreference,
+  ) => Promise<AccountPresentationPreference>;
   readonly startEmailAuthentication: (email: string) => Promise<EmailAuthenticationAccepted>;
   readonly completeEmailAuthentication: (
     token: string,
@@ -295,15 +308,33 @@ export function decodeAccountEmailChanged(value: unknown, path = "response"): Ac
   return { changed: true };
 }
 
+export function decodeAccountPresentationPreference(
+  value: unknown,
+  path = "response",
+): AccountPresentationPreference {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["contrast"]);
+  return {
+    contrast: decodeStringEnum(field(record, "contrast", path), `${path}.contrast`, [
+      "standard",
+      "increased",
+    ]),
+  };
+}
+
 function decodeAccountRole(value: unknown, path: string): AccountCourse["role"] {
   return decodeStringEnum(value, path, ["student", "instructor"]);
 }
 
 function decodeAccountCourse(value: unknown, path: string): AccountCourse {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["courseId", "title", "role"]);
+  requireOnlyFields(record, path, ["courseId", "coursePublicId", "title", "role"]);
   return {
     courseId: decodeUuid(field(record, "courseId", path), `${path}.courseId`),
+    coursePublicId: decodePublicRouteNumber(
+      field(record, "coursePublicId", path),
+      `${path}.coursePublicId`,
+    ),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     role: decodeAccountRole(field(record, "role", path), `${path}.role`),
   };
@@ -346,9 +377,13 @@ export function decodeClaimedCourseInvitation(
   path = "response",
 ): ClaimedCourseInvitation {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["courseId", "membershipStatus"]);
+  requireOnlyFields(record, path, ["courseId", "coursePublicId", "membershipStatus"]);
   return {
     courseId: decodeUuid(field(record, "courseId", path), `${path}.courseId`),
+    coursePublicId: decodePublicRouteNumber(
+      field(record, "coursePublicId", path),
+      `${path}.coursePublicId`,
+    ),
     membershipStatus: decodeStringEnum(
       field(record, "membershipStatus", path),
       `${path}.membershipStatus`,

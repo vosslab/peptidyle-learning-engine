@@ -1,8 +1,10 @@
 // library_page_model.ts - bounded, transport-validated catalog browse state.
 
-/** A browser-safe, immutable catalog identity. */
+import { normalizeQuestionIdSyntax } from "../question_id";
+
+/** A browser-safe current-question catalog record. */
 export interface CatalogBrowseRow {
-  /** Copy/paste identity used by instructors; UUID fields remain routing-only. */
+  /** Copy/paste identity used by instructors; UUID fields remain hidden deduplication keys. */
   readonly displayId: string;
   readonly problemId: string;
   readonly versionId: string;
@@ -113,8 +115,12 @@ function decodeRow(value: unknown, path: string): CatalogBrowseRow {
   ) {
     throw new Error(`${path} has an unexpected shape`);
   }
+  const displayId = normalizeQuestionIdSyntax(boundedText(value["displayId"], `${path}.displayId`));
+  if (displayId === null) {
+    throw new Error(`${path}.displayId must be a canonical Question ID`);
+  }
   return {
-    displayId: boundedText(value["displayId"], `${path}.displayId`),
+    displayId,
     problemId: boundedText(value["problemId"], `${path}.problemId`),
     versionId: boundedText(value["versionId"], `${path}.versionId`),
     title: boundedText(value["title"], `${path}.title`),
@@ -365,6 +371,17 @@ export function createSyntheticCatalogRepository(
     { group: "license", value: "CC BY 4.0", count: totalRows },
     { group: "statistic", value: "k-anonymous", count: totalRows },
   ];
+  const crockford = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+  function syntheticQuestionId(value: number): string {
+    let remaining = value;
+    let compact = "";
+    for (let index = 0; index < 6; index += 1) {
+      compact = `${crockford[remaining % 32] ?? "0"}${compact}`;
+      remaining = Math.floor(remaining / 32);
+    }
+    compact += crockford[value % 32] ?? "0";
+    return `${compact.slice(0, 3)}-${compact.slice(3)}`;
+  }
   function parseCursor(cursor: string | null): number {
     if (cursor === null) {
       return 0;
@@ -388,7 +405,7 @@ export function createSyntheticCatalogRepository(
       const items = Array.from({ length: end - start }, (_, offset) => {
         const number = start + offset + 1;
         return {
-          displayId: `P-${number}-v1`,
+          displayId: syntheticQuestionId(number),
           problemId: `problem-${number}`,
           versionId: `version-${number}`,
           title: `Synthetic problem ${number}`,

@@ -12,8 +12,8 @@ export function passedJ8CrossActorFragment(
   elapsedMs: number,
 ): J8JourneyFragment {
   if (
-    j4.courseId !== j5.courseId ||
-    j4.masteryAssignmentId !== j5.assignmentId ||
+    j4.courseReference !== j5.courseReference ||
+    j4.masteryAssignmentReference !== j5.assignmentReference ||
     !Number.isSafeInteger(elapsedMs) ||
     elapsedMs < 0 ||
     elapsedMs > 30 * 60 * 1000
@@ -24,8 +24,8 @@ export function passedJ8CrossActorFragment(
     journey: "J8",
     status: "PASS",
     elapsedMs,
-    courseId: j5.courseId,
-    assignmentId: j5.assignmentId,
+    courseReference: j5.courseReference,
+    assignmentReference: j5.assignmentReference,
     visibleOutcomeCodes: ["visible_instructor_gradebook", "visible_learner_completion"],
     diagnostics: [],
   };

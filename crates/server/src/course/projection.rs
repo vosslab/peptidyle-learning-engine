@@ -1,21 +1,9 @@
 use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use learning_data_access::{AssignmentRecord, Page, StoreError};
-use question_model::AssignmentSummary;
+use learning_data_access::StoreError;
 
 use crate::auth::no_store;
-
-pub(super) fn assignment_page(page: Page<AssignmentRecord>) -> Page<AssignmentSummary> {
-    Page {
-        items: page
-            .items
-            .into_iter()
-            .map(|assignment| assignment.summary())
-            .collect(),
-        next_cursor: page.next_cursor,
-    }
-}
 
 pub(super) fn store_error_response(error: StoreError) -> Response {
     match error {

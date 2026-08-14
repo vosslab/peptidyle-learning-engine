@@ -3,8 +3,12 @@
 import { lstatSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute } from "node:path";
 
+import {
+  isAssignmentReference,
+  isCourseReference,
+} from "../../playwright/simulator/public_references";
+
 const MAX_INPUT_BYTES = 8192;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 export type WalkthroughInputStage = "arrangement" | "learner_journey";
 
 interface CommonWalkthroughInputs {
@@ -47,10 +51,12 @@ function optionalPrivatePath(value: unknown): string | undefined {
   return path;
 }
 
-function requireUuid(value: unknown): string {
-  const identifier = requireString(value);
-  if (!UUID.test(identifier)) throw new Error("walkthrough-inputs");
-  return identifier;
+function requireReference(
+  value: unknown,
+  validator: (candidate: unknown) => candidate is string,
+): string {
+  if (!validator(value)) throw new Error("walkthrough-inputs");
+  return value;
 }
 
 function expectedKeys(stage: WalkthroughInputStage): readonly string[] {
@@ -67,8 +73,8 @@ function expectedKeys(stage: WalkthroughInputStage): readonly string[] {
         "journeyStateFile",
         "j1CheckpointFile",
         "j2CheckpointFile",
-        "courseId",
-        "masteryAssignmentId",
+        "courseReference",
+        "masteryAssignmentReference",
         "screenshotDirectory",
       ];
   }
@@ -116,8 +122,8 @@ function parseInputs(value: unknown): WalkthroughChildInputs {
   optionalPrivatePath(value["screenshotDirectory"]);
   requirePrivatePath(value["j1CheckpointFile"]);
   requirePrivatePath(value["j2CheckpointFile"]);
-  requireUuid(value["courseId"]);
-  requireUuid(value["masteryAssignmentId"]);
+  requireReference(value["courseReference"], isCourseReference);
+  requireReference(value["masteryAssignmentReference"], isAssignmentReference);
   return {
     schemaVersion: 1,
     stage,

@@ -15,7 +15,7 @@ pub(super) async fn seed_webwork_pilot(arguments: &SeedArguments) -> Result<Mani
     learning_data_access::postgres::apply_migrations(&pool)
         .await
         .context("applying embedded migrations for WebWork E2E seed")?;
-    let store = learning_data_access::postgres::PostgresStore::new(pool);
+    let store = question_id_store(pool)?;
     let context = TenantContext::from_authenticated_session(arguments.tenant);
     let ids = WebworkPilotSeedIds::for_tenant(arguments.tenant);
     let reference = ProblemVersionRef {

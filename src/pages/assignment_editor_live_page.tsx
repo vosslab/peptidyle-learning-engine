@@ -11,6 +11,7 @@ import { useSessionBootstrap, type SessionBootstrapState } from "../auth/session
 import { useCourseThemeRouteData } from "../features/course_appearance/course_theme_context";
 import { AssignmentEditorPage } from "./assignment_editor_page";
 import { createAssignmentEditorRepository } from "./assignment_editor_repository";
+import { resolveAssignmentRoute } from "../navigation/resolved_route";
 
 type CourseGate =
   | { readonly kind: "loading" }
@@ -66,8 +67,10 @@ export function AssignmentEditorLivePage(): JSX.Element {
   if (authenticated === undefined) return <AssignmentEditingUnavailable />;
   const sessionTenant = authenticated.tenant;
   const [gate, setGate] = createSignal<CourseGate>({ kind: "loading" });
-  const courseId: CourseId | undefined = params["courseId"];
-  const assignmentId: AssignmentId | undefined = params["assignmentId"];
+  const courseId: CourseId | undefined =
+    scopedRoute?.kind === "course" ? scopedRoute.course.summary.id : undefined;
+  const assignmentReference = params["assignmentRef"];
+  const [assignmentId, setAssignmentId] = createSignal<AssignmentId>();
   const allowedGlobalRole = mayOpenInstructorSurface(session);
 
   async function checkCourseAccess(): Promise<void> {
@@ -88,6 +91,14 @@ export function AssignmentEditorLivePage(): JSX.Element {
       if (course.role !== "instructor") {
         setGate({ kind: "denied" });
         return;
+      }
+      if (assignmentReference !== undefined) {
+        const assignment = await resolveAssignmentRoute(runtime.client, assignmentReference);
+        if (assignment.courseId !== courseId) {
+          setGate({ kind: "unavailable" });
+          return;
+        }
+        setAssignmentId(assignment.assignmentId);
       }
       setGate({ kind: "allowed", course });
     } catch {
@@ -123,7 +134,14 @@ export function AssignmentEditorLivePage(): JSX.Element {
       <AssignmentEditorPage
         repository={createAssignmentEditorRepository(runtime.client)}
         courseId={courseId as CourseId}
-        mode={assignmentId === undefined ? { kind: "create" } : { kind: "edit", assignmentId }}
+        coursePublicId={
+          (gate() as Extract<CourseGate, { readonly kind: "allowed" }>).course.publicId
+        }
+        mode={
+          assignmentReference === undefined
+            ? { kind: "create" }
+            : { kind: "edit", assignmentId: assignmentId() as AssignmentId }
+        }
         tenant={sessionTenant}
       />
     </Show>

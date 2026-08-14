@@ -17,14 +17,15 @@ use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use hmac::{Hmac, KeyInit, Mac};
 use learning_data_access::{
-    AccountIdentityStore, AccountSessionLifetime, AccountSessionStore, AccountSessionTokenHash,
-    AuthenticationEmail, AuthenticationRateLimitDecision, AuthenticationRateLimitKey,
-    AuthenticationRateLimitPolicy, AuthenticationRateLimitScope, BeginEmailAuthentication,
-    BrowserBindingHash, ClaimCourseInvitation, CompleteEmailAuthentication,
+    AccountIdentityStore, AccountPresentationPreference, AccountPresentationStore,
+    AccountSessionLifetime, AccountSessionStore, AccountSessionTokenHash, AuthenticationEmail,
+    AuthenticationRateLimitDecision, AuthenticationRateLimitKey, AuthenticationRateLimitPolicy,
+    AuthenticationRateLimitScope, BeginEmailAuthentication, BrowserBindingHash,
+    ClaimCourseInvitation, CompleteEmailAuthentication,
     CompleteEmailAuthenticationAndCreateSession, ConsumeAuthenticationRateLimit,
     CourseInvitationSecretHash, CourseRosterStore, Cursor, EmailAuthenticationPurpose,
-    EmailChallengeId, EmailChallengeLifetime, EmailChallengeSecretHash, PageRequest, PageSize,
-    SessionStore, StoreError,
+    EmailChallengeId, EmailChallengeLifetime, EmailChallengeSecretHash, NavigationReferenceStore,
+    PageRequest, PageSize, SessionStore, StoreError, TenantContext,
 };
 use question_model::{CourseId, CourseMembershipRole, UserId, UserRole};
 use serde::{Deserialize, Serialize};
@@ -35,7 +36,7 @@ use super::{ClientAddressPolicy, SessionConfig, issue_session, no_store, respons
 use super::AuthError;
 
 pub(super) use support::{
-    RandomSecret, authenticated_account, authentication_rejected,
+    RandomSecret, authenticated_account, authenticated_account_session, authentication_rejected,
     clear_account_authentication_cookies, clear_named_cookie, cookie_secret,
     passwordless_unavailable, revoke_presented_account_session, secret_cookie,
 };
@@ -196,7 +197,13 @@ pub fn passwordless_router<S>(
     session_config: SessionConfig,
 ) -> Router
 where
-    S: AccountIdentityStore + AccountSessionStore + CourseRosterStore + SessionStore + 'static,
+    S: AccountIdentityStore
+        + AccountSessionStore
+        + CourseRosterStore
+        + NavigationReferenceStore
+        + AccountPresentationStore
+        + SessionStore
+        + 'static,
 {
     Router::new()
         .route(
@@ -220,6 +227,10 @@ where
             post(redeem_course_invitation::<S>),
         )
         .route("/api/auth/account/courses", get(list_account_courses::<S>))
+        .route(
+            "/api/auth/account/presentation",
+            get(get_account_presentation::<S>).put(save_account_presentation::<S>),
+        )
         .route(
             "/api/auth/account/course-session",
             post(select_account_course::<S>),
@@ -296,6 +307,7 @@ struct AccountEmailChangedResponse {
 #[serde(rename_all = "camelCase")]
 struct ClaimedInvitationResponse {
     course_id: question_model::CourseId,
+    course_public_id: question_model::CoursePublicId,
     membership_status: &'static str,
 }
 
@@ -310,6 +322,7 @@ struct AccountCoursePageResponse {
 #[serde(rename_all = "camelCase")]
 struct AccountCourseResponse {
     course_id: CourseId,
+    course_public_id: question_model::CoursePublicId,
     title: String,
     role: &'static str,
 }
@@ -738,7 +751,12 @@ async fn redeem_course_invitation<S>(
     Json(request): Json<RedeemInvitationRequest>,
 ) -> Response
 where
-    S: AccountIdentityStore + AccountSessionStore + CourseRosterStore + SessionStore + 'static,
+    S: AccountIdentityStore
+        + AccountSessionStore
+        + CourseRosterStore
+        + NavigationReferenceStore
+        + SessionStore
+        + 'static,
 {
     let account = match authenticated_account(state.store.as_ref(), &headers).await {
         Ok(account) => account,
@@ -780,11 +798,24 @@ where
         Ok(issued) => issued,
         Err(error) => return super::auth_error_response(error),
     };
+    let course_public_id = match state
+        .store
+        .course_public_id(
+            TenantContext::from_authenticated_session(claimed.tenant),
+            account.user,
+            claimed.course,
+        )
+        .await
+    {
+        Ok(Some(public_id)) => public_id,
+        Ok(None) | Err(_) => return passwordless_unavailable(),
+    };
     response_with_cookie(
         StatusCode::OK,
         issued.set_cookie,
         ClaimedInvitationResponse {
             course_id: claimed.course,
+            course_public_id,
             membership_status: "active",
         },
     )
@@ -796,7 +827,12 @@ async fn list_account_courses<S>(
     Query(query): Query<AccountCourseQuery>,
 ) -> Response
 where
-    S: AccountIdentityStore + AccountSessionStore + CourseRosterStore + SessionStore + 'static,
+    S: AccountIdentityStore
+        + AccountSessionStore
+        + CourseRosterStore
+        + NavigationReferenceStore
+        + SessionStore
+        + 'static,
 {
     let account = match authenticated_account(state.store.as_ref(), &headers).await {
         Ok(account) => account,
@@ -822,21 +858,89 @@ where
         Err(StoreError::InvalidRecord(_)) => return invalid_account_course_request(),
         Err(_) => return passwordless_unavailable(),
     };
+    let mut courses = Vec::with_capacity(page.items.len());
+    for context in page.items {
+        let public_id = match state
+            .store
+            .course_public_id(
+                TenantContext::from_authenticated_session(context.tenant),
+                account.user,
+                context.course,
+            )
+            .await
+        {
+            Ok(Some(public_id)) => public_id,
+            Ok(None) | Err(_) => return passwordless_unavailable(),
+        };
+        courses.push(AccountCourseResponse {
+            course_id: context.course,
+            course_public_id: public_id,
+            title: context.title,
+            role: course_role_name(context.role),
+        });
+    }
     no_store(
         Json(AccountCoursePageResponse {
-            courses: page
-                .items
-                .into_iter()
-                .map(|context| AccountCourseResponse {
-                    course_id: context.course,
-                    title: context.title,
-                    role: course_role_name(context.role),
-                })
-                .collect(),
+            courses,
             next_cursor: page.next_cursor.map(|cursor| cursor.as_str().to_string()),
         })
         .into_response(),
     )
+}
+
+async fn get_account_presentation<S>(
+    State(state): State<PasswordlessRouteState<S>>,
+    headers: HeaderMap,
+) -> Response
+where
+    S: AccountIdentityStore
+        + AccountPresentationStore
+        + AccountSessionStore
+        + CourseRosterStore
+        + SessionStore
+        + 'static,
+{
+    let account_session = match authenticated_account_session(state.store.as_ref(), &headers).await
+    {
+        Ok(account_session) => account_session,
+        Err(response) => return response,
+    };
+    match state
+        .store
+        .account_presentation(account_session.token_hash)
+        .await
+    {
+        Ok(preference) => no_store(Json(preference).into_response()),
+        Err(_) => passwordless_unavailable(),
+    }
+}
+
+async fn save_account_presentation<S>(
+    State(state): State<PasswordlessRouteState<S>>,
+    headers: HeaderMap,
+    Json(preference): Json<AccountPresentationPreference>,
+) -> Response
+where
+    S: AccountIdentityStore
+        + AccountPresentationStore
+        + AccountSessionStore
+        + CourseRosterStore
+        + SessionStore
+        + 'static,
+{
+    let account_session = match authenticated_account_session(state.store.as_ref(), &headers).await
+    {
+        Ok(account_session) => account_session,
+        Err(response) => return response,
+    };
+    match state
+        .store
+        .save_account_presentation(account_session.token_hash, preference)
+        .await
+    {
+        Ok(saved) => no_store(Json(saved).into_response()),
+        Err(_) => passwordless_unavailable(),
+    }
 }
 
 async fn select_account_course<S>(

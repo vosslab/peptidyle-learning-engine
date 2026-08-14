@@ -142,22 +142,57 @@ for the ownership map.
 
 ## Quick start
 
-For the smallest complete offline first success, install current Rust through `rustup`. The
-repository's [rust-toolchain.toml](rust-toolchain.toml) selects stable Rust, rustfmt, Clippy, and the
-`wasm32-unknown-unknown` target. Clone the repository and run its Rust behavior suite:
+For the first complete local teaching-system result, install the prerequisites in
+[docs/INSTALL.md](docs/INSTALL.md), then clone the repository, install browser dependencies, and
+start the explicit local Podman project:
 
 ```bash
 git clone https://github.com/vosslab/peptidyle-learning-engine.git
 cd peptidyle-learning-engine
+npm run setup
+source source_me.sh && python3 local_stack.py start
+```
+
+The controller builds the local artifacts, creates ignored local credentials when needed, migrates
+and seeds the disposable pre-production data, starts the supported services, waits for semantic
+health, and opens the browser. Paste an instructor or student value from
+`containers/local-login.txt` into the local sign-in form. The normal stack includes native questions
+and the private external PG renderer. Its live accepted scope is the bounded, authored
+`content/pilot/webwork/which_hydrophobic-simple.pgml` `RadioButtons` fixture; this is not a broad
+OPL compatibility claim.
+
+Start with read-only inspection when diagnosing a local stack, and use the controller rather than
+ad hoc Compose commands for routine lifecycle work:
+
+```bash
+source source_me.sh && python3 local_stack.py doctor
+source source_me.sh && python3 local_stack.py status
+source source_me.sh && python3 local_stack.py stop
+source source_me.sh && python3 local_stack.py reset --dry-run
+```
+
+`doctor` and `status` inspect only. `stop` retains local data for the next start. `reset --dry-run`
+shows the exact project-scoped destructive command and its targets; use the explicit confirmation
+form only when intentionally recreating local data. See
+[docs/LOCAL_STACK_OPERATIONS.md](docs/LOCAL_STACK_OPERATIONS.md) for the controller contract and
+[docs/USAGE.md](docs/USAGE.md) for detailed everyday workflows.
+
+`./launch_local_stack.sh` remains the implementation and recovery seam for build, bootstrap,
+migration, seeding, renderer checks, and semantic readiness. Use it directly only while diagnosing
+or repairing that launcher path.
+
+For the smallest complete offline first success, install current Rust through `rustup`. The
+repository's [rust-toolchain.toml](rust-toolchain.toml) selects stable Rust, rustfmt, Clippy, and the
+`wasm32-unknown-unknown` target. Then run its behavior suite:
+
+```bash
 ./check_rust.sh
 ```
 
 Success is an exit status of zero after the domain, grading, storage, adapter, server, and
 documentation tests; counts intentionally are not frozen in this page. This path proves the
-mastery and server-side contracts without requiring containers or local credentials.
-
-The full repository gate also needs current Node.js and npm, plus Python 3.12 with pytest. Install
-the browser dependencies once, then use the repository front door:
+mastery and server-side contracts without requiring containers or local credentials. The full
+repository gate also needs current Node.js and npm, plus Python 3.12 with pytest:
 
 ```bash
 npm run setup
@@ -167,28 +202,7 @@ npm run setup
 
 The vendored codebase gate verifies TypeScript and browser code. The repository-owned Rust gate
 checks both Cargo feature graphs, strict Clippy, tests and doctests, and the browser WebAssembly
-target. Build the API, WebAssembly bridge, generated contracts, and Solid client with:
-
-```bash
-./build.sh
-```
-
-A successful debug build ends with the client bundle in `dist/` and the WebAssembly bridge in
-`dist_wasm/`. The all-in-one local test command generates ignored local credentials, migrates and
-seeds its database, starts the supported Podman services, waits for semantic health, and opens the
-browser:
-
-```bash
-./launch_local_stack.sh
-```
-
-Paste an instructor or student value from `containers/local-login.txt` into the local sign-in form.
-The normal stack includes native questions and the private external PG renderer. Its live accepted
-scope is the bounded, authored `content/pilot/webwork/which_hydrophobic-simple.pgml`
-`RadioButtons` fixture; this is not a broad OPL compatibility claim. Read the storage, security,
-health, and per-service ownership model in
-[docs/LOCAL_STACK_OPERATIONS.md](docs/LOCAL_STACK_OPERATIONS.md) and
-[docs/LOCAL_STACK_ARCHITECTURE.md](docs/LOCAL_STACK_ARCHITECTURE.md).
+target. Build the API, WebAssembly bridge, generated contracts, and Solid client with `./build.sh`.
 
 ## One assignment through the system
 
@@ -276,6 +290,8 @@ Start with a local run and the system map:
 - [docs/INSTRUCTOR_GUIDE.md](docs/INSTRUCTOR_GUIDE.md) and
   [docs/STUDENT_GUIDE.md](docs/STUDENT_GUIDE.md) - role-focused course setup, assignment practice,
   scoring, and repeat-workflow guides with real-stack screenshots.
+- [docs/INSTRUCTOR_PAGE_VISUALS.md](docs/INSTRUCTOR_PAGE_VISUALS.md) - the current 1280 by 800
+  simulated-data overview of every instructor work page.
 - [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) - system shape, crate ownership, storage,
   API, browser, and security boundaries.
 - [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) - repository map and the owner of each major

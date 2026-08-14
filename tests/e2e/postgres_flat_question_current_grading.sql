@@ -397,15 +397,18 @@ RESET ROLE;
 -- Seed two unpublished-in-this-transaction catalog candidates. One proves
 -- missing current grading refuses; the other receives the stored-only copy.
 INSERT INTO public.problem
-    (problem_id, owner_tenant_id, owner_user_id, visibility, license)
+    (problem_id, question_id, owner_tenant_id, owner_user_id, visibility, license)
 VALUES
     ('11111111-1111-4111-8111-0000000000b6',
+     'K8R4XWA',
      '11111111-1111-4111-8111-0000000000b1',
      '11111111-1111-4111-8111-0000000000b3', 'public', 'cc0'),
     ('11111111-1111-4111-8111-0000000000b8',
+     'D5N7Q2M',
      '11111111-1111-4111-8111-0000000000b1',
      '11111111-1111-4111-8111-0000000000b3', 'public', 'cc0'),
     ('11111111-1111-4111-8111-0000000000c6',
+     'Z3P8H6F',
      '11111111-1111-4111-8111-0000000000ff',
      '11111111-1111-4111-8111-0000000000b3', 'public', 'cc0');
 

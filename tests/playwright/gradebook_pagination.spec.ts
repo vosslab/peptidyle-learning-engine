@@ -22,7 +22,14 @@ const routerPlugin = {
       contents: `
         import { createSignal } from "solid-js";
         const [courseId, setCourseId] = createSignal("${COURSE_ID}");
-        window.__gradebookRoute = { setCourseId };
+        window.__gradebookRoute = { setCourseId, courseId };
+        export function A(props) {
+          const anchor = document.createElement("a");
+          anchor.href = props.href;
+          anchor.className = props.class ?? "";
+          anchor.textContent = String(props.children ?? "");
+          return anchor;
+        }
         export function useParams() { return { get courseId() { return courseId(); } }; }
         export function query(callback, key) {
           callback.key = key;
@@ -41,6 +48,7 @@ test.beforeAll(async () => {
     bundle: true,
     format: "iife",
     minify: false,
+    outdir: "/tmp/ple-gradebook-pagination-fixture",
     platform: "browser",
     plugins: [solidPlugin(), routerPlugin],
     stdin: {
@@ -48,11 +56,12 @@ test.beforeAll(async () => {
       resolveDir: process.cwd(),
       sourcefile: "gradebook_pagination_fixture.tsx",
       contents: `
-        import { createComponent } from "solid-js";
+        import { createComponent, Show } from "solid-js";
         import { render } from "solid-js/web";
         import { publishedProblemFixture } from "./generated/fixtures/published_problem.ts";
         import { createHttpApiClient } from "./src/api/http_client.ts";
         import { createApiRuntime, ApiRuntimeProvider } from "./src/api/runtime.tsx";
+        import { CourseThemeRouteContext } from "./src/features/course_appearance/course_theme_context.ts";
         import { GradebookPage } from "./src/pages/gradebook_page.tsx";
 
         const courseId = "${COURSE_ID}";
@@ -142,7 +151,28 @@ test.beforeAll(async () => {
           dispose = render(
             () => createComponent(ApiRuntimeProvider, {
               runtime,
-              get children() { return createComponent(GradebookPage, {}); },
+              get children() {
+                return createComponent(Show, {
+                  get when() { return window.__gradebookRoute.courseId(); },
+                  keyed: true,
+                  children: (selectedCourseId) =>
+                    createComponent(CourseThemeRouteContext.Provider, {
+                      value: {
+                        kind: "course",
+                        course: {
+                          summary: {
+                            ...publishedProblemFixture.course,
+                            id: selectedCourseId,
+                            publicId: selectedCourseId === courseBId ? 2 : 1,
+                            role: "instructor",
+                          },
+                          appearance: { theme: "grass", revision: "1", banner: null },
+                        },
+                      },
+                      get children() { return createComponent(GradebookPage, {}); },
+                    }),
+                });
+              }
             }),
             root,
           );
@@ -160,7 +190,11 @@ test.beforeAll(async () => {
     },
     write: false,
   });
-  fixtureScript = result.outputFiles[0]?.text ?? "";
+  const output = result.outputFiles.find((candidate) => candidate.path.endsWith(".js"));
+  if (output === undefined) {
+    throw new Error("Gradebook pagination fixture bundle was not produced.");
+  }
+  fixtureScript = output.text;
 });
 
 interface GradebookPaginationFixture {
@@ -176,7 +210,7 @@ interface GradebookPaginationFixture {
 declare global {
   interface Window {
     __gradebookPaginationFixture: GradebookPaginationFixture;
-    __gradebookRoute: { setCourseId(courseId: string): void };
+    __gradebookRoute: { setCourseId(courseId: string): void; courseId(): string };
   }
 }
 
@@ -203,7 +237,7 @@ async function reachPaginationActionThroughNativeSkipLink(
 
   await main.focus();
   await expect(main).toBeFocused();
-  await page.keyboard.press("Tab");
+  await tabTo(page, skip, "forward");
   await expect(skip).toBeFocused();
   await expect(skip).toHaveAttribute("target", "_self");
   await page.keyboard.press("Enter");

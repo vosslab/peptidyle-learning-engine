@@ -8,7 +8,8 @@ use sqlx::{Postgres, Row, Transaction};
 
 use super::{
     CourseInvitationId, CourseRosterImportPreview, PostgresStore, bump_revision, decode_invitation,
-    load_policy, lock_course_roster_cross_product, map_sqlx_error, require_course_roster_authority,
+    load_policy, lock_course_roster_cross_product, map_sqlx_error,
+    precheck_course_roster_authority, require_audited_course_roster_actor,
 };
 use crate::{
     AuthenticationEmail, CommitCourseRosterImport, CommittedCourseRosterImport,
@@ -30,21 +31,13 @@ pub(super) async fn stage(
     let tenant = context.tenant_id();
     let mut transaction = store.begin_tenant(context).await?;
     cleanup_expired(&mut transaction).await?;
-    require_course_roster_authority(
-        &mut transaction,
-        session,
-        command.course,
-        CourseRosterSupportAction::StageImport,
-        false,
-    )
-    .await?;
+    precheck_course_roster_authority(&mut transaction, session, command.course).await?;
     lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-    let actor = require_course_roster_authority(
+    let actor = require_audited_course_roster_actor(
         &mut transaction,
         session,
         command.course,
         CourseRosterSupportAction::StageImport,
-        true,
     )
     .await?;
     let policy = load_policy(&mut transaction, tenant, command.course, true).await?;
@@ -164,21 +157,13 @@ pub(super) async fn commit(
     let tenant = context.tenant_id();
     let mut transaction = store.begin_tenant(context).await?;
     cleanup_expired(&mut transaction).await?;
-    require_course_roster_authority(
-        &mut transaction,
-        session,
-        command.course,
-        CourseRosterSupportAction::CommitImport,
-        false,
-    )
-    .await?;
+    precheck_course_roster_authority(&mut transaction, session, command.course).await?;
     lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-    let actor = require_course_roster_authority(
+    let actor = require_audited_course_roster_actor(
         &mut transaction,
         session,
         command.course,
         CourseRosterSupportAction::CommitImport,
-        true,
     )
     .await?;
     let current_policy = load_policy(&mut transaction, tenant, command.course, true).await?;

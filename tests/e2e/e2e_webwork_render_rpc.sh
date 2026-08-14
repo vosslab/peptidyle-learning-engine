@@ -3,7 +3,7 @@
 #
 # This deliberately exercises only PLE's public gateway.  It never reads a
 # renderer-internal token, request field, answer hash, source text, or upstream
-# response. The direct renderer probe remains a container-readiness check.
+# response. The controller owns renderer lifecycle readiness.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
@@ -26,20 +26,6 @@ require_file() {
 
 env_value() {
 	awk -F= -v setting_name="$1" '$1 == setting_name { value = substr($0, index($0, "=") + 1) } END { print value }' "$ENV_FILE"
-}
-
-configure_compose() {
-	if podman compose version >/dev/null 2>&1; then
-		COMPOSE=(podman compose)
-	elif command -v podman-compose >/dev/null 2>&1 && podman-compose version >/dev/null 2>&1; then
-		COMPOSE=(podman-compose)
-	else
-		fail "no usable Podman Compose provider is available"
-	fi
-}
-
-compose() {
-	"${COMPOSE[@]}" -f containers/compose.yaml --env-file "$ENV_FILE" "$@"
 }
 
 json_value() {
@@ -193,27 +179,30 @@ PY
 }
 
 require_file "$ENV_FILE"
-configure_compose
 
 # Required/no-SKIP acceptance: the canonical launcher has only the reviewed
 # Chapter 1 teaching corpus. This acceptance then creates its one-question
 # renderer fixture explicitly and keeps its answer-free manifest private to
 # this temporary directory.
-./launch_local_stack.sh --no-open --env-file "$ENV_FILE"
+source source_me.sh
+python3 local_stack.py start --no-open --env-file "$ENV_FILE"
 require_file "$CREDENTIAL_FILE"
 postgres_user="$(env_value POSTGRES_USER)"
 postgres_password="$(env_value POSTGRES_PASSWORD)"
 postgres_database="$(env_value POSTGRES_DB)"
 postgres_port="$(env_value PLE_POSTGRES_HOST_PORT)"
 minio_port="$(env_value PLE_MINIO_API_HOST_PORT)"
+question_id_secret_file="$(env_value PLE_QUESTION_ID_SECRET_HOST_FILE)"
 for required_value in "$postgres_user" "$postgres_password" "$postgres_database" "$postgres_port" "$minio_port"; do
 	[ -n "$required_value" ] || fail "renderer fixture requires complete local PostgreSQL and MinIO configuration"
 done
+require_file "$question_id_secret_file"
 case "$postgres_port" in ''|*[!0-9]*) fail "PLE_POSTGRES_HOST_PORT is not an integer" ;; esac
 case "$minio_port" in ''|*[!0-9]*) fail "PLE_MINIO_API_HOST_PORT is not an integer" ;; esac
 database_url="postgres://${postgres_user}:${postgres_password}@127.0.0.1:${postgres_port}/${postgres_database}"
 AWS_ACCESS_KEY_ID="$(env_value MINIO_ROOT_USER)" \
 AWS_SECRET_ACCESS_KEY="$(env_value MINIO_ROOT_PASSWORD)" \
+	PLE_QUESTION_ID_SECRET_FILE="$question_id_secret_file" \
 	cargo tools e2e-seed --webwork-pilot \
 		--database-url "$database_url" \
 		--apply-migrations \
@@ -239,25 +228,26 @@ login_status="$(gateway_request POST /api/auth/login "$login_file" --header 'con
 [ "$login_status" = "200" ] || fail "gateway login returned HTTP $login_status"
 
 # Start one run and fetch its same attempt twice. The structured PLE server
-# evidence below proves that issuing renders once while both GETs are cache hits.
+# evidence below proves that issuance may use the adapter cache, while each GET
+# replays the persisted attempt snapshot without adapter work.
 run_one="$WORK_DIRECTORY/run-one.json"
 attempts_one="$WORK_DIRECTORY/attempts-one.json"
 api_before_run="$WORK_DIRECTORY/api-before-run.log"
 api_after_run="$WORK_DIRECTORY/api-after-run.log"
 api_after_first="$WORK_DIRECTORY/api-after-first.log"
 api_after_second="$WORK_DIRECTORY/api-after-second.log"
-compose logs --no-color api >"$api_before_run" 2>&1 || fail "cannot read PLE API structured evidence"
+python3 local_stack.py logs --env-file "$ENV_FILE" --tail all api >"$api_before_run" 2>&1 || fail "cannot read PLE API structured evidence"
 attempt_one="$(create_attempt "$run_one" "$attempts_one")"
-compose logs --no-color api >"$api_after_run" 2>&1 || fail "cannot read PLE API evidence after run creation"
+python3 local_stack.py logs --env-file "$ENV_FILE" --tail all api >"$api_after_run" 2>&1 || fail "cannot read PLE API evidence after run creation"
 question_one="$WORK_DIRECTORY/question-one.json"
 first_status="$(gateway_request GET "/api/attempts/${attempt_one}/question" "$question_one")"
 [ "$first_status" = "200" ] || fail "first PLE WebWork question request returned HTTP $first_status"
-compose logs --no-color api >"$api_after_first" 2>&1 || fail "cannot read PLE API evidence after first question GET"
+python3 local_stack.py logs --env-file "$ENV_FILE" --tail all api >"$api_after_first" 2>&1 || fail "cannot read PLE API evidence after first question GET"
 question_two="$WORK_DIRECTORY/question-two.json"
 second_status="$(gateway_request GET "/api/attempts/${attempt_one}/question" "$question_two")"
 [ "$second_status" = "200" ] || fail "second PLE WebWork question request returned HTTP $second_status"
-compose logs --no-color api >"$api_after_second" 2>&1 || fail "cannot read PLE API evidence after second question GET"
-cmp --silent "$question_one" "$question_two" || fail "same PLE WebWork attempt did not project identically on cache replay"
+python3 local_stack.py logs --env-file "$ENV_FILE" --tail all api >"$api_after_second" 2>&1 || fail "cannot read PLE API evidence after second question GET"
+cmp --silent "$question_one" "$question_two" || fail "same PLE WebWork attempt did not project identically from its persisted snapshot"
 
 structured_event_count() {
 	# `ple.webwork.cache` is a deliberately non-sensitive server event target.
@@ -275,13 +265,14 @@ hits_after_first="$(structured_event_count "$api_after_first" cache_hit)"
 calls_after_second="$(structured_event_count "$api_after_second" renderer_call)"
 hits_after_second="$(structured_event_count "$api_after_second" cache_hit)"
 # A prior failed local acceptance can leave this deterministic pilot's active
-# run resumable. Fresh creation emits one miss; safe resumption emits none.
+# run resumable. Fresh creation emits one renderer call; safe resumption emits
+# none. Neither same-attempt GET may call the adapter or emit its safe-cache
+# witness, because both must return the authoritative persisted snapshot.
 [ "$calls_after_run" -eq "$calls_before" ] || [ "$calls_after_run" -eq $((calls_before + 1)) ] || fail "run creation emitted an invalid WebWork renderer_call count"
 [ "$calls_after_first" -eq "$calls_after_run" ] || fail "first PLE question GET made an unexpected renderer call"
-[ "$hits_after_first" -eq $((hits_after_run + 1)) ] || fail "first PLE question GET did not produce exactly one WebWork cache_hit event"
+[ "$hits_after_first" -eq "$hits_after_run" ] || fail "first PLE question GET emitted an unexpected WebWork cache_hit event"
 [ "$calls_after_second" -eq "$calls_after_first" ] || fail "same-attempt replay made an unexpected renderer call"
-[ "$hits_after_second" -eq $((hits_after_first + 1)) ] || fail "same-attempt replay did not produce exactly one WebWork cache_hit event"
-[ "$hits_after_second" -gt "$hits_before" ] || fail "WebWork cache-hit evidence was unexpectedly all-zero"
+[ "$hits_after_second" -eq "$hits_after_first" ] || fail "same-attempt replay emitted an unexpected WebWork cache_hit event"
 
 correct_choice="$(choose_visible_answer "$question_one" hydrophobic)"
 receipt_one="$WORK_DIRECTORY/receipt-one.json"
@@ -303,12 +294,23 @@ run_two="$WORK_DIRECTORY/run-two.json"
 attempts_two="$WORK_DIRECTORY/attempts-two.json"
 api_before_second_run="$WORK_DIRECTORY/api-before-second-run.log"
 api_after_second_run="$WORK_DIRECTORY/api-after-second-run.log"
-compose logs --no-color api >"$api_before_second_run" 2>&1 || fail "cannot read PLE API evidence before the fresh second run"
+python3 local_stack.py logs --env-file "$ENV_FILE" --tail all api >"$api_before_second_run" 2>&1 || fail "cannot read PLE API evidence before the fresh second run"
 attempt_two="$(create_attempt "$run_two" "$attempts_two")"
-compose logs --no-color api >"$api_after_second_run" 2>&1 || fail "cannot read PLE API evidence after the fresh second run"
+python3 local_stack.py logs --env-file "$ENV_FILE" --tail all api >"$api_after_second_run" 2>&1 || fail "cannot read PLE API evidence after the fresh second run"
 calls_before_second_run="$(structured_event_count "$api_before_second_run" renderer_call)"
+hits_before_second_run="$(structured_event_count "$api_before_second_run" cache_hit)"
 calls_after_second_run="$(structured_event_count "$api_after_second_run" renderer_call)"
-[ "$calls_after_second_run" -eq $((calls_before_second_run + 1)) ] || fail "fresh continued-practice run did not produce exactly one WebWork renderer_call cache-miss event"
+hits_after_second_run="$(structured_event_count "$api_after_second_run" cache_hit)"
+# Continued practice creates a fresh random seed/key, so this live issuance
+# proves exactly one renderer call but cannot deterministically prove a cache
+# hit. A rare key collision can produce one cache hit; offline adapter tests
+# own the deterministic same-seed cache-hit contract.
+[ "$calls_after_second_run" -eq $((calls_before_second_run + 1)) ] || fail "fresh continued-practice issuance did not produce exactly one WebWork renderer_call event"
+second_run_hit_delta=$((hits_after_second_run - hits_before_second_run))
+case "$second_run_hit_delta" in
+	0|1) ;;
+	*) fail "fresh continued-practice issuance emitted an invalid WebWork cache_hit delta: $second_run_hit_delta" ;;
+esac
 question_three="$WORK_DIRECTORY/question-three.json"
 third_status="$(gateway_request GET "/api/attempts/${attempt_two}/question" "$question_three")"
 [ "$third_status" = "200" ] || fail "second PLE WebWork question request returned HTTP $third_status"
@@ -325,25 +327,13 @@ assert_summary_score "$summary_two" 0.0
 
 # Renderer failure is local to WebWork.  Native health remains available and a
 # fresh WebWork attempt fails closed with 503 rather than falling back.
-compose stop webwork-renderer >/dev/null
+python3 local_stack.py service stop webwork-renderer --env-file "$ENV_FILE" >/dev/null
 renderer_stopped=1
 restore_renderer() {
 	if [ "${renderer_stopped:-0}" = 1 ]; then
-		# Hypnotoad leaves manager state in the container tmpfs across a plain
-		# stop/start. Recreate this stateless service so recovery starts from the
-		# same clean image boundary as a normal launch.
-		compose up -d --force-recreate --no-deps webwork-renderer >/dev/null
+		# The launcher recreates this stateless renderer and proves it ready.
+		python3 local_stack.py restart webwork-renderer --env-file "$ENV_FILE" >/dev/null
 		renderer_stopped=0
-		renderer_container_id="$(podman ps \
-			--filter label=io.podman.compose.project=containers \
-			--filter label=io.podman.compose.service=webwork-renderer \
-			--format '{{.ID}}')"
-		[ -n "$renderer_container_id" ] || fail "restored renderer container was not found"
-		started_at=$SECONDS
-		until podman exec -i "$renderer_container_id" bash -s -- <containers/webwork/probe_render_api.sh >/dev/null 2>&1; do
-			[ $((SECONDS - started_at)) -lt 180 ] || fail "renderer did not regain readiness after outage restoration"
-			sleep 2
-		done
 	fi
 }
 trap 'restore_renderer; rm -rf "$WORK_DIRECTORY"' EXIT
@@ -362,4 +352,4 @@ export PLE_WEBWORK_LIVE_STUDENT_CREDENTIAL_FILE="$CREDENTIAL_FILE"
 export PLE_WEBWORK_LIVE_ASSIGNMENT_ID="$ASSIGNMENT_ID"
 [ -f tests/playwright/webwork_run.spec.ts ] || fail "required browser acceptance spec tests/playwright/webwork_run.spec.ts is missing"
 bash run_playwright_tests.sh tests/playwright/webwork_run.spec.ts
-echo "PASS: PLE WebWork live acceptance proved safe gateway projection, same-attempt cache replay, full/zero scoring, renderer-outage isolation, and private-material non-disclosure."
+echo "PASS: PLE WebWork live acceptance proved safe gateway projection, persisted same-attempt snapshot replay without adapter events, fresh issuance renderer evidence with an optional random-key cache hit, full/zero scoring, renderer-outage isolation, and private-material non-disclosure."

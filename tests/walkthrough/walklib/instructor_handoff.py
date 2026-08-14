@@ -10,9 +10,8 @@ import walklib.models
 
 
 MAX_JOURNEY_ELAPSED_MS = 30 * 60 * 1000
-LOWER_UUID_TEXT = re.compile(
-	r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-)
+PUBLIC_REFERENCE_TEXT = re.compile(r"^(?P<kind>C|A)-(?P<number>[1-9][0-9]{0,9})$")
+MAX_PUBLIC_REFERENCE_NUMBER = 2_147_483_647
 HANDOFF_ERROR = "instructor setup public-ID handoff is unavailable"
 
 
@@ -30,7 +29,7 @@ def read_handoff(
 		catalog_display_ids: Human-readable catalog IDs selected by the instructor child.
 
 	Returns:
-		The shared course UUID and current mastery assignment UUID for the learner child.
+		The shared course and current mastery-assignment route references for the learner child.
 
 	Raises:
 		walklib.models.RunnerError: The fixed public handoff is absent, replaced, or malformed.
@@ -90,7 +89,7 @@ def read_handoff(
 		(
 			"J11",
 			{
-				"schemaVersion", "journey", "status", "elapsedMs", "courseId",
+				"schemaVersion", "journey", "status", "elapsedMs", "courseReference",
 				"visibleOutcomeCodes", "diagnostics",
 			},
 			["visible_course_created", "visible_course_opened"],
@@ -98,7 +97,7 @@ def read_handoff(
 		(
 			"J12",
 			{
-				"schemaVersion", "journey", "status", "elapsedMs", "courseId",
+				"schemaVersion", "journey", "status", "elapsedMs", "courseReference",
 				"visibleOutcomeCodes", "diagnostics",
 			},
 			["visible_local_student_active"],
@@ -106,8 +105,8 @@ def read_handoff(
 		(
 			"J13",
 			{
-				"schemaVersion", "journey", "status", "elapsedMs", "courseId",
-				"assignmentId", "selectedDisplayIds", "visibleOutcomeCodes", "diagnostics",
+				"schemaVersion", "journey", "status", "elapsedMs", "courseReference",
+				"assignmentReference", "selectedDisplayIds", "visibleOutcomeCodes", "diagnostics",
 			},
 			[
 				"visible_assignment_created", "visible_catalog_problem_selected",
@@ -115,7 +114,7 @@ def read_handoff(
 			],
 		),
 	)
-	course_id: str | None = None
+	course_reference: str | None = None
 	for fragment, (journey, keys, outcome_codes) in zip(value, expected, strict=True):
 		if not isinstance(fragment, dict) or set(fragment) != keys:
 			raise walklib.models.RunnerError(HANDOFF_ERROR)
@@ -130,23 +129,34 @@ def read_handoff(
 			or not isinstance(fragment.get("diagnostics"), list)
 			or fragment["diagnostics"] != []
 			or fragment.get("visibleOutcomeCodes") != outcome_codes
-			or not isinstance(fragment.get("courseId"), str)
-			or not LOWER_UUID_TEXT.fullmatch(fragment["courseId"])
+			or not isinstance(fragment.get("courseReference"), str)
+			or not valid_reference(fragment["courseReference"], "C")
 		):
 			raise walklib.models.RunnerError(HANDOFF_ERROR)
-		if course_id is None:
-			course_id = fragment["courseId"]
-		elif fragment["courseId"] != course_id:
+		if course_reference is None:
+			course_reference = fragment["courseReference"]
+		elif fragment["courseReference"] != course_reference:
 			raise walklib.models.RunnerError(HANDOFF_ERROR)
 	j13 = value[2]
-	if course_id is None or not isinstance(j13, dict):
+	if course_reference is None or not isinstance(j13, dict):
 		raise walklib.models.RunnerError(HANDOFF_ERROR)
-	assignment_id = j13.get("assignmentId")
-	if not isinstance(assignment_id, str) or not LOWER_UUID_TEXT.fullmatch(assignment_id):
+	assignment_reference = j13.get("assignmentReference")
+	if not valid_reference(assignment_reference, "A"):
 		raise walklib.models.RunnerError(HANDOFF_ERROR)
 	if arrangements is None or len(arrangements) != 1 or catalog_display_ids is None:
 		raise walklib.models.RunnerError(HANDOFF_ERROR)
 	selected_display_ids = j13.get("selectedDisplayIds")
 	if not isinstance(selected_display_ids, list) or selected_display_ids != catalog_display_ids:
 		raise walklib.models.RunnerError(HANDOFF_ERROR)
-	return course_id, assignment_id
+	return course_reference, assignment_reference
+
+
+#============================================
+def valid_reference(value: object, expected_kind: str) -> bool:
+	"""Accept one bounded human-facing C-* or A-* route reference."""
+	if not isinstance(value, str):
+		return False
+	match = PUBLIC_REFERENCE_TEXT.fullmatch(value)
+	if match is None or match["kind"] != expected_kind:
+		return False
+	return int(match["number"]) <= MAX_PUBLIC_REFERENCE_NUMBER

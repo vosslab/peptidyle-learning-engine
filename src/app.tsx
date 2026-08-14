@@ -6,6 +6,7 @@ import { createEffect, createSignal, ErrorBoundary, Show, type JSX } from "solid
 import { useSessionBootstrap, type SessionBootstrapState } from "./auth/session_context";
 import { CourseThemeScope } from "./features/course_appearance/course_theme_scope";
 import { LocalDevelopmentSignIn } from "./auth/local_development";
+import { PresentationContrastProvider } from "./presentation/contrast_context";
 
 declare global {
   interface Window {
@@ -50,7 +51,9 @@ function SessionContent(props: ScopedRouteSectionProps): JSX.Element {
         />
       }
     >
-      <CourseThemeScope pathname={props.pathname}>{props.children}</CourseThemeScope>
+      <PresentationContrastProvider>
+        <CourseThemeScope pathname={props.pathname}>{props.children}</CourseThemeScope>
+      </PresentationContrastProvider>
     </Show>
   );
 }
@@ -233,9 +236,6 @@ export function App(props: RouteSectionProps): JSX.Element {
           )}
         </Show>
       </main>
-      <footer class="site-footer">
-        <p>Practice for understanding, not memorization.</p>
-      </footer>
     </>
   );
 }

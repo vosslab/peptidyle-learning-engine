@@ -5,6 +5,9 @@
 - Preserve durable owner decisions in `docs/HUMAN_GUIDANCE.md`.
 - Complete one defined task in dependency order. Use its narrow validation and acceptance gate before
   continuing, then update `docs/CHANGELOG.md`.
+- A goal is complete only when its entire Validation test suite is green under
+  [docs/TEST_EVIDENCE_MODEL.md](docs/TEST_EVIDENCE_MODEL.md#validation-test-suite). Required gates
+  must pass on the final material tree; an unrun or required skipped gate keeps the goal incomplete.
 
 ## Working references
 

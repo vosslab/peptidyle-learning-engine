@@ -4,6 +4,8 @@ import { createAsync, useNavigate, useParams } from "@solidjs/router";
 import { createSignal, Show, Suspense, type JSX } from "solid-js";
 
 import { useApiRuntime } from "../api/runtime";
+import { resolveAssignmentRoute } from "../navigation/resolved_route";
+import { runRouteReference } from "../navigation/public_route";
 
 export function AssignmentOverviewPage(): JSX.Element {
   const runtime = useApiRuntime();
@@ -12,15 +14,13 @@ export function AssignmentOverviewPage(): JSX.Element {
   const [starting, setStarting] = createSignal(false);
   const [startError, setStartError] = createSignal<string>();
   const assignment = createAsync(() => {
-    const assignmentId = params["assignmentId"];
-    if (assignmentId === undefined) {
-      return Promise.reject(new Error("Assignment route is missing assignmentId"));
-    }
-    return runtime.queries.assignment(assignmentId);
+    return resolveAssignmentRoute(runtime.client, params["assignmentRef"]).then((identity) =>
+      runtime.queries.assignment(identity.assignmentId),
+    );
   });
 
   async function startOrResume(): Promise<void> {
-    const assignmentId = params["assignmentId"];
+    const assignmentId = assignment()?.id;
     if (assignmentId === undefined || starting()) {
       return;
     }
@@ -28,7 +28,7 @@ export function AssignmentOverviewPage(): JSX.Element {
     setStartError(undefined);
     try {
       const run = await runtime.client.startRun(assignmentId);
-      navigate(`/runs/${run.id}`);
+      navigate(`/runs/${runRouteReference(run.publicId)}`);
     } catch (error: unknown) {
       setStartError(
         error instanceof Error

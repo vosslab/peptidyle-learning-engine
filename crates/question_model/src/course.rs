@@ -3,8 +3,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssignmentId, AssignmentItem, AssignmentSelectionGroup, CourseId, EnrollmentId, RunPolicies,
-    StudentAssignmentSummary, StudentId, TenantId, UserId,
+    AssignmentId, AssignmentItem, AssignmentPublicId, AssignmentSelectionGroup, CourseId,
+    CoursePublicId, EnrollmentId, RunPolicies, StudentAssignmentSummary, StudentId, TenantId,
+    UserId,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -36,6 +37,8 @@ pub struct CourseMembership {
 pub struct CourseSummary {
     /// Durable course identity.
     pub id: CourseId,
+    /// Stable typed locator used in application navigation.
+    pub public_id: CoursePublicId,
     /// Direct RLS boundary.
     pub tenant: TenantId,
     /// Human-facing course or section title.
@@ -50,6 +53,8 @@ pub struct CourseSummary {
 pub struct AssignmentSummary {
     /// Durable assignment identity.
     pub id: AssignmentId,
+    /// Stable typed locator used in application navigation.
+    pub public_id: AssignmentPublicId,
     /// Direct RLS boundary.
     pub tenant: TenantId,
     /// Course that owns this assignment.
@@ -80,6 +85,8 @@ pub struct GradebookSummaryRow {
     pub enrollment_id: EnrollmentId,
     /// Stable learner identity used by course records.
     pub student_id: StudentId,
+    /// Human-facing learner name from the protected course roster.
+    pub learner_name: String,
     /// Assignment whose grade policy selected the current score.
     pub assignment_id: AssignmentId,
     /// Human-facing assignment title from the assignment record.
@@ -101,6 +108,7 @@ mod tests {
     fn rust_names_serialize_as_lower_camel_course_contracts() {
         let assignment = AssignmentSummary {
             id: AssignmentId::from_uuid(Uuid::from_u128(1)),
+            public_id: crate::AssignmentPublicId::new(1).expect("valid public ID"),
             tenant: TenantId::from_uuid(Uuid::from_u128(2)),
             course_id: CourseId::from_uuid(Uuid::from_u128(3)),
             title: "Peptide bonds".to_string(),
@@ -136,6 +144,7 @@ mod tests {
             course_id: CourseId::from_uuid(Uuid::from_u128(2)),
             enrollment_id: EnrollmentId::from_uuid(Uuid::from_u128(3)),
             student_id: StudentId::from_uuid(Uuid::from_u128(4)),
+            learner_name: "Ada Learner".to_string(),
             assignment_id: AssignmentId::from_uuid(Uuid::from_u128(5)),
             assignment_title: "Peptide bonds".to_string(),
             summary: StudentAssignmentSummary::empty(
@@ -147,6 +156,10 @@ mod tests {
         let value = serde_json::to_value(row).expect("gradebook row should serialize");
         assert!(value.get("courseId").is_some());
         assert!(value.get("assignmentTitle").is_some());
+        assert_eq!(
+            value.get("learnerName").and_then(|name| name.as_str()),
+            Some("Ada Learner")
+        );
         assert!(value.get("summary").is_some());
         assert!(value.get("bestScore").is_none());
     }

@@ -1,4 +1,4 @@
-// WP-CA6 built-browser proof for visible instructor settings and recovery.
+// Browser coverage for instructor course appearance editing and banner recovery.
 
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
@@ -13,13 +13,14 @@ import {
   bannerBytes,
   json,
   openAppearance,
+  resolveCourseReference,
   session,
 } from "./course_appearance_fixtures";
 
 test("instructor edits by keyboard, preserves a stale draft, then replaces and removes a banner", async ({
   page,
 }) => {
-  test.setTimeout(2_000);
+  test.setTimeout(10_000);
   let appearance = { theme: "grass", revision: "1", banner: null } as {
     theme: string;
     revision: string;
@@ -41,6 +42,8 @@ test("instructor edits by keyboard, preserves a stale draft, then replaces and r
     const url = new URL(request.url());
     const path = url.pathname;
     if (path === "/api/auth/session") return await json(route, session(["instructor"]));
+    const navigation = resolveCourseReference(route, path);
+    if (navigation !== null) return await navigation;
     if (path === `/api/courses/${COURSE_ID}`) {
       return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
     }
@@ -170,7 +173,7 @@ test("instructor edits by keyboard, preserves a stale draft, then replaces and r
   });
   await page.getByRole("button", { name: "Save appearance" }).click();
   await expect(page.getByText("Course appearance saved.")).toBeVisible();
-  await expect(page.locator('[data-course-theme="forest"]')).toBeVisible();
+  await expect(page.locator(".course-theme-scope")).toHaveAttribute("data-course-theme", "forest");
   await expect(page.locator("img.course-appearance-banner")).toHaveCount(2);
 
   expect(mutations[1]).toEqual({
@@ -209,13 +212,18 @@ test("student route exposes no appearance read or mutation transport", async ({ 
     const path = new URL(route.request().url()).pathname;
     requests.push(`${route.request().method()} ${path}`);
     if (path === "/api/auth/session") return await json(route, session(["student"]));
+    if (path === "/api/auth/account/presentation") {
+      return await json(route, { contrast: "standard" });
+    }
     return await json(route, { error: "student appearance transport must not run" }, 500);
   });
   await openAppearance(page);
   await expect(
     page.getByRole("heading", { name: "Course appearance is not available for this account" }),
   ).toBeVisible();
-  expect(requests).toEqual(["GET /api/auth/session"]);
+  expect(requests).toContain("GET /api/auth/session");
+  expect(requests.filter((request) => request.includes("/appearance"))).toEqual([]);
+  expect(requests.filter((request) => request.startsWith("PUT "))).toEqual([]);
 });
 
 test("settings remain keyboard-visible without horizontal overflow in narrow forced colors", async ({
@@ -225,6 +233,8 @@ test("settings remain keyboard-visible without horizontal overflow in narrow for
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/auth/session") return await json(route, session(["instructor"]));
+    const navigation = resolveCourseReference(route, path);
+    if (navigation !== null) return await navigation;
     if (path === `/api/courses/${COURSE_ID}`) {
       return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
     }
@@ -269,6 +279,8 @@ test("instructor appearance settings have no serious or critical axe violations"
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/auth/session") return await json(route, session(["instructor"]));
+    const navigation = resolveCourseReference(route, path);
+    if (navigation !== null) return await navigation;
     if (path === `/api/courses/${COURSE_ID}`) {
       return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
     }

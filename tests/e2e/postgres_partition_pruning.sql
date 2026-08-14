@@ -16,12 +16,14 @@ SELECT set_config(
 -- keys while generate_series supplies realistic partition cardinality.
 INSERT INTO public.problem (
     problem_id,
+    question_id,
     owner_tenant_id,
     owner_user_id,
     visibility,
     license
 ) VALUES (
     'f1000000-0000-4000-8000-000000000001',
+    '7H2M9QQ',
     'f1000000-0000-4000-8000-000000000002',
     'f1000000-0000-4000-8000-000000000003',
     'public',

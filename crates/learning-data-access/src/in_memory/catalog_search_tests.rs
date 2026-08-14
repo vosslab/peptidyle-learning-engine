@@ -52,6 +52,17 @@ fn record(number: u128) -> PublishedProblemRecord {
     );
     PublishedProblemRecord {
         problem,
+        question_id: {
+            let mut value = u32::try_from(number).expect("fixture Question ID fits 30 bits");
+            let mut bytes = [b'0'; 6];
+            for output in bytes.iter_mut().rev() {
+                *output = question_model::QUESTION_ID_ALPHABET[(value & 0x1f) as usize];
+                value >>= 5;
+            }
+            crate::QuestionIdCodec::from_server_secret([0x42; 32])
+                .issue_for_identifier(std::str::from_utf8(&bytes).expect("alphabet is ASCII"))
+                .expect("fixture Question ID issues")
+        },
         public_id: ProblemPublicId::new(
             u64::try_from(number).expect("fixture number fits a public ID") + 1,
         )
@@ -250,6 +261,7 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
     };
     let run = AssignmentRun {
         id: assigned_run,
+        public_id: question_model::RunPublicId::new(1).expect("valid public run ID"),
         tenant,
         enrollment: enrollment_id,
         run_number: 1,
@@ -455,6 +467,7 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
             (tenant, practice_run),
             AssignmentRun {
                 id: practice_run,
+                public_id: question_model::RunPublicId::new(2).expect("valid public run ID"),
                 tenant,
                 enrollment: enrollment_id,
                 run_number: 2,
@@ -647,17 +660,13 @@ async fn statistics_receipts_are_exactly_once_and_disclose_only_at_k_five() {
 }
 
 #[tokio::test]
-async fn catalog_search_finds_an_exact_human_version_reference_beyond_the_first_page() {
+async fn catalog_search_finds_an_exact_question_id_beyond_the_first_page() {
     let store = MemoryStore::default();
     let context =
         TenantContext::from_authenticated_session(TenantId::from_uuid(Uuid::from_u128(73_000)));
     let mut decoy = record(70);
     let exact = record(71);
-    let exact_reference = format!(
-        "P-{}-v{}",
-        exact.public_id.value(),
-        exact.version_number.value()
-    );
+    let exact_reference = exact.question_id.to_string();
     {
         let mut state = store.write_state().expect("catalog search state");
         decoy.question.metadata.title = exact_reference.clone();
@@ -673,7 +682,7 @@ async fn catalog_search_finds_an_exact_human_version_reference_beyond_the_first_
         .search_catalog(
             context,
             CatalogSearchQuery {
-                text: Some(exact_reference),
+                text: Some(exact_reference.clone()),
                 page_size: Some(1),
                 ..CatalogSearchQuery::default()
             },
@@ -682,8 +691,7 @@ async fn catalog_search_finds_an_exact_human_version_reference_beyond_the_first_
         .expect("exact display reference search");
 
     assert_eq!(page.items.len(), 1);
-    assert_eq!(page.items[0].public_id.value(), 72);
-    assert_eq!(page.items[0].version_number.value(), 1);
+    assert_eq!(page.items[0].question_id.to_string(), exact_reference);
     assert_eq!(page.next_cursor, None);
 }
 

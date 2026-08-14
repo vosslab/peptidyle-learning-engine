@@ -11,6 +11,7 @@ import pytest
 WALKTHROUGH_DIRECTORY = pathlib.Path(__file__).resolve().parent / "walkthrough"
 sys.path.insert(0, str(WALKTHROUGH_DIRECTORY))
 walkthrough = importlib.import_module("walklib.runner")
+instructor_handoff = importlib.import_module("walklib.instructor_handoff")
 
 
 class RecordingCommands:
@@ -22,24 +23,6 @@ class RecordingCommands:
 	def __call__(self, command: list[str], environ: dict[str, str] | None) -> object:
 		self.calls.append((command, environ))
 		return walkthrough.CommandResult(0, "", "")
-
-
-class ResourceCommands:
-	"""Record read-only Podman ownership queries and optionally expose one stale resource."""
-
-	def __init__(self, stale_resource: str | None = None) -> None:
-		self.stale_resource = stale_resource
-		self.calls: list[list[str]] = []
-
-	def __call__(self, command: list[str], _environ: dict[str, str] | None) -> object:
-		self.calls.append(command)
-		resource_type = "containers"
-		if command[1:3] == ["volume", "ls"]:
-			resource_type = "volumes"
-		elif command[1:3] == ["network", "ls"]:
-			resource_type = "networks"
-		stdout = "stale\n" if resource_type == self.stale_resource else ""
-		return walkthrough.CommandResult(0, stdout, "")
 
 
 class StackCommands:
@@ -67,6 +50,8 @@ def write_env_file(repository: pathlib.Path, relative_path: str, port: int) -> p
 	path = repository / relative_path
 	path.parent.mkdir(parents=True, exist_ok=True)
 	path.write_text(f"PLE_GATEWAY_HOST_PORT={port}\n", encoding="ascii")
+	compose_file = repository / "containers" / "compose.yaml"
+	compose_file.write_text("services: {}\n", encoding="ascii")
 	return path
 
 
@@ -110,6 +95,66 @@ def chapter_one_manifest(display_ids: tuple[str, str, str, str]) -> str:
 	return contents
 
 
+#============================================
+def test_instructor_handoff_accepts_only_human_route_references(tmp_path: pathlib.Path) -> None:
+	"""The browser-created handoff gives learners C-* and A-* references, never UUIDs."""
+	tmp_path.chmod(0o700)
+	journeys = [
+		{
+			"schemaVersion": 2,
+			"journey": "J11",
+			"status": "PASS",
+			"elapsedMs": 1,
+			"courseReference": "C-42",
+			"visibleOutcomeCodes": ["visible_course_created", "visible_course_opened"],
+			"diagnostics": [],
+		},
+		{
+			"schemaVersion": 2,
+			"journey": "J12",
+			"status": "PASS",
+			"elapsedMs": 2,
+			"courseReference": "C-42",
+			"visibleOutcomeCodes": ["visible_local_student_active"],
+			"diagnostics": [],
+		},
+		{
+			"schemaVersion": 2,
+			"journey": "J13",
+			"status": "PASS",
+			"elapsedMs": 3,
+			"courseReference": "C-42",
+			"assignmentReference": "A-73",
+			"selectedDisplayIds": ["7K3-M9QP", "ABC-123T", "PEP-T1D3", "GEN-E42K"],
+			"visibleOutcomeCodes": [
+				"visible_assignment_created",
+				"visible_catalog_problem_selected",
+				"visible_four_question_chapter_one_selection",
+				"visible_mastery_policy",
+			],
+			"diagnostics": [],
+		},
+	]
+	journey_file = tmp_path / "journeys.json"
+	journey_file.write_text(json.dumps(journeys, separators=(",", ":")) + "\n", encoding="ascii")
+	journey_file.chmod(0o600)
+	assert instructor_handoff.read_handoff(
+		journey_file,
+		[{"label": "launcher-chapter-one-genetics"}],
+		["7K3-M9QP", "ABC-123T", "PEP-T1D3", "GEN-E42K"],
+	) == ("C-42", "A-73")
+
+	journeys[2]["assignmentReference"] = "123e4567-e89b-12d3-a456-426614174001"
+	journey_file.write_text(json.dumps(journeys, separators=(",", ":")) + "\n", encoding="ascii")
+	journey_file.chmod(0o600)
+	with pytest.raises(walkthrough.RunnerError, match="public-ID handoff"):
+		instructor_handoff.read_handoff(
+			journey_file,
+			[{"label": "launcher-chapter-one-genetics"}],
+			["7K3-M9QP", "ABC-123T", "PEP-T1D3", "GEN-E42K"],
+		)
+
+
 def test_selected_env_file_wins_and_ple_values_are_not_forwarded(tmp_path: pathlib.Path) -> None:
 	"""Child configuration comes from the selected explicit file, not ambient PLE values."""
 	repository = tmp_path / "repository"
@@ -128,10 +173,14 @@ def test_selected_env_file_wins_and_ple_values_are_not_forwarded(tmp_path: pathl
 
 #============================================
 def test_private_stack_environment_preserves_source_and_owns_image(tmp_path: pathlib.Path) -> None:
-	"""The launcher gets a 0600 copied env file with a project-specific application image."""
+	"""The launcher gets compact settings plus runner-owned paths and image identity."""
 	repository = tmp_path / "repository"
 	source = write_env_file(repository, "containers/env.local", 3010)
-	source.write_text("PLE_GATEWAY_HOST_PORT=3010\nPOSTGRES_PASSWORD=private\n", encoding="ascii")
+	source.write_text(
+		"# Operator guidance remains in the selected source file.\n"
+		"PLE_GATEWAY_HOST_PORT=3010\n\nPOSTGRES_PASSWORD=private\n",
+		encoding="ascii",
+	)
 	runner = walkthrough.WalkthroughRunner(resolved_inputs(repository), repository, {}, RecordingCommands())
 	runner.prepare_journey_state()
 	runner.create_private_stack_environment()
@@ -139,20 +188,25 @@ def test_private_stack_environment_preserves_source_and_owns_image(tmp_path: pat
 	private_contents = private_env.read_text(encoding="ascii")
 	runner.remove_private_state()
 
-	assert source.read_text(encoding="ascii") == "PLE_GATEWAY_HOST_PORT=3010\nPOSTGRES_PASSWORD=private\n"
+	assert source.read_text(encoding="ascii").startswith("# Operator guidance")
+	assert "# Operator guidance" not in private_contents
+	assert "PLE_GATEWAY_HOST_PORT=3010\nPOSTGRES_PASSWORD=private\n" in private_contents
 	assert f"PLE_APPLICATION_IMAGE=localhost/peptidyle-learning-engine:{runner.compose_project_name}" in private_contents
 	assert f"PLE_LOCAL_AUTH_HOST_FILE={private_env.parent}/local-identities.json" in private_contents
 	assert f"PLE_INVITATION_TOKEN_SECRET_HOST_FILE={private_env.parent}/.secrets/invitation_token_secret" in private_contents
+	assert f"PLE_QUESTION_ID_SECRET_HOST_FILE={private_env.parent}/.secrets/question_id_secret" in private_contents
 	assert private_env.parent.name.startswith("ple-ui-walkthrough-") and not private_env.exists()
 
 
 #============================================
 def test_private_stack_preflight_refuses_other_ple_stack_and_listener() -> None:
-	"""Fixed-port acceptance will not overlap an existing PLE project or arbitrary listener."""
-	with pytest.raises(walkthrough.RunnerError, match="default PLE stack"):
-		walkthrough.assert_no_active_ple_stack(StackCommands(project="containers"))
+	"""The walkthrough keeps the fixed host-port check separate from controller discovery."""
 	with pytest.raises(walkthrough.RunnerError, match="local port 9000"):
-		walkthrough.assert_ports_available((5432, 9000), StackCommands(listener_port=9000))
+		walkthrough.assert_ports_available(
+			(5432, 9000),
+			pathlib.Path("/repository"),
+			walkthrough.WalkthroughControllerRunner(StackCommands(listener_port=9000)),
+		)
 
 
 #============================================
@@ -201,33 +255,6 @@ def test_selected_env_file_cannot_override_disposable_project_ownership(
 
 
 #============================================
-def test_project_ownership_inspects_every_resource_type_and_compose_label() -> None:
-	"""Preflight queries containers, volumes, and networks for both Compose label conventions."""
-	commands = ResourceCommands()
-	project_name = "ple-ui-walkthrough-0123456789abcdef"
-	walkthrough.assert_no_stale_project_resources(project_name, commands)
-	resource_types = {
-		"containers" if command[1] == "ps" else f"{command[1]}s"
-		for command in commands.calls
-	}
-	labels = {command[-1] for command in commands.calls}
-
-	assert resource_types == {"containers", "volumes", "networks"}
-	assert labels == {
-		f"label=io.podman.compose.project={project_name}",
-		f"label=com.docker.compose.project={project_name}",
-	}
-
-
-@pytest.mark.parametrize("stale_resource", ["containers", "volumes", "networks"])
-def test_stale_compose_project_resource_fails_closed(stale_resource: str) -> None:
-	"""Any stale resource prevents a runner from claiming disposable cleanup ownership."""
-	with pytest.raises(walkthrough.RunnerError, match=f"stale {stale_resource}"):
-		walkthrough.assert_no_stale_project_resources(
-			"ple-ui-walkthrough-0123456789abcdef", ResourceCommands(stale_resource)
-		)
-
-
 #============================================
 def test_lifecycle_scopes_stack_children_and_keep_cleanup(
 	tmp_path: pathlib.Path,
@@ -240,7 +267,6 @@ def test_lifecycle_scopes_stack_children_and_keep_cleanup(
 	runner = walkthrough.WalkthroughRunner(
 		resolved_inputs(repository, "--keep"), repository, {"PLE_SECRET": "not-forwarded"}, commands
 	)
-	runner.compose_command = ["podman", "compose"]
 	runner.prepare_report_directory()
 	runner.prepare_journey_state()
 	runner.create_private_stack_environment()
@@ -285,7 +311,7 @@ def test_instructor_arrangement_uses_only_private_launcher_manifest(tmp_path: pa
 	repository = tmp_path / "repository"
 	write_env_file(repository, "containers/env.local", 3010)
 	stale_manifest = repository / "containers/local-chapter-one-pilot.json"
-	stale_contents = chapter_one_manifest(("P-10-v1", "P-11-v1", "P-12-v1", "P-13-v1"))
+	stale_contents = chapter_one_manifest(("000-001X", "7K3-M9QP", "ABC-123T", "PEP-T1D3"))
 	stale_manifest.write_text(stale_contents, encoding="ascii")
 	stale_manifest.chmod(0o600)
 	runner = walkthrough.WalkthroughRunner(
@@ -294,7 +320,7 @@ def test_instructor_arrangement_uses_only_private_launcher_manifest(tmp_path: pa
 	runner.prepare_journey_state()
 	runner.create_private_stack_environment()
 	private_manifest = runner.stack_env_file().parent / "local-chapter-one-pilot.json"
-	private_contents = chapter_one_manifest(("P-1-v1", "P-2-v1", "P-3-v1", "P-4-v1"))
+	private_contents = chapter_one_manifest(("7K3-M9QP", "ABC-123T", "PEP-T1D3", "GEN-E42K"))
 	private_manifest.write_text(private_contents, encoding="ascii")
 	private_manifest.chmod(0o600)
 	runner.write_private_child_inputs(
@@ -311,7 +337,12 @@ def test_instructor_arrangement_uses_only_private_launcher_manifest(tmp_path: pa
 		observed["path"] = str(manifest_path)
 		observed["contents"] = manifest_path.read_text(encoding="ascii")
 		runner.arrangements = [{"label": "launcher-chapter-one-genetics"}]
-		runner.instructor_catalog_display_ids = ("P-1-v1", "P-2-v1", "P-3-v1", "P-4-v1")
+		runner.instructor_catalog_display_ids = (
+			"7K3-M9QP",
+			"ABC-123T",
+			"PEP-T1D3",
+			"GEN-E42K",
+		)
 
 	runner.arrange = record_private_arrangement
 	runner.arrange_instructor_setup()

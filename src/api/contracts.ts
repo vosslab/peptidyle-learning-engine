@@ -15,6 +15,7 @@ import type { StudentAssignmentSummary } from "../../generated/api/StudentAssign
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
 import type { WorkspaceDraftSummary } from "../../generated/api/WorkspaceDraftSummary";
+import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { Capability } from "../../generated/api/Capability";
 import type { ProblemVersionRef } from "../../generated/api/ProblemVersionRef";
 import type { PublicationScope } from "../../generated/api/PublicationScope";
@@ -32,6 +33,7 @@ import type { CourseAppearance } from "../../generated/api/CourseAppearance";
 import type { Seed } from "../../generated/api/Seed";
 import type { VersionId } from "../../generated/api/VersionId";
 import type { AssignmentRunTiming } from "../../generated/api/AssignmentRunTiming";
+import type { AssignmentPublicId } from "../../generated/api/AssignmentPublicId";
 
 export type { AssignmentSummary, CourseSummary };
 export type { GradebookSummaryRow };
@@ -52,6 +54,7 @@ export interface CourseRouteData {
  */
 export interface AssignmentEditorDetail {
   readonly id: AssignmentId;
+  readonly publicId: AssignmentPublicId;
   /** Tenant ownership remains visible to existing assignment consumers. */
   readonly tenant: TenantId;
   readonly courseId: CourseId;
@@ -63,6 +66,17 @@ export interface AssignmentEditorDetail {
   /** Strong server-issued ETag; send it byte-for-byte when updating. */
   readonly revision: string;
 }
+
+/** Authorized resolution of one compact reference to a browser API identity. */
+export type NavigationResolution =
+  | { readonly kind: "course"; readonly courseId: CourseId }
+  | {
+      readonly kind: "assignment";
+      readonly courseId: CourseId;
+      readonly assignmentId: AssignmentId;
+    }
+  | { readonly kind: "run"; readonly runId: RunId }
+  | { readonly kind: "workspace"; readonly workspaceId: WorkspaceId };
 
 /** The exact mutable body accepted for assignment creation and replacement. */
 export interface AssignmentEditorInput {

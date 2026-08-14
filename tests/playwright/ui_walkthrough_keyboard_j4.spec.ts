@@ -32,7 +32,7 @@ async function signInAndResumeSecondRun(page: Page, inputs: UiWalkthroughInputs)
   await expect(signIn).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-route-surface=courses]")).toBeVisible();
-  const course = page.locator(`a[href="/courses/${inputs.courseId}"]`);
+  const course = page.locator(`a[href="/courses/${inputs.courseReference}"]`);
   await tabToTargetThroughVisiblePagination(page, {
     target: course,
     renderedItems: page.locator(".course-card"),
@@ -49,7 +49,7 @@ async function signInAndResumeSecondRun(page: Page, inputs: UiWalkthroughInputs)
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
   const assignment = page.locator(
-    `a[href="/courses/${inputs.courseId}/assignments/${inputs.masteryAssignmentId}"]`,
+    `a[href="/courses/${inputs.courseReference}/assignments/${inputs.masteryAssignmentReference}"]`,
   );
   await tabToTargetThroughVisiblePagination(page, {
     target: assignment,
@@ -145,8 +145,8 @@ test("J4 completes the resumed second Mastery run through visible keyboard contr
     inputs.journeyStateFile,
     passedStudentRepeatFragment(
       "J4",
-      inputs.courseId,
-      inputs.masteryAssignmentId,
+      inputs.courseReference,
+      inputs.masteryAssignmentReference,
       Math.round(performance.now() - startedAt),
     ),
   );

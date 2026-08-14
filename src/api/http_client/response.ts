@@ -53,6 +53,7 @@ import {
   decodeTaxonomyPage,
   decodeWorkspaceDraftPage,
   decodePublicationDiff,
+  decodeNavigationResolution,
 } from "../decoders";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import {
@@ -275,6 +276,7 @@ export function createResponseClient(
 ): Pick<
   ApiClient,
   | "listWorkspaceDrafts"
+  | "resolveNavigation"
   | "getWorkspaceDraft"
   | "getWorkspacePublicationDiff"
   | "listProblems"
@@ -304,6 +306,13 @@ export function createResponseClient(
   | "assetUrl"
 > {
   return {
+    resolveNavigation: (reference) =>
+      requestJson(
+        fetchImplementation,
+        basePath,
+        `/api/navigation/${encodedId(reference)}`,
+        decodeNavigationResolution,
+      ),
     listWorkspaceDrafts: (cursor) =>
       requestJson(
         fetchImplementation,

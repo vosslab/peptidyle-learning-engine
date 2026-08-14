@@ -1,6 +1,6 @@
 // course_appearance_page.tsx - instructor theme and entry-banner settings.
 
-import { A, revalidate, useParams } from "@solidjs/router";
+import { A, revalidate } from "@solidjs/router";
 import {
   For,
   Show,
@@ -17,12 +17,17 @@ import type { CourseBannerAlternativeText } from "../../../generated/api/CourseB
 import type { CourseBannerCandidateId } from "../../../generated/api/CourseBannerCandidateId";
 import type { CourseThemeId } from "../../../generated/api/CourseThemeId";
 import { useApiRuntime } from "../../api/runtime";
+import { CourseManagementNav } from "../../components/course_management_nav";
 import {
   ApiRequestError,
   CourseAppearanceConflictError,
   CourseAppearanceFileError,
 } from "../../api/http_client";
-import { courseRouteData, useCourseThemeRouteData } from "./course_theme_context";
+import {
+  courseRouteData,
+  useCourseThemePresentation,
+  useCourseThemeRouteData,
+} from "./course_theme_context";
 import {
   courseAppearanceBannerWillDisplay,
   courseAppearanceDraftAlternativeText,
@@ -41,6 +46,7 @@ import {
 import { createCourseAppearanceRepository } from "./course_appearance_repository";
 import { COURSE_APPEARANCE_STYLES } from "./course_appearance_styles";
 import { COURSE_THEME_OPTIONS, courseThemeStyle, courseThemeTokens } from "./theme_catalog";
+import { courseRouteReference } from "../../navigation/public_route";
 
 type SavePhase = "ready" | "uploading" | "saving" | "reloading";
 
@@ -113,8 +119,8 @@ function safeErrorMessage(error: unknown): string {
 /** Working course-local settings form; no answer-bearing value or object key enters this surface. */
 export function CourseAppearancePage(): JSX.Element {
   const runtime = useApiRuntime();
-  const params = useParams();
   const routeThemeData = useCourseThemeRouteData();
+  const updateRoutePresentation = useCourseThemePresentation();
   if (routeThemeData === undefined) {
     return (
       <section class="page" data-route-surface="courseAppearance">
@@ -128,13 +134,13 @@ export function CourseAppearancePage(): JSX.Element {
     );
   }
   const course = courseRouteData(routeThemeData);
-  if (params["courseId"] !== course.summary.id || course.summary.role !== "instructor") {
+  if (course.summary.role !== "instructor") {
     return (
       <section class="page" data-route-surface="courseAppearance">
         <p class="eyebrow">Course settings</p>
         <h1>Course appearance is not available for this account</h1>
         <p class="page-lede">Only a course instructor can change its appearance.</p>
-        <A class="quiet-link" href={`/courses/${encodeURIComponent(course.summary.id)}`}>
+        <A class="quiet-link" href={`/courses/${courseRouteReference(course.summary.publicId)}`}>
           Return to course
         </A>
       </section>
@@ -290,6 +296,7 @@ export function CourseAppearancePage(): JSX.Element {
         current().revision,
       );
       setCurrent(saved);
+      updateRoutePresentation?.(saved);
       setDraft(initialCourseAppearanceDraft(saved));
       clearSelectedFile();
       setFieldErrors({});
@@ -328,6 +335,7 @@ export function CourseAppearancePage(): JSX.Element {
     try {
       const newest = await repository.load(course.summary.id);
       setCurrent(newest);
+      updateRoutePresentation?.(newest);
       setDraft(initialCourseAppearanceDraft(newest));
       clearSelectedFile();
       setFieldErrors({});
@@ -355,6 +363,7 @@ export function CourseAppearancePage(): JSX.Element {
         Give {course.summary.title} a recognizable color theme and optional entry banner. The course
         title stays readable text, and the selected theme applies only inside this course.
       </p>
+      <CourseManagementNav coursePublicId={course.summary.publicId} active="appearance" />
 
       <Show when={conflict()}>
         <section class="course-appearance-conflict" role="alert">
@@ -409,7 +418,10 @@ export function CourseAppearancePage(): JSX.Element {
             <div class="course-appearance-theme-grid">
               <For each={COURSE_THEME_OPTIONS}>
                 {(option) => (
-                  <label class="course-appearance-theme-card">
+                  <label
+                    class="course-appearance-theme-card"
+                    style={courseThemeStyle(option.tokens)}
+                  >
                     <input
                       type="radio"
                       name="course-theme"

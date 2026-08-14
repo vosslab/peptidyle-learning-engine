@@ -24,7 +24,10 @@ mod enrollment;
 mod import;
 
 use authority::require_course;
-pub(super) use authority::{require_course_instructor, require_course_roster_authority};
+pub(super) use authority::{
+    precheck_course_roster_authority, require_audited_course_roster_actor,
+    require_course_instructor,
+};
 
 #[async_trait]
 impl CourseRosterStore for PostgresStore {
@@ -35,14 +38,13 @@ impl CourseRosterStore for PostgresStore {
         course: CourseId,
         page: PageRequest,
     ) -> Result<CourseRosterPage, StoreError> {
-        let mut transaction = self.begin_tenant_snapshot(context).await?;
+        let mut transaction = self.begin_tenant_writable_snapshot(context).await?;
         require_course(&mut transaction, context.tenant_id(), course).await?;
-        require_course_roster_authority(
+        require_audited_course_roster_actor(
             &mut transaction,
             session,
             course,
             CourseRosterSupportAction::ListRoster,
-            true,
         )
         .await?;
         let policy = load_policy(&mut transaction, context.tenant_id(), course, false).await?;
@@ -115,21 +117,13 @@ impl CourseRosterStore for PostgresStore {
     ) -> Result<CourseInvitation, StoreError> {
         let tenant = context.tenant_id();
         let mut transaction = self.begin_tenant(context).await?;
-        require_course_roster_authority(
-            &mut transaction,
-            session,
-            command.course,
-            CourseRosterSupportAction::CreateInvitation,
-            false,
-        )
-        .await?;
+        precheck_course_roster_authority(&mut transaction, session, command.course).await?;
         lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-        let actor = require_course_roster_authority(
+        let actor = require_audited_course_roster_actor(
             &mut transaction,
             session,
             command.course,
             CourseRosterSupportAction::CreateInvitation,
-            true,
         )
         .await?;
         let policy = load_policy(&mut transaction, tenant, command.course, true).await?;
@@ -225,21 +219,13 @@ impl CourseRosterStore for PostgresStore {
             .validate_shape()
             .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
         let mut transaction = self.begin_tenant(context).await?;
-        require_course_roster_authority(
-            &mut transaction,
-            session,
-            command.course,
-            CourseRosterSupportAction::ReplaceEnrollmentPolicy,
-            false,
-        )
-        .await?;
+        precheck_course_roster_authority(&mut transaction, session, command.course).await?;
         lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-        require_course_roster_authority(
+        require_audited_course_roster_actor(
             &mut transaction,
             session,
             command.course,
             CourseRosterSupportAction::ReplaceEnrollmentPolicy,
-            true,
         )
         .await?;
         let current = load_policy(&mut transaction, tenant, command.course, true).await?;
@@ -463,21 +449,13 @@ impl CourseRosterStore for PostgresStore {
     ) -> Result<RosterRevision, StoreError> {
         let tenant = context.tenant_id();
         let mut transaction = self.begin_tenant(context).await?;
-        require_course_roster_authority(
-            &mut transaction,
-            session,
-            command.course,
-            CourseRosterSupportAction::RevokeMember,
-            false,
-        )
-        .await?;
+        precheck_course_roster_authority(&mut transaction, session, command.course).await?;
         lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-        require_course_roster_authority(
+        require_audited_course_roster_actor(
             &mut transaction,
             session,
             command.course,
             CourseRosterSupportAction::RevokeMember,
-            true,
         )
         .await?;
         let current = load_policy(&mut transaction, tenant, command.course, true).await?;
@@ -541,21 +519,13 @@ impl CourseRosterStore for PostgresStore {
     ) -> Result<RosterRevision, StoreError> {
         let tenant = context.tenant_id();
         let mut transaction = self.begin_tenant(context).await?;
-        require_course_roster_authority(
-            &mut transaction,
-            session,
-            command.course,
-            CourseRosterSupportAction::RevokeInvitation,
-            false,
-        )
-        .await?;
+        precheck_course_roster_authority(&mut transaction, session, command.course).await?;
         lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-        require_course_roster_authority(
+        require_audited_course_roster_actor(
             &mut transaction,
             session,
             command.course,
             CourseRosterSupportAction::RevokeInvitation,
-            true,
         )
         .await?;
         let current = load_policy(&mut transaction, tenant, command.course, true).await?;

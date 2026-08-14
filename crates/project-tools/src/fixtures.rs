@@ -1,4 +1,4 @@
-//! Typed WP-C7 fixture generation.
+//! Typed fixture generation for mock browser handlers.
 //!
 //! The committed JSON and asset files are intentional review evidence. The
 //! TypeScript module is a fully derivative projection written under ignored
@@ -199,10 +199,10 @@ fn build_corpus() -> Result<FixtureCorpus> {
     let adapter = NativeAdapter::new();
     let catalog_problem = CatalogProblemSummary {
         problem,
-        public_id: question_model::ProblemPublicId::new(1).expect("fixture public ID is positive"),
+        question_id: "7K3-M9QP"
+            .parse()
+            .expect("fixture Question ID is canonical"),
         version,
-        version_number: question_model::ProblemVersionNumber::new(1)
-            .expect("fixture version is positive"),
         backend: QuestionBackend::Native,
         capabilities: adapter.capabilities(&published_problem.source)?,
         metadata: published_problem.metadata.clone(),
@@ -243,6 +243,10 @@ fn build_corpus() -> Result<FixtureCorpus> {
         .enumerate()
         .map(|(index, id)| AssignmentRun {
             id: *id,
+            public_id: question_model::RunPublicId::new(
+                u64::try_from(index + 1).expect("four fixture runs fit u64"),
+            )
+            .expect("four fixture public run IDs are valid"),
             tenant,
             enrollment: enrollment_id,
             run_number: u32::try_from(index + 1).expect("four fixture runs fit u32"),
@@ -297,12 +301,15 @@ fn build_corpus() -> Result<FixtureCorpus> {
         assets,
         course: CourseSummary {
             id: course_id,
+            public_id: question_model::CoursePublicId::new(1).expect("valid public course ID"),
             tenant,
             title: "BIOC 301: Biochemistry".to_string(),
             role: CourseMembershipRole::Student,
         },
         assignment: AssignmentSummary {
             id: assignment_id,
+            public_id: question_model::AssignmentPublicId::new(1)
+                .expect("valid public assignment ID"),
             tenant,
             course_id,
             title: "Peptide bond mastery".to_string(),
@@ -334,6 +341,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
             course_id,
             enrollment_id,
             student_id: student,
+            learner_name: "Jordan Learner".to_string(),
             assignment_id,
             assignment_title: "Peptide bond mastery".to_string(),
             summary: summary.clone(),

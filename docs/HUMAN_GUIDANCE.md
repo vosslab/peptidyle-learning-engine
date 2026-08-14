@@ -35,6 +35,37 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   representative 800 by 1280 student/tablet path, and keep one narrow-phone compatibility guard.
   Do not expand the viewport matrix without a demonstrated product problem.
 
+## Interface composition and accessibility
+
+- Compose pages around the teaching task, not around individually padded components. Review
+  typography, spacing, alignment, borders, controls, navigation, content width, and information
+  grouping together. Prefer shared shell and design-system corrections when the same problem appears
+  on several pages.
+- Optimize instructor workflows first for a 1280 by 800 CSS-pixel laptop viewport. Assignment
+  authoring, problem selection and organization, gradebook, roster, course management, workspace,
+  and library pages should use most of the useful width when it improves scanning or editing. Four
+  selected problems, their policies, and the save action should fit comfortably in that workspace.
+- Keep student workflows responsive across the representative tablet and narrow-phone guards. A
+  wide screen should not force the learner's attention across an arbitrary prompt/response split;
+  keep each question and its response controls in one readable composition.
+- Establish hierarchy with composition and spacing before adding borders, weight, or color. Use
+  compact page headings, quiet secondary actions, restrained dividers, and visible grouping. Do not
+  make every control look equally important.
+- Keep accessible names, semantics, keyboard operation, readable text, non-color status cues, and
+  visible focus in every presentation. Increased contrast is a user-selectable presentation mode,
+  not the visual default for every user. Standard presentation should meet the accepted 5.5:1
+  ordinary-text target while preserving the selected course palette; increased contrast may use
+  stronger text, boundaries, and focus treatment without changing content or behavior.
+- Use a precise, element-sized focus indicator. Do not place thick dark rings around an entire page
+  or content region when the focused control can be identified directly.
+- Do not reserve a persistent footer band for a slogan on teaching workspaces where vertical space
+  is scarce.
+- Treat Courses as the instructor home workspace instead of copying ADAPT's generic Dashboard
+  dropdown. Keep Courses, Library, Workspace, and Account directly visible as distinct global
+  destinations; after opening a course, use course-local navigation for assignments, learners,
+  gradebook, and appearance. Add a separate dashboard only for a demonstrated cross-course task that
+  the object-centered workspaces cannot serve.
+
 ## Plan status
 
 - Treat `docs/active_plans/implementation_plan.md` as the source of truth for
@@ -76,6 +107,10 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 ## Agent-specific guidance
 
 - Codex follows `AGENTS.md` and the repository style documents.
+- A goal is not complete until the entire plan-scoped Validation test suite defined in
+  [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite) is green on the final
+  material tree. Required skips and unrun gates are not green; later material changes invalidate the
+  affected evidence. Keep the goal active until those gates and required independent reviews pass.
 - `docs/CLAUDE_HOOK_USAGE_GUIDE.md` is specific to Claude tooling and does not
   govern Codex commands or file-search behavior.
 - Choose the robust, clean methodology and keep pushing forward while the next
@@ -113,10 +148,29 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 ## Local services
 
 - Podman is normally running on the owner's machine.
+- Use `source source_me.sh && python3 local_stack.py` as the normal local-stack controller. Its typed
+  reusable layer is also the common lifecycle contract for Codex, aggregate Playwright acceptance,
+  and canonical walkthrough disposable ownership; do not recreate provider selection, env-file
+  sanitization, label discovery, readiness, or generic cleanup in each shell/test runner.
+- Keep `launch_local_stack.sh` as the single build, bootstrap, migration, seed, renderer-probe, and
+  readiness owner behind that controller. The controller must delegate that work rather than create a
+  second local-stack initialization path.
+- Local-stack lifecycle tools may inspect any Compose project by label, but mutating commands should
+  affect only the default pre-production `containers` project unless a typed disposable-owner contract
+  explicitly supplies its private environment, compose target, owner evidence, and exact cleanup scope.
+- Label-derived containers, volumes, and networks are the source of truth for lifecycle scope; generated
+  resource names are not authority. The default controller never accepts arbitrary destructive project,
+  image, network, volume, force, or prune behavior.
+- A destructive local reset must show the exact project and resources, require the visible project
+  confirmation `--confirm-project containers`, and avoid global Podman prune/remove behavior.
 - Use the local containers when the active work package reaches a documented
   PostgreSQL, MinIO, health, tenancy, or other container-dependent gate.
 - Keep offline contract work on memory backends when its work-package gate does
   not require containers.
+- Start live or full-stack Playwright only after every required long-running
+  Podman service is active, each declared health check passes, and every
+  one-shot setup service exits successfully. Keep mock-backed browser tests
+  clearly separate because they do not claim local-stack acceptance.
 
 ## Teaching and product priorities
 
@@ -126,19 +180,34 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   users. Keep explicit versioning where it defines the current external or
   artifact protocol and supports future evolution; ordinary disposable local
   data may be rebuilt.
+- Do not squash the current PostgreSQL migration ledger during active feature
+  acceptance. Before the first production deployment, replace the unreleased
+  history with one reviewed clean-cluster baseline. After that baseline ships,
+  preserve each new forward migration as the durable upgrade ledger.
 - Push harder on the visual design. Make the interface less bubbly, especially by reducing overly
   padded content.
 - Use human-readable identifiers for workflows where people need to read, recognize, communicate,
   copy, or enter an identifier. Size identifiers according to the uniqueness actually required by
   their scope. Keep opaque globally unique identifiers for internal boundaries where that level of
   uniqueness is useful.
-- Use human-readable problem titles and copyable `P-<number>-v<version>` identities in instructor
-  workflows and documentation. Keep problem/version UUIDs as internal routing and persistence
-  identifiers rather than asking people to recognize or assign them. A visible friendly label alone
-  is not sufficient: an instructor must be able to copy one or more exact `P-<number>-v<version>`
-  identities from the problem library, paste them into an assignment's add-by-ID field, and add
-  those exact immutable versions without reading or entering a UUID. Preserve pasted input and the
-  unchanged assignment when an ID is malformed, unavailable, unauthorized, or already selected.
+- Never present a UUID in visible or announced page content, application navigation URLs, or
+  user-copyable links. Browser routes use short typed human references such as `C-123`, `A-456`,
+  `R-789`, and `W-42`; questions use the Crockford Base32 identity defined in
+  `docs/QUESTION_ID_SPEC.md`. Resolve every reference under the current
+  tenant, role, membership, and ownership boundary. A public reference is a locator, never authority.
+  Background API and asset requests and hidden form values may retain internal UUIDs when needed.
+- Use human-readable problem titles and one copyable, non-sequential Crockford Base32 Question ID in
+  instructor workflows and documentation. Display the ID as `AAA-BBBB`; accept forgiving Crockford
+  input; and never expose a question's internal UUID, historical snapshot UUID, sequential database
+  value, or version number as its identity. An instructor may use the ID for occasional direct
+  lookup, but assignment copy/import and a checklist from an existing assignment are the preferred
+  ways to reuse a group of questions. Preserve entered input and the unchanged assignment when an ID
+  is malformed, unavailable, unauthorized, or already selected.
+- Treat one Question ID as one current question. The original owner may publish a bug correction
+  that propagates forward to uses of that question. A substantive independently editable change is
+  a fork with a new Question ID and retained provenance. Keep immutable snapshots and exact hidden
+  `(ProblemId, VersionId)` attempt evidence only where grading reproducibility, audit, or provenance
+  requires it; do not turn that history into instructor-facing versions.
 - The product supports learning through repeated algorithmic practice. A first
   completion or a 100 percent score must not end continued practice when policy
   permits another run.
@@ -197,9 +266,10 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   Keep the complete Genetics-plus-Biochemistry eight-question learner sweep as a separate release
   gate so the walkthrough remains focused without substituting a synthetic one-question story for
   release content.
-- Have the instructor visibly copy and paste the four Genetics Chapter 1 `P-n-vn` identities into
-  the assignment editor during that walkthrough, then visibly confirm the four selected immutable
-  versions before creating the assignment.
+- Have the instructor visibly copy or import the Genetics Chapter 1 assignment, then confirm its
+  four recognizable question titles and Crockford Base32 Question IDs before creating the target
+  assignment. The workflow must not reconstruct a teaching set from ranges, sequential numbers,
+  version suffixes, or UUIDs.
 - Keep the public pilot guides visually complete. Show the instructor's course, roster, published
   problem selection, and assignment settings. Show the student's assignment list, live timed
   problem, score, and visible option to start another practice run.
@@ -328,8 +398,18 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   logo. Treat the pale fill as logo-derived inspiration, not as an official brand-guide swatch, and
   do not present PLE as official Roosevelt branding.
 - Keep raw palette anchors decorative when they do not meet the product's contrast target. Derive
-  accessible action, link, text, focus, and boundary colors without expanding the three stored
-  theme choices.
+  readable action, link, text, focus, and boundary colors without expanding the three stored theme
+  choices. In standard presentation, keep those derived colors visually related to the palette and
+  avoid pushing ordinary text toward near-black-on-white when the 5.5:1 target is already met.
+- Treat each stored course palette as a meaningful visual system, not three decorative accent
+  swatches on an otherwise identical white page. Standard presentation should use subtle
+  palette-derived canvas, navigation, grouping, and active-state surfaces. Increased contrast keeps
+  the course's hues and identity while strengthening the rendered pairs that benefit from it.
+- Keep the stored three-color anchors stable when the weakness is in presentation rather than the
+  palette. Tune the centralized palette-to-role recipe and shared course-scope controls first so the
+  full canvas, tinted work surfaces, readable cards, active navigation, and accent treatment can
+  evolve together. Theme selection and review artifacts should preview those applied roles rather
+  than letting an optional banner or tiny swatches stand in for the theme.
 - Use biome and habitat theme names that give a sense of color on their own:
   tundra, forest, desert, grass, arctic, ocean, tropical, woodland, coral reef,
   swamp, underground, salt marsh, wetland, sea floor, magma, and beach.

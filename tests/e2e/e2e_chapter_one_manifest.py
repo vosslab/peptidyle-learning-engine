@@ -30,7 +30,7 @@ EXPECTED_CHAPTERS = (
         ),
     ),
 )
-DISPLAY_ID_PATTERN = re.compile(r"P-[1-9][0-9]*-v1\Z")
+QUESTION_ID_PATTERN = re.compile(r"[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}\Z")
 
 
 def fail(message: str) -> None:
@@ -95,8 +95,8 @@ def validate(manifest: dict[str, object]) -> None:
             if question["slug"] != expected_question:
                 fail(f"{expected_slug} question {question_index} is not {expected_question}")
             display_id = question["displayId"]
-            if not isinstance(display_id, str) or not DISPLAY_ID_PATTERN.fullmatch(display_id):
-                fail(f"{expected_question} lacks a human-readable P-number identity")
+            if not isinstance(display_id, str) or not QUESTION_ID_PATTERN.fullmatch(display_id):
+                fail(f"{expected_question} lacks a canonical human-readable Question ID")
             display_ids.append(display_id)
             require_uuid(question["problemId"], f"{expected_question}.problemId")
             require_uuid(question["versionId"], f"{expected_question}.versionId")

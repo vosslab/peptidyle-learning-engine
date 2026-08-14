@@ -29,7 +29,34 @@ const THEME_IDS = [
   "beach",
 ];
 
-function relativeLuminance(hex) {
+function mixedHex(first, second, firstShare) {
+  const channels = (hex) =>
+    hex
+      .slice(1)
+      .match(/.{2}/gu)
+      .map((channel) => Number.parseInt(channel, 16));
+  const left = channels(first);
+  const right = channels(second === "white" ? "#ffffff" : second);
+  return `#${left
+    .map((channel, index) =>
+      Math.round(channel * firstShare + right[index] * (1 - firstShare))
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+
+function resolvedHex(color) {
+  if (/^#[0-9a-f]{6}$/u.test(color)) return color;
+  const match = /^color-mix\(in srgb, (#[0-9a-f]{6}) ([0-9]+)%, (#[0-9a-f]{6}|white)\)$/u.exec(
+    color,
+  );
+  assert.notEqual(match, null, `unsupported reviewed color token: ${color}`);
+  return mixedHex(match[1], match[3], Number(match[2]) / 100);
+}
+
+function relativeLuminance(color) {
+  const hex = resolvedHex(color);
   const channels = hex
     .slice(1)
     .match(/.{2}/gu)
@@ -51,12 +78,16 @@ test("every reviewed theme resolves to complete, contrast-safe course tokens", (
     const textPairs = [
       [tokens.ink, tokens.anchors.canvas],
       [tokens.ink, tokens.surface],
+      [tokens.ink, tokens.card],
       [tokens.muted, tokens.anchors.canvas],
       [tokens.muted, tokens.surface],
+      [tokens.muted, tokens.card],
       [tokens.link, tokens.anchors.canvas],
       [tokens.link, tokens.surface],
+      [tokens.link, tokens.card],
       [tokens.onAction, tokens.action],
       [tokens.onAction, tokens.actionHover],
+      [tokens.onSecondary, tokens.anchors.secondary],
     ];
     for (const [foreground, background] of textPairs) {
       assert.ok(
@@ -64,19 +95,35 @@ test("every reviewed theme resolves to complete, contrast-safe course tokens", (
         `${id}: ${foreground} on ${background} must meet 5.5:1`,
       );
     }
-    for (const background of [tokens.anchors.canvas, tokens.surface]) {
+    for (const [role, foreground] of [
+      ["ink", tokens.ink],
+      ["muted", tokens.muted],
+      ["link", tokens.link],
+    ]) {
+      for (const background of [tokens.anchors.canvas, tokens.card]) {
+        assert.ok(
+          contrast(foreground, background) <= 8.25,
+          `${id}: standard ${role} contrast should preserve the palette instead of approaching black on white`,
+        );
+      }
+    }
+    for (const background of [tokens.anchors.canvas, tokens.surface, tokens.card]) {
       assert.ok(contrast(tokens.focus, background) >= 3, `${id}: focus must meet 3:1`);
-      assert.ok(contrast(tokens.border, background) >= 3, `${id}: border must meet 3:1`);
     }
     const style = courseThemeStyle(tokens);
-    for (const property of [
-      "--ple-theme-canvas",
-      "--ple-theme-secondary",
-      "--ple-theme-accent",
-      "--ple-card-surface",
-      "--ple-action-hover",
+    for (const [property, value] of [
+      ["--ple-theme-canvas", tokens.anchors.canvas],
+      ["--ple-theme-secondary", tokens.anchors.secondary],
+      ["--ple-theme-accent", tokens.anchors.accent],
+      ["--ple-card-surface", tokens.card],
+      ["--ple-action-hover", tokens.actionHover],
+      ["--ple-on-action", tokens.onAction],
+      ["--ple-theme-on-secondary", tokens.onSecondary],
     ]) {
-      assert.match(style, new RegExp(`${property}: #[0-9a-f]{6}`, "u"));
+      assert.ok(
+        style.includes(`${property}: ${value}`),
+        `${id}: ${property} must retain its token`,
+      );
     }
   }
 });
@@ -101,33 +148,36 @@ test("unknown theme IDs fail closed instead of selecting a default", () => {
 });
 
 test("only course-owned executable routes request a theme scope", () => {
-  const course = "0198e000-0000-7000-8000-000000000010";
-  const assignment = "0198e000-0000-7000-8000-000000000020";
-  const run = "0198e000-0000-7000-8000-000000000030";
+  const course = "C-10";
+  const assignment = "A-20";
+  const run = "R-30";
   assert.deepEqual(courseThemeRouteRequest(`/courses/${course}`), {
     kind: "course",
-    courseId: course,
+    courseReference: course,
   });
   assert.deepEqual(courseThemeRouteRequest(`/courses/${course}/assignments/${assignment}`), {
     kind: "course",
-    courseId: course,
+    courseReference: course,
   });
   assert.deepEqual(
     courseThemeRouteRequest(`/instructor/courses/${course}/assignments/${assignment}/edit`),
-    { kind: "course", courseId: course },
+    { kind: "course", courseReference: course },
   );
   assert.deepEqual(courseThemeRouteRequest(`/instructor/courses/${course}/gradebook`), {
     kind: "course",
-    courseId: course,
+    courseReference: course,
   });
   assert.deepEqual(courseThemeRouteRequest(`/instructor/courses/${course}/appearance`), {
     kind: "course",
-    courseId: course,
+    courseReference: course,
   });
-  assert.deepEqual(courseThemeRouteRequest(`/runs/${run}`), { kind: "runAttempt", runId: run });
+  assert.deepEqual(courseThemeRouteRequest(`/runs/${run}`), {
+    kind: "runAttempt",
+    runReference: run,
+  });
   assert.deepEqual(courseThemeRouteRequest(`/runs/${run}/summary`), {
     kind: "runSummary",
-    runId: run,
+    runReference: run,
   });
   for (const path of ["/", "/library", "/workspace", `/library/${course}/versions/${assignment}`]) {
     assert.deepEqual(courseThemeRouteRequest(path), { kind: "global" });

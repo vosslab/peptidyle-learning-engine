@@ -16,7 +16,9 @@ pub use capabilities::{
 };
 pub use routes::router;
 
-pub(crate) use publication::{may_publish, mint_publication_reference, prepare_published_source};
+pub(crate) use publication::{
+    dispatch_publication, may_publish, mint_publication_reference, prepare_published_source,
+};
 pub(crate) use response::{error_response, store_error_response};
 
 #[cfg(test)]

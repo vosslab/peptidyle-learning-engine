@@ -85,7 +85,7 @@ function run(command, args) {
  * Resolves the browser entry point.
  *
  * `src/main.tsx` is canonical. `src/main.ts` is accepted for a client with no
- * JSX. `src/init.ts` is the legacy template name and warns.
+ * JSX.
  *
  * @returns {string} repo-relative path to the entry module
  */
@@ -96,11 +96,7 @@ function resolveEntry() {
       return candidate;
     }
   }
-  if (fs.existsSync(path.join(repoRoot, "src/init.ts"))) {
-    console.warn("WARNING: using legacy src/init.ts. Rename it to src/main.tsx.");
-    return "src/init.ts";
-  }
-  throw new Error("no entry point found (looked for src/main.tsx, src/main.ts, src/init.ts)");
+  throw new Error("no entry point found (looked for src/main.tsx, src/main.ts)");
 }
 
 //============================================
@@ -172,13 +168,15 @@ function copyMockFixtureAssets() {
  *
  * @param {string} bundleHash short content hash of the built bundle
  * @param {string} stylesheetHash short content hash of the authored stylesheet
+ * @param {string} componentStylesheetHash short content hash of bundled component styles
  * @returns {void}
  */
-function copyIndexHtml(bundleHash, stylesheetHash) {
+function copyIndexHtml(bundleHash, stylesheetHash, componentStylesheetHash) {
   const source = fs.readFileSync(path.join(srcDir, "index.html"), "utf8");
   const fingerprinted = source
     .replace(/(src=")(\.?\/?main\.js)(")/, `$1main.js?v=${bundleHash}$3`)
-    .replace(/(href=")(\.?\/?style\.css)(")/, `$1style.css?v=${stylesheetHash}$3`);
+    .replace(/(href=")(\.?\/?style\.css)(")/, `$1style.css?v=${stylesheetHash}$3`)
+    .replace(/(href=")(\.?\/?main\.css)(")/, `$1main.css?v=${componentStylesheetHash}$3`);
   fs.writeFileSync(path.join(distDir, "index.html"), fingerprinted);
 }
 
@@ -236,6 +234,12 @@ async function main() {
 
   const bundleBytes = fs.readFileSync(path.join(distDir, "main.js"));
   const bundleHash = crypto.createHash("sha256").update(bundleBytes).digest("hex").slice(0, 8);
+  const componentStylesheetBytes = fs.readFileSync(path.join(distDir, "main.css"));
+  const componentStylesheetHash = crypto
+    .createHash("sha256")
+    .update(componentStylesheetBytes)
+    .digest("hex")
+    .slice(0, 8);
   const stylesheetBytes = fs.readFileSync(path.join(srcDir, "style.css"));
   const stylesheetHash = crypto
     .createHash("sha256")
@@ -243,7 +247,7 @@ async function main() {
     .digest("hex")
     .slice(0, 8);
 
-  copyIndexHtml(bundleHash, stylesheetHash);
+  copyIndexHtml(bundleHash, stylesheetHash, componentStylesheetHash);
   fs.copyFileSync(path.join(srcDir, "style.css"), path.join(distDir, "style.css"));
   // GitHub Pages runs Jekyll unless this file exists, and Jekyll drops any
   // directory whose name starts with an underscore.
@@ -252,7 +256,7 @@ async function main() {
   copyWasmBridge();
   copyMockFixtureAssets();
 
-  for (const required of ["index.html", "main.js", "style.css"]) {
+  for (const required of ["index.html", "main.js", "main.css", "style.css"]) {
     if (!fs.existsSync(path.join(distDir, required))) {
       throw new Error(`build finished but dist/${required} is missing`);
     }

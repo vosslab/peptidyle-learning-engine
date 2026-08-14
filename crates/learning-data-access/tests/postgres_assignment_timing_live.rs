@@ -165,7 +165,7 @@ async fn postgres_assignment_editor_timing_is_atomic_and_reschedules_active_work
     verify_application_schema(&pool)
         .await
         .expect("live PostgreSQL schema compatibility");
-    let store = PostgresStore::new(pool.clone());
+    let store = PostgresStore::with_question_id_secret(pool.clone(), [0x42; 32]);
     let tenant = TenantId::from_uuid(id());
     let context = TenantContext::from_authenticated_session(tenant);
     let course = CourseId::from_uuid(id());

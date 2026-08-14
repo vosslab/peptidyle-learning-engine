@@ -59,6 +59,34 @@ the `e2e_*` prefix as a secondary, human-readable convention.
 - For browser-driven Playwright runs, TypeScript repos include `PLAYWRIGHT_USAGE.md` in their propagated `docs/` folder.
 - Do not invoke E2E tests from `pytest tests/`. Keep the two suites separate.
 
+## Disposable Podman targets
+
+The local-stack E2Es that create Compose resources use the closed adapter in
+`local_stack_consumer.py`, not a copied `podman compose` lifecycle. The adapter
+accepts only a private mode-0600 manifest from one declared owner:
+`course-appearance`, `chapter-one-pilot`, `database-baseline`,
+`chapter-one-browser`, or `replica-restart`. That manifest fixes the owner,
+project namespace, private environment file, and path to a runner-held cleanup
+capability. The matching owner policy fixes the Compose files and permitted
+actions; it does not accept a user-selected project, Compose file, provider,
+or generic removal action.
+
+Each runner remains responsible for its data, random ports, secrets, test
+semantics, and failure receipt. The adapter owns provider choice, sanitized
+environment propagation, label-derived discovery, scoped diagnostics, and
+exact cleanup. A cleanup failure must make the E2E fail and retain enough
+private evidence to inspect the owned target. `PLE_E2E_KEEP=1` is the explicit
+diagnostic opt-out from cleanup; it is not a way to reuse a disposable target.
+
+The capability is a cooperative same-UID runner boundary, not a hostile-local-
+process security boundary: mode 0600 protects accidental disclosure and keeps
+the runner contract explicit, but another process running as that same user can
+read its private files. The adapter verifies the capability digest on every
+labelled resource before it mutates Compose state. After an empty labelled
+snapshot is proved, only a closed owner policy's exact project-derived image
+tags may be removed; it never selects an image ID, default-project tag, or
+shared image for deletion.
+
 Some Rust boundary oracles must exercise the real HTTP client or an installed
 artifact reader while retaining access to crate-private parsers. They are
 explicitly ignored by ordinary Cargo runs and are opt-in acceptance, not unit

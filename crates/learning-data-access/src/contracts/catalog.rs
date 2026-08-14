@@ -106,8 +106,6 @@ pub(crate) fn decode_workspace_draft_cursor(
 
 /// Shared immutable problem/version reference used by catalog lineage.
 pub use question_model::ProblemVersionRef;
-/// Compatibility name used by the existing assignment contract.
-pub type PublishedVersionRef = ProblemVersionRef;
 
 /// Server-only immutable source-object binding for one published version.
 ///
@@ -242,7 +240,12 @@ pub struct WorkspaceDraft {
 pub struct PublishedProblemRecord {
     /// Stable published problem.
     pub problem: ProblemId,
+    /// One stable, non-sequential human-facing identity for this question.
+    pub question_id: question_model::QuestionId,
     /// Copyable human-facing identity of the stable problem.
+    ///
+    /// Retained only as a hidden pre-production storage key while the schema
+    /// converges on [`Self::question_id`]. It is never projected to a browser.
     pub public_id: question_model::ProblemPublicId,
     /// Exact immutable version.
     pub version: VersionId,
@@ -271,9 +274,8 @@ impl PublishedProblemRecord {
     pub fn summary(&self) -> CatalogProblemSummary {
         CatalogProblemSummary {
             problem: self.problem,
-            public_id: self.public_id,
+            question_id: self.question_id.clone(),
             version: self.version,
-            version_number: self.version_number,
             backend: QuestionBackend::from(&self.question.source),
             capabilities: self.capabilities.clone(),
             metadata: self.question.metadata.clone(),

@@ -185,6 +185,37 @@ replaceable. [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md) and
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) document its topology
 and operation.
 
+`local_stack.py` is the repository-anchored operator front door for inspection,
+start, stop, restart, reset, validation, logs, and the aggregate live browser
+acceptance handoff. Its `local_stack_control/` package owns typed Compose
+provider selection, environment-file metadata and inherited-environment
+sanitization, label-based Podman discovery, semantic service status, and
+project-scoped cleanup plans. It is deliberately a controller rather than a
+second implementation of local-stack bootstrap: [launch_local_stack.sh](../launch_local_stack.sh)
+remains the authority for builds, secret bootstrap, migrations, seed
+publication, renderer checks, and launcher-level readiness.
+
+The controller discovers resources by Compose labels rather than generated
+names. Read-only commands may inspect a named project. Default mutations are
+restricted to the `containers` project. A separate closed disposable-owner
+adapter (`local_stack_consumer.py` and `local_stack_control/consumer.py`) forms
+temporary E2E targets only from a private mode-0600 manifest and a runner-held
+cleanup capability. The closed owners are `course-appearance`, `chapter-one-pilot`,
+`database-baseline`, `chapter-one-browser`, and `replica-restart`; each fixes its
+project namespace and Compose files before any action is formed. The adapter
+allows scoped Compose actions, diagnostics, or the one owner-specific replica
+outage action, while cleanup requires the private capability and label-derived
+snapshot. It cannot accept a caller-selected target or generic removal command.
+The canonical walkthrough imports the controller's discovery and cleanup
+primitives while retaining its separate private inputs, fixed-port checks,
+visible-action evidence, and report boundary.
+
+`run_playwright_validation.sh --live` is the public aggregate acceptance
+entry point. It delegates stack-conflict preflight and child-environment
+sanitization to the controller, then invokes the internal ordered lane runner
+under `tests/playwright/`. The lane runner keeps browser-test sequencing but
+does not duplicate lifecycle policy.
+
 `deploy/opentofu/` identifies the production deployment target:
 CloudFront and WAF at the edge, a CloudFront-restricted application load
 balancer, private ECS tasks, private PostgreSQL, S3 VPC access, separate task
@@ -199,9 +230,13 @@ evidence that an AWS account has been provisioned or operated correctly.
 - Rust unit and integration tests live beside their crates; data-access
   conformance tests exercise matching in-memory and PostgreSQL behavior.
 - [tests/playwright/](../tests/playwright/) exercises built browser behavior and
-  accessibility over HTTP.
+  accessibility over HTTP. Its normal suite is distinct from the opt-in live
+  aggregate and lane runner.
 - [tests/e2e/](../tests/e2e/) contains disposable PostgreSQL, replica,
   WebAssembly, local-stack, and publication evidence.
+- `tests/test_local_stack_control.py` is an offline behavior suite for typed
+  controller contracts. It supplies in-memory command results rather than
+  starting Podman, Compose, a browser, or a network service.
 - `deploy/opentofu/tests/policy.tftest.hcl` asserts deployment-policy invariants
   in the infrastructure configuration.
 
@@ -222,6 +257,12 @@ not evidence that an unrun deployment path works.
 - Add an external-engine response family only after defining its safe browser
   projection, grading handoff, authorization, and side-effect behavior.
 - Add forward-only schema changes under [schemas/migrations/](../schemas/migrations/).
+- Add a normal local-stack operation in `local_stack_control/` and expose it
+  through `local_stack.py`; keep bootstrap and teaching-data initialization in
+  [launch_local_stack.sh](../launch_local_stack.sh).
+- Add a disposable E2E consumer by declaring a closed owner policy and private
+  manifest contract in `local_stack_control/consumer.py`, rather than adding a
+  general project or cleanup flag.
 
 ## Known gaps
 

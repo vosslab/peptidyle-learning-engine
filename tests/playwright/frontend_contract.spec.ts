@@ -1,8 +1,10 @@
 // frontend_contract.spec.ts - built-artifact proof for the WP-C9 reference slice.
 
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 import fs from "node:fs";
+
+import { publishedProblemFixture } from "../../generated/fixtures/published_problem";
 
 declare global {
   interface Window {
@@ -11,12 +13,11 @@ declare global {
 }
 
 const IDS = {
-  course: "0198e000-0000-7000-8000-000000000014",
-  assignment: "0198e000-0000-7000-8000-000000000006",
-  run: "0198e000-0000-7000-8000-000000000023",
-  problem: "0198e000-0000-7000-8000-000000000003",
-  version: "0198e000-0000-7000-8000-000000000004",
-  workspace: "0198e000-0000-7000-8000-000000000002",
+  course: "C-1",
+  assignment: "A-1",
+  run: "R-4",
+  problem: "7K3-M9QP",
+  workspace: "W-1",
 } as const;
 
 const SAVED_ATTEMPT_KEY =
@@ -53,6 +54,15 @@ async function expectNoBlockingAxeViolations(page: Page): Promise<void> {
   expect(blocking).toEqual([]);
 }
 
+function json(route: Route, value: unknown, headers: Record<string, string> = {}): Promise<void> {
+  return route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    headers,
+    body: JSON.stringify(value),
+  });
+}
+
 test("all product routes resolve inside the persistent shell", async ({ page }) => {
   const routes = [
     { path: "/", surface: "courses" },
@@ -70,7 +80,7 @@ test("all product routes resolve inside the persistent shell", async ({ page }) 
     { path: `/runs/${IDS.run}/summary`, surface: "runSummary" },
     { path: "/library", surface: "library" },
     {
-      path: `/library/${IDS.problem}/versions/${IDS.version}`,
+      path: `/library/${IDS.problem}`,
       surface: "problemDetail",
     },
     { path: "/workspace", surface: "workspaceList" },
@@ -106,6 +116,89 @@ test("all product routes resolve inside the persistent shell", async ({ page }) 
 });
 
 test("an instructor can invite a student through the platform keyboard path", async ({ page }) => {
+  const course = { ...publishedProblemFixture.course, role: "instructor" };
+  const invitation = {
+    invitationId: "0198e000-0000-7000-8000-000000000601",
+    email: "new.student@mail.roosevelt.edu",
+    rosterId: "900123457",
+    status: "pending",
+    expiresAt: 1_755_411_600_000,
+  } as const;
+  let pendingInvitations: ReadonlyArray<typeof invitation> = [];
+  const roster = (): unknown => ({
+    rosterMode: "emailEnrollment",
+    members: [
+      {
+        memberId: "0198e000-0000-7000-8000-000000000602",
+        displayName: "Fixture Student",
+        rosterEmail: "student@mail.roosevelt.edu",
+        rosterId: "900123456",
+        role: "student",
+        status: "active",
+      },
+    ],
+    pendingInvitations,
+    allowedEmailDomains: [{ domain: "mail.roosevelt.edu", includeSubdomains: false }],
+    signupPosture: "invitationOnly",
+    nextCursor: null,
+    rosterRevision: pendingInvitations.length + 1,
+  });
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "__PLE_USE_MOCK_API__", {
+      configurable: false,
+      get: () => false,
+      set: () => undefined,
+    });
+  });
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path === "/api/auth/session") {
+      return await json(route, {
+        authenticated: true,
+        tenant: course.tenant,
+        user: {
+          id: publishedProblemFixture.enrollment.user,
+          displayName: "Course instructor",
+          roles: ["instructor"],
+        },
+      });
+    }
+    if (path === "/api/auth/account/presentation") {
+      return await json(route, { contrast: "standard" });
+    }
+    if (path === "/api/courses") {
+      return await json(route, { items: [course], nextCursor: null });
+    }
+    if (path === "/api/navigation/C-1") {
+      return await json(route, { kind: "course", courseId: course.id });
+    }
+    if (path === `/api/courses/${course.id}`) return await json(route, course);
+    if (path === `/api/courses/${course.id}/appearance`) {
+      return await json(
+        route,
+        { theme: "grass", revision: "1", banner: null },
+        { "cache-control": "no-store", etag: '"1"' },
+      );
+    }
+    if (path === `/api/courses/${course.id}/assignments`) {
+      return await json(route, { items: [publishedProblemFixture.assignment], nextCursor: null });
+    }
+    if (path === `/api/courses/${course.id}/roster`) return await json(route, roster());
+    if (path === `/api/courses/${course.id}/invitations` && request.method() === "POST") {
+      pendingInvitations = [invitation];
+      return await json(
+        route,
+        {
+          invitation,
+          redemptionPath: `/course-invitations/redeem#token=${"A".repeat(43)}`,
+          emailDelivery: "notSent",
+        },
+        { "cache-control": "no-store" },
+      );
+    }
+    return await route.fulfill({ status: 404, body: "not found" });
+  });
   await page.goto("/");
   await navigateWithinSpa(page, `/instructor/courses/${IDS.course}/students`);
   const email = page.getByLabel("Institutional email");
@@ -241,7 +334,9 @@ test("a student reaches, validates, submits, and advances through the generated 
     page.getByRole("heading", { name: "Peptide bond resonance and planarity", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Question", exact: true })).toBeVisible();
-  await expect(page.getByText("Question content ready.")).toBeVisible();
+  await expect(page.locator('[data-route-surface="runAttempt"]')).not.toContainText(
+    "Question content ready.",
+  );
   const images = page.locator("img.question-renderer__image");
   await expect(images).toHaveCount(2);
   await expect

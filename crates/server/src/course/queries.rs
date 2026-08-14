@@ -11,7 +11,7 @@ use question_model::{CourseId, CourseMembership, CourseMembershipRole};
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
 use super::policy::{course_records_are_visible, may_create_course, require_course_access};
-use super::projection::{assignment_page, error_response, store_error_response};
+use super::projection::{error_response, store_error_response};
 use super::routing::{CourseQuery, CourseRouteState, CreateCourseRequest, DEFAULT_PAGE_SIZE};
 
 pub(super) async fn list_courses<S>(
@@ -76,13 +76,27 @@ where
         .upsert_course(authenticated.tenant_context, course.clone())
         .await
     {
-        Ok(()) => no_store(
-            (
-                StatusCode::CREATED,
-                Json(course.summary(CourseMembershipRole::Instructor)),
+        Ok(()) => match state
+            .store
+            .course_public_id(
+                authenticated.tenant_context,
+                authenticated.record.subject.user(),
+                course.id,
             )
-                .into_response(),
-        ),
+            .await
+        {
+            Ok(Some(public_id)) => no_store(
+                (
+                    StatusCode::CREATED,
+                    Json(course.summary(CourseMembershipRole::Instructor, public_id)),
+                )
+                    .into_response(),
+            ),
+            Ok(None) | Err(_) => error_response(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "course navigation reference is unavailable",
+            ),
+        },
         Err(error) => store_error_response(error),
     }
 }
@@ -120,7 +134,20 @@ where
             Err(response) => return response,
         }
     }
-    no_store(Json(record.summary(role)).into_response())
+    let public_id = match state
+        .store
+        .course_public_id(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            course,
+        )
+        .await
+    {
+        Ok(Some(public_id)) => public_id,
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "course not found"),
+        Err(error) => return store_error_response(error),
+    };
+    no_store(Json(record.summary(role, public_id)).into_response())
 }
 
 pub(super) async fn list_assignments<S>(
@@ -150,7 +177,34 @@ where
         .list_assignments(authenticated.tenant_context, course, page)
         .await
     {
-        Ok(page) => no_store(Json(assignment_page(page)).into_response()),
+        Ok(page) => {
+            let mut summaries = Vec::with_capacity(page.items.len());
+            for assignment in page.items {
+                let public_id = match state
+                    .store
+                    .assignment_public_id(
+                        authenticated.tenant_context,
+                        authenticated.record.subject.user(),
+                        assignment.id,
+                    )
+                    .await
+                {
+                    Ok(Some(public_id)) => public_id,
+                    Ok(None) => {
+                        return error_response(StatusCode::NOT_FOUND, "assignment not found");
+                    }
+                    Err(error) => return store_error_response(error),
+                };
+                summaries.push(assignment.summary(public_id));
+            }
+            no_store(
+                Json(learning_data_access::Page {
+                    items: summaries,
+                    next_cursor: page.next_cursor,
+                })
+                .into_response(),
+            )
+        }
         Err(error) => store_error_response(error),
     }
 }

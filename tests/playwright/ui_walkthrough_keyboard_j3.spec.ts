@@ -36,7 +36,7 @@ async function signInAndOpenMastery(page: Page, inputs: UiWalkthroughInputs): Pr
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-route-surface=courses]")).toBeVisible();
 
-  const courseLink = page.locator(`a[href="/courses/${inputs.courseId}"]`);
+  const courseLink = page.locator(`a[href="/courses/${inputs.courseReference}"]`);
   await tabToTargetThroughVisiblePagination(page, {
     target: courseLink,
     renderedItems: page.locator(".course-card"),
@@ -54,7 +54,7 @@ async function signInAndOpenMastery(page: Page, inputs: UiWalkthroughInputs): Pr
   await expect(page.locator("#main-content")).toBeFocused();
 
   const assignmentLink = page.locator(
-    `a[href="/courses/${inputs.courseId}/assignments/${inputs.masteryAssignmentId}"]`,
+    `a[href="/courses/${inputs.courseReference}/assignments/${inputs.masteryAssignmentReference}"]`,
   );
   await tabToTargetThroughVisiblePagination(page, {
     target: assignmentLink,
@@ -116,8 +116,8 @@ test("J3 resumes the active second Mastery run, proves cleared controls, and res
     inputs.journeyStateFile,
     passedStudentRepeatFragment(
       "J3",
-      inputs.courseId,
-      inputs.masteryAssignmentId,
+      inputs.courseReference,
+      inputs.masteryAssignmentReference,
       Math.round(performance.now() - startedAt),
     ),
   );

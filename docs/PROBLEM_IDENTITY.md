@@ -4,11 +4,11 @@ This document is the durable map of identities that name questions and their
 related records. It answers two easy-to-confuse questions:
 
 1. What durable record is this?
-2. Which small, temporary value may the browser use to refer to something it
-   was shown?
+2. Which stable, human-usable Question ID names the current question?
 
-The first answer uses typed UUID identities. The second can use a compact
-presentation-scoped rendered ID. They are deliberately different contracts.
+The first answer uses typed UUID identities. The second uses one validated
+`AAA-BBBB` Crockford Base32 Question ID. Presentation-scoped response IDs are
+a third, deliberately temporary contract.
 
 The model lives primarily in `crates/question_model/src/identity.rs`,
 `activity.rs`, `catalog.rs`, `definition.rs`, and `presentation/`. The exact
@@ -80,13 +80,14 @@ An ID names a record; it does not grant access to it. Authentication, tenant
 context, authorization, RLS, lifecycle checks, and server-side ownership checks
 decide whether a caller may read or change the record.
 
-### Human-facing catalog references
+### Human-facing Question ID
 
-`ProblemPublicId` is a positive decimal catalog locator displayed as `P-123`.
-`ProblemVersionNumber` is the one-based human-facing version number displayed
-as `P-123-v4`. They support copyable search and instructor communication.
-Neither is authorization evidence, and neither replaces `ProblemVersionRef` in
-storage or attempt provenance.
+`QuestionId` is the only catalog identity presented to a person. Its canonical
+form is `AAA-BBBB`: six random Crockford Base32 identity characters plus one
+server-validated HMAC-SHA256 character. It is non-sequential, copyable, and
+stable across original-owner corrections. A fork receives a new Question ID.
+It is not authorization evidence and never replaces `ProblemVersionRef` in
+hidden storage, attempt provenance, or historical grading.
 
 ## Publication and version lineage
 
@@ -113,8 +114,9 @@ Only these forward transitions are legal:
 deprecation explanations. The pure transition receives the publication pair;
 the server publication flow is responsible for minting that pair and recording
 the immutable payload, scope, authorship, and provenance atomically. There is
-no restore transition. A correction publishes a new immutable version rather
-than modifying a learner's historical question.
+no restore transition. A correction publishes a new hidden immutable snapshot,
+moves current assignment definitions forward for future runs, and never
+modifies a learner's historical run.
 
 Within one problem, `previousVersion` makes a linear revision chain. A
 third-party derivative starts a different `ProblemId` and records its source
@@ -207,8 +209,10 @@ It must not silently issue a new seed or grade a stale answer.
 - Draft, shared published content, tenant educational records, and physical
   objects have different owners and identifiers.
 - Publication is a new immutable identity boundary, not an edit in place.
-- Assignments and attempts pin exact versions; catalog "latest" is for
-  instructor discovery, never historical replay.
+- Current assignment definitions follow original-owner corrections; issued
+  runs and attempts pin exact hidden snapshots for historical replay.
+- A normal browser surface presents one current question and its Question ID,
+  never a version picker, sequence number, or UUID.
 - `QuestionAttemptId` identifies the server-owned grading context; it is not a
   bearer capability.
 - A compact rendered ID is local to one presentation and never becomes a

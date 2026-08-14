@@ -9,6 +9,7 @@ import {
   registerPasskeyWithBrowser,
 } from "../api/http_client/enrollment";
 import { useApiRuntime } from "../api/runtime";
+import { courseRouteReference } from "../navigation/public_route";
 import { useSessionBootstrap } from "../auth/session_context";
 import { consumeTokenFragment } from "../auth/secret_fragment";
 
@@ -110,7 +111,7 @@ export function SignInPage(): JSX.Element {
     try {
       await runtime.client.selectAccountCourse(course.courseId);
       await session.retry();
-      navigate(`/courses/${course.courseId}`);
+      navigate(`/courses/${courseRouteReference(course.coursePublicId)}`);
     } catch {
       setState(
         accountError("That course could not be opened. Refresh your account and try again."),
@@ -251,7 +252,7 @@ export function EmailAuthenticationCompletePage(): JSX.Element {
     try {
       await runtime.client.selectAccountCourse(course.courseId);
       await session.retry();
-      navigate(`/courses/${course.courseId}`);
+      navigate(`/courses/${courseRouteReference(course.coursePublicId)}`);
     } catch {
       setState(accountError("That course could not be opened. Try again from the sign-in page."));
     }

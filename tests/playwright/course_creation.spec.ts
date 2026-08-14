@@ -7,6 +7,7 @@ import { publishedProblemFixture } from "../../generated/fixtures/published_prob
 const createdCourse = {
   ...publishedProblemFixture.course,
   id: "0198e000-0000-7000-8000-000000000099",
+  publicId: 2,
   title: "BIOC 301: Biochemistry",
   role: "instructor",
 };
@@ -66,6 +67,9 @@ test("an instructor creates a course by keyboard and opens its real course link"
     }
     if (path === "/api/courses" && request.method() === "POST")
       return await json(route, createdCourse, 201);
+    if (path === `/api/navigation/C-${createdCourse.publicId}`) {
+      return await json(route, { kind: "course", courseId: createdCourse.id });
+    }
     if (path === `/api/courses/${createdCourse.id}`) return await json(route, createdCourse);
     if (path === `/api/courses/${createdCourse.id}/appearance`) {
       return await json(route, { theme: "grass", revision: "1", banner: null }, 200, {
@@ -85,7 +89,7 @@ test("an instructor creates a course by keyboard and opens its real course link"
   await expect(title).toBeVisible();
   await title.fill(createdCourse.title);
   await title.press("Enter");
-  const newLink = page.locator(`a[href="/courses/${createdCourse.id}"]`);
+  const newLink = page.locator(`a[href="/courses/C-${createdCourse.publicId}"]`);
   const newCourse = page.locator("article.course-card").filter({ has: newLink });
   await expect(newCourse.getByRole("heading", { name: createdCourse.title })).toBeVisible();
   await expect(newLink).toBeFocused();
@@ -93,7 +97,7 @@ test("an instructor creates a course by keyboard and opens its real course link"
     { method: "POST", path: "/api/courses", body: { title: createdCourse.title } },
   ]);
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: "Assignments" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Assignments", exact: true })).toBeVisible();
 });
 
 test("a student sees no course creation control and cannot call its endpoint", async ({ page }) => {

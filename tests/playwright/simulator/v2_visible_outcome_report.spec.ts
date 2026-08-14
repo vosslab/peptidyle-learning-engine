@@ -21,8 +21,8 @@ import {
   setV2StateOpenHookForTest,
 } from "./v2_visible_outcome_report";
 
-const COURSE_ID = "123e4567-e89b-12d3-a456-426614174000";
-const ASSIGNMENT_ID = "123e4567-e89b-12d3-a456-426614174001";
+const COURSE_ID = "C-42";
+const ASSIGNMENT_ID = "A-73";
 
 function validState(): unknown {
   return [
@@ -71,15 +71,15 @@ function fragment(
     journey,
     status: "PASS",
     elapsedMs: 1,
-    courseId: COURSE_ID,
+    courseReference: COURSE_ID,
     visibleOutcomeCodes,
     diagnostics: [],
   };
   if (journey === "J13") {
-    base["assignmentId"] = ASSIGNMENT_ID;
-    base["selectedDisplayIds"] = ["P-11-v1", "P-12-v1", "P-13-v1", "P-14-v1"];
+    base["assignmentReference"] = ASSIGNMENT_ID;
+    base["selectedDisplayIds"] = ["7K3-M9QP", "ABC-123T", "PEP-T1D3", "GEN-E42K"];
   } else if (journey !== "J11" && journey !== "J12") {
-    base["assignmentId"] = ASSIGNMENT_ID;
+    base["assignmentReference"] = ASSIGNMENT_ID;
   }
   return base;
 }
@@ -107,8 +107,7 @@ test("v2 state rejects reordered, cross-bound, and score-bearing evidence", () =
   expect(parseV2WalkthroughState(reordered)).toBeUndefined();
 
   const mismatched = validState() as Record<string, unknown>[];
-  (mismatched[7] as Record<string, unknown>)["assignmentId"] =
-    "123e4567-e89b-12d3-a456-426614174004";
+  (mismatched[7] as Record<string, unknown>)["assignmentReference"] = "A-74";
   expect(parseV2WalkthroughState(mismatched)).toBeUndefined();
 
   const scoreBearing = validState() as Record<string, unknown>[];
@@ -129,11 +128,14 @@ test("v2 state rejects hidden, symbol, inherited, and accessor input", () => {
   expect(parseV2WalkthroughState(symbolBearing)).toBeUndefined();
 
   const inherited = validState() as Record<string, unknown>[];
-  Object.setPrototypeOf(inherited[2] ?? {}, { assignmentId: ASSIGNMENT_ID });
+  Object.setPrototypeOf(inherited[2] ?? {}, { assignmentReference: ASSIGNMENT_ID });
   expect(parseV2WalkthroughState(inherited)).toBeUndefined();
 
   const accessor = validState() as Record<string, unknown>[];
-  Object.defineProperty(accessor[3] ?? {}, "courseId", { enumerable: true, get: () => COURSE_ID });
+  Object.defineProperty(accessor[3] ?? {}, "courseReference", {
+    enumerable: true,
+    get: () => COURSE_ID,
+  });
   expect(parseV2WalkthroughState(accessor)).toBeUndefined();
 });
 

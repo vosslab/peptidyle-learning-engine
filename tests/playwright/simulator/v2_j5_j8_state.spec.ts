@@ -17,8 +17,8 @@ import {
 } from "./v2_j5_j8_state";
 import { parseV2WalkthroughState } from "./v2_visible_outcome_report";
 
-const COURSE_ID = "123e4567-e89b-12d3-a456-426614174000";
-const ASSIGNMENT_ID = "123e4567-e89b-12d3-a456-426614174001";
+const COURSE_ID = "C-42";
+const ASSIGNMENT_ID = "A-73";
 
 function statePath(): string {
   const directory = mkdtempSync(join(tmpdir(), "ple-v2-j5-j8-state-"));
@@ -35,7 +35,7 @@ function setup(): InstructorSetupPrefix {
       journey: "J11",
       status: "PASS",
       elapsedMs: 1,
-      courseId: COURSE_ID,
+      courseReference: COURSE_ID,
       visibleOutcomeCodes: ["visible_course_created", "visible_course_opened"],
       diagnostics: [],
     },
@@ -44,7 +44,7 @@ function setup(): InstructorSetupPrefix {
       journey: "J12",
       status: "PASS",
       elapsedMs: 1,
-      courseId: COURSE_ID,
+      courseReference: COURSE_ID,
       visibleOutcomeCodes: ["visible_local_student_active"],
       diagnostics: [],
     },
@@ -53,9 +53,9 @@ function setup(): InstructorSetupPrefix {
       journey: "J13",
       status: "PASS",
       elapsedMs: 1,
-      courseId: COURSE_ID,
-      assignmentId: ASSIGNMENT_ID,
-      selectedDisplayIds: ["P-11-v1", "P-12-v1", "P-13-v1", "P-14-v1"],
+      courseReference: COURSE_ID,
+      assignmentReference: ASSIGNMENT_ID,
+      selectedDisplayIds: ["7K3-M9QP", "ABC-123T", "PEP-T1D3", "GEN-E42K"],
       visibleOutcomeCodes: [
         "visible_assignment_created",
         "visible_catalog_problem_selected",
@@ -94,18 +94,18 @@ test("score evidence rejects wrong sequencing, foreign public IDs, and hostile c
   const path = statePath();
   throughJ4(path);
   expect(() => appendV2J8State(path, 1)).toThrow("next journey");
-  expect(() =>
-    appendV2J5State(
-      path,
-      passedJ5SummaryEvidence(COURSE_ID, "123e4567-e89b-12d3-a456-426614174002", 1),
-    ),
-  ).toThrow("next journey");
+  expect(() => appendV2J5State(path, passedJ5SummaryEvidence(COURSE_ID, "A-74", 1))).toThrow(
+    "next journey",
+  );
 
   const hostile = { ...passedJ5SummaryEvidence(COURSE_ID, ASSIGNMENT_ID, 1) } as Record<
     string,
     unknown
   >;
-  Object.defineProperty(hostile, "assignmentId", { enumerable: true, get: () => ASSIGNMENT_ID });
+  Object.defineProperty(hostile, "assignmentReference", {
+    enumerable: true,
+    get: () => ASSIGNMENT_ID,
+  });
   expect(() =>
     appendV2J5State(path, hostile as unknown as ReturnType<typeof passedJ5SummaryEvidence>),
   ).toThrow("unsafe");

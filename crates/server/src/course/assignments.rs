@@ -71,7 +71,26 @@ where
         )
         .await
     {
-        Ok(assignment) => assignment_response(StatusCode::CREATED, assignment),
+        Ok(assignment) => {
+            let public_id = match state
+                .store
+                .assignment_public_id(
+                    authenticated.tenant_context,
+                    authenticated.record.subject.user(),
+                    assignment.record.id,
+                )
+                .await
+            {
+                Ok(Some(public_id)) => public_id,
+                Ok(None) | Err(_) => {
+                    return error_response(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "assignment navigation reference is unavailable",
+                    );
+                }
+            };
+            assignment_response(StatusCode::CREATED, assignment, public_id)
+        }
         Err(error) => store_error_response(error),
     }
 }
@@ -107,7 +126,20 @@ where
     {
         return response;
     }
-    assignment_response(StatusCode::OK, assignment)
+    let public_id = match state
+        .store
+        .assignment_public_id(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            assignment.record.id,
+        )
+        .await
+    {
+        Ok(Some(public_id)) => public_id,
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "assignment not found"),
+        Err(error) => return store_error_response(error),
+    };
+    assignment_response(StatusCode::OK, assignment, public_id)
 }
 
 pub(super) async fn update_assignment<S>(
@@ -197,7 +229,22 @@ where
         )
         .await
     {
-        Ok(assignment) => assignment_response(StatusCode::OK, assignment),
+        Ok(assignment) => {
+            let public_id = match state
+                .store
+                .assignment_public_id(
+                    authenticated.tenant_context,
+                    authenticated.record.subject.user(),
+                    assignment.record.id,
+                )
+                .await
+            {
+                Ok(Some(public_id)) => public_id,
+                Ok(None) => return error_response(StatusCode::NOT_FOUND, "assignment not found"),
+                Err(error) => return store_error_response(error),
+            };
+            assignment_response(StatusCode::OK, assignment, public_id)
+        }
         Err(StoreError::Conflict) => {
             error_response(StatusCode::CONFLICT, "assignment changed; reload it")
         }
@@ -242,7 +289,11 @@ pub(super) fn required_assignment_revision(
     serde_json::from_str(value).map_err(|_| AssignmentRevisionHeaderError::Malformed)
 }
 
-fn assignment_response(status: StatusCode, assignment: StoredAssignment) -> Response {
+fn assignment_response(
+    status: StatusCode,
+    assignment: StoredAssignment,
+    public_id: question_model::AssignmentPublicId,
+) -> Response {
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
     struct AssignmentEditorResponse {
@@ -253,7 +304,7 @@ fn assignment_response(status: StatusCode, assignment: StoredAssignment) -> Resp
     let mut response = (
         status,
         Json(AssignmentEditorResponse {
-            assignment: assignment.record.summary(),
+            assignment: assignment.record.summary(public_id),
             assignment_timing: assignment.assignment_timing,
         }),
     )

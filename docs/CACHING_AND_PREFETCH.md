@@ -94,9 +94,9 @@ without an envelope remain explicitly `NotApplicable`.
 The WeBWorK adapter stores a safe cache object containing the answer-free
 envelope, sanitized HTML, published source-artifact binding, and renderer
 identity. It validates all of those fields before serving it and records a
-non-sensitive `ple.webwork.cache` `renderer_call` or `cache_hit` witness.
-The raw PG source, renderer password, upstream URL, hidden fields, field/value
-mapping, raw RPC response, and grading result are excluded.
+non-sensitive `ple.webwork.cache` `renderer_call` or `cache_hit` witness for
+adapter cache work. The raw PG source, renderer password, upstream URL, hidden
+fields, field/value mapping, raw RPC response, and grading result are excluded.
 
 There are two different issue-time or envelope-less WeBWorK reuse cases:
 
@@ -111,11 +111,14 @@ There are two different issue-time or envelope-less WeBWorK reuse cases:
 The second call remains necessary for each newly issued attempt because the
 shared cache deliberately excludes private replay material. PLE persists the
 bounded, validated mapping under the tenant attempt, along with the exact
-public snapshot and server-only grading envelope. Normal grading reads those
-attempt-bound artifacts and makes one private grade RPC; it neither rerenders
-nor repairs missing replay state. Missing or mismatched state fails question-
-locally and closed. Do not place replay mappings in the public render cache;
-they are server-only grading material.
+public snapshot and server-only grading envelope. Every normal active or
+submitted attempt `GET` replays that persisted snapshot directly: it does not
+call adapter `reproduce`, consult the adapter safe-render cache, call the
+renderer, or emit `ple.webwork.cache` `renderer_call` or `cache_hit`. Normal
+grading reads the same attempt-bound artifacts and makes one private grade
+RPC; it neither rerenders nor repairs missing replay state. Missing or
+mismatched state fails question-locally and closed. Do not place replay
+mappings in the public render cache; they are server-only grading material.
 
 ### iMathAS
 
@@ -213,12 +216,13 @@ promotion and persistence, asset transfer, and return to the browser. Record
 bounded aggregate latency and hit/miss/error counts without attempt IDs,
 responses, asset URLs, provider payloads, or answer-bearing content.
 
-Current WeBWorK cache witnesses intentionally expose only `renderer_call` and
-`cache_hit`. Future operational metrics should preserve that low-cardinality,
-non-sensitive approach while adding p50/p95 stage timing, cache validation
-refusals, prefetch reservations/promotions/mismatches, and bounded asset-warm
-outcomes. Representative payload sizes and latency measurements belong to
-WP-P6 rather than fragile exact-byte permanent tests.
+Current WeBWorK adapter-cache witnesses intentionally expose only
+`renderer_call` and `cache_hit`; persisted attempt-snapshot reads emit neither.
+Future operational metrics should preserve that low-cardinality, non-sensitive
+approach while adding p50/p95 stage timing, cache validation refusals, prefetch
+reservations/promotions/mismatches, and bounded asset-warm outcomes.
+Representative payload sizes and latency measurements belong to WP-P6 rather
+than fragile exact-byte permanent tests.
 
 The next cache work should follow the payload plan in this order:
 

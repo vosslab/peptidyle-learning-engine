@@ -401,7 +401,8 @@ async fn postgres_enrollment_capability_is_locked_unique_and_role_separated() {
     .expect("read roster-support audit evidence");
     assert_eq!(
         support_actions,
-        vec!["createInvitation".to_string(), "listRoster".to_string()]
+        vec!["createInvitation".to_string(), "listRoster".to_string()],
+        "the Sysadmin roster disclosure commits exactly one audit event in its snapshot transaction"
     );
 
     let preview = store

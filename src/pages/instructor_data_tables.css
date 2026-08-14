@@ -1,0 +1,146 @@
+/* instructor_data_tables.css - shared gradebook and roster scan surfaces. */
+
+.gradebook-table-wrap,
+.roster-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--ple-radius-group);
+  background: var(--ple-card-surface);
+  box-shadow: var(--ple-shadow);
+}
+
+.gradebook-table,
+.roster-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.gradebook-table {
+  min-width: var(--ple-gradebook-table-min-inline);
+}
+
+.roster-table {
+  min-width: var(--ple-roster-table-min-inline);
+}
+
+.gradebook-table th,
+.gradebook-table td,
+.roster-table th,
+.roster-table td {
+  padding: calc(var(--ple-row-padding-block) + 0.03rem) var(--ple-row-padding-inline);
+  border-bottom: 1px solid var(--ple-border);
+  vertical-align: top;
+}
+
+.gradebook-table thead th,
+.roster-table thead th {
+  background: var(--ple-surface-soft);
+  color: var(--ple-accent-strong);
+  font-size: 0.73rem;
+  font-weight: 740;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.gradebook-table tbody tr:hover,
+.roster-table tbody tr:hover {
+  background: color-mix(in srgb, var(--ple-surface-soft) 55%, white);
+}
+
+.gradebook-history-control {
+  white-space: nowrap;
+}
+
+.gradebook-history-panel {
+  margin-top: var(--ple-section-gap);
+  padding: var(--ple-panel-padding);
+  border-radius: var(--ple-radius-group);
+  background: var(--ple-surface-soft);
+}
+
+.gradebook-history-panel__heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--ple-layout-gap);
+}
+
+.gradebook-history-panel__heading h2,
+.gradebook-history-panel__heading p {
+  margin: 0;
+}
+
+.run-history-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.35rem;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run-history-list li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.05rem 0.55rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: var(--ple-radius-control);
+  background: var(--ple-card-surface);
+}
+
+.run-history-list li span:last-child {
+  grid-column: 1 / -1;
+  color: var(--ple-muted);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 48rem) {
+  .gradebook-table-wrap {
+    overflow: visible;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .gradebook-table,
+  .gradebook-table tbody,
+  .gradebook-table tr,
+  .gradebook-table th,
+  .gradebook-table td {
+    display: block;
+    min-width: 0;
+  }
+
+  .gradebook-table thead {
+    display: none;
+  }
+
+  .gradebook-row {
+    margin-bottom: 0.65rem;
+    overflow: hidden;
+    border-radius: var(--ple-radius-group);
+    background: var(--ple-card-surface);
+    box-shadow: var(--ple-shadow);
+  }
+
+  .gradebook-table th,
+  .gradebook-table td {
+    display: grid;
+    grid-template-columns: minmax(7rem, 0.7fr) minmax(0, 1.3fr);
+    gap: 0.65rem;
+    padding: 0.55rem 0.75rem;
+  }
+
+  .gradebook-table td::before,
+  .gradebook-table th::before {
+    color: var(--ple-muted);
+    content: attr(data-label);
+    font-size: 0.72rem;
+    font-weight: 730;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .gradebook-history-control::before {
+    content: "Run history";
+  }
+}

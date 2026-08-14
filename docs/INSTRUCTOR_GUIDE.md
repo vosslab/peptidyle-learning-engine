@@ -15,7 +15,7 @@ placeholders.
 
 ![Instructor roster showing Mary Fake Student and Jack Fake Student as active local course members](screenshots/instructor_roster_active_student.png)
 
-![Instructor published problem catalog showing four Genetics Chapter 1 P-n-vn identities and Copy ID controls](screenshots/instructor_problem_catalog.png)
+![Instructor published problem catalog showing human-readable Question IDs and Copy ID controls](screenshots/instructor_problem_catalog.png)
 
 ![Instructor assignment editor showing four selected Genetics Chapter 1 immutable versions and Mastery run policies](screenshots/instructor_assignment_settings.png)
 
@@ -56,20 +56,19 @@ Production enrollment and email identity remain separate work.
 
 1. Return to the course and open **New assignment**.
 2. Enter the assignment title.
-3. In **Published problem catalog**, find each of the four Genetics Chapter 1 questions. Confirm
-   its visible human-readable identity has the form `P-<number>-v<version>`, then use **Copy ID**.
-4. Paste all four copied IDs, one per line or comma-separated, into **Add by question ID** and
-   activate its add button. This is a multi-ID paste: do not substitute UUIDs or add questions one
-   at a time from a private tool.
-5. Confirm the selected list contains exactly those four immutable published versions: WeBWorK MC,
+3. Prefer **Reuse questions from an existing assignment**. Choose the source assignment, then add
+   its entire question set or use the checklist for a subset.
+4. For an occasional direct lookup, copy the visible `AAA-BBBB` Question ID from the published
+   problem catalog and paste it into **Add by question ID**. Never substitute a UUID.
+5. Confirm the selected list contains exactly the intended four current questions: WeBWorK MC,
    WeBWorK MATCH, PLE flat MC, and PLE flat MATCH.
 6. Confirm **All questions correct**, **Highest run score**, and **Allow unlimited practice**.
 7. In **Time limit for each practice run**, leave **Timed** selected and confirm **Minutes per
    practice run** is `15`.
 8. Activate **Create assignment** and open the resulting course assignment.
 
-Only corpus publication is arranged outside the browser. Course creation, roster activation, ID
-copy/paste, exact-version selection, timing, and assignment construction use visible instructor
+Only corpus publication is arranged outside the browser. Course creation, roster activation,
+assignment reuse, Question ID lookup, timing, and assignment construction use visible instructor
 controls. If an ID is malformed, unavailable, unauthorized, or already selected, the editor keeps
 the pasted text and selected questions unchanged so it can be corrected and tried again.
 

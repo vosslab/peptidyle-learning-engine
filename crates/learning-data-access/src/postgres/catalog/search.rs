@@ -26,8 +26,13 @@ pub(super) async fn search_catalog(
     let query = query
         .normalized()
         .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+    let exact_question_id = query
+        .exact_question_id()
+        .filter(|question_id| store.question_ids.validates(question_id))
+        .map(|question_id| question_id.compact());
     retry_transaction(|| {
         let query = query.clone();
+        let exact_question_id = exact_question_id.clone();
         async move {
             let page = postgres_search_page_request(&query)?;
             let fingerprint = postgres_catalog_search_fingerprint(&query);
@@ -40,14 +45,6 @@ pub(super) async fn search_catalog(
                 .map(|(problem, version)| (Some(problem), Some(version)))
                 .unwrap_or((None, None));
             let text = query.text.clone();
-            let exact_display_version = query.exact_display_version();
-            let exact_public_id =
-                exact_display_version.map(|reference| i64::from(reference.problem.value()));
-            let exact_version_number = exact_display_version
-                .and_then(|reference| reference.version)
-                .map(|version| {
-                    i32::try_from(version.value()).expect("31-bit version number fits i32")
-                });
             let taxonomy = Json(query.taxonomy.clone());
             let capabilities = Json(query.capabilities.clone());
             let licenses = Json(query.licenses.clone());
@@ -63,7 +60,7 @@ pub(super) async fn search_catalog(
             // caller-provided tenant ID or payload join can widen the result.
             let rows = sqlx::query(
                 "SELECT document.problem_id::text || '/' || document.version_id::text AS stable_key, \
-                        document.problem_id, document.public_id, document.version_id, \
+                        document.problem_id, document.question_id, document.version_id, \
                         document.version_number, document.backend, document.capabilities, \
                         document.metadata, document.publication_scope, document.lifecycle, \
                         document.lifecycle_reason, document.authors, document.previous_version_id, \
@@ -73,9 +70,8 @@ pub(super) async fn search_catalog(
                  FROM catalog_search_view AS document \
                  WHERE document.lifecycle = 'published' \
                    AND ( \
-                       ($9::bigint IS NOT NULL AND document.public_id = $9::bigint \
-                           AND document.version_number = $10::integer) \
-                       OR ($9::bigint IS NULL AND ($1::text IS NULL \
+                       ($9::text IS NOT NULL AND document.question_id = $9::text) \
+                       OR ($9::text IS NULL AND ($1::text IS NULL \
                            OR document.search_text @@ websearch_to_tsquery('simple', $1))) \
                    ) \
                    AND NOT EXISTS ( \
@@ -102,8 +98,7 @@ pub(super) async fn search_catalog(
             .bind(after_problem)
             .bind(after_version)
             .bind(limit)
-            .bind(exact_public_id)
-            .bind(exact_version_number)
+            .bind(exact_question_id.clone())
             .fetch_all(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -112,9 +107,8 @@ pub(super) async fn search_catalog(
                 "WITH filtered AS ( \
                      SELECT document.metadata FROM catalog_search_view AS document \
                      WHERE document.lifecycle = 'published' \
-                       AND (($6::bigint IS NOT NULL AND document.public_id = $6::bigint \
-                             AND document.version_number = $7::integer) \
-                            OR ($6::bigint IS NULL AND ($1::text IS NULL OR document.search_text \
+                       AND (($6::text IS NOT NULL AND document.question_id = $6::text) \
+                            OR ($6::text IS NULL AND ($1::text IS NULL OR document.search_text \
                              @@ websearch_to_tsquery('simple', $1)))) \
                        AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted \
                            WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements( \
@@ -138,16 +132,15 @@ pub(super) async fn search_catalog(
             .bind(capabilities.clone())
             .bind(licenses.clone())
             .bind(statistics)
-            .bind(exact_public_id)
-            .bind(exact_version_number)
+            .bind(exact_question_id.clone())
             .fetch_all(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
             let capability_rows = sqlx::query(
                 "WITH filtered AS (SELECT document.capabilities FROM catalog_search_view AS document \
                    WHERE document.lifecycle = 'published' \
-                   AND (($6::bigint IS NOT NULL AND document.public_id = $6::bigint AND document.version_number = $7::integer) \
-                        OR ($6::bigint IS NULL AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1))) ) \
+                   AND (($6::text IS NOT NULL AND document.question_id = $6::text) \
+                        OR ($6::text IS NULL AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1))) ) \
                    AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(document.taxonomy) AS stored WHERE stored->>'scheme' = wanted->>'scheme' AND stored->>'code' = wanted->>'code')) \
                    AND document.capabilities @> $3::jsonb AND (jsonb_array_length($4::jsonb) = 0 OR document.license IN (SELECT jsonb_array_elements_text($4::jsonb))) \
                    AND ($5::smallint <> 1 OR document.statistics_available) \
@@ -159,16 +152,15 @@ pub(super) async fn search_catalog(
             .bind(capabilities.clone())
             .bind(licenses.clone())
             .bind(statistics)
-            .bind(exact_public_id)
-            .bind(exact_version_number)
+            .bind(exact_question_id.clone())
             .fetch_all(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
             let license_rows = sqlx::query(
                 "WITH filtered AS (SELECT document.license FROM catalog_search_view AS document \
                    WHERE document.lifecycle = 'published' \
-                   AND (($6::bigint IS NOT NULL AND document.public_id = $6::bigint AND document.version_number = $7::integer) \
-                        OR ($6::bigint IS NULL AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1))) ) \
+                   AND (($6::text IS NOT NULL AND document.question_id = $6::text) \
+                        OR ($6::text IS NULL AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1))) ) \
                    AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(document.taxonomy) AS stored WHERE stored->>'scheme' = wanted->>'scheme' AND stored->>'code' = wanted->>'code')) \
                    AND document.capabilities @> $3::jsonb AND (jsonb_array_length($4::jsonb) = 0 OR document.license IN (SELECT jsonb_array_elements_text($4::jsonb))) \
                    AND ($5::smallint <> 1 OR document.statistics_available) \
@@ -180,8 +172,7 @@ pub(super) async fn search_catalog(
             .bind(capabilities.clone())
             .bind(licenses.clone())
             .bind(statistics)
-            .bind(exact_public_id)
-            .bind(exact_version_number)
+            .bind(exact_question_id.clone())
             .fetch_all(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -190,8 +181,8 @@ pub(super) async fn search_catalog(
                         count(*) FILTER (WHERE NOT document.statistics_available)::bigint AS unavailable \
                  FROM catalog_search_view AS document \
                  WHERE document.lifecycle = 'published' \
-                 AND (($6::bigint IS NOT NULL AND document.public_id = $6::bigint AND document.version_number = $7::integer) \
-                      OR ($6::bigint IS NULL AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1))) ) \
+                 AND (($6::text IS NOT NULL AND document.question_id = $6::text) \
+                      OR ($6::text IS NULL AND ($1::text IS NULL OR document.search_text @@ websearch_to_tsquery('simple', $1))) ) \
                  AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements($2::jsonb) AS wanted WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(document.taxonomy) AS stored WHERE stored->>'scheme' = wanted->>'scheme' AND stored->>'code' = wanted->>'code')) \
                  AND document.capabilities @> $3::jsonb AND (jsonb_array_length($4::jsonb) = 0 OR document.license IN (SELECT jsonb_array_elements_text($4::jsonb))) \
                  AND ($5::smallint <> 1 OR document.statistics_available) \
@@ -202,8 +193,7 @@ pub(super) async fn search_catalog(
             .bind(capabilities)
             .bind(licenses)
             .bind(statistics)
-            .bind(exact_public_id)
-            .bind(exact_version_number)
+            .bind(exact_question_id)
             .fetch_one(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;

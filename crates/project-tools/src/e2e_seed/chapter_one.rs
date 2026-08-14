@@ -182,7 +182,7 @@ pub(super) async fn seed_chapter_one_pilot(
     learning_data_access::postgres::apply_migrations(&pool)
         .await
         .context("applying embedded migrations for Chapter 1 pilot seed")?;
-    let store = learning_data_access::postgres::PostgresStore::new(pool);
+    let store = question_id_store(pool)?;
     let context = TenantContext::from_authenticated_session(arguments.tenant);
     let objects = pilot_object_store(storage)?;
     let chapter_specs = pilot_chapters()?;
@@ -238,7 +238,7 @@ pub(super) async fn seed_chapter_one_pilot(
             });
             published.push(QuestionManifest {
                 slug: question.slug.clone(),
-                display_id: format!("{}-v{}", record.public_id, record.version_number.value()),
+                display_id: record.question_id.to_string(),
                 problem_id: record.problem,
                 version_id: record.version,
             });

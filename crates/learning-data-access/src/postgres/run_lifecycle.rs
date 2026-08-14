@@ -113,8 +113,16 @@ pub(super) async fn start_or_resume_run(
         .map_err(|_| StoreError::InvalidRecord("run number overflow".to_string()))?
         .checked_add(1)
         .ok_or_else(|| StoreError::InvalidRecord("run number overflow".to_string()))?;
+    let public_number: i64 =
+        sqlx::query_scalar("SELECT nextval('public.assignment_run_public_id_seq'::regclass)")
+            .fetch_one(&mut **transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+    let public_id = question_model::RunPublicId::new(public_number as u64)
+        .ok_or_else(|| StoreError::Unavailable("run route number limit reached".to_string()))?;
     let run = AssignmentRun {
         id: proposed_run,
+        public_id,
         tenant,
         enrollment: enrollment.id,
         run_number,
@@ -135,11 +143,12 @@ pub(super) async fn start_or_resume_run(
     let (payload, checksum) = encode_payload(&run)?;
     sqlx::query(
         "INSERT INTO assignment_run \
-         (tenant_id, run_id, enrollment_id, run_number, started_at, payload, payload_sha256) \
-         VALUES ($1, $2, $3, $4, transaction_timestamp(), $5, $6)",
+         (tenant_id, run_id, public_id, enrollment_id, run_number, started_at, payload, payload_sha256) \
+         VALUES ($1, $2, $3, $4, $5, transaction_timestamp(), $6, $7)",
     )
     .bind(tenant.as_uuid())
     .bind(run.id.as_uuid())
+    .bind(i64::from(run.public_id.value()))
     .bind(run.enrollment.as_uuid())
     .bind(i64::from(run.run_number))
     .bind(payload)
@@ -239,12 +248,13 @@ pub(super) async fn apply_start_run(
     let (run_payload, run_checksum) = encode_payload(&run)?;
     sqlx::query(
         "INSERT INTO assignment_run \
-         (tenant_id, run_id, enrollment_id, run_number, started_at, \
+         (tenant_id, run_id, public_id, enrollment_id, run_number, started_at, \
           payload, payload_sha256) \
-         VALUES ($1, $2, $3, $4, to_timestamp($5::double precision / 1000.0), $6, $7)",
+         VALUES ($1, $2, $3, $4, $5, to_timestamp($6::double precision / 1000.0), $7, $8)",
     )
     .bind(tenant.as_uuid())
     .bind(run.id.as_uuid())
+    .bind(i64::from(run.public_id.value()))
     .bind(run.enrollment.as_uuid())
     .bind(i64::from(run.run_number))
     .bind(run.started_at.as_unix_millis())

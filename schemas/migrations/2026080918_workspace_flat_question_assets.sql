@@ -40,7 +40,7 @@ CREATE TABLE public.workspace_flat_question_asset (
             AND payload #>> '{object,key,workspace}' = workspace_id::text
             AND payload #>> '{object,key,asset}' = asset_id::text
             AND payload #>> '{object,key,object}' = object_id::text
-            AND payload #>> '{object,bucket}' = 'content'
+            AND payload #>> '{object,bucket}' = 'private-content'
             AND payload #>> '{object,category}' = 'asset'
             AND payload #> '{object,version}' = 'null'::jsonb
             AND payload->>'intrinsicWidth' = intrinsic_width::text

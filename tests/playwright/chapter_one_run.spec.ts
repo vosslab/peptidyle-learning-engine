@@ -9,7 +9,7 @@ import {
   answerAndSubmitVisibleQuestion,
   continueFromVisibleFeedback,
 } from "./simulator/chapter_question_responses";
-import { catalogResultByVersion } from "./simulator/instructor_catalog_binding";
+import { catalogResultByQuestionId } from "./simulator/instructor_catalog_binding";
 import { credentialFromValidatedFile } from "./ui_walkthrough_config_factory";
 
 test.describe.configure({ mode: "serial" });
@@ -166,15 +166,15 @@ test.describe("private live Chapter 1 browser acceptance", () => {
       page.getByRole("heading", { name: "Create assignment", exact: true }),
     ).toBeVisible();
     const title = "Genetic disorders: Matching";
-    const search = page.getByLabel("Search published problems");
+    const search = page.getByLabel("Search published questions");
     await tabTo(page, search);
     await search.fill(title);
     const searchCatalog = page.getByRole("button", { name: "Search catalog", exact: true });
     await tabTo(page, searchCatalog);
     await page.keyboard.press("Enter");
-    const catalogRow = await catalogResultByVersion(page, title, 1);
+    const catalogRow = await catalogResultByQuestionId(page, title);
     const humanReference = catalogRow.locator("code");
-    await expect(humanReference).toHaveText(/^P-[1-9][0-9]*-v1$/u);
+    await expect(humanReference).toHaveText(/^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u);
     const displayId = await humanReference.innerText();
     const copyId = catalogRow.getByRole("button", { name: `Copy question ID ${displayId}` });
     await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {

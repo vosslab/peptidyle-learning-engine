@@ -1323,7 +1323,7 @@ BEGIN
        AND registry.import_id = p_import
        AND registry.source_object_id = p_source_archive_object_id
        AND registry.payload #>> '{source,id}' = p_source_archive_object_id::text
-       AND registry.payload #>> '{source,bucket}' = 'content'
+       AND registry.payload #>> '{source,bucket}' = 'private-content'
        AND registry.payload #>> '{source,key,kind}' = 'workspaceSource'
        AND registry.payload #>> '{source,key,tenant}' = p_tenant::text
        AND registry.payload #>> '{source,key,workspace}' = p_workspace::text

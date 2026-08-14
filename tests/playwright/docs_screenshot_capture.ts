@@ -26,6 +26,19 @@ export const documentationScreenshotNames = [
   "student_fresh_practice.png",
   "student_retake_fresh_problem.png",
   "instructor_gradebook_mastery_loop.png",
+  "instructor_page_courses.png",
+  "instructor_page_course_assignments.png",
+  "instructor_page_assignment_overview.png",
+  "instructor_page_assignment_create.png",
+  "instructor_page_assignment_edit.png",
+  "instructor_page_roster.png",
+  "instructor_page_gradebook.png",
+  "instructor_page_course_appearance.png",
+  "instructor_page_library.png",
+  "instructor_page_question_detail.png",
+  "instructor_page_workspace.png",
+  "instructor_page_question_editor.png",
+  "instructor_page_account_security.png",
 ] as const;
 
 export type DocumentationScreenshotName = (typeof documentationScreenshotNames)[number];

@@ -5,11 +5,13 @@ import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { CourseId } from "../../generated/api/CourseId";
+import type { CoursePublicId } from "../../generated/api/CoursePublicId";
 import type { ProblemVersionRef } from "../../generated/api/ProblemVersionRef";
 import type { RunPolicies } from "../../generated/api/RunPolicies";
 import type { TenantId } from "../../generated/api/TenantId";
 import type { AssignmentCapabilityViolation, AssignmentEditorDetail } from "../api/contracts";
 import { CopyableProblemId } from "../components/copyable_problem_id";
+import { CourseManagementNav } from "../components/course_management_nav";
 import {
   ApiRequestError,
   AssignmentConflictError,
@@ -33,7 +35,12 @@ import {
   type AssignmentEditorDraft,
   type TimeLimitValidation,
 } from "./assignment_editor_model";
-import type { AssignmentEditorRepository } from "./assignment_editor_repository";
+import type {
+  AssignmentEditorRepository,
+  ReusableAssignment,
+} from "./assignment_editor_repository";
+import { assignmentRouteReference, courseRouteReference } from "../navigation/public_route";
+import { AssignmentEditorPolicyPanel } from "./assignment_editor_policy_panel";
 import { ASSIGNMENT_EDITOR_STYLES } from "./assignment_editor_styles";
 
 type EditorState =
@@ -52,6 +59,11 @@ type DirectImportState =
   | { readonly kind: "loading"; readonly count: number }
   | { readonly kind: "success"; readonly message: string }
   | { readonly kind: "error"; readonly message: string };
+
+type ReuseState =
+  | { readonly kind: "loading" }
+  | { readonly kind: "ready"; readonly assignments: ReadonlyArray<ReusableAssignment> }
+  | { readonly kind: "error" };
 
 class DirectImportLookupError extends Error {
   public readonly reference: string;
@@ -81,35 +93,13 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
-function gradePolicy(value: string): RunPolicies["grade"] {
-  switch (value) {
-    case "first":
-    case "latest":
-    case "highest":
-    case "instructorSelected":
-      return value;
-    default:
-      throw new Error("Grade policy selection is invalid");
-  }
-}
-
-function variationPolicy(value: string): RunPolicies["variation"] {
-  switch (value) {
-    case "newSeeds":
-    case "selectedProblemVariants":
-    case "fullRegeneration":
-      return value;
-    default:
-      throw new Error("Variation policy selection is invalid");
-  }
-}
-
 export type AssignmentEditorMode =
   { readonly kind: "edit"; readonly assignmentId: AssignmentId } | { readonly kind: "create" };
 
 export interface AssignmentEditorPageProps {
   readonly repository: AssignmentEditorRepository;
   readonly courseId: CourseId;
+  readonly coursePublicId: CoursePublicId;
   readonly mode: AssignmentEditorMode;
   /** Session-derived tenant used only to reject a hostile cross-tenant response. */
   readonly tenant: TenantId;
@@ -126,6 +116,11 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
   const [searchText, setSearchText] = createSignal("");
   const [directImportText, setDirectImportText] = createSignal("");
   const [directImport, setDirectImport] = createSignal<DirectImportState>({ kind: "idle" });
+  const [reuse, setReuse] = createSignal<ReuseState>({ kind: "loading" });
+  const [reuseSourceIndex, setReuseSourceIndex] = createSignal<number | null>(null);
+  const [reuseQuestionIndexes, setReuseQuestionIndexes] = createSignal<ReadonlySet<number>>(
+    new Set(),
+  );
   const [saving, setSaving] = createSignal(false);
   const [saveMessage, setSaveMessage] = createSignal("");
   const [conflict, setConflict] = createSignal(false);
@@ -167,16 +162,6 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
     return current.kind === "error" ? current : undefined;
   };
 
-  function completionFraction(policies: RunPolicies): number {
-    return policies.completion.kind === "scoreAtLeast" ? policies.completion.fraction : 0.8;
-  }
-
-  function additionalRunLimit(policies: RunPolicies): number {
-    return policies.continuedPractice.kind === "capped"
-      ? policies.continuedPractice.maxAdditionalRuns
-      : 3;
-  }
-
   function replaceDraft(next: AssignmentEditorDraft): void {
     setState({ kind: "ready", draft: next });
     setSaveMessage("Unsaved assignment changes.");
@@ -204,7 +189,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
       setKnownProblems([]);
       setState({ kind: "ready", draft });
       adoptTiming(draft.assignmentTiming.timeLimitSeconds);
-      setSaveMessage("Choose a title and published problem versions.");
+      setSaveMessage("Choose a title and at least one published question.");
       setConflict(false);
       setViolations([]);
       setCreated(null);
@@ -256,15 +241,81 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
     }
   }
 
+  async function loadReusableAssignments(): Promise<void> {
+    setReuse({ kind: "loading" });
+    try {
+      const assignments = await props.repository.listReusableAssignments(
+        props.courseId,
+        props.mode.kind === "edit" ? props.mode.assignmentId : undefined,
+      );
+      setReuse({ kind: "ready", assignments });
+      setReuseSourceIndex(assignments.length > 0 ? 0 : null);
+      setReuseQuestionIndexes(
+        new Set(assignments[0]?.questions.map((_question, index) => index) ?? []),
+      );
+    } catch {
+      setReuse({ kind: "error" });
+    }
+  }
+
+  function reusableAssignments(): ReadonlyArray<ReusableAssignment> {
+    const current = reuse();
+    return current.kind === "ready" ? current.assignments : [];
+  }
+
+  function selectedReuseSource(): ReusableAssignment | undefined {
+    const index = reuseSourceIndex();
+    return index === null ? undefined : reusableAssignments()[index];
+  }
+
+  function chooseReuseSource(index: number): void {
+    const source = reusableAssignments()[index];
+    setReuseSourceIndex(source === undefined ? null : index);
+    setReuseQuestionIndexes(
+      new Set(source?.questions.map((_question, questionIndex) => questionIndex) ?? []),
+    );
+  }
+
+  function toggleReuseQuestion(index: number, selected: boolean): void {
+    setReuseQuestionIndexes((current) => {
+      const next = new Set(current);
+      if (selected) next.add(index);
+      else next.delete(index);
+      return next;
+    });
+  }
+
+  function addReusedQuestions(allQuestions: boolean): void {
+    const current = ready();
+    const source = selectedReuseSource();
+    if (current === undefined || source === undefined) return;
+    const selectedRows = source.questions.filter(
+      (_question, index) => allQuestions || reuseQuestionIndexes().has(index),
+    );
+    if (selectedRows.length === 0) {
+      setSaveMessage("Choose at least one question to copy.");
+      return;
+    }
+    rememberProblems(selectedRows);
+    const next = selectedRows.reduce(addCatalogReference, current.draft);
+    replaceDraft(next);
+    const added = next.problems.length - current.draft.problems.length;
+    setSaveMessage(
+      added === 0
+        ? `Every question from ${source.title} is already selected.`
+        : `Copied ${added} question${added === 1 ? "" : "s"} from ${source.title}.`,
+    );
+  }
+
   function directImportError(reference: string, error: unknown): string {
     if (error instanceof ApiRequestError && error.status === 404) {
-      return `${reference} is not an available published question. Check the number and version.`;
+      return `${reference} is not an available published question. Check the Question ID.`;
     }
     if (error instanceof ApiRequestError && error.status === 403) {
       return `You do not have access to ${reference}. Ask its owner to publish or share it.`;
     }
     if (error instanceof ApiRequestError && error.status === 400) {
-      return `${reference} is not an exact question ID. Use the form P-12-v3.`;
+      return `${reference} is not a valid Question ID. Use the form 7K3-M9QP.`;
     }
     return `Could not look up ${reference}. Your pasted IDs and assignment are unchanged. Try again.`;
   }
@@ -455,7 +506,12 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
     return current.kind === kind ? current.message : "";
   }
 
-  onMount(() => void load());
+  onMount((): void => {
+    void (async (): Promise<void> => {
+      await load();
+      if (ready() !== undefined) await loadReusableAssignments();
+    })();
+  });
 
   return (
     <section
@@ -467,9 +523,12 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
       <p class="eyebrow">Instructor course design</p>
       <h1>{props.mode.kind === "create" ? "Create assignment" : "Assignment editor"}</h1>
       <p class="page-lede">
-        Choose published, immutable question versions and set the four run policies. Workspace
-        drafts must be published first before they can be added here.
+        Choose published questions, arrange their order, and set how each practice run behaves.
       </p>
+      <CourseManagementNav
+        coursePublicId={props.coursePublicId}
+        active={props.mode.kind === "create" ? "newAssignment" : "assignments"}
+      />
       <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {saveMessage()}
       </p>
@@ -501,7 +560,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                   <p>{assignment.title} now appears in this course.</p>
                   <A
                     class="primary-link"
-                    href={`/courses/${assignment.courseId}/assignments/${assignment.id}`}
+                    href={`/courses/${courseRouteReference(props.coursePublicId)}/assignments/${assignmentRouteReference(assignment.publicId)}`}
                   >
                     Open {assignment.title}
                   </A>
@@ -549,6 +608,33 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                 </Show>
               </section>
             </Show>
+            <div class="assignment-editor-actions" aria-label="Assignment save actions">
+              <button
+                class="primary-action"
+                type="button"
+                disabled={saveDisabled()}
+                onClick={() => void save()}
+              >
+                {saving()
+                  ? props.mode.kind === "create"
+                    ? "Creating assignment..."
+                    : "Saving assignment..."
+                  : props.mode.kind === "create"
+                    ? "Create assignment"
+                    : "Save assignment"}
+              </button>
+              <Show
+                when={
+                  current().draft.title.trim().length === 0 || current().draft.problems.length === 0
+                }
+              >
+                <p class="assignment-editor-note">
+                  Add a title and at least one published question before saving. Publish workspace
+                  drafts first.
+                </p>
+              </Show>
+              <Show when={saveMessage()}>{(message) => <span>{message()}</span>}</Show>
+            </div>
             <div class="assignment-editor-grid">
               <div class="assignment-editor-panel">
                 <h2>Assignment content</h2>
@@ -564,12 +650,90 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                     }
                   />
                 </label>
-                <h3>Selected published versions</h3>
+                <details class="assignment-editor-reuse">
+                  <summary>Reuse questions from an existing assignment</summary>
+                  <div>
+                    <Show when={reuse().kind === "loading"}>
+                      <p class="assignment-editor-note" role="status">
+                        Loading assignment question sets...
+                      </p>
+                    </Show>
+                    <Show when={reuse().kind === "error"}>
+                      <p class="inline-error">
+                        Existing assignments could not be loaded. Your current work is unchanged.
+                      </p>
+                    </Show>
+                    <Show
+                      when={reusableAssignments().length > 0}
+                      fallback={
+                        <Show when={reuse().kind === "ready"}>
+                          <p class="assignment-editor-note">
+                            No other assignments are available in this course yet.
+                          </p>
+                        </Show>
+                      }
+                    >
+                      <label class="assignment-editor-field">
+                        Source assignment
+                        <select
+                          value={reuseSourceIndex() ?? ""}
+                          onChange={(event) => chooseReuseSource(Number(event.currentTarget.value))}
+                        >
+                          <For each={reusableAssignments()}>
+                            {(assignment, index) => (
+                              <option value={index()}>{assignment.title}</option>
+                            )}
+                          </For>
+                        </select>
+                      </label>
+                      <p class="assignment-editor-note">
+                        Copy its whole question set or choose individual questions. Your title and
+                        policies stay unchanged.
+                      </p>
+                      <div class="assignment-editor-reuse-checklist">
+                        <For each={selectedReuseSource()?.questions ?? []}>
+                          {(question, index) => (
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={reuseQuestionIndexes().has(index())}
+                                onChange={(event) =>
+                                  toggleReuseQuestion(index(), event.currentTarget.checked)
+                                }
+                              />
+                              <span>
+                                <strong>{question.title}</strong>
+                                <small>{assignmentProblemLabel(question)}</small>
+                              </span>
+                            </label>
+                          )}
+                        </For>
+                      </div>
+                      <div class="assignment-editor-reuse-actions">
+                        <button
+                          class="primary-action"
+                          type="button"
+                          onClick={() => addReusedQuestions(false)}
+                        >
+                          Add selected questions
+                        </button>
+                        <button
+                          class="quiet-action"
+                          type="button"
+                          onClick={() => addReusedQuestions(true)}
+                        >
+                          Add entire assignment
+                        </button>
+                      </div>
+                    </Show>
+                  </div>
+                </details>
+                <h3>Questions ({current().draft.problems.length})</h3>
                 <Show
                   when={current().draft.problems.length > 0}
                   fallback={
                     <section class="empty-state" aria-label="No published questions selected">
-                      <p>No published question versions are selected yet.</p>
+                      <p>No published questions are selected yet.</p>
                       <p>Add a catalog result below. A workspace draft must be published first.</p>
                     </section>
                   }
@@ -598,7 +762,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                             )}
                           >
                             <p class="inline-error">
-                              This version has a server-reported capability conflict.
+                              This question has a server-reported capability conflict.
                             </p>
                           </Show>
                           <div class="assignment-editor-row-actions">
@@ -611,7 +775,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                                 replaceDraft(moveCatalogReference(current().draft, reference, -1))
                               }
                             >
-                              Move earlier
+                              <span aria-hidden="true">&uarr;</span>
                             </button>
                             <button
                               class="quiet-action"
@@ -622,7 +786,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                                 replaceDraft(moveCatalogReference(current().draft, reference, 1))
                               }
                             >
-                              Move later
+                              <span aria-hidden="true">&darr;</span>
                             </button>
                             <button
                               class="quiet-action"
@@ -640,258 +804,83 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                     </For>
                   </ol>
                 </Show>
-                <section
-                  class="assignment-editor-direct-import"
-                  aria-labelledby="add-by-id-heading"
-                >
-                  <h3 id="add-by-id-heading">Add by question ID</h3>
-                  <p id="add-by-id-help" class="assignment-editor-note">
-                    Paste exact IDs copied from the problem library. Use commas or separate lines
-                    for more than one, for example <code>P-12-v3, P-41-v1</code>.
-                  </p>
-                  <label class="assignment-editor-field">
-                    Question IDs
-                    <textarea
-                      rows="3"
-                      value={directImportText()}
-                      placeholder="P-12-v3"
-                      aria-describedby={
-                        directImport().kind === "error" || directImport().kind === "success"
-                          ? "add-by-id-help add-by-id-feedback"
-                          : "add-by-id-help"
-                      }
-                      aria-invalid={directImport().kind === "error"}
-                      onInput={(event) => {
-                        setDirectImportText(event.currentTarget.value);
-                        if (directImport().kind !== "loading") setDirectImport({ kind: "idle" });
-                      }}
-                    />
-                  </label>
-                  <button
-                    class="primary-action"
-                    type="button"
-                    disabled={directImport().kind === "loading"}
-                    onClick={() => void addByQuestionId()}
-                  >
-                    {directImportButtonLabel()}
-                  </button>
-                  <Show when={directImport().kind === "error"}>
-                    <p id="add-by-id-feedback" class="inline-error" role="alert">
-                      {directImportMessage("error")}
+                <details class="assignment-editor-direct-import">
+                  <summary id="add-by-id-heading">Add by question ID</summary>
+                  <div>
+                    <p id="add-by-id-help" class="assignment-editor-note">
+                      Paste IDs from the library, separated by commas or lines-for example,
+                      <code>7K3-M9QP, ABC-123T</code>.
                     </p>
-                  </Show>
-                  <Show when={directImport().kind === "success"}>
-                    <p
-                      id="add-by-id-feedback"
-                      class="assignment-editor-import-success"
-                      role="status"
+                    <label class="assignment-editor-field">
+                      Question IDs
+                      <textarea
+                        rows="2"
+                        value={directImportText()}
+                        placeholder="7K3-M9QP"
+                        aria-describedby={
+                          directImport().kind === "error" || directImport().kind === "success"
+                            ? "add-by-id-help add-by-id-feedback"
+                            : "add-by-id-help"
+                        }
+                        aria-invalid={directImport().kind === "error"}
+                        onInput={(event) => {
+                          setDirectImportText(event.currentTarget.value);
+                          if (directImport().kind !== "loading") setDirectImport({ kind: "idle" });
+                        }}
+                      />
+                    </label>
+                    <button
+                      class="primary-action"
+                      type="button"
+                      disabled={directImport().kind === "loading"}
+                      onClick={() => void addByQuestionId()}
                     >
-                      {directImportMessage("success")}
-                    </p>
-                  </Show>
-                </section>
+                      {directImportButtonLabel()}
+                    </button>
+                    <Show when={directImport().kind === "error"}>
+                      <p id="add-by-id-feedback" class="inline-error" role="alert">
+                        {directImportMessage("error")}
+                      </p>
+                    </Show>
+                    <Show when={directImport().kind === "success"}>
+                      <p
+                        id="add-by-id-feedback"
+                        class="assignment-editor-import-success"
+                        role="status"
+                      >
+                        {directImportMessage("success")}
+                      </p>
+                    </Show>
+                  </div>
+                </details>
               </div>
 
               <aside class="assignment-editor-panel" aria-label="Assignment policies and catalog">
-                <h2>Run policies</h2>
-                <fieldset class="assignment-editor-policy-set">
-                  <legend>Completion requirement</legend>
-                  <label class="assignment-editor-field">
-                    Completion
-                    <select
-                      aria-label="Completion requirement"
-                      value={current().draft.policies.completion.kind}
-                      onChange={(event) => {
-                        const kind = event.currentTarget.value;
-                        const completion =
-                          kind === "answerAll"
-                            ? { kind: "answerAll" as const }
-                            : kind === "scoreAtLeast"
-                              ? { kind: "scoreAtLeast" as const, fraction: 0.8 }
-                              : { kind: "allCorrect" as const };
-                        updatePolicies({ ...current().draft.policies, completion });
-                      }}
-                    >
-                      <option value="allCorrect">All questions correct</option>
-                      <option value="answerAll">Answer every question</option>
-                      <option value="scoreAtLeast">Reach a score threshold</option>
-                    </select>
-                  </label>
-                  <Show when={current().draft.policies.completion.kind === "scoreAtLeast"}>
-                    <label class="assignment-editor-field">
-                      Required score fraction
-                      <input
-                        type="number"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        value={completionFraction(current().draft.policies)}
-                        onInput={(event) => {
-                          const fraction = Number(event.currentTarget.value);
-                          if (!Number.isFinite(fraction)) return;
-                          updatePolicies({
-                            ...current().draft.policies,
-                            completion: { kind: "scoreAtLeast", fraction },
-                          });
-                        }}
-                      />
-                    </label>
-                  </Show>
-                </fieldset>
-                <fieldset class="assignment-editor-policy-set">
-                  <legend>Grade policy</legend>
-                  <label class="assignment-editor-field">
-                    Record
-                    <select
-                      aria-label="Grade policy"
-                      value={current().draft.policies.grade}
-                      onChange={(event) =>
-                        updatePolicies({
-                          ...current().draft.policies,
-                          grade: gradePolicy(event.currentTarget.value),
-                        })
-                      }
-                    >
-                      <option value="highest">Highest run score</option>
-                      <option value="latest">Latest run score</option>
-                      <option value="first">First run score</option>
-                      <option value="instructorSelected">Instructor-selected run</option>
-                    </select>
-                  </label>
-                </fieldset>
-                <fieldset class="assignment-editor-policy-set">
-                  <legend>Continued practice</legend>
-                  <label class="assignment-editor-field">
-                    After completion
-                    <select
-                      aria-label="Continued practice"
-                      value={current().draft.policies.continuedPractice.kind}
-                      onChange={(event) => {
-                        const kind = event.currentTarget.value;
-                        const continuedPractice =
-                          kind === "closed"
-                            ? { kind: "closed" as const }
-                            : kind === "capped"
-                              ? { kind: "capped" as const, maxAdditionalRuns: 3 }
-                              : { kind: "unlimited" as const };
-                        updatePolicies({ ...current().draft.policies, continuedPractice });
-                      }}
-                    >
-                      <option value="unlimited">Allow unlimited practice</option>
-                      <option value="capped">Limit additional runs</option>
-                      <option value="closed">Close after completion</option>
-                    </select>
-                  </label>
-                  <Show when={current().draft.policies.continuedPractice.kind === "capped"}>
-                    <label class="assignment-editor-field">
-                      Additional runs
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={additionalRunLimit(current().draft.policies)}
-                        onInput={(event) => {
-                          const maxAdditionalRuns = Number(event.currentTarget.value);
-                          if (!Number.isSafeInteger(maxAdditionalRuns) || maxAdditionalRuns < 0)
-                            return;
-                          updatePolicies({
-                            ...current().draft.policies,
-                            continuedPractice: { kind: "capped", maxAdditionalRuns },
-                          });
-                        }}
-                      />
-                    </label>
-                  </Show>
-                </fieldset>
-                <fieldset class="assignment-editor-policy-set">
-                  <legend>Variation policy</legend>
-                  <label class="assignment-editor-field">
-                    Next practice run
-                    <select
-                      aria-label="Variation policy"
-                      value={current().draft.policies.variation}
-                      onChange={(event) =>
-                        updatePolicies({
-                          ...current().draft.policies,
-                          variation: variationPolicy(event.currentTarget.value),
-                        })
-                      }
-                    >
-                      <option value="newSeeds">Use new seeds</option>
-                      <option value="selectedProblemVariants">Use selected problem variants</option>
-                      <option value="fullRegeneration">Fully regenerate</option>
-                    </select>
-                  </label>
-                </fieldset>
-                <fieldset class="assignment-editor-policy-set assignment-editor-run-timing">
-                  <legend>Time limit for each practice run</legend>
-                  <label class="assignment-editor-radio">
-                    <input
-                      type="radio"
-                      name="assignment-run-timing"
-                      checked={runTimed()}
-                      onChange={() => {
-                        setRunTimed(true);
-                        if (preservedRunSeconds() === null) setRunMinutesEdited(true);
-                        queueMicrotask(() => runMinutesInput?.focus());
-                      }}
-                    />
-                    Timed
-                  </label>
-                  <Show when={runTimed()}>
-                    <label class="assignment-editor-field">
-                      Minutes per practice run
-                      <input
-                        ref={(element: HTMLInputElement) => {
-                          runMinutesInput = element;
-                        }}
-                        type="number"
-                        inputMode="decimal"
-                        min="0"
-                        step="any"
-                        value={runMinutesText()}
-                        aria-describedby="run-time-limit-help"
-                        aria-invalid={runTimingValidation().error !== null}
-                        onInput={(event) => {
-                          setRunMinutesEdited(true);
-                          setRunMinutesText(event.currentTarget.value);
-                        }}
-                      />
-                    </label>
-                    <Show when={runTimingValidation().error}>
-                      {(message) => (
-                        <p class="inline-error" role="alert">
-                          {message()}
-                        </p>
-                      )}
-                    </Show>
-                  </Show>
-                  <label class="assignment-editor-radio">
-                    <input
-                      type="radio"
-                      name="assignment-run-timing"
-                      checked={!runTimed()}
-                      onChange={() => setRunTimed(false)}
-                    />
-                    Untimed
-                  </label>
-                  <p id="run-time-limit-help" class="assignment-editor-note">
-                    The server keeps the time running and automatically submits work when the run
-                    ends. A loaded time may display as an approximate number of minutes; it stays
-                    exact until you edit this field.
-                  </p>
-                </fieldset>
-                <p class="assignment-editor-note">
-                  This setting limits the whole practice run. Published question versions keep their
-                  own response and feedback rules.
-                </p>
+                <AssignmentEditorPolicyPanel
+                  policies={() => current().draft.policies}
+                  runTimed={runTimed}
+                  runMinutesText={runMinutesText}
+                  runTimingError={() => runTimingValidation().error}
+                  onPoliciesChange={updatePolicies}
+                  onRunTimedChange={(timed) => {
+                    setRunTimed(timed);
+                    if (timed && preservedRunSeconds() === null) setRunMinutesEdited(true);
+                  }}
+                  onRunMinutesInput={(value) => {
+                    setRunMinutesEdited(true);
+                    setRunMinutesText(value);
+                  }}
+                  onRunMinutesInputRef={(element) => {
+                    runMinutesInput = element;
+                  }}
+                />
 
-                <h2>Published problem catalog</h2>
+                <h2>Question catalog</h2>
                 <label class="assignment-editor-field">
-                  Search published problems
+                  Search published questions
                   <input
                     value={searchText()}
-                    placeholder="Title, concept, or P-123-v1"
+                    placeholder="Title, concept, or Question ID"
                     onInput={(event) => setSearchText(event.currentTarget.value)}
                   />
                 </label>
@@ -902,7 +891,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                   onClick={() => void searchCatalog()}
                 >
                   {catalog().kind === "loading"
-                    ? "Searching published problems..."
+                    ? "Searching published questions..."
                     : "Search catalog"}
                 </button>
                 <Show when={catalog().kind === "error"}>
@@ -911,7 +900,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                   </p>
                 </Show>
                 <Show when={catalog().kind === "ready" && catalog().rows.length === 0}>
-                  <p class="empty-state">No published problems match this search.</p>
+                  <p class="empty-state">No published questions match this search.</p>
                 </Show>
                 <div class="assignment-editor-catalog-results">
                   <For each={catalog().rows}>
@@ -928,40 +917,13 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                           disabled={selected(row.reference)}
                           onClick={() => replaceDraft(addCatalogReference(current().draft, row))}
                         >
-                          {selected(row.reference) ? "Already selected" : "Add published version"}
+                          {selected(row.reference) ? "Already selected" : "Add question"}
                         </button>
                       </article>
                     )}
                   </For>
                 </div>
               </aside>
-            </div>
-            <div class="assignment-editor-actions">
-              <button
-                class="primary-action"
-                type="button"
-                disabled={saveDisabled()}
-                onClick={() => void save()}
-              >
-                {saving()
-                  ? props.mode.kind === "create"
-                    ? "Creating assignment..."
-                    : "Saving assignment..."
-                  : props.mode.kind === "create"
-                    ? "Create assignment"
-                    : "Save assignment"}
-              </button>
-              <Show
-                when={
-                  current().draft.title.trim().length === 0 || current().draft.problems.length === 0
-                }
-              >
-                <p class="assignment-editor-note">
-                  Add a title and at least one published version before saving. Publish workspace
-                  drafts first.
-                </p>
-              </Show>
-              <Show when={saveMessage()}>{(message) => <span>{message()}</span>}</Show>
             </div>
           </>
         )}

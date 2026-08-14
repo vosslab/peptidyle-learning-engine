@@ -43,7 +43,7 @@ test("library uses one bounded search request, server facet counts, keyboard con
   await openLibrary(page);
 
   await expect(page.locator('[data-route-surface="library"]')).toBeVisible();
-  const search = page.getByLabel("Search published problems");
+  const search = page.getByLabel("Search published questions");
   await search.focus();
   await expect(search).toBeFocused();
   await expect(page.getByLabel("Topic")).toBeVisible();
@@ -54,11 +54,11 @@ test("library uses one bounded search request, server facet counts, keyboard con
   await page.getByLabel("Capability").selectOption("serverGrading");
   await page.getByLabel("License").selectOption("ccBy");
   await page.getByLabel("Statistic availability").selectOption("unavailable");
-  await expect(page.getByRole("link", { name: "Open immutable version" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open question" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Open immutable version" }).click();
+  await page.getByRole("link", { name: "Open question" }).click();
   await expect(page.locator('[data-route-surface="problemDetail"]')).toBeVisible();
-  await expect(page.getByText("Immutable published version")).toBeVisible();
+  await expect(page.getByText("Published question")).toBeVisible();
   await expect(page.locator("body")).not.toContainText(
     /answerKey|correctResponse|grading|sourceLocator/i,
   );
@@ -67,11 +67,11 @@ test("library uses one bounded search request, server facet counts, keyboard con
 test("library keeps intentional empty and narrow responsive states", async ({ page }) => {
   await page.setViewportSize({ width: 420, height: 800 });
   await openLibrary(page);
-  await page.getByLabel("Search published problems").fill("not-a-catalog-title");
+  await page.getByLabel("Search published questions").fill("not-a-catalog-title");
   await expect(
-    page.getByRole("heading", { name: "No published problems match these filters" }),
+    page.getByRole("heading", { name: "No published questions match these filters" }),
   ).toBeVisible();
-  await expect(page.getByLabel("Search published problems")).toBeVisible();
+  await expect(page.getByLabel("Search published questions")).toBeVisible();
 });
 
 let boundedCatalogFixture = "";
@@ -129,6 +129,17 @@ test.beforeAll(async () => {
           return "0198e000-0000-7000-8000-" + String(index).padStart(12, "0");
         }
 
+        function questionId(index) {
+          const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+          let value = index;
+          let suffix = "";
+          for (let digit = 0; digit < 4; digit += 1) {
+            suffix = alphabet[value % alphabet.length] + suffix;
+            value = Math.floor(value / alphabet.length);
+          }
+          return "CAT-" + suffix;
+        }
+
         function pageFor(requestUrl) {
           const cursor = requestUrl.searchParams.get("cursor");
           const start = cursor === null ? 0 : Number(cursor);
@@ -146,9 +157,8 @@ test.beforeAll(async () => {
             return {
               ...publishedProblemFixture.catalogProblem,
               problem: identifier(index),
-              publicId: index,
+              questionId: questionId(index),
               version: identifier(index + totalRows),
-              versionNumber: 1,
               metadata: {
                 ...publishedProblemFixture.catalogProblem.metadata,
                 title: text + " catalog problem " + index,
@@ -223,13 +233,13 @@ test("built library keeps a 10,000-row catalog bounded, stale-safe, retryable, a
   const fixture = page.locator("#bounded-catalog-fixture");
   await expect(fixture).toBeAttached();
   expect(pageErrors).toEqual([]);
-  const window = fixture.getByRole("region", { name: "Published problems" });
-  const search = fixture.getByLabel("Search published problems");
+  const window = fixture.getByRole("region", { name: "Published questions" });
+  const search = fixture.getByLabel("Search published questions");
 
   // Change the query before the deliberately delayed initial response can settle.
   await search.fill("new");
   await expect(fixture.getByText("new catalog problem 1", { exact: true })).toBeVisible();
-  await expect(fixture.getByText("P-1-v1", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("CAT-0001", { exact: true })).toBeVisible();
   await expect(fixture.getByText("old catalog problem 1", { exact: true })).toHaveCount(0);
 
   await window.evaluate((element) => {
@@ -287,11 +297,9 @@ test("built library keeps a 10,000-row catalog bounded, stale-safe, retryable, a
     element.scrollTop = 0;
     element.dispatchEvent(new Event("scroll", { bubbles: true }));
   });
-  await expect(
-    fixture.getByRole("link", { name: "Open immutable version" }).first(),
-  ).toHaveAttribute(
+  await expect(fixture.getByRole("link", { name: "Open question" }).first()).toHaveAttribute(
     "href",
-    /\/library\/0198e000-0000-7000-8000-000000000001\/versions\/0198e000-0000-7000-8000-000000010001/,
+    "/library/CAT-0001",
   );
 
   const fixtureEvidence = await page.evaluate((): CatalogFixtureEvidence => {

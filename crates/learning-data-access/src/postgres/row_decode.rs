@@ -38,10 +38,15 @@ pub(super) fn decode_catalog_payload_row(
     let stored_version = VersionId::from_uuid(row.try_get("version_id").map_err(map_sqlx_error)?);
     let stored_public_id =
         decode_problem_public_id(row.try_get("public_id").map_err(map_sqlx_error)?)?;
+    let stored_question_id = decode_question_id(
+        row.try_get::<String, _>("question_id")
+            .map_err(map_sqlx_error)?,
+    )?;
     let stored_version_number =
         decode_problem_version_number(row.try_get("version_number").map_err(map_sqlx_error)?)?;
     if record.problem != stored_problem
         || record.public_id != stored_public_id
+        || record.question_id != stored_question_id
         || record.version != stored_version
         || record.version_number != stored_version_number
     {
@@ -61,10 +66,11 @@ pub(super) fn decode_catalog_payload_row(
 #[cfg(feature = "postgres")]
 pub(super) fn decode_catalog_summary_row(row: &PgRow) -> Result<CatalogProblemSummary, StoreError> {
     let problem = ProblemId::from_uuid(row.try_get("problem_id").map_err(map_sqlx_error)?);
-    let public_id = decode_problem_public_id(row.try_get("public_id").map_err(map_sqlx_error)?)?;
+    let question_id = decode_question_id(
+        row.try_get::<String, _>("question_id")
+            .map_err(map_sqlx_error)?,
+    )?;
     let version = VersionId::from_uuid(row.try_get("version_id").map_err(map_sqlx_error)?);
-    let version_number =
-        decode_problem_version_number(row.try_get("version_number").map_err(map_sqlx_error)?)?;
     let backend: String = row.try_get("backend").map_err(map_sqlx_error)?;
     let Json(capabilities): Json<BackendCapabilities> =
         row.try_get("capabilities").map_err(map_sqlx_error)?;
@@ -104,9 +110,8 @@ pub(super) fn decode_catalog_summary_row(row: &PgRow) -> Result<CatalogProblemSu
     let published_at_millis: i64 = row.try_get("published_at_millis").map_err(map_sqlx_error)?;
     Ok(CatalogProblemSummary {
         problem,
-        public_id,
+        question_id,
         version,
-        version_number,
         backend: parse_question_backend(&backend)?,
         capabilities,
         metadata,
@@ -117,6 +122,13 @@ pub(super) fn decode_catalog_summary_row(row: &PgRow) -> Result<CatalogProblemSu
         derived_from,
         published_at: ActivityTimestamp::from_unix_millis(published_at_millis),
     })
+}
+
+#[cfg(feature = "postgres")]
+pub(super) fn decode_question_id(value: String) -> Result<question_model::QuestionId, StoreError> {
+    value
+        .parse()
+        .map_err(|_| StoreError::Unavailable("stored Question ID is invalid".to_string()))
 }
 
 #[cfg(feature = "postgres")]

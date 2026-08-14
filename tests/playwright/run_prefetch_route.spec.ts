@@ -45,6 +45,7 @@ test.beforeAll(async () => {
         import { issuedQuestionWireForAttempt } from "./src/api/mock/handlers.ts";
         import { createHttpApiClient } from "./src/api/http_client.ts";
         import { createApiRuntime, ApiRuntimeProvider } from "./src/api/runtime.tsx";
+        import { CourseThemeRouteContext } from "./src/features/course_appearance/course_theme_context.ts";
         import { WasmRuntimeProvider } from "./src/wasm/context.tsx";
         import { RunPage } from "./src/pages/run_page.tsx";
 
@@ -128,10 +129,29 @@ test.beforeAll(async () => {
           staleRunScreenQueryCalls += 1;
           throw new Error("Continue must not use the router run-screen query");
         };
-        const root = document.createElement("div"); root.id = "run-prefetch-fixture"; document.documentElement.append(root);
-        const mount = () => render(() => createComponent(ApiRuntimeProvider, { runtime, get children() { return createComponent(WasmRuntimeProvider, { formatFallback: async () => ({ violations: [] }), timerFallback: async () => "open", capabilityFallback: async () => [], get children() { return createComponent(RunPage, {}); } }); } }), root);
-        let dispose = mount();
-        window.__prefetchFixture = { get runId() { return runId; }, requests: () => requests, submissionCount: () => Number(sessionStorage.getItem(submissionCountKey) ?? "0"), armStaleRunScreenQuery: () => { rejectStaleRunScreenQuery = true; }, staleRunScreenQueryCalls: () => staleRunScreenQueryCalls, setMode: (value) => { mode = value; }, setScreenMode: (value) => { screenMode = value; }, releaseSuccessorScreen: () => { const release = heldSuccessorScreen; heldSuccessorScreen = null; if (release === null) return false; screenMode = "exact"; release(); return true; }, switchRun: (next) => { dispose(); runId = next; active[next] = 0; mode = "match"; screenMode = "exact"; submitted = false; dispose = mount(); }, settleHeld: (run) => { const entry = held.get(run); if (!entry) return false; const next = entry.next; entry.resolve(json({ predecessor: run === ids.run30 ? ids.a30 : ids.a31, run: next.run, assignmentPosition: 1, questionVersion: next.questionVersion, seed: next.seed, renderedQuestionSha256: hash("b"), envelope: envelope(next) })); return entry.signal.aborted; }, ids };
+        const root = document.createElement("div"); root.id = "run-prefetch-fixture"; document.body.append(root);
+        const mount = async () => {
+          const routeScreen = await client.getRunScreen(runId);
+          return render(() => createComponent(ApiRuntimeProvider, {
+            runtime,
+            get children() {
+              return createComponent(WasmRuntimeProvider, {
+                formatFallback: async () => ({ violations: [] }),
+                timerFallback: async () => "open",
+                capabilityFallback: async () => [],
+                get children() {
+                  return createComponent(CourseThemeRouteContext.Provider, {
+                    value: { kind: "runAttempt", screen: routeScreen },
+                    get children() { return createComponent(RunPage, {}); },
+                  });
+                },
+              });
+            },
+          }), root);
+        };
+        let dispose = () => {};
+        void mount().then((nextDispose) => { dispose = nextDispose; });
+        window.__prefetchFixture = { get runId() { return runId; }, requests: () => requests, submissionCount: () => Number(sessionStorage.getItem(submissionCountKey) ?? "0"), armStaleRunScreenQuery: () => { rejectStaleRunScreenQuery = true; }, staleRunScreenQueryCalls: () => staleRunScreenQueryCalls, setMode: (value) => { mode = value; }, setScreenMode: (value) => { screenMode = value; }, releaseSuccessorScreen: () => { const release = heldSuccessorScreen; heldSuccessorScreen = null; if (release === null) return false; screenMode = "exact"; release(); return true; }, switchRun: (next) => { dispose(); runId = next; active[next] = 0; mode = "match"; screenMode = "exact"; submitted = false; void mount().then((nextDispose) => { dispose = nextDispose; }); }, settleHeld: (run) => { const entry = held.get(run); if (!entry) return false; const next = entry.next; entry.resolve(json({ predecessor: run === ids.run30 ? ids.a30 : ids.a31, run: next.run, assignmentPosition: 1, questionVersion: next.questionVersion, seed: next.seed, renderedQuestionSha256: hash("b"), envelope: envelope(next) })); return entry.signal.aborted; }, ids };
       `,
     },
     write: false,
@@ -166,6 +186,8 @@ declare global {
 }
 
 async function mount(page: Page, mode = "match"): Promise<void> {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.addInitScript((initialMode) => {
     window.__prefetchMode = initialMode;
     if (sessionStorage.getItem("prefetch-fixture-mounted") !== "true") {
@@ -175,9 +197,15 @@ async function mount(page: Page, mode = "match"): Promise<void> {
   }, mode);
   await page.goto("/");
   await page.addScriptTag({ content: fixtureScript });
-  await expect(
-    page.locator("#run-prefetch-fixture").getByRole("heading", { name: /Position 1/ }),
-  ).toBeVisible();
+  const heading = page
+    .locator("#run-prefetch-fixture")
+    .getByRole("heading", { name: /Position 1/ });
+  await expect
+    .poll(async () => {
+      if (pageErrors[0] !== undefined) throw new Error(pageErrors[0]);
+      return await heading.count();
+    })
+    .toBe(1);
 }
 
 test("a pending successor keeps feedback visible and offers a refresh without another submission", async ({

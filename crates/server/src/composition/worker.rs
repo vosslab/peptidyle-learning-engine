@@ -93,7 +93,7 @@ pub async fn run_production_worker_from_env() -> Result<()> {
 /// Starts the worker against the explicit plaintext local-development stack.
 #[cfg(feature = "local-development-auth")]
 pub async fn run_local_development_worker_from_env() -> Result<()> {
-    run_worker_from_env(StorageRuntime::LocalDevelopment).await
+    run_worker_from_env(StorageRuntime::LocalDevelopmentWorker).await
 }
 
 /// Starts the least-authority publisher process. It claims no educational

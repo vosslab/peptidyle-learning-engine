@@ -1,27 +1,13 @@
 import { publishedProblemFixture } from "../../../../generated/fixtures/published_problem";
 import type { CatalogProblemDetail } from "../../../../generated/api/CatalogProblemDetail";
 import type { CatalogSearchPage } from "../../../../generated/api/CatalogSearchPage";
+import { normalizeQuestionIdSyntax } from "../../../question_id";
 
 import { handlesResource, jsonResponse, pathSegments, routeNotFound } from "./shared";
 
-const MAX_DISPLAY_ID_DIGITS = 10;
-const MAX_DISPLAY_ID = 2_147_483_647n;
-
 /** Mirrors the live `ProblemDisplayRef` parser so mock route status is useful evidence. */
-function isProblemDisplayReference(reference: string): boolean {
-  if (!reference.startsWith("P-")) return false;
-  const body = reference.slice(2);
-  const separator = body.lastIndexOf("-v");
-  const problem = separator === -1 ? body : body.slice(0, separator);
-  const version = separator === -1 ? undefined : body.slice(separator + 2);
-  const isPositiveU64 = (value: string): boolean => {
-    if (value.length === 0 || value.length > MAX_DISPLAY_ID_DIGITS || !/^[0-9]+$/.test(value)) {
-      return false;
-    }
-    const parsed = BigInt(value);
-    return parsed > 0n && parsed <= MAX_DISPLAY_ID;
-  };
-  return isPositiveU64(problem) && (version === undefined || isPositiveU64(version));
+function normalizeQuestionId(reference: string): string | null {
+  return normalizeQuestionIdSyntax(reference);
 }
 
 export function canHandleCatalog(request: Request): boolean {
@@ -62,7 +48,7 @@ function catalogSearchFixture(request: Request): CatalogSearchPage | Response {
   }
   const summary = publishedProblemFixture.catalogProblem;
   const normalizedText = (parameters.get("text") ?? "").trim().toLowerCase();
-  const displayId = `p-${summary.publicId}-v${summary.versionNumber}`;
+  const displayId = summary.questionId.toLowerCase();
   const textMatches =
     normalizedText.length === 0 ||
     normalizedText === displayId ||
@@ -114,12 +100,11 @@ export function respondCatalog(request: Request): Response {
   ) {
     const summary = publishedProblemFixture.catalogProblem;
     const reference = segments[3] ?? "";
-    if (!isProblemDisplayReference(reference)) {
+    const normalized = normalizeQuestionId(reference);
+    if (normalized === null) {
       return jsonResponse({ error: "invalid problem reference" }, 400);
     }
-    const exact = `P-${summary.publicId}-v${summary.versionNumber}`;
-    const stable = `P-${summary.publicId}`;
-    return reference === exact || reference === stable
+    return normalized === summary.questionId
       ? jsonResponse(summary)
       : jsonResponse({ error: "problem reference not found" }, 404);
   }

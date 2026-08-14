@@ -48,7 +48,7 @@ macOS setup for the Podman virtual machine lives in
 | `postgres`             | digest-pinned official PostgreSQL 17        | shared content and tenant-owned records           | 127.0.0.1:5432               |
 | `minio`                | digest-pinned official MinIO                | S3-compatible object storage                      | 127.0.0.1:9000, console 9001 |
 | `createbuckets`        | digest-pinned official MinIO Client         | one-shot bucket creation, then exits              | none                         |
-| `identity-secret-init` | pinned official Alpine                      | one-shot invitation-secret permission setup       | none                         |
+| `identity-secret-init` | pinned official Alpine                      | one-shot invitation-issuer and Question ID capability setup | none                         |
 | `webwork-renderer`     | external `webwork-pg-renderer` image        | private stateless PG/PGML render and grade engine | none                         |
 
 Every published port binds to `127.0.0.1`, not `0.0.0.0`. The database holds
@@ -67,14 +67,16 @@ one-shot bucket creator has no durable mount. PostgreSQL receives an additional
 ephemeral Unix-socket directory under `/var/run/postgresql`.
 
 `local-data-volume-permissions` is the one networkless preflight that runs as
-root *inside the rootless Podman user namespace*. It has only `CAP_CHOWN`, and
-can assign the two named-volume top-level directories to the fixed PostgreSQL
-UID 999 and MinIO UID 10001 before their daemons start. It does not recurse,
-create database/object content, or retain a running process. This is necessary
-because a fresh rootless named volume is engine-owned, while PostgreSQL's
-official entrypoint requires its data directory to be writable by the selected
-runtime user. MinIO explicitly supports an arbitrary regular user when `/data`
-is writable; its transient home is the bounded `/tmp` tmpfs.
+root *inside the rootless Podman user namespace*. It has only `CAP_CHOWN`. It
+assigns the PostgreSQL volume root to UID 999 and the complete MinIO tree to UID
+10001 before their daemons start. PostgreSQL already owns its protected
+mode-0700 descendants; the MinIO traversal repairs retained local objects
+created by an older root-running image. The helper does not create or alter
+database/object content and does not retain a running process. This is
+necessary because a fresh rootless named volume is engine-owned, while
+PostgreSQL's official entrypoint requires its data directory to be writable by
+the selected runtime user. MinIO explicitly supports an arbitrary regular user
+when `/data` is writable; its transient home is the bounded `/tmp` tmpfs.
 
 This is a local-development containment boundary, not an authorization boundary
 or a production deployment claim. The service ports remain loopback-only, and
@@ -110,15 +112,21 @@ shared prefix.
 
 ## First run
 
-The normal root command owns the local-only bootstrap:
+`local_stack.py` is the normal operator-facing lifecycle. It resolves the
+explicit `containers` project and selected environment, reports labelled
+resources, and delegates startup or bounded restart work to the launcher. It
+does not replace the launcher's build, bootstrap, migration, seed, renderer,
+or readiness contracts.
 
 ```bash
-./launch_local_stack.sh
+source source_me.sh && python3 local_stack.py start
+source source_me.sh && python3 local_stack.py start --skip-build --no-open
 ```
 
 On its first default run, the launcher creates an ignored mode-0600
-`containers/env.local`, generates independent database/object-store/grader and
-invitation-issuer secrets, generates instructor and student bearer credentials,
+`containers/env.local`, generates independent database/object-store/grader,
+invitation-issuer, and Question ID capability secrets, generates instructor
+and student bearer credentials,
 and mounts only their hashes into the API. It builds the host artifacts, starts
 PostgreSQL and MinIO, applies and verifies the embedded migrations, provisions the restricted
 `ple_grading_reader` login, publishes the two Chapter 1 assignments with four native and four
@@ -129,24 +137,53 @@ selected port is occupied during first-run bootstrap, the launcher records the
 first available port from 8000 through 8099 in the ignored env file. An existing
 explicit `PLE_GATEWAY_HOST_PORT` remains an operator choice until it is changed.
 
+The explicitly selected environment file is authoritative for Compose
+interpolation and host-side migration connections; inherited shell variables
+with the same names do not create split credentials.
+
+The launcher returns success only after `postgres`, `minio`,
+`webwork-renderer`, `api`, `worker`, and `gateway` are running, every declared
+health check is healthy, and the required one-shot services have exited with
+status zero. Live/full-stack Playwright starts only after that success. The
+ordinary mock-preview browser suite is a separate offline behavior lane and
+does not claim Podman-stack acceptance.
+
 The recovery screen accepts either generated value from the ignored
 `containers/local-login.txt`. The browser sends it once to the same-origin
 local login endpoint; the established credential is the existing HttpOnly
 session cookie, not local or session storage. Do not copy these local files to
 a deployed environment.
 
-Use `./launch_local_stack.sh --check` for a read-only configuration preflight,
+Start with read-only inspection when diagnosing a local stack:
+
+```bash
+source source_me.sh && python3 local_stack.py doctor
+source source_me.sh && python3 local_stack.py status
+source source_me.sh && python3 local_stack.py logs
+source source_me.sh && python3 local_stack.py validate
+source source_me.sh && python3 local_stack.py status --project containers
+```
+
+`doctor`, `projects`, `status`, `logs`, and `validate` are read-only. `status`
+and `logs` may name another project with `--project`, but lifecycle mutations
+always target the explicit default `containers` project. `validate` performs
+the launcher's canonical configuration check and then reports the observed
+runtime state; it does not start or repair containers.
+
+Use `local_stack.py validate` for a read-only configuration preflight,
 `--no-open` on a headless machine, or `--skip-build` when the existing `dist/`
 bundle is intentionally current. A custom `--env-file` is never rewritten or
-seeded and must provide every required secret itself. `npm run launch` is an
-optional alias.
+seeded and must provide every required secret itself. `npm run launch` remains
+an optional launcher alias for recovery work.
 
-The API reads the mode-0600 invitation issuer from a read-only named volume
-populated by a networkless one-shot initializer running under the pinned Alpine
-image. This makes Instructor copy-link invitations available without SMTP and
-keeps the raw issuer out of environment variables. PLE uses its established
-Rust SMTP adapter only when an operator supplies provider settings; the local
-stack does not run or maintain a mail server.
+The API reads the mode-0600 invitation issuer and Question ID capability from a
+read-only named volume populated by a networkless one-shot initializer running
+under the pinned Alpine image. The API alone mounts that runtime copy; the
+worker does not receive it. This makes Instructor copy-link invitations
+available without SMTP and keeps the raw capabilities out of environment
+variables. PLE uses its established Rust SMTP adapter only when an operator
+supplies provider settings; the local stack does not run or maintain a mail
+server.
 
 ## External SMTP provider
 
@@ -168,10 +205,12 @@ set:
 Preflight and start that configuration explicitly:
 
 ```bash
-./launch_local_stack.sh --env-file path/to/env.local --with-smtp --check
-./launch_local_stack.sh --env-file path/to/env.local --with-smtp --no-open
-podman compose -f containers/compose.yaml -f containers/compose.smtp.yaml \
-  --env-file path/to/env.local down
+source source_me.sh && python3 local_stack.py validate \
+  --env-file path/to/env.local --with-smtp
+source source_me.sh && python3 local_stack.py start \
+  --env-file path/to/env.local --with-smtp --no-open
+source source_me.sh && python3 local_stack.py stop \
+  --env-file path/to/env.local --with-smtp
 ```
 
 The SMTP overlay copies the credential through a networkless, capability-minimal
@@ -209,6 +248,22 @@ exercise both rendering and grading before the API starts.
 The renderer is stateless. Recreating it loses no PLE record. PostgreSQL and
 MinIO retain records in named volumes outside their writable container layers;
 normal `down` and rebuild operations preserve those volumes.
+
+### Deliberate renderer outage
+
+`service stop webwork-renderer` is not a routine lifecycle command. It exists
+only to prove or diagnose the narrowly scoped WebWork outage: it requires one
+running, label-resolved renderer in the default `containers` project, prints
+the exact Compose command, stops that one service, and proves that labelled
+volumes and networks did not change.
+
+```bash
+source source_me.sh && python3 local_stack.py service stop webwork-renderer
+source source_me.sh && python3 local_stack.py restart webwork-renderer
+```
+
+Use `restart` to restore the service. The command cannot stop PostgreSQL,
+MinIO, API, worker, gateway, an arbitrary container, or a disposable project.
 
 The startup probe is not a substitute for PLE integration or browser testing.
 The repository contains explicit E2E gates for the bounded licensed PGML
@@ -263,32 +318,85 @@ its useful operational signal is the supported-family queue depth emitted with
 non-empty pass counters. Worker startup verifies schema compatibility and
 refuses to drain when verification is unavailable or incompatible.
 
-Prove both directions before trusting the gate. A health check that only ever
-returns 200 is indistinguishable from one that is not checking anything:
-
-```bash
-podman compose -f containers/compose.yaml --env-file containers/env.local stop postgres
-curl -s http://localhost:8080/health          # {"status":"degraded","failing":["postgres"]}
-podman compose -f containers/compose.yaml --env-file containers/env.local start postgres
-curl -s http://localhost:8080/health          # {"status":"ready"} once compatibility verifies
-```
+Use the controller for ordinary inspection. Raw Compose remains a diagnosis or
+recovery tool when its exact command is necessary, not the normal lifecycle
+interface. Exercise a deliberate database-outage rehearsal only through its
+own disposable E2E runner, rather than interrupting teaching data in the
+default project.
 
 ## Common commands
 
 ```bash
-./launch_local_stack.sh                                      # build, start, wait, and open
-./launch_local_stack.sh --skip-build --no-open               # fast restart without browser open
-
-# Direct Compose commands always load the ignored local env file.
-podman compose -f containers/compose.yaml --env-file containers/env.local ps
-podman compose -f containers/compose.yaml --env-file containers/env.local \
-  logs -f api worker webwork-renderer
-podman compose -f containers/compose.yaml --env-file containers/env.local build api gateway
-podman compose -f containers/compose.yaml --env-file containers/env.local \
-  up -d --scale api=2 --scale worker=2 api worker gateway
-podman compose -f containers/compose.yaml --env-file containers/env.local \
-  down --remove-orphans
+source source_me.sh && python3 local_stack.py start          # build, start, wait, and open
+source source_me.sh && python3 local_stack.py start --skip-build --no-open
+source source_me.sh && python3 local_stack.py status
+source source_me.sh && python3 local_stack.py logs gateway api worker
+source source_me.sh && python3 local_stack.py logs --follow api worker
+source source_me.sh && python3 local_stack.py restart api
+source source_me.sh && python3 local_stack.py stop           # retains named volumes
 ```
+
+`restart` is intentionally limited to the stateless `api`, `worker`,
+`gateway`, and `webwork-renderer` services. It delegates to the launcher so
+the restarted service still receives the appropriate readiness and dependency
+checks. Restarting PostgreSQL or MinIO individually is not a controller
+operation; preserve their data and use the supported start path or a named
+disposable E2E/recovery procedure.
+
+## Read-only status
+
+`status` reports semantic readiness, rather than merely listing containers.
+`ready` means every required long-running service is running and healthy (the
+worker deliberately has no HTTP health check) and every required one-shot
+service exited with status zero. `starting`, `partially-active`, `failed`,
+`stopped-with-data`, and `absent` distinguish incomplete topology, missing
+services, failed or duplicate services, retained data with no active stack,
+and no labelled resources. A one-shot container that exited zero is successful
+and does not consume CPU; it is not a stopped daemon.
+
+The selected `--with-smtp` topology requires `smtp-secret-init`. Conversely,
+status infers the SMTP overlay if its labelled initializer or runtime volume is
+present, so a persisted overlay is not misread as the normal no-email topology.
+Use `status --json` for a structured non-secret report. `projects` lists every
+labelled Compose project, including a project that currently has only retained
+volumes.
+
+`logs` defaults to `gateway`, `api`, and `worker`; it accepts only services in
+the selected topology and warns that application diagnostics may contain
+private local data. Prefer this scoped command over an unfiltered engine log
+dump.
+
+To intentionally discard disposable pre-production data, preview the exact target first and then
+confirm the visible project name:
+
+```bash
+source source_me.sh && python3 local_stack.py reset --dry-run
+source source_me.sh && python3 local_stack.py reset --confirm-project containers
+source source_me.sh && python3 local_stack.py start --no-open
+```
+
+`reset` removes only the default project's labelled Compose containers,
+networks, and named volumes through `down --volumes --remove-orphans`. The dry
+run prints the exact resource snapshot and command. The mutating form requires
+the literal confirmation `--confirm-project containers`. It preserves host
+files such as `containers/env.local`, `containers/local-login.txt`, and
+mode-0600 capability files. It does not run a global Podman prune, arbitrary
+image deletion, or disposable walkthrough cleanup.
+
+Disposable E2E runners use their own private manifest plus a runner-held
+cleanup capability through `local_stack_consumer.py`; that adapter is not a
+general operator cleanup command. On cleanup failure, the runner exits
+nonzero and retains its private evidence directory or manifest path for
+inspection. Do not delete that evidence before the label-resolved target is
+inspected and its exact cleanup is retried. `PLE_E2E_KEEP=1` intentionally
+retains the owner-created target and its evidence for diagnosis.
+
+The disposable capability coordinates cooperative processes running as the
+same local user; mode 0600 prevents accidental disclosure but does not isolate
+against a malicious same-UID process. Before any mutation, the adapter checks
+the runner-held capability digest on every labelled resource. Once discovery
+proves that no labelled resource remains, it may remove only the owner's exact
+project-derived image tags (never an image ID, default tag, or shared image).
 
 ## Whole-system verification
 
@@ -307,6 +415,13 @@ official digest and strips Caddy's unnecessary low-port file capability before
 running as UID 1000 with `cap_drop: ALL`. Generated projects and volumes are
 removed on both success and failure; the runner never targets a long-lived
 development project.
+
+Permanent fast tests protect controller parsing, ownership, topology, and
+other deterministic contracts. Real Podman, PostgreSQL, MinIO, renderer,
+restart, and browser evidence belongs to an explicit disposable or live
+acceptance command; it is not a regular pytest dependency. The complete
+required command set for a goal is the active plan's Validation test suite;
+see [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite).
 
 Named volumes `ple_pgdata` and `ple_miniodata` survive `down`. The launcher
 runs the read-only `postgres-major-guard` before it starts PostgreSQL and

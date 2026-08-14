@@ -1,30 +1,38 @@
 # Troubleshooting local stacks
 
-Use this guide when the maintained local-stack launcher stops before the browser application is
-ready. It covers observed launcher checks and safe recovery actions. For initial requirements and
-normal commands, see [INSTALL.md](INSTALL.md), [USAGE.md](USAGE.md), and
+Use this guide when the local stack is not ready. Use the Python controller for
+ordinary inspection and lifecycle work; it owns project selection, labelled
+resource discovery, scoped logs, and destructive-reset confirmation. The
+launcher remains the implementation owner for build, bootstrap, migration,
+seed, renderer, and readiness sequencing. For initial requirements and normal
+commands, see [INSTALL.md](INSTALL.md), [USAGE.md](USAGE.md), and
 [MACOS_PODMAN.md](MACOS_PODMAN.md).
 
 ## Preflight failures
 
-- **`command not found on PATH`:** install the named launcher prerequisite, then rerun
-  `./launch_local_stack.sh --check`. The launcher requires Git, Podman, curl, awk, OpenSSL, xxd,
-  and lsof before it changes local state.
+- **`command not found on PATH`:** install the named launcher prerequisite,
+  then rerun `source source_me.sh && python3 local_stack.py validate`. The
+  launcher requires Git, Podman, curl, awk, OpenSSL, xxd, and lsof before it
+  changes local state.
 - **`neither 'podman compose' nor 'podman-compose' is usable`:** install a Compose provider for
-  Podman, then confirm it is available with `podman compose version` before rerunning the check.
+  Podman, then rerun `source source_me.sh && python3 local_stack.py doctor` before repeating the
+  read-only validation.
 - **`containers/env.local is missing or unreadable`:** run
-  `./launch_local_stack.sh --no-open` once. The normal default launcher creates its ignored local
-  configuration and credentials with restrictive permissions; `--check` deliberately does not.
+  `source source_me.sh && python3 local_stack.py start --no-open` once. The
+  normal default launcher creates its ignored local configuration and
+  credentials with restrictive permissions; validation deliberately does not.
 - **`--check cannot validate this pre-image-pin env.local`:** run
-  `./launch_local_stack.sh --no-open` once to add the required immutable local image settings, then
-  rerun `./launch_local_stack.sh --check`.
+  `source source_me.sh && python3 local_stack.py start --no-open` once to add the required immutable
+  local image settings, then rerun `source source_me.sh && python3 local_stack.py validate`.
 - **`Compose configuration is incomplete`:** keep the error text, correct the named value in the
   selected environment file, then rerun the preflight. A custom `--env-file` is not rewritten by
-  the launcher and must provide every required setting itself.
+  the launcher and must provide every required setting itself. The selected file is authoritative;
+  an inherited shell variable with the same name is deliberately ignored so Compose and host-side
+  migration commands cannot receive different credentials.
 
 ## Podman is unavailable
 
-On macOS, a normal launcher run attempts to start the Podman machine after configuration validation.
+On macOS, a normal controller `start` attempts to start the Podman machine after configuration validation.
 When that fails, inspect and start the machine explicitly:
 
 ```bash
@@ -43,15 +51,15 @@ Do not treat `--check` as a machine-start command: it is intentionally read-only
   service state and recent logs, then correct the reported container failure before retrying.
 
   ```bash
-  podman compose -f containers/compose.yaml --env-file containers/env.local ps
-  podman compose -f containers/compose.yaml --env-file containers/env.local logs --tail=80 postgres minio
+  source source_me.sh && python3 local_stack.py status
+  source source_me.sh && python3 local_stack.py logs --tail 80 postgres minio
   ```
 
 - **`the stack did not become ready`:** inspect the gateway, API, and worker logs. The launcher
   waits for semantic `/health`, so a running container alone is not a successful start.
 
   ```bash
-  podman compose -f containers/compose.yaml --env-file containers/env.local logs --tail=80 gateway api worker
+  source source_me.sh && python3 local_stack.py logs --tail 80 gateway api worker
   curl -s http://127.0.0.1:8080/health
   ```
 
@@ -73,8 +81,7 @@ For `the standalone PG renderer did not pass its render/grade probe`, retain the
 for inspection and collect its logs before retrying:
 
 ```bash
-podman compose -f containers/compose.yaml --env-file containers/env.local \
-  logs --tail=80 webwork-renderer
+source source_me.sh && python3 local_stack.py logs --tail 80 webwork-renderer
 ```
 
 ## Email sign-in and invitations
@@ -99,6 +106,24 @@ podman compose -f containers/compose.yaml --env-file containers/env.local \
 the launcher found an existing data directory from another PostgreSQL major version. Preserve that
 volume and migrate it with an explicit PostgreSQL-major-version procedure; do not delete it merely
 to make the local stack start. Once the data is safely migrated, rerun the launcher.
+
+`migration ... was previously applied but is missing in the resolved migrations` means the local
+volume contains a retired pre-production schema. Do not edit `_sqlx_migrations`, add a no-op
+compatibility migration, or silently delete the volume. Preserve anything intentionally valuable,
+then recreate the explicitly disposable local project when the operator accepts the data loss:
+
+```bash
+source source_me.sh && python3 local_stack.py reset --dry-run
+source source_me.sh && python3 local_stack.py reset --confirm-project containers
+source source_me.sh && python3 local_stack.py start --no-open
+```
+
+The preview shows the exact labelled default-project resources and removal
+command. Confirmation removes the default project's PostgreSQL, MinIO, and
+runtime-secret volumes, but preserves host files such as `containers/env.local`
+and `containers/local-login.txt`. It is appropriate only for disposable
+pre-production local data; a retained or production-like data set requires a
+reviewed backup/restore or forward-migration procedure instead.
 
 ## UI walkthrough is blocked
 
@@ -137,9 +162,27 @@ After collecting diagnostics or when finished, stop the default stack while reta
 volumes:
 
 ```bash
-podman compose -f containers/compose.yaml --env-file containers/env.local \
-  down --remove-orphans
+source source_me.sh && python3 local_stack.py stop
 ```
 
 Use the same environment file that started the stack. Preserve the named PostgreSQL and MinIO
 volumes unless their data is intentionally disposable.
+
+## Status and acceptance
+
+`status` reports `ready` only when every required one-shot exited zero and all
+required daemons are healthy; the worker is supervised without an HTTP health
+check. A successful one-shot remains visible as an exited container and is not
+a failed daemon. `starting`, `partially-active`, `failed`, `stopped-with-data`,
+and `absent` distinguish incomplete startup, missing services, failed or
+duplicate services, retained volumes without active services, and no labelled
+project resources. The SMTP overlay is included when requested with
+`--with-smtp` and is inferred from its initializer or runtime volume when it
+already exists.
+
+`source source_me.sh && python3 local_stack.py acceptance` is an opt-in live
+acceptance command. It first refuses default or walkthrough projects with
+retained containers, rather than reusing or deleting another run. Permanent
+offline controller tests remain in the normal test gates; Podman/browser
+acceptance is explicit evidence. The active plan names the full required
+Validation test suite; see [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite).

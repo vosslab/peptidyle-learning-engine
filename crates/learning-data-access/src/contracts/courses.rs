@@ -16,9 +16,14 @@ pub struct CourseRecord {
 
 impl CourseRecord {
     /// Returns the browser projection for one direct course member.
-    pub fn summary(&self, role: CourseMembershipRole) -> CourseSummary {
+    pub fn summary(
+        &self,
+        role: CourseMembershipRole,
+        public_id: question_model::CoursePublicId,
+    ) -> CourseSummary {
         CourseSummary {
             id: self.id,
+            public_id,
             tenant: self.tenant,
             title: self.title.clone(),
             role,
@@ -162,9 +167,10 @@ impl AssignmentRecord {
     }
 
     /// Builds the browser-safe assignment projection.
-    pub fn summary(&self) -> AssignmentSummary {
+    pub fn summary(&self, public_id: question_model::AssignmentPublicId) -> AssignmentSummary {
         AssignmentSummary {
             id: self.id,
+            public_id,
             tenant: self.tenant,
             course_id: self.course_id,
             title: self.title.clone(),

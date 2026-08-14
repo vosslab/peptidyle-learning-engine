@@ -63,6 +63,8 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     mutation("/api/auth/account/email/complete", "POST"),
     mutation("/api/course-invitations/redeem", "POST"),
     read("/api/auth/account/courses"),
+    read("/api/auth/account/presentation"),
+    mutation("/api/auth/account/presentation", "PUT"),
     mutation("/api/auth/account/course-session", "POST"),
     mutation("/api/auth/passkeys/registration/start", "POST"),
     mutation("/api/auth/passkeys/registration/complete", "POST"),
@@ -70,6 +72,7 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     mutation("/api/auth/passkeys/authentication/complete", "POST"),
     read("/api/auth/passkeys"),
     mutation("/api/auth/passkeys/{passkey}", "DELETE"),
+    read("/api/navigation/{reference}"),
     read("/api/problems"),
     read("/api/problems/search"),
     read("/api/problems/by-id/{reference}"),
@@ -288,6 +291,14 @@ mod tests {
         assert_eq!(
             route_policy("/api/assets/{id}/delivery", "POST"),
             Some(RouteIntent::StateTransition),
+        );
+    }
+
+    #[test]
+    fn navigation_reference_resolution_is_a_read_only_representation() {
+        assert_eq!(
+            route_policy("/api/navigation/{reference}", "GET"),
+            Some(RouteIntent::Representation),
         );
     }
 

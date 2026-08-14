@@ -15,11 +15,11 @@ import {
   type CatalogBrowseState,
 } from "./library_page_model";
 
-const ROW_HEIGHT_PX = 152;
+const FALLBACK_ROW_HEIGHT_PX = 104;
 const OVERSCAN_ROWS = 5;
 
 function catalogLink(row: CatalogBrowseRow): string {
-  return `/library/${encodeURIComponent(row.problemId)}/versions/${encodeURIComponent(row.versionId)}`;
+  return `/library/${encodeURIComponent(row.displayId)}`;
 }
 
 export interface LibraryPageProps {
@@ -37,6 +37,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   });
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportHeight, setViewportHeight] = createSignal(560);
+  const [rowHeightPx, setRowHeightPx] = createSignal(FALLBACK_ROW_HEIGHT_PX);
   const session = new CatalogBrowseSession(props.repository, setState);
 
   const ready = (): Extract<CatalogBrowseState, { readonly kind: "ready" }> | undefined => {
@@ -68,7 +69,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
       displayedRows(),
       scrollTop(),
       viewportHeight(),
-      ROW_HEIGHT_PX,
+      rowHeightPx(),
       OVERSCAN_ROWS,
     );
 
@@ -89,25 +90,31 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     const current = ready();
     if (
       current !== undefined &&
-      target.scrollTop + target.clientHeight >= target.scrollHeight - ROW_HEIGHT_PX * 3
+      target.scrollTop + target.clientHeight >= target.scrollHeight - rowHeightPx() * 3
     ) {
       void session.loadNext();
     }
   }
 
-  onMount(() => void session.reset(query()));
+  onMount(() => {
+    const configured = Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--ple-catalog-row-block-size"),
+    );
+    if (Number.isFinite(configured) && configured > 0) setRowHeightPx(configured);
+    void session.reset(query());
+  });
 
   return (
     <section class="page library-page" data-route-surface="library">
       <p class="eyebrow">Shared educational content</p>
-      <h1>Problem library</h1>
-      <p class="page-lede">Find an immutable published version to study, reuse, or assign.</p>
+      <h1>Question library</h1>
+      <p class="page-lede">Find a current published question to study, reuse, or assign.</p>
       <p class="sr-only" role="status" aria-live="polite">
         {state().kind === "loading" ? "Loading catalog results." : ""}
       </p>
       <form class="catalog-controls" onSubmit={(event) => event.preventDefault()}>
         <label>
-          Search published problems
+          Search published questions
           <input
             type="search"
             value={query().search}
@@ -174,8 +181,8 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
         </section>
       </Show>
       <Show when={state().kind === "empty"}>
-        <section class="empty-state" aria-label="No matching published problems">
-          <h2>No published problems match these filters</h2>
+        <section class="empty-state" aria-label="No matching published questions">
+          <h2>No published questions match these filters</h2>
           <p>Try a shorter search or choose a broader topic.</p>
         </section>
       </Show>
@@ -183,26 +190,27 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
         <div
           class="catalog-window"
           role="region"
-          aria-label="Published problems"
+          aria-label="Published questions"
           tabIndex={0}
           onScroll={handleScroll}
+          style={`--ple-catalog-loaded-block-size:${displayedRows().length * rowHeightPx()}px`}
         >
           <div
             style={{
-              height: `${displayedRows().length * ROW_HEIGHT_PX}px`,
+              height: `${displayedRows().length * rowHeightPx()}px`,
               position: "relative",
             }}
           >
             <div class="catalog-window-slice" style={{ top: `${virtualWindow().offset}px` }}>
               <For each={virtualWindow().rows}>
                 {(row) => (
-                  <article class="catalog-row" style={{ height: `${ROW_HEIGHT_PX}px` }}>
+                  <article class="catalog-row" style={{ height: `${rowHeightPx()}px` }}>
                     <h2>{row.title}</h2>
                     <p>{row.summary}</p>
-                    <p class="card-kicker">{row.taxonomy.join(" * ")}</p>
+                    <p class="card-kicker">{row.taxonomy.join(" / ")}</p>
                     <CopyableProblemId displayId={row.displayId} />
                     <A class="quiet-link" href={catalogLink(row)}>
-                      Open immutable version
+                      Open question
                     </A>
                   </article>
                 )}
@@ -211,14 +219,14 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           </div>
           <Show when={state().kind === "loading"}>
             <p class="loading-state" role="status">
-              Loading more published problems...
+              Loading more published questions...
             </p>
           </Show>
         </div>
       </Show>
       <Show when={state().kind === "loading" && displayedRows().length === 0}>
         <p class="loading-state" role="status">
-          Loading published problems...
+          Loading published questions...
         </p>
       </Show>
     </section>

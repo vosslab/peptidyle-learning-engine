@@ -1,10 +1,16 @@
 // Deterministic passwordless and roster fixture capability for browser previews.
 
 import { publishedProblemFixture } from "../../../generated/fixtures/published_problem";
-import type { CourseRosterClient, EmailEnrollmentRosterPage, PasskeySummary } from "../enrollment";
+import type {
+  AccountPresentationPreference,
+  CourseRosterClient,
+  EmailEnrollmentRosterPage,
+  PasskeySummary,
+} from "../enrollment";
 
 const ACCOUNT_COURSE = {
   courseId: publishedProblemFixture.course.id,
+  coursePublicId: publishedProblemFixture.course.publicId,
   title: publishedProblemFixture.course.title,
   role: "instructor" as const,
 };
@@ -18,6 +24,7 @@ const MOCK_EXPORT_ID = "0198e000-0000-7000-8000-000000000606";
 const MOCK_REDEMPTION_PATH = `/course-invitations/redeem#token=${"A".repeat(43)}`;
 
 export function createMockEnrollmentClient(): CourseRosterClient {
+  let presentation: AccountPresentationPreference = { contrast: "standard" };
   let rosterRevision = 1;
   let passkeys: ReadonlyArray<PasskeySummary> = [
     {
@@ -55,6 +62,11 @@ export function createMockEnrollmentClient(): CourseRosterClient {
   }
 
   return {
+    getAccountPresentation: () => Promise.resolve(presentation),
+    saveAccountPresentation: (preference): Promise<AccountPresentationPreference> => {
+      presentation = { contrast: preference.contrast };
+      return Promise.resolve(presentation);
+    },
     startEmailAuthentication: () => Promise.resolve({ accepted: true }),
     completeEmailAuthentication: () =>
       Promise.resolve({ authenticated: true, passkeyEnrollmentSuggested: passkeys.length === 0 }),
@@ -64,7 +76,11 @@ export function createMockEnrollmentClient(): CourseRosterClient {
     selectAccountCourse: (courseId) =>
       Promise.resolve({ authenticated: true, courseId, role: "instructor" }),
     redeemCourseInvitation: () =>
-      Promise.resolve({ courseId: ACCOUNT_COURSE.courseId, membershipStatus: "active" }),
+      Promise.resolve({
+        courseId: ACCOUNT_COURSE.courseId,
+        coursePublicId: ACCOUNT_COURSE.coursePublicId,
+        membershipStatus: "active",
+      }),
     startPasskeyRegistration: () => Promise.resolve({ ceremonyId: MOCK_CEREMONY_ID, options: {} }),
     completePasskeyRegistration: (
       _ceremonyId,

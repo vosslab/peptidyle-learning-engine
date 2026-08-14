@@ -12,8 +12,10 @@ The authoritative human-readable inventory is
 [`content/pilot/chapter_1_assignments.yaml`](../content/pilot/chapter_1_assignments.yaml). It uses
 question slugs, titles, subject and course display names, point values, families, and source paths
 rather than UUIDs. The publication seed reads that validated inventory instead of maintaining a
-second human-visible catalog. Internal problem and version UUIDs are minted only when content is
-published; the instructor UI presents the catalog's `P-...-v...` display identity.
+second human-visible catalog. The instructor UI presents one canonical `AAA-BBBB` Crockford
+Question ID for each question. Server-side checksum validation and tenant/actor authorization
+resolve the current assignable question; internal UUIDs and immutable snapshots remain hidden for
+grading and provenance.
 
 ## Source and review boundary
 
@@ -53,12 +55,14 @@ bash tests/e2e/e2e_chapter_one_pilot.sh
 ```
 
 It starts a uniquely named PostgreSQL and MinIO project, publishes the eight immutable current
-questions and two four-item Mastery assignments, then reruns the seed without mutation. Every
-instructor-readable identity is `P-...-v1`; the reviewed WeBWorK sources directly admit immediate
-correctness without disclosing answer material. The oracle checks the four-native/four-WeBWorK
-inventory, source artifacts, and absence of synthetic predecessors. It removes only its own
-disposable containers and volumes. The normal local launcher uses this same host-only seed path
-and writes its answer-free manifest to
+questions and two four-item Mastery assignments, then reruns the seed without mutation. Historical
+pilot evidence used `P-...-v1` references; that superseded public identity is not the current
+contract. Current instructor-facing IDs use canonical `AAA-BBBB` Crockford Question IDs, while
+immutable snapshots stay internal for grading and provenance. The reviewed WeBWorK sources directly
+admit immediate correctness without disclosing answer material. The oracle checks the
+four-native/four-WeBWorK inventory, source artifacts, and absence of synthetic predecessors. It
+removes only its own disposable containers and volumes. The normal local launcher uses this same
+host-only seed path and writes its answer-free manifest to
 `containers/local-chapter-one-pilot.json`.
 
 Run the complete built-browser learner gate separately:

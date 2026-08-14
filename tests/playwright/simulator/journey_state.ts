@@ -125,6 +125,12 @@ function matchesPrefix(prefix: readonly JourneyFragment[], next: JourneyFragment
   const first = prefix[0];
   if (first === undefined || first.journey !== "J1") return false;
   if (next.journey === "J4")
-    return next.courseId === first.courseId && next.masteryAssignmentId === first.assignmentId;
-  return next.courseId === first.courseId && next.assignmentId === first.assignmentId;
+    return (
+      next.courseReference === first.courseReference &&
+      next.masteryAssignmentReference === first.assignmentReference
+    );
+  return (
+    next.courseReference === first.courseReference &&
+    next.assignmentReference === first.assignmentReference
+  );
 }

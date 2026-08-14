@@ -15,13 +15,23 @@ is the whole interface: drive the repo through them and you never need to open
 | `./check_codebase.sh` | Fast gate: typecheck, lint, format check, Node unit tests. |
 | `./build_github_pages.sh` | Bundle `src/` into `dist/` (the Pages artifact). |
 | `./run_web_server.sh` | Build `dist/`, serve a local preview on a random port. |
-| `./run_playwright_tests.sh` | Run browser tests; builds `dist/` as needed. |
+| `./run_playwright_tests.sh` | Run the ordinary mock-backed browser suite; builds `dist/` as needed. |
+| `./run_playwright_validation.sh --live` | Run the complete opt-in Playwright Validation suite. |
 | `./dist_clean.sh` | Wipe `dist/`. |
 
 Run `./check_codebase.sh --help` for usage. `./run_web_server.sh` picks a
 random port each run so the browser cache stays fresh; set `PORT` to override.
 `./run_playwright_tests.sh` lets Playwright's own `webServer` config start the
 test server, and accepts `--build` to force a rebuild first.
+
+The ordinary runner is the daily browser gate. It uses the mock preview server
+and finishes with zero skipped tests; live, walkthrough, and visual acceptance
+cases are outside its collection. Run `./run_playwright_validation.sh --live`
+only when the active plan requires the complete Playwright Validation test
+suite. Start with no existing PLE stack: the validation runner refuses an
+ambient stack and owns its temporary visual output and dedicated live runners.
+Any required skipped or failed lane is red. See
+[../docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md#playwright-execution-lanes).
 
 ## Repo layout you edit
 
@@ -43,8 +53,9 @@ The repo has four test tiers. Pick the home by what you are testing.
   `test_<name>.mjs` into `tests/`; `./check_codebase.sh` picks it up
   automatically through `node --import tsx --test 'tests/test_*.mjs'`.
 - Browser tests live under `tests/playwright/`. Run them with
-  `./run_playwright_tests.sh`. See `docs/PLAYWRIGHT_USAGE.md` for the browser
-  test conventions.
+  `./run_playwright_tests.sh`; this is the mock-backed ordinary lane. The
+  complete opt-in suite uses `./run_playwright_validation.sh --live`. See
+  [../docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md#playwright-execution-lanes).
 - Whole-system E2E lives under `tests/e2e/` and runs directly, excluded from
   pytest. See `E2E_TESTS.md` for the non-browser E2E conventions.
 

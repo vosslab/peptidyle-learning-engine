@@ -8,7 +8,8 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use domain::policy::PublicationViolation;
 use learning_data_access::{
-    CatalogStore, PublishDraftCommand, SessionStore, Store, WorkspaceDraftRevision,
+    CatalogStore, OwnerCorrectionAuthority, OwnerCorrectionStore, PublishDraftCommand,
+    PublishedProblemRecord, SessionStore, Store, StoreError, WorkspaceDraftRevision,
 };
 use question_model::{
     DraftQuestionSource, ProblemId, ProblemVersionRef, PublicationScope, QuestionSource, UserRole,
@@ -33,6 +34,40 @@ pub(crate) fn mint_publication_reference(revises: Option<ProblemVersionRef>) -> 
     ProblemVersionRef {
         problem: revises.map_or_else(ProblemId::generate, |reference| reference.problem),
         version: VersionId::generate(),
+    }
+}
+
+/// Dispatches publication through the only route that can carry the
+/// authenticated original-owner capability.  Every publication surface calls
+/// this helper so a revision can neither silently use ordinary publication nor
+/// be forgotten by a backend-specific route.
+pub(crate) async fn dispatch_publication<S>(
+    store: &S,
+    authenticated: &crate::auth::AuthenticatedSession,
+    command: PublishDraftCommand,
+) -> Result<PublishedProblemRecord, StoreError>
+where
+    S: CatalogStore + OwnerCorrectionStore,
+{
+    if command.expected_draft.revises.is_some() {
+        OwnerCorrectionStore::publish_owner_correction(
+            store,
+            authenticated.tenant_context,
+            OwnerCorrectionAuthority {
+                actor: authenticated.record.subject.user(),
+                session: authenticated.session_hash(),
+            },
+            command,
+        )
+        .await
+    } else {
+        CatalogStore::publish_draft(
+            store,
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            command,
+        )
+        .await
     }
 }
 
@@ -127,7 +162,7 @@ pub(super) async fn publish_problem<S, B, R>(
     Json(request): Json<PublishProblemRequest>,
 ) -> Response
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store + CatalogStore + OwnerCorrectionStore + SessionStore + 'static,
     B: BackendRegistry + 'static,
     R: PublicReviewGate + 'static,
 {
@@ -301,11 +336,7 @@ where
         scope: request.scope,
         capabilities,
     };
-    match state
-        .store
-        .publish_draft(authenticated.tenant_context, publisher, command)
-        .await
-    {
+    match dispatch_publication(state.store.as_ref(), &authenticated, command).await {
         Ok(record) => no_store((StatusCode::CREATED, Json(record.question)).into_response()),
         Err(error) => store_error_response(error),
     }

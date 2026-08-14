@@ -317,6 +317,8 @@ async fn sysadmin_roster_support_is_audited_without_granting_grade_export() {
         .expect("course fixture");
     let sysadmin_cookie =
         issued_cookie_for_tenant(&store, tenant, vec![UserRole::Sysadmin], sysadmin).await;
+    let instructor_cookie =
+        issued_cookie_for_tenant(&store, tenant, vec![UserRole::Instructor], instructor).await;
     let app = router_with_invitations(
         std::sync::Arc::clone(&store),
         CourseInvitationIssuer::from_server_secret([0x61; 32]),
@@ -349,6 +351,7 @@ async fn sysadmin_roster_support_is_audited_without_granting_grade_export() {
         "sysadmin-support".parse().expect("header"),
     );
     let invite = app
+        .clone()
         .oneshot(invite)
         .await
         .expect("support invitation response");
@@ -365,6 +368,26 @@ async fn sysadmin_roster_support_is_audited_without_granting_grade_export() {
             CourseRosterSupportAction::ListRoster,
             CourseRosterSupportAction::CreateInvitation,
         ]
+    );
+
+    let instructor_roster = app
+        .clone()
+        .oneshot(request(
+            "GET",
+            format!("/api/courses/{course}/roster"),
+            &instructor_cookie,
+            None,
+        ))
+        .await
+        .expect("direct instructor roster response");
+    assert_eq!(instructor_roster.status(), StatusCode::OK);
+    assert_eq!(
+        store
+            .roster_support_audits()
+            .expect("support audit events")
+            .len(),
+        2,
+        "direct Instructor access does not create a Sysadmin support audit"
     );
 
     let export = router_with_invitations(

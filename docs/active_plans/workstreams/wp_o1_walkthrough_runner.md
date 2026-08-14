@@ -87,7 +87,7 @@ behavior; they are not a claim that the live teaching workflow has passed.
 
 One-time WP-HG1 acceptance remains required: rebuild the stack, run the
 canonical J13 then J1--J8 sequence with the local Podman WebWork renderer,
-use visible clipboard copy/paste for all four Genetics Chapter 1 `P-n-vn`
+use visible assignment reuse or clipboard copy/paste for the Genetics Chapter 1 `AAA-BBBB` Question IDs
 references, preserve a redacted report, refresh the instructor screenshots,
 and obtain the independent review specified by the active release plan.
 
