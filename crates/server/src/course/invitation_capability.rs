@@ -121,18 +121,30 @@ pub enum CourseInvitationDeliveryError {
     Unavailable,
 }
 
+/// Closed worker result for one SMTP submission attempt. This distinguishes a
+/// known SMTP refusal from transport uncertainty: ordinary SMTP cannot prove
+/// whether a lost response after `DATA` was accepted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CourseInvitationDeliveryAttempt {
+    AcceptedByProvider,
+    RetryableFailure,
+    PermanentFailure,
+    Ambiguous,
+}
+
 /// Server-only invitation delivery. Implementations must never log the URL.
 #[async_trait]
 pub trait CourseInvitationDelivery: Send + Sync {
-    /// Returns false before any roster mutation when delivery is unavailable.
+    /// Returns false so an unconfigured worker leaves durable intent pending.
     fn is_configured(&self) -> bool;
 
-    /// Sends one invitation without exposing the account-existence outcome.
-    async fn send_course_invitation(
+    /// Makes one worker-owned provider attempt. This trait has no general
+    /// send operation, so HTTP route code cannot bypass the durable outbox.
+    async fn attempt_course_invitation(
         &self,
         email: &AuthenticationEmail,
         invitation_secret: &CourseInvitationSecret,
-    ) -> Result<(), CourseInvitationDeliveryError>;
+    ) -> CourseInvitationDeliveryAttempt;
 }
 
 /// Fail-closed delivery used when production mail settings are absent.
@@ -145,11 +157,11 @@ impl CourseInvitationDelivery for UnavailableCourseInvitationDelivery {
         false
     }
 
-    async fn send_course_invitation(
+    async fn attempt_course_invitation(
         &self,
         _email: &AuthenticationEmail,
         _invitation_secret: &CourseInvitationSecret,
-    ) -> Result<(), CourseInvitationDeliveryError> {
-        Err(CourseInvitationDeliveryError::Unavailable)
+    ) -> CourseInvitationDeliveryAttempt {
+        CourseInvitationDeliveryAttempt::Ambiguous
     }
 }

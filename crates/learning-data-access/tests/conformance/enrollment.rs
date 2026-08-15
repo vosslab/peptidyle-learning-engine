@@ -138,6 +138,251 @@ async fn memory_email_completion_and_account_session_are_atomic() {
 }
 
 #[tokio::test]
+async fn memory_email_change_replaces_the_completing_proof_and_revokes_all_prior_sessions() {
+    let store = MemoryStore::default();
+    store
+        .set_authoritative_time(ActivityTimestamp::from_unix_millis(3_000))
+        .expect("fixture clock");
+    let user = UserId::from_uuid(uuid(120_020));
+    let original_email = AuthenticationEmail::parse("replace-old@example.edu").expect("email");
+    let original_token = EmailChallengeSecretHash::compute(b"replace-original-token");
+    let original_binding = BrowserBindingHash::compute(b"replace-original-binding");
+    store
+        .begin_email_authentication(BeginEmailAuthentication {
+            id: EmailChallengeId::from_uuid(uuid(120_021)),
+            token_hash: original_token,
+            browser_binding: original_binding,
+            email_rate_limit_key: AuthenticationRateLimitKey::compute(b"replace-original-limit"),
+            email: original_email,
+            purpose: EmailAuthenticationPurpose::SignInOrRegister,
+            lifetime: EmailChallengeLifetime::from_seconds(600).expect("lifetime"),
+        })
+        .await
+        .expect("original account challenge");
+    store
+        .complete_email_authentication(CompleteEmailAuthentication {
+            token_hash: original_token,
+            browser_binding: original_binding,
+            proposed_user: user,
+            proposed_display_name: "Replacement Learner".to_string(),
+        })
+        .await
+        .expect("original account");
+
+    let stale_account = AccountSessionTokenHash::compute(b"replace-stale-account");
+    let other_account = AccountSessionTokenHash::compute(b"replace-other-account");
+    let stale_tenant = SessionTokenHash::compute(b"replace-stale-tenant");
+    let replacement_account = AccountSessionTokenHash::compute(b"replace-fresh-account");
+    let account_lifetime = AccountSessionLifetime::from_seconds(900).expect("lifetime");
+    store
+        .create_account_session(stale_account, user, account_lifetime)
+        .await
+        .expect("stale account proof");
+    store
+        .create_account_session(other_account, user, account_lifetime)
+        .await
+        .expect("second account proof");
+    store
+        .create_session(
+            stale_tenant,
+            SessionSubject::new(
+                TenantId::from_uuid(uuid(120_022)),
+                user,
+                "Replacement Learner",
+                vec![UserRole::Student],
+            )
+            .expect("tenant subject"),
+            SessionLifetime::from_seconds(3_600).expect("lifetime"),
+        )
+        .await
+        .expect("tenant proof");
+
+    let replacement_token = EmailChallengeSecretHash::compute(b"replace-email-token");
+    let replacement_binding = BrowserBindingHash::compute(b"replace-email-binding");
+    store
+        .begin_email_authentication(BeginEmailAuthentication {
+            id: EmailChallengeId::from_uuid(uuid(120_023)),
+            token_hash: replacement_token,
+            browser_binding: replacement_binding,
+            email_rate_limit_key: AuthenticationRateLimitKey::compute(b"replace-email-limit"),
+            email: AuthenticationEmail::parse("replace-new@example.edu").expect("email"),
+            purpose: EmailAuthenticationPurpose::ChangeEmail { user },
+            lifetime: EmailChallengeLifetime::from_seconds(600).expect("lifetime"),
+        })
+        .await
+        .expect("replacement challenge");
+    let completed = store
+        .complete_email_change_and_revoke_user_sessions(CompleteEmailChangeAndRevokeUserSessions {
+            authentication: CompleteEmailAuthentication {
+                token_hash: replacement_token,
+                browser_binding: replacement_binding,
+                proposed_user: user,
+                proposed_display_name: "Replacement Learner".to_string(),
+            },
+            session_token_hash: replacement_account,
+            session_lifetime: account_lifetime,
+        })
+        .await
+        .expect("atomic replacement");
+
+    assert_eq!(completed.session.token_hash, replacement_account);
+    let next_replica = store.clone();
+    assert_eq!(
+        next_replica.resolve_account_session(stale_account).await,
+        Ok(None)
+    );
+    assert_eq!(
+        next_replica.resolve_account_session(other_account).await,
+        Ok(None)
+    );
+    assert_eq!(next_replica.resolve_session(stale_tenant).await, Ok(None));
+    assert_eq!(
+        store.resolve_account_session(replacement_account).await,
+        Ok(Some(completed.session)),
+        "the completing browser receives the only replacement account proof"
+    );
+}
+
+#[tokio::test]
+async fn memory_rejected_email_change_preserves_existing_sessions() {
+    let store = MemoryStore::default();
+    store
+        .set_authoritative_time(ActivityTimestamp::from_unix_millis(4_000))
+        .expect("fixture clock");
+    let user = UserId::from_uuid(uuid(120_030));
+    let other_user = UserId::from_uuid(uuid(120_031));
+    for (candidate, email, token, binding) in [
+        (
+            user,
+            "preserve-owner@example.edu",
+            b"preserve-owner-token".as_slice(),
+            b"preserve-owner-binding".as_slice(),
+        ),
+        (
+            other_user,
+            "preserve-conflict@example.edu",
+            b"preserve-conflict-token".as_slice(),
+            b"preserve-conflict-binding".as_slice(),
+        ),
+    ] {
+        let token_hash = EmailChallengeSecretHash::compute(token);
+        let browser_binding = BrowserBindingHash::compute(binding);
+        store
+            .begin_email_authentication(BeginEmailAuthentication {
+                id: EmailChallengeId::from_uuid(uuid(if candidate == user {
+                    120_032
+                } else {
+                    120_033
+                })),
+                token_hash,
+                browser_binding,
+                email_rate_limit_key: AuthenticationRateLimitKey::compute(token),
+                email: AuthenticationEmail::parse(email).expect("email"),
+                purpose: EmailAuthenticationPurpose::SignInOrRegister,
+                lifetime: EmailChallengeLifetime::from_seconds(600).expect("lifetime"),
+            })
+            .await
+            .expect("account challenge");
+        store
+            .complete_email_authentication(CompleteEmailAuthentication {
+                token_hash,
+                browser_binding,
+                proposed_user: candidate,
+                proposed_display_name: "Preserved Learner".to_string(),
+            })
+            .await
+            .expect("account");
+    }
+    let stale_account = AccountSessionTokenHash::compute(b"preserve-account");
+    let stale_tenant = SessionTokenHash::compute(b"preserve-tenant");
+    store
+        .create_account_session(
+            stale_account,
+            user,
+            AccountSessionLifetime::from_seconds(900).expect("lifetime"),
+        )
+        .await
+        .expect("account proof");
+    store
+        .create_session(
+            stale_tenant,
+            SessionSubject::new(
+                TenantId::from_uuid(uuid(120_034)),
+                user,
+                "Preserved Learner",
+                vec![UserRole::Student],
+            )
+            .expect("tenant subject"),
+            SessionLifetime::from_seconds(3_600).expect("lifetime"),
+        )
+        .await
+        .expect("tenant proof");
+
+    let change_token = EmailChallengeSecretHash::compute(b"preserve-change-token");
+    let change_binding = BrowserBindingHash::compute(b"preserve-change-binding");
+    store
+        .begin_email_authentication(BeginEmailAuthentication {
+            id: EmailChallengeId::from_uuid(uuid(120_035)),
+            token_hash: change_token,
+            browser_binding: change_binding,
+            email_rate_limit_key: AuthenticationRateLimitKey::compute(b"preserve-change-limit"),
+            email: AuthenticationEmail::parse("preserve-conflict@example.edu").expect("email"),
+            purpose: EmailAuthenticationPurpose::ChangeEmail { user },
+            lifetime: EmailChallengeLifetime::from_seconds(600).expect("lifetime"),
+        })
+        .await
+        .expect("change challenge");
+    let rejected = CompleteEmailChangeAndRevokeUserSessions {
+        authentication: CompleteEmailAuthentication {
+            token_hash: change_token,
+            browser_binding: BrowserBindingHash::compute(b"wrong-browser"),
+            proposed_user: user,
+            proposed_display_name: "Preserved Learner".to_string(),
+        },
+        session_token_hash: AccountSessionTokenHash::compute(b"preserve-replacement"),
+        session_lifetime: AccountSessionLifetime::from_seconds(900).expect("lifetime"),
+    };
+    assert_eq!(
+        store
+            .complete_email_change_and_revoke_user_sessions(rejected)
+            .await,
+        Err(StoreError::NotFound)
+    );
+    assert!(
+        store
+            .resolve_account_session(stale_account)
+            .await
+            .unwrap()
+            .is_some()
+            && store.resolve_session(stale_tenant).await.unwrap().is_some(),
+        "wrong-browser rejection must not revoke prior proofs"
+    );
+
+    let completed = store
+        .complete_email_change_and_revoke_user_sessions(CompleteEmailChangeAndRevokeUserSessions {
+            authentication: CompleteEmailAuthentication {
+                token_hash: change_token,
+                browser_binding: change_binding,
+                proposed_user: user,
+                proposed_display_name: "Preserved Learner".to_string(),
+            },
+            session_token_hash: AccountSessionTokenHash::compute(b"preserve-conflict-new"),
+            session_lifetime: AccountSessionLifetime::from_seconds(900).expect("lifetime"),
+        })
+        .await;
+    assert_eq!(completed, Err(StoreError::Conflict));
+    assert!(
+        store
+            .resolve_account_session(stale_account)
+            .await
+            .unwrap()
+            .is_some()
+            && store.resolve_session(stale_tenant).await.unwrap().is_some(),
+        "email-conflict rejection must roll back without revoking prior proofs"
+    );
+}
+
+#[tokio::test]
 async fn memory_account_course_context_derives_tenant_and_role_from_membership() {
     let store = MemoryStore::default();
     let user = UserId::from_uuid(uuid(120_030));
@@ -711,230 +956,5 @@ async fn memory_course_allows_only_one_live_invitation_per_email() {
     );
 }
 
-#[tokio::test]
-async fn memory_sysadmin_roster_support_is_narrow_and_audited() {
-    let store = MemoryStore::default();
-    store
-        .set_authoritative_time(ActivityTimestamp::from_unix_millis(30_000))
-        .expect("fixture clock");
-    let tenant = TenantId::from_uuid(uuid(123_000));
-    let context = TenantContext::from_authenticated_session(tenant);
-    let instructor = UserId::from_uuid(uuid(123_001));
-    let sysadmin = UserId::from_uuid(uuid(123_002));
-    let course = CourseId::from_uuid(uuid(123_003));
-    store
-        .upsert_course(
-            context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Sysadmin roster authority".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
-            },
-        )
-        .await
-        .expect("course");
-    let sysadmin_session = create_roster_session(
-        &store,
-        tenant,
-        sysadmin,
-        vec![UserRole::Sysadmin],
-        b"sysadmin-roster-session",
-    )
-    .await;
-
-    let invitation = store
-        .create_course_invitation(
-            context,
-            sysadmin_session,
-            CreateCourseInvitation {
-                course,
-                email: AuthenticationEmail::parse("sysadmin-invited@example.edu")
-                    .expect("valid email"),
-                roster_id: CourseRosterId::parse("900123003").expect("valid roster ID"),
-                token_hash: CourseInvitationSecretHash::compute(b"sysadmin-invitation"),
-                idempotency_key: RosterIdempotencyKey::parse("sysadmin-invitation")
-                    .expect("valid idempotency key"),
-                lifetime: CourseInvitationLifetime::from_seconds(86_400).expect("bounded lifetime"),
-            },
-        )
-        .await
-        .expect("sysadmin may perform narrow roster support without course membership");
-    assert_eq!(invitation.invited_by, sysadmin);
-    let roster = store
-        .list_course_roster(
-            context,
-            sysadmin_session,
-            course,
-            PageRequest::first(PageSize::new(20).expect("page size")),
-        )
-        .await
-        .expect("sysadmin may inspect the roster being supported");
-    assert_eq!(roster.entries.items.len(), 1);
-    let audits = store
-        .roster_support_audits()
-        .expect("roster support audit evidence");
-    assert_eq!(
-        audits.iter().map(|audit| audit.action).collect::<Vec<_>>(),
-        vec![
-            CourseRosterSupportAction::CreateInvitation,
-            CourseRosterSupportAction::ListRoster,
-        ]
-    );
-    assert!(
-        audits
-            .iter()
-            .all(|audit| audit.actor == sysadmin && audit.course == course),
-        "every support disclosure or change is actor/course bound"
-    );
-
-    let forged_actor_session = SessionTokenHash::compute(b"unknown-roster-session");
-    assert_eq!(
-        store
-            .list_course_roster(
-                context,
-                forged_actor_session,
-                course,
-                PageRequest::first(PageSize::new(20).expect("page size")),
-            )
-            .await,
-        Err(StoreError::NotFound),
-        "an actor UUID without a persisted session has no roster authority"
-    );
-}
-
-#[tokio::test]
-async fn memory_roster_import_previews_then_commits_exactly_the_ready_rows() {
-    let store = MemoryStore::default();
-    store
-        .set_authoritative_time(ActivityTimestamp::from_unix_millis(40_000))
-        .expect("fixture clock");
-    let tenant = TenantId::from_uuid(uuid(124_000));
-    let context = TenantContext::from_authenticated_session(tenant);
-    let instructor = UserId::from_uuid(uuid(124_001));
-    let course = CourseId::from_uuid(uuid(124_002));
-    store
-        .upsert_course(
-            context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Bulk roster preview".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
-            },
-        )
-        .await
-        .expect("course");
-    let session = create_roster_session(
-        &store,
-        tenant,
-        instructor,
-        vec![UserRole::Instructor],
-        b"bulk-roster-instructor",
-    )
-    .await;
-    let shared_email =
-        AuthenticationEmail::parse("duplicate@example.edu").expect("valid duplicate email");
-    let rows = vec![
-        CourseRosterImportRowInput {
-            row_number: 2,
-            email: Some(
-                AuthenticationEmail::parse("ready@example.edu").expect("valid ready email"),
-            ),
-            roster_id: Some(CourseRosterId::parse("900124001").expect("valid ready roster ID")),
-        },
-        CourseRosterImportRowInput {
-            row_number: 3,
-            email: Some(shared_email.clone()),
-            roster_id: Some(CourseRosterId::parse("900124002").expect("valid duplicate roster ID")),
-        },
-        CourseRosterImportRowInput {
-            row_number: 4,
-            email: Some(shared_email),
-            roster_id: Some(CourseRosterId::parse("900124003").expect("valid duplicate roster ID")),
-        },
-        CourseRosterImportRowInput {
-            row_number: 5,
-            email: None,
-            roster_id: None,
-        },
-    ];
-    let preview = store
-        .stage_course_roster_import(
-            context,
-            session,
-            StageCourseRosterImport {
-                course,
-                expected_roster_revision: RosterRevision::INITIAL,
-                normalized_digest: Sha256Digest::compute(b"normalized-roster-preview"),
-                idempotency_key: RosterIdempotencyKey::parse("stage-roster-124")
-                    .expect("valid stage key"),
-                rows,
-                lifetime: CourseRosterImportLifetime::from_seconds(3_600)
-                    .expect("bounded preview lifetime"),
-            },
-        )
-        .await
-        .expect("preview should be staged");
-    assert_eq!(
-        preview
-            .rows
-            .iter()
-            .map(|row| row.status)
-            .collect::<Vec<_>>(),
-        vec![
-            RosterImportRowStatus::ReadyToInvite,
-            RosterImportRowStatus::Duplicate,
-            RosterImportRowStatus::Duplicate,
-            RosterImportRowStatus::Invalid,
-        ]
-    );
-
-    let commit = CommitCourseRosterImport {
-        course,
-        import: preview.id,
-        expected_import_revision: preview.revision,
-        idempotency_key: RosterIdempotencyKey::parse("commit-roster-124")
-            .expect("valid commit key"),
-        invitations: vec![RosterImportInvitation {
-            row_number: 2,
-            token_hash: CourseInvitationSecretHash::compute(b"bulk-ready-token"),
-            idempotency_key: RosterIdempotencyKey::parse("bulk-ready-row-2")
-                .expect("valid row key"),
-            lifetime: CourseInvitationLifetime::from_seconds(86_400)
-                .expect("bounded invitation lifetime"),
-        }],
-    };
-    let committed = store
-        .commit_course_roster_import(context, session, commit.clone())
-        .await
-        .expect("ready rows should commit atomically");
-    assert_eq!(committed.invitations.len(), 1);
-    assert_eq!(committed.invitations[0].0, 2);
-    assert_eq!(committed.roster_revision.value(), 2);
-    assert_eq!(
-        store
-            .commit_course_roster_import(context, session, commit)
-            .await
-            .expect("same commit key is idempotent"),
-        committed
-    );
-
-    let roster = store
-        .list_course_roster(
-            context,
-            session,
-            course,
-            PageRequest::first(PageSize::new(20).expect("page size")),
-        )
-        .await
-        .expect("committed roster should be readable");
-    assert_eq!(roster.entries.items.len(), 1);
-    assert_eq!(roster.policy.revision, committed.roster_revision);
-}
+#[path = "enrollment/roster_support_and_delivery.rs"]
+mod roster_support_and_delivery;

@@ -54,9 +54,7 @@ test("publication diff recursively admits only semantic projections and consiste
   const current = semanticProjection(draft);
   const first = {
     draftRevision: 1,
-    baseline: "firstPublication",
-    prior: null,
-    previous: null,
+    baseline: "newQuestion",
     current,
     changed: [],
   };
@@ -68,10 +66,7 @@ test("publication diff recursively admits only semantic projections and consiste
     { ...first, changed: ["title"] },
     {
       ...first,
-      prior: {
-        problem: publishedProblemFixture.publishedProblem.problem,
-        version: publishedProblemFixture.publishedProblem.version,
-      },
+      prior: "hidden",
     },
   ]) {
     assert.throws(() => decodePublicationDiff(contaminated));
@@ -90,16 +85,14 @@ test("publication transport uses a bodyless validation request and a scope-only 
         return jsonResponse(
           {
             draftRevision: 1,
-            baseline: "firstPublication",
-            prior: null,
-            previous: null,
+            baseline: "newQuestion",
             current: semanticProjection(draft),
             changed: [],
           },
           { headers: { etag: '"1"' } },
         );
       }
-      return jsonResponse(publishedProblemFixture.publishedProblem);
+      return jsonResponse(publishedProblemFixture.catalogProblem);
     },
   });
   await client.validateWorkspacePublication(workspace);
@@ -120,10 +113,9 @@ test("author mock provides a safe first-publication diff without mutating the dr
   const result = await client.publishWorkspace(workspace, "institution", before.revision);
   const after = await client.getWorkspaceDraft(workspace);
   assert.deepEqual(validation, { kind: "capabilityReport", revision: '"1"', violations: [] });
-  assert.equal(diff.baseline, "firstPublication");
-  assert.equal(diff.previous, null);
+  assert.equal(diff.baseline, "newQuestion");
   assert.equal(diff.current.title, before.draft.metadata.title);
-  assert.equal(result.reference.problem, publishedProblemFixture.publishedProblem.problem);
+  assert.equal(result.summary.questionId, publishedProblemFixture.catalogProblem.questionId);
   assert.deepEqual(after, before);
 });
 
@@ -171,9 +163,7 @@ test("publication revisions reject missing, mismatched, zero, and out-of-range e
       jsonResponse(
         {
           draftRevision: 2,
-          baseline: "firstPublication",
-          prior: null,
-          previous: null,
+          baseline: "newQuestion",
           current: semanticProjection(draft),
           changed: [],
         },

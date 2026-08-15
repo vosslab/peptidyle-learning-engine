@@ -1,6 +1,8 @@
 use super::*;
 use base64::Engine;
+use learning_data_access::CatalogStore;
 use objects::Sha256Digest;
+use question_model::ProblemVersionRef;
 
 #[tokio::test]
 async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
@@ -42,16 +44,12 @@ async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
             .expect("publish response");
         assert_eq!(response.status(), StatusCode::CREATED);
         let response = response_json(response).await;
-        published_references.push((
-            response["problem"]
+        published_references.push(
+            response["questionId"]
                 .as_str()
-                .expect("published problem ID")
+                .expect("published Question ID")
                 .to_string(),
-            response["version"]
-                .as_str()
-                .expect("published version ID")
-                .to_string(),
-        ));
+        );
     }
 
     let first = app
@@ -148,23 +146,28 @@ async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
         }
     }
 
-    let (problem, version) = &published_references[0];
-    let deprecated = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri(format!(
-                    "/api/problems/{problem}/versions/{version}/deprecate"
-                ))
-                .header("cookie", &cookie)
-                .header("content-type", "application/json")
-                .body(Body::from(r#"{"reason":"Correction available"}"#))
-                .expect("deprecate request"),
+    let question_id = published_references[0]
+        .parse()
+        .expect("published Question ID parses");
+    let record = store
+        .resolve_catalog_problem(context, question_model::ProblemDisplayRef { question_id })
+        .await
+        .expect("catalog lookup")
+        .expect("published question exists");
+    store
+        .transition_catalog_problem(
+            context,
+            publisher,
+            ProblemVersionRef {
+                problem: record.problem,
+                version: record.version,
+            },
+            learning_data_access::CatalogTransition::Deprecate {
+                reason: "A newer question addresses this topic.".to_string(),
+            },
         )
         .await
-        .expect("deprecate response");
-    assert_eq!(deprecated.status(), StatusCode::OK);
+        .expect("deprecate published question");
 
     let browse = app
         .clone()
@@ -180,17 +183,17 @@ async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
     let browse = response_json(browse).await;
     assert_eq!(browse["items"].as_array().map(Vec::len), Some(1));
 
-    let exact = app
+    let retired = app
         .oneshot(
             Request::builder()
-                .uri(format!("/api/problems/{problem}/versions/{version}"))
+                .uri(format!("/api/problems/by-id/{}", published_references[0]))
                 .header("cookie", cookie)
                 .body(Body::empty())
-                .expect("exact request"),
+                .expect("retired route request"),
         )
         .await
-        .expect("exact response");
-    assert_eq!(exact.status(), StatusCode::OK);
+        .expect("retired route response");
+    assert_eq!(retired.status(), StatusCode::OK);
 }
 
 #[tokio::test]
@@ -228,10 +231,7 @@ async fn catalog_search_and_safe_detail_are_authenticated_bounded_and_non_cachea
         )
         .await
         .expect("publish response");
-    let published = response_json(published).await;
-    let problem = published["problem"].as_str().expect("problem id");
-    let version = published["version"].as_str().expect("version id");
-
+    response_json(published).await;
     let search = app
         .clone()
         .oneshot(
@@ -272,16 +272,27 @@ async fn catalog_search_and_safe_detail_are_authenticated_bounded_and_non_cachea
         exact_search["items"][0]["questionId"],
         search["items"][0]["questionId"]
     );
-    assert_eq!(
-        exact_search["items"][0]["versionNumber"],
-        search["items"][0]["versionNumber"]
-    );
+    assert!(exact_search["items"][0].get("problem").is_none());
+    assert!(exact_search["items"][0].get("version").is_none());
+
+    let retired = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/problems/by-id/{display_reference}/versions"))
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .expect("retired catalog route request"),
+        )
+        .await
+        .expect("retired catalog route response");
+    assert_eq!(retired.status(), StatusCode::NOT_FOUND);
 
     let detail = app
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/problems/{problem}/versions/{version}/detail"))
+                .uri(format!("/api/problems/by-id/{display_reference}/detail"))
                 .header("cookie", &cookie)
                 .body(Body::empty())
                 .expect("detail request"),

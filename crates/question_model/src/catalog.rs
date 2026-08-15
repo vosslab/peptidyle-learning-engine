@@ -1,12 +1,11 @@
 //! Browser-safe shared-catalog metadata (MOD-API-CAT).
 
 use serde::{Deserialize, Serialize};
-use std::num::NonZeroU32;
 
 use crate::taxonomy::{License, Tag, TaxonomyTerm};
 use crate::{
     ActivityTimestamp, BackendCapabilities, Capability, DraftQuestionSource, ProblemId,
-    QuestionMetadata, QuestionSource, QuestionStatisticsView, UserId, VersionId,
+    QuestionMetadata, QuestionSource, QuestionStatisticsView, VersionId,
 };
 
 /// Maximum taxonomy facet values returned with one bounded catalog page.
@@ -24,7 +23,8 @@ pub const QUESTION_ID_COMPACT_LENGTH: usize = 7;
 /// Product limit kept independent of the larger encoded namespace.
 pub const MAX_QUESTION_ID_COUNT: u64 = 100_000_000;
 
-/// One stable, non-sequential human-facing identity for a current question.
+/// One stable, non-sequential human-facing identity for an immutable published
+/// question.
 ///
 /// The canonical display is `AAA-BBBB`. Parsing accepts unhyphenated and
 /// lowercase Crockford input plus the documented `O` to `0` and `I`/`L` to
@@ -129,85 +129,6 @@ impl From<QuestionId> for String {
     }
 }
 
-/// Largest value for either component of a copyable catalog locator.
-///
-/// The catalog is scoped to this product, rather than to every object ever
-/// created anywhere. A positive 31-bit sequence provides more than two
-/// billion stable problems and versions while remaining lossless in the
-/// PostgreSQL `bigint` columns, Rust, JSON, and JavaScript's safe-integer
-/// `number` representation.
-pub const MAX_CATALOG_DISPLAY_NUMBER: u32 = i32::MAX as u32;
-
-/// Copyable decimal identifier for one stable published problem.
-///
-/// This identifier is intentionally separate from [`ProblemId`]. It is safe
-/// to display and search, but never carries authorization authority.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct ProblemPublicId(NonZeroU32);
-
-impl ProblemPublicId {
-    /// Builds a public identifier from its positive database value.
-    pub fn new(value: u64) -> Option<Self> {
-        u32::try_from(value)
-            .ok()
-            .filter(|value| *value <= MAX_CATALOG_DISPLAY_NUMBER)
-            .and_then(NonZeroU32::new)
-            .map(Self)
-    }
-
-    /// Returns the positive decimal value stored by PostgreSQL.
-    pub fn value(self) -> u32 {
-        self.0.get()
-    }
-}
-
-impl std::fmt::Display for ProblemPublicId {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "P-{}", self.value())
-    }
-}
-
-impl std::str::FromStr for ProblemPublicId {
-    type Err = &'static str;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let digits = value.strip_prefix("P-").unwrap_or(value);
-        if digits.is_empty()
-            || digits.len() > 10
-            || !digits.bytes().all(|byte| byte.is_ascii_digit())
-        {
-            return Err("problem ID must look like P-123456");
-        }
-        digits
-            .parse::<u64>()
-            .ok()
-            .and_then(Self::new)
-            .ok_or("problem ID must be a positive 31-bit decimal value")
-    }
-}
-
-/// One-based display version within a stable published problem.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct ProblemVersionNumber(NonZeroU32);
-
-impl ProblemVersionNumber {
-    /// Builds a version number from its positive database value.
-    pub fn new(value: u64) -> Option<Self> {
-        u32::try_from(value)
-            .ok()
-            .filter(|value| *value <= MAX_CATALOG_DISPLAY_NUMBER)
-            .and_then(NonZeroU32::new)
-            .map(Self)
-    }
-
-    /// Returns the one-based version number.
-    pub fn value(self) -> u32 {
-        self.0.get()
-    }
-}
-
 /// Copyable Question ID accepted by instructor import and direct lookup.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ProblemDisplayRef {
@@ -231,13 +152,18 @@ impl std::str::FromStr for ProblemDisplayRef {
     }
 }
 
-/// Exact immutable problem version used by lineage and assignments.
+/// Exact immutable publication evidence used by trusted storage, replay,
+/// grading, audit, and optional source provenance.
+///
+/// Browser-safe catalog and assignment projections carry [`QuestionId`]
+/// instead. The server resolves that identifier under authorization before it
+/// persists this exact reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProblemVersionRef {
-    /// Stable published problem.
+    /// Opaque identity for this immutable published question.
     pub problem: ProblemId,
-    /// Exact immutable version.
+    /// Companion opaque identity for this immutable published question.
     pub version: VersionId,
 }
 
@@ -277,12 +203,12 @@ pub enum CatalogLifecycle {
 }
 
 impl CatalogLifecycle {
-    /// Whether catalog browsing should include the version.
+    /// Whether catalog browsing should include the immutable publication.
     pub fn is_discoverable(&self) -> bool {
         matches!(self, Self::Published)
     }
 
-    /// Whether a new assignment may reference the version.
+    /// Whether a new assignment may reference the immutable publication.
     pub fn is_assignable(&self) -> bool {
         matches!(self, Self::Published | Self::Deprecated { .. })
     }
@@ -332,12 +258,8 @@ impl From<&DraftQuestionSource> for QuestionBackend {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CatalogProblemSummary {
-    /// Stable published problem.
-    pub problem: ProblemId,
-    /// Copyable human-facing identity of the current question.
+    /// Sole human-facing identity of this immutable published question.
     pub question_id: QuestionId,
-    /// Exact immutable version represented by this row.
-    pub version: VersionId,
     /// Adapter family, without private source-locator fields.
     pub backend: QuestionBackend,
     /// Capabilities declared by the owning adapter at publication time.
@@ -348,12 +270,6 @@ pub struct CatalogProblemSummary {
     pub scope: PublicationScope,
     /// Published, deprecated, or archived state.
     pub lifecycle: CatalogLifecycle,
-    /// Ordered, nonempty author identifiers controlling the linear chain.
-    pub authors: Vec<UserId>,
-    /// Earlier version in the same single-writer chain, when this is a revision.
-    pub previous_version: Option<VersionId>,
-    /// Source version when this problem began as a third-party fork.
-    pub derived_from: Option<ProblemVersionRef>,
     /// Database-authoritative publication time.
     pub published_at: ActivityTimestamp,
 }
@@ -447,9 +363,9 @@ pub enum CatalogStatisticsAvailability {
     /// Include results regardless of aggregate availability.
     #[default]
     Any,
-    /// Include only versions with a releasable anonymous aggregate.
+    /// Include only publications with a releasable anonymous aggregate.
     Available,
-    /// Include only versions without a releasable anonymous aggregate.
+    /// Include only publications without a releasable anonymous aggregate.
     Unavailable,
 }
 
@@ -515,10 +431,10 @@ impl std::fmt::Display for CatalogSearchQueryError {
 impl std::error::Error for CatalogSearchQueryError {}
 
 impl CatalogSearchQuery {
-    /// Returns the current question named by a human-facing Question ID in the
-    /// text field. Catalog text remains case-insensitive, while the ID is
-    /// canonicalized before it reaches a store. Hidden snapshot identity never
-    /// appears in this search primitive.
+    /// Returns the immutable-publication Question ID named in the text field.
+    /// Catalog text remains case-insensitive, while the ID is canonicalized
+    /// before it reaches a store. Hidden trusted evidence never appears in
+    /// this search primitive.
     pub fn exact_question_id(&self) -> Option<QuestionId> {
         let text = self.text.as_deref()?;
         text.parse::<QuestionId>().ok()
@@ -582,7 +498,7 @@ impl CatalogSearchQuery {
 pub struct CatalogTaxonomyFacet {
     /// Controlled term identity and display label.
     pub term: TaxonomyTerm,
-    /// Number of matching discoverable versions in the query snapshot.
+    /// Number of matching discoverable publications in the query snapshot.
     pub count: u64,
 }
 
@@ -592,7 +508,7 @@ pub struct CatalogTaxonomyFacet {
 pub struct CatalogCapabilityFacet {
     /// Capability represented by the count.
     pub capability: Capability,
-    /// Number of matching discoverable versions in the query snapshot.
+    /// Number of matching discoverable publications in the query snapshot.
     pub count: u64,
 }
 
@@ -602,7 +518,7 @@ pub struct CatalogCapabilityFacet {
 pub struct CatalogLicenseFacet {
     /// License class represented by the count.
     pub license: CatalogLicenseValue,
-    /// Number of matching discoverable versions in the query snapshot.
+    /// Number of matching discoverable publications in the query snapshot.
     pub count: u64,
 }
 
@@ -662,7 +578,7 @@ pub enum CatalogStatisticsStatus {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CatalogProblemDetail {
-    /// Exact immutable hot metadata and lineage.
+    /// Exact immutable hot metadata for this publication.
     pub summary: CatalogProblemSummary,
     /// Authored display content only; source, response, grading, and keys are excluded.
     pub prompt: Vec<crate::envelope::ContentBlock>,
@@ -723,30 +639,6 @@ mod tests {
     }
 
     #[test]
-    fn hidden_numeric_storage_identifiers_stay_within_the_lossless_cross_layer_range() {
-        let first_out_of_range = u64::from(MAX_CATALOG_DISPLAY_NUMBER) + 1;
-        assert!(ProblemPublicId::new(first_out_of_range).is_none());
-        assert!(ProblemVersionNumber::new(first_out_of_range).is_none());
-
-        assert_eq!(
-            serde_json::to_value(
-                ProblemPublicId::new(u64::from(MAX_CATALOG_DISPLAY_NUMBER))
-                    .expect("maximum public ID is valid"),
-            )
-            .expect("public ID serializes"),
-            serde_json::json!(MAX_CATALOG_DISPLAY_NUMBER)
-        );
-        assert_eq!(
-            serde_json::to_value(
-                ProblemVersionNumber::new(u64::from(MAX_CATALOG_DISPLAY_NUMBER))
-                    .expect("maximum version number is valid"),
-            )
-            .expect("version number serializes"),
-            serde_json::json!(MAX_CATALOG_DISPLAY_NUMBER)
-        );
-    }
-
-    #[test]
     fn catalog_text_recognizes_one_human_question_id_without_a_version() {
         let exact = CatalogSearchQuery {
             text: Some(" 7k3-m9qx ".to_string()),
@@ -786,7 +678,7 @@ mod tests {
         assert!(CatalogLifecycle::Published.is_discoverable());
         assert!(CatalogLifecycle::Published.is_assignable());
         let deprecated = CatalogLifecycle::Deprecated {
-            reason: "Correction available".to_string(),
+            reason: "A separately published immutable question is available.".to_string(),
         };
         assert!(!deprecated.is_discoverable());
         assert!(deprecated.is_assignable());
@@ -836,9 +728,7 @@ mod tests {
     fn catalog_detail_wire_shape_has_no_source_or_grading_fields() {
         let detail = CatalogProblemDetail {
             summary: CatalogProblemSummary {
-                problem: ProblemId::from_uuid(uuid::Uuid::from_u128(1)),
                 question_id: "7K3-M9QX".parse().expect("fixture Question ID parses"),
-                version: VersionId::from_uuid(uuid::Uuid::from_u128(2)),
                 backend: QuestionBackend::Native,
                 capabilities: BackendCapabilities::none(),
                 metadata: QuestionMetadata {
@@ -850,9 +740,6 @@ mod tests {
                 },
                 scope: PublicationScope::Public,
                 lifecycle: CatalogLifecycle::Published,
-                authors: vec![UserId::from_uuid(uuid::Uuid::from_u128(3))],
-                previous_version: None,
-                derived_from: None,
                 published_at: ActivityTimestamp::from_unix_millis(0),
             },
             prompt: Vec::new(),

@@ -103,7 +103,6 @@ async fn publish_question(
     let draft = DraftRecord {
         tenant,
         question: draft_question(workspace, family, title, response),
-        revises: None,
         derived_from: None,
     };
     let saved = store

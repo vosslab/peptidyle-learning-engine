@@ -77,7 +77,7 @@ services:
     pids_limit: 128
     restart: on-failure
 
-  # Invoked explicitly by local_stack_control/launch.sh before PostgreSQL starts.  A
+  # Invoked explicitly by local_stack_control.lifecycle before PostgreSQL starts.  A
   # PostgreSQL data directory is not forward/backward compatible across major
   # versions, so the guard refuses a populated volume whose declared major is
   # not the pinned PostgreSQL 17 contract.  It mounts the data read-only.
@@ -349,6 +349,47 @@ services:
     networks:
       - default
 
+  # Dedicated local outbox dispatcher. It has no generic educational-job or
+  # object-store capability; the SMTP overlay is the only place that gives it
+  # outbound provider access.
+  invitation-delivery-worker:
+    labels: *ple-disposable-capability-label
+    image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
+    command: ["--local-invitation-delivery-worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      identity-secret-init:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-peptidyle}
+      PLE_WORKER_LEASE_SECONDS: ${PLE_WORKER_LEASE_SECONDS:-120}
+      PLE_WORKER_PREPARATION_TIMEOUT_SECONDS: ${PLE_WORKER_PREPARATION_TIMEOUT_SECONDS:-90}
+      PLE_WORKER_POLL_MILLIS: ${PLE_WORKER_POLL_MILLIS:-500}
+      PLE_INVITATION_TOKEN_SECRET_FILE: /run/ple-secrets/invitation_token_secret
+    volumes:
+      - type: volume
+        source: ple_identity_runtime
+        target: /run/ple-secrets
+        read_only: true
+    restart: on-failure
+    stop_grace_period: 100s
+    healthcheck:
+      disable: true
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m,mode=1777
+    cpus: "0.5"
+    mem_limit: 256m
+    pids_limit: 64
+    networks:
+      - default
+
   gateway:
     labels: *ple-disposable-capability-label
     build:
@@ -402,9 +443,9 @@ services:
   # course, roster, login, session, SQL, or persistent-volume state.
   webwork-renderer:
     labels: *ple-disposable-capability-label
-    # The checked-in default is the reviewed local OCI manifest digest. An
-    # operator may replace it only with another explicit immutable reference.
-    image: ${PLE_WEBWORK_RENDERER_IMAGE:-localhost/pg-renderer@sha256:d606c4b5d82d425729643c4f36d093d549759a416d0527f0340ae0a7319a8456}
+    # The selected environment owns this name. The launcher records the
+    # resolved immutable OCI configuration ID for the exact running instance.
+    image: ${PLE_WEBWORK_RENDERER_IMAGE:?renderer image is required}
     environment:
       PERL5LIB: /usr/app/lib/PG:/usr/app/lib/WeBWorK/lib:/usr/app/lib
       MOJO_MODE: production

@@ -44,7 +44,7 @@ browser-boundary evidence before they are advertised as supported.
 ## Deployment boundary
 
 The renderer is a normal service in `containers/compose.yaml`. The default
-launcher requires the declared `PLE_WEBWORK_RENDERER_IMAGE` to exist and starts
+typed lifecycle requires the declared `PLE_WEBWORK_RENDERER_IMAGE` to exist and starts
 it with the rest of PLE.
 
 The service:
@@ -160,11 +160,11 @@ mapping into the browser cache.
 
 ## Startup and failure behavior
 
-The launcher:
+The private typed lifecycle:
 
-1. verifies that the declared external image exists;
-2. recreates the stateless renderer;
-3. records its OCI image ID in ignored local provenance;
+1. resolves the selected external image name or published digest to its OCI configuration ID;
+2. recreates the stateless renderer and verifies its container uses that ID;
+3. atomically records the selected image reference and OCI ID in ignored local provenance;
 4. runs `containers/webwork/probe_render_api.sh` inside the container;
 5. proves one deterministic public render plus correct and incorrect grades;
 6. seeds the owner-controlled PLE pilot source; and
@@ -187,12 +187,12 @@ Live acceptance is intentionally separate:
 ```bash
 cargo test -p adapter_webwork --all-targets
 cargo clippy -p adapter_webwork --all-targets -- -D warnings
-local_stack_control/launch.sh --check --no-open
+source source_me.sh && python3 local_stack.py validate
 tests/e2e/e2e_webwork_render_rpc.sh
 ```
 
-Exact Compose and launcher source inspection was useful during the renderer
-cutover but is not retained as pytest. The check-mode launcher and live E2E
+Exact Compose and lifecycle source inspection was useful during the renderer
+cutover but is not retained as pytest. Read-only validation and live E2E
 exercise the maintained boundary without freezing configuration text.
 
 The original renderer E2E passed on 2026-08-10 for the licensed PGML `RadioButtons` pilot. The

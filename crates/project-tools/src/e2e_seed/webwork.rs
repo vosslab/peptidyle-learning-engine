@@ -17,71 +17,85 @@ pub(super) async fn seed_webwork_pilot(arguments: &SeedArguments) -> Result<Mani
         .context("applying embedded migrations for WebWork E2E seed")?;
     let store = question_id_store(pool)?;
     let context = TenantContext::from_authenticated_session(arguments.tenant);
-    let ids = WebworkPilotSeedIds::for_tenant(arguments.tenant);
+    let marker = WebworkPilotSeedIds::fresh_for_tenant(arguments.tenant);
+    let existing_course = store
+        .get_course(context, marker.course)
+        .await
+        .context("reading WebWork seed course marker")?;
+    let existing_assignment = store
+        .get_assignment_for_edit(context, marker.assignment)
+        .await
+        .context("reading WebWork seed assignment marker")?;
+    let (ids, published) = match seed_replay_state(
+        existing_course.is_some(),
+        existing_assignment.is_some(),
+        "WebWork seed",
+    )? {
+        SeedReplayState::Fresh => {
+            // Persist this marker before object and catalog publication so a
+            // later retry cannot mint a second publication after a crash.
+            ensure_webwork_pilot_course(
+                &store,
+                context,
+                webwork_pilot_course(arguments, marker.course),
+            )
+            .await?;
+            publish_fresh_webwork(&store, context, arguments, storage, marker).await?
+        }
+        SeedReplayState::Replay => {
+            let course = existing_course.expect("replay state has a course marker");
+            let assignment = existing_assignment.expect("replay state has an assignment marker");
+            let reference = webwork_assignment_reference(&assignment.record, marker)?;
+            let published = store
+                .get_catalog_problem(context, reference)
+                .await
+                .context("reading retained WebWork publication")?
+                .context("WebWork seed assignment refers to a missing publication")?;
+            let artifact = store
+                .catalog_source_artifact(context, reference)
+                .await
+                .context("reading retained WebWork source binding")?
+                .context("retained WebWork publication has no source binding")?;
+            let ids = WebworkPilotSeedIds::from_published(
+                arguments.tenant,
+                &published,
+                artifact.object.id,
+            );
+            let expected_course = webwork_pilot_course(arguments, ids.course);
+            if !webwork_pilot_course_seed_matches(&course, &expected_course) {
+                bail!("WebWork seed course marker differs from the reviewed host seed");
+            }
+            let source_record =
+                put_webwork_pilot_source(&store, context, storage, reference, artifact.object.id)
+                    .await?;
+            ensure_webwork_pilot_publication(
+                &store,
+                context,
+                arguments.instructor,
+                DraftRecord {
+                    tenant: arguments.tenant,
+                    question: webwork_pilot_draft(ids.workspace),
+                    derived_from: None,
+                },
+                reference,
+                source_record,
+                webwork_capabilities(),
+            )
+            .await?;
+            let expected_assignment = webwork_pilot_assignment(arguments, ids, reference);
+            if assignment.record != expected_assignment {
+                bail!("WebWork seed assignment differs from the retained immutable publication");
+            }
+            (ids, published)
+        }
+    };
     let reference = ProblemVersionRef {
-        problem: ids.problem,
-        version: ids.version,
+        problem: published.problem,
+        version: published.version,
     };
-    let source_record =
-        put_webwork_pilot_source(&store, context, storage, reference, ids.source_object).await?;
-    let draft = DraftRecord {
-        tenant: arguments.tenant,
-        question: webwork_pilot_draft(ids.workspace),
-        revises: None,
-        derived_from: None,
-    };
-    let capabilities = webwork_capabilities();
-    let violations = domain::policy::validate_draft_for_publication(&draft.question, &capabilities);
-    if !violations.is_empty() {
-        bail!("WebWork pilot seed draft failed publication capability admission: {violations:?}");
-    }
-    ensure_webwork_pilot_publication(
-        &store,
-        context,
-        arguments.instructor,
-        draft,
-        reference,
-        source_record,
-        capabilities,
-    )
-    .await?;
-    let course = CourseRecord {
-        id: ids.course,
-        tenant: arguments.tenant,
-        title: "PLE WebWork pilot E2E course".to_string(),
-        members: vec![
-            CourseMembership {
-                user: arguments.instructor,
-                role: CourseMembershipRole::Instructor,
-            },
-            CourseMembership {
-                user: arguments.student,
-                role: CourseMembershipRole::Student,
-            },
-        ],
-    };
+    let course = webwork_pilot_course(arguments, ids.course);
     ensure_webwork_pilot_course(&store, context, course).await?;
-    let assignment = AssignmentRecord {
-        id: ids.assignment,
-        tenant: arguments.tenant,
-        course_id: ids.course,
-        title: "PLE WebWork pilot E2E assignment".to_string(),
-        items: vec![AssignmentItem {
-            id: ids.assignment_item,
-            reference,
-            position: 0,
-            points_possible: PointValue::from_whole(1),
-            delivery_state: AssignmentDeliveryState::Active,
-            scoring_mode: AssignmentScoringMode::Normal,
-        }],
-        selection_groups: Vec::new(),
-        policies: RunPolicies {
-            completion: CompletionRequirement::AnswerAll,
-            grade: GradePolicy::Highest,
-            continued_practice: ContinuedPractice::Unlimited,
-            variation: VariationPolicy::NewSeeds,
-        },
-    };
+    let assignment = webwork_pilot_assignment(arguments, ids, reference);
     ensure_webwork_pilot_assignment(&store, context, assignment).await?;
     let enrollment = ensure_webwork_pilot_enrollment(
         &store,
@@ -101,9 +115,108 @@ pub(super) async fn seed_webwork_pilot(arguments: &SeedArguments) -> Result<Mani
     Ok(Manifest {
         assignment_id: ids.assignment,
         enrollment_id: enrollment.id,
-        problem_id: ids.problem,
-        version_id: ids.version,
+        question_id: published.question_id.clone(),
+        problem_id: published.problem,
+        version_id: published.version,
     })
+}
+
+async fn publish_fresh_webwork(
+    store: &learning_data_access::postgres::PostgresStore,
+    context: TenantContext,
+    arguments: &SeedArguments,
+    storage: &WebworkPilotStorage,
+    ids: WebworkPilotSeedIds,
+) -> Result<(
+    WebworkPilotSeedIds,
+    learning_data_access::PublishedProblemRecord,
+)> {
+    let reference = ProblemVersionRef {
+        problem: ids.problem,
+        version: ids.version,
+    };
+    let source_record =
+        put_webwork_pilot_source(store, context, storage, reference, ids.source_object).await?;
+    let draft = DraftRecord {
+        tenant: arguments.tenant,
+        question: webwork_pilot_draft(ids.workspace),
+        derived_from: None,
+    };
+    let capabilities = webwork_capabilities();
+    let violations = domain::policy::validate_draft_for_publication(&draft.question, &capabilities);
+    if !violations.is_empty() {
+        bail!("WebWork pilot seed draft failed publication capability admission: {violations:?}");
+    }
+    let published = ensure_webwork_pilot_publication(
+        store,
+        context,
+        arguments.instructor,
+        draft,
+        reference,
+        source_record,
+        capabilities,
+    )
+    .await?;
+    Ok((ids, published))
+}
+
+fn webwork_pilot_course(arguments: &SeedArguments, course: CourseId) -> CourseRecord {
+    CourseRecord {
+        id: course,
+        tenant: arguments.tenant,
+        title: "PLE WebWork pilot E2E course".to_string(),
+        members: vec![
+            CourseMembership {
+                user: arguments.instructor,
+                role: CourseMembershipRole::Instructor,
+            },
+            CourseMembership {
+                user: arguments.student,
+                role: CourseMembershipRole::Student,
+            },
+        ],
+    }
+}
+
+fn webwork_pilot_assignment(
+    arguments: &SeedArguments,
+    ids: WebworkPilotSeedIds,
+    reference: ProblemVersionRef,
+) -> AssignmentRecord {
+    AssignmentRecord {
+        id: ids.assignment,
+        tenant: arguments.tenant,
+        course_id: ids.course,
+        title: "PLE WebWork pilot E2E assignment".to_string(),
+        items: vec![AssignmentItem {
+            id: ids.assignment_item,
+            reference,
+            position: 0,
+            points_possible: PointValue::from_whole(1),
+            delivery_state: AssignmentDeliveryState::Active,
+            scoring_mode: AssignmentScoringMode::Normal,
+        }],
+        selection_groups: Vec::new(),
+        policies: RunPolicies {
+            completion: CompletionRequirement::AnswerAll,
+            grade: GradePolicy::Highest,
+            continued_practice: ContinuedPractice::Unlimited,
+            variation: VariationPolicy::NewSeeds,
+        },
+    }
+}
+
+fn webwork_assignment_reference(
+    assignment: &AssignmentRecord,
+    ids: WebworkPilotSeedIds,
+) -> Result<ProblemVersionRef> {
+    let Some(item) = assignment.items.first() else {
+        bail!("WebWork seed assignment has no fixed publication item");
+    };
+    if assignment.items.len() != 1 || item.id != ids.assignment_item || item.position != 0 {
+        bail!("WebWork seed assignment does not retain one reviewed fixed item");
+    }
+    Ok(item.reference)
 }
 
 pub(super) async fn put_webwork_pilot_source(
@@ -188,7 +301,7 @@ pub(super) async fn ensure_webwork_pilot_publication<S>(
     reference: ProblemVersionRef,
     source_record: objects::ObjectRecord,
     capabilities: BackendCapabilities,
-) -> Result<()>
+) -> Result<learning_data_access::PublishedProblemRecord>
 where
     S: Store + CatalogStore + CatalogSourceStore,
 {
@@ -209,7 +322,7 @@ where
             .await
             .context("reading deterministic WebWork pilot publication")?
         {
-            return verify_webwork_pilot_publication(
+            verify_webwork_pilot_publication(
                 store,
                 context,
                 publisher,
@@ -218,7 +331,8 @@ where
                 &expected_artifact,
                 &capabilities,
             )
-            .await;
+            .await?;
+            return Ok(existing);
         }
         let Some(saved_draft) =
             ensure_webwork_pilot_draft(store, context, publisher, draft.clone()).await?
@@ -241,7 +355,7 @@ where
         };
         match store.publish_draft(context, publisher, command).await {
             Ok(published) => {
-                return verify_webwork_pilot_publication(
+                verify_webwork_pilot_publication(
                     store,
                     context,
                     publisher,
@@ -250,7 +364,8 @@ where
                     &expected_artifact,
                     &capabilities,
                 )
-                .await;
+                .await?;
+                return Ok(published);
             }
             Err(StoreError::AlreadyExists) => continue,
             Err(error) => {
@@ -322,13 +437,11 @@ where
     let reference = expected_artifact.reference;
     if actual.problem != reference.problem
         || actual.version != reference.version
-        || actual.version_number.value() != 1
         || actual.question != *expected_question
         || actual.capabilities != *expected_capabilities
         || actual.scope != PublicationScope::Institution
         || actual.lifecycle != CatalogLifecycle::Published
         || actual.authors != vec![publisher]
-        || actual.previous_version.is_some()
         || actual.derived_from.is_some()
     {
         bail!("existing WebWork pilot publication differs from the deterministic seed");

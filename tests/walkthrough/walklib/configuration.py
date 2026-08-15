@@ -6,7 +6,8 @@ import pathlib
 import re
 import stat
 
-import walklib.models
+import tests.walkthrough.walklib as walklib
+import tests.walkthrough.walklib.models as models
 
 
 UINT32_MAX = 4_294_967_295
@@ -57,7 +58,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	parser.add_argument(
 		"--build",
 		action="store_true",
-		help="Force local_stack_control/launch.sh to rebuild dist/.",
+		help="Force the lifecycle owner to rebuild dist/.",
 	)
 	parser.add_argument(
 		"--instructor-setup-only",
@@ -77,7 +78,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def resolve_inputs(
 	args: argparse.Namespace,
 	repository_root: pathlib.Path,
-) -> walklib.models.RunnerInputs:
+) -> models.RunnerInputs:
 	"""Validate CLI values and resolve paths without side effects.
 
 	Args:

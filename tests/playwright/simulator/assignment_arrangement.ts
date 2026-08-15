@@ -3,14 +3,14 @@
 import { examContrastTitle, masteryRetryTitle } from "./assignment_titles";
 
 const IDENTIFIER = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+const QUESTION_ID = /^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u;
 
 export interface LauncherManifestSummary {
   readonly assignmentId: string;
 }
 
 export interface QuestionRef {
-  readonly problem: string;
-  readonly version: string;
+  readonly questionId: string;
 }
 
 export interface InstructorArrangementResponse {
@@ -61,7 +61,7 @@ interface AssignmentPolicies {
 
 interface AssignmentCreateInput {
   readonly title: string;
-  readonly problems: readonly QuestionRef[];
+  readonly questionIds: readonly string[];
   readonly policies: AssignmentPolicies;
 }
 
@@ -119,11 +119,7 @@ function validateManifestAndQuestion(
   manifest: LauncherManifestSummary,
   question: QuestionRef,
 ): void {
-  if (
-    !isIdentifier(manifest.assignmentId) ||
-    !isIdentifier(question.problem) ||
-    !isIdentifier(question.version)
-  ) {
+  if (!isIdentifier(manifest.assignmentId) || !QUESTION_ID.test(question.questionId)) {
     throw new AssignmentArrangementError("input");
   }
 }
@@ -148,8 +144,8 @@ async function readBaselineAssignment(
 
 function masteryInput(question: QuestionRef): AssignmentCreateInput {
   const input = {
-    title: masteryRetryTitle(question.problem),
-    problems: [{ problem: question.problem, version: question.version }],
+    title: masteryRetryTitle(question.questionId),
+    questionIds: [question.questionId],
     policies: MASTERY_POLICIES,
   };
   return input;
@@ -157,8 +153,8 @@ function masteryInput(question: QuestionRef): AssignmentCreateInput {
 
 function examInput(question: QuestionRef): AssignmentCreateInput {
   const input = {
-    title: examContrastTitle(question.problem),
-    problems: [{ problem: question.problem, version: question.version }],
+    title: examContrastTitle(question.questionId),
+    questionIds: [question.questionId],
     policies: EXAM_POLICIES,
   };
   return input;

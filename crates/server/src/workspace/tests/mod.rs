@@ -144,8 +144,7 @@ async fn author_can_save_list_refresh_and_delete_its_workspace() {
             DraftRecord {
                 tenant,
                 question: draft(workspace, "Earlier title"),
-                revises: Some(prior_revision),
-                derived_from: None,
+                derived_from: Some(prior_revision),
             },
         )
         .await
@@ -199,9 +198,9 @@ async fn author_can_save_list_refresh_and_delete_its_workspace() {
             .expect("saved draft lookup")
             .expect("saved draft exists")
             .record
-            .revises,
+            .derived_from,
         Some(prior_revision),
-        "browser refresh must retain server-owned draft lineage"
+        "browser refresh retains descriptive provenance"
     );
 
     let listed = app
@@ -291,7 +290,6 @@ async fn workspace_delete_requires_one_strong_etag() {
             DraftRecord {
                 tenant,
                 question: draft(workspace, "Deletion precondition fixture"),
-                revises: None,
                 derived_from: None,
             },
         )
@@ -758,7 +756,6 @@ async fn invited_collaborator_can_read_and_save_with_the_issued_revision() {
             DraftRecord {
                 tenant,
                 question: draft(workspace, "Owner draft"),
-                revises: None,
                 derived_from: None,
             },
         )

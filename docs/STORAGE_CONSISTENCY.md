@@ -50,12 +50,15 @@ SHA-256 binds canonical source, object bytes, and selected publication records. 
 | Property | Enforced by |
 | --- | --- |
 | Writer and reader authority | Typed server APIs, PostgreSQL/RLS capabilities, S3/IAM and delivery routes |
-| Immutable history | New typed identity/version, conditional object creation, and deployed Object Lock/tag policy |
+| Immutable history | Fresh Question ID and hidden exact publication evidence, conditional object creation, and deployed Object Lock/tag policy |
 | Transport confidentiality | HTTPS/TLS and private network paths |
 | Storage-at-rest confidentiality | Per-domain SSE-KMS and encrypted backups |
 | Parser safety for images | Strict still-image type/container/dimension/full-decode validation |
 
-Published-content immutability remains intentional. A correction creates a new version instead of changing object bytes referenced by an existing version or attempt.
+Published-content immutability remains intentional. Every content change, including a correction,
+publishes a new immutable question with a fresh Question ID and fresh hidden `(ProblemId, VersionId)`
+evidence instead of changing object bytes referenced by an existing assignment, run, or attempt.
+Optional one-way provenance may identify the source publication without changing it.
 
 ## Retention and repair
 

@@ -11,4 +11,4 @@ readonly REPO_ROOT
 source "$REPO_ROOT/source_me.sh"
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
-exec python -B "$REPO_ROOT/tests/walkthrough/run_ui_walkthrough.py" "$@"
+exec python -B -m tests.walkthrough.run_ui_walkthrough "$@"

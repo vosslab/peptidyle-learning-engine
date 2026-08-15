@@ -18,6 +18,7 @@ DISPOSABLE_CAPABILITY_SETTING = "PLE_DISPOSABLE_CAPABILITY_SHA256"
 
 DEFAULT_PROJECT = "containers"
 DEFAULT_ENV_FILE = "containers/env.local"
+DEFAULT_CHAPTER_ONE_MANIFEST_FILE = "containers/local-chapter-one-pilot.json"
 PRIMARY_COMPOSE_FILE = "containers/compose.yaml"
 SMTP_COMPOSE_FILE = "containers/compose.smtp.yaml"
 DISPOSABLE_COMPOSE_PROVIDER = "podman-compose"
@@ -31,6 +32,7 @@ BASE_LONG_RUNNING_SERVICES = (
 	"worker",
 	"gateway",
 )
+SMTP_LONG_RUNNING_SERVICES = ("invitation-delivery-worker",)
 BASE_ONE_SHOT_SERVICES = (
 	"local-data-volume-permissions",
 	"createbuckets",
@@ -57,6 +59,15 @@ DECLARED_BASE_NETWORKS = (
 	"renderer_private",
 	"api_outbound",
 )
+
+
+#============================================
+def restartable_services(with_smtp: bool) -> tuple[str, ...]:
+	"""Return the stateless services authorized by the selected topology."""
+	services = RESTARTABLE_SERVICES
+	if with_smtp:
+		services += SMTP_LONG_RUNNING_SERVICES
+	return services
 
 
 class ControllerError(RuntimeError):
@@ -99,9 +110,28 @@ DISPOSABLE_OWNER_POLICIES = (
 		compose_relative_paths=("tests/e2e/compose.database-baseline.yaml",),
 	),
 	DisposableOwnerPolicy(
+		owner="wp-r2-postgres-rls",
+		project_prefix="ple_wp_r2_postgres_rls_",
+		project_pattern=re.compile(r"^ple_wp_r2_postgres_rls_[A-Za-z0-9]+$"),
+		compose_relative_paths=("tests/e2e/compose.database-baseline.yaml",),
+	),
+	DisposableOwnerPolicy(
+		owner="wp-rc8-postgres-outbox",
+		project_prefix="ple_wp_rc8_postgres_outbox_",
+		project_pattern=re.compile(r"^ple_wp_rc8_postgres_outbox_[A-Za-z0-9]+$"),
+		compose_relative_paths=("tests/e2e/compose.database-baseline.yaml",),
+	),
+	DisposableOwnerPolicy(
 		owner="chapter-one-browser",
 		project_prefix="ple-chapter-one-browser-",
 		project_pattern=re.compile(r"^ple-chapter-one-browser-[a-f0-9]{12}$"),
+		compose_relative_paths=(PRIMARY_COMPOSE_FILE,),
+		removes_gateway_image=True,
+	),
+	DisposableOwnerPolicy(
+		owner="wp-r2-host-seed-renderer",
+		project_prefix="ple-wp-r2-host-seed-renderer-",
+		project_pattern=re.compile(r"^ple-wp-r2-host-seed-renderer-[a-f0-9]{12}$"),
 		compose_relative_paths=(PRIMARY_COMPOSE_FILE,),
 		removes_gateway_image=True,
 	),
@@ -208,6 +238,7 @@ class ContainerResource:
 	image: str
 	ports: tuple[PortBinding, ...]
 	capability_digest: str | None = None
+	image_id: str | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -286,6 +317,7 @@ class CleanupPlan:
 	snapshot: ProjectSnapshot
 	argv: tuple[str, ...]
 	removes_volumes: bool
+	host_paths_to_remove: tuple[pathlib.Path, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -312,3 +344,11 @@ class DoctorCheck:
 	name: str
 	status: str
 	detail: str
+
+
+@dataclasses.dataclass(frozen=True)
+class RendererProvenance:
+	"""Private attestation connecting one renderer reference to its OCI ID."""
+
+	reference: str
+	oci_id: str

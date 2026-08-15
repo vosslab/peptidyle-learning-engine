@@ -16,6 +16,24 @@ import local_stack_control.process
 
 MANIFEST_KEYS = ("OWNER", "PROJECT", "ENV_FILE", "CAPABILITY_FILE")
 CONTAINER_ID_PREFIX_PATTERN = re.compile(r"^[a-f0-9]{12}$")
+CANONICAL_IMAGE_SELECTIONS_BY_OWNER = {
+	"course-appearance": (
+		"PLE_POSTGRES_IMAGE_SHA256",
+		"PLE_MINIO_IMAGE_SHA256",
+		"PLE_MINIO_MC_IMAGE_SHA256",
+	),
+	"chapter-one-pilot": (
+		"PLE_POSTGRES_IMAGE_SHA256",
+		"PLE_MINIO_IMAGE_SHA256",
+		"PLE_MINIO_MC_IMAGE_SHA256",
+	),
+	"database-baseline": ("PLE_POSTGRES_IMAGE_SHA256",),
+	"wp-r2-postgres-rls": ("PLE_POSTGRES_IMAGE_SHA256",),
+	"wp-rc8-postgres-outbox": ("PLE_POSTGRES_IMAGE_SHA256",),
+	"chapter-one-browser": (),
+	"wp-r2-host-seed-renderer": (),
+	"replica-restart": (),
+}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -104,7 +122,12 @@ def disposable_target(
 	"""Build a provider-backed target only under the manifest's closed policy."""
 	policy = owner_policy(manifest.owner)
 	local_stack_control.compose.require_disposable_capability_file(manifest.capability_file)
-	declared_names = local_stack_control.env_file.require_mutation_env_file(manifest.env_file)
+	local_stack_control.env_file.require_mutation_env_file(manifest.env_file)
+	declared_names = local_stack_control.env_file.add_canonical_selections(
+		repo_root,
+		manifest.env_file,
+		CANONICAL_IMAGE_SELECTIONS_BY_OWNER[policy.owner],
+	)
 	compose_files = local_stack_control.compose.disposable_policy_compose_files(
 		repo_root, policy.owner
 	)
@@ -185,44 +208,25 @@ def disposable_policy(
 
 
 #============================================
-def launch_environment(
+def lifecycle_options(
 	disposable: local_stack_control.models.DisposableComposeTarget,
 	timeout_seconds: int,
-) -> dict[str, str]:
-	"""Build the isolated launcher environment for the Chapter One browser owner."""
+) -> "local_stack_control.lifecycle.LifecycleOptions":
+	"""Form the closed lifecycle request allowed to full-stack disposable owners."""
 	policy = disposable_policy(disposable)
-	if policy.owner != "chapter-one-browser":
+	launch_owners = {"chapter-one-browser", "wp-r2-host-seed-renderer"}
+	if policy.owner not in launch_owners:
 		raise local_stack_control.models.ControllerError(
-			"this disposable owner may use only structured Compose operations"
+			"closed full-stack owners may use the structured launcher"
 		)
 	if timeout_seconds < 1 or timeout_seconds > 600:
 		raise local_stack_control.models.ControllerError(
 			"disposable launcher timeout must be between 1 and 600 seconds"
 		)
-	environment = local_stack_control.process.current_environment()
-	# The launcher reads service configuration from the private env file.  Clear
-	# inherited PLE and Compose settings so only the typed target controls it.
-	for name in tuple(environment):
-		if name.startswith("PLE_") or name.startswith("COMPOSE_"):
-			environment.pop(name)
-	environment["COMPOSE_PROJECT_NAME"] = disposable.target.project
-	environment["PLE_LAUNCH_TIMEOUT_SECONDS"] = str(timeout_seconds)
-	environment["PLE_DISPOSABLE_CAPABILITY_FILE"] = str(disposable.capability_file)
-	return environment
-
-
-#============================================
-def launch_command(
-	disposable: local_stack_control.models.DisposableComposeTarget,
-	timeout_seconds: int,
-) -> tuple[list[str], dict[str, str]]:
-	"""Form the only launcher invocation allowed by the browser owner policy."""
-	environment = launch_environment(disposable, timeout_seconds)
-	launcher = disposable.target.repo_root / "local_stack_control/launch.sh"
-	if not launcher.is_file():
-		raise local_stack_control.models.ControllerError("local stack launcher is unavailable")
-	argv = [str(launcher), "--env-file", str(disposable.target.env_file), "--no-open"]
-	return argv, environment
+	from local_stack_control import lifecycle
+	return lifecycle.LifecycleOptions(
+		float(timeout_seconds), True, False, False
+	)
 
 
 #============================================

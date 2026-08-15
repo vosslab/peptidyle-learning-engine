@@ -1,14 +1,26 @@
 """Environment-file ownership and child-environment sanitization."""
 
 import os
+import pathlib
 import re
 import stat
-import pathlib
 
 import local_stack_control.models
 
 
 SETTING_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+CANONICAL_STACK_SELECTION_NAMES = (
+	"PLE_GATEWAY_IMAGE_SHA256",
+	"PLE_POSTGRES_IMAGE_SHA256",
+	"PLE_MINIO_IMAGE_SHA256",
+	"PLE_MINIO_MC_IMAGE_SHA256",
+	"PLE_SECRET_INIT_IMAGE_SHA256",
+	"PLE_WEBWORK_RENDERER_IMAGE",
+	"PLE_WEBWORK_RENDERER_BASE_URL",
+	"PLE_WEBWORK_RENDERER_ID",
+	"PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS",
+	"PLE_WEBWORK_MAX_RESPONSE_BYTES",
+)
 REMOTE_ENGINE_SELECTOR_NAMES = frozenset(
 	{
 		"CONTAINER_HOST",
@@ -47,17 +59,12 @@ def sanitized_runtime_environment(base_environment: dict[str, str]) -> dict[str,
 
 
 #============================================
-def env_setting_names(env_file: pathlib.Path, allow_missing: bool = False) -> tuple[str, ...]:
-	"""Parse declared setting names without returning their values."""
+def env_settings(env_file: pathlib.Path) -> dict[str, str]:
+	"""Read one strict NAME=value file into its declared settings."""
 	if not env_file.exists():
-		if allow_missing:
-			return ()
 		raise local_stack_control.models.ControllerError(f"{env_file} does not exist")
-
-	names: list[str] = []
-	seen: set[str] = set()
-	lines = env_file.read_text(encoding="utf-8").splitlines()
-	for line_number, line in enumerate(lines, start=1):
+	values: dict[str, str] = {}
+	for line_number, line in enumerate(env_file.read_text(encoding="utf-8").splitlines(), start=1):
 		stripped = line.strip()
 		if stripped == "" or stripped.startswith("#"):
 			continue
@@ -65,23 +72,77 @@ def env_setting_names(env_file: pathlib.Path, allow_missing: bool = False) -> tu
 			raise local_stack_control.models.ControllerError(
 				f"{env_file}:{line_number} is not a NAME=value declaration"
 			)
-		name = line.split("=", 1)[0]
+		name, value = line.split("=", 1)
 		if SETTING_PATTERN.fullmatch(name) is None:
 			raise local_stack_control.models.ControllerError(
 				f"{env_file}:{line_number} has an invalid setting name"
 			)
-		if name in seen:
+		if name in values:
 			raise local_stack_control.models.ControllerError(
 				f"{env_file}:{line_number} duplicates {name}"
 			)
-		if name == "COMPOSE_PROJECT_NAME":
+		values[name] = value
+	return values
+
+
+#============================================
+def env_setting_names(env_file: pathlib.Path, allow_missing: bool = False) -> tuple[str, ...]:
+	"""Parse declared setting names without returning their values."""
+	if not env_file.exists() and allow_missing:
+		return ()
+	values = env_settings(env_file)
+	if "COMPOSE_PROJECT_NAME" in values:
+		raise local_stack_control.models.ControllerError(
+			f"COMPOSE_PROJECT_NAME must not be declared in {env_file}"
+		)
+	return tuple(values)
+
+
+#============================================
+def canonical_stack_selections(repo_root: pathlib.Path) -> dict[str, str]:
+	"""Return the tracked image and renderer selections for disposable stacks."""
+	values = env_settings(repo_root / "containers/env.example")
+	result: dict[str, str] = {}
+	for name in CANONICAL_STACK_SELECTION_NAMES:
+		if name not in values or values[name] == "":
 			raise local_stack_control.models.ControllerError(
-				f"COMPOSE_PROJECT_NAME must not be declared in {env_file}"
+				f"containers/env.example must select {name}"
 			)
-		seen.add(name)
-		names.append(name)
-	result = tuple(names)
+		result[name] = values[name]
 	return result
+
+
+#============================================
+def add_canonical_selections(
+	repo_root: pathlib.Path,
+	env_file: pathlib.Path,
+	names: tuple[str, ...],
+) -> tuple[str, ...]:
+	"""Add named canonical selections to one private disposable environment.
+
+	The tracked example owns image selection.  A disposable runner owns only its
+	private credentials, ports, and cleanup capability, so it receives selected
+	base-image values from that canonical source before Compose runs.
+	"""
+	values = env_settings(env_file)
+	selections = canonical_stack_selections(repo_root)
+	additions: list[str] = []
+	for name in names:
+		if name not in selections:
+			raise local_stack_control.models.ControllerError(
+				f"containers/env.example does not define canonical selection {name}"
+			)
+		if name in values:
+			if values[name] != selections[name]:
+				raise local_stack_control.models.ControllerError(
+					f"{env_file} must use the canonical selection for {name}"
+				)
+			continue
+		additions.append(f"{name}={selections[name]}")
+	if len(additions) > 0:
+		with env_file.open("a", encoding="utf-8") as handle:
+			handle.write("".join(f"{line}\n" for line in additions))
+	return env_setting_names(env_file)
 
 
 #============================================
@@ -143,17 +204,20 @@ def sanitized_environment(
 
 #============================================
 def sanitized_acceptance_environment(base_environment: dict[str, str]) -> dict[str, str]:
-	"""Remove every project lifecycle override from aggregate acceptance.
+	"""Build one coherent child environment for aggregate acceptance.
 
 	The aggregate acceptance runner owns the PLE stack configuration it creates.
 	All ``PLE_*`` values are project-specific inputs (including future settings),
 	as are Compose's ``COMPOSE_*`` controls.  Namespace boundaries are safer
-	than a growing denylist.  Ordinary operating system variables such as PATH,
-	HOME, locale, and terminal configuration stay available to the shell and
-	browser tools.
+	than a growing denylist.  The aggregate includes Playwright lanes whose
+	workers select colored output, so its child environment carries that one
+	color policy without a contradictory ``NO_COLOR`` request.  Ordinary
+	operating system variables such as PATH, HOME, and locale stay available to
+	the shell and browser tools.
 	"""
 	environment = sanitized_runtime_environment(base_environment)
 	for name in tuple(environment):
 		if name.startswith("PLE_") or name.startswith("COMPOSE_"):
 			environment.pop(name)
+	environment.pop("NO_COLOR", None)
 	return environment

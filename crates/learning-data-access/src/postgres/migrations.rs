@@ -274,10 +274,20 @@ pub async fn verify_public_asset_publisher_schema(
     verify_schema_as(pool, SchemaVerificationProfile::PublicAssetPublisher).await
 }
 
+/// Verifies the exact embedded schema through the invitation-delivery
+/// worker's function-only capability. It cannot read the migration projection
+/// or application tables directly.
+pub async fn verify_invitation_delivery_worker_schema(
+    pool: &PgPool,
+) -> Result<(), SchemaCompatibilityError> {
+    verify_schema_as(pool, SchemaVerificationProfile::InvitationDeliveryWorker).await
+}
+
 #[derive(Clone, Copy)]
 enum SchemaVerificationProfile {
     Application,
     PublicAssetPublisher,
+    InvitationDeliveryWorker,
 }
 
 impl SchemaVerificationProfile {
@@ -285,6 +295,7 @@ impl SchemaVerificationProfile {
         match self {
             Self::Application => "SET LOCAL ROLE ple_app",
             Self::PublicAssetPublisher => "SET LOCAL ROLE ple_public_asset_publisher",
+            Self::InvitationDeliveryWorker => "SET LOCAL ROLE ple_invitation_delivery_worker",
         }
     }
 
@@ -296,6 +307,10 @@ impl SchemaVerificationProfile {
             Self::PublicAssetPublisher => {
                 "SELECT version, success, checksum \
                  FROM public.ple_public_asset_publisher_migration_state() ORDER BY version"
+            }
+            Self::InvitationDeliveryWorker => {
+                "SELECT version, success, checksum \
+                 FROM public.ple_invitation_delivery_worker_migration_state() ORDER BY version"
             }
         }
     }
@@ -392,6 +407,41 @@ pub async fn migration_principal(pool: &PgPool) -> Result<String, sqlx::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn invitation_delivery_worker_schema_profile_is_function_only() {
+        let profile = SchemaVerificationProfile::InvitationDeliveryWorker;
+        assert_eq!(
+            profile.role_sql(),
+            "SET LOCAL ROLE ple_invitation_delivery_worker"
+        );
+        assert_eq!(
+            profile.migration_state_sql(),
+            "SELECT version, success, checksum \
+                 FROM public.ple_invitation_delivery_worker_migration_state() ORDER BY version"
+        );
+    }
+
+    #[test]
+    fn invitation_delivery_worker_migration_projection_is_execute_only() {
+        let sql = MIGRATOR
+            .iter()
+            .find(|migration| migration.version == 2026081502)
+            .expect("invitation delivery migration is embedded")
+            .sql
+            .as_ref();
+        assert!(
+            sql.contains("CREATE OR REPLACE FUNCTION public.ple_invitation_delivery_worker_migration_state()")
+                && sql.contains("LANGUAGE sql SECURITY DEFINER")
+                && sql.contains("SELECT version, success, checksum FROM public.ple_migration_state ORDER BY version")
+                && sql.contains("ALTER FUNCTION public.ple_invitation_delivery_worker_migration_state()\n    OWNER TO ple_invitation_delivery_broker;")
+                && sql.contains("REVOKE ALL ON FUNCTION public.ple_invitation_delivery_worker_migration_state() FROM PUBLIC, ple_app;")
+                && sql.contains("GRANT SELECT ON public.ple_migration_state TO ple_invitation_delivery_broker;")
+                && sql.contains("GRANT EXECUTE ON FUNCTION public.ple_invitation_delivery_worker_migration_state()\n    TO ple_invitation_delivery_worker;")
+                && !sql.contains("GRANT SELECT ON public.ple_migration_state TO ple_invitation_delivery_worker;"),
+            "worker compatibility checks must use the broker-owned function only"
+        );
+    }
 
     fn exact_applied_epoch() -> Vec<AppliedMigrationState> {
         MIGRATOR

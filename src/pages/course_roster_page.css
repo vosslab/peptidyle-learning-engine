@@ -1,0 +1,23 @@
+/* course_roster_page.css - roster-only spacing and import controls. */
+
+.roster-section {
+  margin-top: var(--ple-space-3);
+}
+
+.roster-import-select {
+  min-width: 6.5rem;
+  min-height: 2.75rem;
+}
+
+.roster-import-reason {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--ple-muted);
+  font-size: 0.85rem;
+}
+
+.roster-import-preview {
+  display: grid;
+  gap: var(--ple-space-3);
+  margin-top: var(--ple-space-4);
+}

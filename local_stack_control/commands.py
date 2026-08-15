@@ -8,12 +8,42 @@ import platform
 import shlex
 
 import local_stack_control.cleanup
+import local_stack_control.acceptance_lanes
 import local_stack_control.compose
+import local_stack_control.consumer
 import local_stack_control.discovery
 import local_stack_control.env_file
 import local_stack_control.models
 import local_stack_control.process
 import local_stack_control.status
+import local_stack_control.lifecycle
+
+
+DEFAULT_LIFECYCLE_TIMEOUT_SECONDS = 180.0
+
+
+#============================================
+def authorize_start_target(target: local_stack_control.models.ComposeTarget) -> None:
+	"""Authorize an existing default target or the one first-run default location."""
+	if target.env_file.exists():
+		local_stack_control.compose.require_default_mutation_target(target)
+		return
+	expected_env_file = (target.repo_root / local_stack_control.models.DEFAULT_ENV_FILE).absolute()
+	expected_compose_files = local_stack_control.compose.compose_files(
+		target.repo_root, target.with_smtp
+	)
+	if (
+		target.project != local_stack_control.models.DEFAULT_PROJECT
+		or target.env_file != expected_env_file
+		or target.env_file.is_symlink()
+		or target.compose_files != expected_compose_files
+	):
+		raise local_stack_control.models.ControllerError(
+			"a custom mutating env file must already exist and have mode 0600"
+		)
+	for compose_file in target.compose_files:
+		if not compose_file.is_file():
+			raise local_stack_control.models.ControllerError(f"{compose_file} does not exist")
 
 
 #============================================
@@ -103,6 +133,27 @@ def print_snapshot(snapshot: local_stack_control.models.ProjectSnapshot) -> None
 	print("Networks:")
 	for network in snapshot.networks:
 		print(f"  {network.name}")
+
+
+#============================================
+def print_host_path_preview(plan: local_stack_control.models.CleanupPlan) -> None:
+	"""Show each database-bound host record selected by one cleanup plan."""
+	for path in plan.host_paths_to_remove:
+		relative_path = path.relative_to(path.parents[1])
+		print(f"Host record to remove after Compose cleanup: {relative_path}")
+
+
+#============================================
+def remove_reset_host_paths(plan: local_stack_control.models.CleanupPlan) -> None:
+	"""Remove the reset-owned manifest after Compose cleanup proves an empty project."""
+	for path in plan.host_paths_to_remove:
+		if not path.exists() and not path.is_symlink():
+			continue
+		local_stack_control.consumer.require_private_regular_file(
+			path,
+			"reset-owned Chapter One manifest",
+		)
+		path.unlink()
 
 
 #============================================
@@ -230,33 +281,22 @@ def start(
 	runner: local_stack_control.process.CommandRunner,
 	repo_root: pathlib.Path,
 ) -> int:
-	"""Delegate initialization and startup to the authoritative launcher."""
-	local_stack_control.process.require_rootless_local_engine(runner, repo_root)
-	env_path = local_stack_control.compose.resolve_path(repo_root, args.env_file)
-	is_default = env_path == repo_root / local_stack_control.models.DEFAULT_ENV_FILE
-	if env_path.exists():
-		local_stack_control.env_file.require_mutation_env_file(env_path)
-	elif not is_default:
-		raise local_stack_control.models.ControllerError(
-			"a custom mutating env file must already exist and have mode 0600"
-		)
-	argv = ["bash", str(repo_root / "local_stack_control/launch.sh")]
-	if args.release:
-		argv.append("--release")
-	if args.skip_build:
-		argv.append("--skip-build")
-	if args.no_open:
-		argv.append("--no-open")
-	if args.with_smtp:
-		argv.append("--with-smtp")
-	if not is_default:
-		argv.extend(["--env-file", str(env_path)])
-	env_names = local_stack_control.env_file.env_setting_names(env_path, allow_missing=is_default)
-	environment = local_stack_control.env_file.sanitized_environment(
-		local_stack_control.process.current_environment(), env_names, local_stack_control.models.DEFAULT_PROJECT
+	"""Initialize and start the selected default local stack in process."""
+	target = target_from_args(args, runner, repo_root, allow_missing_env=True)
+	authorize_start_target(target)
+	result = local_stack_control.lifecycle.start_lifecycle(
+		target,
+		runner,
+		repo_root,
+		local_stack_control.lifecycle.LifecycleOptions(
+			DEFAULT_LIFECYCLE_TIMEOUT_SECONDS,
+			not args.skip_build,
+			args.release,
+			not args.no_open,
+		),
 	)
-	print("Command:", shlex.join(argv))
-	return runner.stream(argv, environment, repo_root)
+	print(f"Local stack ready: {result.gateway_url}")
+	return 0
 
 
 #============================================
@@ -268,6 +308,7 @@ def execute_cleanup(
 ) -> int:
 	"""Preview then execute one exact cleanup plan."""
 	print_snapshot(plan.snapshot)
+	print_host_path_preview(plan)
 	print("Command:", shlex.join(plan.argv))
 	if dry_run:
 		return 0
@@ -281,6 +322,7 @@ def execute_cleanup(
 			raise local_stack_control.models.ControllerError(
 				"reset finished but labelled project resources remain"
 			)
+		remove_reset_host_paths(plan)
 	elif any(container.running for container in remaining.containers):
 		raise local_stack_control.models.ControllerError(
 			"stop finished but labelled project containers are still running"
@@ -328,6 +370,7 @@ def logs(
 	allowed.update(local_stack_control.models.BASE_ONE_SHOT_SERVICES)
 	if target.with_smtp:
 		allowed.update(local_stack_control.models.SMTP_ONE_SHOT_SERVICES)
+		allowed.update(local_stack_control.models.SMTP_LONG_RUNNING_SERVICES)
 	services = list(args.services)
 	if len(services) == 0:
 		services = ["gateway", "api", "worker"]
@@ -438,27 +481,21 @@ def restart(
 	runner: local_stack_control.process.CommandRunner,
 	repo_root: pathlib.Path,
 ) -> int:
-	"""Route stateless restart requests to the launcher-owned readiness seam."""
-	local_stack_control.process.require_rootless_local_engine(runner, repo_root)
-	if args.service not in local_stack_control.models.RESTARTABLE_SERVICES:
-		raise local_stack_control.models.ControllerError(
-			"restart is limited to api, worker, gateway, and webwork-renderer"
-		)
+	"""Restart one allowed stateless service through the lifecycle owner."""
 	target = target_from_args(args, runner, repo_root)
+	if args.service not in local_stack_control.models.restartable_services(target.with_smtp):
+		raise local_stack_control.models.ControllerError(
+			"restart is limited to stateless services in the selected topology"
+		)
 	local_stack_control.compose.require_default_mutation_target(target)
-	argv = [
-		"bash",
-		str(repo_root / "local_stack_control/launch.sh"),
-		"--restart",
-		args.service,
-		"--no-open",
-	]
-	if target.with_smtp:
-		argv.append("--with-smtp")
-	if target.env_file != repo_root / local_stack_control.models.DEFAULT_ENV_FILE:
-		argv.extend(["--env-file", str(target.env_file)])
-	print("Command:", shlex.join(argv))
-	return runner.stream(argv, child_environment(target), repo_root)
+	result = local_stack_control.lifecycle.restart_lifecycle(
+		target, runner, repo_root, args.service,
+		local_stack_control.lifecycle.LifecycleOptions(
+			DEFAULT_LIFECYCLE_TIMEOUT_SECONDS, False, False, False
+		),
+	)
+	print(f"Local stack ready: {result.gateway_url}")
+	return 0
 
 
 #============================================
@@ -467,19 +504,11 @@ def validate(
 	runner: local_stack_control.process.CommandRunner,
 	repo_root: pathlib.Path,
 ) -> int:
-	"""Validate canonical configuration and separately report observed state."""
+	"""Read-only validate initialized canonical configuration and runtime state."""
 	target = target_from_args(args, runner, repo_root)
 	if target.project != local_stack_control.models.DEFAULT_PROJECT:
 		raise local_stack_control.models.ControllerError("validate is canonical-stack-only")
-	argv = ["bash", str(repo_root / "local_stack_control/launch.sh"), "--check"]
-	if args.with_smtp:
-		argv.append("--with-smtp")
-	if target.env_file != repo_root / local_stack_control.models.DEFAULT_ENV_FILE:
-		argv.extend(["--env-file", str(target.env_file)])
-	print("Command:", shlex.join(argv))
-	check_code = runner.stream(argv, child_environment(target), repo_root)
-	if check_code != 0:
-		return check_code
+	local_stack_control.lifecycle.validate_lifecycle(target, runner, repo_root)
 	snapshot = local_stack_control.discovery.discover_snapshot(runner, repo_root, target.project)
 	report = local_stack_control.status.build_report(target.project, target.with_smtp, snapshot)
 	if args.json:
@@ -505,9 +534,7 @@ def acceptance(
 			"acceptance requires no existing default or walkthrough containers; "
 			f"stop and remove only the projects you own, then retry: {projects}"
 		)
-	argv = ["bash", str(repo_root / "tests/playwright/run_validation_lanes.sh")]
 	environment = local_stack_control.env_file.sanitized_acceptance_environment(
 		local_stack_control.process.current_environment()
 	)
-	print("Command:", shlex.join(argv))
-	return runner.stream(argv, environment, repo_root)
+	return local_stack_control.acceptance_lanes.run(runner, repo_root, environment)

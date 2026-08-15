@@ -36,19 +36,13 @@ pub(super) fn decode_catalog_payload_row(
     let mut record: PublishedProblemRecord = decode_payload_row(row)?;
     let stored_problem = ProblemId::from_uuid(row.try_get("problem_id").map_err(map_sqlx_error)?);
     let stored_version = VersionId::from_uuid(row.try_get("version_id").map_err(map_sqlx_error)?);
-    let stored_public_id =
-        decode_problem_public_id(row.try_get("public_id").map_err(map_sqlx_error)?)?;
     let stored_question_id = decode_question_id(
         row.try_get::<String, _>("question_id")
             .map_err(map_sqlx_error)?,
     )?;
-    let stored_version_number =
-        decode_problem_version_number(row.try_get("version_number").map_err(map_sqlx_error)?)?;
     if record.problem != stored_problem
-        || record.public_id != stored_public_id
         || record.question_id != stored_question_id
         || record.version != stored_version
-        || record.version_number != stored_version_number
     {
         return Err(StoreError::Unavailable(
             "stored catalog payload identity disagrees with its row".to_string(),
@@ -65,12 +59,10 @@ pub(super) fn decode_catalog_payload_row(
 
 #[cfg(feature = "postgres")]
 pub(super) fn decode_catalog_summary_row(row: &PgRow) -> Result<CatalogProblemSummary, StoreError> {
-    let problem = ProblemId::from_uuid(row.try_get("problem_id").map_err(map_sqlx_error)?);
     let question_id = decode_question_id(
         row.try_get::<String, _>("question_id")
             .map_err(map_sqlx_error)?,
     )?;
-    let version = VersionId::from_uuid(row.try_get("version_id").map_err(map_sqlx_error)?);
     let backend: String = row.try_get("backend").map_err(map_sqlx_error)?;
     let Json(capabilities): Json<BackendCapabilities> =
         row.try_get("capabilities").map_err(map_sqlx_error)?;
@@ -79,47 +71,14 @@ pub(super) fn decode_catalog_summary_row(row: &PgRow) -> Result<CatalogProblemSu
     let lifecycle: String = row.try_get("lifecycle").map_err(map_sqlx_error)?;
     let lifecycle_reason: Option<String> =
         row.try_get("lifecycle_reason").map_err(map_sqlx_error)?;
-    let Json(authors): Json<Vec<UserId>> = row.try_get("authors").map_err(map_sqlx_error)?;
-    if authors.is_empty() {
-        return Err(StoreError::Unavailable(
-            "stored catalog authors must not be empty".to_string(),
-        ));
-    }
-    let previous_version = row
-        .try_get::<Option<Uuid>, _>("previous_version_id")
-        .map_err(map_sqlx_error)?
-        .map(VersionId::from_uuid);
-    let derived_problem = row
-        .try_get::<Option<Uuid>, _>("derived_from_problem_id")
-        .map_err(map_sqlx_error)?;
-    let derived_version = row
-        .try_get::<Option<Uuid>, _>("derived_from_version_id")
-        .map_err(map_sqlx_error)?;
-    let derived_from = match (derived_problem, derived_version) {
-        (Some(problem), Some(version)) => Some(ProblemVersionRef {
-            problem: ProblemId::from_uuid(problem),
-            version: VersionId::from_uuid(version),
-        }),
-        (None, None) => None,
-        _ => {
-            return Err(StoreError::Unavailable(
-                "stored catalog fork lineage is incomplete".to_string(),
-            ));
-        }
-    };
     let published_at_millis: i64 = row.try_get("published_at_millis").map_err(map_sqlx_error)?;
     Ok(CatalogProblemSummary {
-        problem,
         question_id,
-        version,
         backend: parse_question_backend(&backend)?,
         capabilities,
         metadata,
         scope: parse_publication_scope(&publication_scope)?,
         lifecycle: parse_catalog_lifecycle(&lifecycle, lifecycle_reason)?,
-        authors,
-        previous_version,
-        derived_from,
         published_at: ActivityTimestamp::from_unix_millis(published_at_millis),
     })
 }
@@ -129,26 +88,6 @@ pub(super) fn decode_question_id(value: String) -> Result<question_model::Questi
     value
         .parse()
         .map_err(|_| StoreError::Unavailable("stored Question ID is invalid".to_string()))
-}
-
-#[cfg(feature = "postgres")]
-pub(super) fn decode_problem_public_id(value: i64) -> Result<ProblemPublicId, StoreError> {
-    u64::try_from(value)
-        .ok()
-        .and_then(ProblemPublicId::new)
-        .ok_or_else(|| StoreError::Unavailable("stored problem public ID is invalid".to_string()))
-}
-
-#[cfg(feature = "postgres")]
-pub(super) fn decode_problem_version_number(
-    value: i64,
-) -> Result<ProblemVersionNumber, StoreError> {
-    u64::try_from(value)
-        .ok()
-        .and_then(ProblemVersionNumber::new)
-        .ok_or_else(|| {
-            StoreError::Unavailable("stored problem version number is invalid".to_string())
-        })
 }
 
 #[cfg(feature = "postgres")]

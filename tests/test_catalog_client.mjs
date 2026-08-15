@@ -76,7 +76,7 @@ test("catalog decoders recursively reject hostile fields and unbounded response 
 
 test("catalog detail decoder exposes only its safe immutable projection", async () => {
   const detail = await mockJson(
-    `/api/problems/${publishedProblemFixture.publishedProblem.problem}/versions/${publishedProblemFixture.publishedProblem.version}/detail`,
+    `/api/problems/by-id/${publishedProblemFixture.catalogProblem.questionId}/detail`,
   );
   assert.deepEqual(decodeCatalogProblemDetail(detail), detail);
 
@@ -103,7 +103,7 @@ test("catalog search returns the current question for its copied Question ID", a
 
 test("catalog detail decoder preserves scalar suppression and strictly decodes safe statistics", async () => {
   const detail = await mockJson(
-    `/api/problems/${publishedProblemFixture.publishedProblem.problem}/versions/${publishedProblemFixture.publishedProblem.version}/detail`,
+    `/api/problems/by-id/${publishedProblemFixture.catalogProblem.questionId}/detail`,
   );
   const available = {
     available: {
@@ -216,7 +216,7 @@ test("catalog clients resolve one copyable Question ID without exposing UUID inp
   assert.deepEqual(requests, ["/api/problems/by-id/7K3-M9QP"]);
 
   const mock = createMockApiClient();
-  assert.equal((await mock.resolveCatalogProblem("7K3-M9QP")).problem, summary.problem);
+  assert.equal((await mock.resolveCatalogProblem("7K3-M9QP")).questionId, summary.questionId);
   await assert.rejects(mock.resolveCatalogProblem("ABC-123T"), ApiRequestError);
   assert.throws(() => client.resolveCatalogProblem(" "), /problem reference must be 1 to 44/);
 });
@@ -259,22 +259,19 @@ test("catalog HTTP client rejects invalid query bounds and mismatched detail ide
 
   async function wrongIdentityFetch() {
     const detail = await mockJson(
-      `/api/problems/${publishedProblemFixture.publishedProblem.problem}/versions/${publishedProblemFixture.publishedProblem.version}/detail`,
+      `/api/problems/by-id/${publishedProblemFixture.catalogProblem.questionId}/detail`,
     );
     return new Response(
       JSON.stringify({
         ...detail,
-        summary: { ...detail.summary, version: "0198e000-0000-7000-8000-000000000099" },
+        summary: { ...detail.summary, questionId: "7K4-M9QP" },
       }),
       { headers: { "content-type": "application/json" } },
     );
   }
   const wrongIdentity = createHttpApiClient({ fetch: wrongIdentityFetch });
   await assert.rejects(
-    wrongIdentity.getCatalogProblemDetail(
-      publishedProblemFixture.publishedProblem.problem,
-      publishedProblemFixture.publishedProblem.version,
-    ),
+    wrongIdentity.getCatalogProblemDetail(publishedProblemFixture.catalogProblem.questionId),
     ApiProtocolError,
   );
 });
@@ -325,10 +322,7 @@ test("mock catalog client decodes hostile handler JSON instead of replacing it w
     );
   const hostileDetail = createMockApiClient({ fetch: hostileDetailFetch });
   await assert.rejects(
-    hostileDetail.getCatalogProblemDetail(
-      publishedProblemFixture.publishedProblem.problem,
-      publishedProblemFixture.publishedProblem.version,
-    ),
+    hostileDetail.getCatalogProblemDetail(publishedProblemFixture.catalogProblem.questionId),
     DecodeError,
   );
 });
@@ -336,25 +330,23 @@ test("mock catalog client decodes hostile handler JSON instead of replacing it w
 test("mock client and handlers use the real search/detail wire contract", async () => {
   const client = createMockApiClient();
   const search = await client.searchCatalog({ ...EMPTY_SEARCH, pageSize: 1 });
-  assert.equal(search.items[0]?.problem, publishedProblemFixture.publishedProblem.problem);
-  assert.equal(search.items[0]?.version, publishedProblemFixture.publishedProblem.version);
-  assert.equal(search.facets.statistics.available, 0);
-  assert.equal(search.facets.statistics.unavailable, 1);
+  assert.equal(search.items[0]?.questionId, publishedProblemFixture.catalogProblem.questionId);
+  assert.ok(search.facets.statistics.available > 0);
+  assert.ok(search.facets.statistics.unavailable > 0);
   assert.equal(
     (await client.searchCatalog({ ...EMPTY_SEARCH, text: "does-not-match" })).items.length,
     0,
   );
-  assert.equal(
-    (await client.searchCatalog({ ...EMPTY_SEARCH, statistics: "available" })).items.length,
-    0,
-  );
+  const disclosed = await client.searchCatalog({ ...EMPTY_SEARCH, statistics: "available" });
+  const disclosedSummary = disclosed.items.find((item) => item.questionId === "7K4-M9QP");
+  assert.ok(disclosedSummary);
+  const disclosedDetail = await client.getCatalogProblemDetail(disclosedSummary.questionId);
+  assert.notEqual(disclosedDetail.statistics, "unavailable");
 
   const detail = await client.getCatalogProblemDetail(
-    publishedProblemFixture.publishedProblem.problem,
-    publishedProblemFixture.publishedProblem.version,
+    publishedProblemFixture.catalogProblem.questionId,
   );
-  assert.equal(detail.summary.problem, publishedProblemFixture.publishedProblem.problem);
-  assert.equal(detail.summary.version, publishedProblemFixture.publishedProblem.version);
+  assert.equal(detail.summary.questionId, publishedProblemFixture.catalogProblem.questionId);
   const invalid = await createMockFetch()("/api/problems/search?offset=1");
   assert.equal(invalid.status, 400);
 });

@@ -127,17 +127,18 @@ Required behavior:
 
 ### Publication race
 
-Publication consumes one exact workspace draft revision and mints an immutable
-published version. It locks the draft row, checks its payload and revision,
-checks publisher ownership, then writes the versioned catalog facts in the same
-transaction. A concurrent edit or a second publication request cannot silently
-publish a different draft. The database's version-chain and immutability
-constraints are described in [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
+Publication consumes one exact workspace draft revision and mints a new
+immutable published question with a fresh Question ID and hidden exact pair. It
+locks the draft row, checks its payload and revision, checks publisher
+ownership, then writes the immutable catalog facts in the same transaction. A
+concurrent edit or a second publication request cannot silently publish a
+different draft. The publication and assignment-reference constraints are
+described in [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
 
-Published content is never corrected in place. A correction creates a new
-version; existing assignments and issued attempts retain their pinned version.
-This makes a race observable as an explicit conflict or a new immutable
-version, never as changed historical question content.
+Published content is never corrected in place. A correction publishes a new
+question; existing assignments and issued attempts retain their pinned exact
+evidence. This makes a race observable as an explicit conflict or a new
+immutable publication, never as changed historical question content.
 
 ## Attempts, submissions, and convergence
 

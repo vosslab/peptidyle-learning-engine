@@ -53,8 +53,6 @@ const catalogProblems = [
   },
   {
     ...publishedProblemFixture.catalogProblem,
-    problem: fixtureUuid(220),
-    version: fixtureUuid(221),
     questionId: "ABC-123T",
     metadata: {
       ...publishedProblemFixture.catalogProblem.metadata,
@@ -64,8 +62,6 @@ const catalogProblems = [
   },
   {
     ...publishedProblemFixture.catalogProblem,
-    problem: fixtureUuid(222),
-    version: fixtureUuid(223),
     questionId: "PEP-T1D3",
     metadata: {
       ...publishedProblemFixture.catalogProblem.metadata,
@@ -75,8 +71,6 @@ const catalogProblems = [
   },
   {
     ...publishedProblemFixture.catalogProblem,
-    problem: fixtureUuid(224),
-    version: fixtureUuid(225),
     questionId: "GEN-E42K",
     metadata: {
       ...publishedProblemFixture.catalogProblem.metadata,
@@ -92,7 +86,10 @@ function assignmentItems(
 ): typeof publishedProblemFixture.assignment.items {
   return catalogProblems.slice(0, count).map((problem, index) => ({
     id: fixtureUuid(offset + index),
-    reference: { problem: problem.problem, version: problem.version },
+    questionId: problem.questionId,
+    title: problem.metadata.title,
+    backend: problem.backend,
+    capabilities: problem.capabilities,
     position: index,
     pointsPossible: "1",
     deliveryState: "active" as const,
@@ -365,15 +362,8 @@ async function installSimulatedInstructorApi(page: Page): Promise<void> {
         },
       });
     }
-    if (path.startsWith("/api/problems/by-id/")) {
-      const displayId = decodeURIComponent(path.slice("/api/problems/by-id/".length)).toUpperCase();
-      const problem = catalogProblems.find((candidate) => candidate.questionId === displayId);
-      return problem === undefined
-        ? await json(route, { error: "question not found" }, 404)
-        : await json(route, problem);
-    }
     const detail = catalogProblems.find(
-      (problem) => path === `/api/problems/${problem.problem}/versions/${problem.version}/detail`,
+      (problem) => path === `/api/problems/by-id/${problem.questionId}/detail`,
     );
     if (detail !== undefined) {
       return await json(route, {
@@ -381,6 +371,13 @@ async function installSimulatedInstructorApi(page: Page): Promise<void> {
         prompt: publishedProblemFixture.publishedProblem.prompt,
         statistics: "unavailable",
       });
+    }
+    if (path.startsWith("/api/problems/by-id/")) {
+      const displayId = decodeURIComponent(path.slice("/api/problems/by-id/".length)).toUpperCase();
+      const problem = catalogProblems.find((candidate) => candidate.questionId === displayId);
+      return problem === undefined
+        ? await json(route, { error: "question not found" }, 404)
+        : await json(route, problem);
     }
     if (path === "/api/workspaces") {
       return await json(route, { items: workspaceDrafts, nextCursor: null });

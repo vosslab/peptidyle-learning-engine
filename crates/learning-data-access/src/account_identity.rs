@@ -471,6 +471,16 @@ pub struct CompleteEmailAuthenticationAndCreateSession {
     pub session_lifetime: AccountSessionLifetime,
 }
 
+/// Atomic verified email replacement that invalidates every prior account and
+/// tenant proof for the account before issuing a replacement account proof to
+/// the browser that completed the browser-bound challenge.
+#[derive(Debug, Clone)]
+pub struct CompleteEmailChangeAndRevokeUserSessions {
+    pub authentication: CompleteEmailAuthentication,
+    pub session_token_hash: AccountSessionTokenHash,
+    pub session_lifetime: AccountSessionLifetime,
+}
+
 /// Account and short-lived proof created in the same persistence transaction.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompletedAccountSession {
@@ -696,6 +706,14 @@ pub trait AccountIdentityStore: Send + Sync {
     async fn complete_email_authentication_and_create_session(
         &self,
         command: CompleteEmailAuthenticationAndCreateSession,
+    ) -> Result<CompletedAccountSession, StoreError>;
+
+    /// Completes only a verified email-change challenge, revokes every prior
+    /// account and tenant session for that account, and issues one replacement
+    /// account proof in the same Store transaction.
+    async fn complete_email_change_and_revoke_user_sessions(
+        &self,
+        command: CompleteEmailChangeAndRevokeUserSessions,
     ) -> Result<CompletedAccountSession, StoreError>;
 
     async fn get_account(&self, user: UserId) -> Result<Option<AccountRecord>, StoreError>;

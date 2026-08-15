@@ -11,8 +11,10 @@ import {
   decodeCourseInvitationAccepted,
   decodeCourseRosterPage,
   decodeLocalTeachingMemberAccepted,
+  decodeRosterImportCommitResult,
   decodeRosterImportPreview,
 } from "../src/api/enrollment.ts";
+import { rosterImportTemplateCsv } from "../src/pages/roster_import_template.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
 import { consumeTokenFragment } from "../src/auth/secret_fragment.ts";
 
@@ -150,7 +152,7 @@ test("passwordless and roster decoders reject authority and secret fields", () =
   const accepted = {
     invitation: roster.pendingInvitations[0],
     redemptionPath: REDEMPTION_PATH,
-    emailDelivery: "notSent",
+    emailDelivery: "queued",
   };
   assert.deepEqual(decodeCourseInvitationAccepted(accepted), accepted);
   assert.throws(
@@ -260,8 +262,15 @@ test("roster import preview withholds invalid cells and keeps row selection expl
         email: "student@example.edu",
         rosterId: "900123456",
         status: "readyToInvite",
+        reason: "ready",
       },
-      { rowNumber: 3, email: null, rosterId: null, status: "invalid" },
+      {
+        rowNumber: 3,
+        email: null,
+        rosterId: null,
+        status: "invalid",
+        reason: "correctEmailOrRosterId",
+      },
     ],
   });
   assert.equal(preview.rows[1]?.email, null);
@@ -270,9 +279,62 @@ test("roster import preview withholds invalid cells and keeps row selection expl
     () =>
       decodeRosterImportPreview({
         ...preview,
-        rows: [{ rowNumber: 3, email: "raw-invalid-cell", rosterId: null, status: "invalid" }],
+        rows: [
+          {
+            rowNumber: 3,
+            email: "raw-invalid-cell",
+            rosterId: null,
+            status: "invalid",
+            reason: "correctEmailOrRosterId",
+          },
+        ],
       }),
     /response/u,
+  );
+  assert.throws(
+    () =>
+      decodeRosterImportPreview({
+        ...preview,
+        rows: [
+          {
+            rowNumber: 2,
+            email: "student@example.edu",
+            rosterId: "900123456",
+            status: "readyToInvite",
+            reason: "alreadyOnRoster",
+          },
+        ],
+      }),
+    /safe category/u,
+  );
+});
+
+test("roster import template has only generic headers and an example row", () => {
+  assert.equal(rosterImportTemplateCsv(), "email,roster_id\nstudent@example.edu,900123456\n");
+});
+
+test("bulk delivery keeps only row numbers and coarse outcomes", () => {
+  const result = decodeRosterImportCommitResult({
+    importId: IMPORT,
+    importRevision: 2,
+    rosterRevision: 5,
+    invitationsCreated: 2,
+    delivery: [
+      { rowNumber: 2, outcome: "queued" },
+      { rowNumber: 4, outcome: "needsAttention" },
+    ],
+  });
+  assert.deepEqual(result.delivery, [
+    { rowNumber: 2, outcome: "queued" },
+    { rowNumber: 4, outcome: "needsAttention" },
+  ]);
+  assert.throws(
+    () =>
+      decodeRosterImportCommitResult({
+        ...result,
+        delivery: [{ rowNumber: 2, outcome: "sentToProvider", recipient: "student@example.edu" }],
+      }),
+    /field allowed/u,
   );
 });
 
@@ -293,7 +355,7 @@ test("roster mutations preserve revisions idempotency and protected export heade
               expiresAt: 1_754_893_200_000,
             },
             redemptionPath: REDEMPTION_PATH,
-            emailDelivery: "notSent",
+            emailDelivery: "sentToProvider",
           },
           202,
         );
@@ -329,6 +391,7 @@ test("roster mutations preserve revisions idempotency and protected export heade
                 email: "student@example.edu",
                 rosterId: "900123456",
                 status: "readyToInvite",
+                reason: "ready",
               },
             ],
           },

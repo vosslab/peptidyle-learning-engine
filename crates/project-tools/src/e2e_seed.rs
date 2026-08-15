@@ -17,7 +17,8 @@ use learning_data_access::{
     AttemptSupportActionId, AuthoritativeTimeStore, CatalogSourceStore, CatalogStore,
     ClearAttemptCommand, CourseGroupRecord, CourseRecord, CourseRosterStore,
     DeleteAndRegradeAssignmentItemCommand, DeleteAssignmentPolicyExceptionCommand, DraftRecord,
-    ForceSubmitAttemptCommand, IssueQuestionAttemptCommand, JobClaimFilter, JobLeaseDuration,
+    FlatGradingCapability, FlatQuestionGradingPayload, ForceSubmitAttemptCommand,
+    IssueQuestionAttemptCommand, IssuedFlatGradingContract, JobClaimFilter, JobLeaseDuration,
     JobPayload, JobStore, PageRequest, PageSize, PresentationCapability, PublishDraftCommand,
     PutCourseGroupCommand, SetAssignmentPolicyExceptionCommand, Store, StoreError,
     SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext,
@@ -44,9 +45,9 @@ use question_model::{
     AttemptProvenance, AttemptResult, AttemptStatus, CatalogLifecycle, CourseGroupId, CourseId,
     CourseMembership, CourseMembershipRole, EnrollmentId, FeedbackContent, ImplementationVersion,
     ObjectId, PointValue, PresentationBindingV1, ProblemId, ProblemVersionRef, PublicationScope,
-    QuestionAttemptId, RunId, StudentId, TenantId, UserId, VersionId, WorkspaceId,
+    QuestionAttemptId, QuestionId, RunId, StudentId, TenantId, UserId, VersionId, WorkspaceId,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
@@ -58,9 +59,21 @@ use native::*;
 mod webwork;
 use webwork::*;
 
+#[path = "e2e_seed/chapter_one_identity.rs"]
+mod chapter_one_identity;
+use chapter_one_identity::*;
+
+#[path = "e2e_seed/chapter_one_manifest.rs"]
+mod chapter_one_manifest;
+use chapter_one_manifest::*;
+
 #[path = "e2e_seed/chapter_one.rs"]
 mod chapter_one;
 use chapter_one::*;
+
+#[path = "e2e_seed/chapter_one_statistics.rs"]
+mod chapter_one_statistics;
+use chapter_one_statistics::*;
 
 #[path = "e2e_seed/timing.rs"]
 mod timing;
@@ -74,7 +87,7 @@ use scoring::*;
 mod records;
 use records::*;
 
-const USAGE: &str = "usage: cargo tools e2e-seed --database-url <URL> --tenant <UUID> (--instructor <UUID>|--user <UUID>) --student <UUID> --apply-migrations [--exercise-scoring] [--exercise-timing] [(--webwork-pilot|--chapter-one-pilot) --s3-endpoint <URL> --s3-region <REGION> --private-content-bucket <BUCKET>]";
+const USAGE: &str = "usage: cargo tools e2e-seed [--database-url <URL>] --tenant <UUID> (--instructor <UUID>|--user <UUID>) --student <UUID> --apply-migrations [--exercise-scoring] [--exercise-timing] [(--webwork-pilot|--chapter-one-pilot) --s3-endpoint <URL> --s3-region <REGION> --private-content-bucket <BUCKET> [--chapter-one-existing-manifest <PATH>]] (database URL also reads PLE_MIGRATION_DATABASE_URL)";
 const WEBWORK_PILOT_SOURCE_PATH: &str = "content/pilot/webwork/which_hydrophobic-simple.pgml";
 const WEBWORK_PILOT_SOURCE: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -112,12 +125,16 @@ fn question_id_store(
     )
 }
 
-/// Non-secret identifiers the replica E2E runner needs to start an assignment.
+/// Private host-only identifiers the E2E runner needs to start an assignment.
+///
+/// This serializer is consumed only by the trusted host runner. Browser routes
+/// receive the assigned Question ID and never this opaque replay evidence.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Manifest {
     assignment_id: AssignmentId,
     enrollment_id: EnrollmentId,
+    question_id: QuestionId,
     problem_id: ProblemId,
     version_id: VersionId,
 }
@@ -133,6 +150,7 @@ struct SeedArguments {
     exercise_timing: bool,
     webwork_pilot: Option<WebworkPilotStorage>,
     chapter_one_pilot: Option<WebworkPilotStorage>,
+    chapter_one_existing_manifest: Option<String>,
 }
 
 /// Non-secret host-only storage parameters for reviewed WeBWorK sources.
@@ -153,7 +171,8 @@ pub fn run(args: &[String]) -> Result<()> {
         println!("{USAGE}");
         return Ok(());
     }
-    let arguments = parse_arguments(args)?;
+    let environment_database_url = std::env::var("PLE_MIGRATION_DATABASE_URL").ok();
+    let arguments = parse_arguments_with_database_url(args, environment_database_url)?;
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -163,7 +182,15 @@ pub fn run(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+#[cfg(test)]
 fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
+    parse_arguments_with_database_url(args, None)
+}
+
+fn parse_arguments_with_database_url(
+    args: &[String],
+    environment_database_url: Option<String>,
+) -> Result<SeedArguments> {
     let mut database_url = None;
     let mut tenant = None;
     let mut instructor = None;
@@ -176,6 +203,7 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
     let mut s3_endpoint = None;
     let mut s3_region = None;
     let mut private_content_bucket = None;
+    let mut chapter_one_existing_manifest = None;
     let mut index = 0;
     while index < args.len() {
         let flag = &args[index];
@@ -216,11 +244,17 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
             "--private-content-bucket" if private_content_bucket.is_none() => {
                 private_content_bucket = Some(value.clone())
             }
+            "--chapter-one-existing-manifest" if chapter_one_existing_manifest.is_none() => {
+                chapter_one_existing_manifest = Some(value.clone())
+            }
             _ => bail!("unknown, duplicate, or misplaced argument {flag}; {USAGE}"),
         }
     }
     if webwork_pilot && chapter_one_pilot {
         bail!("--webwork-pilot and --chapter-one-pilot are mutually exclusive; {USAGE}");
+    }
+    if chapter_one_existing_manifest.is_some() && !chapter_one_pilot {
+        bail!("--chapter-one-existing-manifest requires --chapter-one-pilot; {USAGE}");
     }
     let storage = match (
         webwork_pilot || chapter_one_pilot,
@@ -249,6 +283,7 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
     let chapter_one_pilot = chapter_one_pilot.then(|| storage.expect("pilot storage is complete"));
     let arguments = SeedArguments {
         database_url: database_url
+            .or(environment_database_url)
             .ok_or_else(|| anyhow::anyhow!("--database-url is required; {USAGE}"))?,
         tenant: tenant.ok_or_else(|| anyhow::anyhow!("--tenant is required; {USAGE}"))?,
         instructor: instructor
@@ -259,6 +294,7 @@ fn parse_arguments(args: &[String]) -> Result<SeedArguments> {
         exercise_timing,
         webwork_pilot,
         chapter_one_pilot,
+        chapter_one_existing_manifest,
     };
     if arguments.instructor == arguments.student {
         bail!("--instructor and --student must identify different users for the E2E course");

@@ -76,16 +76,12 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     read("/api/problems"),
     read("/api/problems/search"),
     read("/api/problems/by-id/{reference}"),
-    read("/api/problems/{problem}/versions/{version}"),
-    read("/api/problems/{problem}/versions/{version}/detail"),
+    read("/api/problems/by-id/{reference}/detail"),
     mutation("/api/problems/{workspace}/publish", "POST"),
     mutation("/api/problems/{workspace}/qti-publish", "POST"),
     mutation("/api/problems/{workspace}/flat-question-publish", "POST"),
-    mutation(
-        "/api/problems/{problem}/versions/{version}/deprecate",
-        "POST",
-    ),
-    mutation("/api/problems/{problem}/versions/{version}/archive", "POST"),
+    mutation("/api/problems/by-id/{reference}/deprecate", "POST"),
+    mutation("/api/problems/by-id/{reference}/archive", "POST"),
     read("/api/taxonomy"),
     read("/api/workspaces"),
     read("/api/workspaces/{workspace}"),
@@ -112,6 +108,18 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     read("/api/courses/{course}/gradebook"),
     read("/api/assignments/{assignment}"),
     mutation("/api/courses/{course}/assignments/{assignment}", "PUT"),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/items",
+        "POST",
+    ),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/items/{item}",
+        "DELETE",
+    ),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/items/{item}/question",
+        "PUT",
+    ),
     read("/api/courses/{course}/roster"),
     mutation("/api/courses/{course}/members/{member}", "DELETE"),
     mutation(
@@ -217,7 +225,7 @@ mod tests {
     use super::*;
     use axum::body::Body;
     use axum::http::Request;
-    use axum::routing::get;
+    use axum::routing::{delete, get, post, put};
     use tower::ServiceExt;
 
     #[test]
@@ -320,5 +328,51 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(unreviewed.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn qid_catalog_and_assignment_item_operations_reach_the_composed_policy_router() {
+        let app = apply_route_method_policy(
+            Router::new()
+                .route(
+                    "/api/problems/by-id/{reference}/detail",
+                    get(|| async { StatusCode::NO_CONTENT }),
+                )
+                .route(
+                    "/api/problems/by-id/{reference}/deprecate",
+                    post(|| async { StatusCode::NO_CONTENT }),
+                )
+                .route(
+                    "/api/problems/by-id/{reference}/archive",
+                    post(|| async { StatusCode::NO_CONTENT }),
+                )
+                .route(
+                    "/api/courses/{course}/assignments/{assignment}/items",
+                    post(|| async { StatusCode::NO_CONTENT }),
+                )
+                .route(
+                    "/api/courses/{course}/assignments/{assignment}/items/{item}",
+                    delete(|| async { StatusCode::NO_CONTENT }),
+                )
+                .route(
+                    "/api/courses/{course}/assignments/{assignment}/items/{item}/question",
+                    put(|| async { StatusCode::NO_CONTENT }),
+                ),
+        );
+        for request in [
+            Request::get("/api/problems/by-id/ABC-1234/detail"),
+            Request::post("/api/problems/by-id/ABC-1234/deprecate"),
+            Request::post("/api/problems/by-id/ABC-1234/archive"),
+            Request::post("/api/courses/course/assignments/assignment/items"),
+            Request::delete("/api/courses/course/assignments/assignment/items/item"),
+            Request::put("/api/courses/course/assignments/assignment/items/item/question"),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(request.body(Body::empty()).expect("request body"))
+                .await
+                .expect("composed route response");
+            assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        }
     }
 }

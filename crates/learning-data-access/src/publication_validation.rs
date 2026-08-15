@@ -62,11 +62,6 @@ pub(crate) fn validate_draft(draft: &DraftRecord) -> Result<(), StoreError> {
         .metadata
         .validate_title()
         .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-    if draft.revises.is_some() && draft.derived_from.is_some() {
-        return Err(StoreError::InvalidRecord(
-            "draft cannot be both a revision and a new fork".to_string(),
-        ));
-    }
     Ok(())
 }
 
@@ -729,14 +724,6 @@ pub(crate) fn validate_published(record: &PublishedProblemRecord) -> Result<(), 
     if authors.len() != record.authors.len() {
         return Err(StoreError::InvalidRecord(
             "published problem authors must be unique".to_string(),
-        ));
-    }
-    if record
-        .previous_version
-        .is_some_and(|previous| previous == record.version)
-    {
-        return Err(StoreError::InvalidRecord(
-            "published version cannot revise itself".to_string(),
         ));
     }
     Ok(())

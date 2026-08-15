@@ -64,7 +64,6 @@ fn workspace_draft(tenant: TenantId, workspace: WorkspaceId) -> DraftRecord {
                 language: "en-US".to_string(),
             },
         },
-        revises: None,
         derived_from: None,
     }
 }

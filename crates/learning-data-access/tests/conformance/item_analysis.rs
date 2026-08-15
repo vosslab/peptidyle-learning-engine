@@ -46,7 +46,6 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
         let draft = DraftRecord {
             tenant,
             question: draft_question(workspace),
-            revises: None,
             derived_from: None,
         };
         let saved = store

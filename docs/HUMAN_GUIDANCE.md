@@ -115,7 +115,10 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   govern Codex commands or file-search behavior.
 - Choose the robust, clean methodology and keep pushing forward while the next
   safe task is clear.
-- Prioritize positive prompting and focus on important issues.
+- Prioritize positive prompting, especially for small models. State the desired action, named tool,
+  scope owner, expected artifact, and success check directly. Use omission for irrelevant tools and
+  alternatives. When work stays with the manager, give the subagent only its affirmative owned
+  task. Name an unwanted action only when a concrete safety boundary requires it.
 - Be efficient with time. Subagents and tokens are cheap; wall time is not.
 - Break hard problems into the smallest independently completable tasks. Give
   each task one owner, one clear outcome, and one verification step. Run
@@ -155,9 +158,10 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   reusable layer is also the common lifecycle contract for Codex, aggregate Playwright acceptance,
   and canonical walkthrough disposable ownership; do not recreate provider selection, env-file
   sanitization, label discovery, readiness, or generic cleanup in each shell/test runner.
-- Keep `local_stack_control/launch.sh` as the private build, bootstrap, migration, seed, renderer-probe, and
-  readiness owner behind that controller. The controller must delegate that work rather than create a
-  second local-stack initialization path.
+- Keep direct lifecycle, configuration, private-file, identity, Podman, polling, cleanup, and renderer-provenance
+  ownership in focused private `local_stack_control` Python modules behind that controller. The controller calls
+  those modules directly; `_consumer_cli` remains a closed typed disposable adapter, while walkthrough and
+  Chapter compatibility facades stay logic-free.
 - Local-stack lifecycle tools may inspect any Compose project by label, but mutating commands should
   affect only the default pre-production `containers` project unless a typed disposable-owner contract
   explicitly supplies its private environment, compose target, owner evidence, and exact cleanup scope.
@@ -165,7 +169,12 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   resource names are not authority. The default controller never accepts arbitrary destructive project,
   image, network, volume, force, or prune behavior.
 - A destructive local reset must show the exact project and resources, require the visible project
-  confirmation `--confirm-project containers`, and avoid global Podman prune/remove behavior.
+  confirmation `--confirm-project containers`, and avoid unscoped container, network, or volume
+  removal.
+- Treat all local Podman images and project-named simulated-data volumes as disposable acceptance
+  infrastructure. Image pruning is pre-approved. Project-named simulated-data volumes may be removed
+  when their named acceptance target is verified; retain the typed target, label, and explicit-resource
+  safeguards so cleanup remains scoped and inspectable.
 - Use the local containers when the active work package reaches a documented
   PostgreSQL, MinIO, health, tenancy, or other container-dependent gate.
 - Keep offline contract work on memory backends when its work-package gate does
@@ -206,11 +215,25 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   lookup, but assignment copy/import and a checklist from an existing assignment are the preferred
   ways to reuse a group of questions. Preserve entered input and the unchanged assignment when an ID
   is malformed, unavailable, unauthorized, or already selected.
-- Treat one Question ID as one current question. The original owner may publish a bug correction
-  that propagates forward to uses of that question. A substantive independently editable change is
-  a fork with a new Question ID and retained provenance. Keep immutable snapshots and exact hidden
-  `(ProblemId, VersionId)` attempt evidence only where grading reproducibility, audit, or provenance
-  requires it; do not turn that history into instructor-facing versions.
+- A Question ID is assigned once and names one immutable published question. PLE does not support
+  problem drift: no correction, publication, or background action may change the content reached by
+  that Question ID or automatically advance an assignment. Every authored content change, including
+  a bug fix, publishes a new question with a new Question ID; it may retain explicit provenance to
+  its source. Existing assignments remain pinned until an Instructor deliberately replaces the item.
+  Keep immutable snapshots and exact hidden `(ProblemId, VersionId)` evidence only for issued-attempt
+  replay, grading, audit, and provenance. It is never an instructor-facing selector.
+- The assigned `AAA-BBBB` Question ID is the sole durable question identity. Every real publication
+  also receives fresh opaque hidden `ProblemId` and `VersionId` evidence. Do not retain or introduce
+  a second question identity: legacy sequential `ProblemPublicId`/`P-...`, `ProblemVersionNumber`,
+  predecessor chains, and version-chain resolution are prohibited. Deterministic fixed IDs are
+  allowed only in isolated unit fixtures, derived render/cache identities, and non-question seed
+  records. A real native or WeBWorK host seed publisher mints fresh question IDs and converges a
+  rerun through an explicit protected manifest or verified existing record, never a tenant-derived
+  question UUID.
+- Python owns complex orchestration: state, arrays/parsing, private temporary files, subprocess and
+  Podman lifecycle, polling, cleanup, and lane-result aggregation. Bash is allowed only as a tiny
+  direct `exec` or `source` wrapper with no second state machine. Reuse typed Python orchestration
+  boundaries; do not create a Python wrapper around a retained complex shell launcher.
 - The product supports learning through repeated algorithmic practice. A first
   completion or a 100 percent score must not end continued practice when policy
   permits another run.

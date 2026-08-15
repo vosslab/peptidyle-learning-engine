@@ -84,21 +84,29 @@ Change the Rust contract, fixture source, browser source, or build pipeline that
 then rerun the appropriate front-door script. Do not edit a derived file to make a build appear
 current.
 
+## Disposable fixture identities
+
+The Chapter 1 disposable seed mints fresh opaque workspace, problem, version,
+and source-object IDs. Its answer-free protected manifest is the replay marker:
+replay resolves the assigned Question IDs and requires exact immutable records
+and reviewed source content before reuse. The manifest must never appear in
+instructor-visible UI, URLs, copyable links, or public fixtures.
+
 ## Choose the right gate
 
 Run the narrowest gate that proves the changed behavior, then the broader gate required by the
 active work package.
 
-| Change or concern                         | Command                                                     | What it proves                                     |
-| ----------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------- |
-| Rust code, features, lints, tests, or Wasm | `./check_rust.sh`                                           | The complete offline Cargo and Rust gate.          |
-| TypeScript, browser lint, format, or tests | `./check_codebase.sh`                                       | The vendored TypeScript and Node gate.             |
-| Repository documentation and hygiene      | `source source_me.sh && python3 -m pytest tests/`            | Fast Python hygiene and repository-rule checks.    |
-| Built-browser behavior                    | `./run_playwright_tests.sh --build`                         | The ordinary mock-backed browser suite, with no skips. |
-| Complete Playwright validation            | `source source_me.sh && python3 local_stack.py acceptance` | Ordinary browser coverage plus required visual, walkthrough, and live-browser acceptance. |
-| One browser scenario                      | `./run_playwright_tests.sh tests/playwright/<file>.spec.ts` | The selected built-browser scenario.               |
-| Container-backed behavior                 | `bash tests/e2e/e2e_<name>.sh`                              | The named disposable whole-system oracle.          |
-| Local stack diagnosis and lifecycle       | `source source_me.sh && python3 local_stack.py <command>`   | The scoped controller contract.                    |
+| Change or concern                          | Command                                                     | What it proves                                                                            |
+| ------------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Rust code, features, lints, tests, or Wasm | `./check_rust.sh`                                           | The complete offline Cargo and Rust gate.                                                 |
+| TypeScript, browser lint, format, or tests | `./check_codebase.sh`                                       | The vendored TypeScript and Node gate.                                                    |
+| Repository documentation and hygiene       | `source source_me.sh && python3 -m pytest tests/`           | Fast Python hygiene and repository-rule checks.                                           |
+| Built-browser behavior                     | `./run_playwright_tests.sh --build`                         | The ordinary mock-backed browser suite, with no skips.                                    |
+| Complete Playwright validation             | `source source_me.sh && python3 local_stack.py acceptance`  | Ordinary browser coverage plus required visual, walkthrough, and live-browser acceptance. |
+| One browser scenario                       | `./run_playwright_tests.sh tests/playwright/<file>.spec.ts` | The selected built-browser scenario.                                                      |
+| Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                              | The named disposable whole-system oracle.                                                 |
+| Local stack diagnosis and lifecycle        | `source source_me.sh && python3 local_stack.py <command>`   | The scoped controller contract.                                                           |
 
 `tests/playwright/` is browser-driven testing and `tests/e2e/` is non-browser whole-system
 orchestration. Both are intentionally excluded from `pytest tests/`; see
@@ -151,10 +159,17 @@ filesystem boundary. Test that durable contract offline; record the real
 Podman/browser execution separately as one-time evidence.
 
 For the first teaching corpus, run `cargo tools pilot-content` for the tracked source/compiler
-contract and `bash tests/e2e/e2e_chapter_one_pilot.sh` for the disposable PostgreSQL/MinIO
-publication, exact two-by-four assignment matrix, human display identity, and idempotent-rerun
-contract. Run `bash tests/e2e/e2e_chapter_one_browser.sh` for the complete eight-question
-keyboard-driven learner path through the built PLE browser and private renderer.
+contract and `source source_me.sh && python3 tests/e2e/e2e_chapter_one_pilot.py` for the disposable
+PostgreSQL/MinIO publication, exact two-by-four assignment matrix, human display identity, and
+idempotent-rerun contract. Run
+`source source_me.sh && python3 tests/e2e/e2e_chapter_one_browser.py` for the complete eight-question
+keyboard-driven learner path through the built PLE browser and private renderer. The remaining
+pilot shell file is only a compatibility `exec` facade; it does not own orchestration.
+
+Chapter 1 replay is manifest-resume only. The answer-free host-only manifest records the assigned
+Question IDs and exact immutable internal references from the first publication; a replay resolves
+those Question IDs and verifies the same reviewed content before reuse. Keep the protected local
+manifest with a retained corpus: if it is missing, the local controller refuses to mint duplicates.
 
 ## Run local services
 
@@ -179,11 +194,14 @@ those local secret files into source control. `stop` retains named volumes.
 services, and delegates back to the launcher for readiness verification.
 
 For deliberately disposable default data, run `reset --dry-run` first, inspect
-its exact labelled project/resource preview, and then use
-`reset --confirm-project containers`. Reset preserves local host credentials
-and does not perform global Podman pruning or image deletion. Raw Compose is a
-diagnosis or recovery interface only; normal changes should not bypass the
-controller's project and environment handling.
+its exact labelled project/resource and database-bound
+`containers/local-chapter-one-pilot.json` preview, and then use
+`reset --confirm-project containers`. Once the labelled Compose resources and
+volumes are gone, reset removes that private Chapter 1 replay record. Reset
+retains local host credentials. Global Podman pruning and image cleanup have
+their dedicated operator workflow. Raw Compose is a diagnosis or recovery
+interface only; normal changes use the controller's project and environment
+handling.
 
 The controller uses an already-built `webwork-pg-renderer` image rather than
 building a second WeBWorK platform or database. SMTP is an operator-selected

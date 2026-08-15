@@ -591,7 +591,6 @@ async fn fixture_with_response(
                 language: "en-US".to_string(),
             },
         },
-        revises: None,
         derived_from: None,
     };
     let saved = store
@@ -817,7 +816,6 @@ async fn native_feedback_fixture(
                 language: "en-US".to_string(),
             },
         },
-        revises: None,
         derived_from: None,
     };
     let saved = store

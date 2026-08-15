@@ -34,11 +34,11 @@ use question_model::{
     CatalogProblemSummary, CatalogSearchQuery, CatalogTaxonomyFacet, CourseGroupId, CourseId,
     CourseMembership, CourseMembershipRole, CourseSummary, EnrollmentId, EnrollmentStatus,
     LateSubmissionPolicy, PointValue, PresentationBindingV1, PresentationDigestV1,
-    PresentationNonceV1, ProblemId, ProblemPublicId, ProblemVersionNumber, ProblemVersionRef,
-    PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionMetadata,
-    QuestionStatisticsDisclosure, QuestionStatisticsView, RunId, RunMode, ScoringGeneration,
-    ScoringStatus, SelectionOrdering, StudentAssignmentSummary, StudentId, StudentResponse,
-    TenantId, UserId, VersionId, WorkspaceDraftSummary, WorkspaceId, WorkspaceImportId,
+    PresentationNonceV1, ProblemId, ProblemVersionRef, PublicationScope, QuestionAttempt,
+    QuestionAttemptId, QuestionBackend, QuestionMetadata, QuestionStatisticsDisclosure,
+    QuestionStatisticsView, RunId, RunMode, ScoringGeneration, ScoringStatus, SelectionOrdering,
+    StudentAssignmentSummary, StudentId, StudentResponse, TenantId, UserId, VersionId,
+    WorkspaceDraftSummary, WorkspaceId, WorkspaceImportId,
 };
 #[cfg(feature = "postgres")]
 use question_model::{FeedbackContent, envelope::ContentBlock};
@@ -65,22 +65,24 @@ use crate::run_summary_cursor::RunSummaryCursor;
 use crate::statistics::derive_statistics_contributions;
 #[cfg(feature = "postgres")]
 use crate::{
-    ActivityTransition, AssetDeliveryRecord, AssetDeliveryScope, AssignmentDefinitionDisposition,
-    AssignmentEditorUpdate, AssignmentPolicyExceptionTarget, AssignmentRecord, AssignmentRevision,
-    AttemptFeedbackRecord, AttemptSupportAction, AttemptSupportActionId, AttemptSupportRecord,
-    ClearAttemptCommand, CourseGroupRecord, CourseGroupRevision, CourseListScope, CourseRecord,
-    CourseRecordsAccessStore, CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState,
-    CourseRetentionView, Cursor, DeleteAndRegradeAssignmentItemCommand,
-    DeleteAssignmentPolicyExceptionCommand, DraftRecord, FeedbackReleaseRecord,
-    ForceSubmitAttemptCommand, InstitutionRetentionPolicy, IssueQuestionAttemptCommand, Page,
-    PageRequest, PageSize, PrefetchedQuestion, PublishedProblemRecord, PublishedSourceArtifact,
-    PutCourseGroupCommand, ReleaseAttemptFeedbackCommand, ReservePrefetchedQuestionCommand,
-    ResolvedAssignmentTiming, ResolvedAttemptTiming, RetentionApiStore, RetentionCleanupManifest,
-    RetentionDays, RetentionDispatchBatch, RetentionRevision, RetentionScheduleStore,
-    RetentionStore, RetentionWork, RetentionWorkerCommand, RetentionWorkerStore,
-    RunSummaryOutcomeInput, RunSummaryPageInput, SetAssignmentPolicyExceptionCommand, Store,
-    StoreError, StoredAssignment, StoredAssignmentPolicyException, StoredAssignmentTiming,
-    StoredCourseGroup, SubmissionIdempotencyKey, SubmissionNextAttempt, SubmissionRecord,
+    ActivityTransition, AddAssignmentFixedItemCommand, AssetDeliveryRecord, AssetDeliveryScope,
+    AssignmentDefinitionDisposition, AssignmentEditorUpdate, AssignmentPolicyExceptionTarget,
+    AssignmentRecord, AssignmentRevision, AttemptFeedbackRecord, AttemptSupportAction,
+    AttemptSupportActionId, AttemptSupportRecord, ClearAttemptCommand, CourseGroupRecord,
+    CourseGroupRevision, CourseListScope, CourseRecord, CourseRecordsAccessStore,
+    CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState, CourseRetentionView,
+    Cursor, DeleteAndRegradeAssignmentItemCommand, DeleteAssignmentPolicyExceptionCommand,
+    DraftRecord, FeedbackReleaseRecord, ForceSubmitAttemptCommand, InstitutionRetentionPolicy,
+    IssueQuestionAttemptCommand, Page, PageRequest, PageSize, PrefetchedQuestion,
+    PublishedProblemRecord, PublishedSourceArtifact, PutCourseGroupCommand,
+    ReleaseAttemptFeedbackCommand, RemoveAssignmentFixedItemCommand,
+    ReplaceAssignmentFixedItemCommand, ReservePrefetchedQuestionCommand, ResolvedAssignmentTiming,
+    ResolvedAttemptTiming, RetentionApiStore, RetentionCleanupManifest, RetentionDays,
+    RetentionDispatchBatch, RetentionRevision, RetentionScheduleStore, RetentionStore,
+    RetentionWork, RetentionWorkerCommand, RetentionWorkerStore, RunSummaryOutcomeInput,
+    RunSummaryPageInput, SetAssignmentPolicyExceptionCommand, Store, StoreError, StoredAssignment,
+    StoredAssignmentPolicyException, StoredAssignmentTiming, StoredCourseGroup,
+    SubmissionIdempotencyKey, SubmissionNextAttempt, SubmissionRecord,
     SubmitQuestionAttemptCommand, TenantContext, UpdateAssignmentTimingCommand, WorkspaceDraft,
     WorkspaceDraftRevision, assignment_scoring_changed, completed_run_score, current_run_questions,
     decode_workspace_draft_cursor, delete_and_regrade_update, encode_workspace_draft_cursor,
@@ -172,6 +174,8 @@ mod flat_question;
 #[cfg(feature = "postgres")]
 mod flat_question_assets;
 #[cfg(feature = "postgres")]
+mod invitation_delivery;
+#[cfg(feature = "postgres")]
 mod item_analysis;
 #[cfg(feature = "postgres")]
 mod jobs;
@@ -205,7 +209,8 @@ use connection::{
 pub use migrations::{
     MigrationDisposition, MigrationStatus, MigrationStatusEntry, SchemaCompatibilityError,
     apply_migrations, migration_principal, migration_status, migration_status_from_directory,
-    verify_application_schema, verify_public_asset_publisher_schema,
+    verify_application_schema, verify_invitation_delivery_worker_schema,
+    verify_public_asset_publisher_schema,
 };
 #[cfg(feature = "postgres")]
 pub use publisher::PostgresPublicAssetPublisherStore;
@@ -277,6 +282,31 @@ pub struct PostgresGraderStore {
     pool: PgPool,
 }
 
+/// Dedicated worker handle whose pool login is attested to assume only the
+/// invitation-delivery broker capability for a transaction.
+#[cfg(feature = "postgres")]
+#[derive(Clone)]
+pub struct PostgresInvitationDeliveryWorkerStore {
+    pool: PgPool,
+}
+
+#[cfg(feature = "postgres")]
+impl PostgresInvitationDeliveryWorkerStore {
+    /// Wraps the dedicated InvitationDeliveryWorker-profile pool after attestation.
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+
+    async fn begin_delivery_worker(&self) -> Result<Transaction<'_, Postgres>, StoreError> {
+        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
+        sqlx::query("SET LOCAL ROLE ple_invitation_delivery_worker")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        Ok(transaction)
+    }
+}
+
 #[cfg(feature = "postgres")]
 impl PostgresStore {
     /// Wraps a pool whose login can assume the migration-owned `ple_app` role.
@@ -316,13 +346,6 @@ impl PostgresStore {
             .execute(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
-        if let Some(session) = context.owner_correction_session() {
-            sqlx::query("SELECT set_config('ple.session_hash', $1, true)")
-                .bind(session.to_string())
-                .execute(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?;
-        }
         Ok(transaction)
     }
 

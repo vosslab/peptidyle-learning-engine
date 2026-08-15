@@ -11,7 +11,6 @@ import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { WorkspacePublicId } from "../../generated/api/WorkspacePublicId";
 import type { AttemptPolicy } from "../../generated/api/AttemptPolicy";
 import type { PublicationScope } from "../../generated/api/PublicationScope";
-import type { ProblemVersionRef } from "../../generated/api/ProblemVersionRef";
 import type { InstructorPreviewResult } from "./editor_instructor_preview";
 
 /**
@@ -73,7 +72,8 @@ export interface VersionDiffSection {
 export interface PublishVersionDiff {
   /** Exact strong ETag returned with the server-computed comparison. */
   readonly revision: string;
-  readonly priorVersion: string | null;
+  /** Every review proposes a distinct immutable Question ID. */
+  readonly baseline: "newQuestion";
   readonly proposedTitle: string;
   readonly sections: ReadonlyArray<VersionDiffSection>;
 }
@@ -87,7 +87,7 @@ export interface InstructorPreviewProvider {
 }
 
 export type PublishOutcome =
-  | { readonly kind: "published"; readonly reference: ProblemVersionRef }
+  | { readonly kind: "published"; readonly questionId: string }
   | {
       readonly kind: "validationFailed";
       readonly violations: ReadonlyArray<DraftCapabilityViolation>;

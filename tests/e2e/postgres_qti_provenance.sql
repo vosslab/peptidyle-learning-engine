@@ -170,9 +170,9 @@ INSERT INTO public.problem
 SELECT problem_id, 'M4Y9K21', tenant_id, actor_id, 'institution', 'CC0-1.0'
   FROM qti_provenance_probe;
 INSERT INTO public.problem_version
-    (problem_id, version_id, version_number, content_sha256, workspace_id, title,
+    (problem_id, version_id, content_sha256, workspace_id, title,
      backend, publication_scope, authors)
-SELECT problem_id, version_id, 1, repeat('a', 64), workspace_id,
+SELECT problem_id, version_id, repeat('a', 64), workspace_id,
        'QTI provenance Unicode boundary', 'native', 'institution', '["E2E"]'::jsonb
   FROM qti_provenance_probe;
 INSERT INTO public.published_qti_grading
@@ -652,10 +652,10 @@ VALUES ('22222222-2222-4222-8222-0000000000b6',
         '22222222-2222-4222-8222-0000000000b1',
         '22222222-2222-4222-8222-0000000000b5', 'institution', 'CC0-1.0');
 INSERT INTO public.problem_version
-    (problem_id, version_id, version_number, content_sha256, workspace_id, title,
+    (problem_id, version_id, content_sha256, workspace_id, title,
      backend, publication_scope, authors)
 VALUES ('22222222-2222-4222-8222-0000000000b6',
-        '22222222-2222-4222-8222-0000000000b7', 1, repeat('a', 64),
+        '22222222-2222-4222-8222-0000000000b7', repeat('a', 64),
         '22222222-2222-4222-8222-0000000000b2', 'tenant B provenance',
         'native', 'institution', '["E2E"]'::jsonb);
 INSERT INTO public.published_flat_import_origin

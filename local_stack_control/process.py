@@ -20,6 +20,7 @@ class CommandRunner(abc.ABC):
 		argv: list[str],
 		environment: dict[str, str] | None = None,
 		cwd: pathlib.Path | None = None,
+		stdin: str | None = None,
 	) -> local_stack_control.models.CommandResult:
 		"""Run a captured command."""
 
@@ -42,6 +43,7 @@ class SubprocessRunner(CommandRunner):
 		argv: list[str],
 		environment: dict[str, str] | None = None,
 		cwd: pathlib.Path | None = None,
+		stdin: str | None = None,
 	) -> local_stack_control.models.CommandResult:
 		"""Run a command and capture its output."""
 		if shutil.which(argv[0]) is None:
@@ -64,6 +66,7 @@ class SubprocessRunner(CommandRunner):
 			text=True,
 			env=effective_environment,
 			cwd=cwd,
+			input=stdin,
 		)
 		result = local_stack_control.models.CommandResult(
 			argv=tuple(argv),

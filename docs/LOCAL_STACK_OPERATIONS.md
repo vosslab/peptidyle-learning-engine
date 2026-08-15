@@ -25,7 +25,7 @@ The gateway also mounts the ignored `dist/` browser artifact read-only. It
 serves browser navigation while proxying `/api`, `/api/*`, and `/health` to the
 API, so the browser and its HttpOnly session use one origin.
 
-The launcher builds this local bundle with
+The typed lifecycle builds this local bundle with
 `PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH=1`, which includes the local credential
 form only alongside the server's explicit local login route. An ordinary
 `./build.sh` leaves that build capability disabled for production artifacts.
@@ -112,18 +112,18 @@ shared prefix.
 
 ## First run
 
-`python3 local_stack.py` is the normal operator-facing lifecycle. It resolves the
-explicit `containers` project and selected environment, reports labelled
-resources, and delegates startup or bounded restart work to the launcher. It
-does not replace the launcher's build, bootstrap, migration, seed, renderer,
-or readiness contracts.
+`source source_me.sh && python3 local_stack.py` is the normal operator-facing
+lifecycle. It resolves the explicit `containers` project and selected environment,
+reports labelled resources, and calls focused typed Python lifecycle modules directly.
+Those modules own build, bootstrap, migration, seed, renderer provenance, polling,
+and bounded stateless restart.
 
 ```bash
 source source_me.sh && python3 local_stack.py start
 source source_me.sh && python3 local_stack.py start --skip-build --no-open
 ```
 
-On its first default run, the launcher creates an ignored mode-0600
+On its first default run, the typed lifecycle creates an ignored mode-0600
 `containers/env.local`, generates independent database/object-store/grader,
 invitation-issuer, and Question ID capability secrets, generates instructor
 and student bearer credentials,
@@ -133,7 +133,7 @@ PostgreSQL and MinIO, applies and verifies the embedded migrations, provisions t
 WeBWorK questions, verifies the external PG renderer, starts the API/worker/gateway,
 waits for semantic `/health`, and opens the browser. Named data volumes remain
 available for repeated testing. The default gateway port is `8080`. If its
-selected port is occupied during first-run bootstrap, the launcher records the
+selected port is occupied during first-run bootstrap, the lifecycle records the
 first available port from 8000 through 8099 in the ignored env file. An existing
 explicit `PLE_GATEWAY_HOST_PORT` remains an operator choice until it is changed.
 
@@ -141,7 +141,7 @@ The explicitly selected environment file is authoritative for Compose
 interpolation and host-side migration connections; inherited shell variables
 with the same names do not create split credentials.
 
-The launcher returns success only after `postgres`, `minio`,
+The lifecycle returns success only after `postgres`, `minio`,
 `webwork-renderer`, `api`, `worker`, and `gateway` are running, every declared
 health check is healthy, and the required one-shot services have exited with
 status zero. Live/full-stack Playwright starts only after that success. The
@@ -167,8 +167,8 @@ source source_me.sh && python3 local_stack.py status --project containers
 `doctor`, `projects`, `status`, `logs`, and `validate` are read-only. `status`
 and `logs` may name another project with `--project`, but lifecycle mutations
 always target the explicit default `containers` project. `validate` performs
-the launcher's canonical configuration check and then reports the observed
-runtime state; it does not start or repair containers.
+the typed lifecycle configuration check and then reports the observed runtime
+state; it does not bootstrap, start, repair, or otherwise mutate containers.
 
 Use `python3 local_stack.py validate` for a read-only configuration preflight,
 `--no-open` on a headless machine, or `--skip-build` when the existing `dist/`
@@ -221,8 +221,61 @@ continue to work, while email sign-in remains unavailable until the external
 provider is configured. PLE does not manage sender reputation, DNS mail policy,
 bounces, or provider accounts.
 
-The private `local_stack_control/launch.sh` seam is the maintained startup path because API/worker startup is
-deliberately later than migration and grader-role provisioning. Running a bare
+Configured course-invitation email is a leased, durable worker outbox, not an
+API-request send. A failed worker attempt records one operator-only
+`smtp_delivery_failed` event in its server-minted opaque `delivery_id` span.
+It contains only one outcome, `known_rejected` for an explicit SMTP rejection
+or `ambiguous` when SMTP might have accepted the message before the transport
+failed, plus one category: `dns_or_connectivity`, `tls_handshake`,
+`authentication`, or `provider_rejection`. It contains no recipient, link,
+token, username, password, or provider response.
+
+The browser receives only the invitation's durable coarse state: `queued`,
+`sentToProvider`, `needsAttention`, or `cancelled`. `sentToProvider` is not
+mailbox-delivery confirmation, and an ambiguous attempt is never retried
+automatically. Passwordless sign-in and email-change messages are synchronous
+API delivery attempts; their browser response remains the generic unavailable
+outcome while the same redacted event may inherit the server-minted request
+correlation span.
+
+### Credential rotation and revocation
+
+`ple_smtp_runtime` is a retained named volume. A normal `stop` preserves its
+copied credential so the next normal start can use the selected SMTP overlay;
+stopping the stack does not revoke or erase the runtime copy.
+
+For a bounded credential rotation, first create the replacement provider
+credential and update the mode-0600 host credential file named by
+`PLE_SMTP_PASSWORD_HOST_FILE`. Then stop and restart the selected overlay so
+the networkless initializer overwrites the API-readable runtime copy:
+
+```bash
+source source_me.sh && python3 local_stack.py stop \
+  --env-file path/to/env.local --with-smtp
+source source_me.sh && python3 local_stack.py start \
+  --env-file path/to/env.local --with-smtp --no-open
+```
+
+After the replacement start is healthy, revoke the old provider credential.
+If a credential must be revoked without replacement, stop the overlay, revoke
+it at the provider, and deliberately remove the retained runtime copy with the
+default-project reset. This reset removes all default-project named data, not
+only the SMTP credential volume, so preview the exact target and back up any
+needed local PostgreSQL or MinIO data first:
+
+```bash
+source source_me.sh && python3 local_stack.py reset --dry-run --with-smtp
+source source_me.sh && python3 local_stack.py reset \
+  --confirm-project containers --with-smtp
+```
+
+The reset retains the host credential file. Remove or replace that mode-0600
+host file through the operator's secret-management procedure before any later
+`--with-smtp` start. These local controls do not prove acceptance by an SMTP
+provider; live provider delivery remains a separate pre-production gate.
+
+The private typed lifecycle is the maintained startup path because API/worker startup is deliberately
+later than migration and grader-role provisioning. Running a bare
 `compose up` against an empty database is therefore not equivalent.
 
 ## Private standalone PG renderer
@@ -241,7 +294,7 @@ sole assignment distributor and educational-record authority.
 The default local bootstrap creates renderer JWT secrets in the ignored
 mode-0600 `containers/env.local`. They authenticate API-to-renderer requests and
 responses; they never enter browser data. A custom environment supplies its own
-values. The launcher records the selected OCI image ID in an ignored provenance
+values. The lifecycle records the selected OCI configuration ID in an ignored provenance
 file and runs `containers/webwork/probe_render_api.sh` inside the container to
 exercise both rendering and grading before the API starts.
 
@@ -292,7 +345,7 @@ or reaches an incompatible schema reports 503.
 The gateway actively checks this dedicated route every five seconds. It does
 not treat an arbitrary application 503 as replica unhealthiness. That
 distinction keeps stored records diagnosable when a feature-local dependency
-fails closed. The normal launcher nevertheless requires the renderer to pass
+fails closed. The normal lifecycle nevertheless requires the renderer to pass
 its semantic startup probe before it starts the API.
 
 ```bash
@@ -324,7 +377,7 @@ interface. Exercise a deliberate database-outage rehearsal only through its
 own disposable E2E runner, rather than interrupting teaching data in the
 default project.
 
-The private launcher accepts a non-default project only when its closed runner
+The private lifecycle accepts a non-default project only when its closed runner
 supplies the mode-0600 cleanup capability whose SHA-256 commitment is recorded
 in that project's private environment. A project name and environment path
 alone do not authorize a disposable launch.
@@ -342,7 +395,7 @@ source source_me.sh && python3 local_stack.py stop           # retains named vol
 ```
 
 `restart` is intentionally limited to the stateless `api`, `worker`,
-`gateway`, and `webwork-renderer` services. It delegates to the launcher so
+`gateway`, and `webwork-renderer` services. It delegates to the typed lifecycle so
 the restarted service still receives the appropriate readiness and dependency
 checks. Restarting PostgreSQL or MinIO individually is not a controller
 operation; preserve their data and use the supported start path or a named
@@ -382,11 +435,15 @@ source source_me.sh && python3 local_stack.py start --no-open
 
 `reset` removes only the default project's labelled Compose containers,
 networks, and named volumes through `down --volumes --remove-orphans`. The dry
-run prints the exact resource snapshot and command. The mutating form requires
-the literal confirmation `--confirm-project containers`. It preserves host
-files such as `containers/env.local`, `containers/local-login.txt`, and
-mode-0600 capability files. It does not run a global Podman prune, arbitrary
-image deletion, or disposable walkthrough cleanup.
+run prints the exact resource snapshot, database-bound host manifest
+`containers/local-chapter-one-pilot.json`, and command. The mutating form
+requires the literal confirmation `--confirm-project containers`. After label
+discovery proves the Compose resources and volumes are gone, it removes that
+private Chapter 1 manifest so the next lifecycle run publishes a fresh
+database-bound corpus. It retains host credentials such as
+`containers/env.local`, `containers/local-login.txt`, and mode-0600 capability
+files. Global Podman image stores and disposable walkthrough targets remain
+with their dedicated lifecycle commands.
 
 Disposable E2E runners use their own private manifest plus a runner-held
 cleanup capability through private `local_stack_control/_consumer_cli.py`; that adapter is not a
@@ -413,13 +470,12 @@ The maintained non-browser E2E runner builds on the ordinary repository
 artifacts and uses disposable, loopback-only Compose projects:
 
 ```bash
-PLE_E2E_GATEWAY_IMAGE_SHA256=<64-hex-official-Caddy-digest> \
-  bash tests/e2e/e2e_run_all.sh
+bash tests/e2e/e2e_run_all.sh
 ```
 
 It is designed to exercise the Wasm bridge, PostgreSQL migration/RLS/live
 oracle suite, and a real learner submission across two API replicas after
-stopping the replica that issued the question. The gateway image is derived from that pinned
+stopping the replica that issued the question. The gateway image is derived from the pinned
 official digest and strips Caddy's unnecessary low-port file capability before
 running as UID 1000 with `cap_drop: ALL`. The replica lane builds the current
 checkout into exact nonce-scoped application and gateway tags, then removes
@@ -435,7 +491,7 @@ acceptance command; it is not a regular pytest dependency. The complete
 required command set for a goal is the active plan's Validation test suite;
 see [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite).
 
-Named volumes `ple_pgdata` and `ple_miniodata` survive `down`. The launcher
+Named volumes `ple_pgdata` and `ple_miniodata` survive `down`. The lifecycle
 runs the read-only `postgres-major-guard` before it starts PostgreSQL and
 accepts only a missing data directory or a populated PostgreSQL 17 directory.
 PostgreSQL data directories are not compatible across major versions. Upgrade
@@ -449,7 +505,7 @@ deliberate step rather than part of the normal stop command.
 
 `Containerfile.api` is a two-stage build. The `api` Compose service is the
 single build owner of `localhost/peptidyle-learning-engine:local`; `worker`
-uses that exact image with its own command and runtime settings. The launcher
+uses that exact image with its own command and runtime settings. The lifecycle
 builds the application image once, then builds the gateway, and only then
 starts API, worker, and gateway. This prevents duplicate concurrent Cargo
 builds from exhausting a constrained Podman machine. The first stage compiles

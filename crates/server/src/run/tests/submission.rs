@@ -514,22 +514,26 @@ async fn a_run_issues_only_one_active_question_then_advances() {
         .await
         .expect("assignment read")
         .expect("fixture assignment");
-    let mut items = stored_assignment.record.items.clone();
-    let mut duplicate = items[0].clone();
-    duplicate.id = question_model::AssignmentItemId::from_uuid(id(1_100_000));
-    duplicate.position = u32::try_from(items.len()).expect("test assignment position fits u32");
-    items.push(duplicate);
+    let first = stored_assignment
+        .record
+        .items
+        .first()
+        .expect("fixture assignment has one item");
     store
-        .replace_assignment_preserving_timing(
+        .add_assignment_fixed_item(
             context,
-            stored_assignment.record.course_id,
-            assignment_id,
-            stored_assignment.revision,
-            learning_data_access::AssignmentUpdate {
-                title: stored_assignment.record.title,
-                items,
-                selection_groups: stored_assignment.record.selection_groups,
-                policies: stored_assignment.record.policies,
+            learning_data_access::AddAssignmentFixedItemCommand {
+                course: stored_assignment.record.course_id,
+                assignment: assignment_id,
+                expected_revision: stored_assignment.revision,
+                item: question_model::AssignmentItem {
+                    id: question_model::AssignmentItemId::from_uuid(id(1_100_000)),
+                    reference: first.reference,
+                    position: 1,
+                    points_possible: first.points_possible,
+                    delivery_state: first.delivery_state,
+                    scoring_mode: first.scoring_mode,
+                },
             },
         )
         .await

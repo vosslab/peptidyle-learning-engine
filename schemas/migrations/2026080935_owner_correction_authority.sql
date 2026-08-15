@@ -1,33 +1,6 @@
--- Owner corrections are exceptional: an original instructor may repair one
--- published question and the replacement is propagated only to future
--- assignment definitions.  Issued runs and their evidence remain immutable.
-
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_roles WHERE rolname = 'ple_question_correction_broker'
-    ) THEN
-        CREATE ROLE ple_question_correction_broker NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
-            NOINHERIT NOREPLICATION BYPASSRLS;
-    END IF;
-END
-$$;
-ALTER ROLE ple_question_correction_broker NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
-    NOINHERIT NOREPLICATION BYPASSRLS;
-DO $$
-BEGIN
-    IF EXISTS (
-        SELECT 1
-          FROM pg_auth_members AS membership
-         WHERE membership.roleid = 'ple_question_correction_broker'::regrole
-            OR membership.member = 'ple_question_correction_broker'::regrole
-    ) THEN
-        RAISE EXCEPTION 'ple_question_correction_broker must not have role memberships';
-    END IF;
-END
-$$;
-REVOKE ALL ON SCHEMA public FROM ple_question_correction_broker;
-GRANT USAGE ON SCHEMA public TO ple_question_correction_broker;
+-- WP-R2 ledger entry: immutable Question ID publications replace the former
+-- owner-correction authority. Assignment editing validates only an exact,
+-- already-selected publication under a narrow RLS-aware lock broker.
 
 DO $$
 BEGIN
@@ -39,8 +12,10 @@ BEGIN
     END IF;
 END
 $$;
+
 ALTER ROLE ple_assignment_reference_lock_broker
     NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION BYPASSRLS;
+
 DO $$
 BEGIN
     IF EXISTS (
@@ -53,55 +28,13 @@ BEGIN
     END IF;
 END
 $$;
+
 REVOKE ALL ON SCHEMA public FROM ple_assignment_reference_lock_broker;
 GRANT USAGE ON SCHEMA public TO ple_assignment_reference_lock_broker;
 
-CREATE FUNCTION public.ple_owner_correction_actor(
-    p_problem uuid,
-    p_predecessor uuid,
-    p_scope text
-) RETURNS uuid
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'pg_catalog', 'public'
-    AS $$
-DECLARE
-    actor uuid;
-BEGIN
-    IF p_problem IS NULL OR p_predecessor IS NULL OR p_scope IS NULL THEN
-        RETURN NULL;
-    END IF;
-    SELECT session_row.user_id INTO actor
-      FROM public.auth_session AS session_row
-      JOIN public.problem AS problem_row
-        ON problem_row.problem_id = p_problem
-     WHERE session_row.session_hash = current_setting('ple.session_hash', true)
-       AND session_row.tenant_id = public.ple_current_tenant()
-       AND session_row.revoked_at IS NULL
-       AND session_row.expires_at > transaction_timestamp()
-       AND problem_row.owner_tenant_id = public.ple_current_tenant()
-       AND problem_row.owner_user_id = session_row.user_id
-       AND session_row.roles @> '["instructor"]'::jsonb
-       AND EXISTS (
-            SELECT 1 FROM public.problem_version AS predecessor
-             WHERE predecessor.problem_id = p_problem
-               AND predecessor.version_id = p_predecessor
-               AND predecessor.lifecycle = 'published'
-               AND predecessor.publication_scope = p_scope
-       );
-    RETURN actor;
-END
-$$;
-
-ALTER FUNCTION public.ple_owner_correction_actor(uuid, uuid, text)
-    OWNER TO ple_question_correction_broker;
-REVOKE ALL ON FUNCTION public.ple_owner_correction_actor(uuid, uuid, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.ple_owner_correction_actor(uuid, uuid, text) TO ple_app;
-
--- Assignment authors may use public or institution-granted current catalog
--- versions, but direct ple_app locking under RLS lacks the UPDATE privilege
--- PostgreSQL requires for FOR SHARE. This broker-owned function performs the
--- exact visibility check and retains a share lock through the caller's
--- assignment transaction; Rust remains responsible for lifecycle policy.
+-- The function checks the caller tenant and locks exactly the resolved
+-- immutable publication. It is an assignability check, not a discovery or
+-- latest-version resolver.
 CREATE FUNCTION public.ple_lock_assignable_problem_version(
     p_problem uuid,
     p_version uuid
@@ -124,7 +57,8 @@ BEGIN
        AND (
             version_row.publication_scope = 'public'
             OR EXISTS (
-                SELECT 1 FROM public.catalog_tenant_grant AS grant_row
+                SELECT 1
+                  FROM public.catalog_tenant_grant AS grant_row
                  WHERE grant_row.tenant_id = public.ple_current_tenant()
                    AND grant_row.problem_id = p_problem
                    AND grant_row.version_id = p_version
@@ -140,210 +74,324 @@ ALTER FUNCTION public.ple_lock_assignable_problem_version(uuid, uuid)
 REVOKE ALL ON FUNCTION public.ple_lock_assignable_problem_version(uuid, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.ple_lock_assignable_problem_version(uuid, uuid) TO ple_app;
 
-DROP POLICY problem_version_app_insert ON public.problem_version;
-CREATE POLICY problem_version_app_insert ON public.problem_version
-    FOR INSERT TO ple_app
-    WITH CHECK (
-        public.ple_problem_owned_by_current_tenant(problem_id)
-        AND (
-            previous_version_id IS NULL
-            OR (
-                lifecycle = 'published'
-                AND lifecycle_reason IS NULL
-                AND public.ple_owner_correction_actor(
-                    problem_id, previous_version_id, publication_scope
-                ) IS NOT NULL
-            )
-        )
-    );
+GRANT SELECT ON public.problem_version, public.catalog_tenant_grant
+    TO ple_assignment_reference_lock_broker;
+GRANT UPDATE (problem_id) ON public.problem_version
+    TO ple_assignment_reference_lock_broker;
+GRANT EXECUTE ON FUNCTION public.ple_current_tenant()
+    TO ple_assignment_reference_lock_broker;
 
-CREATE OR REPLACE FUNCTION public.ple_guard_assignment_content_lock() RETURNS trigger
-    LANGUAGE plpgsql
-    SET search_path TO 'pg_catalog', 'public'
-    AS $$
-DECLARE row_tenant uuid := COALESCE(NEW.tenant_id, OLD.tenant_id);
-DECLARE row_assignment uuid := COALESCE(NEW.assignment_id, OLD.assignment_id);
-DECLARE content_changed boolean;
-DECLARE is_owner_correction boolean := false;
-BEGIN
-    IF TG_OP = 'UPDATE' THEN
-        content_changed := (NEW.problem_id, NEW.version_id)
-            IS DISTINCT FROM (OLD.problem_id, OLD.version_id);
-        is_owner_correction := content_changed
-            AND pg_trigger_depth() > 1
-            AND current_user = 'ple_question_correction_broker'
-            AND NEW.problem_id = OLD.problem_id
-            AND EXISTS (
-                SELECT 1 FROM public.problem_version AS correction
-                 WHERE correction.problem_id = OLD.problem_id
-                   AND correction.version_id = NEW.version_id
-                   AND correction.previous_version_id = OLD.version_id
-                   AND correction.lifecycle = 'published'
-            );
-    ELSE
-        content_changed := true;
-    END IF;
-    IF content_changed AND NOT is_owner_correction AND EXISTS (
-        SELECT 1 FROM public.assignment_run run
-         JOIN public.enrollment enrollment
-           ON enrollment.tenant_id = run.tenant_id
-          AND enrollment.enrollment_id = run.enrollment_id
-         WHERE enrollment.tenant_id = row_tenant
-           AND enrollment.assignment_id = row_assignment
-    ) THEN
-        RAISE EXCEPTION 'assignment content is locked after the first student run'
-            USING ERRCODE = '55000';
-    END IF;
-    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
-    RETURN NEW;
-END
-$$;
-
-CREATE OR REPLACE FUNCTION public.ple_propagate_owner_question_correction() RETURNS trigger
+-- Focused editor mutations are executed by this broker rather than by a
+-- publication event. Each capability locks and compares the assignment
+-- revision before changing future-run definition rows. Existing
+-- assignment_run_item rows retain their issued opaque publication pair.
+CREATE FUNCTION public.ple_replace_assignment_fixed_item(
+    p_tenant uuid,
+    p_course uuid,
+    p_assignment uuid,
+    p_expected_revision bigint,
+    p_current_item uuid,
+    p_problem uuid,
+    p_version uuid
+) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'pg_catalog', 'public'
     AS $$
-DECLARE actor uuid;
-DECLARE audit_payload jsonb;
-DECLARE source_tenant uuid;
-DECLARE target_tenant uuid;
+DECLARE
+    current_revision bigint;
+    assignable_lifecycle text;
 BEGIN
-    IF NEW.previous_version_id IS NULL THEN RETURN NEW; END IF;
-    SELECT public.ple_owner_correction_actor(
-        NEW.problem_id, NEW.previous_version_id, NEW.publication_scope
-    ) INTO actor;
-    IF actor IS NULL THEN
-        RAISE EXCEPTION 'owner correction is not authorized' USING ERRCODE = '42501';
+    IF p_tenant IS NULL OR p_course IS NULL OR p_assignment IS NULL
+       OR p_expected_revision IS NULL OR p_expected_revision <= 0
+       OR p_current_item IS NULL
+       OR p_problem IS NULL OR p_version IS NULL
+       OR p_tenant <> public.ple_current_tenant() THEN
+        RAISE EXCEPTION 'invalid focused assignment replacement capability'
+            USING ERRCODE = '22023';
     END IF;
-    source_tenant := public.ple_current_tenant();
-    IF source_tenant IS NULL THEN
-        RAISE EXCEPTION 'owner correction requires a tenant context' USING ERRCODE = '42501';
-    END IF;
-    PERFORM 1 FROM public.problem_version
-     WHERE problem_id = NEW.problem_id AND version_id = NEW.previous_version_id
-       AND lifecycle = 'published'
+
+    SELECT revision INTO current_revision
+      FROM public.assignment
+     WHERE tenant_id = p_tenant
+       AND course_id = p_course
+       AND assignment_id = p_assignment
      FOR UPDATE;
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'owner correction predecessor is not current' USING ERRCODE = '42501';
+        RAISE EXCEPTION 'assignment is unavailable' USING ERRCODE = '42501';
     END IF;
-    UPDATE public.problem_version
-       SET lifecycle = 'archived', lifecycle_reason = 'Superseded by an owner correction'
-     WHERE problem_id = NEW.problem_id AND version_id = NEW.previous_version_id
-       AND lifecycle = 'published';
-    INSERT INTO public.catalog_tenant_grant (tenant_id, problem_id, version_id)
-    SELECT tenant_id, NEW.problem_id, NEW.version_id
-      FROM public.catalog_tenant_grant
-     WHERE problem_id = NEW.problem_id AND version_id = NEW.previous_version_id
-    ON CONFLICT DO NOTHING;
-    FOR target_tenant IN
-        SELECT referenced.tenant_id
-          FROM (
-              SELECT item.tenant_id
-                FROM public.assignment_item AS item
-               WHERE item.problem_id = NEW.problem_id
-                 AND item.version_id = NEW.previous_version_id
-              UNION
-              SELECT candidate.tenant_id
-                FROM public.assignment_selection_candidate AS candidate
-               WHERE candidate.problem_id = NEW.problem_id
-                 AND candidate.version_id = NEW.previous_version_id
-          ) AS referenced
-         ORDER BY referenced.tenant_id
-    LOOP
-        PERFORM set_config('ple.tenant_id', target_tenant::text, true);
-        WITH changed_items AS (
-            UPDATE public.assignment_item AS item
-               SET version_id = NEW.version_id, revision = item.revision + 1,
-                   updated_at = transaction_timestamp()
-             WHERE item.tenant_id = target_tenant
-               AND item.problem_id = NEW.problem_id
-               AND item.version_id = NEW.previous_version_id
-            RETURNING item.tenant_id, item.assignment_id
-        ), changed_candidates AS (
-            UPDATE public.assignment_selection_candidate AS candidate
-               SET version_id = NEW.version_id, updated_at = transaction_timestamp()
-             WHERE candidate.tenant_id = target_tenant
-               AND candidate.problem_id = NEW.problem_id
-               AND candidate.version_id = NEW.previous_version_id
-            RETURNING candidate.tenant_id, candidate.assignment_id
-        ), changed_assignments AS (
-            SELECT tenant_id, assignment_id FROM changed_items
-            UNION
-            SELECT tenant_id, assignment_id FROM changed_candidates
-        ), updated_assignments AS (
-            UPDATE public.assignment AS assignment
-               SET revision = assignment.revision + 1, updated_at = transaction_timestamp()
-              FROM changed_assignments AS changed
-             WHERE assignment.tenant_id = target_tenant
-               AND assignment.tenant_id = changed.tenant_id
-               AND assignment.assignment_id = changed.assignment_id
-            RETURNING changed.tenant_id, changed.assignment_id
-        )
-        INSERT INTO public.audit_event (tenant_id, audit_event_id, occurred_at, actor_id,
-            action, target_kind, target_id, payload, payload_sha256)
-        SELECT changed.tenant_id, gen_random_uuid(), transaction_timestamp(), actor,
-            'catalog.ownerCorrectionPropagated', 'assignment', changed.assignment_id,
-            jsonb_build_object(
-                'predecessorVersionId', NEW.previous_version_id,
-                'successorVersionId', NEW.version_id,
-                'questionId', (
-                    SELECT question_id FROM public.problem WHERE problem_id = NEW.problem_id
-                ),
-                'assignmentId', changed.assignment_id
-            ),
-            encode(pg_catalog.sha256(convert_to(jsonb_build_object(
-                'predecessorVersionId', NEW.previous_version_id,
-                'successorVersionId', NEW.version_id,
-                'questionId', (
-                    SELECT question_id FROM public.problem WHERE problem_id = NEW.problem_id
-                ),
-                'assignmentId', changed.assignment_id
-            )::text, 'UTF8')), 'hex')
-          FROM updated_assignments AS changed;
-    END LOOP;
-    PERFORM set_config('ple.tenant_id', source_tenant::text, true);
-    audit_payload := jsonb_build_object(
-        'predecessorVersionId', NEW.previous_version_id,
-        'successorVersionId', NEW.version_id,
-        'questionId', (
-            SELECT question_id FROM public.problem WHERE problem_id = NEW.problem_id
-        )
-    );
-    INSERT INTO public.audit_event (tenant_id, audit_event_id, occurred_at, actor_id,
-        action, target_kind, target_id, payload, payload_sha256)
-    VALUES (source_tenant, gen_random_uuid(), transaction_timestamp(), actor,
-        'catalog.ownerCorrectionPublished', 'problemVersion', NEW.version_id, audit_payload,
-        encode(pg_catalog.sha256(convert_to(audit_payload::text, 'UTF8')), 'hex'));
-    RETURN NEW;
+    IF current_revision <> p_expected_revision THEN
+        RAISE EXCEPTION 'assignment revision is stale' USING ERRCODE = '55000';
+    END IF;
+
+    PERFORM 1 FROM public.assignment_item
+     WHERE tenant_id = p_tenant
+       AND assignment_id = p_assignment
+       AND assignment_item_id = p_current_item
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'assignment item is unavailable' USING ERRCODE = '42501';
+    END IF;
+    SELECT public.ple_lock_assignable_problem_version(p_problem, p_version)
+      INTO assignable_lifecycle;
+    IF assignable_lifecycle IS NULL
+       OR assignable_lifecycle NOT IN ('published', 'deprecated') THEN
+        RAISE EXCEPTION 'assignment publication is unavailable' USING ERRCODE = '42501';
+    END IF;
+
+    PERFORM set_config('ple.assignment_edit_kind', 'replace_fixed_item', true);
+    UPDATE public.assignment_item
+       SET problem_id = p_problem,
+           version_id = p_version,
+           revision = revision + 1,
+           updated_at = transaction_timestamp()
+     WHERE tenant_id = p_tenant
+       AND assignment_id = p_assignment
+       AND assignment_item_id = p_current_item;
+    UPDATE public.assignment
+       SET revision = revision + 1,
+           updated_at = transaction_timestamp()
+     WHERE tenant_id = p_tenant AND assignment_id = p_assignment;
 END
 $$;
 
-ALTER FUNCTION public.ple_propagate_owner_question_correction()
-    OWNER TO ple_question_correction_broker;
-REVOKE ALL ON FUNCTION public.ple_propagate_owner_question_correction() FROM PUBLIC;
+CREATE FUNCTION public.ple_add_assignment_fixed_item(
+    p_tenant uuid,
+    p_course uuid,
+    p_assignment uuid,
+    p_expected_revision bigint,
+    p_item uuid,
+    p_position integer,
+    p_problem uuid,
+    p_version uuid,
+    p_points numeric,
+    p_delivery_state text,
+    p_scoring_mode text
+) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public'
+    AS $$
+DECLARE
+    current_revision bigint;
+    shifted_entry record;
+    assignable_lifecycle text;
+BEGIN
+    PERFORM set_config('ple.assignment_edit_kind', '', true);
+    IF p_tenant IS NULL OR p_course IS NULL OR p_assignment IS NULL
+       OR p_expected_revision IS NULL OR p_expected_revision <= 0
+       OR p_item IS NULL OR p_position IS NULL OR p_position < 0
+       OR p_problem IS NULL OR p_version IS NULL OR p_points IS NULL
+       OR p_delivery_state IS NULL OR p_scoring_mode IS NULL
+       OR p_tenant <> public.ple_current_tenant() THEN
+        RAISE EXCEPTION 'invalid focused assignment addition capability'
+            USING ERRCODE = '22023';
+    END IF;
 
-GRANT SELECT ON public.auth_session, public.problem, public.problem_version
-    TO ple_question_correction_broker;
-GRANT SELECT, INSERT ON public.catalog_tenant_grant TO ple_question_correction_broker;
-GRANT UPDATE (lifecycle, lifecycle_reason) ON public.problem_version
-    TO ple_question_correction_broker;
-GRANT SELECT, UPDATE (revision, updated_at) ON public.assignment TO ple_question_correction_broker;
-GRANT SELECT, UPDATE (version_id, revision, updated_at) ON public.assignment_item
-    TO ple_question_correction_broker;
-GRANT SELECT, UPDATE (version_id, updated_at) ON public.assignment_selection_candidate
-    TO ple_question_correction_broker;
-GRANT SELECT ON public.assignment_run, public.enrollment TO ple_question_correction_broker;
-GRANT INSERT ON public.audit_event TO ple_question_correction_broker;
-GRANT EXECUTE ON FUNCTION public.ple_current_tenant() TO ple_question_correction_broker;
-GRANT SELECT ON public.problem_version, public.catalog_tenant_grant
+    SELECT revision INTO current_revision
+      FROM public.assignment
+     WHERE tenant_id = p_tenant
+       AND course_id = p_course
+       AND assignment_id = p_assignment
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'assignment is unavailable' USING ERRCODE = '42501';
+    END IF;
+    IF current_revision <> p_expected_revision THEN
+        RAISE EXCEPTION 'assignment revision is stale' USING ERRCODE = '55000';
+    END IF;
+    IF EXISTS (
+        SELECT 1
+          FROM public.assignment_run AS run
+          JOIN public.enrollment AS enrollment
+            ON enrollment.tenant_id = run.tenant_id
+           AND enrollment.enrollment_id = run.enrollment_id
+         WHERE enrollment.tenant_id = p_tenant
+           AND enrollment.assignment_id = p_assignment
+    ) THEN
+        RAISE EXCEPTION 'fixed-item addition requires no issued runs'
+            USING ERRCODE = '55000';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM public.assignment_item
+         WHERE tenant_id = p_tenant AND assignment_item_id = p_item
+    ) THEN
+        RAISE EXCEPTION 'new assignment item identity is already in use'
+            USING ERRCODE = '23505';
+    END IF;
+
+    SELECT public.ple_lock_assignable_problem_version(p_problem, p_version)
+      INTO assignable_lifecycle;
+    IF assignable_lifecycle IS NULL
+       OR assignable_lifecycle NOT IN ('published', 'deprecated') THEN
+        RAISE EXCEPTION 'assignment publication is unavailable' USING ERRCODE = '42501';
+    END IF;
+
+    FOR shifted_entry IN
+        SELECT entry_kind, entry_id
+          FROM (
+              SELECT 'item'::text AS entry_kind, assignment_item_id AS entry_id, position
+                FROM public.assignment_item
+               WHERE tenant_id = p_tenant
+                 AND assignment_id = p_assignment
+                 AND position >= p_position
+              UNION ALL
+              SELECT 'group'::text AS entry_kind, selection_group_id AS entry_id, position
+                FROM public.assignment_selection_group
+               WHERE tenant_id = p_tenant
+                 AND assignment_id = p_assignment
+                 AND position >= p_position
+          ) AS occupied_position
+         ORDER BY position DESC, entry_kind DESC
+    LOOP
+        IF shifted_entry.entry_kind = 'item' THEN
+            UPDATE public.assignment_item
+               SET position = position + 1,
+                   revision = revision + 1,
+                   updated_at = transaction_timestamp()
+             WHERE tenant_id = p_tenant
+               AND assignment_item_id = shifted_entry.entry_id;
+        ELSE
+            UPDATE public.assignment_selection_group
+               SET position = position + 1,
+                   revision = revision + 1,
+                   updated_at = transaction_timestamp()
+             WHERE tenant_id = p_tenant
+               AND selection_group_id = shifted_entry.entry_id;
+        END IF;
+    END LOOP;
+    INSERT INTO public.assignment_item (
+        tenant_id, assignment_id, assignment_item_id, position, problem_id,
+        version_id, points_possible, delivery_state, scoring_mode
+    ) VALUES (
+        p_tenant, p_assignment, p_item, p_position, p_problem, p_version,
+        p_points, p_delivery_state, p_scoring_mode
+    );
+    UPDATE public.assignment
+       SET revision = revision + 1,
+           updated_at = transaction_timestamp()
+     WHERE tenant_id = p_tenant AND assignment_id = p_assignment;
+END
+$$;
+
+CREATE FUNCTION public.ple_remove_assignment_fixed_item(
+    p_tenant uuid,
+    p_course uuid,
+    p_assignment uuid,
+    p_expected_revision bigint,
+    p_item uuid
+) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public'
+    AS $$
+DECLARE
+    current_revision bigint;
+    removed_position integer;
+    shifted_entry record;
+BEGIN
+    PERFORM set_config('ple.assignment_edit_kind', '', true);
+    IF p_tenant IS NULL OR p_course IS NULL OR p_assignment IS NULL
+       OR p_expected_revision IS NULL OR p_expected_revision <= 0
+       OR p_item IS NULL OR p_tenant <> public.ple_current_tenant() THEN
+        RAISE EXCEPTION 'invalid focused assignment removal capability'
+            USING ERRCODE = '22023';
+    END IF;
+
+    SELECT revision INTO current_revision
+      FROM public.assignment
+     WHERE tenant_id = p_tenant
+       AND course_id = p_course
+       AND assignment_id = p_assignment
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'assignment is unavailable' USING ERRCODE = '42501';
+    END IF;
+    IF current_revision <> p_expected_revision THEN
+        RAISE EXCEPTION 'assignment revision is stale' USING ERRCODE = '55000';
+    END IF;
+    IF EXISTS (
+        SELECT 1
+          FROM public.assignment_run AS run
+          JOIN public.enrollment AS enrollment
+            ON enrollment.tenant_id = run.tenant_id
+           AND enrollment.enrollment_id = run.enrollment_id
+         WHERE enrollment.tenant_id = p_tenant
+           AND enrollment.assignment_id = p_assignment
+    ) THEN
+        RAISE EXCEPTION 'fixed-item removal requires no issued runs'
+            USING ERRCODE = '55000';
+    END IF;
+
+    SELECT position INTO removed_position
+      FROM public.assignment_item
+     WHERE tenant_id = p_tenant
+       AND assignment_id = p_assignment
+       AND assignment_item_id = p_item
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'assignment item is unavailable' USING ERRCODE = '42501';
+    END IF;
+
+    DELETE FROM public.assignment_item
+     WHERE tenant_id = p_tenant
+       AND assignment_id = p_assignment
+       AND assignment_item_id = p_item;
+    FOR shifted_entry IN
+        SELECT entry_kind, entry_id
+          FROM (
+              SELECT 'item'::text AS entry_kind, assignment_item_id AS entry_id, position
+                FROM public.assignment_item
+               WHERE tenant_id = p_tenant
+                 AND assignment_id = p_assignment
+                 AND position > removed_position
+              UNION ALL
+              SELECT 'group'::text AS entry_kind, selection_group_id AS entry_id, position
+                FROM public.assignment_selection_group
+               WHERE tenant_id = p_tenant
+                 AND assignment_id = p_assignment
+                 AND position > removed_position
+          ) AS occupied_position
+         ORDER BY position, entry_kind
+    LOOP
+        IF shifted_entry.entry_kind = 'item' THEN
+            UPDATE public.assignment_item
+               SET position = position - 1,
+                   revision = revision + 1,
+                   updated_at = transaction_timestamp()
+             WHERE tenant_id = p_tenant
+               AND assignment_item_id = shifted_entry.entry_id;
+        ELSE
+            UPDATE public.assignment_selection_group
+               SET position = position - 1,
+                   revision = revision + 1,
+                   updated_at = transaction_timestamp()
+             WHERE tenant_id = p_tenant
+               AND selection_group_id = shifted_entry.entry_id;
+        END IF;
+    END LOOP;
+    UPDATE public.assignment
+       SET revision = revision + 1,
+           updated_at = transaction_timestamp()
+     WHERE tenant_id = p_tenant AND assignment_id = p_assignment;
+END
+$$;
+
+ALTER FUNCTION public.ple_replace_assignment_fixed_item(uuid, uuid, uuid, bigint, uuid, uuid, uuid)
+    OWNER TO ple_assignment_reference_lock_broker;
+ALTER FUNCTION public.ple_add_assignment_fixed_item(uuid, uuid, uuid, bigint, uuid, integer, uuid, uuid, numeric, text, text)
+    OWNER TO ple_assignment_reference_lock_broker;
+ALTER FUNCTION public.ple_remove_assignment_fixed_item(uuid, uuid, uuid, bigint, uuid)
+    OWNER TO ple_assignment_reference_lock_broker;
+REVOKE ALL ON FUNCTION public.ple_replace_assignment_fixed_item(uuid, uuid, uuid, bigint, uuid, uuid, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.ple_add_assignment_fixed_item(uuid, uuid, uuid, bigint, uuid, integer, uuid, uuid, numeric, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.ple_remove_assignment_fixed_item(uuid, uuid, uuid, bigint, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.ple_replace_assignment_fixed_item(uuid, uuid, uuid, bigint, uuid, uuid, uuid) TO ple_app;
+GRANT EXECUTE ON FUNCTION public.ple_add_assignment_fixed_item(uuid, uuid, uuid, bigint, uuid, integer, uuid, uuid, numeric, text, text) TO ple_app;
+GRANT EXECUTE ON FUNCTION public.ple_remove_assignment_fixed_item(uuid, uuid, uuid, bigint, uuid) TO ple_app;
+
+GRANT SELECT, UPDATE (revision, updated_at) ON public.assignment
     TO ple_assignment_reference_lock_broker;
-GRANT UPDATE (problem_id) ON public.problem_version TO ple_assignment_reference_lock_broker;
-GRANT EXECUTE ON FUNCTION public.ple_current_tenant() TO ple_assignment_reference_lock_broker;
-REVOKE SELECT, UPDATE(lifecycle, lifecycle_reason) ON public.problem_version
-    FROM ple_catalog_ownership_broker;
-REVOKE SELECT, UPDATE(revision, updated_at) ON public.assignment
-    FROM ple_catalog_ownership_broker;
-REVOKE SELECT, UPDATE(version_id, revision, updated_at) ON public.assignment_item
-    FROM ple_catalog_ownership_broker;
-REVOKE SELECT, UPDATE(version_id, updated_at) ON public.assignment_selection_candidate
-    FROM ple_catalog_ownership_broker;
+GRANT SELECT, INSERT, DELETE, UPDATE (problem_id, version_id, position, revision, updated_at)
+    ON public.assignment_item TO ple_assignment_reference_lock_broker;
+GRANT SELECT, UPDATE (position, revision, updated_at)
+    ON public.assignment_selection_group TO ple_assignment_reference_lock_broker;
+GRANT SELECT ON public.assignment_run, public.enrollment
+    TO ple_assignment_reference_lock_broker;

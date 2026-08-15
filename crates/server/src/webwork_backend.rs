@@ -597,7 +597,6 @@ mod tests {
         let draft = DraftRecord {
             tenant: context.tenant_id(),
             question: draft(),
-            revises: None,
             derived_from: None,
         };
         let saved = source_store

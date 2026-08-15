@@ -53,7 +53,6 @@ impl ConversionFixture {
         let draft = DraftRecord {
             tenant,
             question,
-            revises: None,
             derived_from: None,
         };
         let grading = FlatQuestionGradingPayload::from_private(&private)

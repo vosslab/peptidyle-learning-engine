@@ -1,30 +1,21 @@
-use std::sync::Mutex;
-
 use super::fixtures::{id, issued_cookie_for_tenant, policies, publish_fixture};
 use crate::course::{
-    CourseInvitationDelivery, CourseInvitationDeliveryError, CourseInvitationIssuer,
-    CourseInvitationSecret, LocalTeachingRosterDirectory, LocalTeachingRosterIdentity,
-    UnavailableCourseInvitationDelivery, router_with_invitations,
-    router_with_invitations_and_local_teaching,
+    CourseInvitationIssuer, LocalTeachingRosterDirectory, LocalTeachingRosterIdentity,
+    router_with_invitations, router_with_invitations_and_local_teaching,
 };
-use async_trait::async_trait;
 use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use learning_data_access::{
-    AssignmentRecord, AuthenticationEmail, ClaimCourseInvitation, CourseInvitationSecretHash,
-    CourseRecord, CourseRosterStore, CourseRosterSupportAction, Store, TenantContext,
+    AssignmentRecord, AuthenticationEmail, ClaimCourseInvitation, CourseInvitationDeliveryState,
+    CourseInvitationSecretHash, CourseRecord, CourseRosterStore, CourseRosterSupportAction, Store,
+    TenantContext,
 };
 use question_model::{
     AssignmentId, CourseId, CourseMembership, CourseMembershipRole, TenantId, UserId, UserRole,
 };
 use tower::ServiceExt;
-
-#[derive(Default)]
-struct CapturingInvitationDelivery {
-    deliveries: Mutex<Vec<(String, String)>>,
-}
 
 #[tokio::test]
 async fn local_teaching_roster_uses_alias_resolution_and_canonical_member_upsert() {
@@ -85,7 +76,6 @@ async fn local_teaching_roster_uses_alias_resolution_and_canonical_member_upsert
     let app = router_with_invitations_and_local_teaching(
         std::sync::Arc::clone(&store),
         CourseInvitationIssuer::unavailable(),
-        std::sync::Arc::new(UnavailableCourseInvitationDelivery),
         Some(std::sync::Arc::new(directory)),
     );
 
@@ -230,39 +220,48 @@ async fn local_teaching_roster_uses_alias_resolution_and_canonical_member_upsert
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
-    let production_shape = router_with_invitations(
-        store,
-        CourseInvitationIssuer::unavailable(),
-        std::sync::Arc::new(UnavailableCourseInvitationDelivery),
-    )
-    .oneshot(request(
-        "POST",
-        format!("/api/courses/{course}/local-teaching-members"),
-        &instructor_cookie,
-        Some(serde_json::json!({"learnerAlias": "mary"})),
-    ))
-    .await
-    .expect("normal roster route response");
+    let production_shape = router_with_invitations(store, CourseInvitationIssuer::unavailable())
+        .oneshot(request(
+            "POST",
+            format!("/api/courses/{course}/local-teaching-members"),
+            &instructor_cookie,
+            Some(serde_json::json!({"learnerAlias": "mary"})),
+        ))
+        .await
+        .expect("normal roster route response");
     assert_eq!(production_shape.status(), StatusCode::NOT_FOUND);
 }
 
-#[async_trait]
-impl CourseInvitationDelivery for CapturingInvitationDelivery {
-    fn is_configured(&self) -> bool {
-        true
-    }
+#[test]
+fn coarse_delivery_outcome_is_closed_and_browser_safe() {
+    use CourseInvitationDeliveryState::{
+        AcceptedByProvider, Ambiguous, Cancelled, Pending, PermanentFailed, RetryableFailed,
+    };
 
-    async fn send_course_invitation(
-        &self,
-        email: &AuthenticationEmail,
-        invitation_secret: &CourseInvitationSecret,
-    ) -> Result<(), CourseInvitationDeliveryError> {
-        self.deliveries
-            .lock()
-            .expect("delivery fixture lock")
-            .push((email.delivery().to_string(), invitation_secret.encoded()));
-        Ok(())
-    }
+    assert_eq!(
+        crate::course::roster::coarse_delivery_outcome(Pending),
+        "queued"
+    );
+    assert_eq!(
+        crate::course::roster::coarse_delivery_outcome(RetryableFailed),
+        "queued"
+    );
+    assert_eq!(
+        crate::course::roster::coarse_delivery_outcome(AcceptedByProvider),
+        "sentToProvider"
+    );
+    assert_eq!(
+        crate::course::roster::coarse_delivery_outcome(Ambiguous),
+        "needsAttention"
+    );
+    assert_eq!(
+        crate::course::roster::coarse_delivery_outcome(PermanentFailed),
+        "needsAttention"
+    );
+    assert_eq!(
+        crate::course::roster::coarse_delivery_outcome(Cancelled),
+        "cancelled"
+    );
 }
 
 async fn json(response: axum::response::Response) -> serde_json::Value {
@@ -322,7 +321,6 @@ async fn sysadmin_roster_support_is_audited_without_granting_grade_export() {
     let app = router_with_invitations(
         std::sync::Arc::clone(&store),
         CourseInvitationIssuer::from_server_secret([0x61; 32]),
-        std::sync::Arc::new(CapturingInvitationDelivery::default()),
     );
 
     let roster = app
@@ -393,7 +391,6 @@ async fn sysadmin_roster_support_is_audited_without_granting_grade_export() {
     let export = router_with_invitations(
         std::sync::Arc::clone(&store),
         CourseInvitationIssuer::from_server_secret([0x61; 32]),
-        std::sync::Arc::new(CapturingInvitationDelivery::default()),
     )
     .oneshot(request(
         "POST",
@@ -437,11 +434,9 @@ async fn roster_http_is_instructor_scoped_secret_free_and_idempotent() {
         issued_cookie_for_tenant(&store, tenant, vec![UserRole::Instructor], instructor).await;
     let outsider_cookie =
         issued_cookie_for_tenant(&store, tenant, vec![UserRole::Instructor], outsider).await;
-    let delivery = std::sync::Arc::new(CapturingInvitationDelivery::default());
     let app = router_with_invitations(
         std::sync::Arc::clone(&store),
         CourseInvitationIssuer::from_server_secret([0x51; 32]),
-        std::sync::Arc::clone(&delivery) as std::sync::Arc<dyn CourseInvitationDelivery>,
     );
 
     let hidden = app
@@ -493,7 +488,7 @@ async fn roster_http_is_instructor_scoped_secret_free_and_idempotent() {
         assert_eq!(response.headers()["cache-control"], "no-store");
         let body = json(response).await;
         assert_eq!(body["invitation"]["email"], "NetID@mail.roosevelt.edu");
-        assert_eq!(body["emailDelivery"], "sent");
+        assert_eq!(body["emailDelivery"], "queued");
         redemption_paths.push(
             body["redemptionPath"]
                 .as_str()
@@ -504,12 +499,9 @@ async fn roster_http_is_instructor_scoped_secret_free_and_idempotent() {
     }
     assert_eq!(redemption_paths[0], redemption_paths[1]);
     assert!(redemption_paths[0].starts_with("/course-invitations/redeem#token="));
-    let encoded_secret = {
-        let deliveries = delivery.deliveries.lock().expect("delivery fixture lock");
-        assert_eq!(deliveries.len(), 2, "idempotent retry may resend safely");
-        assert_eq!(deliveries[0], deliveries[1]);
-        deliveries[0].1.clone()
-    };
+    let encoded_secret = redemption_paths[0]
+        .strip_prefix("/course-invitations/redeem#token=")
+        .expect("redemption path carries the authorized one-time secret");
 
     let roster = app
         .clone()
@@ -639,11 +631,6 @@ async fn roster_http_is_instructor_scoped_secret_free_and_idempotent() {
     assert_eq!(updated_policy.status(), StatusCode::OK);
     assert_eq!(updated_policy.headers()["etag"], "\"6\"");
 
-    let delivery_count = delivery
-        .deliveries
-        .lock()
-        .expect("delivery fixture lock")
-        .len();
     let mut suffix_confusion = request(
         "POST",
         format!("/api/courses/{course}/invitations"),
@@ -663,14 +650,6 @@ async fn roster_http_is_instructor_scoped_secret_free_and_idempotent() {
         .await
         .expect("suffix-confusion response");
     assert_eq!(suffix_confusion.status(), StatusCode::UNPROCESSABLE_ENTITY);
-    assert_eq!(
-        delivery
-            .deliveries
-            .lock()
-            .expect("delivery fixture lock")
-            .len(),
-        delivery_count
-    );
 
     let member_id = member["memberId"].as_str().expect("member ID");
     let mut revoke = request(
@@ -689,7 +668,6 @@ async fn roster_http_is_instructor_scoped_secret_free_and_idempotent() {
     let copy_only_app = router_with_invitations(
         std::sync::Arc::clone(&store),
         CourseInvitationIssuer::from_server_secret([0x51; 32]),
-        std::sync::Arc::new(UnavailableCourseInvitationDelivery),
     );
     let mut copy_only = request(
         "POST",
@@ -709,7 +687,7 @@ async fn roster_http_is_instructor_scoped_secret_free_and_idempotent() {
         .expect("copy-only invitation response");
     assert_eq!(copy_only.status(), StatusCode::ACCEPTED);
     let copy_only = json(copy_only).await;
-    assert_eq!(copy_only["emailDelivery"], "notSent");
+    assert_eq!(copy_only["emailDelivery"], "queued");
     assert!(
         copy_only["redemptionPath"]
             .as_str()
@@ -742,11 +720,9 @@ async fn roster_csv_preview_is_bounded_and_commit_invites_only_ready_rows() {
         .expect("course fixture");
     let instructor_cookie =
         issued_cookie_for_tenant(&store, tenant, vec![UserRole::Instructor], instructor).await;
-    let delivery = std::sync::Arc::new(CapturingInvitationDelivery::default());
     let app = router_with_invitations(
         std::sync::Arc::clone(&store),
         CourseInvitationIssuer::from_server_secret([0x61; 32]),
-        std::sync::Arc::clone(&delivery) as std::sync::Arc<dyn CourseInvitationDelivery>,
     );
     let csv = "email,roster_id\nready@example.edu,900120001\nduplicate@example.edu,900120002\nduplicate@example.edu,900120003\nnot-an-email,900120004\n";
     let preview = Request::builder()
@@ -777,6 +753,7 @@ async fn roster_csv_preview_is_bounded_and_commit_invites_only_ready_rows() {
     );
     assert!(preview["rows"][3]["email"].is_null());
     assert!(preview["rows"][3]["rosterId"].is_null());
+    assert_eq!(preview["rows"][3]["reason"], "correctEmailOrRosterId");
     assert!(!preview.to_string().contains("not-an-email"));
 
     let import_id = preview["importId"].as_str().expect("import ID");
@@ -806,6 +783,10 @@ async fn roster_csv_preview_is_bounded_and_commit_invites_only_ready_rows() {
     let committed = json(committed).await;
     assert_eq!(committed["invitationsCreated"], 1);
     assert_eq!(committed["rosterRevision"], 2);
+    assert_eq!(
+        committed["delivery"],
+        serde_json::json!([{ "rowNumber": 2, "outcome": "queued" }])
+    );
     assert!(committed.to_string().find("token").is_none());
     assert!(committed.to_string().find("email").is_none());
 
@@ -815,15 +796,6 @@ async fn roster_csv_preview_is_bounded_and_commit_invites_only_ready_rows() {
         .await
         .expect("idempotent commit retry");
     assert_eq!(retry.status(), StatusCode::OK);
-    assert_eq!(
-        delivery
-            .deliveries
-            .lock()
-            .expect("delivery fixture lock")
-            .len(),
-        2,
-        "a safe retry may resend the same deterministic invitation"
-    );
 
     let roster = app
         .oneshot(request(
@@ -888,11 +860,9 @@ async fn manual_grade_export_contains_only_course_roster_identity_and_selected_s
         .expect("assignment fixture");
     let instructor_cookie =
         issued_cookie_for_tenant(&store, tenant, vec![UserRole::Instructor], instructor).await;
-    let delivery = std::sync::Arc::new(CapturingInvitationDelivery::default());
     let app = router_with_invitations(
         std::sync::Arc::clone(&store),
         CourseInvitationIssuer::from_server_secret([0x71; 32]),
-        std::sync::Arc::clone(&delivery) as std::sync::Arc<dyn CourseInvitationDelivery>,
     );
     let mut invite = request(
         "POST",
@@ -907,17 +877,19 @@ async fn manual_grade_export_contains_only_course_roster_identity_and_selected_s
         "idempotency-key",
         "grade-export-invite".parse().expect("header"),
     );
-    assert_eq!(
-        app.clone()
-            .oneshot(invite)
-            .await
-            .expect("invitation response")
-            .status(),
-        StatusCode::ACCEPTED
-    );
-    let encoded_secret = delivery.deliveries.lock().expect("delivery lock")[0]
-        .1
-        .clone();
+    let invitation_response = app
+        .clone()
+        .oneshot(invite)
+        .await
+        .expect("invitation response");
+    assert_eq!(invitation_response.status(), StatusCode::ACCEPTED);
+    let invitation_body = json(invitation_response).await;
+    assert_eq!(invitation_body["emailDelivery"], "queued");
+    let encoded_secret = invitation_body["redemptionPath"]
+        .as_str()
+        .expect("authorized copy link")
+        .strip_prefix("/course-invitations/redeem#token=")
+        .expect("redemption token");
     let secret = URL_SAFE_NO_PAD
         .decode(encoded_secret)
         .expect("captured invitation secret");

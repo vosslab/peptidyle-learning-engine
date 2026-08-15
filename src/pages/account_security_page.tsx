@@ -12,6 +12,11 @@ type PasskeyState =
   | { readonly kind: "ready"; readonly passkeys: ReadonlyArray<PasskeySummary> }
   | { readonly kind: "error"; readonly message: string };
 
+interface PendingPasskeyRemoval {
+  readonly passkey: PasskeySummary;
+  readonly trigger: HTMLButtonElement;
+}
+
 function passkeyError(state: PasskeyState): string {
   return state.kind === "error" ? state.message : "";
 }
@@ -33,6 +38,8 @@ export function AccountSecurityPage(): JSX.Element {
   const [newEmail, setNewEmail] = createSignal("");
   const [announcement, setAnnouncement] = createSignal("");
   const [busy, setBusy] = createSignal(false);
+  const [pendingRemoval, setPendingRemoval] = createSignal<PendingPasskeyRemoval | null>(null);
+  let passkeyHeading: HTMLHeadingElement | undefined;
 
   async function load(): Promise<void> {
     setState({ kind: "loading" });
@@ -64,11 +71,25 @@ export function AccountSecurityPage(): JSX.Element {
       await runtime.client.revokePasskey(passkey.id);
       setAnnouncement(`${passkey.label} was removed.`);
       await load();
+      queueMicrotask(() => passkeyHeading?.focus());
     } catch {
       setAnnouncement(`${passkey.label} could not be removed.`);
     } finally {
       setBusy(false);
     }
+  }
+
+  function cancelPasskeyRemoval(): void {
+    const pending = pendingRemoval();
+    setPendingRemoval(null);
+    queueMicrotask(() => pending?.trigger.focus());
+  }
+
+  async function confirmPasskeyRemoval(): Promise<void> {
+    const pending = pendingRemoval();
+    if (pending === null) return;
+    setPendingRemoval(null);
+    await remove(pending.passkey);
   }
 
   async function changeEmail(event: SubmitEvent): Promise<void> {
@@ -92,7 +113,14 @@ export function AccountSecurityPage(): JSX.Element {
   return (
     <section class="page auth-page" data-route-surface="accountSecurity">
       <p class="eyebrow">Account security</p>
-      <h1>Your passkeys</h1>
+      <h1
+        ref={(element) => {
+          passkeyHeading = element;
+        }}
+        tabindex={-1}
+      >
+        Your passkeys
+      </h1>
       <p class="page-lede">
         Passkeys are optional sign-in shortcuts. You can always use your verified email to sign in.
       </p>
@@ -145,26 +173,44 @@ export function AccountSecurityPage(): JSX.Element {
         </section>
       </Show>
       <Show when={state().kind === "ready"}>
-        <div class="passkey-list">
-          <For each={readyPasskeys(state())}>
-            {(passkey) => (
-              <article class="auth-panel passkey-card">
-                <div>
-                  <h2>{passkey.label}</h2>
-                  <p>Last activity: {passkeyActivity(passkey)}</p>
-                </div>
-                <button
-                  class="quiet-action"
-                  type="button"
-                  disabled={busy()}
-                  onClick={() => void remove(passkey)}
-                >
-                  Remove passkey
-                </button>
-              </article>
-            )}
-          </For>
-        </div>
+        <Show
+          when={readyPasskeys(state()).length > 0}
+          fallback={
+            <section class="auth-panel empty-state" aria-labelledby="no-passkeys-heading">
+              <h2 id="no-passkeys-heading">No passkeys added</h2>
+              <p>
+                Your verified email remains available for sign-in. Add a passkey below when you want
+                a device-based shortcut.
+              </p>
+              <a class="quiet-action" href="#new-passkey-label">
+                Add a passkey
+              </a>
+            </section>
+          }
+        >
+          <div class="passkey-list">
+            <For each={readyPasskeys(state())}>
+              {(passkey) => (
+                <article class="auth-panel passkey-card">
+                  <div>
+                    <h2>{passkey.label}</h2>
+                    <p>Last activity: {passkeyActivity(passkey)}</p>
+                  </div>
+                  <button
+                    class="quiet-action"
+                    type="button"
+                    disabled={busy()}
+                    onClick={(event) =>
+                      setPendingRemoval({ passkey, trigger: event.currentTarget })
+                    }
+                  >
+                    Remove passkey
+                  </button>
+                </article>
+              )}
+            </For>
+          </div>
+        </Show>
       </Show>
 
       <form class="auth-panel auth-form" onSubmit={(event) => void add(event)}>
@@ -202,6 +248,39 @@ export function AccountSecurityPage(): JSX.Element {
           Verify new email
         </button>
       </form>
+      <Show when={pendingRemoval()}>
+        {(pending) => (
+          <dialog
+            class="confirmation-dialog"
+            aria-labelledby="passkey-removal-heading"
+            aria-describedby="passkey-removal-copy"
+            ref={(element) => queueMicrotask(() => element.showModal())}
+            onCancel={(event) => {
+              event.preventDefault();
+              cancelPasskeyRemoval();
+            }}
+          >
+            <h2 id="passkey-removal-heading">Remove this passkey?</h2>
+            <p id="passkey-removal-copy">
+              Remove {pending().passkey.label} as a sign-in shortcut. Your verified email remains
+              available for sign-in.
+            </p>
+            <div class="action-row">
+              <button class="quiet-action" type="button" onClick={cancelPasskeyRemoval}>
+                Keep passkey
+              </button>
+              <button
+                ref={(element) => queueMicrotask(() => element.focus())}
+                class="primary-action"
+                type="button"
+                onClick={() => void confirmPasskeyRemoval()}
+              >
+                Remove passkey
+              </button>
+            </div>
+          </dialog>
+        )}
+      </Show>
     </section>
   );
 }

@@ -29,12 +29,13 @@ Use `spawn_agent` with an explicit model override:
 
 - Use a small positive `fork_turns` value when recent manager context is useful.
 - Use independent scopes when running Spark agents in parallel.
-- Tell subagents whether they may edit files and whether they may spawn additional agents.
+- State each subagent's edit authority and delegation authority affirmatively.
 - Start with one bounded Spark task if model availability in the current session is unknown.
 
-- Use positive prompting with Spark. State what the agent should do and which tools or approaches to use.
-  Prefer omission over negative instructions or naming unwanted tools. Small models can misinterpret negative
-  prompts, including indirect instructions such as "leave X to the manager."
+- Use positive prompting with Spark. State the desired action, named tool, owned files, expected artifact, and
+  validation command. Use omission for irrelevant alternatives. Give the agent only its affirmative owned task;
+  the manager retains the remaining integration work without adding that contrast to the prompt. Name an
+  exclusion only when a concrete safety boundary requires it.
 
 Use Spark aggressively for work that does not require the manager's full context. Keep architecture,
 coordination, difficult cross-cutting decisions, and final integration with the manager.

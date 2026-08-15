@@ -8,8 +8,8 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use domain::policy::PublicationViolation;
 use learning_data_access::{
-    CatalogStore, OwnerCorrectionAuthority, OwnerCorrectionStore, PublishDraftCommand,
-    PublishedProblemRecord, SessionStore, Store, StoreError, WorkspaceDraftRevision,
+    CatalogStore, PublishDraftCommand, PublishedProblemRecord, SessionStore, Store, StoreError,
+    WorkspaceDraftRevision,
 };
 use question_model::{
     DraftQuestionSource, ProblemId, ProblemVersionRef, PublicationScope, QuestionSource, UserRole,
@@ -26,49 +26,35 @@ use super::{error_response, store_error_response};
 // Kept behind a small helper so publication has one auditable point at which
 // durable identities can be minted. In particular, source preparation must
 // finish before this function is reached.
-pub(crate) fn mint_publication_reference(revises: Option<ProblemVersionRef>) -> ProblemVersionRef {
+pub(crate) fn mint_publication_reference() -> ProblemVersionRef {
     #[cfg(test)]
     {
         PUBLICATION_MINT_COUNT.with(|count| count.set(count.get() + 1));
     }
     ProblemVersionRef {
-        problem: revises.map_or_else(ProblemId::generate, |reference| reference.problem),
+        problem: ProblemId::generate(),
         version: VersionId::generate(),
     }
 }
 
-/// Dispatches publication through the only route that can carry the
-/// authenticated original-owner capability.  Every publication surface calls
-/// this helper so a revision can neither silently use ordinary publication nor
-/// be forgotten by a backend-specific route.
+/// Dispatches a fully-prepared immutable publication under the authenticated
+/// author. Each call publishes a distinct question with freshly minted
+/// internal evidence; provenance remains descriptive data on the draft.
 pub(crate) async fn dispatch_publication<S>(
     store: &S,
     authenticated: &crate::auth::AuthenticatedSession,
     command: PublishDraftCommand,
 ) -> Result<PublishedProblemRecord, StoreError>
 where
-    S: CatalogStore + OwnerCorrectionStore,
+    S: CatalogStore,
 {
-    if command.expected_draft.revises.is_some() {
-        OwnerCorrectionStore::publish_owner_correction(
-            store,
-            authenticated.tenant_context,
-            OwnerCorrectionAuthority {
-                actor: authenticated.record.subject.user(),
-                session: authenticated.session_hash(),
-            },
-            command,
-        )
-        .await
-    } else {
-        CatalogStore::publish_draft(
-            store,
-            authenticated.tenant_context,
-            authenticated.record.subject.user(),
-            command,
-        )
-        .await
-    }
+    CatalogStore::publish_draft(
+        store,
+        authenticated.tenant_context,
+        authenticated.record.subject.user(),
+        command,
+    )
+    .await
 }
 
 #[cfg(test)]
@@ -162,7 +148,7 @@ pub(super) async fn publish_problem<S, B, R>(
     Json(request): Json<PublishProblemRequest>,
 ) -> Response
 where
-    S: Store + CatalogStore + OwnerCorrectionStore + SessionStore + 'static,
+    S: Store + CatalogStore + SessionStore + 'static,
     B: BackendRegistry + 'static,
     R: PublicReviewGate + 'static,
 {
@@ -321,7 +307,7 @@ where
             return error_response(StatusCode::UNPROCESSABLE_ENTITY, message);
         }
     };
-    let publication = mint_publication_reference(draft.revises);
+    let publication = mint_publication_reference();
     let command = PublishDraftCommand {
         expected_draft: draft,
         expected_revision,
@@ -337,7 +323,7 @@ where
         capabilities,
     };
     match dispatch_publication(state.store.as_ref(), &authenticated, command).await {
-        Ok(record) => no_store((StatusCode::CREATED, Json(record.question)).into_response()),
+        Ok(record) => no_store((StatusCode::CREATED, Json(record.summary())).into_response()),
         Err(error) => store_error_response(error),
     }
 }

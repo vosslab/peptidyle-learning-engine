@@ -60,7 +60,7 @@ type PublishState =
   | { readonly kind: "loadingDiff" }
   | { readonly kind: "confirm"; readonly diff: PublishVersionDiff }
   | { readonly kind: "publishing" }
-  | { readonly kind: "published"; readonly problem: string; readonly version: string }
+  | { readonly kind: "published"; readonly questionId: string }
   | { readonly kind: "error"; readonly message: string };
 
 const EDITOR_CAPABILITIES: ReadonlyArray<Capability> = [
@@ -439,8 +439,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
         case "published":
           setPublish({
             kind: "published",
-            problem: outcome.reference.problem,
-            version: outcome.reference.version,
+            questionId: outcome.questionId,
           });
           break;
         case "validationFailed":
@@ -543,7 +542,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
       <p class="page-lede">
         Start with the prompt and response learners will see. Preview uses a seed-controlled,
         key-free local variant; an explicit instructor action can request a protected answer
-        presentation. Publication updates the current question only after review.
+        presentation. Each confirmed publication creates a new Question ID after review.
       </p>
       <p class="sr-only" role="status" aria-live="polite">
         {creationMessage() ?? saveMessage() ?? ""}
@@ -854,8 +853,8 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
               <section class="editor-panel" aria-labelledby="publish-heading">
                 <h2 id="publish-heading">Publish question</h2>
                 <p>
-                  Review the exact content change before updating the current question. Your draft
-                  remains open if publication is refused.
+                  Review the exact content before publishing a new question. Your draft remains open
+                  if publication is refused.
                 </p>
                 <Show when={props.repository.capabilities?.publication === false}>
                   <p class="saved-notice">
@@ -867,9 +866,8 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                     <div aria-live="polite">
                       <h3>Publication changes</h3>
                       <p>
-                        {state().diff.priorVersion === null
-                          ? "This is the question's first publication."
-                          : "This updates the current published question."}
+                        This publication creates a new Question ID. Existing assignments keep their
+                        assigned questions until an instructor deliberately replaces an item.
                       </p>
                       <p>
                         Publishing saved title: <strong>{state().diff.proposedTitle}</strong>
@@ -910,7 +908,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                 </Show>
                 <Show when={published()}>
                   <p class="saved-notice" role="status">
-                    The current question is now available in the <a href="/library">library</a>.
+                    The new Question ID is now available in the <a href="/library">library</a>.
                   </p>
                 </Show>
                 <Show when={publishError()}>

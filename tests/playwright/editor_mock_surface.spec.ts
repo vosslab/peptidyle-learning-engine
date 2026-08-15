@@ -81,7 +81,7 @@ test.beforeAll(async () => {
           },
           getPublishDiff: async () => ({
             revision: '"1"',
-            priorVersion: "00000000-0000-0000-0000-000000000099",
+            baseline: "newQuestion",
             proposedTitle: draft.title,
             sections: [{ label: "Prompt", before: "Old", after: "New" }],
           }),
@@ -242,9 +242,12 @@ test.beforeAll(async () => {
               diffCount === 1 ? "Edited title survives readiness refusal" : diffCount === 2 ? "Post-diff local revision" : "Recovered intended title",
             ));
             return json(
-              diffCount === 1
-                ? { draftRevision: 2, baseline: "firstPublication", prior: null, previous: null, current, changed: [] }
-                : { draftRevision: diffCount === 2 ? 3 : 6, baseline: "revision", prior: { problem: publishedProblemFixture.catalogProblem.problem, version: publishedProblemFixture.catalogProblem.version }, previous: { ...current, title: "Earlier title" }, current, changed: ["title"] },
+              {
+                draftRevision: diffCount === 1 ? 2 : diffCount === 2 ? 3 : 6,
+                baseline: "newQuestion",
+                current,
+                changed: [],
+              },
               200,
               { etag: diffCount === 1 ? '"2"' : diffCount === 2 ? '"3"' : '"6"' },
             );
@@ -252,7 +255,7 @@ test.beforeAll(async () => {
           if (url.pathname === "/api/problems/" + workspace + "/publish" && method === "POST") {
             publishCount += 1;
             if (publishCount === 2) return json({ error: "stale" }, 409);
-            return json({ ...publishedProblemFixture.publishedProblem, version: "0198e000-0000-7000-8000-000000000099" });
+            return json(publishedProblemFixture.catalogProblem);
           }
           return json({ error: "unexpected fixture request" }, 404);
         };
@@ -476,7 +479,7 @@ test("live editor preserves drafts across publication refusals and publishes sco
   await expect(title).toHaveValue("Edited title survives readiness refusal");
 
   await fixture.getByRole("button", { name: "Review publication changes" }).click();
-  await expect(fixture.getByText("This is the question's first publication.")).toBeVisible();
+  await expect(fixture.getByText("This publication creates a new Question ID.")).toBeVisible();
   await expect(fixture.getByText("Publishing saved title:")).toContainText(
     "Edited title survives readiness refusal",
   );
@@ -485,13 +488,13 @@ test("live editor preserves drafts across publication refusals and publishes sco
   await fixture.getByRole("button", { name: "Confirm publication" }).click();
   await expect(
     fixture.getByRole("status").filter({
-      hasText: "The current question is now available in the library.",
+      hasText: "The new Question ID is now available in the library.",
     }),
   ).toBeVisible();
 
   await title.fill("Post-diff local revision");
   await fixture.getByRole("button", { name: "Review publication changes" }).click();
-  await expect(fixture.getByText("This updates the current published question.")).toBeVisible();
+  await expect(fixture.getByText("This publication creates a new Question ID.")).toBeVisible();
   await fixture.getByRole("button", { name: "Confirm publication" }).click();
   await expect(
     fixture.getByRole("alert").filter({ hasText: "Reload, save your edits" }),
@@ -511,7 +514,7 @@ test("live editor preserves drafts across publication refusals and publishes sco
   await fixture.getByRole("button", { name: "Confirm publication" }).click();
   await expect(
     fixture.getByRole("status").filter({
-      hasText: "The current question is now available in the library.",
+      hasText: "The new Question ID is now available in the library.",
     }),
   ).toBeVisible();
 

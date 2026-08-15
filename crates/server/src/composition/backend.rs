@@ -17,7 +17,6 @@ pub(super) struct PersistentDependencies {
     imathas: Option<ConfiguredImathas>,
     qti: Option<Arc<ProductionQtiBackend>>,
     invitation_issuer: crate::course::CourseInvitationIssuer,
-    invitation_delivery: Arc<dyn crate::course::CourseInvitationDelivery>,
     passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
     passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
     webauthn: crate::auth::PasswordlessWebauthn,
@@ -83,29 +82,19 @@ impl PersistentDependencies {
                 crate::auth::PasswordlessRateLimitIssuer::unavailable(),
             ),
         };
-        let (invitation_delivery, passwordless_email_delivery): (
-            Arc<dyn crate::course::CourseInvitationDelivery>,
-            Arc<dyn crate::auth::PasswordlessEmailDelivery>,
-        ) = match &settings.enrollment_email {
-            Some(email_settings) => {
-                if settings.enrollment_secret.is_none() {
-                    bail!(
-                        "PLE_INVITATION_TOKEN_SECRET_FILE must be set when PLE SMTP is configured"
-                    );
+        let passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery> =
+            match &settings.enrollment_email {
+                Some(email_settings) => {
+                    if settings.enrollment_secret.is_none() {
+                        bail!(
+                            "PLE_INVITATION_TOKEN_SECRET_FILE must be set when PLE SMTP is configured"
+                        );
+                    }
+                    email_settings.delivery()? as Arc<dyn crate::auth::PasswordlessEmailDelivery>
                 }
-                let delivery = email_settings.delivery()?;
-                (
-                    delivery.clone() as Arc<dyn crate::course::CourseInvitationDelivery>,
-                    delivery as Arc<dyn crate::auth::PasswordlessEmailDelivery>,
-                )
-            }
-            None => (
-                Arc::new(crate::course::UnavailableCourseInvitationDelivery)
-                    as Arc<dyn crate::course::CourseInvitationDelivery>,
-                Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery)
+                None => Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery)
                     as Arc<dyn crate::auth::PasswordlessEmailDelivery>,
-            ),
-        };
+            };
         let grader_database_url = settings.grader_database_url()?;
         let grader = Arc::new(
             match settings.storage.runtime {
@@ -138,7 +127,6 @@ impl PersistentDependencies {
             imathas,
             qti,
             invitation_issuer,
-            invitation_delivery,
             passwordless_email_delivery,
             passwordless_rate_limit_issuer,
             webauthn: settings.webauthn.clone(),
@@ -165,19 +153,13 @@ impl PersistentDependencies {
             .browser_boundary
             .clone()
             .context("production browser boundary is unavailable")?;
-        Ok(crate::http_security::apply_api_security_headers(
+        Ok(complete_production_router(
             self.passwordless_router(
                 Arc::new(crate::catalog::ReviewNotRequired),
                 production_session_config(),
                 None,
-            )
-            // The host/origin boundary is inside the universal response
-            // boundary so even an early 403/421 remains non-cacheable and
-            // gets the same browser hardening headers as a routed response.
-            .layer(axum::middleware::from_fn_with_state(
-                browser_boundary,
-                crate::auth::production_cookie_boundary,
-            )),
+            ),
+            browser_boundary,
         ))
     }
 
@@ -229,7 +211,6 @@ impl PersistentDependencies {
             review_gate,
             session_config,
             self.invitation_issuer.clone(),
-            Arc::clone(&self.invitation_delivery),
             Arc::clone(&self.passwordless_email_delivery),
             self.passwordless_rate_limit_issuer.clone(),
             self.client_address_policy.clone(),
@@ -269,6 +250,25 @@ impl PersistentDependencies {
             )),
         )
     }
+}
+
+/// Applies the production-only browser boundary to an already composed route
+/// graph. Persistent dependency construction stays above this seam, so the
+/// composition contract can be exercised with deterministic injected routes.
+pub(super) fn complete_production_router(
+    router: Router,
+    browser_boundary: crate::auth::ProductionBrowserBoundary,
+) -> Router {
+    crate::http_security::apply_api_security_headers(
+        router
+            // The host/origin boundary is inside the universal response
+            // boundary so even an early 403/421 remains non-cacheable and
+            // gets the same browser hardening headers as a routed response.
+            .layer(axum::middleware::from_fn_with_state(
+                browser_boundary,
+                crate::auth::production_cookie_boundary,
+            )),
+    )
 }
 
 pub(super) fn production_session_config() -> SessionConfig {

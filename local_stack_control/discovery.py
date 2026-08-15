@@ -9,6 +9,16 @@ import local_stack_control.process
 
 
 #============================================
+def canonical_oci_image_id(value: object) -> str | None:
+	"""Normalize Podman's bare configuration ID for later OCI identity comparison."""
+	if not isinstance(value, str):
+		return None
+	if len(value) == 64 and all(character in "0123456789abcdef" for character in value):
+		return "sha256:" + value
+	return value
+
+
+#============================================
 def json_array(text: str, command_name: str) -> list[dict[str, object]]:
 	"""Parse and validate a Podman JSON array."""
 	if text.strip() == "":
@@ -189,6 +199,7 @@ def container_from_json(
 		capability_digest=labels.get(local_stack_control.models.DISPOSABLE_CAPABILITY_LABEL)
 		if isinstance(labels.get(local_stack_control.models.DISPOSABLE_CAPABILITY_LABEL), str)
 		else None,
+		image_id=canonical_oci_image_id(inspection.get("Image")),
 	)
 	return container
 

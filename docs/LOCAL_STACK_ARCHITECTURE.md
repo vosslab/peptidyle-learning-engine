@@ -3,11 +3,10 @@
 This document answers one operational question: why does each container in the
 PLE local stack exist? The authoritative configuration is
 [`containers/compose.yaml`](../containers/compose.yaml). The normal operator
-path is `python3 local_stack.py`, which delegates bootstrap and startup to the
-private `local_stack_control/launch.sh`. This keeps
-Compose lifecycle discovery, scoped logs, confirmation, and acceptance
-preflight in one Python controller while the launcher remains the only owner
-of build, migration, seed, renderer, and readiness sequencing.
+path is `source source_me.sh && python3 local_stack.py`. Focused private
+`local_stack_control` Python modules own bootstrap, startup, migration, seed,
+renderer provenance, polling, and readiness directly. This keeps Compose lifecycle
+discovery, scoped logs, confirmation, and acceptance preflight in one typed boundary.
 
 The normal stack includes PLE's standalone WeBWorK PG renderer. SMTP is the one
 optional overlay because PLE connects to an external mail provider rather than
@@ -18,7 +17,7 @@ not emit HSTS locally: a browser must not be instructed to require HTTPS for a
 development origin that intentionally has no local TLS endpoint. HSTS belongs
 to the production CloudFront edge.
 
-Before the API starts, the host launcher uses the production PostgreSQL and MinIO contracts to
+Before the API starts, the host typed lifecycle uses the production PostgreSQL and MinIO contracts to
 publish the reviewed Genetics and Biochemistry Chapter 1 assignments. This host-only bootstrap
 does not add a content-management service or expose source bytes to the browser.
 
@@ -58,13 +57,13 @@ These containers run a bounded initialization task and exit successfully. They
 are preferable to giving long-running application containers elevated startup
 permissions.
 
-| Service                | Necessary role                                                                                                     | Safety property                                                                                                             |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `local-data-volume-permissions` | Assigns the PostgreSQL volume root and retained MinIO tree to the fixed daemon UIDs. | Rootless, networkless, one-shot, read-only-root task with only `CAP_CHOWN`; it changes ownership metadata and does not remain running. |
-| `postgres-major-guard` | Reads an existing `PG_VERSION` before PostgreSQL starts.                                                           | Read-only volume, no network, and refusal when the retained volume is not PostgreSQL 17. It never migrates or deletes data. |
-| `createbuckets`        | Creates the four required MinIO buckets idempotently.                                                              | It exits after setup; API and worker do not need bucket-administration behavior.                                            |
-| `identity-secret-init` | Copies the host-owned invitation issuer and Question ID capabilities into an API-only runtime volume with the fixed API UID and mode 0600. | Networkless with a minimal capability set; raw host paths are not mounted into the API, and the worker does not receive this volume. |
-| `smtp-secret-init`     | When the SMTP overlay is selected, copies an external provider credential into an API-readable runtime volume.     | No network; PLE never starts a mail-transfer service.                                                                       |
+| Service                         | Necessary role                                                                                                                             | Safety property                                                                                                                        |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `local-data-volume-permissions` | Assigns the PostgreSQL volume root and retained MinIO tree to the fixed daemon UIDs.                                                       | Rootless, networkless, one-shot, read-only-root task with only `CAP_CHOWN`; it changes ownership metadata and does not remain running. |
+| `postgres-major-guard`          | Reads an existing `PG_VERSION` before PostgreSQL starts.                                                                                   | Read-only volume, no network, and refusal when the retained volume is not PostgreSQL 17. It never migrates or deletes data.            |
+| `createbuckets`                 | Creates the four required MinIO buckets idempotently.                                                                                      | It exits after setup; API and worker do not need bucket-administration behavior.                                                       |
+| `identity-secret-init`          | Copies the host-owned invitation issuer and Question ID capabilities into an API-only runtime volume with the fixed API UID and mode 0600. | Networkless with a minimal capability set; raw host paths are not mounted into the API, and the worker does not receive this volume.   |
+| `smtp-secret-init`              | When the SMTP overlay is selected, copies an external provider credential into an API-readable runtime volume.                             | No network; PLE never starts a mail-transfer service.                                                                                  |
 
 Stopped successful one-shot containers may appear in `podman ps -a`. They are
 not failed daemons and consume no running CPU after completion.
@@ -80,12 +79,12 @@ operator omitted the flag.
 
 ## Volumes
 
-| Volume                 | Owner                             | Meaning                                                                                |
-| ---------------------- | --------------------------------- | -------------------------------------------------------------------------------------- |
-| `ple_pgdata`           | PostgreSQL                        | Durable relational authority. Preserve it across normal `down` and rebuild operations. |
-| `ple_miniodata`        | MinIO                             | Durable object bytes and metadata. Preserve it with the relational volume.             |
+| Volume                 | Owner                             | Meaning                                                                                                                                   |
+| ---------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `ple_pgdata`           | PostgreSQL                        | Durable relational authority. Preserve it across normal `down` and rebuild operations.                                                    |
+| `ple_miniodata`        | MinIO                             | Durable object bytes and metadata. Preserve it with the relational volume.                                                                |
 | `ple_identity_runtime` | Secret initializer and API        | Runtime-only permission-normalized invitation issuer and Question ID capability copies, mounted only by the API; not educational records. |
-| `ple_smtp_runtime`     | Optional SMTP initializer and API | Runtime-only external provider credential copy. Present only with the SMTP overlay.    |
+| `ple_smtp_runtime`     | Optional SMTP initializer and API | Runtime-only external provider credential copy. Present only with the SMTP overlay.                                                       |
 
 PostgreSQL, MinIO, and `createbuckets` use fixed non-root identities, immutable
 container roots, empty capability sets, `no-new-privileges`, bounded resources,
@@ -122,10 +121,11 @@ runtime integration is the smaller external PG renderer.
 ## External components
 
 The image named by `PLE_WEBWORK_RENDERER_IMAGE` is built or obtained from the
-separate `webwork-pg-renderer` project. PLE verifies that the image exists,
-records its OCI identity, probes real render and grade behavior, and consumes
-its documented API. PLE does not copy the renderer implementation into this
-repository.
+separate `webwork-pg-renderer` project. The local selection is the reviewed
+`localhost/pg-renderer:reviewed` name; PLE resolves it to an OCI configuration
+ID, verifies that the container uses that exact ID, records both observations,
+probes real render and grade behavior, and consumes its documented API. PLE
+does not copy the renderer implementation into this repository.
 
 `OTHER_REPOS/pg`, `OTHER_REPOS/webwork2`, and
 `OTHER_REPOS/webwork-pg-renderer` are comparison snapshots only. They are not
@@ -133,7 +133,7 @@ Compose build contexts, mounts, imports, or runtime dependencies.
 
 An unrelated container such as a manually started `pg-test` is not a PLE
 service. Compose project labels, rather than a name resemblance, determine
-whether the PLE launcher may manage a container.
+whether the PLE lifecycle may manage a container.
 
 ## Failure behavior
 
@@ -160,19 +160,22 @@ Live container and browser behavior belongs in the explicit E2E lane:
 
 ```bash
 tests/e2e/e2e_webwork_render_rpc.sh
-bash tests/e2e/e2e_chapter_one_pilot.sh
-bash tests/e2e/e2e_chapter_one_browser.sh
+source source_me.sh && python3 tests/e2e/e2e_chapter_one_pilot.py
+source source_me.sh && python3 tests/e2e/e2e_chapter_one_browser.py
 ```
 
 The renderer acceptance script creates its licensed one-question WebWork fixture explicitly after
-the canonical launcher is ready. Its answer-free manifest is private temporary test state; the
-normal launcher and canonical teaching walkthrough publish only the reviewed Chapter 1 corpus.
+the canonical typed lifecycle is ready. Its answer-free manifest is private temporary test state; the
+normal lifecycle and canonical teaching walkthrough publish only the reviewed Chapter 1 corpus.
 
 The renderer gate exercises render, grade, cache, outage recovery, and browser non-disclosure. The
 Chapter 1 publication gate publishes the exact two-by-four release matrix into isolated PostgreSQL
 and MinIO, then proves an exact rerun. The Chapter 1 browser gate completes those eight questions
 through visible keyboard controls in a complete isolated PLE stack. They are explicit E2E evidence,
 not permanent pytest cases or a claim that every PG problem is compatible.
+
+Both Chapter 1 gates use the typed Python disposable-consumer adapter and the shared private,
+atomic manifest publisher. The retained pilot shell file is only a compatibility `exec` facade.
 
 The aggregate live browser command is
 `source source_me.sh && python3 local_stack.py acceptance`. It runs a read-only conflict preflight first and

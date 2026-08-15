@@ -87,6 +87,7 @@ def require_declared_topology_resources(
 	allowed_volumes = set(local_stack_control.models.DECLARED_BASE_VOLUMES)
 	if target.with_smtp:
 		allowed_services.update(local_stack_control.models.SMTP_ONE_SHOT_SERVICES)
+		allowed_services.update(local_stack_control.models.SMTP_LONG_RUNNING_SERVICES)
 		allowed_volumes.update(local_stack_control.models.DECLARED_SMTP_VOLUMES)
 	unknown_services = sorted(
 		{
@@ -160,11 +161,13 @@ def reset_plan(
 		target,
 		["down", "--volumes", "--remove-orphans"],
 	)
+	manifest_path = target.repo_root / local_stack_control.models.DEFAULT_CHAPTER_ONE_MANIFEST_FILE
 	plan = local_stack_control.models.CleanupPlan(
 		project=target.project,
 		snapshot=snapshot,
 		argv=tuple(argv),
 		removes_volumes=True,
+		host_paths_to_remove=(manifest_path,),
 	)
 	return plan
 

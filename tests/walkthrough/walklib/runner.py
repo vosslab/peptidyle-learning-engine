@@ -1,6 +1,7 @@
 """Run the real-stack public UI walkthrough with fail-closed boundaries."""
 
 import json
+import dataclasses
 import os
 import pathlib
 import secrets
@@ -11,19 +12,20 @@ import tempfile
 
 import local_stack_control.compose
 import local_stack_control.env_file
+import local_stack_control.lifecycle
 import local_stack_control.models
 
-import walklib.arrangement_contract
-import walklib.configuration
-import walklib.instructor_handoff
-import walklib.models
-import walklib.podman_ownership
-import walklib.podman_preflight
-import walklib.playwright_boundary
-import walklib.process
-import walklib.result_receipt
-import walklib.stack_environment
-import walklib.v2_report_contract
+import tests.walkthrough.walklib.arrangement_contract as arrangement_contract
+import tests.walkthrough.walklib.configuration as configuration
+import tests.walkthrough.walklib.instructor_handoff as instructor_handoff
+import tests.walkthrough.walklib.models as models
+import tests.walkthrough.walklib.podman_ownership as podman_ownership
+import tests.walkthrough.walklib.podman_preflight as podman_preflight
+import tests.walkthrough.walklib.playwright_boundary as playwright_boundary
+import tests.walkthrough.walklib.process as process
+import tests.walkthrough.walklib.result_receipt as result_receipt
+import tests.walkthrough.walklib.stack_environment as stack_environment
+import tests.walkthrough.walklib.v2_report_contract as v2_report_contract
 
 ARRANGER_RELATIVE_PATH = pathlib.Path("node_modules/tsx/dist/cli.mjs")
 J1_CHECKPOINT_FILE = "j1-checkpoint.txt"
@@ -64,30 +66,28 @@ INSTRUCTOR_SETUP_CHECKPOINTS = frozenset(
 		"assignment_created",
 	}
 )
-
-
-RunnerError = walklib.models.RunnerError
-RunnerInputs = walklib.models.RunnerInputs
-CommandResult = walklib.models.CommandResult
-CommandRunner = walklib.models.CommandRunner
-WalkthroughControllerRunner = walklib.process.WalkthroughControllerRunner
-parse_args = walklib.configuration.parse_args
-resolve_inputs = walklib.configuration.resolve_inputs
-validate_regular_readable_file = walklib.configuration.validate_regular_readable_file
-validate_report_basename = walklib.configuration.validate_report_basename
-validate_screenshot_directory = walklib.configuration.validate_screenshot_directory
-has_reusable_dist = walklib.configuration.has_reusable_dist
-reuse_existing_dist = walklib.configuration.reuse_existing_dist
-effective_gateway_port = walklib.configuration.effective_gateway_port
-effective_stack_ports = walklib.configuration.effective_stack_ports
-reject_external_compose_project_name = walklib.configuration.reject_external_compose_project_name
-create_compose_project_name = walklib.configuration.create_disposable_compose_project_name
-validate_credential_file = walklib.configuration.validate_credential_file
-command_result = walklib.process.command_result
-assert_no_stale_project_resources = walklib.podman_ownership.assert_no_stale_project_resources
-keep_instruction = walklib.podman_ownership.keep_instruction
-assert_no_active_ple_stack = walklib.podman_preflight.assert_no_active_ple_stack
-assert_ports_available = walklib.podman_preflight.assert_ports_available
+RunnerError = models.RunnerError
+RunnerInputs = models.RunnerInputs
+CommandResult = models.CommandResult
+CommandRunner = models.CommandRunner
+WalkthroughControllerRunner = process.WalkthroughControllerRunner
+parse_args = configuration.parse_args
+resolve_inputs = configuration.resolve_inputs
+validate_regular_readable_file = configuration.validate_regular_readable_file
+validate_report_basename = configuration.validate_report_basename
+validate_screenshot_directory = configuration.validate_screenshot_directory
+has_reusable_dist = configuration.has_reusable_dist
+reuse_existing_dist = configuration.reuse_existing_dist
+effective_gateway_port = configuration.effective_gateway_port
+effective_stack_ports = configuration.effective_stack_ports
+reject_external_compose_project_name = configuration.reject_external_compose_project_name
+create_compose_project_name = configuration.create_disposable_compose_project_name
+validate_credential_file = configuration.validate_credential_file
+command_result = process.command_result
+assert_no_stale_project_resources = podman_ownership.assert_no_stale_project_resources
+keep_instruction = podman_ownership.keep_instruction
+assert_no_active_ple_stack = podman_preflight.assert_no_active_ple_stack
+assert_ports_available = podman_preflight.assert_ports_available
 
 class WalkthroughRunner:
 	"""Own preflight, launcher lifecycle, secure report creation, and conservative cleanup."""
@@ -129,7 +129,6 @@ class WalkthroughRunner:
 		self.instructor_setup_checkpoint_file: pathlib.Path | None = None
 		self.instructor_setup_checkpoint_identity: tuple[int, int] | None = None
 		self.instructor_setup_failure_checkpoint: str | None = None
-
 	def sanitized_child_environment(self) -> dict[str, str]:
 		"""Remove ambient runner controls before every runner-owned child process."""
 		environment = {
@@ -153,10 +152,9 @@ class WalkthroughRunner:
 		)
 		environment["PLE_DISPOSABLE_CAPABILITY_FILE"] = str(disposable.capability_file)
 		return environment
-
-	def controller_runner(self) -> walklib.process.WalkthroughControllerRunner:
+	def controller_runner(self) -> process.WalkthroughControllerRunner:
 		"""Return the shared controller adapter over this runner's child-process seam."""
-		return walklib.process.WalkthroughControllerRunner(self.run_command)
+		return process.WalkthroughControllerRunner(self.run_command)
 
 	def run_required(
 		self,
@@ -176,7 +174,7 @@ class WalkthroughRunner:
 			RunnerError: The child exits with a nonzero status.
 		"""
 		print(f"UI walkthrough: {self.report_stage} starting")
-		result = self.run_command(command, environ)
+		result = self.run_command(command, environ, None)
 		if result.returncode != 0:
 			raise RunnerError(
 				f"{self.report_stage} command failed with exit status {result.returncode}"
@@ -188,7 +186,7 @@ class WalkthroughRunner:
 		"""Resolve the provider through the shared controller before stack lifecycle work."""
 		try:
 			local_stack_control.compose.choose_provider(self.controller_runner(), self.repository_root)
-			walklib.stack_environment.require_rootless_engine(self.controller_runner(), self.repository_root)
+			stack_environment.require_rootless_engine(self.controller_runner(), self.repository_root)
 		except local_stack_control.models.ControllerError as error:
 			raise RunnerError("no usable Podman Compose provider is available") from error
 
@@ -207,7 +205,7 @@ class WalkthroughRunner:
 
 	def ensure_report_directory(self) -> None:
 		"""Revalidate and recreate only the private report directory without following links."""
-		walklib.result_receipt.ensure_private_report_directory(
+		result_receipt.ensure_private_report_directory(
 			self.repository_root,
 			self.report_directory,
 			self.report_path,
@@ -217,7 +215,7 @@ class WalkthroughRunner:
 		"""Atomically write the minimal private result record without credentials or service output."""
 		if not self.report_ready:
 			return
-		payload = walklib.result_receipt.build_payload(
+		payload = result_receipt.build_payload(
 			self.report_status,
 			self.inputs.master_seed,
 			self.report_stage,
@@ -228,7 +226,7 @@ class WalkthroughRunner:
 			self.j2_failure_checkpoint,
 			self.instructor_setup_failure_checkpoint,
 		)
-		walklib.result_receipt.write_private_receipt(
+		result_receipt.write_private_receipt(
 			self.repository_root,
 			self.report_directory,
 			self.report_path,
@@ -243,7 +241,7 @@ class WalkthroughRunner:
 		disposable = self.disposable_target
 		if disposable is None:
 			raise RunnerError("walkthrough disposable Compose target is unavailable")
-		walklib.stack_environment.remove_disposable_stack(
+		stack_environment.remove_disposable_stack(
 			disposable,
 			self.controller_runner(),
 		)
@@ -279,13 +277,13 @@ class WalkthroughRunner:
 				"--inputs",
 				str(self.child_inputs_file),
 			],
-			self.sanitized_child_environment(),
+			self.sanitized_child_environment(), None,
 		)
 		if result.returncode != 0:
 			raise RunnerError("arrangement command failed")
 		try:
 			self.arrangements, self.instructor_catalog_display_ids = (
-				walklib.arrangement_contract.parse_runner_arrangement_output(result.stdout)
+				arrangement_contract.parse_runner_arrangement_output(result.stdout)
 			)
 		except ValueError as error:
 			raise RunnerError("arrangement emitted invalid output") from error
@@ -314,13 +312,13 @@ class WalkthroughRunner:
 
 	def hand_off_instructor_setup(self) -> None:
 		"""Pass only validated public J11/J12/J13 identifiers to fixed student children."""
-		course_reference, assignment_reference = walklib.instructor_handoff.read_handoff(
+		course_reference, assignment_reference = instructor_handoff.read_handoff(
 			self.journey_state_file,
 			self.arrangements,
 			self.instructor_catalog_display_ids,
 		)
 		self.write_private_child_inputs(
-			walklib.models.WalkthroughChildInputs(
+			models.WalkthroughChildInputs(
 				"learner_journey",
 				self.base_url(),
 				self.inputs.master_seed,
@@ -387,15 +385,15 @@ class WalkthroughRunner:
 	def create_private_stack_environment(self) -> None:
 		"""Copy the selected file into runner state and reserve its application image tag."""
 		source = self.inputs.env_file.read_text(encoding="ascii")
-		image = walklib.stack_environment.application_image(self.compose_project_name)
+		image = stack_environment.application_image(self.compose_project_name)
 		directory = self.private_state_directory
 		if directory is None:
 			raise RunnerError("private walkthrough Compose environment is unavailable")
-		capability_file, capability_digest = walklib.stack_environment.create_cleanup_capability(
+		capability_file, capability_digest = stack_environment.create_cleanup_capability(
 			directory
 		)
 		self.disposable_capability_file = capability_file
-		contents = walklib.stack_environment.render_private_environment(
+		contents = stack_environment.render_private_environment(
 			source,
 			image,
 			directory,
@@ -453,10 +451,10 @@ class WalkthroughRunner:
 
 	def child_input_payload(
 		self,
-		inputs: walklib.models.ArrangementChildInputs | walklib.models.WalkthroughChildInputs,
+		inputs: models.ArrangementChildInputs | models.WalkthroughChildInputs,
 	) -> dict[str, object]:
 		"""Build one exact stage payload without credentials or answer material."""
-		if isinstance(inputs, walklib.models.ArrangementChildInputs):
+		if isinstance(inputs, models.ArrangementChildInputs):
 			return {
 				"schemaVersion": 1,
 				"stage": "arrangement",
@@ -549,7 +547,7 @@ class WalkthroughRunner:
 
 	def write_private_child_inputs(
 		self,
-		inputs: walklib.models.ArrangementChildInputs | walklib.models.WalkthroughChildInputs,
+		inputs: models.ArrangementChildInputs | models.WalkthroughChildInputs,
 	) -> None:
 		"""Write the fixed-child argv handoff as canonical, versioned private JSON."""
 		payload = self.child_input_payload(inputs)
@@ -733,12 +731,12 @@ class WalkthroughRunner:
 				"--inputs",
 				str(self.child_inputs_file),
 			],
-			self.sanitized_child_environment(),
+			self.sanitized_child_environment(), None,
 		)
 		if result.returncode != 0 or result.stderr != "":
 			raise RunnerError("visible outcome renderer failed")
 		try:
-			self.visible_outcomes = walklib.v2_report_contract.parse_public_v2_report(
+			self.visible_outcomes = v2_report_contract.parse_public_v2_report(
 				result.stdout,
 				self.inputs.master_seed,
 			)
@@ -762,7 +760,7 @@ class WalkthroughRunner:
 				"--inputs",
 				str(self.child_inputs_file),
 			],
-			self.sanitized_child_environment(),
+			self.sanitized_child_environment(), None,
 		)
 		if result.returncode != 0 or result.stdout != "" or result.stderr != "":
 			raise RunnerError("cross-actor child failed")
@@ -770,7 +768,7 @@ class WalkthroughRunner:
 	#============================================
 	def run_playwright(self, specification: str) -> None:
 		"""Run one fixed browser journey through the private explicit configuration."""
-		walklib.playwright_boundary.run_specification(
+		playwright_boundary.run_specification(
 			self.playwright_config_file,
 			specification,
 			self.run_required,
@@ -892,36 +890,38 @@ class WalkthroughRunner:
 		disposable = self.disposable_target
 		if disposable is None:
 			raise RunnerError("walkthrough disposable Compose target is unavailable")
-		walklib.stack_environment.require_empty_disposable_preflight(
+		stack_environment.require_empty_disposable_preflight(
 			disposable, self.controller_runner()
 		)
 
-		self.report_stage = "launcher_check"
-		launcher = str(self.repository_root / "local_stack_control/launch.sh")
-		self.run_required(
-			[
-				launcher,
-				"--check",
-				"--env-file",
-				str(self.inputs.env_file),
-			],
-			self.compose_child_environment(),
-		)
+		self.report_stage = "lifecycle_validate"
+		try:
+			local_stack_control.lifecycle.validate_lifecycle(
+				dataclasses.replace(disposable.target, env_file=self.inputs.env_file, env_setting_names=local_stack_control.env_file.env_setting_names(self.inputs.env_file)), self.controller_runner(), self.repository_root
+			)
+		except local_stack_control.models.ControllerError as error:
+			raise RunnerError("walkthrough lifecycle validation failed") from error
 
-		self.report_stage = "launcher_start"
+		self.report_stage = "lifecycle_start"
 		self.assert_no_existing_stack()
-		start_command = [launcher, "--canonical-walkthrough", "--no-open"]
-		if reuse_existing_dist(self.inputs, self.repository_root):
-			start_command.append("--skip-build")
-		start_command.extend(["--env-file", str(self.stack_env_file())])
 		self.stack_launch_attempted = True
-		self.run_required(start_command, self.compose_child_environment())
+		try:
+			local_stack_control.lifecycle.start_lifecycle(
+				disposable,
+				self.controller_runner(),
+				self.repository_root,
+				local_stack_control.lifecycle.LifecycleOptions(
+					180.0, not reuse_existing_dist(self.inputs, self.repository_root), False, False
+				),
+			)
+		except local_stack_control.models.ControllerError as error:
+			raise RunnerError("walkthrough lifecycle start failed") from error
 
 		self.report_stage = "live_boundary"
 		login_file = self.stack_env_file().parent / "local-login.txt"
 		validate_credential_file(login_file)
 		self.write_private_child_inputs(
-			walklib.models.ArrangementChildInputs(
+			models.ArrangementChildInputs(
 				self.stack_env_file().parent / "local-chapter-one-pilot.json"
 			)
 		)
@@ -929,7 +929,7 @@ class WalkthroughRunner:
 		if self.instructor_catalog_display_ids is None:
 			raise RunnerError("instructor setup arrangement emitted invalid output")
 		self.write_private_child_inputs(
-			walklib.models.WalkthroughChildInputs(
+			models.WalkthroughChildInputs(
 				"instructor_setup",
 				self.base_url(),
 				self.inputs.master_seed,

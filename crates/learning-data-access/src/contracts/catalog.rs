@@ -181,7 +181,8 @@ pub(crate) fn decode_workspace_draft_cursor(
     Ok(workspace)
 }
 
-/// Shared immutable problem/version reference used by catalog lineage.
+/// Shared exact immutable-publication reference used for trusted delivery,
+/// replay, grading, audit, and optional non-operative provenance.
 pub use question_model::ProblemVersionRef;
 
 /// Server-only immutable source-object binding for one published version.
@@ -208,9 +209,11 @@ pub struct DraftRecord {
     pub tenant: TenantId,
     /// Editable content with no published identifiers.
     pub question: DraftQuestionDefinition,
-    /// Earlier version in the same owned linear chain, for a new revision.
-    pub revises: Option<ProblemVersionRef>,
-    /// Source version when creating a new attributed fork.
+    /// Optional immutable source evidence for an attributed derivative.
+    ///
+    /// This relation records provenance only. Publishing this draft creates a
+    /// distinct Question ID and fresh exact evidence; it does not select,
+    /// replace, or advance the source publication.
     pub derived_from: Option<ProblemVersionRef>,
 }
 
@@ -315,19 +318,12 @@ pub struct WorkspaceDraft {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PublishedProblemRecord {
-    /// Stable published problem.
+    /// Opaque problem evidence for trusted storage, replay, grading, and audit.
     pub problem: ProblemId,
     /// One stable, non-sequential human-facing identity for this question.
     pub question_id: question_model::QuestionId,
-    /// Copyable human-facing identity of the stable problem.
-    ///
-    /// Retained only as a hidden pre-production storage key while the schema
-    /// converges on [`Self::question_id`]. It is never projected to a browser.
-    pub public_id: question_model::ProblemPublicId,
     /// Exact immutable version.
     pub version: VersionId,
-    /// One-based human-facing version within the stable problem.
-    pub version_number: question_model::ProblemVersionNumber,
     /// Browser-safe definition whose IDs match this record.
     pub question: QuestionDefinition,
     /// Capabilities declared by the owning adapter at publication time.
@@ -336,11 +332,12 @@ pub struct PublishedProblemRecord {
     pub scope: PublicationScope,
     /// Discoverability and new-assignment state.
     pub lifecycle: CatalogLifecycle,
-    /// Ordered, nonempty owners of this problem's linear version chain.
+    /// Ordered, nonempty authors for ordinary attribution.
     pub authors: Vec<UserId>,
-    /// Earlier version in the same problem chain.
-    pub previous_version: Option<VersionId>,
-    /// Original source when this problem is a fork.
+    /// Optional immutable source evidence for a derived publication.
+    ///
+    /// Provenance does not define a successor, current version, redirect, or
+    /// authority over another publication.
     pub derived_from: Option<ProblemVersionRef>,
     /// Backend-authoritative time at which this version became immutable.
     pub published_at: ActivityTimestamp,
@@ -350,17 +347,12 @@ impl PublishedProblemRecord {
     /// Builds the hot browse projection without loading another representation.
     pub fn summary(&self) -> CatalogProblemSummary {
         CatalogProblemSummary {
-            problem: self.problem,
             question_id: self.question_id.clone(),
-            version: self.version,
             backend: QuestionBackend::from(&self.question.source),
             capabilities: self.capabilities.clone(),
             metadata: self.question.metadata.clone(),
             scope: self.scope,
             lifecycle: self.lifecycle.clone(),
-            authors: self.authors.clone(),
-            previous_version: self.previous_version,
-            derived_from: self.derived_from,
             published_at: self.published_at,
         }
     }

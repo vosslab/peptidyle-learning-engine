@@ -75,24 +75,35 @@ continued-practice semantics; this is part of their owning release package, not 
 
 ### Drafts and publications are different identities
 
-**Decision.** An instructor's mutable draft is tenant-owned. Publication mints a current shared
-question plus hidden immutable snapshot. An original-owner correction creates another hidden
-snapshot while preserving the Question ID and historical grading evidence.
+**Decision.** An instructor's mutable draft is tenant-owned. Publication mints one immutable shared
+question, with its own Question ID and hidden immutable snapshot. Every content change, including an
+original-owner bug correction, publishes a distinct question with a distinct Question ID; explicit
+immutable provenance may link that replacement to its source.
 
 **Why.** This prevents the classic LMS failure where a later edit changes what an earlier learner
 was assessed on, and it lets tenant record deletion leave shared educational content intact.
 
-**Consequence.** Existing runs pin an immutable snapshot. Current assignment definitions move to an
-original-owner correction for future runs. Browser requests see one current question and never
-choose a hidden version; publication atomically records payload, provenance, and visibility.
+**Consequence.** Existing assignments and issued runs retain their exact references. An Instructor
+must deliberately replace an assignment item; no publication, correction, or background action may
+advance it. Browser requests never choose a hidden version. Internal `(ProblemId, VersionId)`
+evidence is freshly opaque for each real publication and supports replay, grading, audit, provenance,
+and authorized transport only; publication atomically records the new question's payload, provenance,
+and visibility. The assigned `AAA-BBBB` Question ID is the sole durable question identity:
+`ProblemPublicId`/`P-...`, `ProblemVersionNumber`, and predecessor/version-chain semantics are not
+hidden alternatives.
 
 **Owner.** [DATABASE_TENANCY.md](DATABASE_TENANCY.md#ownership-boundary),
 [SECURITY_MODEL.md](SECURITY_MODEL.md#catalog-publication-boundary), and the identity/catalog rows
 in [CONTRACTS.md](CONTRACTS.md#domain-contracts).
 
-**Planned closure.** Later schema evolution uses forward migrations and explicitly versioned
-protocols; while PLE remains pre-production, it removes obsolete readers rather than carrying
-compatibility paths. It does not rewrite already published versions once those exist.
+**Implementation boundary.** PLE directly applies the no-drift design while it remains
+pre-production. Real native and WeBWorK host-seed publishers mint fresh opaque publication IDs and
+converge only through a protected manifest or verified existing record. Isolated unit fixtures,
+derived render/cache identities, and non-question seed records may remain deterministic. Later
+schema evolution uses forward migrations and explicitly versioned protocols; no compatibility reader
+preserves problem drift. WP-R2 accepted this no-drift boundary on the final material tree. M0 remains
+open; WP-PY-L1 is accepted on 2026-08-15 after required live/full Validation and independent reviews
+returned ACCEPT with no P0-P3 finding.
 
 ### Instructor-facing problem identities are operational
 
@@ -107,12 +118,31 @@ boundaries, but it is oversized and hostile for this instructor task.
 
 **Consequence.** The assignment editor accepts one or more Question IDs, normalizes documented
 Crockford transcription aliases, and requires server validation before changing the draft. Invalid,
-unavailable, unauthorized, or duplicate input preserves the pasted text and assignment. Original
-owner corrections retain the ID; a substantive derivative is a fork with a new ID.
+unavailable, unauthorized, or duplicate input preserves the pasted text and assignment. Every
+content change, including a correction, has a new Question ID; an explicit provenance link may name
+the source, and an Instructor deliberately replaces any assignment item that should use it.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#teaching-and-product-priorities),
 [`QUESTION_ID_SPEC.md`](QUESTION_ID_SPEC.md), `crates/question_model/src/catalog.rs`, and MOD-API-CAT in
 [CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
+
+### Python owns complex orchestration
+
+**Decision.** Python owns orchestration that keeps state, parses values, creates private temporary
+files, controls subprocess or Podman lifecycle, polls, cleans up, or aggregates lanes. Bash may only
+be a tiny direct `exec` or `source` wrapper and may not become a second state machine.
+
+**Why.** The typed `local_stack_control` boundary already centralizes provider selection, private
+environment handling, disposable-owner authority, process arguments, readiness, and cleanup. A
+parallel shell program drifts from those security and lifecycle contracts.
+
+**Consequence.** WP-R1 closes its Chapter One pilot/browser and aggregate-acceptance lanes in Python
+over `local_stack_control`. WP-PY-L1 now replaces `launch.sh`, `_restart.sh`, and
+`local_identity_bootstrap.sh` together with direct focused Python ownership rather than a wrapper or
+dual launcher. It was accepted on 2026-08-15 after final Validation and independent review.
+
+**Planned closure.** Remaining E2E, developer, renderer-probe, and destructive-cleanup shell programs
+migrate only in later dependency-ordered packages. A retained wrapper stays logic-free.
 
 ## Grading and learner traffic
 

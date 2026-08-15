@@ -338,7 +338,7 @@ impl crate::AuthoringStore for PostgresStore {
     ) -> Result<Option<PublishedProblemRecord>, StoreError> {
         let mut transaction = self.begin_app().await?;
         let row = sqlx::query(
-            "SELECT pv.problem_id, p.public_id, p.question_id, pv.version_id, pv.version_number, \
+            "SELECT pv.problem_id, p.question_id, pv.version_id, \
                     pvp.payload, pvp.payload_sha256, pv.lifecycle, pv.lifecycle_reason \
              FROM problem_version AS pv \
              JOIN problem AS p USING (problem_id) \

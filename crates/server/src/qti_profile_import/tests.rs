@@ -172,7 +172,6 @@ async fn fixture() -> Fixture {
             DraftRecord {
                 tenant,
                 question: draft(workspace),
-                revises: None,
                 derived_from: None,
             },
         )

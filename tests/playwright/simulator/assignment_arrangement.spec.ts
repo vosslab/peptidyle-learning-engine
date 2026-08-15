@@ -13,13 +13,12 @@ import { examContrastTitle, masteryRetryTitle } from "./assignment_titles";
 const BASELINE_ASSIGNMENT = "123e4567-e89b-12d3-a456-426614174000";
 const COURSE = "123e4567-e89b-12d3-a456-426614174001";
 const QUESTION = {
-  problem: "123e4567-e89b-12d3-a456-426614174002",
-  version: "123e4567-e89b-12d3-a456-426614174003",
+  questionId: "7K3-M9QP",
 };
 const MASTERY_ASSIGNMENT = "123e4567-e89b-12d3-a456-426614174004";
 const EXAM_ASSIGNMENT = "123e4567-e89b-12d3-a456-426614174005";
-const MASTERY_TITLE = masteryRetryTitle(QUESTION.problem);
-const EXAM_TITLE = examContrastTitle(QUESTION.problem);
+const MASTERY_TITLE = masteryRetryTitle(QUESTION.questionId);
+const EXAM_TITLE = examContrastTitle(QUESTION.questionId);
 
 interface CapturedRequest {
   readonly method: "get" | "post";
@@ -137,7 +136,7 @@ test("resolves the seeded course and posts exactly Mastery then Exam", async () 
       headers: { "content-type": "application/json" },
       data: {
         title: MASTERY_TITLE,
-        problems: [QUESTION],
+        questionIds: [QUESTION.questionId],
         policies: policies("mastery"),
       },
     },
@@ -147,18 +146,16 @@ test("resolves the seeded course and posts exactly Mastery then Exam", async () 
       headers: { "content-type": "application/json" },
       data: {
         title: EXAM_TITLE,
-        problems: [QUESTION],
+        questionIds: [QUESTION.questionId],
         policies: policies("exam"),
       },
     },
   ]);
 });
 
-test("derives exact bounded public titles from the full published problem UUID", () => {
-  expect(MASTERY_TITLE).toBe("Peptide mastery retry 123e4567-e89b-12d3-a456-426614174002");
-  expect(EXAM_TITLE).toBe("Peptide exam contrast 123e4567-e89b-12d3-a456-426614174002");
-  expect(MASTERY_TITLE).toHaveLength(58);
-  expect(EXAM_TITLE).toHaveLength(58);
+test("derives public titles from the assigned Question ID", () => {
+  expect(MASTERY_TITLE).toBe("Peptide mastery retry 7K3-M9QP");
+  expect(EXAM_TITLE).toBe("Peptide exam contrast 7K3-M9QP");
 });
 
 const SENSITIVE_SENTINEL = "student-identity-and-response-must-not-leak";
@@ -242,7 +239,7 @@ test("redacts a rejected Exam JSON body without retrying either assignment", asy
   );
 });
 
-test("stops before arrangement when the validated summary or question reference is unsafe", async () => {
+test("stops before arrangement when the summary or Question ID is unsafe", async () => {
   const fake = fakeApi([]);
   await expect(
     arrangeSeededCourseAssignments(fake.api, { assignmentId: "not-an-id" }, QUESTION),
@@ -251,7 +248,7 @@ test("stops before arrangement when the validated summary or question reference 
     arrangeSeededCourseAssignments(
       fake.api,
       { assignmentId: BASELINE_ASSIGNMENT },
-      { ...QUESTION, version: "bad" },
+      { ...QUESTION, questionId: "bad" },
     ),
   ).rejects.toBeInstanceOf(AssignmentArrangementError);
   expect(fake.captured).toEqual([]);

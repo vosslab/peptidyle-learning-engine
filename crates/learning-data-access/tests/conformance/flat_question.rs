@@ -125,7 +125,6 @@ async fn exercise_flat_question_store(
     let draft = DraftRecord {
         tenant,
         question,
-        revises: None,
         derived_from: None,
     };
     let saved = store

@@ -84,7 +84,7 @@ not browser routes. The complete local container policy is in
 The named volumes preserve local data across normal `down`. Removing a volume
 is destructive and is intentionally outside routine stop commands.
 
-The launcher runs `postgres-major-guard` against `ple_pgdata` before starting
+The typed lifecycle runs `postgres-major-guard` against `ple_pgdata` before starting
 PostgreSQL. The guard accepts only an empty volume or a PostgreSQL 17 data
 directory. PostgreSQL data directories are not cross-major compatible: a major
 upgrade requires a verified backup, a new volume initialized by the target
@@ -170,8 +170,8 @@ is not permission to execute an undeclared job family.
 ## Required configuration
 
 Copy [containers/env.example](../containers/env.example) to the ignored
-`containers/env.local`, or let private `local_stack_control/launch.sh`
-bootstrap the default local file. The launcher creates generated local secrets
+`containers/env.local`, or let the private typed lifecycle
+bootstrap the default local file. The lifecycle creates generated local secrets
 and credentials with mode 0600; never commit or reuse them outside local work.
 
 | Inputs                                                                           | Owner                                      | All replicas require same value?          | Purpose                                                              |
@@ -188,7 +188,7 @@ and credentials with mode 0600; never commit or reuse them outside local work.
 | `PLE_SMTP_*`, `PLE_PUBLIC_APP_BASE_URL`                                          | Operator, optional SMTP overlay            | Yes for API when delivery is enabled      | External-provider email authentication and invitation delivery       |
 | `PLE_WORKER_*`                                                                   | Operator                                   | Yes for workers                           | Bounded worker lease, deadline, and polling controls                 |
 | `PLE_GATEWAY_HOST_PORT`                                                          | Local operator                             | Gateway only                              | Loopback browser entry port                                          |
-| `PLE_*_IMAGE_SHA256`                                                             | Operator/launcher                          | Applicable services                       | Immutable local image manifests                                      |
+| `PLE_*_IMAGE_SHA256`                                                             | Operator/typed lifecycle                   | Applicable services                       | Immutable local image manifests                                      |
 | `PLE_WEBWORK_*`                                                                  | Opt-in profile operator                    | Yes for API and renderer where applicable | Private renderer identity, limits, and secrets                       |
 
 The API's `PLE_LOCAL_AUTH_FILE` is a read-only mount of hashes, not the adjacent
@@ -201,7 +201,7 @@ but PLE does not require an institution as its identity authority.
 
 ## Start, scale, inspect, stop
 
-Use the launcher for first startup because it orders configuration bootstrap,
+Use the public controller for first startup because its typed lifecycle orders configuration bootstrap,
 PostgreSQL-major verification, migrations, grader-role provisioning, seed data,
 and service readiness. Bare `compose up` against an empty database is not an
 equivalent bootstrap path.
@@ -243,7 +243,7 @@ podman compose -f containers/compose.yaml --env-file containers/env.local \
   down --remove-orphans
 ```
 
-The launcher's final output is the authoritative gateway port if it selected a
+The lifecycle's final output is the authoritative gateway port if it selected a
 free port other than the default `8080`. Use that printed port for `curl` and
 browser access. See `docs/CONTAINER_PORT_MAPPING.md` for the local and
 planned-AWS port boundaries.

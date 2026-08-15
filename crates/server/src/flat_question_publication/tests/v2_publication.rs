@@ -64,10 +64,9 @@ async fn version_two_matching_saves_and_publishes_through_the_real_author_route(
     );
     assert_no_store(&publish_headers);
     assert_no_private_tokens(&publish_body);
-    let published: question_model::QuestionDefinition =
-        serde_json::from_slice(&publish_body).expect("published matching question");
+    let published = published_record(&fixture, &publish_body).await;
     assert!(matches!(
-        published.source,
+        published.question.source,
         QuestionSource::Native { ref family } if family == "flat_matching_v2"
     ));
     let reference = ProblemVersionRef {

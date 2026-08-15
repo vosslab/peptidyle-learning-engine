@@ -1,6 +1,4 @@
 use super::*;
-use axum::body::to_bytes;
-use axum::response::Response;
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
     CatalogStore, DraftRecord, PublishDraftCommand, SessionLifetime, SessionSubject, TenantContext,
@@ -23,14 +21,6 @@ use uuid::Uuid;
 
 pub(super) fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
-}
-
-pub(super) async fn issued_cookie(
-    store: &MemoryStore,
-    roles: Vec<UserRole>,
-    user: UserId,
-) -> String {
-    issued_cookie_for_tenant(store, TenantId::from_uuid(id(1)), roles, user).await
 }
 
 pub(super) async fn issued_cookie_for_tenant(
@@ -59,22 +49,25 @@ pub(super) async fn issued_cookie_for_tenant(
         .to_string()
 }
 
-pub(super) async fn response_json(response: Response) -> serde_json::Value {
-    let body = to_bytes(response.into_body(), 128 * 1_024)
-        .await
-        .expect("response body");
-    serde_json::from_slice(&body).expect("JSON response")
-}
-
 pub(super) async fn publish_fixture(
     store: &MemoryStore,
     context: TenantContext,
     tenant: TenantId,
     publisher: UserId,
 ) -> ProblemVersionRef {
-    let problem = ProblemId::from_uuid(id(20));
-    let version = VersionId::from_uuid(id(21));
-    let workspace = WorkspaceId::from_uuid(id(22));
+    publish_fixture_with_identity(store, context, tenant, publisher, 20).await
+}
+
+pub(super) async fn publish_fixture_with_identity(
+    store: &MemoryStore,
+    context: TenantContext,
+    tenant: TenantId,
+    publisher: UserId,
+    identity: u128,
+) -> ProblemVersionRef {
+    let problem = ProblemId::from_uuid(id(identity));
+    let version = VersionId::from_uuid(id(identity + 1));
+    let workspace = WorkspaceId::from_uuid(id(identity + 2));
     let draft = DraftRecord {
         tenant,
         question: DraftQuestionDefinition {
@@ -97,14 +90,13 @@ pub(super) async fn publish_fixture(
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },
             metadata: QuestionMetadata {
-                title: "Peptide bond fixture".to_string(),
+                title: format!("Peptide bond fixture {identity}"),
                 tags: Vec::new(),
                 taxonomy: Vec::new(),
                 license: License::CcBySa,
                 language: "en-US".to_string(),
             },
         },
-        revises: None,
         derived_from: None,
     };
     let saved = store

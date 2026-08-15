@@ -63,18 +63,12 @@ pub(super) fn record(number: u128) -> PublishedProblemRecord {
                 .issue_for_identifier(std::str::from_utf8(&bytes).expect("alphabet is ASCII"))
                 .expect("fixture Question ID issues")
         },
-        public_id: ProblemPublicId::new(
-            u64::try_from(number).expect("fixture number fits a public ID") + 1,
-        )
-        .expect("fixture public ID is positive"),
         version,
-        version_number: ProblemVersionNumber::new(1).expect("fixture version is positive"),
         question,
         capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
         scope: PublicationScope::Public,
         lifecycle: CatalogLifecycle::Published,
         authors: vec![UserId::from_uuid(Uuid::from_u128(40_000))],
-        previous_version: None,
         derived_from: None,
         published_at: ActivityTimestamp::from_unix_millis(0),
     }
@@ -916,15 +910,12 @@ async fn ten_thousand_catalog_rows_return_one_bounded_page_with_server_facets() 
         .await
         .expect("second bounded search");
     assert_eq!(second.items.len(), 37);
-    assert!(
-        first
+    assert!(first.items.iter().all(|left| {
+        second
             .items
             .iter()
-            .all(|left| second
-                .items
-                .iter()
-                .all(|right| (left.problem, left.version) != (right.problem, right.version)))
-    );
+            .all(|right| left.question_id != right.question_id)
+    }));
     assert!(matches!(
         store
             .search_catalog(

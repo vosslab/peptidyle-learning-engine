@@ -3,8 +3,8 @@
 
 import sys
 
-import walklib.runner
+import tests.walkthrough.walklib.runner as runner
 
 
 if __name__ == "__main__":
-	raise SystemExit(walklib.runner.main(sys.argv[1:]))
+	raise SystemExit(runner.main(sys.argv[1:]))

@@ -57,4 +57,4 @@ class CommandResult:
 	stderr: str
 
 
-CommandRunner = Callable[[list[str], dict[str, str] | None], CommandResult]
+CommandRunner = Callable[[list[str], dict[str, str] | None, str | None], CommandResult]

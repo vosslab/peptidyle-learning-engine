@@ -51,7 +51,6 @@ async fn create_workspace<S: Store>(
             DraftRecord {
                 tenant: reference.tenant,
                 question: draft_question(reference.workspace),
-                revises: None,
                 derived_from: None,
             },
         )

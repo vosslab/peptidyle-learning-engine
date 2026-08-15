@@ -85,9 +85,9 @@ impl crate::CourseAssignmentStore for PostgresStore {
             id: assignment,
             tenant: context.tenant_id(),
             course_id: course,
-            title: update.assignment.title,
-            items: update.assignment.items,
-            selection_groups: update.assignment.selection_groups,
+            title: update.assignment.title.clone(),
+            items: update.assignment.items.clone(),
+            selection_groups: update.assignment.selection_groups.clone(),
             policies: update.assignment.policies,
         };
         validate_assignment(&assignment)?;
@@ -107,6 +107,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
         )
         .await?;
         let previous = load_assignment(&mut transaction, assignment.tenant, assignment.id).await?;
+        crate::ensure_assignment_update_preserves_references(&previous, &update.assignment)?;
         let locked_timing = assignment_timing::load_postgres_assignment_timing(
             &mut transaction,
             assignment.tenant,
@@ -233,6 +234,175 @@ impl crate::CourseAssignmentStore for PostgresStore {
             scoring_generation,
             scoring_status,
         })
+    }
+    async fn replace_assignment_fixed_item_impl(
+        &self,
+        context: TenantContext,
+        command: ReplaceAssignmentFixedItemCommand,
+    ) -> Result<StoredAssignment, StoreError> {
+        let mut transaction = self.begin_tenant(context).await?;
+        let (current, _) = lock_fixed_item_assignment(
+            &mut transaction,
+            context,
+            command.course,
+            command.assignment,
+            command.expected_revision,
+        )
+        .await?;
+        let replacement = current
+            .items
+            .iter()
+            .find(|item| item.id == command.current_item)
+            .cloned()
+            .ok_or(StoreError::NotFound)?;
+        let mut replacement = replacement;
+        replacement.reference = command.replacement;
+        let updated = AssignmentRecord {
+            items: current
+                .items
+                .iter()
+                .map(|item| {
+                    if item.id == command.current_item {
+                        replacement.clone()
+                    } else {
+                        item.clone()
+                    }
+                })
+                .collect(),
+            ..current.clone()
+        };
+        validate_postgres_assignment_references(&mut transaction, context, &updated).await?;
+        sqlx::query_scalar::<_, ()>(
+            "SELECT ple_replace_assignment_fixed_item($1, $2, $3, $4, $5, $6, $7)",
+        )
+        .bind(context.tenant_id().as_uuid())
+        .bind(command.course.as_uuid())
+        .bind(command.assignment.as_uuid())
+        .bind(i64::try_from(command.expected_revision.value()).map_err(|_| StoreError::Conflict)?)
+        .bind(command.current_item.as_uuid())
+        .bind(command.replacement.problem.as_uuid())
+        .bind(command.replacement.version.as_uuid())
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let stored =
+            load_fixed_item_assignment(&mut transaction, context.tenant_id(), command.assignment)
+                .await?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(stored)
+    }
+
+    async fn add_assignment_fixed_item_impl(
+        &self,
+        context: TenantContext,
+        command: AddAssignmentFixedItemCommand,
+    ) -> Result<StoredAssignment, StoreError> {
+        let mut transaction = self.begin_tenant(context).await?;
+        let (current, _) = lock_fixed_item_assignment(
+            &mut transaction,
+            context,
+            command.course,
+            command.assignment,
+            command.expected_revision,
+        )
+        .await?;
+        if current.items.iter().any(|item| item.id == command.item.id) {
+            return Err(StoreError::InvalidRecord(
+                "new fixed item uses a fresh assignment item identity".to_string(),
+            ));
+        }
+        let mut updated = current.clone();
+        for existing in &mut updated.items {
+            if existing.position >= command.item.position {
+                existing.position = existing.position.checked_add(1).ok_or_else(|| {
+                    StoreError::InvalidRecord("assignment item position is too large".to_string())
+                })?;
+            }
+        }
+        for group in &mut updated.selection_groups {
+            if group.position >= command.item.position {
+                group.position = group.position.checked_add(1).ok_or_else(|| {
+                    StoreError::InvalidRecord("selection group position is too large".to_string())
+                })?;
+            }
+        }
+        updated.items.push(command.item.clone());
+        validate_assignment(&updated)?;
+        validate_postgres_assignment_references(&mut transaction, context, &updated).await?;
+        sqlx::query_scalar::<_, ()>(
+            "SELECT ple_add_assignment_fixed_item($1, $2, $3, $4, $5, $6, $7, $8, $9::numeric, $10, $11)",
+        )
+        .bind(context.tenant_id().as_uuid())
+        .bind(command.course.as_uuid())
+        .bind(command.assignment.as_uuid())
+        .bind(i64::try_from(command.expected_revision.value()).map_err(|_| StoreError::Conflict)?)
+        .bind(command.item.id.as_uuid())
+        .bind(i32::try_from(command.item.position).map_err(|_| StoreError::InvalidRecord("assignment item position is too large".to_string()))?)
+        .bind(command.item.reference.problem.as_uuid())
+        .bind(command.item.reference.version.as_uuid())
+        .bind(command.item.points_possible.to_string())
+        .bind(assignment_delivery_state_name(command.item.delivery_state))
+        .bind(assignment_scoring_mode_name(command.item.scoring_mode))
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let stored =
+            load_fixed_item_assignment(&mut transaction, context.tenant_id(), command.assignment)
+                .await?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(stored)
+    }
+
+    async fn remove_assignment_fixed_item_impl(
+        &self,
+        context: TenantContext,
+        command: RemoveAssignmentFixedItemCommand,
+    ) -> Result<StoredAssignment, StoreError> {
+        let mut transaction = self.begin_tenant(context).await?;
+        let (current, _) = lock_fixed_item_assignment(
+            &mut transaction,
+            context,
+            command.course,
+            command.assignment,
+            command.expected_revision,
+        )
+        .await?;
+        let removed = current
+            .items
+            .iter()
+            .find(|item| item.id == command.item)
+            .cloned()
+            .ok_or(StoreError::NotFound)?;
+        let mut updated = current.clone();
+        updated.items.retain(|item| item.id != command.item);
+        for existing in &mut updated.items {
+            if existing.position > removed.position {
+                existing.position -= 1;
+            }
+        }
+        for group in &mut updated.selection_groups {
+            if group.position > removed.position {
+                group.position -= 1;
+            }
+        }
+        validate_assignment(&updated)?;
+        sqlx::query_scalar::<_, ()>("SELECT ple_remove_assignment_fixed_item($1, $2, $3, $4, $5)")
+            .bind(context.tenant_id().as_uuid())
+            .bind(command.course.as_uuid())
+            .bind(command.assignment.as_uuid())
+            .bind(
+                i64::try_from(command.expected_revision.value())
+                    .map_err(|_| StoreError::Conflict)?,
+            )
+            .bind(command.item.as_uuid())
+            .fetch_one(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        let stored =
+            load_fixed_item_assignment(&mut transaction, context.tenant_id(), command.assignment)
+                .await?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(stored)
     }
     async fn delete_and_regrade_assignment_item_impl(
         &self,
@@ -467,4 +637,73 @@ impl crate::CourseAssignmentStore for PostgresStore {
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(record)
     }
+}
+
+#[cfg(feature = "postgres")]
+async fn lock_fixed_item_assignment(
+    transaction: &mut Transaction<'_, Postgres>,
+    context: TenantContext,
+    course: CourseId,
+    assignment: AssignmentId,
+    expected_revision: AssignmentRevision,
+) -> Result<(AssignmentRecord, StoredAssignmentTiming), StoreError> {
+    assignment_timing::lock_postgres_assignment_policy(
+        transaction,
+        context.tenant_id(),
+        assignment,
+    )
+    .await?;
+    let current = load_assignment(transaction, context.tenant_id(), assignment).await?;
+    if current.course_id != course {
+        return Err(StoreError::NotFound);
+    }
+    let timing = assignment_timing::load_postgres_assignment_timing(
+        transaction,
+        context.tenant_id(),
+        assignment,
+        true,
+    )
+    .await?
+    .ok_or(StoreError::NotFound)?;
+    if timing.revision != expected_revision {
+        return Err(StoreError::Conflict);
+    }
+    Ok((current, timing))
+}
+
+#[cfg(feature = "postgres")]
+async fn load_fixed_item_assignment(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    assignment: AssignmentId,
+) -> Result<StoredAssignment, StoreError> {
+    let row = sqlx::query(
+        "SELECT assignment_id, course_id, title, completion_policy, \
+                completion_threshold::text AS completion_threshold, \
+                attempt_selection_policy, continued_practice_policy, \
+                practice_max_additional_runs, variation_policy, revision, \
+                scoring_generation, scoring_status, time_limit_seconds \
+         FROM assignment WHERE tenant_id = $1 AND assignment_id = $2 FOR SHARE",
+    )
+    .bind(tenant.as_uuid())
+    .bind(assignment.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?
+    .ok_or(StoreError::NotFound)?;
+    Ok(StoredAssignment {
+        record: load_assignment_relations(transaction, decode_assignment_header(&row, tenant)?)
+            .await?,
+        revision: AssignmentRevision::from_stored(
+            row.try_get("revision").map_err(map_sqlx_error)?,
+        )?,
+        assignment_timing: question_model::AssignmentRunTiming {
+            time_limit_seconds: assignment_timing::decode_postgres_assignment_time_limit(
+                row.try_get::<Option<i32>, _>("time_limit_seconds")
+                    .map_err(map_sqlx_error)?,
+            )?,
+        },
+        scoring_generation: decode_scoring_generation(&row)?,
+        scoring_status: decode_scoring_status(&row)?,
+    })
 }

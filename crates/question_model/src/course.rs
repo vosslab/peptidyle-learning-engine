@@ -3,9 +3,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssignmentId, AssignmentItem, AssignmentPublicId, AssignmentSelectionGroup, CourseId,
-    CoursePublicId, EnrollmentId, RunPolicies, StudentAssignmentSummary, StudentId, TenantId,
-    UserId,
+    AssignmentDeliveryState, AssignmentId, AssignmentItemId, AssignmentPublicId,
+    AssignmentScoringMode, AssignmentSelectionGroupId, BackendCapabilities, CourseId,
+    CoursePublicId, EnrollmentId, PointValue, QuestionBackend, QuestionId, RunPolicies,
+    SelectionOrdering, StudentAssignmentSummary, StudentId, TenantId, UserId,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -48,6 +49,70 @@ pub struct CourseSummary {
 }
 
 /// Browser-safe assignment definition.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssignmentItemSummary {
+    /// Server-minted identity for this editable assignment slot.
+    pub id: AssignmentItemId,
+    /// Sole browser-visible locator for the immutable published question.
+    pub question_id: QuestionId,
+    /// Safe catalog label shown while editing this assignment.
+    pub title: String,
+    /// Adapter family selected for the item.
+    pub backend: QuestionBackend,
+    /// Capabilities declared for the published question.
+    pub capabilities: BackendCapabilities,
+    /// Zero-based position used for future runs.
+    pub position: u32,
+    /// Current assignment-authored points.
+    pub points_possible: PointValue,
+    /// Whether future runs may receive the item.
+    pub delivery_state: AssignmentDeliveryState,
+    /// Current-only scoring treatment.
+    pub scoring_mode: AssignmentScoringMode,
+}
+
+/// Browser-safe candidate in one random-selection group.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssignmentSelectionCandidateSummary {
+    /// Server-minted identity for this editable selection candidate.
+    pub id: AssignmentItemId,
+    /// Sole browser-visible locator for the immutable published question.
+    pub question_id: QuestionId,
+    /// Safe catalog label shown while editing this assignment.
+    pub title: String,
+    /// Adapter family selected for the candidate.
+    pub backend: QuestionBackend,
+    /// Capabilities declared for the published question.
+    pub capabilities: BackendCapabilities,
+    /// Zero-based authored order within this selection group.
+    pub position: u32,
+    /// Whether future runs may select this candidate.
+    pub delivery_state: AssignmentDeliveryState,
+}
+
+/// Browser-safe random-selection definition.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssignmentSelectionGroupSummary {
+    /// Stable group identity.
+    pub id: AssignmentSelectionGroupId,
+    /// Position of this group among fixed items and other groups.
+    pub position: u32,
+    /// Number of active candidates selected for each future run.
+    pub draw_count: u32,
+    /// Uniform current points for each selected candidate.
+    pub points_per_item: PointValue,
+    /// Output ordering after selection.
+    pub ordering: SelectionOrdering,
+    /// Stable algorithm version needed to reproduce selection.
+    pub algorithm_version: u16,
+    /// Browser-safe current candidate set.
+    pub candidates: Vec<AssignmentSelectionCandidateSummary>,
+}
+
+/// Browser-safe assignment definition.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssignmentSummary {
@@ -62,9 +127,9 @@ pub struct AssignmentSummary {
     /// Human-facing assignment title.
     pub title: String,
     /// Ordered stable fixed items in the current assignment definition.
-    pub items: Vec<AssignmentItem>,
+    pub items: Vec<AssignmentItemSummary>,
     /// Current random-selection groups with pinned immutable candidates.
-    pub selection_groups: Vec<AssignmentSelectionGroup>,
+    pub selection_groups: Vec<AssignmentSelectionGroupSummary>,
     /// Four independent run policies.
     pub policies: RunPolicies,
 }
@@ -98,10 +163,7 @@ pub struct GradebookSummaryRow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        CompletionRequirement, ContinuedPractice, GradePolicy, ProblemId, VariationPolicy,
-        VersionId,
-    };
+    use crate::{CompletionRequirement, ContinuedPractice, GradePolicy, VariationPolicy};
     use uuid::Uuid;
 
     #[test]
@@ -112,12 +174,12 @@ mod tests {
             tenant: TenantId::from_uuid(Uuid::from_u128(2)),
             course_id: CourseId::from_uuid(Uuid::from_u128(3)),
             title: "Peptide bonds".to_string(),
-            items: vec![AssignmentItem {
+            items: vec![AssignmentItemSummary {
                 id: crate::AssignmentItemId::from_uuid(Uuid::from_u128(4)),
-                reference: crate::ProblemVersionRef {
-                    problem: ProblemId::from_uuid(Uuid::from_u128(5)),
-                    version: VersionId::from_uuid(Uuid::from_u128(6)),
-                },
+                question_id: "7K3-M9QX".parse().expect("fixture Question ID parses"),
+                title: "Peptide bonds".to_string(),
+                backend: crate::QuestionBackend::Native,
+                capabilities: crate::BackendCapabilities::none(),
                 position: 0,
                 points_possible: crate::PointValue::from_whole(1),
                 delivery_state: crate::AssignmentDeliveryState::Active,
@@ -135,6 +197,9 @@ mod tests {
         let value = serde_json::to_value(assignment).expect("assignment should serialize");
         assert!(value.get("courseId").is_some());
         assert!(value.get("course_id").is_none());
+        let item = &value["items"][0];
+        assert_eq!(item["questionId"], "7K3-M9QX");
+        assert!(item.get("reference").is_none());
     }
 
     #[test]

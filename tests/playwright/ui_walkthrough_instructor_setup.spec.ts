@@ -178,27 +178,28 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
   await expect(page.getByRole("radio", { name: "Timed", exact: true })).toBeChecked();
   await expect(page.getByLabel("Minutes per practice run")).toHaveValue("15");
   const assignmentTitleInput = page.getByLabel("Assignment title");
+  await tabTo(page, assignmentTitleInput);
   await expect(assignmentTitleInput).toBeFocused();
   await assignmentTitleInput.fill(assignmentTitle);
-  const addByQuestionId = page.getByText("Add by question ID", { exact: true });
-  await expect(addByQuestionId).toBeVisible();
-  await tabTo(page, addByQuestionId);
-  await expect(addByQuestionId).toBeFocused();
+  const addSeveralQuestionIds = page.getByText("Add several Question IDs", { exact: true });
+  await expect(addSeveralQuestionIds).toBeVisible();
+  await tabTo(page, addSeveralQuestionIds);
+  await expect(addSeveralQuestionIds).toBeFocused();
   await page.keyboard.press("Enter");
   const directImport = page.getByLabel("Question IDs");
   await expect(directImport).toBeVisible();
   const search = page.getByLabel("Search published questions");
   await tabTo(page, search);
   await expect(search).toBeFocused();
-  const searchCatalog = page.getByRole("button", { name: "Search catalog", exact: true });
+  const searchLibrary = page.getByRole("button", { name: "Search library", exact: true });
   await page.context().grantPermissions(["clipboard-write"], {
     origin: new URL(inputs.baseUrl).origin,
   });
   const copiedDisplayIds = inputs.catalogDisplayIds;
   for (const [index, displayId] of copiedDisplayIds.entries()) {
     await search.fill(displayId);
-    await tabTo(page, searchCatalog);
-    await expect(searchCatalog).toBeFocused();
+    await tabTo(page, searchLibrary);
+    await expect(searchLibrary).toBeFocused();
     await page.keyboard.press("Enter");
     const catalogRow = page.locator(".assignment-editor-catalog-results article", {
       has: page.locator("code", { hasText: new RegExp(`^${displayId}$`, "u") }),
@@ -209,7 +210,7 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
       await captureDocumentationScreenshot(
         page,
         "instructor_problem_catalog.png",
-        page.getByRole("heading", { name: "Question catalog", exact: true }),
+        page.getByRole("heading", { name: "Add from library", exact: true }),
         72,
         inputs.screenshotDirectory,
       );
@@ -239,9 +240,9 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
   await tabTo(page, addById);
   await expect(addById).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(page.locator(".assignment-editor-import-success")).toHaveText(
-    `Added ${copiedDisplayIds.join(", ")} to the unsaved selection.`,
-  );
+  await expect(
+    page.locator('[data-route-surface="assignmentEditor"] > p[role="status"]'),
+  ).toHaveText(`Added ${copiedDisplayIds.join(", ")} to the unsaved selection.`);
   await expect(page.locator(".assignment-editor-list").getByRole("listitem")).toHaveCount(4);
   for (const displayId of copiedDisplayIds) {
     const selectedId = page

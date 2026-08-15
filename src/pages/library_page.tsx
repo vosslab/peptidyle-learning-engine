@@ -3,7 +3,7 @@
 import { A } from "@solidjs/router";
 import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 
-import { CopyableProblemId } from "../components/copyable_problem_id";
+import { CopyableQuestionId } from "../components/copyable_question_id";
 import "./library_page.css";
 import {
   EMPTY_CATALOG_QUERY,
@@ -147,14 +147,18 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           </select>
         </label>
         <label>
-          Statistic availability
+          Evidence
           <select
             value={query().statistic ?? ""}
             onChange={(event) => changeQuery({ statistic: event.currentTarget.value || null })}
           >
-            <option value="">All availability</option>
+            <option value="">Any evidence</option>
             <For each={facets("statistic")()}>
-              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
+              {(facet) => (
+                <option value={facet.value}>
+                  {`${facet.value === "available" ? "Has disclosed evidence" : "Insufficient evidence"} (${facet.count})`}
+                </option>
+              )}
             </For>
           </select>
         </label>
@@ -208,7 +212,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                     <h2>{row.title}</h2>
                     <p>{row.summary}</p>
                     <p class="card-kicker">{row.taxonomy.join(" / ")}</p>
-                    <CopyableProblemId displayId={row.displayId} />
+                    <CopyableQuestionId displayId={row.displayId} />
                     <A class="quiet-link" href={catalogLink(row)}>
                       Open question
                     </A>

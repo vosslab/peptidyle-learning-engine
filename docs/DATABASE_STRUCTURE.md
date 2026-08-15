@@ -107,6 +107,12 @@ data that does not exist. The active release plan decides which versions are acc
 | 2026080934 | Security repair  | Require current-tenant ownership, not catalog visibility, to append catalog tenant grants, immutable version payloads, or source artifacts | File present; focused live RLS oracle pending |
 | 2026080935 | Question ID      | Require a live original-instructor session capability for owner corrections; propagate only future assignment definitions through a narrow broker while preserving issued evidence | File present; focused static/offline checks pending live baseline |
 
+The 2026080931 and 2026080935 entries describe superseded pre-production migration behavior. The
+current WP-R2 schema contract uses one immutable Question ID per publication, fresh hidden
+`(ProblemId, VersionId)` evidence, optional one-way provenance, and deliberate revision-checked
+assignment replacement. The migration ledger remains historical evidence; it does not authorize
+same-question correction, version-chain resolution, or automatic propagation.
+
 The upload migration follows the reserved identity/reconciliation/LTI sequence and remains planned while
 learner file responses fail closed. See the
 [secure learner upload plan](active_plans/active/secure_learner_file_upload_plan.md).
@@ -136,7 +142,7 @@ are not stored in these relations.
 | Data class                 | Primary relations                                                                                                                                      | Ownership and mutability                                                                                                    |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
 | PLE account authentication | `ple_account`, `email_authentication_challenge`, `authentication_rate_limit`, `account_authentication_session`, `webauthn_ceremony`, `account_passkey` | Global opaque account and private credential state under the authentication role; email is mutable and never a primary key. |
-| Catalog and publication    | `problem`, `problem_version`, `problem_version_payload`, `answer_key`, `published_source_artifact`                                                     | One human Question ID names the current question; hidden immutable snapshots preserve grading and provenance.                |
+| Catalog and publication    | `problem`, `problem_version`, `problem_version_payload`, `answer_key`, `published_source_artifact`                                                     | One human Question ID names one immutable published question; hidden exact evidence preserves grading and provenance.         |
 | Private authoring          | `workspace_draft` and `workspace_*` import/source relations                                                                                            | Tenant-private mutable work before publication.                                                                             |
 | Course activity            | `course`, `course_member`, `tenant_learner_identity`, `course_roster_*`, `course_invitation`, `assignment`, `assignment_item`, `enrollment`            | Tenant/course configuration, protected roster PII, membership, and enrollment.                                              |
 | Learner evidence           | `assignment_run`, `assignment_run_item`, `question_attempt`, `submission`, `submission_evaluation`                                                     | Tenant-owned educational records.                                                                                           |
@@ -231,7 +237,7 @@ The migration owns indexes alongside the query contract. Representative hot path
 
 | Query path                                                | Owning indexes or constraint                                                              |
 | --------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Current Question ID and text search | `catalog_search_document_question_id_idx` and `catalog_search_document_search_idx`          |
+| Exact Question ID and text search | `catalog_search_document_question_id_idx` and `catalog_search_document_search_idx`            |
 | Course assignment paging and selected item order          | `assignment_course_page_idx` and `assignment_item_assignment_idx`                         |
 | Gradebook enrollment paging                               | `enrollment_gradebook_summary_page_idx` over the current summary join key                 |
 | One active run and run-attempt cursor paging              | `assignment_run_one_active_idx` and `question_attempt_run_summary_cursor_idx`             |

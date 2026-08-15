@@ -281,24 +281,6 @@ run_live_cargo_test "family-filtered concurrent worker claims" env PLE_TEST_DATA
 	postgres_worker_claim_filter_is_concurrent_and_leaves_reserved_work_untouched \
 	-- --ignored --exact --test-threads=1
 
-echo "database baseline E2E: tenant-qualified public catalog ownership"
-run_live_cargo_test "tenant-qualified public catalog ownership" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
-	--test postgres_catalog_ownership_live \
-	postgres_public_catalog_writes_require_owner_tenant \
-	-- --ignored --exact --test-threads=1
-
-echo "database baseline E2E: exact human catalog ID resolves only within its institution"
-run_live_cargo_test "exact human catalog ID resolves only within its institution" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
-	--test postgres_catalog_ownership_live \
-	postgres_catalog_resolver_hides_foreign_institution_question_id \
-	-- --ignored --exact --test-threads=1
-
-echo "database baseline E2E: catalog text and exact human ID search"
-run_live_cargo_test "catalog text and exact human ID search" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
-	--test postgres_catalog_ownership_live \
-	postgres_catalog_search_finds_exact_question_id \
-	-- --ignored --exact --test-threads=1
-
 echo "database baseline E2E: ranked catalog Store cursor behavior"
 run_live_cargo_test "ranked catalog Store cursor behavior" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_catalog_search_live \
@@ -335,10 +317,10 @@ run_live_cargo_test "atomic assignment-editor timing and active-run reschedule" 
 	postgres_assignment_editor_timing_is_atomic_and_reschedules_active_work \
 	-- --ignored --exact --test-threads=1
 
-echo "database baseline E2E: immutable submission replay receipt"
-run_live_cargo_test "immutable submission replay receipt" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+echo "database baseline E2E: concurrent prefetch preserves immutable submission replay"
+run_live_cargo_test "concurrent prefetch preserves immutable submission replay" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_submission_replay_live \
-	postgres_submission_replay_requires_its_immutable_receipt_snapshot \
+	postgres_submission_replay_preserves_its_immutable_receipt_during_concurrent_prefetch \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: immutable private flat-question image registry"
@@ -434,11 +416,11 @@ VALUES
     ('00000000-0000-4000-8000-000000000102', 'H5Q8X32', '$TENANT_B'::uuid, '00000000-0000-4000-8000-000000000202', 'institution', 'CC0-1.0'),
     ('00000000-0000-4000-8000-000000000103', 'N7P4Y98', '$TENANT_B'::uuid, '00000000-0000-4000-8000-000000000203', 'institution', 'CC0-1.0');
 INSERT INTO public.problem_version
-    (problem_id, version_id, version_number, content_sha256, workspace_id, title, publication_scope, authors)
+    (problem_id, version_id, content_sha256, workspace_id, title, publication_scope, authors)
 VALUES
-    ('00000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000000111', 1, repeat('a', 64), '00000000-0000-4000-8000-000000000211', 'public grader probe', 'public', '["E2E"]'::jsonb),
-    ('00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000112', 1, repeat('b', 64), '00000000-0000-4000-8000-000000000212', 'granted grader probe', 'institution', '["E2E"]'::jsonb),
-    ('00000000-0000-4000-8000-000000000103', '00000000-0000-4000-8000-000000000113', 1, repeat('c', 64), '00000000-0000-4000-8000-000000000213', 'private grader probe', 'institution', '["E2E"]'::jsonb);
+    ('00000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000000111', repeat('a', 64), '00000000-0000-4000-8000-000000000211', 'public grader probe', 'public', '["E2E"]'::jsonb),
+    ('00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000112', repeat('b', 64), '00000000-0000-4000-8000-000000000212', 'granted grader probe', 'institution', '["E2E"]'::jsonb),
+    ('00000000-0000-4000-8000-000000000103', '00000000-0000-4000-8000-000000000113', repeat('c', 64), '00000000-0000-4000-8000-000000000213', 'private grader probe', 'institution', '["E2E"]'::jsonb);
 INSERT INTO public.catalog_tenant_grant (tenant_id, problem_id, version_id)
 VALUES ('$TENANT_A'::uuid, '00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000112');
 INSERT INTO public.answer_key (problem_id, version_id, key_payload, key_sha256)

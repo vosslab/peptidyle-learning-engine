@@ -2,9 +2,7 @@
   "fixtureSchemaVersion": 4,
   "modelSchemaVersion": 1,
   "catalogProblem": {
-    "problem": "0198e000-0000-7000-8000-000000000003",
     "questionId": "7K3-M9QP",
-    "version": "0198e000-0000-7000-8000-000000000004",
     "backend": "native",
     "capabilities": [
       "algorithmicGeneration",
@@ -35,11 +33,6 @@
     "lifecycle": {
       "state": "published"
     },
-    "authors": [
-      "0198e000-0000-7000-8000-000000000015"
-    ],
-    "previousVersion": null,
-    "derivedFrom": null,
     "publishedAt": 1786000000000
   },
   "publishedProblem": {
@@ -296,10 +289,16 @@
     "items": [
       {
         "id": "0198e000-0000-7000-8000-000000000017",
-        "reference": {
-          "problem": "0198e000-0000-7000-8000-000000000003",
-          "version": "0198e000-0000-7000-8000-000000000004"
-        },
+        "questionId": "7K3-M9QP",
+        "title": "Peptide bond resonance and planarity",
+        "backend": "native",
+        "capabilities": [
+          "algorithmicGeneration",
+          "clientRendering",
+          "serverGrading",
+          "hints",
+          "perQuestionTiming"
+        ],
         "position": 0,
         "pointsPossible": "1",
         "deliveryState": "active",

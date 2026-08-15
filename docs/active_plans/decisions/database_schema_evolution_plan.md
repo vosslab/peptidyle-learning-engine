@@ -21,7 +21,7 @@ The database must serve several legitimate perspectives at once:
 | -------------------- | -------------------------------------------------------------------------------- |
 | Instructor           | Change points, dates, policies, and remove and regrade bad questions             |
 | Student              | Stable active attempts, fair recalculation, and recovery from technical problems |
-| Problem author       | Immutable published content, drafts, new versions, and provenance                |
+| Problem author       | Immutable published questions, drafts, new Question IDs, and provenance          |
 | Problem finder       | Human-readable IDs and discovery that is not restricted by subject               |
 | Grader               | Raw responses, deterministic evaluation, manual grading, and recalculation       |
 | Support staff        | Force-submit, clear attempts, access logs, and actionable statuses               |
@@ -82,7 +82,14 @@ adapter-specific metadata. Every durable JSONB contract has a schema version and
 This preserves the useful part of Sinedon's required identity and timestamp convention without
 giving every pure relationship a meaningless surrogate ID.
 
-### Human problem IDs
+### Superseded human problem ID proposal
+
+The following predecessor proposal is retained only to explain the earlier schema review. It is not
+the current product or schema contract. [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md#teaching-and-product-priorities)
+and [PROBLEM_IDENTITY.md](../../PROBLEM_IDENTITY.md#human-facing-question-id) define the current
+authority: `AAA-BBBB` is the sole durable question identity, every content change receives a new
+Question ID and fresh hidden exact evidence, and no browser workflow resolves a latest version or
+selects a hidden pair.
 
 - `problem.problem_id UUID` remains the internal key.
 - Add `problem.public_id BIGINT GENERATED ALWAYS AS IDENTITY`, unique and never reused.
@@ -98,12 +105,14 @@ giving every pure relationship a meaningless surrogate ID.
 
 ### Published problems
 
-- `problem` stores stable identity, ownership, visibility, license, lifecycle, and public ID.
-- `problem_version` stores version number, schema version, checksum, searchable metadata, and
-  provenance.
+- `problem` stores one immutable publication's stable identity, ownership, visibility, license,
+  lifecycle, and Question ID.
+- `problem_version` stores hidden exact publication evidence, schema version, checksum, searchable
+  metadata, and optional one-way provenance.
 - `problem_version_payload` stores the immutable normalized question definition separately from hot
   search metadata.
-- Published versions are immutable. Corrections create a new version.
+- Published questions are immutable. Every content change publishes a new Question ID and fresh
+  hidden exact evidence.
 - Drafts remain private workspace records and receive no public problem ID until publication.
 
 Question-type-specific structures, such as fill-in-multiple-blanks match rules, remain inside the
@@ -179,7 +188,8 @@ Do not create `assignment_version`, assignment-history payloads, or scoring-revi
 
 - Stable UUID.
 - Tenant and assignment IDs.
-- Pinned problem and version IDs.
+- Hidden pinned problem and version IDs for server-side exact replay, grading, audit, and
+  provenance; browser summaries use the Question ID and safe display metadata.
 - Current position.
 - Current `points_possible`.
 - `delivery_state`: `active` or `retired`.
@@ -190,20 +200,19 @@ authoritative afterward.
 
 ### Publication and locking
 
-Before the first student run:
-
-- Instructors may freely add, replace, remove, and reorder items.
-- Replacing a problem creates a new item rather than mutating the pinned version of an existing item.
+Before the first student run, Instructors may add, replace, remove, and reorder items through the
+assignment's strong revision boundary. A focused replacement selects one new Question ID and keeps
+the item's ordinary assignment configuration.
 
 After any student run has been issued:
 
-- Adding questions or replacing pinned problem versions is blocked.
-- Point values and assignment policies remain editable.
-- Reordering affects future runs only.
-- Existing and active runs retain their issued question order.
-- Fixed items and selection candidates may be removed through **Delete and Regrade**.
-- A selection candidate may be removed only when enough active candidates remain to satisfy the
-  group's draw count.
+- Point values, assignment policies, and reordering remain editable for future runs.
+- A fixed item may be deliberately replaced through the same revision-checked Question-ID operation.
+  The updated definition affects future runs only; existing and active runs retain their issued
+  question order and exact hidden evidence.
+- Add and remove operations remain pre-evidence edits. A selection candidate may be removed only
+  before issued evidence and only when enough active candidates remain to satisfy the group's draw
+  count.
 - An assignment with student records cannot be physically deleted; it may be closed or archived.
 
 ## Delete and Regrade
@@ -449,7 +458,7 @@ after evidence is recorded rather than becoming committed fixtures.
 
 Introduce or revise these domain concepts:
 
-- `ProblemPublicId` and `ProblemVersionRef`
+- `QuestionId` and internal `ProblemVersionRef`
 - `AssignmentItem`
 - `AssignmentSelectionGroup` and pinned candidates
 - `AssignmentScoringMode`

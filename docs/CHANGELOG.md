@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-08-15
+
+### Fixes and Maintenance
+
+- Accepted WP-PY-L1 direct Python lifecycle cutover. Final material-tree evidence includes 4,881
+  pytest passes with zero failed, skipped, or warned; all five `check_codebase.sh` stages and 260 Node
+  tests; full `check_rust.sh`; and 202 ordinary Playwright tests. Default typed start/status/read-only
+  validate, renderer stop/restart plus full WebWork RPC, schema-v2 J11-J13/J1-J5/J8 walkthrough,
+  replica/restart durable replay, and the seven-lane aggregate all passed. The final default state had
+  zero containers/networks and exactly `containers_ple_pgdata`, `containers_ple_miniodata`, and
+  `containers_ple_identity_runtime` retained.
+- `final_python_repository_review.ae3`, `final_podman_security_review.c2`, and
+  `walkthrough_acceptance_final_review.ae3` each returned ACCEPT with no P0-P3 finding. M0 remains
+  open; WP-RC8 acceptance is next. Live fixes covered renderer OCI-ID normalization, seed database
+  environment fallback, unsupported Compose `rm` removal, restart recovery/readiness, semantic renderer
+  probing, Chapter private provenance, replica Question-ID manifest, and browser readiness/foreground.
+  Sibling `webwork-pg-renderer` dependency fixes are recorded without any staging or commit claim.
+
 ## 2026-08-14
 
 ### Additions and New Features
@@ -11,14 +29,22 @@
 
 ### Fixes and Maintenance
 
-- Relocated the local Podman controller from root-level scripts into `local_stack_control/` to keep the
-  repository root focused. The only public lifecycle and aggregate acceptance surface is now
-  `source source_me.sh && python3 local_stack.py`; `launch.sh`, `_restart.sh`, and `_consumer_cli.py`
-  are private implementation helpers inside that package.
+- Historical WP-R1 checkpoint: relocated the local Podman controller from root-level scripts into
+  `local_stack_control/` to keep the repository root focused. The public lifecycle and aggregate
+  acceptance surface was `source source_me.sh && python3 local_stack.py`; the then-retained
+  `launch.sh` and `_restart.sh` were private helpers. This records predecessor evidence, not the
+  current WP-PY-L1 lifecycle owner.
+- WP-PY-L1 now deletes `local_stack_control/launch.sh`, `local_stack_control/_restart.sh`, and
+  `containers/local_identity_bootstrap.sh` in favor of direct focused Python lifecycle, private-state,
+  identity, renderer-provenance, Podman, polling, and cleanup ownership. Final offline/live Validation
+  is green: default typed lifecycle, renderer recovery/RPC, schema-v2 walkthrough, durable replica replay,
+  and all seven aggregate lanes passed; the post-run default state had zero containers and three retained
+  volumes. At that 2026-08-14 checkpoint, the three named final independent reviews were still pending,
+  so WP-PY-L1 was currently validating rather than accepted.
 - Strengthened disposable lifecycle ownership. Every closed owner now uses the one required
   `podman-compose --in-pod false` boundary, preventing unlabelled pods from escaping label-driven
-  cleanup, and mutation-time ownership revalidates those exact provider arguments. The private
-  launcher accepts a non-default project only when its runner-held mode-0600 capability matches the
+  cleanup, and mutation-time ownership revalidates those exact provider arguments. The private typed
+  lifecycle accepts a non-default project only when its runner-held mode-0600 capability matches the
   private environment commitment. The replica owner additionally builds with a nonce-scoped
   application image and removes only that tag and its generated gateway tag after capability-bound
   labelled discovery proves the project empty. Cleanup failures retain private recovery evidence
@@ -31,18 +57,32 @@
 
 ### Developer Tests and Notes
 
+- Accepted WP-R2 immutable-question release truth on the final material tree. Every content change
+  now publishes a fresh `AAA-BBBB` Question ID and opaque exact publication evidence; explicit,
+  revision-checked item replacement changes future runs while issued evidence remains exact. The
+  legacy correction-propagation, sequential identity, and version-chain paths are removed. All final
+  gates passed: `./check_codebase.sh` completed five steps with 260 Node tests, the fast pytest suite
+  passed 4,856 tests, `./check_rust.sh` passed the full Rust suite, and the seven-lane aggregate
+  passed ordinary browser, two visual, canonical walkthrough, Chapter One pilot, Chapter One browser
+  with four live Question-ID replacements, and WebWork render/grade/outage lanes. Test, UI, and
+  architecture reviews returned ACCEPT with no P0/P1 finding. The canonical renderer image was
+  rebuilt only for acceptance; cleanup removed all disposable containers, images, and volumes. M0
+  remains open. At this 2026-08-14 checkpoint, WP-PY-L1 had passed final offline/live Validation and
+  was awaiting its named independent final reviews.
 - WP-R0 final evidence is accepted on the final material tree: 91 Memory library tests, 3 server
   catalog tests, 1,173 source-line cases, and a clean PostgreSQL 17 baseline with all 32 migrations,
   idempotence, verification, named Store/continuation/disclosure/plan/broker/RLS/ownership lanes,
   and maintained baseline coverage. The independent final review returned ACCEPT. This is bounded
   catalog evidence, not a full-repository, browser, or M0 Validation claim.
-- Completed the local-stack controller Validation suite on the final material tree. The five pure
-  controller modules passed 42 cases, the full fast pytest suite passed 4,799 cases, the repository
-  code and Rust gates passed, and the ordinary Playwright suite passed all 212 discovered tests with
-  zero skips. The public `python3 local_stack.py acceptance` command then passed
-  all six required lanes: ordinary browser behavior, both visual verifiers, the canonical J1-J5
-  walkthrough, both Chapter 1 journeys, and canonical WebWork render/grade/outage acceptance.
-- Live lifecycle evidence proved a rootless default stop retaining its three named volumes, an exact
+- Accepted WP-R1 on the final material tree. Disclosed statistics rendering and the Python-owned
+  Chapter One pilot/browser plus aggregate acceptance lanes now use the typed `local_stack_control`
+  boundary. `./check_codebase.sh`, `./check_rust.sh`, and the 4,865-case fast pytest suite passed;
+  `source source_me.sh && python3 local_stack.py acceptance` then passed all seven required lanes:
+  ordinary browser behavior, two visual verifiers, the canonical J1-J5 walkthrough, Chapter One
+  pilot, Chapter One browser, and canonical WebWork render/grade/outage acceptance. The designated
+  renderer image name remains the stable selection/rebuild target and each live run records its OCI
+  configuration ID for exact runtime provenance. M0 remains open; WP-R2 is next.
+- Historical WP-R1 live lifecycle evidence proved a rootless default stop retaining its three named volumes, an exact
   confirmed reset followed by a clean launcher rebuild, stateless renderer recreation, replica
   replacement with durable replay, conflict refusal without mutation, and capability-scoped cleanup
   of every disposable project. The final local state is `containers` stopped with zero containers,

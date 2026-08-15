@@ -14,8 +14,8 @@ question slugs, titles, subject and course display names, point values, families
 rather than UUIDs. The publication seed reads that validated inventory instead of maintaining a
 second human-visible catalog. The instructor UI presents one canonical `AAA-BBBB` Crockford
 Question ID for each question. Server-side checksum validation and tenant/actor authorization
-resolve the current assignable question; internal UUIDs and immutable snapshots remain hidden for
-grading and provenance.
+resolve that exact assigned question subject to lifecycle policy; internal UUIDs and immutable
+snapshots remain hidden for grading and provenance.
 
 ## Source and review boundary
 
@@ -51,11 +51,11 @@ all four static questions.
 Run the disposable publication oracle separately:
 
 ```bash
-bash tests/e2e/e2e_chapter_one_pilot.sh
+source source_me.sh && python3 tests/e2e/e2e_chapter_one_pilot.py
 ```
 
-It starts a uniquely named PostgreSQL and MinIO project, publishes the eight immutable current
-questions and two four-item Mastery assignments, then reruns the seed without mutation. Historical
+It starts a uniquely named PostgreSQL and MinIO project, publishes eight immutable questions and
+two four-item Mastery assignments, then reruns the seed without mutation. Historical
 pilot evidence used `P-...-v1` references; that superseded public identity is not the current
 contract. Current instructor-facing IDs use canonical `AAA-BBBB` Crockford Question IDs, while
 immutable snapshots stay internal for grading and provenance. The reviewed WeBWorK sources directly
@@ -65,10 +65,13 @@ removes only its own disposable containers and volumes. The normal local launche
 host-only seed path and writes its answer-free manifest to
 `containers/local-chapter-one-pilot.json`.
 
+The legacy pilot shell entry point is a logic-free compatibility `exec` facade. Python owns the
+disposable lifecycle and private manifest publication boundary.
+
 Run the complete built-browser learner gate separately:
 
 ```bash
-bash tests/e2e/e2e_chapter_one_browser.sh
+source source_me.sh && python3 tests/e2e/e2e_chapter_one_browser.py
 ```
 
 It builds the browser artifacts, starts a uniquely named complete PLE stack, publishes

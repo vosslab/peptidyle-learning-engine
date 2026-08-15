@@ -177,9 +177,9 @@ form only when intentionally recreating local data. See
 [docs/LOCAL_STACK_OPERATIONS.md](docs/LOCAL_STACK_OPERATIONS.md) for the controller contract and
 [docs/USAGE.md](docs/USAGE.md) for detailed everyday workflows.
 
-Private `local_stack_control/launch.sh` remains the implementation and recovery seam for build, bootstrap,
-migration, seeding, renderer checks, and semantic readiness. Use it directly only while diagnosing
-or repairing that launcher path.
+Focused `local_stack_control` Python modules own lifecycle sequencing, private local state, renderer
+provenance, and readiness behind the controller. Use `validate`, `start --no-open`, or `restart SERVICE`
+through the public controller for recovery; `validate` is read-only.
 
 For the smallest complete offline first success, install current Rust through `rustup`. The
 repository's [rust-toolchain.toml](rust-toolchain.toml) selects stable Rust, rustfmt, Clippy, and the

@@ -44,11 +44,10 @@ recoverable failure. Continued practice remains available after completion.
 | `/course-invitations/redeem`                                   | Learner invitation claim                   | Account session plus one-time invitation      |
 | `/account/security`                                            | Passkey and account-email management       | Account-owned credential projections only     |
 | `/courses/:courseId`                                           | Assignments with progress and run counts   | Cursor-paged assignments and summary rows     |
-| `/courses/:courseId/assignments/:assignmentId`                 | Assignment overview and run history        | Immutable problem/version references and runs |
+| `/courses/:courseId/assignments/:assignmentId`                 | Assignment overview and run history        | Safe Question-ID item summaries and runs      |
 | `/runs/:runId`                                                 | One-question-at-a-time attempt loop        | Run screen query and response widget          |
 | `/runs/:runId/summary`                                         | Run outcomes and continued-practice entry  | Per-question disclosed feedback and run score |
 | `/library`                                                     | Shared problem browser                     | Cursor-paged facets and catalog results       |
-| `/library/:problemId/versions/:versionId`                      | Problem detail and version lineage         | Immutable published version                   |
 | `/workspace`                                                   | Instructor drafts                          | Tenant-owned workspace summaries              |
 | `/workspace/:workspaceId`                                      | Draft editor, validation, and WASM preview | Draft and capability violations               |
 | `/instructor/courses/:courseId/assignments/:assignmentId/edit` | Assignment policy editor                   | Assignment and capability validation          |
@@ -78,7 +77,7 @@ fixtures directly; mock data stays behind the same client interface a future
 HTTP transport implements.
 
 The ordinary browser build excludes the local-development credential form.
-Private `local_stack_control/launch.sh` alone opts its build into that UI with the exact
+The private typed local-stack lifecycle alone opts its build into that UI with the exact
 `PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH=1` build capability, matching the server's
 separately feature-gated local route composition. Production does not mount the
 endpoint or include the form or local-login transport in its emitted browser
@@ -97,16 +96,19 @@ artifacts.
 
 `listProblems(cursor)` returns `CatalogProblemSummary` hot metadata rather
 than full question payloads. `listTaxonomy(cursor)` uses the same bounded page
-shape. `getProblemVersion(problemId, versionId)` is the separate exact payload
-lookup, so browse does not load prompts, response definitions, or private
-source locators for every row.
+shape. `getCatalogProblemDetail(questionId)` is the separate safe exact
+Question-ID projection; it excludes answer/response definitions, source
+locators, grading material, and internal publication evidence, while browse
+does not load those private fields for every row.
 
 `listCourses(cursor)` returns Rust-owned `CourseSummary` values carrying the
 signed-in user's effective course role. `listAssignments(courseId, cursor)` is
 typed with `CourseId` and returns Rust-owned `AssignmentSummary` values whose
-ordered problems are exact immutable ID pairs. The course API verifies direct
-course membership before either list is returned. `Sysadmin` is a platform
-role, not ambient authority over a course or its FERPA records.
+ordered item summaries contain Question IDs and safe display metadata. The
+client uses focused add, remove, and revision-checked replacement methods for
+item identity changes; it never sends an internal publication pair. The course
+API verifies direct course membership before either list is returned. `Sysadmin`
+is a platform role, not ambient authority over a course or its FERPA records.
 
 `startRun(assignmentId)` sends `{ assignmentId }` to the run route rather than
 encoding the assignment in a tenant-selecting path. `listRuns(enrollmentId,

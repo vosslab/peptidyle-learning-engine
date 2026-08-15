@@ -496,6 +496,36 @@ impl EnrollmentEmailSettings {
     }
 }
 
+/// Constructs the capability for the dedicated invitation-delivery process.
+/// An incomplete SMTP configuration leaves that process alive but deliberately
+/// unable to claim a delivery.
+pub(super) fn invitation_delivery_worker_from_env() -> Result<
+    Option<(
+        crate::course::CourseInvitationIssuer,
+        Arc<dyn crate::course::CourseInvitationDelivery>,
+    )>,
+> {
+    let Some(email) = EnrollmentEmailSettings::from_env()? else {
+        return Ok(None);
+    };
+    let secret = EnrollmentSecretSettings::from_env()?.ok_or_else(|| {
+        anyhow::anyhow!("PLE_INVITATION_TOKEN_SECRET_FILE must be set when PLE SMTP is configured")
+    })?;
+    let (issuer, _) = secret.issuers()?;
+    let delivery = email.delivery()? as Arc<dyn crate::course::CourseInvitationDelivery>;
+    Ok(Some((issuer, delivery)))
+}
+
+pub(super) fn invitation_delivery_worker_database_url_from_env(
+    local_development: bool,
+) -> Result<String> {
+    required_env(if local_development {
+        "DATABASE_URL"
+    } else {
+        "PLE_INVITATION_DELIVERY_DATABASE_URL"
+    })
+}
+
 impl EnrollmentSecretSettings {
     fn from_env() -> Result<Option<Self>> {
         if std::env::var_os("PLE_INVITATION_TOKEN_SECRET_FILE").is_none() {

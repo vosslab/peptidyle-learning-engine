@@ -272,7 +272,6 @@ where
     let draft = DraftRecord {
         tenant: authenticated.tenant_context.tenant_id(),
         question,
-        revises: existing.record.revises,
         derived_from: existing.record.derived_from,
     };
     let acknowledged_at = match state

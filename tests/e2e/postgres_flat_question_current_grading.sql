@@ -413,21 +413,21 @@ VALUES
      '11111111-1111-4111-8111-0000000000b3', 'public', 'cc0');
 
 INSERT INTO public.problem_version
-    (problem_id, version_id, version_number, content_sha256, workspace_id,
+    (problem_id, version_id, content_sha256, workspace_id,
      title, backend, metadata, publication_scope, authors)
 VALUES
     ('11111111-1111-4111-8111-0000000000b6',
-     '11111111-1111-4111-8111-0000000000b7', 1, repeat('3', 64),
+     '11111111-1111-4111-8111-0000000000b7', repeat('3', 64),
      '11111111-1111-4111-8111-0000000000b2', 'Absent grading probe', 'native',
      '{"language":"en-US","license":{"kind":"cc0"},"taxonomy":[],"tags":[]}',
      'public', '["11111111-1111-4111-8111-0000000000b3"]'),
     ('11111111-1111-4111-8111-0000000000b8',
-     '11111111-1111-4111-8111-0000000000b9', 1, repeat('4', 64),
+     '11111111-1111-4111-8111-0000000000b9', repeat('4', 64),
      '11111111-1111-4111-8111-0000000000b2', 'Stored grading probe', 'native',
      '{"language":"en-US","license":{"kind":"cc0"},"taxonomy":[],"tags":[]}',
      'public', '["11111111-1111-4111-8111-0000000000b3"]'),
     ('11111111-1111-4111-8111-0000000000c6',
-     '11111111-1111-4111-8111-0000000000c7', 1, repeat('6', 64),
+     '11111111-1111-4111-8111-0000000000c7', repeat('6', 64),
      '11111111-1111-4111-8111-0000000000b2', 'Foreign owner probe', 'native',
      '{"language":"en-US","license":{"kind":"cc0"},"taxonomy":[],"tags":[]}',
      'public', '["11111111-1111-4111-8111-0000000000b3"]');

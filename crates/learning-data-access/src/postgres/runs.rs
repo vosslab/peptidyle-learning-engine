@@ -11,6 +11,7 @@ use crate::{
 };
 
 pub(super) mod attempt_issuance;
+pub(super) mod learner_transition;
 pub(super) use attempt_issuance::add_seconds;
 
 async fn require_active_learner_run(
@@ -421,6 +422,16 @@ impl crate::RunStore for PostgresStore {
             ));
         }
         let mut transaction = self.begin_tenant(context).await?;
+        learner_transition::lock_predecessor_for_learner_run(
+            &mut transaction,
+            context.tenant_id(),
+            command.actor,
+            reservation.run,
+            reservation.predecessor,
+        )
+        .await?;
+        // The transition helper locks the predecessor before this run. The
+        // locked run, enrollment, and membership below revalidate access.
         let run =
             load_run_for_update(&mut transaction, context.tenant_id(), reservation.run).await?;
         if run.completed_at.is_some() || run.score.is_some() {
@@ -432,20 +443,21 @@ impl crate::RunStore for PostgresStore {
         if enrollment.user != command.actor {
             return Err(StoreError::Forbidden);
         }
-        let predecessor = load_attempt_for_external_update(
+        let assignment =
+            load_assignment(&mut transaction, context.tenant_id(), enrollment.assignment).await?;
+        transaction_context::require_active_learner_membership(
             &mut transaction,
             context.tenant_id(),
-            reservation.predecessor,
+            enrollment.assignment,
+            command.actor,
         )
         .await?;
         let submitted: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM submission_idempotency WHERE tenant_id = $1 AND attempt_id = $2)")
             .bind(context.tenant_id().as_uuid()).bind(reservation.predecessor.as_uuid())
             .fetch_one(&mut *transaction).await.map_err(map_sqlx_error)?;
-        if predecessor.run != reservation.run || submitted {
+        if submitted {
             return Err(StoreError::Conflict);
         }
-        let assignment =
-            load_assignment(&mut transaction, context.tenant_id(), enrollment.assignment).await?;
         let expected = assignment
             .active_item_at(reservation.assignment_position)
             .ok_or_else(|| {
@@ -470,7 +482,7 @@ impl crate::RunStore for PostgresStore {
         if target_already_attempted {
             return Err(StoreError::Conflict);
         }
-        let existing = sqlx::query("SELECT payload, payload_sha256, presentation_descriptor_version, presentation_nonce, presentation_digest FROM question_prefetch WHERE tenant_id = $1 AND run_id = $2 AND predecessor_attempt_id = $3 AND assignment_position = $4 FOR UPDATE")
+        let existing = sqlx::query("SELECT payload, payload_sha256, presentation_descriptor_version, presentation_nonce, presentation_digest FROM question_prefetch WHERE tenant_id = $1 AND run_id = $2 AND predecessor_attempt_id = $3 AND assignment_position = $4")
             .bind(context.tenant_id().as_uuid()).bind(reservation.run.as_uuid()).bind(reservation.predecessor.as_uuid()).bind(i32::try_from(reservation.assignment_position).map_err(|_| StoreError::InvalidRecord("prefetch position is too large".to_string()))?)
             .fetch_optional(&mut *transaction).await.map_err(map_sqlx_error)?;
         if let Some(row) = existing {
@@ -837,10 +849,16 @@ impl crate::RunStore for PostgresStore {
         context: TenantContext,
         command: SubmitQuestionAttemptCommand,
     ) -> Result<SubmissionRecord, StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
-        let record = submit_question_attempt(&mut transaction, context, command).await?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(record)
+        retry_transaction(|| {
+            let command = command.clone();
+            async move {
+                let mut transaction = self.begin_tenant(context).await?;
+                let record = submit_question_attempt(&mut transaction, context, command).await?;
+                transaction.commit().await.map_err(map_sqlx_error)?;
+                Ok(record)
+            }
+        })
+        .await
     }
     async fn force_submit_attempt_impl(
         &self,

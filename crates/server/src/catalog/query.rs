@@ -7,7 +7,7 @@ use learning_data_access::{
 };
 use question_model::{
     Capability, CatalogLicenseValue, CatalogSearchQuery, CatalogStatisticsAvailability,
-    CatalogTaxonomyFilter, ProblemDisplayRef, ProblemId, ProblemVersionRef, VersionId,
+    CatalogTaxonomyFilter, ProblemDisplayRef, ProblemVersionRef,
 };
 use serde::Deserialize;
 
@@ -162,32 +162,6 @@ where
     }
 }
 
-pub(super) async fn get_problem<S, B, R>(
-    State(state): State<CatalogRouteState<S, B, R>>,
-    headers: HeaderMap,
-    Path((problem, version)): Path<(ProblemId, VersionId)>,
-) -> Response
-where
-    S: Store + CatalogStore + SessionStore + 'static,
-    B: BackendRegistry + 'static,
-    R: PublicReviewGate + 'static,
-{
-    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
-        Ok(authenticated) => authenticated,
-        Err(error) => return auth_error_response(error),
-    };
-    let reference = ProblemVersionRef { problem, version };
-    match state
-        .store
-        .get_catalog_problem(authenticated.tenant_context, reference)
-        .await
-    {
-        Ok(Some(record)) => no_store(Json(record.question).into_response()),
-        Ok(None) => error_response(StatusCode::NOT_FOUND, "problem version not found"),
-        Err(error) => store_error_response(error),
-    }
-}
-
 pub(super) async fn resolve_problem_reference<S, B, R>(
     State(state): State<CatalogRouteState<S, B, R>>,
     headers: HeaderMap,
@@ -223,7 +197,7 @@ where
 pub(super) async fn get_problem_detail<S, B, R>(
     State(state): State<CatalogRouteState<S, B, R>>,
     headers: HeaderMap,
-    Path((problem, version)): Path<(ProblemId, VersionId)>,
+    Path(reference): Path<String>,
 ) -> Response
 where
     S: Store + CatalogStore + SessionStore + 'static,
@@ -234,16 +208,32 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
+    let reference = match reference.parse::<ProblemDisplayRef>() {
+        Ok(reference) => reference,
+        Err(error) => return error_response(StatusCode::BAD_REQUEST, error),
+    };
+    let publication = match state
+        .store
+        .resolve_catalog_problem(authenticated.tenant_context, reference)
+        .await
+    {
+        Ok(Some(record)) => record,
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "question ID not found"),
+        Err(error) => return store_error_response(error),
+    };
     match state
         .store
         .get_catalog_detail(
             authenticated.tenant_context,
-            ProblemVersionRef { problem, version },
+            ProblemVersionRef {
+                problem: publication.problem,
+                version: publication.version,
+            },
         )
         .await
     {
         Ok(Some(detail)) => no_store(Json(detail).into_response()),
-        Ok(None) => error_response(StatusCode::NOT_FOUND, "problem version not found"),
+        Ok(None) => error_response(StatusCode::NOT_FOUND, "question ID not found"),
         Err(error) => store_error_response(error),
     }
 }

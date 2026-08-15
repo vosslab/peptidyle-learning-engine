@@ -323,7 +323,6 @@ mod tests {
                     language: "en-US".to_string(),
                 },
             },
-            revises: None,
             derived_from: None,
         };
         let saved = store

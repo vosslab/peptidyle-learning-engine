@@ -2,17 +2,18 @@ use std::sync::Arc;
 
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
-use axum::routing::{get, put};
+use axum::routing::{delete, get, post, put};
 use learning_data_access::{
-    CatalogStore, CourseRecordsAccessStore, CourseRosterStore, ManualGradeExportStore,
-    SessionStore, Store,
+    CatalogStore, CourseInvitationDeliveryStore, CourseRecordsAccessStore, CourseRosterStore,
+    ManualGradeExportStore, SessionStore, Store,
 };
 use serde::{Deserialize, Serialize};
 
-use super::assignments::{create_assignment, get_assignment, update_assignment};
-use super::invitation_capability::{
-    CourseInvitationDelivery, CourseInvitationIssuer, UnavailableCourseInvitationDelivery,
+use super::assignments::{
+    add_assignment_item, create_assignment, get_assignment, remove_assignment_item,
+    replace_assignment_item_question, update_assignment,
 };
+use super::invitation_capability::CourseInvitationIssuer;
 use super::queries::{create_course, get_course, list_assignments, list_courses, list_gradebook};
 use super::roster::{LocalTeachingRosterDirectory, roster_router};
 
@@ -26,36 +27,27 @@ where
         + CatalogStore
         + CourseRecordsAccessStore
         + CourseRosterStore
+        + CourseInvitationDeliveryStore
         + ManualGradeExportStore
         + SessionStore
         + 'static,
 {
-    router_with_invitations_and_local_teaching(
-        store,
-        CourseInvitationIssuer::unavailable(),
-        Arc::new(UnavailableCourseInvitationDelivery),
-        None,
-    )
+    router_with_invitations_and_local_teaching(store, CourseInvitationIssuer::unavailable(), None)
 }
 
-/// Builds course routes with a configured server-only invitation issuer and
-/// delivery service. The ordinary [`router`] keeps invitation creation
-/// fail-closed for tests or deployments that have not configured mail.
-pub fn router_with_invitations<S>(
-    store: Arc<S>,
-    issuer: CourseInvitationIssuer,
-    delivery: Arc<dyn CourseInvitationDelivery>,
-) -> Router
+/// Builds course routes with a configured server-only invitation issuer.
+pub fn router_with_invitations<S>(store: Arc<S>, issuer: CourseInvitationIssuer) -> Router
 where
     S: Store
         + CatalogStore
         + CourseRecordsAccessStore
         + CourseRosterStore
+        + CourseInvitationDeliveryStore
         + ManualGradeExportStore
         + SessionStore
         + 'static,
 {
-    router_with_invitations_and_local_teaching(store, issuer, delivery, None)
+    router_with_invitations_and_local_teaching(store, issuer, None)
 }
 
 /// Builds the local-teaching course router with a server-owned learner directory.
@@ -64,7 +56,6 @@ where
 pub(crate) fn router_with_invitations_and_local_teaching<S>(
     store: Arc<S>,
     issuer: CourseInvitationIssuer,
-    delivery: Arc<dyn CourseInvitationDelivery>,
     local_teaching_roster: Option<Arc<LocalTeachingRosterDirectory>>,
 ) -> Router
 where
@@ -72,6 +63,7 @@ where
         + CatalogStore
         + CourseRecordsAccessStore
         + CourseRosterStore
+        + CourseInvitationDeliveryStore
         + ManualGradeExportStore
         + SessionStore
         + 'static,
@@ -92,16 +84,23 @@ where
             "/api/courses/{course}/assignments/{assignment}",
             put(update_assignment::<S>),
         )
+        .route(
+            "/api/courses/{course}/assignments/{assignment}/items",
+            post(add_assignment_item::<S>),
+        )
+        .route(
+            "/api/courses/{course}/assignments/{assignment}/items/{item}",
+            delete(remove_assignment_item::<S>),
+        )
+        .route(
+            "/api/courses/{course}/assignments/{assignment}/items/{item}/question",
+            put(replace_assignment_item_question::<S>),
+        )
         .layer(DefaultBodyLimit::max(MAX_COURSE_BODY_BYTES))
         .with_state(CourseRouteState {
             store: Arc::clone(&store),
         });
-    course_routes.merge(roster_router(
-        store,
-        issuer,
-        delivery,
-        local_teaching_roster,
-    ))
+    course_routes.merge(roster_router(store, issuer, local_teaching_roster))
 }
 
 pub(super) struct CourseRouteState<S> {
@@ -136,7 +135,7 @@ pub(super) struct CreateCourseRequest {
 #[serde(deny_unknown_fields)]
 pub(super) struct CreateAssignmentRequest {
     pub(super) title: String,
-    pub(super) problems: Vec<question_model::ProblemVersionRef>,
+    pub(super) question_ids: Vec<question_model::QuestionId>,
     pub(super) policies: question_model::RunPolicies,
     /// Whole-run timing is always an explicit instructor decision. `null`
     /// within the object deliberately means Untimed.
@@ -147,9 +146,33 @@ pub(super) struct CreateAssignmentRequest {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct UpdateAssignmentRequest {
     pub(super) title: String,
-    pub(super) problems: Vec<question_model::ProblemVersionRef>,
+    pub(super) items: Vec<AssignmentItemUpdateRequest>,
     pub(super) policies: question_model::RunPolicies,
     pub(super) assignment_timing: question_model::AssignmentRunTiming,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(super) struct AssignmentItemUpdateRequest {
+    pub(super) id: question_model::AssignmentItemId,
+    pub(super) question_id: question_model::QuestionId,
+    pub(super) position: u32,
+    pub(super) points_possible: question_model::PointValue,
+    pub(super) delivery_state: question_model::AssignmentDeliveryState,
+    pub(super) scoring_mode: question_model::AssignmentScoringMode,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(super) struct AddAssignmentItemRequest {
+    pub(super) question_id: question_model::QuestionId,
+    pub(super) position: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(super) struct ReplaceAssignmentItemQuestionRequest {
+    pub(super) question_id: question_model::QuestionId,
 }
 
 /// Rejects unknown fields at every level by comparing the request to the
@@ -173,7 +196,7 @@ mod tests {
     fn explicit_request() -> serde_json::Value {
         serde_json::to_value(CreateAssignmentRequest {
             title: "Mastery".to_string(),
-            problems: Vec::new(),
+            question_ids: Vec::new(),
             policies: question_model::RunPolicies {
                 completion: question_model::CompletionRequirement::AllCorrect,
                 grade: question_model::GradePolicy::Highest,

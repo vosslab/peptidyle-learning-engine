@@ -44,7 +44,6 @@ where
     let draft = DraftRecord {
         tenant,
         question: run_question,
-        revises: None,
         derived_from: None,
     };
     let saved_draft = store

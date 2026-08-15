@@ -3,19 +3,32 @@
 import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js";
 
 import "./instructor_data_tables.css";
+import "./course_roster_page.css";
 
 import type { AssignmentSummary } from "../api/contracts";
 import type {
   AllowedEmailDomain,
+  CourseInvitationEmailDelivery,
   CourseRosterPage,
   EmailEnrollmentRosterPage,
   LocalTeachingRosterPage,
+  RosterImportDelivery,
   RosterImportPreview,
 } from "../api/enrollment";
 import { ApiRequestError } from "../api/http_client/error";
 import { CourseManagementNav } from "../components/course_management_nav";
 import { newIdempotencyKey, readyRosterRows } from "../api/http_client/enrollment";
 import { useApiRuntime } from "../api/runtime";
+import { rosterImportTemplateCsv } from "./roster_import_template";
+import {
+  bulkDeliveryAnnouncement,
+  deliveryStatusLabel,
+  invitationDeliveryAnnouncement,
+} from "./course_roster_delivery";
+import {
+  RosterConfirmationDialog,
+  type PendingRosterConfirmation,
+} from "./roster_confirmation_dialog";
 import {
   courseRouteData,
   useCourseThemeRouteData,
@@ -33,7 +46,7 @@ type RosterState =
 interface LatestInvitationLink {
   readonly email: string;
   readonly url: string;
-  readonly emailDelivery: "sent" | "notSent";
+  readonly emailDelivery: CourseInvitationEmailDelivery;
 }
 
 function rosterError(state: RosterState): string {
@@ -60,6 +73,21 @@ function importStatusLabel(status: RosterImportPreview["rows"][number]["status"]
       return "Duplicate row";
     case "invalid":
       return "Invalid email or roster ID";
+  }
+}
+
+function importReasonLabel(reason: RosterImportPreview["rows"][number]["reason"]): string {
+  switch (reason) {
+    case "ready":
+      return "Ready to invite";
+    case "alreadyOnRoster":
+      return "Already on this course roster";
+    case "invitationPending":
+      return "A course invitation is already pending";
+    case "duplicateInFile":
+      return "Duplicate row in this file";
+    case "correctEmailOrRosterId":
+      return "Correct the email or roster ID, then re-upload";
   }
 }
 
@@ -92,6 +120,11 @@ function downloadExport(filename: string, csv: Blob): void {
   }
 }
 
+function downloadRosterImportTemplate(): void {
+  const csv = new Blob([rosterImportTemplateCsv()], { type: "text/csv;charset=utf-8" });
+  downloadExport("ple-roster-import-template.csv", csv);
+}
+
 export function CourseRosterPage(): JSX.Element {
   const runtime = useApiRuntime();
   const scopedRoute = useCourseThemeRouteData();
@@ -107,6 +140,9 @@ export function CourseRosterPage(): JSX.Element {
   );
   const [selectedFile, setSelectedFile] = createSignal<File | null>(null);
   const [preview, setPreview] = createSignal<RosterImportPreview | null>(null);
+  const [lastBulkDelivery, setLastBulkDelivery] = createSignal<ReadonlyArray<RosterImportDelivery>>(
+    [],
+  );
   const [selectedRows, setSelectedRows] = createSignal<ReadonlySet<number>>(new Set());
   const [selectedAssignment, setSelectedAssignment] = createSignal("");
   const [busy, setBusy] = createSignal(false);
@@ -118,6 +154,9 @@ export function CourseRosterPage(): JSX.Element {
   const [inviteKey, setInviteKey] = createSignal(newIdempotencyKey());
   const [previewKey, setPreviewKey] = createSignal(newIdempotencyKey());
   const [commitKey, setCommitKey] = createSignal(newIdempotencyKey());
+  const [pendingConfirmation, setPendingConfirmation] =
+    createSignal<PendingRosterConfirmation | null>(null);
+  let rosterHeading: HTMLHeadingElement | undefined;
 
   const ready = createMemo(() => {
     const current = state();
@@ -169,19 +208,19 @@ export function CourseRosterPage(): JSX.Element {
         rosterId(),
         inviteKey(),
       );
-      setLatestInvitationLink({
-        email: invitedEmail,
-        url: new URL(accepted.redemptionPath, window.location.origin).toString(),
-        emailDelivery: accepted.emailDelivery,
-      });
+      setLatestInvitationLink(
+        accepted.emailDelivery === "cancelled"
+          ? null
+          : {
+              email: invitedEmail,
+              url: new URL(accepted.redemptionPath, window.location.origin).toString(),
+              emailDelivery: accepted.emailDelivery,
+            },
+      );
       setEmail("");
       setRosterId("");
       setInviteKey(newIdempotencyKey());
-      setAnnouncement(
-        accepted.emailDelivery === "sent"
-          ? "Invitation email sent. A copyable backup link is ready."
-          : "Invitation created. Copy the link and share it through a trusted course channel.",
-      );
+      setAnnouncement(invitationDeliveryAnnouncement(accepted.emailDelivery));
       await load();
     } catch {
       setError("The invitation could not be sent. Check the email, roster ID, and course policy.");
@@ -280,6 +319,7 @@ export function CourseRosterPage(): JSX.Element {
       );
       setAnnouncement("Pending invitation canceled.");
       await load();
+      queueMicrotask(() => rosterHeading?.focus());
     } catch {
       setError(
         "The roster changed before that invitation could be canceled. Reload and try again.",
@@ -298,6 +338,7 @@ export function CourseRosterPage(): JSX.Element {
       await runtime.client.revokeCourseMember(courseId, memberId, current.roster.rosterRevision);
       setAnnouncement("Course access revoked. Existing education records remain under retention.");
       await load();
+      queueMicrotask(() => rosterHeading?.focus());
     } catch {
       setError("The roster changed before access could be revoked. Reload and try again.");
     } finally {
@@ -347,6 +388,7 @@ export function CourseRosterPage(): JSX.Element {
         previewKey(),
       );
       setPreview(report);
+      setLastBulkDelivery([]);
       setSelectedRows(new Set(readyRosterRows(report)));
       setPreviewKey(newIdempotencyKey());
       setCommitKey(newIdempotencyKey());
@@ -371,6 +413,23 @@ export function CourseRosterPage(): JSX.Element {
     });
   }
 
+  function cancelConfirmation(): void {
+    const confirmation = pendingConfirmation();
+    setPendingConfirmation(null);
+    queueMicrotask(() => confirmation?.trigger.focus());
+  }
+
+  async function confirmPendingAction(): Promise<void> {
+    const confirmation = pendingConfirmation();
+    if (confirmation === null) return;
+    setPendingConfirmation(null);
+    if (confirmation.kind === "cancelInvitation") {
+      await revokeInvitation(confirmation.invitationId);
+      return;
+    }
+    await revokeMember(confirmation.memberId);
+  }
+
   async function commitImport(): Promise<void> {
     const report = preview();
     if (courseId === undefined || report === null || selectedRows().size === 0) return;
@@ -384,11 +443,10 @@ export function CourseRosterPage(): JSX.Element {
         commitKey(),
       );
       setPreview(null);
+      setLastBulkDelivery(committed.delivery);
       setSelectedFile(null);
       setCommitKey(newIdempotencyKey());
-      setAnnouncement(
-        `${committed.invitationsCreated} invitation${committed.invitationsCreated === 1 ? " was" : "s were"} sent.`,
-      );
+      setAnnouncement(bulkDeliveryAnnouncement(committed.delivery));
       await load();
     } catch {
       setError("The preview changed or expired before commit. Preview the file again.");
@@ -417,7 +475,14 @@ export function CourseRosterPage(): JSX.Element {
   return (
     <section class="page roster-page" data-route-surface="courseRoster">
       <p class="eyebrow">Course management</p>
-      <h1>Students</h1>
+      <h1
+        ref={(element) => {
+          rosterHeading = element;
+        }}
+        tabindex={-1}
+      >
+        Students
+      </h1>
       <p class="page-lede">
         Review active students, add configured local learners when available, and export grades.
       </p>
@@ -562,9 +627,11 @@ export function CourseRosterPage(): JSX.Element {
                 >
                   <h2 id="share-invitation-heading">Share this invitation</h2>
                   <p>
-                    {invitation().emailDelivery === "sent"
-                      ? `PLE sent an email to ${invitation().email}. This link is a backup.`
-                      : `PLE did not send email to ${invitation().email}. Share this link through your LMS or another trusted course channel.`}
+                    {invitation().emailDelivery === "queued"
+                      ? "PLE saved this invitation. Its copy link is ready to share through your LMS or another trusted course channel."
+                      : invitation().emailDelivery === "sentToProvider"
+                        ? "PLE's submission server accepted the email. This does not confirm mailbox delivery; the copy link is also ready."
+                        : "Email needs attention. Use a fresh explicit resend only when available; otherwise cancel this invitation and create a new one."}
                   </p>
                   <label for="created-invitation-link">Invitation link</label>
                   <input
@@ -590,6 +657,33 @@ export function CourseRosterPage(): JSX.Element {
                   </p>
                 </section>
               )}
+            </Show>
+
+            <Show when={lastBulkDelivery().length > 0}>
+              <section class="roster-section auth-panel" aria-labelledby="bulk-delivery-heading">
+                <h2 id="bulk-delivery-heading">Bulk invitation status</h2>
+                <p>{bulkDeliveryAnnouncement(lastBulkDelivery())}</p>
+                <div class="roster-table-wrap">
+                  <table class="roster-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">CSV row</th>
+                        <th scope="col">Delivery status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <For each={lastBulkDelivery()}>
+                        {(delivery) => (
+                          <tr>
+                            <td>{delivery.rowNumber}</td>
+                            <td>{deliveryStatusLabel(delivery.outcome)}</td>
+                          </tr>
+                        )}
+                      </For>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
             </Show>
 
             <Show when={emailEnrollmentRoster(current().roster)}>
@@ -628,7 +722,13 @@ export function CourseRosterPage(): JSX.Element {
                                     class="quiet-action"
                                     type="button"
                                     disabled={busy()}
-                                    onClick={() => void revokeInvitation(invitation.invitationId)}
+                                    onClick={(event) =>
+                                      setPendingConfirmation({
+                                        kind: "cancelInvitation",
+                                        invitationId: invitation.invitationId,
+                                        trigger: event.currentTarget,
+                                      })
+                                    }
                                   >
                                     Cancel invitation
                                   </button>
@@ -702,7 +802,14 @@ export function CourseRosterPage(): JSX.Element {
                                   class="quiet-action"
                                   type="button"
                                   disabled={busy()}
-                                  onClick={() => void revokeMember(member.memberId)}
+                                  onClick={(event) =>
+                                    setPendingConfirmation({
+                                      kind: "revokeMember",
+                                      memberId: member.memberId,
+                                      displayName: member.displayName,
+                                      trigger: event.currentTarget,
+                                    })
+                                  }
                                 >
                                   Revoke course access
                                 </button>
@@ -733,6 +840,16 @@ export function CourseRosterPage(): JSX.Element {
                 <p>
                   Use exactly two columns: <code>email,roster_id</code>. PLE discards the raw file
                   after bounded parsing.
+                </p>
+                <div class="action-row">
+                  <button class="quiet-action" type="button" onClick={downloadRosterImportTemplate}>
+                    Download CSV template
+                  </button>
+                </div>
+                <p class="field-help">
+                  Start with the template. If preview reports a row that needs correction, fix that
+                  row in your local CSV and preview the file again. PLE never repeats malformed
+                  cells.
                 </p>
                 <form class="auth-form" onSubmit={(event) => void previewImport(event)}>
                   <label for="roster-file">Roster CSV</label>
@@ -771,18 +888,32 @@ export function CourseRosterPage(): JSX.Element {
                               {(row) => (
                                 <tr>
                                   <td>
-                                    <input
-                                      type="checkbox"
-                                      aria-label={`Invite CSV row ${row.rowNumber}`}
-                                      checked={selectedRows().has(row.rowNumber)}
-                                      disabled={row.status !== "readyToInvite" || busy()}
-                                      onChange={() => toggleRow(row.rowNumber)}
-                                    />
+                                    <Show
+                                      when={row.status === "readyToInvite"}
+                                      fallback={<span>Not selectable</span>}
+                                    >
+                                      <button
+                                        class="roster-import-select"
+                                        type="button"
+                                        role="checkbox"
+                                        aria-checked={selectedRows().has(row.rowNumber)}
+                                        aria-label={`Invite CSV row ${row.rowNumber}`}
+                                        disabled={busy()}
+                                        onClick={() => toggleRow(row.rowNumber)}
+                                      >
+                                        {selectedRows().has(row.rowNumber) ? "Selected" : "Select"}
+                                      </button>
+                                    </Show>
                                   </td>
                                   <td>{row.rowNumber}</td>
                                   <td>{row.email ?? "Not retained"}</td>
                                   <td>{row.rosterId ?? "Not retained"}</td>
-                                  <td>{importStatusLabel(row.status)}</td>
+                                  <td>
+                                    <strong>{importStatusLabel(row.status)}</strong>
+                                    <span class="roster-import-reason">
+                                      {importReasonLabel(row.reason)}
+                                    </span>
+                                  </td>
                                 </tr>
                               )}
                             </For>
@@ -831,6 +962,15 @@ export function CourseRosterPage(): JSX.Element {
               </section>
             </Show>
           </>
+        )}
+      </Show>
+      <Show when={pendingConfirmation()}>
+        {(confirmation) => (
+          <RosterConfirmationDialog
+            confirmation={confirmation()}
+            onCancel={cancelConfirmation}
+            onConfirm={confirmPendingAction}
+          />
         )}
       </Show>
     </section>

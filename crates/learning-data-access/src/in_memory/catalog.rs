@@ -1,5 +1,4 @@
 use super::*;
-use crate::{OwnerCorrectionAuthority, OwnerCorrectionStore};
 
 #[async_trait]
 impl CatalogStore for MemoryStore {
@@ -9,10 +8,6 @@ impl CatalogStore for MemoryStore {
         actor: UserId,
         command: PublishDraftCommand,
     ) -> Result<PublishedProblemRecord, StoreError> {
-        if command.expected_draft.revises.is_some() && context.owner_correction_session().is_none()
-        {
-            return Err(StoreError::Forbidden);
-        }
         ensure_tenant(context, command.expected_draft.tenant)?;
         validate_draft(&command.expected_draft)?;
         crate::validate_publication_source(&command.expected_draft, &command.published_source)?;
@@ -198,112 +193,52 @@ impl CatalogStore for MemoryStore {
             return Err(StoreError::AlreadyExists);
         }
 
-        let (authors, previous_version, derived_from, question_id, public_id, version_number) =
-            if let Some(revises) = command.expected_draft.revises {
-                if publication.problem != revises.problem {
-                    return Err(StoreError::InvalidRecord(
-                        "revision must remain in its existing problem chain".to_string(),
-                    ));
-                }
-                let base = state
-                    .published
-                    .get(&(revises.problem, revises.version))
-                    .ok_or(StoreError::NotFound)?;
-                if !catalog_record_visible(&state, context.tenant_id(), base)
-                    || state.problem_owner_tenants.get(&revises.problem)
-                        != Some(&context.tenant_id())
-                {
-                    return Err(StoreError::NotFound);
-                }
-                if base.scope != command.scope
-                    || !matches!(base.lifecycle, CatalogLifecycle::Published)
-                {
-                    return Err(StoreError::Forbidden);
-                }
-                if !base.authors.contains(&command.publisher) {
-                    return Err(StoreError::Forbidden);
-                }
-                if state.problem_owner_users.get(&revises.problem) != Some(&command.publisher) {
-                    return Err(StoreError::Forbidden);
-                }
-                if state.published.values().any(|record| {
-                    record.problem == revises.problem
-                        && record.previous_version == Some(revises.version)
-                }) {
-                    return Err(StoreError::Conflict);
-                }
-                (
-                    base.authors.clone(),
-                    Some(revises.version),
-                    base.derived_from,
-                    base.question_id.clone(),
-                    base.public_id,
-                    base.version_number
-                        .value()
-                        .checked_add(1)
-                        .and_then(|value| ProblemVersionNumber::new(u64::from(value)))
-                        .ok_or_else(|| {
-                            StoreError::Unavailable(
-                                "problem version number limit reached".to_string(),
-                            )
-                        })?,
-                )
-            } else {
-                if state.problem_owner_tenants.len() as u64 >= question_model::MAX_QUESTION_ID_COUNT
-                {
-                    return Err(StoreError::Unavailable(
-                        "Question ID product limit reached".to_string(),
-                    ));
-                }
-                if state
-                    .published
-                    .keys()
-                    .any(|(problem, _)| *problem == publication.problem)
-                {
-                    return Err(StoreError::AlreadyExists);
-                }
-                if let Some(source) = command.expected_draft.derived_from {
-                    let source_record = state
+        if state.published.len() as u64 >= question_model::MAX_QUESTION_ID_COUNT {
+            return Err(StoreError::Unavailable(
+                "Question ID product limit reached".to_string(),
+            ));
+        }
+        if state
+            .published
+            .keys()
+            .any(|(problem, _)| *problem == publication.problem)
+        {
+            return Err(StoreError::AlreadyExists);
+        }
+        if state
+            .published
+            .keys()
+            .any(|(_, version)| *version == publication.version)
+        {
+            return Err(StoreError::AlreadyExists);
+        }
+        if let Some(source) = command.expected_draft.derived_from {
+            let source_record = state
+                .published
+                .get(&(source.problem, source.version))
+                .ok_or(StoreError::NotFound)?;
+            if !catalog_record_visible(&state, context.tenant_id(), source_record) {
+                return Err(StoreError::NotFound);
+            }
+        }
+        let question_id = (0..64)
+            .map(|_| self.question_ids.issue())
+            .find_map(|candidate| match candidate {
+                Ok(candidate)
+                    if !state
                         .published
-                        .get(&(source.problem, source.version))
-                        .ok_or(StoreError::NotFound)?;
-                    if !catalog_record_visible(&state, context.tenant_id(), source_record) {
-                        return Err(StoreError::NotFound);
-                    }
+                        .values()
+                        .any(|record| record.question_id == candidate) =>
+                {
+                    Some(Ok(candidate))
                 }
-                state.next_problem_public_id =
-                    state.next_problem_public_id.checked_add(1).ok_or_else(|| {
-                        StoreError::Unavailable("problem public ID limit reached".to_string())
-                    })?;
-                let question_id = (0..64)
-                    .map(|_| self.question_ids.issue())
-                    .find_map(|candidate| match candidate {
-                        Ok(candidate)
-                            if !state
-                                .published
-                                .values()
-                                .any(|record| record.question_id == candidate) =>
-                        {
-                            Some(Ok(candidate))
-                        }
-                        Ok(_) => None,
-                        Err(error) => Some(Err(error)),
-                    })
-                    .transpose()?
-                    .ok_or_else(|| {
-                        StoreError::Unavailable("Question ID collision retry exhausted".to_string())
-                    })?;
-                (
-                    vec![command.publisher],
-                    None,
-                    command.expected_draft.derived_from,
-                    question_id,
-                    ProblemPublicId::new(state.next_problem_public_id).ok_or_else(|| {
-                        StoreError::Unavailable("problem public ID limit reached".to_string())
-                    })?,
-                    ProblemVersionNumber::new(1).expect("one is positive"),
-                )
-            };
+                Ok(_) => None,
+                Err(error) => Some(Err(error)),
+            })
+            .transpose()?
+            .ok_or_else(|| {
+                StoreError::Unavailable("Question ID collision retry exhausted".to_string())
+            })?;
 
         let published_draft_question = command
             .flat_question_promotion
@@ -319,16 +254,13 @@ impl CatalogStore for MemoryStore {
         let record = PublishedProblemRecord {
             problem: publication.problem,
             question_id,
-            public_id,
             version: publication.version,
-            version_number,
             question,
             capabilities: command.capabilities,
             scope: command.scope,
             lifecycle: CatalogLifecycle::Published,
-            authors,
-            previous_version,
-            derived_from,
+            authors: vec![command.publisher],
+            derived_from: command.expected_draft.derived_from,
             published_at: state.authoritative_time,
         };
         validate_published(&record)?;
@@ -341,10 +273,6 @@ impl CatalogStore for MemoryStore {
             .problem_owner_tenants
             .entry(record.problem)
             .or_insert(context.tenant_id());
-        state
-            .problem_owner_users
-            .entry(record.problem)
-            .or_insert(command.publisher);
         let catalog_sequence = state.next_catalog_publication_sequence;
         state.next_catalog_publication_sequence = state
             .next_catalog_publication_sequence
@@ -358,61 +286,6 @@ impl CatalogStore for MemoryStore {
         state
             .published
             .insert((record.problem, record.version), record.clone());
-        if let Some(revises) = command.expected_draft.revises {
-            let predecessor_grants = state
-                .catalog_grants
-                .iter()
-                .filter(|(_, problem, version)| {
-                    *problem == revises.problem && *version == revises.version
-                })
-                .map(|(tenant, _, _)| *tenant)
-                .collect::<Vec<_>>();
-            let previous = state
-                .published
-                .get_mut(&(revises.problem, revises.version))
-                .expect("validated correction source remains present");
-            previous.lifecycle = CatalogLifecycle::Archived {
-                reason: "Superseded by an owner correction".to_string(),
-            };
-
-            let replacement = ProblemVersionRef {
-                problem: record.problem,
-                version: record.version,
-            };
-            for tenant in predecessor_grants {
-                state
-                    .catalog_grants
-                    .insert((tenant, record.problem, record.version));
-            }
-            let assignment_keys = state.assignments.keys().copied().collect::<Vec<_>>();
-            for key in assignment_keys {
-                let assignment = state
-                    .assignments
-                    .get_mut(&key)
-                    .expect("collected assignment key remains present");
-                let mut changed = false;
-                for item in &mut assignment.items {
-                    if item.reference == revises {
-                        item.reference = replacement;
-                        changed = true;
-                    }
-                }
-                for group in &mut assignment.selection_groups {
-                    for candidate in &mut group.candidates {
-                        if candidate.reference == revises {
-                            candidate.reference = replacement;
-                            changed = true;
-                        }
-                    }
-                }
-                if changed {
-                    let revision = state.assignment_revisions.get_mut(&key).ok_or_else(|| {
-                        StoreError::Unavailable("stored assignment revision is missing".to_string())
-                    })?;
-                    *revision = revision.next()?;
-                }
-            }
-        }
         if let Some(artifact) = command.source_artifact {
             state
                 .source_artifacts
@@ -502,12 +375,11 @@ impl CatalogStore for MemoryStore {
         Ok(state
             .published
             .values()
-            .filter(|record| {
+            .find(|record| {
                 record.question_id == reference.question_id
                     && record.lifecycle.is_assignable()
                     && catalog_record_visible(&state, context.tenant_id(), record)
             })
-            .max_by_key(|record| record.version_number)
             .cloned())
     }
 
@@ -760,42 +632,6 @@ impl CatalogStore for MemoryStore {
 
 fn state_catalog_snapshot_boundary(state: &State) -> u64 {
     state.next_catalog_publication_sequence.saturating_sub(1)
-}
-
-#[async_trait]
-impl OwnerCorrectionStore for MemoryStore {
-    async fn publish_owner_correction(
-        &self,
-        context: TenantContext,
-        authority: OwnerCorrectionAuthority,
-        command: PublishDraftCommand,
-    ) -> Result<PublishedProblemRecord, StoreError> {
-        if command.expected_draft.revises.is_none() || authority.actor != command.publisher {
-            return Err(StoreError::Forbidden);
-        }
-        let authorized = {
-            let state = self.read_state()?;
-            let Some(active) = super::sessions::active_subject(&state, context, authority.session)
-            else {
-                return Err(StoreError::Forbidden);
-            };
-            active.user() == authority.actor
-                && active
-                    .roles()
-                    .iter()
-                    .any(|role| matches!(role, question_model::UserRole::Instructor))
-        };
-        if !authorized {
-            return Err(StoreError::Forbidden);
-        }
-        CatalogStore::publish_draft(
-            self,
-            context.with_owner_correction_session(authority.session),
-            authority.actor,
-            command,
-        )
-        .await
-    }
 }
 
 #[async_trait]

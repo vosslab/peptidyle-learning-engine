@@ -1,17 +1,12 @@
-// copyable_problem_id.tsx - one operational instructor-facing immutable question identity.
-
+// copyable_question_id.tsx - one operational instructor-facing Question ID.
 import { createSignal, type JSX } from "solid-js";
+import "./copyable_question_id.css";
 
-import "./copyable_problem_id.css";
-
-export interface CopyableProblemIdProps {
+export interface CopyableQuestionIdProps {
   readonly displayId: string;
 }
-
-/** Renders a selectable ID and a keyboard-operable clipboard action with visible recovery. */
-export function CopyableProblemId(props: CopyableProblemIdProps): JSX.Element {
+export function CopyableQuestionId(props: CopyableQuestionIdProps): JSX.Element {
   const [status, setStatus] = createSignal("");
-
   async function copy(): Promise<void> {
     try {
       await navigator.clipboard.writeText(props.displayId);
@@ -20,9 +15,8 @@ export function CopyableProblemId(props: CopyableProblemIdProps): JSX.Element {
       setStatus(`Copy failed. Select ${props.displayId} and copy it manually.`);
     }
   }
-
   return (
-    <div class="copyable-problem-id">
+    <div class="copyable-question-id">
       <code>{props.displayId}</code>
       <button
         class="quiet-action"
@@ -32,7 +26,7 @@ export function CopyableProblemId(props: CopyableProblemIdProps): JSX.Element {
       >
         Copy ID
       </button>
-      <span class="copyable-problem-id-status" role="status" aria-live="polite">
+      <span class="copyable-question-id-status" role="status" aria-live="polite">
         {status()}
       </span>
     </div>

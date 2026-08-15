@@ -220,7 +220,6 @@ async fn postgres_profile_upload_worker_conversion_publication_and_grading_are_c
             DraftRecord {
                 tenant,
                 question: existing_question,
-                revises: None,
                 derived_from: None,
             },
         )

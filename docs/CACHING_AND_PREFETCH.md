@@ -61,15 +61,16 @@ tenant, session, response, deadline, or browser input.
 The deterministic cache rule relies on the exact seeded-generation contract:
 the same `(version_id, seed)` must reproduce the same canonical output. A new
 generation behavior, source revision, renderer compatibility version, or
-authored edit requires a new immutable published version rather than cache
-deletion or overwriting an existing entry. A changed object is refused by its
+authored edit requires a new immutable published question with a fresh Question
+ID and hidden exact evidence rather than cache deletion or overwriting an
+existing entry. A changed object is refused by its
 checksum, typed key, schema, source-artifact binding, version, seed, title,
 and backend-specific validation.
 
 This gives cache invalidation a simple rule:
 
 - Never mutate an existing published render or asset cache entry.
-- Publish a new version for a content or behavior change.
+- Publish a new immutable question for a content or behavior change.
 - Treat an invalid, missing, checksum-mismatched, or provenance-mismatched
   entry as a refusal or a safe cache miss, not as content that may be served.
 - Do not use a cache result to bypass authorization, attempt lifecycle checks,

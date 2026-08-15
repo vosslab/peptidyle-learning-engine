@@ -33,7 +33,6 @@ INSERT INTO public.problem (
 INSERT INTO public.problem_version (
     problem_id,
     version_id,
-    version_number,
     content_sha256,
     workspace_id,
     title,
@@ -41,7 +40,6 @@ INSERT INTO public.problem_version (
 ) VALUES (
     'f1000000-0000-4000-8000-000000000001',
     'f1000000-0000-4000-8000-000000000004',
-    1,
     repeat('1', 64),
     'f1000000-0000-4000-8000-000000000005',
     'Partition pruning fixture',

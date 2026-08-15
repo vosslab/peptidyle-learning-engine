@@ -130,8 +130,8 @@ where
             );
         }
     };
-    // The browser never supplies lineage. A refresh must not sever a draft's
-    // pending revision or attribution relationship before publication.
+    // The browser never supplies provenance. A refresh retains the optional
+    // descriptive attribution while the next publication receives fresh IDs.
     let existing = match state
         .store
         .get_draft(
@@ -147,7 +147,6 @@ where
     let draft = DraftRecord {
         tenant: authenticated.tenant_context.tenant_id(),
         question: question.clone(),
-        revises: existing.as_ref().and_then(|draft| draft.record.revises),
         derived_from: existing.and_then(|draft| draft.record.derived_from),
     };
     match state

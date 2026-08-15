@@ -409,6 +409,23 @@ pub(super) async fn apply_question_attempt(
             .question
             .attempt_policy
             .feedback;
+    // The direct activity transition owns only the checksummed QuestionAttempt
+    // record.  It has no presentation snapshot, grading envelope, or
+    // family-specific first-grade contract to freeze alongside an envelope
+    // capability.  Its complete issuance shape is therefore the explicit
+    // no-presentation shape.  Normal learner issuance owns the richer
+    // protected payloads in runs::attempt_issuance.
+    let issuance_shape = match attempt.issued_capability {
+        question_model::IssuedAttemptCapabilityV1::NotApplicable => {
+            ("not_applicable", false, false)
+        }
+        _ => {
+            return Err(StoreError::InvalidRecord(
+                "an attempt with an issued presentation must be created through question issuance"
+                    .to_string(),
+            ));
+        }
+    };
     let previous = load_summary_for_update(transaction, tenant, enrollment.id).await?;
     let transition = ActivityTransition::RecordQuestionAttempt {
         attempt: Box::new(attempt.clone()),
@@ -423,12 +440,20 @@ pub(super) async fn apply_question_attempt(
         .submitted_at
         .unwrap_or(attempt.timer.issued_at)
         .as_unix_millis();
+    let submitted_at = attempt
+        .timer
+        .submitted_at
+        .map(|value| value.as_unix_millis());
     let (payload, checksum) = encode_payload(&attempt)?;
     sqlx::query(
         "INSERT INTO question_attempt \
          (tenant_id, attempt_id, run_id, problem_id, version_id, assignment_position, \
-          occurred_at, payload, payload_sha256, issued_feedback_disclosure) \
-         VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7::double precision / 1000.0), $8, $9, $10)",
+          occurred_at, payload, payload_sha256, presentation_capability, \
+          flat_grading_required, webwork_grading_required, issued_feedback_disclosure, \
+          attempt_status, submitted_at) \
+         VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7::double precision / 1000.0), \
+          $8, $9, $10, $11, $12, $13, $14, \
+          to_timestamp($15::double precision / 1000.0))",
     )
     .bind(tenant.as_uuid())
     .bind(attempt.id.as_uuid())
@@ -439,9 +464,14 @@ pub(super) async fn apply_question_attempt(
     .bind(occurred_at)
     .bind(payload)
     .bind(checksum)
+    .bind(issuance_shape.0)
+    .bind(issuance_shape.1)
+    .bind(issuance_shape.2)
     .bind(super::submission::feedback_disclosure_name(
         feedback_disclosure,
     ))
+    .bind(attempt_status_name(attempt.status))
+    .bind(submitted_at)
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;

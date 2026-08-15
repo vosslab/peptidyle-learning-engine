@@ -1,5 +1,6 @@
 import { publishedProblemFixture } from "../../../../generated/fixtures/published_problem";
 import type { CatalogProblemDetail } from "../../../../generated/api/CatalogProblemDetail";
+import type { CatalogProblemSummary } from "../../../../generated/api/CatalogProblemSummary";
 import type { CatalogSearchPage } from "../../../../generated/api/CatalogSearchPage";
 import { normalizeQuestionIdSyntax } from "../../../question_id";
 
@@ -14,11 +15,41 @@ export function canHandleCatalog(request: Request): boolean {
   return handlesResource(request, ["problems", "taxonomy"]);
 }
 
-function catalogDetailFixture(): CatalogProblemDetail {
+const disclosedEvidenceSummary: CatalogProblemSummary = {
+  ...publishedProblemFixture.catalogProblem,
+  questionId: "7K4-M9QP",
+  metadata: {
+    ...publishedProblemFixture.catalogProblem.metadata,
+    title: "Peptide bond geometry: anonymous evidence example",
+  },
+};
+
+interface CatalogFixtureRecord {
+  readonly summary: CatalogProblemSummary;
+  readonly statistics: CatalogProblemDetail["statistics"];
+}
+
+const catalogFixtureRecords: ReadonlyArray<CatalogFixtureRecord> = [
+  { summary: publishedProblemFixture.catalogProblem, statistics: "unavailable" },
+  {
+    summary: disclosedEvidenceSummary,
+    statistics: {
+      available: {
+        cohortSize: 48,
+        difficultyIndex: 0.675,
+        attemptsMean: 1.4,
+        timeMedianSecondsEstimate: 120,
+        discriminationIndex: 0.42,
+      },
+    },
+  },
+];
+
+function catalogDetailFixture(record: CatalogFixtureRecord): CatalogProblemDetail {
   return {
-    summary: publishedProblemFixture.catalogProblem,
+    summary: record.summary,
     prompt: publishedProblemFixture.publishedProblem.prompt,
-    statistics: "unavailable",
+    statistics: record.statistics,
   };
 }
 
@@ -46,41 +77,58 @@ function catalogSearchFixture(request: Request): CatalogSearchPage | Response {
   if (!["any", "available", "unavailable"].includes(statistics)) {
     return jsonResponse({ error: "Invalid catalog statistics filter" }, 400);
   }
-  const summary = publishedProblemFixture.catalogProblem;
   const normalizedText = (parameters.get("text") ?? "").trim().toLowerCase();
-  const displayId = summary.questionId.toLowerCase();
-  const textMatches =
-    normalizedText.length === 0 ||
-    normalizedText === displayId ||
-    summary.metadata.title.toLowerCase().includes(normalizedText) ||
-    summary.metadata.tags.some((tag) => tag.toLowerCase().includes(normalizedText));
-  const taxonomyMatches = parameters
-    .getAll("taxonomy")
-    .every((filter) =>
-      summary.metadata.taxonomy.some((term) => `${term.scheme}:${term.code}` === filter),
-    );
-  const capabilitiesMatch = parameters
-    .getAll("capabilities")
-    .every((capability) => summary.capabilities.some((candidate) => candidate === capability));
-  const licensesMatch = parameters
-    .getAll("licenses")
-    .some((license) => summary.metadata.license.kind === license);
-  const statisticsMatch = statistics === "any" || statistics === "unavailable";
-  const includesSummary =
-    textMatches &&
-    taxonomyMatches &&
-    capabilitiesMatch &&
-    (parameters.getAll("licenses").length === 0 || licensesMatch) &&
-    statisticsMatch &&
-    parameters.get("cursor") === null;
+  const items = catalogFixtureRecords
+    .filter((record) => {
+      const summary = record.summary;
+      const textMatches =
+        normalizedText.length === 0 ||
+        normalizedText === summary.questionId.toLowerCase() ||
+        summary.metadata.title.toLowerCase().includes(normalizedText) ||
+        summary.metadata.tags.some((tag) => tag.toLowerCase().includes(normalizedText));
+      const taxonomyMatches = parameters
+        .getAll("taxonomy")
+        .every((filter) =>
+          summary.metadata.taxonomy.some((term) => `${term.scheme}:${term.code}` === filter),
+        );
+      const capabilitiesMatch = parameters
+        .getAll("capabilities")
+        .every((capability) => summary.capabilities.some((candidate) => candidate === capability));
+      const licensesMatch = parameters
+        .getAll("licenses")
+        .some((license) => summary.metadata.license.kind === license);
+      const statisticsMatch =
+        statistics === "any" ||
+        (statistics === "available" && record.statistics !== "unavailable") ||
+        (statistics === "unavailable" && record.statistics === "unavailable");
+      return (
+        textMatches &&
+        taxonomyMatches &&
+        capabilitiesMatch &&
+        (parameters.getAll("licenses").length === 0 || licensesMatch) &&
+        statisticsMatch
+      );
+    })
+    .map((record) => record.summary);
   return {
-    items: includesSummary ? [summary] : [],
+    items: parameters.get("cursor") === null ? items : [],
     nextCursor: null,
     facets: {
-      taxonomy: summary.metadata.taxonomy.map((term) => ({ term, count: 1 })),
-      capabilities: summary.capabilities.map((capability) => ({ capability, count: 1 })),
-      licenses: [{ license: summary.metadata.license.kind, count: 1 }],
-      statistics: { available: 0, unavailable: 1 },
+      taxonomy: publishedProblemFixture.catalogProblem.metadata.taxonomy.map((term) => ({
+        term,
+        count: catalogFixtureRecords.length,
+      })),
+      capabilities: publishedProblemFixture.catalogProblem.capabilities.map((capability) => ({
+        capability,
+        count: catalogFixtureRecords.length,
+      })),
+      licenses: [
+        {
+          license: publishedProblemFixture.catalogProblem.metadata.license.kind,
+          count: catalogFixtureRecords.length,
+        },
+      ],
+      statistics: { available: 1, unavailable: 1 },
     },
   };
 }
@@ -98,39 +146,34 @@ export function respondCatalog(request: Request): Response {
     segments.length === 4 &&
     segments[2] === "by-id"
   ) {
-    const summary = publishedProblemFixture.catalogProblem;
     const reference = segments[3] ?? "";
     const normalized = normalizeQuestionId(reference);
     if (normalized === null) {
       return jsonResponse({ error: "invalid problem reference" }, 400);
     }
-    return normalized === summary.questionId
-      ? jsonResponse(summary)
-      : jsonResponse({ error: "problem reference not found" }, 404);
-  }
-  if (
-    request.method === "GET" &&
-    resource === "problems" &&
-    segments.length === 6 &&
-    segments[2] === publishedProblemFixture.publishedProblem.problem &&
-    segments[3] === "versions" &&
-    segments[4] === publishedProblemFixture.publishedProblem.version &&
-    segments[5] === "detail"
-  ) {
-    return jsonResponse(catalogDetailFixture());
-  }
-  if (request.method === "GET" && resource === "problems" && segments.length === 2) {
-    return jsonResponse({ items: [publishedProblemFixture.catalogProblem], nextCursor: null });
+    const record = catalogFixtureRecords.find(
+      (candidate) => candidate.summary.questionId === normalized,
+    );
+    return record === undefined
+      ? jsonResponse({ error: "problem reference not found" }, 404)
+      : jsonResponse(record.summary);
   }
   if (
     request.method === "GET" &&
     resource === "problems" &&
     segments.length === 5 &&
-    segments[2] === publishedProblemFixture.publishedProblem.problem &&
-    segments[3] === "versions" &&
-    segments[4] === publishedProblemFixture.publishedProblem.version
+    segments[2] === "by-id" &&
+    segments[4] === "detail"
   ) {
-    return jsonResponse(publishedProblemFixture.publishedProblem);
+    const record = catalogFixtureRecords.find(
+      (candidate) => candidate.summary.questionId === normalizeQuestionId(segments[3] ?? ""),
+    );
+    return record === undefined
+      ? jsonResponse({ error: "problem reference not found" }, 404)
+      : jsonResponse(catalogDetailFixture(record));
+  }
+  if (request.method === "GET" && resource === "problems" && segments.length === 2) {
+    return jsonResponse({ items: [publishedProblemFixture.catalogProblem], nextCursor: null });
   }
   if (request.method === "POST" && resource === "problems" && segments[3] === "publish") {
     return jsonResponse(publishedProblemFixture.publishedProblem, 201);

@@ -40,6 +40,7 @@ async function openLibrary(page: Page): Promise<void> {
 test("library uses one bounded search request, server facet counts, keyboard controls, and immutable detail", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
   await openLibrary(page);
 
   await expect(page.locator('[data-route-surface="library"]')).toBeVisible();
@@ -49,29 +50,66 @@ test("library uses one bounded search request, server facet counts, keyboard con
   await expect(page.getByLabel("Topic")).toBeVisible();
   await expect(page.getByLabel("Capability")).toBeVisible();
   await expect(page.getByLabel("License")).toBeVisible();
-  await expect(page.getByLabel("Statistic availability")).toBeVisible();
+  await expect(page.getByLabel("Evidence")).toBeVisible();
   await page.getByLabel("Topic").selectOption("Peptidyle:BIOCHEM.PEPTIDE_BOND");
   await page.getByLabel("Capability").selectOption("serverGrading");
   await page.getByLabel("License").selectOption("ccBy");
-  await page.getByLabel("Statistic availability").selectOption("unavailable");
+  await page.getByLabel("Evidence").selectOption("available");
   await expect(page.getByRole("link", { name: "Open question" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Open question" }).click();
+  const openQuestion = page.getByRole("link", { name: "Open question" });
+  await openQuestion.focus();
+  await expect(openQuestion).toBeFocused();
+  await page.keyboard.press("Enter");
   await expect(page.locator('[data-route-surface="problemDetail"]')).toBeVisible();
-  await expect(page.getByText("Published question")).toBeVisible();
+  await expect(
+    page
+      .locator('[data-route-surface="problemDetail"] .eyebrow')
+      .getByText("Published question", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Anonymous learning evidence" })).toBeVisible();
+  await expect(page.getByText("48 learners")).toBeVisible();
+  await expect(page.getByText("Difficulty (mean score)")).toBeVisible();
+  await expect(page.getByText("67.5%")).toBeVisible();
+  await expect(page.getByText("1.4 attempts")).toBeVisible();
+  await expect(page.getByText("2 min")).toBeVisible();
+  await expect(page.getByText("0.42")).toBeVisible();
   await expect(page.locator("body")).not.toContainText(
     /answerKey|correctResponse|grading|sourceLocator/i,
+  );
+
+  const returnToLibrary = page.getByRole("link", { name: "Return to problem library" });
+  await returnToLibrary.focus();
+  await expect(returnToLibrary).toBeFocused();
+  await page.keyboard.press("Enter");
+  await page.setViewportSize({ width: 800, height: 1280 });
+  await page.getByLabel("Evidence").selectOption("unavailable");
+  const openSuppressedQuestion = page.getByRole("link", { name: "Open question" });
+  await openSuppressedQuestion.focus();
+  await expect(openSuppressedQuestion).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Insufficient evidence" })).toBeVisible();
+  await expect(
+    page.getByText(
+      "There is not enough anonymous learning evidence to display measures for this question.",
+    ),
+  ).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(
+    /48 learners|67\.5%|1\.4 attempts|2 min|0\.42/i,
   );
 });
 
 test("library keeps intentional empty and narrow responsive states", async ({ page }) => {
-  await page.setViewportSize({ width: 420, height: 800 });
+  await page.setViewportSize({ width: 320, height: 800 });
   await openLibrary(page);
   await page.getByLabel("Search published questions").fill("not-a-catalog-title");
   await expect(
     page.getByRole("heading", { name: "No published questions match these filters" }),
   ).toBeVisible();
   await expect(page.getByLabel("Search published questions")).toBeVisible();
+  expect(
+    await page.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth),
+  ).toBe(true);
 });
 
 let boundedCatalogFixture = "";
@@ -125,10 +163,6 @@ test.beforeAll(async () => {
         let maximumConcurrentRequests = 0;
         let failCursorFiftyOnce = true;
 
-        function identifier(index) {
-          return "0198e000-0000-7000-8000-" + String(index).padStart(12, "0");
-        }
-
         function questionId(index) {
           const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
           let value = index;
@@ -156,9 +190,7 @@ test.beforeAll(async () => {
             const index = start + offset + 1;
             return {
               ...publishedProblemFixture.catalogProblem,
-              problem: identifier(index),
               questionId: questionId(index),
-              version: identifier(index + totalRows),
               metadata: {
                 ...publishedProblemFixture.catalogProblem.metadata,
                 title: text + " catalog problem " + index,
@@ -282,7 +314,7 @@ test("built library keeps a 10,000-row catalog bounded, stale-safe, retryable, a
   await fixture.getByLabel("Topic").selectOption("Peptidyle:BIOCHEM.PEPTIDE_BOND");
   await fixture.getByLabel("Capability").selectOption("serverGrading");
   await fixture.getByLabel("License").selectOption("ccBy");
-  await fixture.getByLabel("Statistic availability").selectOption("unavailable");
+  await fixture.getByLabel("Evidence").selectOption("unavailable");
   await page.waitForFunction(() => {
     const fixtureWindow = window as unknown as CatalogFixtureWindow;
     return fixtureWindow.__catalogBrowserFixture.requests.some(

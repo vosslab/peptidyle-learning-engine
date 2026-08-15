@@ -11,18 +11,19 @@ use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 use learning_data_access::{
     AllowedEmailDomain, AuthenticationEmail, CourseEnrollmentPolicy, CourseInvitation,
-    CourseInvitationLifetime, CourseInvitationStatus, CourseMemberId, CourseMemberStatus,
-    CourseRecordsAccessStore, CourseRosterEntry, CourseRosterId, CourseRosterStore,
-    CourseSignupPosture, CreateCourseInvitation, Cursor, PageRequest, PageSize,
-    ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation, RevokeCourseMember,
-    RosterIdempotencyKey, RosterRevision, SessionStore, Store, UpsertCourseMember,
+    CourseInvitationDeliveryState, CourseInvitationDeliveryStore, CourseInvitationLifetime,
+    CourseInvitationStatus, CourseMemberId, CourseMemberStatus, CourseRecordsAccessStore,
+    CourseRosterEntry, CourseRosterId, CourseRosterStore, CourseSignupPosture,
+    CreateCourseInvitation, Cursor, PageRequest, PageSize, ReplaceCourseEnrollmentPolicy,
+    RevokeCourseInvitation, RevokeCourseMember, RosterIdempotencyKey, RosterRevision, SessionStore,
+    Store, UpsertCourseMember,
 };
 use question_model::{ActivityTimestamp, CourseId, TenantId, UserId, UserRole};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthenticatedSession, auth_error_response, no_store, resolve_request_session};
 
-use super::invitation_capability::{CourseInvitationDelivery, CourseInvitationIssuer};
+use super::invitation_capability::CourseInvitationIssuer;
 use super::policy::{course_records_are_visible, require_course_access};
 use super::projection::{error_response, store_error_response};
 
@@ -38,7 +39,6 @@ const IDEMPOTENCY_HEADER: &str = "idempotency-key";
 struct CourseRosterRouteState<S> {
     store: Arc<S>,
     issuer: CourseInvitationIssuer,
-    delivery: Arc<dyn CourseInvitationDelivery>,
     local_teaching_roster: Option<Arc<LocalTeachingRosterDirectory>>,
 }
 
@@ -47,7 +47,6 @@ impl<S> Clone for CourseRosterRouteState<S> {
         Self {
             store: Arc::clone(&self.store),
             issuer: self.issuer.clone(),
-            delivery: Arc::clone(&self.delivery),
             local_teaching_roster: self.local_teaching_roster.clone(),
         }
     }
@@ -114,13 +113,13 @@ impl LocalTeachingRosterDirectory {
 pub(super) fn roster_router<S>(
     store: Arc<S>,
     issuer: CourseInvitationIssuer,
-    delivery: Arc<dyn CourseInvitationDelivery>,
     local_teaching_roster: Option<Arc<LocalTeachingRosterDirectory>>,
 ) -> Router
 where
     S: Store
         + CourseRecordsAccessStore
         + CourseRosterStore
+        + CourseInvitationDeliveryStore
         + learning_data_access::ManualGradeExportStore
         + SessionStore
         + 'static,
@@ -166,7 +165,6 @@ where
     router.with_state(CourseRosterRouteState {
         store,
         issuer,
-        delivery,
         local_teaching_roster,
     })
 }
@@ -307,7 +305,12 @@ async fn list_roster<S>(
     Query(query): Query<RosterQuery>,
 ) -> Response
 where
-    S: Store + CourseRecordsAccessStore + CourseRosterStore + SessionStore + 'static,
+    S: Store
+        + CourseRecordsAccessStore
+        + CourseRosterStore
+        + CourseInvitationDeliveryStore
+        + SessionStore
+        + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -351,7 +354,12 @@ async fn activate_local_teaching_member<S>(
     Json(request): Json<ActivateLocalTeachingMemberRequest>,
 ) -> Response
 where
-    S: Store + CourseRecordsAccessStore + CourseRosterStore + SessionStore + 'static,
+    S: Store
+        + CourseRecordsAccessStore
+        + CourseRosterStore
+        + CourseInvitationDeliveryStore
+        + SessionStore
+        + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -402,7 +410,12 @@ async fn create_invitation<S>(
     Json(request): Json<CreateInvitationRequest>,
 ) -> Response
 where
-    S: Store + CourseRecordsAccessStore + CourseRosterStore + SessionStore + 'static,
+    S: Store
+        + CourseRecordsAccessStore
+        + CourseRosterStore
+        + CourseInvitationDeliveryStore
+        + SessionStore
+        + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -456,16 +469,22 @@ where
         Ok(invitation) => invitation,
         Err(error) => return store_error_response(error),
     };
-    let email_delivery = if state.delivery.is_configured()
-        && state
-            .delivery
-            .send_course_invitation(&email, &secret)
-            .await
-            .is_ok()
+    // The request commits only durable invitation intent. External delivery
+    // belongs to the leased server worker: returning here never means an SMTP
+    // submission was attempted or accepted.
+    let email_delivery = match state
+        .store
+        .course_invitation_delivery_state(
+            authenticated.tenant_context,
+            authenticated.record.token_hash,
+            course,
+            invitation.id,
+        )
+        .await
     {
-        "sent"
-    } else {
-        "notSent"
+        Ok(Some(delivery)) => coarse_delivery_outcome(delivery),
+        Ok(None) => return enrollment_unavailable(),
+        Err(error) => return store_error_response(error),
     };
     no_store(
         (
@@ -480,6 +499,18 @@ where
     )
 }
 
+pub(super) fn coarse_delivery_outcome(state: CourseInvitationDeliveryState) -> &'static str {
+    match state {
+        CourseInvitationDeliveryState::Pending | CourseInvitationDeliveryState::RetryableFailed => {
+            "queued"
+        }
+        CourseInvitationDeliveryState::AcceptedByProvider => "sentToProvider",
+        CourseInvitationDeliveryState::Ambiguous
+        | CourseInvitationDeliveryState::PermanentFailed => "needsAttention",
+        CourseInvitationDeliveryState::Cancelled => "cancelled",
+    }
+}
+
 async fn replace_policy<S>(
     State(state): State<CourseRosterRouteState<S>>,
     headers: HeaderMap,
@@ -487,7 +518,12 @@ async fn replace_policy<S>(
     Json(request): Json<ReplacePolicyRequest>,
 ) -> Response
 where
-    S: Store + CourseRecordsAccessStore + CourseRosterStore + SessionStore + 'static,
+    S: Store
+        + CourseRecordsAccessStore
+        + CourseRosterStore
+        + CourseInvitationDeliveryStore
+        + SessionStore
+        + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -561,7 +597,12 @@ async fn revoke_member<S>(
     Path((course, member)): Path<(CourseId, uuid::Uuid)>,
 ) -> Response
 where
-    S: Store + CourseRecordsAccessStore + CourseRosterStore + SessionStore + 'static,
+    S: Store
+        + CourseRecordsAccessStore
+        + CourseRosterStore
+        + CourseInvitationDeliveryStore
+        + SessionStore
+        + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -611,7 +652,12 @@ async fn revoke_invitation<S>(
     Path((course, invitation)): Path<(CourseId, uuid::Uuid)>,
 ) -> Response
 where
-    S: Store + CourseRecordsAccessStore + CourseRosterStore + SessionStore + 'static,
+    S: Store
+        + CourseRecordsAccessStore
+        + CourseRosterStore
+        + CourseInvitationDeliveryStore
+        + SessionStore
+        + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,

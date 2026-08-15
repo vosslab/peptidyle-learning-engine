@@ -7,8 +7,10 @@ use learning_data_access::{JobKind, postgres::SchemaCompatibilityError};
 
 use super::settings::{
     LazyStorageDependencies, PublisherStorageDependencies, StorageRuntime, StorageSettings,
+    invitation_delivery_worker_database_url_from_env, invitation_delivery_worker_from_env,
 };
 use crate::{
+    course::invitation_delivery_worker::InvitationDeliveryWorker,
     export_worker::{ExportJobCommitter, ExportJobHandler},
     item_analysis_worker::{CourseItemAnalysisCommitter, CourseItemAnalysisHandler},
     public_asset_publication_worker::{
@@ -96,6 +98,19 @@ pub async fn run_local_development_worker_from_env() -> Result<()> {
     run_worker_from_env(StorageRuntime::LocalDevelopmentWorker).await
 }
 
+/// Starts the production invitation-delivery process. Its database login has
+/// only the outbox broker capability; it never constructs the generic Store.
+pub async fn run_production_invitation_delivery_worker_from_env() -> Result<()> {
+    run_invitation_delivery_worker_from_env(false).await
+}
+
+/// Starts the disposable-stack invitation-delivery process against its local
+/// database only. This mode is compiled solely with local development auth.
+#[cfg(feature = "local-development-auth")]
+pub async fn run_local_development_invitation_delivery_worker_from_env() -> Result<()> {
+    run_invitation_delivery_worker_from_env(true).await
+}
+
 /// Starts the least-authority publisher process. It claims no educational
 /// work: its sole capability is materializing already-committed public asset
 /// bytes, then activating their matching registry records.
@@ -112,7 +127,7 @@ pub async fn run_public_asset_publisher_from_env() -> Result<()> {
         PublicAssetPublicationCommitter::new(Arc::clone(&store)),
     )])
     .context("public-asset publisher registry is invalid")?;
-    let worker = Worker::new(store, registry, settings.worker);
+    let worker = Worker::new(Arc::clone(&store), registry, settings.worker);
     eprintln!("peptidyle public-asset publisher ready");
     runtime::run_until_shutdown(worker, settings.poll_interval, runtime::shutdown_signal())
         .await
@@ -167,6 +182,43 @@ async fn run_worker_from_env(runtime: StorageRuntime) -> Result<()> {
         .context("production worker runtime failed")
 }
 
+async fn run_invitation_delivery_worker_from_env(local_development: bool) -> Result<()> {
+    let settings = ProductionWorkerSettings::from_env()?;
+    let database_url = invitation_delivery_worker_database_url_from_env(local_development)?;
+    let pool = if local_development {
+        learning_data_access::postgres::lazy_pool(&database_url)
+    } else {
+        learning_data_access::postgres::production_pool(
+            &database_url,
+            learning_data_access::postgres::ProductionLoginProfile::InvitationDeliveryWorker,
+        )
+    }
+    .map_err(|_| anyhow::anyhow!("database connection configuration was rejected"))?;
+    verify_invitation_delivery_worker_schema(&pool).await?;
+    let store =
+        Arc::new(learning_data_access::postgres::PostgresInvitationDeliveryWorkerStore::new(pool));
+    let (issuer, delivery) = invitation_delivery_worker_from_env()?.ok_or_else(|| {
+        anyhow::anyhow!(
+            "invitation-delivery worker requires complete SMTP and PLE_INVITATION_TOKEN_SECRET_FILE configuration"
+        )
+    })?;
+    let worker = Arc::new(InvitationDeliveryWorker::new(
+        store,
+        issuer,
+        delivery,
+        u16::try_from(PRODUCTION_BATCH_SIZE).expect("fixed batch fits u16"),
+        DEFAULT_LEASE_SECONDS,
+    )?);
+    eprintln!("peptidyle invitation-delivery worker ready");
+    runtime::run_bounded_dispatch_until_shutdown(
+        worker,
+        settings.poll_interval,
+        runtime::shutdown_signal(),
+    )
+    .await
+    .context("invitation-delivery worker runtime failed")
+}
+
 fn entry<H, C>(kind: JobKind, handler: H, committer: C) -> JobRegistryEntry
 where
     H: JobHandler,
@@ -194,6 +246,25 @@ async fn verify_worker_schema(pool: &learning_data_access::postgres::Pool) -> Re
     }
 }
 
+async fn verify_invitation_delivery_worker_schema(
+    pool: &learning_data_access::postgres::Pool,
+) -> Result<()> {
+    match tokio::time::timeout(
+        Duration::from_secs(5),
+        learning_data_access::postgres::verify_invitation_delivery_worker_schema(pool),
+    )
+    .await
+    {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(SchemaCompatibilityError::Unavailable)) | Err(_) => {
+            bail!("invitation-delivery schema verification is unavailable; worker will not drain")
+        }
+        Ok(Err(SchemaCompatibilityError::Incompatible(_))) => {
+            bail!("invitation-delivery schema is incompatible; worker will not drain")
+        }
+    }
+}
+
 async fn verify_publisher_schema(pool: &learning_data_access::postgres::Pool) -> Result<()> {
     match tokio::time::timeout(
         Duration::from_secs(5),
@@ -216,14 +287,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn worker_defaults_are_valid_and_bounds_are_named() {
-        WorkerSettings::new(
-            DEFAULT_LEASE_SECONDS,
-            Duration::from_secs(DEFAULT_PREPARATION_TIMEOUT_SECONDS),
-            PRODUCTION_BATCH_SIZE,
-        )
-        .expect("production defaults");
-        assert!(bounded_env("PLE_WORKER_TEST_MISSING", 5_u64, 1, 10).is_ok());
+    fn worker_settings_refuse_invalid_lease_and_preparation_deadline() {
+        assert!(WorkerSettings::new(0, Duration::from_secs(1), 1).is_err());
+        assert!(WorkerSettings::new(10, Duration::from_secs(10), 1).is_err());
     }
 
     #[test]

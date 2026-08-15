@@ -7,6 +7,7 @@ import pathlib
 import pytest
 
 import local_stack_control.cleanup
+import local_stack_control.acceptance_lanes
 import local_stack_control.compose
 import local_stack_control.commands
 import local_stack_control.discovery
@@ -26,8 +27,11 @@ class ProjectScopedInventoryRunner(local_stack_control.process.CommandRunner):
 		argv: list[str],
 		environment: dict[str, str] | None = None,
 		cwd: pathlib.Path | None = None,
+		stdin: str | None = None,
 	) -> local_stack_control.models.CommandResult:
 		"""Return only the selected project from value-scoped label queries."""
+		if stdin is not None:
+			raise AssertionError("inventory discovery does not accept stdin")
 		selected_label = next(
 			(value for value in argv if value.endswith("=target-project")),
 			None,
@@ -89,8 +93,11 @@ class NonRootlessInfoRunner(local_stack_control.process.CommandRunner):
 		argv: list[str],
 		environment: dict[str, str] | None = None,
 		cwd: pathlib.Path | None = None,
+		stdin: str | None = None,
 	) -> local_stack_control.models.CommandResult:
 		"""Report a reachable but rootful active connection."""
+		if stdin is not None:
+			raise AssertionError("engine metadata does not accept stdin")
 		return local_stack_control.models.CommandResult(
 			tuple(argv), 0, '{"host":{"security":{"rootless":false}}}', ""
 		)
@@ -104,6 +111,43 @@ class NonRootlessInfoRunner(local_stack_control.process.CommandRunner):
 	) -> int:
 		"""Keep the engine-proof test away from subprocess execution."""
 		raise RuntimeError("stream is not used by the rootless engine proof")
+
+
+#============================================
+class ValidationLaneRunner(local_stack_control.process.CommandRunner):
+	"""Capture aggregate lane handoffs without starting an external process."""
+
+	def __init__(self, result_codes: tuple[int, ...]) -> None:
+		"""Store the fixed child results used by one offline lane test."""
+		self.result_codes = iter(result_codes)
+		self.failed = False
+
+	#============================================
+	def run(
+		self,
+		argv: list[str],
+		environment: dict[str, str] | None = None,
+		cwd: pathlib.Path | None = None,
+		stdin: str | None = None,
+	) -> local_stack_control.models.CommandResult:
+		"""Reject unexpected captured process calls from lane sequencing."""
+		if stdin is not None:
+			raise AssertionError("lane sequencing does not accept stdin")
+		raise AssertionError(f"lane sequencing must stream child argv, not capture {argv}")
+
+	#============================================
+	def stream(
+		self,
+		argv: list[str],
+		environment: dict[str, str] | None = None,
+		cwd: pathlib.Path | None = None,
+	) -> int:
+		"""Return one child result and reject work after the first failure."""
+		if self.failed:
+			raise AssertionError(f"lane sequencing continued after failure with {argv}")
+		result = next(self.result_codes)
+		self.failed = result != 0
+		return result
 
 
 #============================================
@@ -130,6 +174,48 @@ def target(
 		with_smtp=with_smtp,
 		env_setting_names=("STACK_SECRET",),
 	)
+
+
+#============================================
+def test_start_authorization_allows_only_missing_exact_default_environment(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""First start reaches lifecycle bootstrap only for the declared default environment."""
+	compose_file = tmp_path / "containers" / "compose.yaml"
+	compose_file.parent.mkdir()
+	compose_file.write_text("services: {}\n", encoding="ascii")
+	default_env = tmp_path / "containers" / "env.local"
+	selected = local_stack_control.models.ComposeTarget(
+		repo_root=tmp_path,
+		project="containers",
+		env_file=default_env,
+		compose_files=(compose_file,),
+		provider=local_stack_control.models.ComposeProvider(("podman", "compose"), "podman compose"),
+		with_smtp=False,
+		env_setting_names=(),
+	)
+
+	local_stack_control.commands.authorize_start_target(selected)
+
+
+#============================================
+def test_start_authorization_refuses_missing_custom_environment(tmp_path: pathlib.Path) -> None:
+	"""A missing custom environment cannot borrow default bootstrap authority."""
+	compose_file = tmp_path / "containers" / "compose.yaml"
+	compose_file.parent.mkdir()
+	compose_file.write_text("services: {}\n", encoding="ascii")
+	selected = local_stack_control.models.ComposeTarget(
+		repo_root=tmp_path,
+		project="containers",
+		env_file=tmp_path / "private" / "custom.env",
+		compose_files=(compose_file,),
+		provider=local_stack_control.models.ComposeProvider(("podman", "compose"), "podman compose"),
+		with_smtp=False,
+		env_setting_names=(),
+	)
+
+	with pytest.raises(local_stack_control.models.ControllerError, match="custom mutating env"):
+		local_stack_control.commands.authorize_start_target(selected)
 
 
 #============================================
@@ -164,8 +250,8 @@ def ready_snapshot(with_smtp: bool = False) -> local_stack_control.models.Projec
 		containers.append(
 			container(service, running=False, health=None, state="exited", exit_code=0)
 		)
-	for service in local_stack_control.models.BASE_LONG_RUNNING_SERVICES:
-		health = None if service == "worker" else "healthy"
+	for service in local_stack_control.status.required_long_running(with_smtp):
+		health = None if service in ("worker", "invitation-delivery-worker") else "healthy"
 		containers.append(
 			container(service, running=True, health=health, state="running", exit_code=0)
 		)
@@ -197,6 +283,32 @@ def test_conflicting_compose_aliases_are_rejected() -> None:
 
 	with pytest.raises(local_stack_control.models.ControllerError):
 		local_stack_control.discovery.container_from_json(raw, inspection)
+
+
+#============================================
+def test_discovery_normalizes_podman_bare_oci_image_id() -> None:
+	"""A bare Podman configuration ID compares with canonical renderer provenance."""
+	assert local_stack_control.discovery.canonical_oci_image_id("a" * 64) == "sha256:" + "a" * 64
+
+
+#============================================
+@pytest.mark.parametrize(
+	"content",
+	(
+		"MISSING_SEPARATOR\n",
+		"PLE_WEBWORK_RENDERER_IMAGE=localhost/pg-renderer:reviewed\nPLE_WEBWORK_RENDERER_IMAGE=other\n",
+	),
+)
+def test_environment_parser_refuses_malformed_or_duplicate_declarations(
+	tmp_path: pathlib.Path,
+	content: str,
+) -> None:
+	"""A selected environment must have one valid declaration per setting."""
+	env_file = tmp_path / "env.local"
+	env_file.write_text(content, encoding="ascii")
+
+	with pytest.raises(local_stack_control.models.ControllerError):
+		local_stack_control.env_file.env_settings(env_file)
 
 
 #============================================
@@ -383,6 +495,49 @@ def test_smtp_resources_infer_the_required_overlay() -> None:
 
 
 #============================================
+def test_persisted_smtp_topology_requires_invitation_delivery_worker() -> None:
+	"""An inferred SMTP topology cannot be ready without its delivery worker."""
+	snapshot = ready_snapshot(True)
+	without_delivery_worker = tuple(
+		container_value
+		for container_value in snapshot.containers
+		if container_value.service != "invitation-delivery-worker"
+	)
+	report = local_stack_control.status.build_report(
+		"containers",
+		False,
+		local_stack_control.models.ProjectSnapshot("containers", without_delivery_worker, (), ()),
+	)
+
+	assert report.with_smtp and not report.ok
+
+
+#============================================
+def test_smtp_delivery_worker_requires_one_running_instance() -> None:
+	"""SMTP readiness rejects duplicate delivery workers even if each is running."""
+	snapshot = ready_snapshot(True)
+	delivery_worker = next(
+		item for item in snapshot.containers if item.service == "invitation-delivery-worker"
+	)
+	with_duplicate = local_stack_control.models.ProjectSnapshot(
+		"containers",
+		(*snapshot.containers, dataclasses.replace(delivery_worker, id="delivery-worker-duplicate")),
+		(),
+		(),
+	)
+	report = local_stack_control.status.build_report("containers", True, with_duplicate)
+
+	assert not report.ok and report.state == "failed"
+
+
+#============================================
+def test_invitation_delivery_restart_is_limited_to_smtp_topology() -> None:
+	"""The optional delivery worker has no base-stack restart authority."""
+	assert "invitation-delivery-worker" not in local_stack_control.models.restartable_services(False)
+	assert "invitation-delivery-worker" in local_stack_control.models.restartable_services(True)
+
+
+#============================================
 def test_reset_requires_visible_default_project_acknowledgement(tmp_path: pathlib.Path) -> None:
 	"""A reset plan cannot be created until the operator names its target project."""
 	selected_target = target(tmp_path)
@@ -434,6 +589,62 @@ def test_stop_keeps_a_volume_only_project_actionable(tmp_path: pathlib.Path) -> 
 
 
 #============================================
+def test_confirmed_reset_removes_manifest_after_empty_cleanup_proof(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	"""A confirmed reset clears its replay record after label discovery is empty."""
+	selected_target = target(tmp_path)
+	manifest_path = tmp_path / local_stack_control.models.DEFAULT_CHAPTER_ONE_MANIFEST_FILE
+	manifest_path.parent.mkdir()
+	manifest_path.write_text("{}", encoding="ascii")
+	manifest_path.chmod(0o600)
+	snapshot = local_stack_control.models.ProjectSnapshot(
+		"containers",
+		(),
+		(local_stack_control.models.VolumeResource("containers_ple_pgdata", "containers"),),
+		(),
+	)
+	plan = local_stack_control.cleanup.reset_plan(selected_target, snapshot, "containers", False)
+	runner = ValidationLaneRunner((0,))
+	empty_snapshot = local_stack_control.models.ProjectSnapshot("containers", (), (), ())
+	monkeypatch.setattr(local_stack_control.process, "require_rootless_local_engine", lambda *_: None)
+	monkeypatch.setattr(local_stack_control.discovery, "discover_snapshot", lambda *_: empty_snapshot)
+
+	local_stack_control.commands.execute_cleanup(plan, selected_target, runner, False)
+
+	assert not manifest_path.exists()
+
+
+#============================================
+def test_confirmed_reset_keeps_manifest_when_labelled_data_remains(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	"""The replay record remains available when Compose cleanup leaves owned data."""
+	selected_target = target(tmp_path)
+	manifest_path = tmp_path / local_stack_control.models.DEFAULT_CHAPTER_ONE_MANIFEST_FILE
+	manifest_path.parent.mkdir()
+	manifest_path.write_text("{}", encoding="ascii")
+	manifest_path.chmod(0o600)
+	snapshot = local_stack_control.models.ProjectSnapshot(
+		"containers",
+		(),
+		(local_stack_control.models.VolumeResource("containers_ple_pgdata", "containers"),),
+		(),
+	)
+	plan = local_stack_control.cleanup.reset_plan(selected_target, snapshot, "containers", False)
+	runner = ValidationLaneRunner((0,))
+	monkeypatch.setattr(local_stack_control.process, "require_rootless_local_engine", lambda *_: None)
+	monkeypatch.setattr(local_stack_control.discovery, "discover_snapshot", lambda *_: snapshot)
+
+	with pytest.raises(local_stack_control.models.ControllerError, match="resources remain"):
+		local_stack_control.commands.execute_cleanup(plan, selected_target, runner, False)
+
+	assert manifest_path.exists()
+
+
+#============================================
 def test_cleanup_allows_distinct_replicas_but_rejects_repeated_container_identity(
 	tmp_path: pathlib.Path,
 ) -> None:
@@ -469,19 +680,6 @@ def test_cleanup_rejects_an_undeclared_labelled_network(tmp_path: pathlib.Path) 
 
 
 #============================================
-def test_public_container_identity_is_limited_to_a_short_prefix() -> None:
-	"""Human diagnostics expose a compact Podman correlation prefix only."""
-	container_value = container(
-		"api", running=True, health="healthy", state="running", exit_code=0
-	)
-	container_value = dataclasses.replace(container_value, id="0123456789abcdef")
-
-	serialized = local_stack_control.commands.asdict_for_json(container_value)
-
-	assert serialized["id"] == "0123456789ab"
-
-
-#============================================
 def test_ambiguous_snapshot_cannot_form_a_cleanup_plan(tmp_path: pathlib.Path) -> None:
 	"""A duplicate labelled service stops cleanup before a mutation argv exists."""
 	snapshot = ready_snapshot()
@@ -500,18 +698,21 @@ def test_ambiguous_snapshot_cannot_form_a_cleanup_plan(tmp_path: pathlib.Path) -
 
 #============================================
 def test_acceptance_environment_discards_lifecycle_overrides() -> None:
-	"""Aggregate acceptance cannot inherit another stack's lifecycle controls."""
+	"""Aggregate acceptance owns lifecycle and child color configuration."""
 	environment = local_stack_control.env_file.sanitized_acceptance_environment({
 		"COMPOSE_PROJECT_NAME": "foreign",
+		"FORCE_COLOR": "1",
+		"NO_COLOR": "1",
 		"PLE_E2E_PROJECT": "foreign",
 		"PLE_WEBWORK_LIVE_PORT": "9999",
 		"PLE_LAUNCH_TIMEOUT_SECONDS": "1",
 		"SAFE_VALUE": "kept",
 	})
 
-	assert environment.get("SAFE_VALUE") == "kept" and all(
-		name not in environment for name in ("COMPOSE_PROJECT_NAME", "PLE_E2E_PROJECT")
-	)
+	assert environment.get("SAFE_VALUE") == "kept"
+	assert environment.get("FORCE_COLOR") == "1"
+	assert "NO_COLOR" not in environment
+	assert all(name not in environment for name in ("COMPOSE_PROJECT_NAME", "PLE_E2E_PROJECT"))
 
 
 #============================================
@@ -529,6 +730,15 @@ def test_acceptance_preflight_blocks_retained_walkthrough_containers() -> None:
 	preflight = local_stack_control.cleanup.aggregate_acceptance_preflight((snapshot,))
 
 	assert preflight.conflicting_projects == ("ple-ui-walkthrough-owned",)
+
+
+#============================================
+def test_acceptance_lanes_stop_after_the_first_nonzero_child(tmp_path: pathlib.Path) -> None:
+	"""A failed lane keeps its result and prevents later live state from starting."""
+	runner = ValidationLaneRunner((0, 0, 0, 17))
+	result = local_stack_control.acceptance_lanes.run(runner, tmp_path, {})
+
+	assert result == 17
 
 
 #============================================

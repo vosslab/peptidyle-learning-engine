@@ -60,7 +60,7 @@ Production enrollment and email identity remain separate work.
    its entire question set or use the checklist for a subset.
 4. For an occasional direct lookup, copy the visible `AAA-BBBB` Question ID from the published
    problem catalog and paste it into **Add by question ID**. Never substitute a UUID.
-5. Confirm the selected list contains exactly the intended four current questions: WeBWorK MC,
+5. Confirm the selected list contains exactly the intended four selected questions: WeBWorK MC,
    WeBWorK MATCH, PLE flat MC, and PLE flat MATCH.
 6. Confirm **All questions correct**, **Highest run score**, and **Allow unlimited practice**.
 7. In **Time limit for each practice run**, leave **Timed** selected and confirm **Minutes per
@@ -71,6 +71,13 @@ Only corpus publication is arranged outside the browser. Course creation, roster
 assignment reuse, Question ID lookup, timing, and assignment construction use visible instructor
 controls. If an ID is malformed, unavailable, unauthorized, or already selected, the editor keeps
 the pasted text and selected questions unchanged so it can be corrected and tried again.
+
+## Replace an assigned question
+
+Open the assignment and choose **Replace question** for the item that should change. Enter or select
+the replacement `AAA-BBBB` Question ID, then review the existing and replacement titles and IDs before
+confirming the revision-checked change. The assignment uses the replacement for future runs. Issued
+runs retain the exact question that each learner received.
 
 ## Review learning
 

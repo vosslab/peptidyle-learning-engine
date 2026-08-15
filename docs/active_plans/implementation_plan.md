@@ -4,25 +4,69 @@
 
 [customer-spec.md](customer-spec.md) describes a
 backend-agnostic assignment platform built around repeated attempts, algorithmic questions, and
-question-level timing. M0 and M1 are complete, the main M2 through M4 learning paths are implemented,
-retention R4.4, QTI profile import WP-QTI-12, course appearance WP-CA1 through WP-CA7/WP-RC1, and
-production-seam closure WP-RC2 are accepted. The authoritative remaining package sequence, binary scope ledger, owners,
-files, behavior, success conditions, and validation are in
+question-level timing. The foundational M0 and M1 platform slices and the main M2 through M4
+learning paths are implemented, while current milestone acceptance remains governed by the active
+release plan and M0 remains open. Retention R4.4, QTI profile import WP-QTI-12, course appearance
+WP-CA1 through WP-CA7/WP-RC1, and production-seam closure WP-RC2 are accepted. The authoritative
+remaining package sequence, binary scope ledger, owners, files, behavior, success conditions, and
+validation are in
 [release_completion_plan.md](active/release_completion_plan.md). That release plan and
 [implementation_status.md](implementation_status.md) own the current next package; this foundation
 plan does not duplicate the changing handoff.
+
+**2026-08-14 WP-R2 acceptance.** WP-R2 establishes the no-drift release truth: each published
+Question ID names one immutable content identity; every content change mints a new assigned Question
+ID and fresh opaque hidden `(ProblemId, VersionId)` evidence; existing assignments and issued runs
+remain exact; and an Instructor explicitly, revision-checked replaces an assignment item for future
+runs. Hidden exact references remain only for authorized replay, grading, audit, provenance, and
+transport; they are neither public locators nor a latest-resolution or instructor-selection feature.
+The pre-production schema and code no longer retain sequential `ProblemPublicId`/`P-...`,
+`ProblemVersionNumber`, or predecessor/version-chain question identity. Each native and WeBWorK host
+seed publication mints fresh opaque evidence; a rerun resumes through a protected explicit manifest
+or verified existing record, never tenant-derived question UUIDs. Final material-tree evidence is
+recorded in [implementation_status.md](implementation_status.md) and the changelog. WP-PY-L1 is
+accepted on 2026-08-15. M0 remains open; the active release plan's next package remains WP-RC8
+acceptance.
 
 The separately active `docs/active_plans/peptidyle-walkthrough-plan.md` owns its corrected M8-M11
 acceptance sequence. It proves visible instructor course, local roster, and corpus-backed assignment
 setup followed by student keyboard take/score/repeat. Production email and canonical onboarding are
 separate release work and do not gate that walkthrough.
 
-The completed local-stack lifecycle controller is recorded in
+The completed local-stack lifecycle controller foundation is recorded in
 `docs/active_plans/workstreams/local_stack_controller_implementation.md`.
-It adds one typed Python lifecycle layer around the existing launcher and Compose stack for developers,
+It adds one typed Python lifecycle layer around the Compose stack for developers,
 Codex, aggregate browser acceptance, and canonical disposable walkthrough ownership. The shared layer
 centralizes provider/env/project resolution, label discovery, preflight/status, and scoped cleanup;
-the launcher remains the sole build, bootstrap, migration, seed, renderer, and readiness owner.
+focused Python modules are the current build, bootstrap, migration, seed, renderer, and readiness owner.
+That direct Python lifecycle conversion is accepted: WP-PY-L1 replaces the
+launcher, `_restart.sh`, and `local_identity_bootstrap.sh` together after WP-R2 and before M1. No Python
+wrapper or dual launcher is an accepted intermediate state. Final offline and live Validation are green,
+as are the three named independent final reviews. M0 remains open; M1 retains its separate declared
+dependency gates.
+
+**WP-R2 test and live-evidence boundary.** Offline Memory publication, replacement, and replay behavior
+belongs in `crates/learning-data-access/tests/conformance/publication.rs` and `assignments.rs`; server
+Question-ID request and replacement behavior belongs in `crates/server/src/catalog/tests/publication.rs`
+and `crates/server/src/course/tests/assignment_revision.rs`. The disposable PostgreSQL/RLS driver is
+`tests/e2e/e2e_wp_r2_postgres_rls.py`; `crates/project-tools/src/e2e_seed/tests.rs` owns manufactured
+manifest convergence; and the disposable real host-seed/renderer driver is
+`tests/e2e/e2e_wp_r2_host_seed_renderer.py`. The authored mock decoder/client/editor behavior owner is
+`tests/test_assignment_editor_ui.mjs`, and its mock-backed visible browser owner is
+`tests/playwright/assignment_editor.spec.ts`. `local_stack_control/acceptance_lanes.py` owns the one
+live browser replacement route; `tests/walkthrough/run_ui_walkthrough.py` owns the one M6 composition
+journey. WP-R2 uses inline builders and adds no fixture directory. Generated `generated/api/` output is
+ignored derivative output from `crates/project-tools/src/tsgen.rs`; authored consumers own their
+decoders and behavior. The ignored `_temp_professor_roadmap_20260814/wp_r2_closeout.review.md` records
+the one-time migration/schema/source/route/generated inventories, screenshots, and timing observations.
+
+**Local renderer provenance.** WP-R1 is accepted on 2026-08-14. Its completed Chapter One
+pilot/browser and aggregate-acceptance Python work uses one designated configured renderer image name
+as the stable local selection and rebuild target. Each live run records the inspected immutable OCI
+image configuration ID as exact runtime provenance. Image pruning may remove the selected local bytes,
+after which the configured target is rebuilt before use. WP-R2 is accepted; M0 remains open, and
+WP-PY-L1 is accepted on 2026-08-15 after final offline/live Validation and its named independent final
+reviews.
 
 ADAPT (`OTHER_REPOS/adapt/`) is the surface model and the source of the sharpest lessons, because its
 weaknesses are visible in its own schema. Three review passes (`reviewer_commments.md`,
@@ -192,8 +236,8 @@ instruction directly.
 - Serve every asset through a stored object record.
 - Read grades from `student_assignment_summary`.
 - Paginate every list endpoint with a cursor.
-- Model assignments as tenant-owned course artifacts that select shared current questions while
-  retaining the exact hidden publication snapshot needed for grading reproducibility.
+- Model assignments as tenant-owned course artifacts that select explicitly chosen immutable published
+  Question IDs while retaining the exact hidden publication snapshot needed for grading reproducibility.
 - Use executable in-memory reference backends for fast tests and PostgreSQL for every environment
   holding durable student records.
 
@@ -202,11 +246,12 @@ instruction directly.
 - The Rust workspace, Solid browser application, generated contract pipeline, PostgreSQL schema,
   object store, API, worker, local container stack, and repository gates are implemented.
 - M0/M1 contracts, core author/publish/assign/run/grade/feedback/export/statistics paths, retention
-  R4.4, QTI profile import WP-QTI-12, the database baseline, keyboard pass, local launcher, and course
+  R4.4, QTI profile import WP-QTI-12, the database baseline, keyboard pass, local typed lifecycle, and course
   appearance WP-CA1 through WP-CA7/WP-RC1 have accepted evidence.
-- Private `local_stack_control/launch.sh` builds, migrates, seeds, starts, waits for semantic health, and opens the
-  local application. Its default profile includes the private standalone `webwork-pg-renderer`, but
-  does not run WebWork2 or MariaDB.
+- Focused private `local_stack_control` Python modules now build, migrate, seed, start, wait for semantic
+  health, and open the local application. Its default profile includes the private standalone
+  `webwork-pg-renderer`, but does not run WebWork2 or MariaDB. WP-PY-L1 is accepted on 2026-08-15 after
+  final offline/live Validation and its named independent final reviews.
 - The first forward migration after the accepted six-file baseline is
   `schemas/migrations/2026080907_course_appearance.sql`; later filenames and owners are reserved in
   the release-completion plan.
@@ -254,7 +299,7 @@ Three weaknesses neither review named, each becoming a requirement here:
 | Sharing boundary     | **Shared educational content; tenant-owned records and course artifacts**                                               | Owner-selected, refined by reviewers. Assignments may be imported or copied as teaching structures while authorization and course records remain tenant-owned                                                          |
 | Activity model       | `assignment_enrollment` / `assignment_run` / `question_attempt`                                                         | Owner's 30-runs observation. Completion is not terminal; practice continues with new variants                                                                                                                          |
 | Grade computation    | Transactionally maintained summary rows; never scan attempt history                                                     | At 300 M+ attempt rows, scanning for a course page is not an option                                                                                                                                                    |
-| Question identity    | One random checked `AAA-BBBB` Question ID; hidden UUIDs and snapshots remain internal                                 | The Question ID is the only human-facing identity. It is non-sequential, copiable, stable across owner corrections, and never carries a version suffix                                                                  |
+| Question identity    | One random checked `AAA-BBBB` Question ID; hidden UUIDs and snapshots remain internal                                 | The Question ID is the only human-facing identity. It is non-sequential, copiable, names one immutable published question, and never carries a version suffix                                                        |
 | Partitioning         | Monthly range partitions on the four highest-volume append-only tables only                                             | 300 M rows per term makes this non-speculative; everything else stays unpartitioned per reviewer 3                                                                                                                     |
 | Pagination           | Cursor only; `OFFSET` banned by lint and review                                                                         | Large `OFFSET` scans are unusable at catalog and history scale                                                                                                                                                         |
 | Content storage      | Split by role with a size backstop (below)                                                                              | Answers the owner's direct question                                                                                                                                                                                    |
@@ -563,26 +608,31 @@ One human identity sits above three implementation identities with distinct jobs
 
 | ID             | Scope                                           | Mutability                       | Visibility                                 |
 | -------------- | ----------------------------------------------- | -------------------------------- | ------------------------------------------ |
-| Question ID    | One reusable current question                   | Stable across owner corrections  | Human-facing, discoverable, and citable    |
+| Question ID    | One immutable published question                | Never changes after publication  | Human-facing, discoverable, and citable    |
 | `workspace_id` | One instructor's sandbox item, tenant-owned     | Freely editable and deletable    | Private implementation identity            |
-| `problem_id`   | One shared-content persistence identity         | Stable forever once minted       | Hidden implementation identity             |
-| `version_id`   | One immutable historical publication snapshot  | Never changes after publication  | Hidden grading and provenance identity     |
+| `problem_id`   | Fresh opaque shared-content evidence            | Immutable per publication        | Hidden implementation identity             |
+| `version_id`   | Fresh opaque immutable publication evidence     | Never changes after publication  | Hidden grading and provenance identity     |
 
 Lifecycle: `draft -> validated -> published -> deprecated -> archived`.
 
 - A draft gets an internal UUID immediately so it can be referenced and collaborated on, but that
   UUID is never presented as a problem number.
-- Only the publish transition mints a `problem_id`, and only after validation passes.
-- Editing a published problem creates a hidden immutable snapshot with a new `version_id`; it never
-  mutates the historical snapshot, but the instructor continues to see one current Question ID.
+- Only the publish transition mints fresh opaque `problem_id` and `version_id`, and only after
+  validation passes. Sequential `P-...`/`ProblemPublicId`, `ProblemVersionNumber`, and predecessor
+  identity are not alternate published-question identities.
+- Editing published content never mutates the historical snapshot or the published question. It
+  publishes a distinct replacement with a new Question ID and its own hidden immutable
+  `(problem_id, version_id)` evidence; explicit immutable provenance may link it to the source.
 - Replacing an image creates a new asset object with a new checksum and key; the old object stays so
   historical attempts remain reproducible.
-- Assignments retain hidden `(problem_id, version_id)` snapshot evidence. An original-owner bug fix
-  advances future uses of that Question ID while completed attempts retain their exact historical
-  snapshot. Independently changed content is a fork with a new Question ID.
-- `deprecated` hides a version from search while keeping it resolvable for existing assignments;
-  `archived` additionally blocks new references. Deprecation carries a stated reason, which is how an
-  author signals "this version contains an error."
+- Assignments and issued runs retain hidden exact `(problem_id, version_id)` snapshot evidence. A
+  content change, including an original-owner bug fix, publishes a new Question ID; no background
+  action advances an assignment. An Instructor deliberately performs any replacement under the
+  assignment's strong revision contract.
+- `deprecated` hides a published question from new selection while retaining exact internal resolution
+  for existing assignments and issued runs; `archived` additionally blocks new references.
+  Deprecation carries a stated reason, which is how an author signals that the published question
+  contains an error.
 
 ### Publication governance
 
@@ -600,20 +650,21 @@ Three publication scopes, each a different visibility contract:
 The review gate is configurable per institution and off by default, because a two-instructor
 deployment does not need editorial process and a large institution may require it.
 
-Conflicting revisions from multiple authors are prevented structurally rather than merged. A published
-question has an owning author or author set and one human-facing Question ID. The owner may advance
-its hidden snapshot chain for bug corrections; a third party cannot publish into that chain. Instead
-they **fork**: a new `problem_id` and Question ID record `derived_from` the source `version_id`,
-preserving attribution and license lineage. That keeps every history single-writer without making
-version management an instructor task.
+Conflicting changes from multiple authors are prevented structurally rather than merged. A published
+question has an owning author or author set and one human-facing Question ID. Any author, including
+the source owner fixing a bug, publishes a distinct replacement Question ID; a third party does the
+same rather than changing the source. Optional immutable `derived_from` provenance records the source
+internal evidence, preserving attribution and license lineage without making version management an
+instructor task.
 
-### Propagating question corrections and teaching sets
+### Replacing questions and teaching sets
 
-The original owner may correct a bug under the same Question ID. Future question issuance uses the
-current hidden snapshot while every completed attempt retains the exact snapshot it received. A
-substantive independent change is a fork, not a correction. Assignment import/copy and selectable
-checklists from existing assignments are the normal way to propagate a teaching set; direct Question
-ID entry is a bounded lookup tool, not a range or batch-selection language.
+Every content change, including an original-owner bug correction, publishes a new Question ID. The
+source Question ID and all existing assignments and issued runs remain unchanged. An Instructor may
+explicitly replace an assignment item after revision checking; publication and background work never
+do so. Assignment import/copy and selectable checklists from existing assignments are the normal way
+to reuse a teaching set; direct Question ID entry is a bounded lookup tool, not a range or
+batch-selection language.
 
 ## Object storage and content identity
 
@@ -739,11 +790,10 @@ question model in `problem_version_payload` is a derived, cached projection for
 rendering and search, regenerable from the pinned generator at any time.
 
 The consequence that matters: **a generator evolving leaves every historical publication snapshot
-intact.** Generator version remains part of hidden snapshot identity. An original-owner correction
-updates the current question and future use under the same Question ID while completed attempts keep
-resolving to the snapshot they received. A substantively independent change is a fork with a new
-Question ID. Generator implementations are therefore additive-only while referenced by historical
-grading evidence.
+intact.** Generator version remains part of hidden snapshot identity. Any generator or content change
+publishes a distinct replacement with a new Question ID; existing assignments and completed attempts
+keep resolving to their exact evidence until an Instructor explicitly replaces an assignment item.
+Generator implementations are therefore additive-only while referenced by historical grading evidence.
 
 For a static flat question, **the canonical, versioned PLE flat-question JSON
 source is authoritative.** Publication preserves it as a private immutable
@@ -910,7 +960,7 @@ requests, but they do not appear in the address bar or user-copyable navigation 
 | `/runs/:runRef`                                                | The attempt loop, one question at a time             | `R-n`; the screen that must feel instant              |
 | `/runs/:runRef/summary`                                        | Run result, per-question outcomes, start another run | `R-n`; where practice re-entry lives                  |
 | `/library`                                                     | Problem browser over the shared catalog              | Virtualized, faceted, cursor-paged                    |
-| `/library/:questionId`                                        | Current question detail and statistics                | `AAA-BBBB`; hidden snapshot lineage is not UI state   |
+| `/library/:questionId`                                        | Exact published-question detail and statistics        | `AAA-BBBB`; hidden snapshot lineage is not UI state   |
 | `/workspace`                                                   | Instructor drafts                                    | Private, pre-publication                              |
 | `/workspace/:workspaceRef`                                     | Draft editor with validation and preview             | `W-n`; preview renders through WASM generation        |
 | `/instructor/courses/:courseRef/assignments/:assignmentRef/edit` | Assignment editor with policy configuration        | `C-n` and `A-n`; capability gating surfaces inline    |
@@ -1131,9 +1181,9 @@ aggregates so the UI never triggers a full scan. Search is a single input over f
 matching, and the component boundary keeps the query behind a repository call so a dedicated search
 service can replace it without a UI change.
 
-**Assignment editor.** Question selection uses one current Question ID from the catalog; a workspace
-draft must be published before it can be selected. Internal references retain the exact snapshot
-needed for deterministic grading without exposing a version choice. The editor exposes the four
+**Assignment editor.** Question selection uses one exact published Question ID from the catalog; a
+workspace draft must be published before it can be selected. Internal references retain the exact
+snapshot needed for deterministic grading without exposing a version choice. The editor exposes the four
 assignment-level `RunPolicies` controls with their current values visible. Timing and attempt
 policies remain properties of each published question rather than assignment overrides. The browser
 submits only the ordered resolved references and policy choices. The server resolves every Question
@@ -1153,10 +1203,11 @@ decision.
 generating parameters in WASM so an author sees a real variant per seed without a server round trip.
 The preview shows the student view and the answer-key view side by side, since an author needs both.
 
-**Publish flow.** Validation results, the target scope, and a content diff against the current
-question when one exists. The interface distinguishes a first publication from updating the current
-question, never presents a historical snapshot ID, and provides an explicit fork when changes should
-become independently owned content.
+**Publish flow.** Validation results, the target scope, and an optional content diff against an
+explicitly chosen source question for provenance review. Every publication creates a new immutable
+question with a new Question ID and fresh hidden exact evidence. The interface shows that assigned
+Question ID after publication, never presents a historical snapshot ID, and offers a one-way
+derived-from provenance choice rather than an update-in-place path.
 
 **Course appearance.** One focused instructor surface selects a closed, measured three-color biome
 or habitat theme and optionally uploads one small centered banner. The theme is authoritative
@@ -1359,9 +1410,9 @@ adapter may consume an intermediate form:
 - MOD-QM defines a tenant-owned `DraftQuestionDefinition` with workspace-only identity and no
   `ProblemId` or `VersionId`; published-only definitions and references require both IDs.
 - MOD-ID makes the lifecycle transition from validated draft to published content mint the full
-  `ProblemVersionRef` only after all publication validation succeeds. A revision retains its
-  published `ProblemId` and mints a new `VersionId`; a fork mints both. A failed publication mints
-  neither ID.
+  `ProblemVersionRef` and assigned Question ID only after all publication validation succeeds. Every
+  content change mints a distinct `ProblemId`, `VersionId`, and Question ID; optional immutable
+  provenance may link it to its source. A failed publication mints neither ID.
 - MOD-STO and MOD-SCHEMA update the memory and PostgreSQL stores, migration and JSON payload
   boundaries so drafts store only their workspace identity and published rows store the immutable
   reference. Catalog and API publication paths use that transition rather than a draft-held version.
@@ -1379,7 +1430,8 @@ After that prerequisite:
   only an unversioned, private provider/question reference. Publishing first fetches and validates a
   supported profile, then stores immutable source bytes with an `ObjectId` and SHA-256 and pins the
   integration profile. The prerequisite publication transition mints IDs only after that work
-  succeeds; any source or profile change publishes a new version.
+  succeeds; any source or profile change publishes a distinct question with a new Question ID and
+  hidden exact evidence.
 - Keep provider endpoint, credentials, accepted origin, and egress policy deployment configuration
   keyed by an opaque provider name. Never persist or serialize an arbitrary iframe URL, launch JWT,
   answer, solution, remote session state, or credential as question source.

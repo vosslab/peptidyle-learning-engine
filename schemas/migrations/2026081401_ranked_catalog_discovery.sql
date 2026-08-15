@@ -114,11 +114,11 @@ CREATE INDEX catalog_search_document_trigram_text_idx
 CREATE OR REPLACE VIEW public.catalog_search_view
 WITH (security_invoker = true)
 AS
-SELECT document.problem_id, document.version_id, document.public_id,
-       document.version_number, document.title, document.backend,
+SELECT document.problem_id, document.version_id, document.question_id,
+       document.title, document.backend,
        document.metadata, document.publication_scope, document.lifecycle,
-       document.lifecycle_reason, document.authors, document.previous_version_id,
-       document.derived_from_problem_id, document.derived_from_version_id,
+       document.lifecycle_reason, document.authors, document.derived_from_problem_id,
+       document.derived_from_version_id,
        document.published_at, document.authors_text, document.question_type,
        document.language, document.license, document.taxonomy, document.keywords,
        document.capabilities, document.search_text, document.quality_signal,
@@ -126,7 +126,7 @@ SELECT document.problem_id, document.version_id, document.public_id,
        statistics.attempts_mean, statistics.time_median_seconds_estimate,
        statistics.discrimination_index,
        (statistics.cohort_size IS NOT NULL) AS statistics_available,
-       document.question_id, document.catalog_sequence,
+       document.catalog_sequence,
        disclosure.disclosed_sequence AS statistics_disclosed_sequence,
        document.normalized_search_text
   FROM public.catalog_search_document AS document

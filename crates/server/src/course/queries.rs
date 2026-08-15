@@ -3,13 +3,14 @@ use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use learning_data_access::{
-    CourseListScope, CourseRecord, CourseRecordsAccessStore, Cursor, PageRequest, PageSize,
-    PaginationError, SessionStore, Store,
+    CatalogStore, CourseListScope, CourseRecord, CourseRecordsAccessStore, Cursor, PageRequest,
+    PageSize, PaginationError, SessionStore, Store,
 };
 use question_model::{CourseId, CourseMembership, CourseMembershipRole};
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
+use super::assignments::assignment_summary_items;
 use super::policy::{course_records_are_visible, may_create_course, require_course_access};
 use super::projection::{error_response, store_error_response};
 use super::routing::{CourseQuery, CourseRouteState, CreateCourseRequest, DEFAULT_PAGE_SIZE};
@@ -20,7 +21,7 @@ pub(super) async fn list_courses<S>(
     Query(query): Query<CourseQuery>,
 ) -> Response
 where
-    S: Store + CourseRecordsAccessStore + SessionStore + 'static,
+    S: Store + CatalogStore + CourseRecordsAccessStore + SessionStore + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -157,7 +158,7 @@ pub(super) async fn list_assignments<S>(
     Query(query): Query<CourseQuery>,
 ) -> Response
 where
-    S: Store + CourseRecordsAccessStore + SessionStore + 'static,
+    S: Store + CatalogStore + CourseRecordsAccessStore + SessionStore + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -195,7 +196,17 @@ where
                     }
                     Err(error) => return store_error_response(error),
                 };
-                summaries.push(assignment.summary(public_id));
+                let (items, selection_groups) = match assignment_summary_items(
+                    &state,
+                    authenticated.tenant_context,
+                    &assignment,
+                )
+                .await
+                {
+                    Ok(value) => value,
+                    Err(response) => return response,
+                };
+                summaries.push(assignment.summary(public_id, items, selection_groups));
             }
             no_store(
                 Json(learning_data_access::Page {

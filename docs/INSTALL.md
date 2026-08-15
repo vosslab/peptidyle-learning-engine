@@ -12,7 +12,7 @@ stateless `webwork-pg-renderer` engine; it does not install the WebWork2 assignm
 - Python 3.12 with the packages in [pip_requirements-dev.txt](../pip_requirements-dev.txt) for the
   repository test suite.
 - Podman plus a usable Compose provider for the all-in-one local stack. macOS users also need a
-  Podman machine. The launcher also requires `curl`, `awk`, `openssl`, `xxd`, and `lsof`; see
+  Podman machine. The typed lifecycle also requires `curl`, `awk`, `openssl`, `xxd`, and `lsof`; see
   [MACOS_PODMAN.md](MACOS_PODMAN.md).
 
 ## Repository setup
@@ -56,36 +56,32 @@ artifact without starting containers, run `./build.sh`; it creates `dist/` and `
 
 For choosing a focused development gate, use [DEVELOPMENT.md](DEVELOPMENT.md). The durable API,
 storage, tenancy, and server-only-grading boundaries are recorded in [CONTRACTS.md](CONTRACTS.md)
-and [SECURITY_MODEL.md](SECURITY_MODEL.md), rather than inferred from local launcher behavior.
+and [SECURITY_MODEL.md](SECURITY_MODEL.md), rather than inferred from local lifecycle behavior.
 
 ## Local stack setup
 
 The normal stack starts PostgreSQL, MinIO, API, worker, gateway, and the standalone PG renderer.
 Before first launch, build or obtain the renderer image from the separate
-`webwork-pg-renderer` project under a convenient local tag, inspect its immutable OCI repository
-digest, and set
-`PLE_WEBWORK_RENDERER_IMAGE` to the reviewed immutable `repository@sha256:<64-lowercase-hex>`
-reference. The tracked default is
-`localhost/pg-renderer@sha256:d606c4b5d82d425729643c4f36d093d549759a416d0527f0340ae0a7319a8456`.
-PLE does not build the renderer, run WebWork2, or run MariaDB.
-
-For example, from the separately maintained renderer checkout, build under a local tag and copy
-its immutable repository digest before recording that full reference in `containers/env.local`:
+`webwork-pg-renderer` project under the designated reviewed local name:
 
 ```bash
 podman build --tag localhost/pg-renderer:reviewed .
-podman image inspect localhost/pg-renderer:reviewed --format '{{index .RepoDigests 0}}'
 ```
 
-Use the returned full `localhost/pg-renderer@sha256:...` reference only after review; the launcher
-rejects mutable tags such as `latest`. This repository digest is the configured image reference.
-After resolving it locally, PLE separately records the resolved image configuration ID as the
-renderer-version provenance for the running stack.
+`containers/env.example` selects that name through
+`PLE_WEBWORK_RENDERER_IMAGE=localhost/pg-renderer:reviewed`. PLE resolves the
+selected name to its immutable OCI configuration ID immediately before startup,
+verifies that the renderer container uses that same ID, and records both the
+selected name and ID as run provenance. A deployment that pulls a published
+renderer can supply that image's `repository@sha256:<64-lowercase-hex>` value
+through the same setting. PLE does not build the renderer, run WebWork2, or run
+MariaDB.
+
 All local ports are loopback-only, the gateway is intentionally HTTP-only, and
 it does not set HSTS. Local startup is not evidence for the production TLS edge
 or a deployment of the external renderer.
 
-On its first normal run, the launcher creates ignored local configuration, credentials, and
+On its first normal run, the typed lifecycle creates ignored local configuration, credentials, and
 secrets beneath `containers/`; it does not require copied development secrets.
 
 ```bash
@@ -93,14 +89,15 @@ source source_me.sh && python3 local_stack.py start --no-open
 source source_me.sh && python3 local_stack.py validate
 ```
 
-The first command delegates to the maintained launcher. It creates a mode-0600 environment file,
+The first command calls the maintained typed lifecycle. It creates a mode-0600 environment file,
 credentials, and secrets (with a non-secret identity-hash file), builds the repository, migrates
 and seeds the local database, starts the stack, and prints the loopback URL and local sign-in file.
-`validate` delegates to the launcher's read-only `--check` path: it reads the existing environment
+`validate` calls the typed lifecycle's read-only configuration path: it reads the existing environment
 and validates Compose without building, starting a Podman machine, creating local files, or
 changing containers. A first installation needs `start` before `validate` can succeed.
 
-Use `local_stack_control/launch.sh --no-open` only when recovering or diagnosing the private launcher itself.
+Use `source source_me.sh && python3 local_stack.py start --no-open` for lifecycle recovery;
+use `validate` first when a read-only configuration check is sufficient.
 It remains the implementation owner for build, bootstrap, migration, seed, renderer checks, and
 semantic readiness; use [USAGE.md](USAGE.md) for ordinary controller commands.
 
@@ -121,7 +118,7 @@ authorized sender, live delivery, and browser sign-in have been verified.
 
 The bootstrap belongs only to the default `containers/env.local` path. A non-default
 `--env-file` is never created, rewritten, seeded, or supplied with local sign-in credentials;
-prepare it from [containers/env.example](../containers/env.example). The launcher validates its
+prepare it from [containers/env.example](../containers/env.example). The typed lifecycle validates its
 database, object-store, local-auth, invitation-secret, image-pin, and renderer settings. Keep
 operator-managed credentials and secret values out of tracked files; see
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for the complete contract
@@ -144,7 +141,7 @@ composition can then use the canonical account/session route graph, but live ema
 browser sign-in still need their own acceptance evidence. Copy-link invitations remain available
 without the overlay.
 
-The launcher creates the renderer's local JWT secrets, records the selected OCI image identity,
+The typed lifecycle creates the renderer's local JWT secrets, records the selected OCI image identity,
 and probes real render and grade behavior before PLE starts. The renderer has no MariaDB, course
 credentials, volume, or host port; see [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md)
 and [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md).
@@ -152,7 +149,7 @@ and [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md).
 ## Production baseline is separate
 
 The OpenTofu configuration under `deploy/opentofu/` is not installed or applied
-by `npm run setup` or `local_stack_control/launch.sh`. It defines private no-NAT ECS
+by `npm run setup` or the typed local-stack lifecycle. It defines private no-NAT ECS
 tasks, RDS, four SSE-KMS S3 domains, CloudFront/ALB TLS-origin admission, and
 separate API, worker, and public-asset-publisher roles and secrets. A live AWS
 deployment still requires operator-owned DNS, certificates, Secrets Manager

@@ -218,6 +218,33 @@ pub trait CourseAssignmentStore: Send + Sync {
         update: AssignmentEditorUpdate,
     ) -> Result<StoredAssignment, StoreError>;
 
+    /// Replaces one fixed item for future runs under the assignment's strong
+    /// revision token. The command identifies the stable assignment-owned slot
+    /// and supplies an exact publication already resolved from a Question ID;
+    /// the persisted slot's assignment-authored settings remain in force.
+    async fn replace_assignment_fixed_item_impl(
+        &self,
+        context: TenantContext,
+        command: ReplaceAssignmentFixedItemCommand,
+    ) -> Result<StoredAssignment, StoreError>;
+
+    /// Inserts one fresh fixed item before learner evidence exists. The
+    /// command's item carries its requested visible position and exact
+    /// server-resolved immutable publication.
+    async fn add_assignment_fixed_item_impl(
+        &self,
+        context: TenantContext,
+        command: AddAssignmentFixedItemCommand,
+    ) -> Result<StoredAssignment, StoreError>;
+
+    /// Removes one fixed item before learner evidence exists. The focused
+    /// post-evidence workflow remains Delete and Regrade.
+    async fn remove_assignment_fixed_item_impl(
+        &self,
+        context: TenantContext,
+        command: RemoveAssignmentFixedItemCommand,
+    ) -> Result<StoredAssignment, StoreError>;
+
     /// Retires one fixed item or selection candidate and recalculates all current grades.
     ///
     /// The command is rejected while an affected attempt is in progress. Submitted

@@ -127,7 +127,6 @@ async fn fixture() -> Fixture {
                 language: "en-US".into(),
             },
         },
-        revises: None,
         derived_from: None,
     };
     objects

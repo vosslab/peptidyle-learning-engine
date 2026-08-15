@@ -1,7 +1,8 @@
 //! Long-lived production polling around one bounded worker pass.
 
-use std::{future::Future, time::Duration};
+use std::{future::Future, sync::Arc, time::Duration};
 
+use async_trait::async_trait;
 use learning_data_access::{JobStore, StoreError};
 
 use super::{DrainReport, Worker};
@@ -36,6 +37,51 @@ where
             }
             Err(error) => {
                 eprintln!("worker pass failed: {}", safe_error_kind(&error));
+                false
+            }
+        };
+        let delay = if worked {
+            Duration::ZERO
+        } else {
+            poll_interval
+        };
+        tokio::select! {
+            () = &mut shutdown => return Ok(()),
+            () = tokio::time::sleep(delay) => {}
+        }
+    }
+}
+
+/// A bounded, server-only polling family outside browser-controllable jobs.
+#[async_trait]
+pub(crate) trait BoundedWorkerDispatch: Send + Sync {
+    async fn drain_once(&self) -> Result<u32, StoreError>;
+}
+
+/// Runs one dedicated dispatch process. Each pass completes before shutdown is
+/// observed, so no external call is detached midway.
+pub(crate) async fn run_bounded_dispatch_until_shutdown<F>(
+    dispatch: Arc<dyn BoundedWorkerDispatch>,
+    poll_interval: Duration,
+    shutdown: F,
+) -> Result<(), StoreError>
+where
+    F: Future<Output = ()>,
+{
+    tokio::pin!(shutdown);
+    loop {
+        // Poll once before claiming so Tokio has installed the process signal
+        // listener. A signal received during the bounded pass is then retained
+        // until the next boundary; the pass itself is never dropped midway.
+        tokio::select! {
+            biased;
+            () = &mut shutdown => return Ok(()),
+            () = tokio::task::yield_now() => {}
+        }
+        let worked = match dispatch.drain_once().await {
+            Ok(processed) => processed > 0,
+            Err(error) => {
+                eprintln!("worker dispatch pass failed: {}", safe_error_kind(&error));
                 false
             }
         };

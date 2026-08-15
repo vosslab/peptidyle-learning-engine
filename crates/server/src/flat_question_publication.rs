@@ -23,7 +23,7 @@ use axum::{Json, Router};
 use learning_data_access::{
     AuthoritativeTimeStore, CatalogStore, DraftRecord, FlatImportProvenanceStore,
     FlatImportPublicationPromotion, FlatQuestionAssetStore, FlatQuestionGradingPayload,
-    FlatQuestionPublicationPromotion, FlatQuestionStore, OwnerCorrectionStore, PublishDraftCommand,
+    FlatQuestionPublicationPromotion, FlatQuestionStore, PublishDraftCommand,
     PublishedSourceArtifact, QTI_PROFILE_ARCHIVE_MEDIA_TYPE, SessionStore, Store, StoreError,
     TenantContext, UpsertFlatQuestionCommand, WorkspaceDraft, WorkspaceDraftRevision,
     WorkspaceFlatImportOrigin,
@@ -58,7 +58,6 @@ pub fn router<S, O, B, R>(
 where
     S: Store
         + CatalogStore
-        + OwnerCorrectionStore
         + FlatQuestionAssetStore
         + FlatQuestionStore
         + FlatImportProvenanceStore
@@ -99,7 +98,6 @@ async fn read_flat_question_source<S, O, B, R>(
 where
     S: Store
         + CatalogStore
-        + OwnerCorrectionStore
         + FlatQuestionAssetStore
         + FlatQuestionStore
         + FlatImportProvenanceStore
@@ -311,7 +309,6 @@ where
     let draft = DraftRecord {
         tenant: authenticated.tenant_context.tenant_id(),
         question,
-        revises: existing.as_ref().and_then(|draft| draft.record.revises),
         derived_from: existing.and_then(|draft| draft.record.derived_from),
     };
     let created_at = match state
@@ -372,7 +369,6 @@ async fn publish_flat_question<S, O, B, R>(
 where
     S: Store
         + CatalogStore
-        + OwnerCorrectionStore
         + FlatQuestionAssetStore
         + FlatQuestionStore
         + FlatImportProvenanceStore
@@ -533,7 +529,7 @@ where
         Ok(asset) => asset,
         Err(response) => return response,
     };
-    let publication = mint_publication_reference(current.record.revises);
+    let publication = mint_publication_reference();
     let import_promotion = match state
         .store
         .workspace_flat_import_origin(authenticated.tenant_context, publisher, workspace)
@@ -649,7 +645,7 @@ where
         capabilities,
     };
     match dispatch_publication(state.store.as_ref(), &authenticated, command).await {
-        Ok(record) => no_store((StatusCode::CREATED, Json(record.question)).into_response()),
+        Ok(record) => no_store((StatusCode::CREATED, Json(record.summary())).into_response()),
         Err(error) => {
             // The catalog transaction refused the candidate. Only the fresh
             // objects minted by this request are eligible for compensation;

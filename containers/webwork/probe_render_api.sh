@@ -45,8 +45,8 @@ render_request() {
 		"$@" --output "$output_file"
 }
 
-render_request "$render_response"
-perl -MJSON::PP -0777 -e '
+validate_render_response() {
+	perl -MJSON::PP -0777 -e '
 	my $value = decode_json(<>);
 	my @expected = qw(JWT debug flags problem_result problem_state renderedHTML resources);
 	exit 1 unless ref($value) eq "HASH" && keys(%$value) == @expected;
@@ -63,23 +63,62 @@ perl -MJSON::PP -0777 -e '
 		&& defined($value->{problem_result}{score})
 		&& $value->{problem_result}{score} == 0;
 	exit 1 if grep { exists($value->{$_}) } qw(answers inputs pgcore hidden_input_field body_part550);
-' "$render_response"
+' "$1"
+}
+
+project_public_render() {
+	perl -MHTML::TreeBuilder -MJSON::PP -0777 -e '
+	my $value = decode_json(<>);
+	my $html = $value->{renderedHTML};
+	my $tree = HTML::TreeBuilder->new;
+	$tree->parse_content($html);
+	my $body = $tree->look_down(id => "problem_body");
+	exit 1 unless defined($body);
+	my $visible_text = $body->as_text;
+	$visible_text =~ s/\s+/ /g;
+	$visible_text =~ s/^\s+|\s+$//g;
+	my ($prompt) = $visible_text =~ /(What\s+is\s+the\s+best\s+color\?)/i;
+	exit 1 unless defined($prompt);
+	$prompt =~ s/\s+/ /g;
+	exit 1 unless $prompt eq "What is the best color?";
+	my %controls_by_id;
+	for my $input ($body->look_down(_tag => "input")) {
+		my $id = $input->attr("id");
+		$controls_by_id{$id} = $input if defined($id) && length($id);
+	}
+	my @controls;
+	for my $label ($body->look_down(_tag => "label")) {
+		my @inputs = $label->look_down(_tag => "input");
+		if (!@inputs) {
+			my $for = $label->attr("for");
+			@inputs = ($controls_by_id{$for}) if defined($for) && exists($controls_by_id{$for});
+		}
+		next unless @inputs == 1;
+		my $input = $inputs[0];
+		my $type = $input->attr("type");
+		my $name = $input->attr("name");
+		next unless defined($type) && lc($type) eq "radio" && defined($name) && $name =~ /^AnSwEr[0-9]+$/;
+		my $label_text = $label->as_text;
+		$label_text =~ s/\s+/ /g;
+		$label_text =~ s/^\s+|\s+$//g;
+		exit 1 unless length($label_text);
+		push @controls, "radio:AnSwEr:$label_text";
+	}
+	exit 1 unless @controls;
+	$tree->delete;
+	print join("\x1e", $prompt, @controls);
+' "$1"
+}
+
+render_request "$render_response"
+validate_render_response "$render_response"
 [ "${1:-}" = "--exercise" ] || exit 0
 
 render_request "$second_response"
-first_public_render="$(perl -MJSON::PP -0777 -e '
-	my $value = decode_json(<>);
-	my $html = $value->{renderedHTML};
-	$html =~ /(<div[^>]*id="problem_body"[^>]*>.*?<\/div>)/is or exit 1;
-	print $1;
-' "$render_response")"
-second_public_render="$(perl -MJSON::PP -0777 -e '
-	my $value = decode_json(<>);
-	my $html = $value->{renderedHTML};
-	$html =~ /(<div[^>]*id="problem_body"[^>]*>.*?<\/div>)/is or exit 1;
-	print $1;
-' "$second_response")"
-[ "$first_public_render" = "$second_public_render" ]
+validate_render_response "$second_response"
+first_public_projection="$(project_public_render "$render_response")"
+second_public_projection="$(project_public_render "$second_response")"
+[ "$first_public_projection" = "$second_public_projection" ]
 answer_controls="$(perl -MJSON::PP -0777 -e '
 	my $value = decode_json(<>);
 	my $html = $value->{renderedHTML};

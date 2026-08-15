@@ -1,7 +1,11 @@
-//! Host-only E2E seed native capability.
+//! Host-only E2E seed native publication and verified replay.
 
 use super::*;
 
+/// Seeds the native replica course. The deterministic course and assignment
+/// records are a protected replay marker; a fresh run mints its question
+/// workspace/problem/version values and a replay reads the exact retained
+/// assignment reference back from PostgreSQL.
 pub(super) async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
     let pool = learning_data_access::postgres::lazy_pool(&arguments.database_url)
         .context("invalid --database-url for e2e seed")?;
@@ -12,138 +16,80 @@ pub(super) async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
     }
     let store = question_id_store(pool)?;
     let context = TenantContext::from_authenticated_session(arguments.tenant);
-    let ids = SeedIds::for_tenant(arguments.tenant);
-    let draft = DraftRecord {
-        tenant: arguments.tenant,
-        question: native_draft(ids.workspace),
-        revises: None,
-        derived_from: None,
-    };
-    let capabilities = native_capabilities()?;
-    let violations = domain::policy::validate_draft_for_publication(&draft.question, &capabilities);
-    if !violations.is_empty() {
-        bail!("native E2E seed draft failed publication capability admission: {violations:?}");
-    }
+    let marker = SeedIds::fresh_for_tenant(arguments.tenant);
+    let existing_course = store
+        .get_course(context, marker.course)
+        .await
+        .context("reading native seed course marker")?;
+    let existing_assignment = store
+        .get_assignment_for_edit(context, marker.assignment)
+        .await
+        .context("reading native seed assignment marker")?;
 
-    let saved_draft = store
-        .upsert_draft(context, arguments.instructor, None, draft.clone())
-        .await
-        .context("writing deterministic native E2E draft")?;
-    store
-        .publish_draft(
-            context,
-            arguments.instructor,
-            PublishDraftCommand {
-                expected_draft: draft,
-                expected_revision: saved_draft.revision,
-                publication: ProblemVersionRef {
-                    problem: ids.problem,
-                    version: ids.version,
-                },
-                published_source: QuestionSource::Native {
-                    family: "peptide_bond_geometry".to_string(),
-                },
-                source_artifact: None,
-                qti_promotion: None,
-                flat_question_promotion: None,
-                publisher: arguments.instructor,
-                scope: PublicationScope::Institution,
-                capabilities,
-            },
-        )
-        .await
-        .context("publishing deterministic native E2E question")?;
-    store
-        .upsert_course(
-            context,
-            CourseRecord {
-                id: ids.course,
-                tenant: arguments.tenant,
-                title: "PLE replica E2E course".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: arguments.instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: arguments.student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
-            },
-        )
-        .await
-        .context("creating E2E course")?;
-    let assignment = AssignmentRecord {
-        id: ids.assignment,
-        tenant: arguments.tenant,
-        course_id: ids.course,
-        title: "PLE replica E2E assignment".to_string(),
-        items: vec![AssignmentItem {
-            id: ids.assignment_item,
-            reference: ProblemVersionRef {
-                problem: ids.problem,
-                version: ids.version,
-            },
-            position: 0,
-            points_possible: PointValue::from_whole(1),
-            delivery_state: AssignmentDeliveryState::Active,
-            scoring_mode: AssignmentScoringMode::Normal,
-        }],
-        selection_groups: Vec::new(),
-        policies: RunPolicies {
-            completion: CompletionRequirement::AnswerAll,
-            grade: GradePolicy::Highest,
-            continued_practice: ContinuedPractice::Unlimited,
-            variation: VariationPolicy::NewSeeds,
-        },
+    let (ids, published) = match seed_replay_state(
+        existing_course.is_some(),
+        existing_assignment.is_some(),
+        "native seed",
+    )? {
+        SeedReplayState::Fresh => {
+            // Persist this marker before any immutable publication. A later
+            // retry sees the incomplete state and asks for a disposable reset.
+            ensure_webwork_pilot_course(&store, context, native_course(&arguments, marker.course))
+                .await?;
+            publish_fresh_native(&store, context, &arguments, marker).await?
+        }
+        SeedReplayState::Replay => {
+            let course = existing_course.expect("replay state has a course marker");
+            let assignment = existing_assignment.expect("replay state has an assignment marker");
+            let reference = native_assignment_reference(&assignment.record, marker)?;
+            let published = store
+                .get_catalog_problem(context, reference)
+                .await
+                .context("reading retained native publication")?
+                .context("native seed assignment refers to a missing publication")?;
+            let ids = SeedIds::from_published(arguments.tenant, &published);
+            let expected_course = native_course(&arguments, ids.course);
+            if !webwork_pilot_course_seed_matches(&course, &expected_course) {
+                bail!("native seed course marker differs from the reviewed host seed");
+            }
+            verify_native_publication(
+                &store,
+                context,
+                &published,
+                arguments.instructor,
+                native_draft(ids.workspace),
+            )
+            .await?;
+            let expected_assignment = native_assignment(&arguments, ids, reference);
+            if assignment.record != expected_assignment {
+                bail!("native seed assignment differs from the retained immutable publication");
+            }
+            (ids, published)
+        }
     };
-    store
-        .create_untimed_assignment(context, assignment.clone())
-        .await
-        .context("creating E2E assignment")?;
-    let reloaded = store
-        .get_assignment_for_edit(context, ids.assignment)
-        .await
-        .context("reloading normalized E2E assignment")?
-        .ok_or_else(|| anyhow::anyhow!("normalized E2E assignment was not readable"))?;
-    if reloaded.record != assignment {
-        bail!("normalized E2E assignment did not round-trip exactly");
-    }
-    let replaced = store
-        .replace_assignment_preserving_timing(
-            context,
-            ids.course,
-            ids.assignment,
-            reloaded.revision,
-            AssignmentUpdate {
-                title: assignment.title.clone(),
-                items: assignment.items.clone(),
-                selection_groups: assignment.selection_groups.clone(),
-                policies: assignment.policies,
-            },
-        )
-        .await
-        .context("replacing normalized E2E assignment")?;
-    if replaced.record != assignment {
-        bail!("normalized E2E assignment replacement did not round-trip exactly");
-    }
-    store
-        .create_enrollment(
-            context,
-            AssignmentEnrollment {
-                id: ids.enrollment,
-                tenant: arguments.tenant,
-                assignment: ids.assignment,
-                user: arguments.student,
-                student: StudentId::from_uuid(arguments.student.as_uuid()),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
-        )
-        .await
-        .context("creating E2E enrollment")?;
+    let reference = ProblemVersionRef {
+        problem: published.problem,
+        version: published.version,
+    };
+    let assignment = native_assignment(&arguments, ids, reference);
+    ensure_webwork_pilot_course(&store, context, native_course(&arguments, ids.course)).await?;
+    ensure_webwork_pilot_assignment(&store, context, assignment.clone()).await?;
+    ensure_webwork_pilot_enrollment(
+        &store,
+        context,
+        AssignmentEnrollment {
+            id: ids.enrollment,
+            tenant: arguments.tenant,
+            assignment: ids.assignment,
+            user: arguments.student,
+            student: StudentId::from_uuid(arguments.student.as_uuid()),
+            first_completed_at: None,
+            current_grade_run: None,
+            best_grade_run: None,
+        },
+    )
+    .await
+    .context("creating native E2E enrollment")?;
 
     if arguments.exercise_scoring {
         exercise_scoring_generation(
@@ -170,7 +116,170 @@ pub(super) async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
     Ok(Manifest {
         assignment_id: ids.assignment,
         enrollment_id: ids.enrollment,
-        problem_id: ids.problem,
-        version_id: ids.version,
+        question_id: published.question_id.clone(),
+        problem_id: published.problem,
+        version_id: published.version,
     })
+}
+
+async fn publish_fresh_native(
+    store: &learning_data_access::postgres::PostgresStore,
+    context: TenantContext,
+    arguments: &SeedArguments,
+    ids: SeedIds,
+) -> Result<(SeedIds, learning_data_access::PublishedProblemRecord)> {
+    let draft = DraftRecord {
+        tenant: arguments.tenant,
+        question: native_draft(ids.workspace),
+        derived_from: None,
+    };
+    let capabilities = native_capabilities()?;
+    let violations = domain::policy::validate_draft_for_publication(&draft.question, &capabilities);
+    if !violations.is_empty() {
+        bail!("native E2E seed draft failed publication capability admission: {violations:?}");
+    }
+    let saved = store
+        .upsert_draft(context, arguments.instructor, None, draft.clone())
+        .await
+        .context("writing fresh native E2E draft")?;
+    let published = store
+        .publish_draft(
+            context,
+            arguments.instructor,
+            PublishDraftCommand {
+                expected_draft: draft.clone(),
+                expected_revision: saved.revision,
+                publication: ProblemVersionRef {
+                    problem: ids.problem,
+                    version: ids.version,
+                },
+                published_source: QuestionSource::Native {
+                    family: "peptide_bond_geometry".to_string(),
+                },
+                source_artifact: None,
+                qti_promotion: None,
+                flat_question_promotion: None,
+                publisher: arguments.instructor,
+                scope: PublicationScope::Institution,
+                capabilities,
+            },
+        )
+        .await
+        .context("publishing fresh native E2E question")?;
+    verify_native_publication(
+        store,
+        context,
+        &published,
+        arguments.instructor,
+        draft.question,
+    )
+    .await?;
+    Ok((ids, published))
+}
+
+fn native_course(arguments: &SeedArguments, course: CourseId) -> CourseRecord {
+    CourseRecord {
+        id: course,
+        tenant: arguments.tenant,
+        title: "PLE replica E2E course".to_string(),
+        members: vec![
+            CourseMembership {
+                user: arguments.instructor,
+                role: CourseMembershipRole::Instructor,
+            },
+            CourseMembership {
+                user: arguments.student,
+                role: CourseMembershipRole::Student,
+            },
+        ],
+    }
+}
+
+fn native_assignment(
+    arguments: &SeedArguments,
+    ids: SeedIds,
+    reference: ProblemVersionRef,
+) -> AssignmentRecord {
+    AssignmentRecord {
+        id: ids.assignment,
+        tenant: arguments.tenant,
+        course_id: ids.course,
+        title: "PLE replica E2E assignment".to_string(),
+        items: vec![AssignmentItem {
+            id: ids.assignment_item,
+            reference,
+            position: 0,
+            points_possible: PointValue::from_whole(1),
+            delivery_state: AssignmentDeliveryState::Active,
+            scoring_mode: AssignmentScoringMode::Normal,
+        }],
+        selection_groups: Vec::new(),
+        policies: RunPolicies {
+            completion: CompletionRequirement::AnswerAll,
+            grade: GradePolicy::Highest,
+            continued_practice: ContinuedPractice::Unlimited,
+            variation: VariationPolicy::NewSeeds,
+        },
+    }
+}
+
+fn native_assignment_reference(
+    assignment: &AssignmentRecord,
+    ids: SeedIds,
+) -> Result<ProblemVersionRef> {
+    let Some(item) = assignment.items.first() else {
+        bail!("native seed assignment has no fixed publication item");
+    };
+    if assignment.items.len() != 1 || item.id != ids.assignment_item || item.position != 0 {
+        bail!("native seed assignment does not retain one reviewed fixed item");
+    }
+    Ok(item.reference)
+}
+
+async fn verify_native_publication<S>(
+    store: &S,
+    context: TenantContext,
+    record: &learning_data_access::PublishedProblemRecord,
+    publisher: UserId,
+    draft: DraftQuestionDefinition,
+) -> Result<()>
+where
+    S: CatalogSourceStore,
+{
+    let source = QuestionSource::Native {
+        family: "peptide_bond_geometry".to_string(),
+    };
+    let expected = question_model::QuestionDefinition::from_draft(
+        draft,
+        record.problem,
+        record.version,
+        source,
+    );
+    let canonical_question_id: question_model::QuestionId =
+        record.question_id.to_string().parse().map_err(|error| {
+            anyhow::anyhow!("native retained publication has an invalid Question ID: {error}")
+        })?;
+    if canonical_question_id != record.question_id
+        || record.question != expected
+        || record.capabilities != native_capabilities()?
+        || record.scope != PublicationScope::Institution
+        || record.lifecycle != CatalogLifecycle::Published
+        || record.authors.as_slice() != [publisher]
+        || record.derived_from.is_some()
+    {
+        bail!("native retained publication differs from the reviewed immutable source");
+    }
+    let reference = ProblemVersionRef {
+        problem: record.problem,
+        version: record.version,
+    };
+    if store
+        .catalog_source_artifact(context, reference)
+        .await
+        .context("reading native retained publication source binding")?
+        .is_some()
+    {
+        bail!("native retained publication unexpectedly binds a private source artifact");
+    }
+    Ok(())
 }

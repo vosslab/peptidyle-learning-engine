@@ -198,7 +198,6 @@ async fn published_flat_fixture() -> (
     let draft = DraftRecord {
         tenant,
         question: draft_question.clone(),
-        revises: None,
         derived_from: None,
     };
     let staged_source = flat_source_record(
@@ -533,7 +532,6 @@ async fn native_bridge_reproduces_only_with_exact_memory_catalog_assets() {
     let draft = DraftRecord {
         tenant,
         question: draft_question(workspace, asset),
-        revises: None,
         derived_from: None,
     };
     let saved = store

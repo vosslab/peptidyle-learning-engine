@@ -87,7 +87,7 @@
   margin: 0;
 }
 
-.library-page .catalog-row .copyable-problem-id {
+.library-page .catalog-row .copyable-question-id {
   grid-area: identity;
   justify-content: end;
 }
@@ -126,7 +126,7 @@
     grid-template-columns: 1fr;
   }
 
-  .library-page .catalog-row .copyable-problem-id {
+  .library-page .catalog-row .copyable-question-id {
     justify-content: start;
   }
 }

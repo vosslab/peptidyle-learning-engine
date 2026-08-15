@@ -14,8 +14,7 @@ async fn imported_flat_publish_copies_verified_archive_and_promotes_origin() {
     );
     assert_no_store(&headers);
     assert_no_private_tokens(&body);
-    let published: question_model::QuestionDefinition =
-        serde_json::from_slice(&body).expect("published imported-flat projection");
+    let published = published_record(&fixture, &body).await;
     let reference = ProblemVersionRef {
         problem: published.problem,
         version: published.version,

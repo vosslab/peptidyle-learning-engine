@@ -8,6 +8,7 @@ use question_model::{
     StudentAssignmentSummary, StudentId, UserRole,
 };
 
+use super::invitation_delivery::{cancel_for_invitation, create_pending};
 use super::sessions::active_subject;
 use super::{MemoryStore, State, page_records, require_course_records_accessible};
 use crate::{
@@ -22,6 +23,7 @@ use crate::{
 
 #[path = "course_roster/import.rs"]
 pub(super) mod import;
+pub(super) use import::delivery_provenance;
 
 #[derive(Debug, Clone)]
 pub(super) struct StoredCourseInvitation {
@@ -159,6 +161,7 @@ impl CourseRosterStore for MemoryStore {
         state
             .course_invitations
             .insert((tenant, command.course, invitation.id), stored);
+        create_pending(&mut state, tenant, command.course, invitation.id)?;
         bump_roster_revision(&mut state, tenant, command.course, None)?;
         Ok(invitation)
     }
@@ -234,6 +237,7 @@ impl CourseRosterStore for MemoryStore {
             {
                 expired.record.status = CourseInvitationStatus::Expired;
             }
+            cancel_for_invitation(&mut state, tenant, course, invitation_id);
             return Err(StoreError::NotFound);
         }
         if stored.record.status == CourseInvitationStatus::Claimed {
@@ -359,6 +363,7 @@ impl CourseRosterStore for MemoryStore {
                 return Err(StoreError::Conflict);
             }
         }
+        cancel_for_invitation(&mut state, tenant, command.course, command.invitation);
         bump_roster_revision(
             &mut state,
             tenant,
@@ -493,6 +498,7 @@ fn claim_locked(
         .ok_or(StoreError::NotFound)?;
     invitation.record.status = CourseInvitationStatus::Claimed;
     invitation.record.claimed_by = Some(command.user);
+    cancel_for_invitation(state, tenant, course, invitation_id);
     let roster_revision = bump_roster_revision(state, tenant, course, None)?;
     Ok(ClaimedCourseMembership {
         tenant,
@@ -717,7 +723,7 @@ pub(super) fn require_course_instructor(
     }
 }
 
-fn require_roster_authority(
+pub(super) fn require_roster_authority(
     state: &mut State,
     context: TenantContext,
     session: SessionTokenHash,
@@ -751,6 +757,30 @@ fn require_roster_authority(
         occurred_at: state.authoritative_time,
     });
     Ok(actor)
+}
+
+/// Authorizes an already-owned coarse projection without creating a second
+/// Sysadmin support audit for the preceding mutation.
+pub(super) fn require_roster_read_authority(
+    state: &State,
+    context: TenantContext,
+    session: SessionTokenHash,
+    course: question_model::CourseId,
+) -> Result<(), StoreError> {
+    let subject = active_subject(state, context, session).ok_or(StoreError::NotFound)?;
+    let record = state
+        .courses
+        .get(&(context.tenant_id(), course))
+        .ok_or(StoreError::NotFound)?;
+    if record.role_for(subject.user()) == Some(CourseMembershipRole::Instructor)
+        || subject.roles().contains(&UserRole::Sysadmin)
+    {
+        Ok(())
+    } else if record.role_for(subject.user()).is_some() {
+        Err(StoreError::Forbidden)
+    } else {
+        Err(StoreError::NotFound)
+    }
 }
 
 fn roster_policy(

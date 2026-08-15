@@ -125,7 +125,6 @@ async fn publish_question(
                 language: "en-US".to_string(),
             },
         },
-        revises: None,
         derived_from: None,
     };
     let saved = store

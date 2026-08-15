@@ -499,7 +499,6 @@ mod tests {
                 DraftRecord {
                     tenant,
                     question: native_draft(workspace),
-                    revises: None,
                     derived_from: None,
                 },
             )
@@ -615,7 +614,6 @@ mod tests {
                 DraftRecord {
                     tenant,
                     question: external_draft(workspace),
-                    revises: None,
                     derived_from: None,
                 },
             )
@@ -707,7 +705,6 @@ mod tests {
                 DraftRecord {
                     tenant,
                     question: native_draft(workspace),
-                    revises: None,
                     derived_from: None,
                 },
             )

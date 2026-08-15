@@ -1,11 +1,13 @@
 // assignment_overview_page.tsx - assignment entry and run-resume transition.
 
-import { createAsync, useNavigate, useParams } from "@solidjs/router";
+import { A, createAsync, useNavigate, useParams } from "@solidjs/router";
 import { createSignal, Show, Suspense, type JSX } from "solid-js";
 
 import { useApiRuntime } from "../api/runtime";
 import { resolveAssignmentRoute } from "../navigation/resolved_route";
 import { runRouteReference } from "../navigation/public_route";
+import { courseRouteReference, assignmentRouteReference } from "../navigation/public_route";
+import { useSessionBootstrap } from "../auth/session_context";
 
 export function AssignmentOverviewPage(): JSX.Element {
   const runtime = useApiRuntime();
@@ -13,11 +15,22 @@ export function AssignmentOverviewPage(): JSX.Element {
   const params = useParams();
   const [starting, setStarting] = createSignal(false);
   const [startError, setStartError] = createSignal<string>();
+  const session = useSessionBootstrap().state();
   const assignment = createAsync(() => {
     return resolveAssignmentRoute(runtime.client, params["assignmentRef"]).then((identity) =>
       runtime.queries.assignment(identity.assignmentId),
     );
   });
+  const course = createAsync(() => {
+    const assignmentId = assignment()?.courseId;
+    return assignmentId === undefined
+      ? Promise.resolve(undefined)
+      : runtime.queries.courseScope(assignmentId);
+  });
+  const mayEdit = (): boolean =>
+    session.kind === "authenticated" &&
+    session.session.user.roles.some((role) => role === "instructor" || role === "sysadmin") &&
+    course()?.summary.role === "instructor";
 
   async function startOrResume(): Promise<void> {
     const assignmentId = assignment()?.id;
@@ -75,6 +88,16 @@ export function AssignmentOverviewPage(): JSX.Element {
                   <p class="inline-error" role="alert">
                     {message()}
                   </p>
+                )}
+              </Show>
+              <Show when={mayEdit() && course()}>
+                {(currentCourse) => (
+                  <A
+                    class="quiet-action"
+                    href={`/instructor/courses/${courseRouteReference(currentCourse().summary.publicId)}/assignments/${assignmentRouteReference(current().publicId)}/edit`}
+                  >
+                    Edit assignment
+                  </A>
                 )}
               </Show>
               <button

@@ -7,7 +7,8 @@ import local_stack_control.discovery
 import local_stack_control.models
 import local_stack_control.process
 
-import walklib.models
+import tests.walkthrough.walklib as walklib
+import tests.walkthrough.walklib.models as models
 
 
 #============================================
@@ -22,7 +23,7 @@ def assert_no_stale_project_resources(
 			runner, repository_root, project_name
 		)
 	except local_stack_control.models.ControllerError as error:
-		raise walklib.models.RunnerError("cannot inspect walkthrough resources before E2E") from error
+		raise models.RunnerError("cannot inspect walkthrough resources before E2E") from error
 	if len(snapshot.containers) + len(snapshot.volumes) + len(snapshot.networks) > 0:
 		raise walklib.models.RunnerError(
 			"generated walkthrough project has stale labelled resources; retry the walkthrough"

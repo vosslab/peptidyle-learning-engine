@@ -11,9 +11,9 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use learning_data_access::{
     AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, CatalogStore, DraftRecord,
-    OwnerCorrectionStore, PublishDraftCommand, PublishedSourceArtifact, QtiImportItem,
-    QtiImportRegistry, QtiImportStore, QtiPublicationPromotion, SessionStore, Store, StoreError,
-    TenantContext, WorkspaceDraftRevision,
+    PublishDraftCommand, PublishedSourceArtifact, QtiImportItem, QtiImportRegistry, QtiImportStore,
+    QtiPublicationPromotion, SessionStore, Store, StoreError, TenantContext,
+    WorkspaceDraftRevision,
 };
 use objects::{ObjectCategory, ObjectKey, ObjectRecord, ObjectStore, PutObject, Sha256Digest};
 use question_model::{
@@ -60,7 +60,7 @@ pub fn router<S, O, B, R>(
     review_gate: Arc<R>,
 ) -> Router
 where
-    S: Store + CatalogStore + OwnerCorrectionStore + QtiImportStore + SessionStore + 'static,
+    S: Store + CatalogStore + QtiImportStore + SessionStore + 'static,
     O: ObjectStore + 'static,
     B: BackendRegistry + 'static,
     R: PublicReviewGate + 'static,
@@ -147,7 +147,7 @@ async fn publish_qti_problem<S, O, B, R>(
     Json(request): Json<QtiPublishRequest>,
 ) -> Response
 where
-    S: Store + CatalogStore + OwnerCorrectionStore + QtiImportStore + SessionStore + 'static,
+    S: Store + CatalogStore + QtiImportStore + SessionStore + 'static,
     O: ObjectStore + 'static,
     B: BackendRegistry + 'static,
     R: PublicReviewGate + 'static,
@@ -260,7 +260,7 @@ where
     // This is intentionally after all validation, including the committed
     // archive/model/draft agreement. Candidate-write failure leaves no
     // catalog identity or browser-visible binding.
-    let publication = mint_publication_reference(current.record.revises);
+    let publication = mint_publication_reference();
     let prepared = match preparer
         .copy_candidates(&current.record, publication, request.scope, validated)
         .await
@@ -284,7 +284,7 @@ where
         capabilities,
     };
     match dispatch_publication(state.store.as_ref(), &authenticated, command).await {
-        Ok(record) => no_store((StatusCode::CREATED, Json(record.question)).into_response()),
+        Ok(record) => no_store((StatusCode::CREATED, Json(record.summary())).into_response()),
         Err(error) => store_error_response(error),
     }
 }

@@ -172,7 +172,7 @@ test("catalog browse returns hot metadata and cursor-paged taxonomy", async () =
   const summary = catalog.items[0];
 
   assert.notEqual(summary, undefined);
-  assert.equal(summary.problem, publishedProblemFixture.publishedProblem.problem);
+  assert.equal(summary.questionId, publishedProblemFixture.catalogProblem.questionId);
   assert.equal(summary.backend, "native");
   assert.equal("prompt" in summary, false);
   assert.equal("response" in summary, false);
@@ -183,7 +183,7 @@ test("catalog browse returns hot metadata and cursor-paged taxonomy", async () =
   assert.equal(taxonomy.nextCursor, null);
 });
 
-test("course browse carries membership role and exact version references only", async () => {
+test("course browse carries membership role and safe Question ID assignment summaries", async () => {
   const client = createMockApiClient();
   const courses = await client.listCourses();
   const course = courses.items[0];
@@ -196,13 +196,8 @@ test("course browse carries membership role and exact version references only", 
   assert.notEqual(assignment, undefined);
   assert.equal(assignment.courseId, course.id);
   assert.deepEqual(
-    assignment.items.map((item) => item.reference),
-    [
-      {
-        problem: publishedProblemFixture.publishedProblem.problem,
-        version: publishedProblemFixture.publishedProblem.version,
-      },
-    ],
+    assignment.items.map((item) => item.questionId),
+    [publishedProblemFixture.catalogProblem.questionId],
   );
   assert.equal("prompt" in assignment, false);
   assert.equal("response" in assignment, false);
@@ -289,11 +284,6 @@ test("mock capability fallback names every missing requirement", async () => {
   assert.deepEqual(
     violations.map((violation) => violation.capability),
     ["algorithmicGeneration", "serverGrading", "printExport"],
-  );
-  assert.ok(
-    violations.every(
-      (violation) => violation.question === publishedProblemFixture.publishedProblem.version,
-    ),
   );
 });
 

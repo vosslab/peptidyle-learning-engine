@@ -1,94 +1,32 @@
-// assignment_editor_model.ts - local state helpers for revisioned assignment editing.
+// assignment_editor_model.ts - browser state for QID-only assignment editing.
 
-import type { ProblemVersionRef } from "../../generated/api/ProblemVersionRef";
+import type { AssignmentItemSummary } from "../../generated/api/AssignmentItemSummary";
 import type { Capability } from "../../generated/api/Capability";
-import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
-import type { AssignmentCapabilityViolation, AssignmentEditorInput } from "../api/contracts";
+import type { QuestionId } from "../../generated/api/QuestionId";
+import type {
+  AssignmentCapabilityViolation,
+  AssignmentCreateInput,
+  AssignmentEditorInput,
+} from "../api/contracts";
 import { DEFAULT_MASTERY_TIME_LIMIT_SECONDS } from "../../generated/api/DEFAULT_MASTERY_TIME_LIMIT_SECONDS";
 import { MAX_ASSIGNMENT_TIME_LIMIT_SECONDS } from "../../generated/api/MAX_ASSIGNMENT_TIME_LIMIT_SECONDS";
 import { normalizeQuestionIdSyntax } from "../question_id";
 
 export interface AssignmentCatalogRow {
-  readonly reference: ProblemVersionRef;
   readonly questionId: QuestionId;
   readonly title: string;
   readonly backend: QuestionBackend;
 }
 
-export interface AssignmentEditorDraft extends AssignmentEditorInput {
-  /** Empty until the server creates the immutable assignment record. */
+export interface AssignmentEditorDraft {
   readonly id: string;
   readonly courseId: string;
-  /** Empty in create mode because a new assignment has no server revision yet. */
+  readonly title: string;
+  readonly items: ReadonlyArray<AssignmentItemSummary>;
+  readonly policies: AssignmentEditorInput["policies"];
+  readonly assignmentTiming: AssignmentEditorInput["assignmentTiming"];
   readonly revision: string;
-}
-
-const MAX_DIRECT_IMPORT_REFERENCES = 50;
-/**
- * Parses the instructor's stable Question IDs. The browser normalizes common
- * transcription variants; authoritative validation stays server-side.
- * Commas and line breaks allow a small curated question set to be added in one task.
- */
-export function parseExactProblemDisplayReferences(value: string): ReadonlyArray<string> {
-  const references = value
-    .split(/[\n,]/u)
-    .map((reference) => reference.trim())
-    .filter((reference) => reference.length > 0);
-  if (references.length === 0) {
-    throw new Error("Paste at least one Question ID, such as 7K3-M9QP.");
-  }
-  if (references.length > MAX_DIRECT_IMPORT_REFERENCES) {
-    throw new Error(`Add at most ${MAX_DIRECT_IMPORT_REFERENCES} question IDs at a time.`);
-  }
-  const seen = new Set<string>();
-  const normalized: string[] = [];
-  for (const reference of references) {
-    const questionId = normalizeQuestionIdSyntax(reference);
-    if (questionId === null) {
-      throw new Error(`${reference} is not a Question ID. Use the form 7K3-M9QP.`);
-    }
-    if (seen.has(questionId)) {
-      throw new Error(`${questionId} appears more than once. Remove the duplicate and try again.`);
-    }
-    seen.add(questionId);
-    normalized.push(questionId);
-  }
-  return normalized;
-}
-
-/**
- * The Fall-pilot mastery policy: complete only when every answer is correct,
- * retain the highest score, and allow fresh unlimited practice runs.
- */
-export function createMasteryAssignmentDraft(courseId: string): AssignmentEditorDraft {
-  return {
-    id: "",
-    courseId,
-    title: "",
-    problems: [],
-    policies: {
-      completion: { kind: "allCorrect" },
-      grade: "highest",
-      continuedPractice: { kind: "unlimited" },
-      variation: "newSeeds",
-    },
-    assignmentTiming: { timeLimitSeconds: DEFAULT_MASTERY_TIME_LIMIT_SECONDS },
-    revision: "",
-  };
-}
-
-export function sameReference(left: ProblemVersionRef, right: ProblemVersionRef): boolean {
-  return left.problem === right.problem && left.version === right.version;
-}
-
-export function assignmentInput(draft: AssignmentEditorDraft): AssignmentEditorInput {
-  return {
-    title: draft.title,
-    problems: [...draft.problems],
-    policies: draft.policies,
-    assignmentTiming: draft.assignmentTiming,
-  };
 }
 
 export interface TimeLimitValidation {
@@ -96,7 +34,7 @@ export interface TimeLimitValidation {
   readonly error: string | null;
 }
 
-/** Preserves a typed minutes value until save while accepting any exact whole-second duration. */
+/** Converts a deliberately typed whole-run duration without rounding it. */
 export function minutesToRunTimeLimit(minutesText: string, timed: boolean): TimeLimitValidation {
   if (!timed) return { seconds: null, error: null };
   const normalized = minutesText.trim();
@@ -107,11 +45,10 @@ export function minutesToRunTimeLimit(minutesText: string, timed: boolean): Time
   const whole = match.groups?.whole ?? "";
   const fraction = match.groups?.fraction ?? "";
   const numerator = BigInt(`${whole}${fraction}`);
+  if (numerator === 0n)
+    return { seconds: null, error: "Enter a positive number of minutes, such as 15." };
   const denominator = 10n ** BigInt(fraction.length);
   const secondsNumerator = numerator * 60n;
-  if (numerator === 0n) {
-    return { seconds: null, error: "Enter a positive number of minutes, such as 15." };
-  }
   if (secondsNumerator % denominator !== 0n) {
     return { seconds: null, error: "Enter minutes that convert to a whole number of seconds." };
   }
@@ -126,80 +63,99 @@ export function minutesToRunTimeLimit(minutesText: string, timed: boolean): Time
 }
 
 export function runTimeLimitMinutes(seconds: number | null): string {
-  if (seconds === null) return String(DEFAULT_MASTERY_TIME_LIMIT_SECONDS / 60);
-  return String(seconds / 60);
+  return String((seconds ?? DEFAULT_MASTERY_TIME_LIMIT_SECONDS) / 60);
 }
 
-export function addCatalogReference(
+export function moveAssignmentItem(
   draft: AssignmentEditorDraft,
-  row: AssignmentCatalogRow,
+  itemId: string,
+  direction: -1 | 1,
 ): AssignmentEditorDraft {
-  if (draft.problems.some((reference) => sameReference(reference, row.reference))) {
-    return draft;
-  }
-  return { ...draft, problems: [...draft.problems, row.reference] };
+  const index = draft.items.findIndex((item) => item.id === itemId);
+  const nextIndex = index + direction;
+  if (index < 0 || nextIndex < 0 || nextIndex >= draft.items.length) return draft;
+  const items = [...draft.items];
+  const current = items[index];
+  const adjacent = items[nextIndex];
+  if (current === undefined || adjacent === undefined) return draft;
+  items[index] = { ...adjacent, position: index };
+  items[nextIndex] = { ...current, position: nextIndex };
+  return { ...draft, items };
 }
 
-export function removeCatalogReference(
-  draft: AssignmentEditorDraft,
-  reference: ProblemVersionRef,
-): AssignmentEditorDraft {
+export function createMasteryAssignmentDraft(courseId: string): AssignmentEditorDraft {
   return {
-    ...draft,
-    problems: draft.problems.filter((candidate) => !sameReference(candidate, reference)),
+    id: "",
+    courseId,
+    title: "",
+    items: [],
+    policies: {
+      completion: { kind: "allCorrect" },
+      grade: "highest",
+      continuedPractice: { kind: "unlimited" },
+      variation: "newSeeds",
+    },
+    assignmentTiming: { timeLimitSeconds: DEFAULT_MASTERY_TIME_LIMIT_SECONDS },
+    revision: "",
   };
 }
 
-export function moveCatalogReference(
-  draft: AssignmentEditorDraft,
-  reference: ProblemVersionRef,
-  direction: -1 | 1,
-): AssignmentEditorDraft {
-  const index = draft.problems.findIndex((candidate) => sameReference(candidate, reference));
-  const nextIndex = index + direction;
-  if (index < 0 || nextIndex < 0 || nextIndex >= draft.problems.length) return draft;
-  const problems = [...draft.problems];
-  const current = problems[index];
-  const adjacent = problems[nextIndex];
-  if (current === undefined || adjacent === undefined) return draft;
-  problems[index] = adjacent;
-  problems[nextIndex] = current;
-  return { ...draft, problems };
+export function assignmentInput(draft: AssignmentEditorDraft): AssignmentEditorInput {
+  return {
+    title: draft.title,
+    items: draft.items.map(
+      ({ id, questionId, position, pointsPossible, deliveryState, scoringMode }) => ({
+        id,
+        questionId,
+        position,
+        pointsPossible,
+        deliveryState,
+        scoringMode,
+      }),
+    ),
+    policies: draft.policies,
+    assignmentTiming: draft.assignmentTiming,
+  };
 }
 
-export function violationMatchesReference(
-  violation: AssignmentCapabilityViolation,
-  reference: ProblemVersionRef,
-): boolean {
-  return sameReference(violation.reference, reference);
+export function assignmentCreateInput(draft: AssignmentEditorDraft): AssignmentCreateInput {
+  return {
+    title: draft.title,
+    questionIds: draft.items.map((item) => item.questionId),
+    policies: draft.policies,
+    assignmentTiming: draft.assignmentTiming,
+  };
+}
+
+export function parseExactProblemDisplayReferences(value: string): ReadonlyArray<string> {
+  const values = value
+    .split(/[\n,]/u)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  if (values.length === 0) throw new Error("Paste at least one Question ID, such as 7K3-M9QP.");
+  const normalized = values.map((entry) => normalizeQuestionIdSyntax(entry));
+  if (normalized.some((entry) => entry === null))
+    throw new Error("Use canonical Question IDs such as 7K3-M9QP.");
+  const ids = normalized as string[];
+  if (new Set(ids).size !== ids.length)
+    throw new Error("Each Question ID can appear once in this operation.");
+  return ids;
 }
 
 export function capabilityLabel(capability: Capability): string {
-  const labels: Readonly<Record<Capability, string>> = {
-    algorithmicGeneration: "algorithmic generation",
-    clientRendering: "browser rendering",
-    serverGrading: "server grading",
-    partialCredit: "partial credit",
-    hints: "hints",
-    perQuestionTiming: "per-question timing",
-    printExport: "print export",
-    offlinePreview: "offline preview",
-  };
-  return labels[capability];
+  return capability.replace(/([A-Z])/gu, " $1").toLowerCase();
 }
-
-/** Copyable instructor-facing identity; UUID tuples remain transport-only. */
-export function assignmentProblemLabel(row: AssignmentCatalogRow): string {
+export function assignmentProblemLabel(row: AssignmentCatalogRow | AssignmentItemSummary): string {
   return row.questionId;
 }
-
 export function questionBackendLabel(backend: QuestionBackend): string {
-  const labels: Readonly<Record<QuestionBackend, string>> = {
-    native: "PLE native",
-    webwork: "WeBWorK",
-    qti: "QTI",
-    h5p: "H5P",
-    imathas: "iMathAS",
-  };
-  return labels[backend];
+  return { native: "PLE native", webwork: "WeBWorK", qti: "QTI", h5p: "H5P", imathas: "iMathAS" }[
+    backend
+  ];
+}
+export function violationMatchesQuestion(
+  violation: AssignmentCapabilityViolation,
+  questionId: string,
+): boolean {
+  return violation.questionId === questionId;
 }

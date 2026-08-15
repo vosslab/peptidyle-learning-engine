@@ -30,12 +30,12 @@ use question_model::run_policy::{
 };
 use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
-    ActivityTimestamp, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId, AssignmentItem,
-    AssignmentItemId, AssignmentRun, AssignmentScoringMode, AssignmentSummary, AttemptTimerRecord,
-    CatalogLifecycle, CatalogProblemSummary, CourseId, CourseMembershipRole, CourseSummary,
-    EnrollmentId, GradebookSummaryRow, PointValue, ProblemVersionRef, PublicationScope,
-    QuestionAttempt, QuestionAttemptId, QuestionBackend, RunId, RunMode, StudentAssignmentSummary,
-    StudentId, TenantId, UserId,
+    ActivityTimestamp, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId,
+    AssignmentItemId, AssignmentItemSummary, AssignmentRun, AssignmentScoringMode,
+    AssignmentSummary, AttemptTimerRecord, CatalogLifecycle, CatalogProblemSummary, CourseId,
+    CourseMembershipRole, CourseSummary, EnrollmentId, GradebookSummaryRow, PointValue,
+    PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend, RunId, RunMode,
+    StudentAssignmentSummary, StudentId, TenantId, UserId,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -198,21 +198,14 @@ fn build_corpus() -> Result<FixtureCorpus> {
     );
     let adapter = NativeAdapter::new();
     let catalog_problem = CatalogProblemSummary {
-        problem,
         question_id: "7K3-M9QP"
             .parse()
             .expect("fixture Question ID is canonical"),
-        version,
         backend: QuestionBackend::Native,
         capabilities: adapter.capabilities(&published_problem.source)?,
         metadata: published_problem.metadata.clone(),
         scope: PublicationScope::Public,
         lifecycle: CatalogLifecycle::Published,
-        authors: vec![UserId::from_uuid(parsed_uuid(
-            "0198e000-0000-7000-8000-000000000015",
-        ))],
-        previous_version: None,
-        derived_from: None,
         published_at: timestamp(1_786_000_000_000),
     };
     let mut draft = draft_question(workspace, &assets);
@@ -295,7 +288,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
     Ok(FixtureCorpus {
         fixture_schema_version: 4,
         model_schema_version: 1,
-        catalog_problem,
+        catalog_problem: catalog_problem.clone(),
         published_problem,
         draft,
         assets,
@@ -313,9 +306,12 @@ fn build_corpus() -> Result<FixtureCorpus> {
             tenant,
             course_id,
             title: "Peptide bond mastery".to_string(),
-            items: vec![AssignmentItem {
+            items: vec![AssignmentItemSummary {
                 id: assignment_item_id("0198e000-0000-7000-8000-000000000017"),
-                reference: ProblemVersionRef { problem, version },
+                question_id: catalog_problem.question_id.clone(),
+                title: catalog_problem.metadata.title.clone(),
+                backend: catalog_problem.backend,
+                capabilities: catalog_problem.capabilities.clone(),
                 position: 0,
                 points_possible: PointValue::from_whole(1),
                 delivery_state: AssignmentDeliveryState::Active,

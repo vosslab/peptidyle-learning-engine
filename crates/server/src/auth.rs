@@ -154,9 +154,8 @@ pub struct AuthenticatedSession {
     pub record: SessionRecord,
     /// RLS context derived only from the resolved record.
     pub tenant_context: TenantContext,
-    /// Request-derived private capability for database operations that must
-    /// prove the live authenticated session. It never enters an HTTP DTO or
-    /// diagnostic representation.
+    /// Request-derived private session capability carried by trusted server
+    /// operations. It never enters a browser DTO.
     pub(crate) session_hash: learning_data_access::SessionTokenHash,
 }
 
@@ -188,11 +187,6 @@ impl AuthenticatedSession {
     /// Builds the browser-safe current-session response.
     pub fn response(&self) -> AuthSessionResponse {
         session_response(&self.record)
-    }
-
-    /// Returns the server-only hash resolved from the presented cookie.
-    pub(crate) fn session_hash(&self) -> learning_data_access::SessionTokenHash {
-        self.session_hash
     }
 }
 

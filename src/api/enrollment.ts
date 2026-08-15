@@ -22,9 +22,14 @@ export type CourseRosterRole = "student";
 export type CourseRosterMemberStatus = "active" | "revoked";
 export type CourseInvitationStatus = "pending" | "claimed" | "revoked" | "expired";
 export type CourseSignupPosture = "invitationOnly" | "permittedDomains";
-export type CourseInvitationEmailDelivery = "sent" | "notSent";
+/** Coarse delivery state; never evidence that a recipient mailbox received mail. */
+export type CourseInvitationEmailDelivery =
+  "queued" | "sentToProvider" | "needsAttention" | "cancelled";
 export type RosterImportRowStatus =
   "readyToInvite" | "alreadyMember" | "alreadyPending" | "duplicate" | "invalid";
+/** Instructor-safe explanation that never repeats invalid CSV cells or account existence. */
+export type RosterImportRowReason =
+  "ready" | "alreadyOnRoster" | "invitationPending" | "duplicateInFile" | "correctEmailOrRosterId";
 
 export interface EmailAuthenticationAccepted {
   readonly accepted: true;
@@ -162,6 +167,7 @@ export interface RosterImportRow {
   readonly email: string | null;
   readonly rosterId: string | null;
   readonly status: RosterImportRowStatus;
+  readonly reason: RosterImportRowReason;
 }
 
 export interface RosterImportPreview {
@@ -178,6 +184,13 @@ export interface RosterImportCommitResult {
   readonly importRevision: number;
   readonly rosterRevision: number;
   readonly invitationsCreated: number;
+  readonly delivery: ReadonlyArray<RosterImportDelivery>;
+}
+
+/** Bulk result keyed only by CSV row and one coarse delivery outcome. */
+export interface RosterImportDelivery {
+  readonly rowNumber: number;
+  readonly outcome: CourseInvitationEmailDelivery;
 }
 
 export interface ManualGradeExport {
@@ -607,8 +620,10 @@ export function decodeCourseInvitationAccepted(
     invitation: decodeInvitation(field(record, "invitation", path), `${path}.invitation`),
     redemptionPath,
     emailDelivery: decodeStringEnum(field(record, "emailDelivery", path), `${path}.emailDelivery`, [
-      "sent",
-      "notSent",
+      "queued",
+      "sentToProvider",
+      "needsAttention",
+      "cancelled",
     ]),
   };
 }
@@ -652,7 +667,7 @@ export function decodeRosterRevisionResult(
 
 function decodeRosterImportRow(value: unknown, path: string): RosterImportRow {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["rowNumber", "email", "rosterId", "status"]);
+  requireOnlyFields(record, path, ["rowNumber", "email", "rosterId", "status", "reason"]);
   const decoded: RosterImportRow = {
     rowNumber: decodePositiveInteger(field(record, "rowNumber", path), `${path}.rowNumber`),
     email: decodeNullable(field(record, "email", path), `${path}.email`, decodeNonemptyString),
@@ -668,7 +683,27 @@ function decodeRosterImportRow(value: unknown, path: string): RosterImportRow {
       "duplicate",
       "invalid",
     ]),
+    reason: decodeStringEnum(field(record, "reason", path), `${path}.reason`, [
+      "ready",
+      "alreadyOnRoster",
+      "invitationPending",
+      "duplicateInFile",
+      "correctEmailOrRosterId",
+    ]),
   };
+  const expectedReason: RosterImportRowReason =
+    decoded.status === "readyToInvite"
+      ? "ready"
+      : decoded.status === "alreadyMember"
+        ? "alreadyOnRoster"
+        : decoded.status === "alreadyPending"
+          ? "invitationPending"
+          : decoded.status === "duplicate"
+            ? "duplicateInFile"
+            : "correctEmailOrRosterId";
+  if (decoded.reason !== expectedReason) {
+    throw new DecodeError(`${path}.reason`, "the safe category for its row status");
+  }
   const withholdsInvalid =
     decoded.status === "invalid"
       ? decoded.email === null && decoded.rosterId === null
@@ -722,7 +757,13 @@ export function decodeRosterImportCommitResult(
     "importRevision",
     "rosterRevision",
     "invitationsCreated",
+    "delivery",
   ]);
+  const delivery = decodeArray(
+    field(record, "delivery", path),
+    `${path}.delivery`,
+    decodeRosterImportDelivery,
+  );
   return {
     importId: decodeUuid(field(record, "importId", path), `${path}.importId`),
     importRevision: positiveRevision(
@@ -737,5 +778,20 @@ export function decodeRosterImportCommitResult(
       field(record, "invitationsCreated", path),
       `${path}.invitationsCreated`,
     ),
+    delivery,
+  };
+}
+
+function decodeRosterImportDelivery(value: unknown, path: string): RosterImportDelivery {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["rowNumber", "outcome"]);
+  return {
+    rowNumber: decodePositiveInteger(field(record, "rowNumber", path), `${path}.rowNumber`),
+    outcome: decodeStringEnum(field(record, "outcome", path), `${path}.outcome`, [
+      "queued",
+      "sentToProvider",
+      "needsAttention",
+      "cancelled",
+    ]),
   };
 }

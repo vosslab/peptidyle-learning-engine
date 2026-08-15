@@ -13,6 +13,15 @@ def required_one_shots(with_smtp: bool) -> tuple[str, ...]:
 
 
 #============================================
+def required_long_running(with_smtp: bool) -> tuple[str, ...]:
+	"""Return long-running services required by the selected topology."""
+	services = list(local_stack_control.models.BASE_LONG_RUNNING_SERVICES)
+	if with_smtp:
+		services.extend(local_stack_control.models.SMTP_LONG_RUNNING_SERVICES)
+	return tuple(services)
+
+
+#============================================
 def smtp_topology_present(
 	snapshot: local_stack_control.models.ProjectSnapshot,
 ) -> bool:
@@ -93,7 +102,7 @@ def long_running_status(
 		return absent_or_ambiguous_status(service, len(containers))
 	container = containers[0]
 	healthy = container.running and container.health == "healthy"
-	if service == "worker":
+	if service in ("worker", "invitation-delivery-worker"):
 		healthy = container.running and container.health in (None, "", "disabled")
 	status = local_stack_control.models.StackServiceStatus(
 		service=service,
@@ -139,7 +148,7 @@ def build_report(
 	statuses: list[local_stack_control.models.StackServiceStatus] = []
 	for service in required_one_shots(effective_with_smtp):
 		statuses.append(one_shot_status(snapshot, service))
-	for service in local_stack_control.models.BASE_LONG_RUNNING_SERVICES:
+	for service in required_long_running(effective_with_smtp):
 		statuses.append(long_running_status(snapshot, service))
 
 	coarse_state = project_state(snapshot)

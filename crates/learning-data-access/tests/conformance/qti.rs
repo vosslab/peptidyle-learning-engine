@@ -191,7 +191,6 @@ async fn save_workspace<S: Store>(
             DraftRecord {
                 tenant,
                 question: draft_question(workspace),
-                revises: None,
                 derived_from: None,
             },
         )
@@ -781,7 +780,6 @@ where
     let draft = DraftRecord {
         tenant,
         question: draft_question,
-        revises: None,
         derived_from: None,
     };
     let saved_draft = store

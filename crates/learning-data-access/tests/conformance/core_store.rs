@@ -22,7 +22,6 @@ where
     let draft = DraftRecord {
         tenant,
         question: draft_question(workspace),
-        revises: None,
         derived_from: None,
     };
     let publisher = UserId::from_uuid(uuid(16));
@@ -133,7 +132,6 @@ where
     let paged_draft = DraftRecord {
         tenant,
         question: draft_question(second_workspace),
-        revises: None,
         derived_from: None,
     };
     store
@@ -344,7 +342,6 @@ where
             DraftRecord {
                 tenant,
                 question: draft_question(deletable_workspace),
-                revises: None,
                 derived_from: None,
             },
         )
@@ -379,7 +376,6 @@ where
     let second_draft = DraftRecord {
         tenant,
         question: draft_question(workspace),
-        revises: None,
         derived_from: None,
     };
     let second_draft = store
@@ -707,7 +703,6 @@ where
             DraftRecord {
                 tenant,
                 question: draft_question(workspace),
-                revises: None,
                 derived_from: None,
             },
         )

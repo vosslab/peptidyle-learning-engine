@@ -28,7 +28,6 @@ async fn publication_validation_and_diff_use_persisted_draft_safe_semantics() {
     let prior_draft = DraftRecord {
         tenant,
         question: draft(prior_workspace, "Earlier peptide question"),
-        revises: None,
         derived_from: None,
     };
     let saved = store
@@ -69,8 +68,7 @@ async fn publication_validation_and_diff_use_persisted_draft_safe_semantics() {
             DraftRecord {
                 tenant,
                 question: revised_question,
-                revises: Some(prior_reference),
-                derived_from: None,
+                derived_from: Some(prior_reference),
             },
         )
         .await
@@ -145,21 +143,8 @@ async fn publication_validation_and_diff_use_persisted_draft_safe_semantics() {
     assert_eq!(diff.headers().get(ETAG).unwrap(), "\"1\"");
     let diff = response_json(diff).await;
     assert_eq!(diff["draftRevision"], 1);
-    assert_eq!(diff["baseline"], "revision");
-    assert_eq!(diff["prior"], serde_json::json!(prior_reference));
+    assert_eq!(diff["baseline"], "newQuestion");
     assert_eq!(diff["current"]["sourceBackend"], "native");
-    assert!(
-        diff["changed"]
-            .as_array()
-            .expect("changed fields")
-            .contains(&serde_json::json!("title"))
-    );
-    assert!(
-        diff["changed"]
-            .as_array()
-            .expect("changed fields")
-            .contains(&serde_json::json!("timingPolicy"))
-    );
     let serialized = diff.to_string();
     for forbidden in [
         r#""source":"#,
@@ -193,7 +178,6 @@ async fn external_publication_validation_refuses_without_publishing_or_changing_
     let candidate = DraftRecord {
         tenant,
         question,
-        revises: None,
         derived_from: None,
     };
     store

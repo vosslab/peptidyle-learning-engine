@@ -77,19 +77,19 @@ browser-visible assessment transition.
 
 ## Major components
 
-| Component | Location | Responsibility |
-| --- | --- | --- |
-| Question model | [crates/question_model/](../crates/question_model/) | Question taxonomy, identifiers, capabilities, browser-safe presentations, and response schemas. |
-| Domain | [crates/domain/](../crates/domain/) | Run state, policy evaluation, seeded generation, timing inputs, and validation without a database or wall clock. |
-| Grading | [crates/grading/](../crates/grading/) | Answer-bearing checkers and correctness decisions; server-side only. |
-| Learning data access | [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, in-memory and PostgreSQL implementations, migrations, forced RLS context, capability roles, and conformance tests. |
-| Object storage | [crates/objects/](../crates/objects/) | Typed object keys, checksums, strict image ingress validation, and MinIO/S3-compatible implementations. |
-| Native adapter | [crates/adapters/native/](../crates/adapters/native/) | First-party generated questions and static flat-question compilation. |
-| External adapters | [crates/adapters/](../crates/adapters/) | Bounded QTI, H5P, iMathAS, and WeBWorK integration behind declared capabilities. |
-| Server | [crates/server/](../crates/server/) | Axum routes, passwordless auth, authorization, adapter selection, API composition, ordinary worker, and public-asset publisher process. |
-| Browser and WebAssembly | [src/](../src/) and [crates/wasm/](../crates/wasm/) | SolidJS interaction layer and answer-free browser bridge to shared domain logic. |
-| Export and project tools | [crates/export/](../crates/export/) and [crates/project-tools/](../crates/project-tools/) | Print/export generation plus repository-only code generation, migration, fixture, pilot-content validation, and seed commands. |
-| Deployment configuration | `deploy/opentofu/` | AWS network, edge, compute, database, storage, IAM, observability, and WAF definitions. |
+| Component                | Location                                                                                  | Responsibility                                                                                                                          |
+| ------------------------ | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Question model           | [crates/question_model/](../crates/question_model/)                                       | Question taxonomy, identifiers, capabilities, browser-safe presentations, and response schemas.                                         |
+| Domain                   | [crates/domain/](../crates/domain/)                                                       | Run state, policy evaluation, seeded generation, timing inputs, and validation without a database or wall clock.                        |
+| Grading                  | [crates/grading/](../crates/grading/)                                                     | Answer-bearing checkers and correctness decisions; server-side only.                                                                    |
+| Learning data access     | [crates/learning-data-access/](../crates/learning-data-access/)                           | Store contracts, in-memory and PostgreSQL implementations, migrations, forced RLS context, capability roles, and conformance tests.     |
+| Object storage           | [crates/objects/](../crates/objects/)                                                     | Typed object keys, checksums, strict image ingress validation, and MinIO/S3-compatible implementations.                                 |
+| Native adapter           | [crates/adapters/native/](../crates/adapters/native/)                                     | First-party generated questions and static flat-question compilation.                                                                   |
+| External adapters        | [crates/adapters/](../crates/adapters/)                                                   | Bounded QTI, H5P, iMathAS, and WeBWorK integration behind declared capabilities.                                                        |
+| Server                   | [crates/server/](../crates/server/)                                                       | Axum routes, passwordless auth, authorization, adapter selection, API composition, ordinary worker, and public-asset publisher process. |
+| Browser and WebAssembly  | [src/](../src/) and [crates/wasm/](../crates/wasm/)                                       | SolidJS interaction layer and answer-free browser bridge to shared domain logic.                                                        |
+| Export and project tools | [crates/export/](../crates/export/) and [crates/project-tools/](../crates/project-tools/) | Print/export generation plus repository-only code generation, migration, fixture, pilot-content validation, and seed commands.          |
+| Deployment configuration | `deploy/opentofu/`                                                                        | AWS network, edge, compute, database, storage, IAM, observability, and WAF definitions.                                                 |
 
 The Cargo dependency graph is a security control: `crates/domain/` depends only
 on the question model, while `crates/wasm/` does not depend on `crates/grading/`.
@@ -213,10 +213,15 @@ start, stop, restart, reset, validation, logs, and the aggregate live browser
 acceptance handoff. Its `local_stack_control/` package owns typed Compose
 provider selection, environment-file metadata and inherited-environment
 sanitization, label-based Podman discovery, semantic service status, and
-project-scoped cleanup plans. It is deliberately a controller rather than a
-second implementation of local-stack bootstrap: private `local_stack_control/launch.sh`
-remains the authority for builds, secret bootstrap, migrations, seed
-publication, renderer checks, and launcher-level readiness.
+project-scoped cleanup plans. Focused Python modules own lifecycle sequencing:
+`lifecycle.py` coordinates typed start, validation, and restart requests;
+`local_environment.py`, `local_identity.py`, and `private_files.py` own default-only
+private state; `renderer.py` owns selected-renderer OCI configuration-ID provenance;
+and lifecycle validation, waits, and diagnostics retain semantic readiness and safe failures.
+
+`local_stack_control/chapter_one.py` owns the Chapter 1 subprocess boundary and protected,
+same-directory atomic manifest publication used by both canonical Python E2E runners. The typed
+lifecycle owner delegates this publication without reimplementing replay or temporary-file state.
 
 The controller discovers resources by Compose labels rather than generated
 names. Read-only commands may inspect a named project. Default mutations are
@@ -235,9 +240,9 @@ visible-action evidence, and report boundary.
 
 `python3 local_stack.py acceptance` is the public aggregate acceptance
 entry point. It delegates stack-conflict preflight and child-environment
-sanitization to the controller, then invokes the internal ordered lane runner
-under `tests/playwright/`. The lane runner keeps browser-test sequencing but
-does not duplicate lifecycle policy.
+sanitization to the controller, then invokes `local_stack_control/acceptance_lanes.py`. That Python
+module keeps the fixed fail-fast browser and real-stack sequence but does not duplicate lifecycle
+policy. The retained shell validation-lane entry point is only a compatibility `exec` facade.
 
 `deploy/opentofu/` identifies the production deployment target:
 CloudFront and WAF at the edge, a CloudFront-restricted application load
@@ -286,8 +291,7 @@ not evidence that an unrun deployment path works.
   projection, grading handoff, authorization, and side-effect behavior.
 - Add forward-only schema changes under [schemas/migrations/](../schemas/migrations/).
 - Add a normal local-stack operation in `local_stack_control/` and expose it through
-  `python3 local_stack.py`; keep bootstrap and teaching-data initialization in
-  private `local_stack_control/launch.sh`.
+  `python3 local_stack.py`; keep lifecycle state in focused typed Python modules.
 - Add a disposable E2E consumer by declaring a closed owner policy and private
   manifest contract in `local_stack_control/consumer.py`, rather than adding a
   general project or cleanup flag.

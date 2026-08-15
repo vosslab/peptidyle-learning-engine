@@ -131,45 +131,12 @@ where
     let revision = draft.revision;
     let draft = draft.record;
     let current = PublicationSemanticProjection::from_draft(&draft.question);
-    let Some(revises) = draft.revises else {
-        return revisioned_response(
-            revision,
-            PublicationDiff {
-                draft_revision: revision,
-                baseline: PublicationDiffBaseline::FirstPublication,
-                prior: None,
-                previous: None,
-                current,
-                changed: Vec::new(),
-            },
-        );
-    };
-    let previous = match state
-        .store
-        .get_catalog_problem(authenticated.tenant_context, revises)
-        .await
-    {
-        Ok(Some(record)) => PublicationSemanticProjection::from_published(&record.question),
-        // A revision cannot be meaningfully described as a first publication
-        // when its immutable predecessor is unavailable to this tenant.
-        Ok(None) => {
-            return error_response(
-                StatusCode::CONFLICT,
-                "publication predecessor is not available",
-            );
-        }
-        Err(error) => return store_error_response(error),
-    };
-    let changed = previous.changed_fields(&current);
     revisioned_response(
         revision,
         PublicationDiff {
             draft_revision: revision,
-            baseline: PublicationDiffBaseline::Revision,
-            prior: Some(revises),
-            previous: Some(previous),
+            baseline: PublicationDiffBaseline::NewQuestion,
             current,
-            changed,
         },
     )
 }
@@ -188,30 +155,13 @@ struct PublicationDiff {
     /// can treat the confirmation as current.
     draft_revision: WorkspaceDraftRevision,
     baseline: PublicationDiffBaseline,
-    prior: Option<question_model::ProblemVersionRef>,
-    previous: Option<PublicationSemanticProjection>,
     current: PublicationSemanticProjection,
-    changed: Vec<PublicationSemanticField>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 enum PublicationDiffBaseline {
-    FirstPublication,
-    Revision,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-enum PublicationSemanticField {
-    SourceBackend,
-    Title,
-    Prompt,
-    Response,
-    AttemptPolicy,
-    TimingPolicy,
-    Randomization,
-    Metadata,
+    NewQuestion,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -229,19 +179,6 @@ struct PublicationSemanticProjection {
 
 impl PublicationSemanticProjection {
     fn from_draft(question: &DraftQuestionDefinition) -> Self {
-        Self::from_content(
-            QuestionBackend::from(&question.source),
-            &question.metadata.title,
-            &question.prompt,
-            &question.response,
-            question.attempt_policy,
-            question.timing_policy,
-            &question.randomization,
-            &question.metadata,
-        )
-    }
-
-    fn from_published(question: &question_model::QuestionDefinition) -> Self {
         Self::from_content(
             QuestionBackend::from(&question.source),
             &question.metadata.title,
@@ -275,35 +212,6 @@ impl PublicationSemanticProjection {
             randomization: RandomizationShape::from_definition(randomization),
             metadata: MetadataShape::from_metadata(metadata),
         }
-    }
-
-    fn changed_fields(&self, current: &Self) -> Vec<PublicationSemanticField> {
-        let mut changed = Vec::new();
-        if self.source_backend != current.source_backend {
-            changed.push(PublicationSemanticField::SourceBackend);
-        }
-        if self.title != current.title {
-            changed.push(PublicationSemanticField::Title);
-        }
-        if self.prompt != current.prompt {
-            changed.push(PublicationSemanticField::Prompt);
-        }
-        if self.response != current.response {
-            changed.push(PublicationSemanticField::Response);
-        }
-        if self.attempt_policy != current.attempt_policy {
-            changed.push(PublicationSemanticField::AttemptPolicy);
-        }
-        if self.timing_policy != current.timing_policy {
-            changed.push(PublicationSemanticField::TimingPolicy);
-        }
-        if self.randomization != current.randomization {
-            changed.push(PublicationSemanticField::Randomization);
-        }
-        if self.metadata != current.metadata {
-            changed.push(PublicationSemanticField::Metadata);
-        }
-        changed
     }
 }
 

@@ -125,7 +125,7 @@ export function createMockEnrollmentClient(): CourseRosterClient {
       return Promise.resolve({
         invitation,
         redemptionPath: MOCK_REDEMPTION_PATH,
-        emailDelivery: "notSent",
+        emailDelivery: "queued",
       });
     },
     revokeCourseInvitation: (
@@ -176,6 +176,7 @@ export function createMockEnrollmentClient(): CourseRosterClient {
             email: "new.student@mail.roosevelt.edu",
             rosterId: "900123457",
             status: "readyToInvite",
+            reason: "ready",
           },
         ],
       }),
@@ -185,6 +186,7 @@ export function createMockEnrollmentClient(): CourseRosterClient {
         importRevision: preview.importRevision + 1,
         rosterRevision: ++rosterRevision,
         invitationsCreated: rowNumbers.length,
+        delivery: rowNumbers.map((rowNumber) => ({ rowNumber, outcome: "queued" })),
       }),
     createManualGradeExport: (_courseId, assignmentId) =>
       Promise.resolve({

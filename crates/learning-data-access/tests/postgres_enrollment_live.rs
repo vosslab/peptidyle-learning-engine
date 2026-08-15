@@ -4,18 +4,20 @@
 
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
-    AccountIdentityStore, AuthenticationEmail, AuthenticationRateLimitDecision,
-    AuthenticationRateLimitKey, AuthenticationRateLimitPolicy, AuthenticationRateLimitScope,
-    BeginEmailAuthentication, BeginWebauthnCeremony, BrowserBindingHash, CommitCourseRosterImport,
-    CompleteEmailAuthentication, CompletePasskeyAuthenticationAndCreateSession,
-    ConsumeAuthenticationRateLimit, CourseInvitationLifetime, CourseInvitationSecretHash,
-    CourseRosterId, CourseRosterImportLifetime, CourseRosterImportRowInput, CourseRosterStore,
-    CreateCourseInvitation, CredentialIdHash, EmailAuthenticationPurpose, EmailChallengeId,
-    EmailChallengeLifetime, EmailChallengeSecretHash, PageRequest, PageSize, PasskeyId,
-    PasskeyRecord, RegisterPasskey, RosterIdempotencyKey, RosterImportInvitation, SessionLifetime,
-    SessionStore, SessionSubject, SessionTokenHash, StageCourseRosterImport, StoreError,
-    TenantContext, UpsertCourseMember, WebauthnCeremonyId, WebauthnCeremonyKind,
-    WebauthnCeremonyLifetime, WebauthnState,
+    AccountIdentityStore, AccountSessionLifetime, AccountSessionStore, AccountSessionTokenHash,
+    AuthenticationEmail, AuthenticationRateLimitDecision, AuthenticationRateLimitKey,
+    AuthenticationRateLimitPolicy, AuthenticationRateLimitScope, BeginEmailAuthentication,
+    BeginWebauthnCeremony, BrowserBindingHash, CommitCourseRosterImport,
+    CompleteEmailAuthentication, CompleteEmailChangeAndRevokeUserSessions,
+    CompletePasskeyAuthenticationAndCreateSession, ConsumeAuthenticationRateLimit,
+    CourseInvitationDeliveryState, CourseInvitationDeliveryStore, CourseInvitationLifetime,
+    CourseInvitationSecretHash, CourseRosterId, CourseRosterImportLifetime,
+    CourseRosterImportRowInput, CourseRosterStore, CreateCourseInvitation, CredentialIdHash,
+    EmailAuthenticationPurpose, EmailChallengeId, EmailChallengeLifetime, EmailChallengeSecretHash,
+    PageRequest, PageSize, PasskeyId, PasskeyRecord, RegisterPasskey, RosterIdempotencyKey,
+    RosterImportInvitation, SessionLifetime, SessionStore, SessionSubject, SessionTokenHash,
+    StageCourseRosterImport, StoreError, TenantContext, UpsertCourseMember, WebauthnCeremonyId,
+    WebauthnCeremonyKind, WebauthnCeremonyLifetime, WebauthnState,
 };
 use objects::Sha256Digest;
 use question_model::{CourseId, CourseMembershipRole, TenantId, UserId, UserRole};
@@ -170,6 +172,131 @@ async fn postgres_passwordless_challenge_consumption_is_binding_atomic() {
             .count(),
         1,
         "exactly one concurrent valid WebAuthn ceremony take may succeed"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires the disposable PostgreSQL acceptance database"]
+async fn postgres_email_change_conflict_rolls_back_without_revoking_prior_sessions() {
+    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
+        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
+    let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    verify_application_schema(&pool)
+        .await
+        .expect("live PostgreSQL schema compatibility");
+    let store = PostgresStore::new(pool);
+    let owner = UserId::from_uuid(id());
+    let conflicting_owner = UserId::from_uuid(id());
+    for (user, email, token, binding) in [
+        (
+            owner,
+            format!("owner-{}@example.edu", id()),
+            EmailChallengeSecretHash::compute(id().as_bytes()),
+            BrowserBindingHash::compute(id().as_bytes()),
+        ),
+        (
+            conflicting_owner,
+            format!("conflict-{}@example.edu", id()),
+            EmailChallengeSecretHash::compute(id().as_bytes()),
+            BrowserBindingHash::compute(id().as_bytes()),
+        ),
+    ] {
+        store
+            .begin_email_authentication(BeginEmailAuthentication {
+                id: EmailChallengeId::from_uuid(id()),
+                token_hash: token,
+                browser_binding: binding,
+                email_rate_limit_key: AuthenticationRateLimitKey::compute(id().as_bytes()),
+                email: AuthenticationEmail::parse(&email).expect("valid unique email"),
+                purpose: EmailAuthenticationPurpose::SignInOrRegister,
+                lifetime: EmailChallengeLifetime::from_seconds(600).expect("lifetime"),
+            })
+            .await
+            .expect("persist account challenge");
+        store
+            .complete_email_authentication(CompleteEmailAuthentication {
+                token_hash: token,
+                browser_binding: binding,
+                proposed_user: user,
+                proposed_display_name: "Rollback Learner".to_string(),
+            })
+            .await
+            .expect("persist account");
+    }
+    let stale_account = AccountSessionTokenHash::compute(id().as_bytes());
+    let stale_tenant = SessionTokenHash::compute(id().as_bytes());
+    store
+        .create_account_session(
+            stale_account,
+            owner,
+            AccountSessionLifetime::from_seconds(900).expect("lifetime"),
+        )
+        .await
+        .expect("persist account proof");
+    store
+        .create_session(
+            stale_tenant,
+            SessionSubject::new(
+                TenantId::from_uuid(id()),
+                owner,
+                "Rollback Learner",
+                vec![UserRole::Student],
+            )
+            .expect("valid tenant subject"),
+            SessionLifetime::from_seconds(3_600).expect("lifetime"),
+        )
+        .await
+        .expect("persist tenant proof");
+
+    let change_token = EmailChallengeSecretHash::compute(id().as_bytes());
+    let change_binding = BrowserBindingHash::compute(id().as_bytes());
+    store
+        .begin_email_authentication(BeginEmailAuthentication {
+            id: EmailChallengeId::from_uuid(id()),
+            token_hash: change_token,
+            browser_binding: change_binding,
+            email_rate_limit_key: AuthenticationRateLimitKey::compute(id().as_bytes()),
+            email: store
+                .get_account(conflicting_owner)
+                .await
+                .expect("conflicting account lookup")
+                .expect("conflicting account")
+                .email,
+            purpose: EmailAuthenticationPurpose::ChangeEmail { user: owner },
+            lifetime: EmailChallengeLifetime::from_seconds(600).expect("lifetime"),
+        })
+        .await
+        .expect("persist conflicting replacement challenge");
+    assert_eq!(
+        store
+            .complete_email_change_and_revoke_user_sessions(
+                CompleteEmailChangeAndRevokeUserSessions {
+                    authentication: CompleteEmailAuthentication {
+                        token_hash: change_token,
+                        browser_binding: change_binding,
+                        proposed_user: owner,
+                        proposed_display_name: "Rollback Learner".to_string(),
+                    },
+                    session_token_hash: AccountSessionTokenHash::compute(id().as_bytes()),
+                    session_lifetime: AccountSessionLifetime::from_seconds(900).expect("lifetime"),
+                },
+            )
+            .await,
+        Err(StoreError::Conflict),
+        "the unique-email failure must abort the entire Store transaction"
+    );
+    assert!(
+        store
+            .resolve_account_session(stale_account)
+            .await
+            .expect("stale account lookup")
+            .is_some()
+            && store
+                .resolve_session(stale_tenant)
+                .await
+                .expect("stale tenant lookup")
+                .is_some(),
+        "rollback must preserve all prior bearer proofs"
     );
 }
 
@@ -359,25 +486,74 @@ async fn postgres_enrollment_capability_is_locked_unique_and_role_separated() {
         .expect("insert course without direct sysadmin membership");
 
     let managed_context = TenantContext::from_authenticated_session(managed_tenant);
+    let invitation_command = CreateCourseInvitation {
+        course: managed_course,
+        email: AuthenticationEmail::parse("sysadmin-invited@example.edu")
+            .expect("valid invitation email"),
+        roster_id: CourseRosterId::parse("900999001").expect("valid roster identifier"),
+        token_hash: CourseInvitationSecretHash::compute(b"live-sysadmin-invitation"),
+        idempotency_key: RosterIdempotencyKey::parse("live-sysadmin-invitation")
+            .expect("valid invitation idempotency key"),
+        lifetime: CourseInvitationLifetime::from_seconds(86_400)
+            .expect("bounded invitation lifetime"),
+    };
     let invitation = store
         .create_course_invitation(
             managed_context,
             sysadmin_session,
-            CreateCourseInvitation {
-                course: managed_course,
-                email: AuthenticationEmail::parse("sysadmin-invited@example.edu")
-                    .expect("valid invitation email"),
-                roster_id: CourseRosterId::parse("900999001").expect("valid roster identifier"),
-                token_hash: CourseInvitationSecretHash::compute(b"live-sysadmin-invitation"),
-                idempotency_key: RosterIdempotencyKey::parse("live-sysadmin-invitation")
-                    .expect("valid invitation idempotency key"),
-                lifetime: CourseInvitationLifetime::from_seconds(86_400)
-                    .expect("bounded invitation lifetime"),
-            },
+            invitation_command.clone(),
         )
         .await
         .expect("sysadmin roster-support capability should authorize the narrow mutation");
     assert_eq!(invitation.invited_by, sysadmin);
+    assert_eq!(
+        store
+            .create_course_invitation(
+                managed_context,
+                sysadmin_session,
+                invitation_command.clone()
+            )
+            .await
+            .expect("identical invitation replay"),
+        invitation
+    );
+    assert_eq!(
+        store
+            .create_course_invitation(
+                managed_context,
+                sysadmin_session,
+                CreateCourseInvitation {
+                    token_hash: CourseInvitationSecretHash::compute(id().as_bytes()),
+                    ..invitation_command.clone()
+                },
+            )
+            .await,
+        Err(StoreError::Conflict),
+        "one idempotency key cannot change its invitation payload"
+    );
+    assert_eq!(
+        store
+            .course_invitation_delivery_state(
+                managed_context,
+                sysadmin_session,
+                managed_course,
+                invitation.id,
+            )
+            .await
+            .expect("single invitation delivery projection"),
+        Some(CourseInvitationDeliveryState::Pending)
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM course_invitation_delivery WHERE invitation_id = $1",
+        )
+        .bind(invitation.id.as_uuid())
+        .fetch_one(&pool)
+        .await
+        .expect("one delivery row probe"),
+        1,
+        "identical invitation replay creates no second durable delivery"
+    );
     let roster = store
         .list_course_roster(
             managed_context,
@@ -454,10 +630,37 @@ async fn postgres_enrollment_capability_is_locked_unique_and_role_separated() {
     assert_eq!(committed.invitations[0].0, 2);
     assert_eq!(
         store
-            .commit_course_roster_import(managed_context, sysadmin_session, commit_command,)
+            .commit_course_roster_import(managed_context, sysadmin_session, commit_command.clone(),)
             .await
             .expect("database commit retry should be idempotent"),
         committed
+    );
+    assert_eq!(
+        store
+            .commit_course_roster_import(
+                managed_context,
+                sysadmin_session,
+                CommitCourseRosterImport {
+                    idempotency_key: RosterIdempotencyKey::parse("live-roster-commit-changed")
+                        .expect("valid changed commit key"),
+                    ..commit_command.clone()
+                },
+            )
+            .await,
+        Err(StoreError::Conflict),
+        "a committed import refuses a second commit identity"
+    );
+    assert_eq!(
+        store
+            .course_invitation_delivery_state(
+                managed_context,
+                sysadmin_session,
+                managed_course,
+                committed.invitations[0].1.id,
+            )
+            .await
+            .expect("bulk invitation delivery projection"),
+        Some(CourseInvitationDeliveryState::Pending)
     );
 
     let account_user = UserId::from_uuid(id());

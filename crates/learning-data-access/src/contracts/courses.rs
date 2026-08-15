@@ -132,6 +132,130 @@ pub struct DeleteAndRegradeAssignmentItemCommand {
     pub expected_revision: AssignmentRevision,
 }
 
+/// Revision-checked replacement of one fixed item for future assignment runs.
+///
+/// The server resolves `replacement` from an instructor-selected Question ID
+/// before it builds this command. `current_item` is the stable
+/// assignment-owned slot identity; storage changes that slot's exact immutable
+/// publication while preserving its position, points, delivery state, and
+/// scoring mode. Issued run evidence retains its own frozen reference.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReplaceAssignmentFixedItemCommand {
+    /// Tenant-owned course that authorizes the edit.
+    pub course: CourseId,
+    /// Assignment whose future definition will change.
+    pub assignment: AssignmentId,
+    /// Stable assignment-owned fixed-item slot selected for replacement.
+    pub current_item: AssignmentItemId,
+    /// Strong revision token read by the instructor before replacement.
+    pub expected_revision: AssignmentRevision,
+    /// Exact immutable publication resolved from the selected Question ID.
+    pub replacement: ProblemVersionRef,
+}
+
+/// Revision-checked insertion of one fixed item before the assignment has
+/// learner evidence.
+///
+/// The server mints `item.id` and resolves its exact immutable publication
+/// from an instructor-selected Question ID. `item.position` is the requested
+/// visible future-run position; storage shifts later fixed items as needed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AddAssignmentFixedItemCommand {
+    /// Tenant-owned course that authorizes the edit.
+    pub course: CourseId,
+    /// Assignment whose future definition gains an item.
+    pub assignment: AssignmentId,
+    /// Strong revision token read by the instructor before insertion.
+    pub expected_revision: AssignmentRevision,
+    /// Fresh server-minted item and its requested visible position.
+    pub item: question_model::AssignmentItem,
+}
+/// Revision-checked removal of one fixed item before the assignment has
+/// learner evidence.
+///
+/// This ordinary editor workflow removes the current fixed item from future
+/// delivery. [`DeleteAndRegradeAssignmentItemCommand`] remains the explicit
+/// destructive workflow once protected evidence requires retirement and score
+/// recalculation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RemoveAssignmentFixedItemCommand {
+    /// Tenant-owned course that authorizes the edit.
+    pub course: CourseId,
+    /// Assignment whose future definition loses an item.
+    pub assignment: AssignmentId,
+    /// Existing fixed item selected for removal.
+    pub item: AssignmentItemId,
+    /// Strong revision token read by the instructor before removal.
+    pub expected_revision: AssignmentRevision,
+}
+/// Confirms that an ordinary full-assignment save preserves the exact fixed
+/// item and selection-candidate identity-to-publication mappings. The save
+/// may reorder those identities and update assignment-authored settings.
+/// Focused revision-checked commands make content substitutions, additions,
+/// and removals explicit.
+pub fn ensure_assignment_update_preserves_references(
+    current: &AssignmentRecord,
+    update: &AssignmentUpdate,
+) -> Result<(), StoreError> {
+    let fixed_references = |items: &[question_model::AssignmentItem]| {
+        items
+            .iter()
+            .map(|item| (item.id, item.reference))
+            .collect::<std::collections::BTreeMap<_, _>>()
+    };
+    let candidate_references = |groups: &[question_model::AssignmentSelectionGroup]| {
+        groups
+            .iter()
+            .flat_map(|group| group.candidates.iter())
+            .map(|candidate| (candidate.id, candidate.reference))
+            .collect::<std::collections::BTreeMap<_, _>>()
+    };
+    let same_identity_set = |persisted: &std::collections::BTreeMap<_, _>,
+                             edited: &std::collections::BTreeMap<_, _>,
+                             persisted_count: usize,
+                             edited_count: usize,
+                             kind: &str| {
+        (persisted.len() == persisted_count
+            && edited.len() == edited_count
+            && persisted == edited)
+            .then_some(())
+            .ok_or_else(|| {
+                StoreError::InvalidRecord(format!(
+                    "an ordinary assignment save preserves every {kind} identity and immutable publication; use a focused revision-checked item command"
+                ))
+            })
+    };
+
+    let current_fixed = fixed_references(&current.items);
+    let updated_fixed = fixed_references(&update.items);
+    same_identity_set(
+        &current_fixed,
+        &updated_fixed,
+        current.items.len(),
+        update.items.len(),
+        "fixed item",
+    )?;
+    let current_candidate = candidate_references(&current.selection_groups);
+    let updated_candidate = candidate_references(&update.selection_groups);
+    let current_candidate_count = current
+        .selection_groups
+        .iter()
+        .map(|group| group.candidates.len())
+        .sum();
+    let updated_candidate_count = update
+        .selection_groups
+        .iter()
+        .map(|group| group.candidates.len())
+        .sum();
+    same_identity_set(
+        &current_candidate,
+        &updated_candidate,
+        current_candidate_count,
+        updated_candidate_count,
+        "selection candidate",
+    )
+}
+
 impl AssignmentRecord {
     /// Every pinned immutable reference in the current assignment definition.
     pub fn references(&self) -> impl Iterator<Item = ProblemVersionRef> + '_ {
@@ -166,16 +290,22 @@ impl AssignmentRecord {
         self.active_items().find(|item| item.position == position)
     }
 
-    /// Builds the browser-safe assignment projection.
-    pub fn summary(&self, public_id: question_model::AssignmentPublicId) -> AssignmentSummary {
+    /// Builds the browser-safe assignment projection from server-resolved
+    /// Question-ID display data.
+    pub fn summary(
+        &self,
+        public_id: question_model::AssignmentPublicId,
+        items: Vec<question_model::AssignmentItemSummary>,
+        selection_groups: Vec<question_model::AssignmentSelectionGroupSummary>,
+    ) -> AssignmentSummary {
         AssignmentSummary {
             id: self.id,
             public_id,
             tenant: self.tenant,
             course_id: self.course_id,
             title: self.title.clone(),
-            items: self.items.clone(),
-            selection_groups: self.selection_groups.clone(),
+            items,
+            selection_groups,
             policies: self.policies,
         }
     }
@@ -768,5 +898,98 @@ mod assignment_selection_tests {
                 question.earned_points == 2.0 && question.possible_points == 2.0
             })
         }));
+    }
+
+    fn immutable_assignment_fixture() -> AssignmentRecord {
+        let reference = |value: u128| ProblemVersionRef {
+            problem: ProblemId::from_uuid(id(10 + value)),
+            version: VersionId::from_uuid(id(20 + value)),
+        };
+        let item = |id_value, reference, position| AssignmentItem {
+            id: AssignmentItemId::from_uuid(id(id_value)),
+            reference,
+            position,
+            points_possible: PointValue::from_whole(1),
+            delivery_state: AssignmentDeliveryState::Active,
+            scoring_mode: AssignmentScoringMode::Normal,
+        };
+        AssignmentRecord {
+            id: AssignmentId::from_uuid(id(1)),
+            tenant: TenantId::from_uuid(id(2)),
+            course_id: CourseId::from_uuid(id(3)),
+            title: "Immutable item fixture".to_string(),
+            items: vec![item(30, reference(1), 0), item(31, reference(2), 1)],
+            selection_groups: vec![AssignmentSelectionGroup {
+                id: question_model::AssignmentSelectionGroupId::from_uuid(id(40)),
+                position: 2,
+                draw_count: 1,
+                points_per_item: PointValue::from_whole(1),
+                ordering: SelectionOrdering::CandidateOrder,
+                algorithm_version: 1,
+                candidates: vec![AssignmentSelectionCandidate {
+                    id: AssignmentItemId::from_uuid(id(41)),
+                    position: 0,
+                    reference: reference(3),
+                    delivery_state: AssignmentDeliveryState::Active,
+                }],
+            }],
+            policies: RunPolicies {
+                completion: question_model::CompletionRequirement::AnswerAll,
+                grade: GradePolicy::Highest,
+                continued_practice: question_model::ContinuedPractice::Unlimited,
+                variation: question_model::VariationPolicy::NewSeeds,
+            },
+        }
+    }
+
+    fn ordinary_update(record: &AssignmentRecord) -> AssignmentUpdate {
+        AssignmentUpdate {
+            title: record.title.clone(),
+            items: record.items.clone(),
+            selection_groups: record.selection_groups.clone(),
+            policies: record.policies,
+        }
+    }
+
+    #[test]
+    fn ordinary_assignment_save_rejects_content_identity_changes() {
+        let record = immutable_assignment_fixture();
+        let mut changed_reference = ordinary_update(&record);
+        changed_reference.items[0].reference.version = VersionId::from_uuid(id(99));
+        let mut removed = ordinary_update(&record);
+        removed.items.pop();
+        let mut added = ordinary_update(&record);
+        let mut fresh = added.items[0].clone();
+        fresh.id = AssignmentItemId::from_uuid(id(98));
+        added.items.push(fresh);
+        let mut candidate_substitution = ordinary_update(&record);
+        candidate_substitution.selection_groups[0].candidates[0]
+            .reference
+            .problem = ProblemId::from_uuid(id(97));
+
+        for update in [changed_reference, removed, added, candidate_substitution] {
+            assert!(matches!(
+                ensure_assignment_update_preserves_references(&record, &update),
+                Err(StoreError::InvalidRecord(_))
+            ));
+        }
+    }
+
+    #[test]
+    fn ordinary_assignment_save_allows_reordering_and_authored_settings() {
+        let record = immutable_assignment_fixture();
+        let mut update = ordinary_update(&record);
+        update.items.swap(0, 1);
+        update.items[0].position = 0;
+        update.items[1].position = 1;
+        update.items[0].points_possible = PointValue::from_whole(4);
+        update.items[1].scoring_mode = AssignmentScoringMode::ExtraCredit;
+        update.selection_groups[0].position = 4;
+        update.selection_groups[0].candidates[0].position = 3;
+
+        assert_eq!(
+            ensure_assignment_update_preserves_references(&record, &update),
+            Ok(())
+        );
     }
 }

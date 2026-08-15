@@ -9,12 +9,11 @@ import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { EnrollmentId } from "../../../generated/api/EnrollmentId";
 import type { GradebookSummaryRow } from "../../../generated/api/GradebookSummaryRow";
-import type { ProblemId } from "../../../generated/api/ProblemId";
+import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionAttempt } from "../../../generated/api/QuestionAttempt";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
 import type { RunId } from "../../../generated/api/RunId";
-import type { VersionId } from "../../../generated/api/VersionId";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import type { ApiClient } from "../client";
 import { DecodeError, decodeNonemptyString, decodeRecord } from "../decoder";
@@ -44,7 +43,6 @@ import {
   decodeExternalToolLaunch,
   decodeGradebookPage,
   decodeQuestionAttempt,
-  decodeQuestionDefinition,
   decodeQuestionEnvelope,
   decodeIssuedPresentationEnvelope,
   decodeRunPage,
@@ -202,12 +200,11 @@ async function courseAppearance(
 async function catalogProblemDetail(
   fetchImplementation: ApiFetch,
   basePath: string,
-  problemId: ProblemId,
-  versionId: VersionId,
+  questionId: QuestionId,
 ): Promise<CatalogProblemDetail> {
-  const path = `/api/problems/${encodedId(problemId)}/versions/${encodedId(versionId)}/detail`;
+  const path = `/api/problems/by-id/${encodedId(questionId)}/detail`;
   const detail = await requestJson(fetchImplementation, basePath, path, decodeCatalogProblemDetail);
-  if (detail.summary.problem !== problemId || detail.summary.version !== versionId)
+  if (detail.summary.questionId !== questionId)
     throw new ApiProtocolError(
       "Catalog detail identity does not match its requested immutable version",
     );
@@ -283,7 +280,6 @@ export function createResponseClient(
   | "searchCatalog"
   | "resolveCatalogProblem"
   | "getCatalogProblemDetail"
-  | "getProblemVersion"
   | "listTaxonomy"
   | "listCourses"
   | "getCourse"
@@ -338,15 +334,8 @@ export function createResponseClient(
         decodeCatalogProblemSummary(value, decoderPath, true),
       );
     },
-    getCatalogProblemDetail: (problemId, versionId) =>
-      catalogProblemDetail(fetchImplementation, basePath, problemId, versionId),
-    getProblemVersion: (problemId, versionId) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        `/api/problems/${encodedId(problemId)}/versions/${encodedId(versionId)}`,
-        decodeQuestionDefinition,
-      ),
+    getCatalogProblemDetail: (questionId) =>
+      catalogProblemDetail(fetchImplementation, basePath, questionId),
     listTaxonomy: (cursor) =>
       requestJson(
         fetchImplementation,

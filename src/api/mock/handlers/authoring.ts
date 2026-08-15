@@ -1,14 +1,13 @@
 import { publishedProblemFixture } from "../../../../generated/fixtures/published_problem";
 import type { AssignmentSummary } from "../../../../generated/api/AssignmentSummary";
 import type { AssignmentEditorInput } from "../../contracts";
-import { DecodeError } from "../../decoder";
-import { decodeAssignmentEditorInput } from "../../decoders";
 import {
-  hasDuplicateJsonObjectMember,
-  jsonResponse,
-  methodNotAllowed,
-  pathSegments,
-} from "./shared";
+  decodeAddAssignmentItemInput,
+  decodeAssignmentCreateInput,
+  decodeAssignmentEditorInput,
+  decodeReplaceAssignmentItemQuestionInput,
+} from "../../decoders";
+import { jsonResponse, methodNotAllowed, pathSegments } from "./shared";
 
 export interface MockAssignmentState {
   assignment: AssignmentSummary;
@@ -17,7 +16,6 @@ export interface MockAssignmentState {
   nextId: bigint;
   nextItemId: bigint;
 }
-
 export function createMockAssignmentState(): MockAssignmentState {
   return {
     assignment: structuredClone(publishedProblemFixture.assignment),
@@ -27,199 +25,185 @@ export function createMockAssignmentState(): MockAssignmentState {
     nextItemId: 160n,
   };
 }
-
-function noStoreHeaders(revision?: bigint): HeadersInit {
-  const headers: Record<string, string> = { "cache-control": "no-store" };
-  if (revision !== undefined) headers["etag"] = `"${revision}"`;
-  return headers;
+function headers(revision: bigint): HeadersInit {
+  return { "cache-control": "no-store", etag: `"${revision}"` };
 }
-
-function assignmentEditorResponse(
-  assignment: AssignmentSummary,
-  assignmentTiming: AssignmentEditorInput["assignmentTiming"],
-  revision: bigint,
-  status = 200,
-): Response {
-  return jsonResponse({ ...assignment, assignmentTiming }, status, noStoreHeaders(revision));
+function response(state: MockAssignmentState, status = 200): Response {
+  return jsonResponse(
+    { ...state.assignment, assignmentTiming: state.assignmentTiming },
+    status,
+    headers(state.revision),
+  );
 }
-
-function assignmentError(status: number, error: string): Response {
-  return jsonResponse({ error }, status, noStoreHeaders());
+function error(status: number, message: string): Response {
+  return jsonResponse({ error: message }, status, { "cache-control": "no-store" });
 }
-
-function mockAssignmentId(value: bigint): string {
+function itemId(value: bigint): string {
   return `0198e000-0000-7000-8000-${value.toString().padStart(12, "0")}`;
 }
-
-const MOCK_UNSUPPORTED_ASSIGNMENT_VERSION = "0198e000-0000-7000-8000-000000000005";
-
-function mockAssignmentItems(
+function valid(revision: string | null, state: MockAssignmentState): Response | undefined {
+  if (revision === null) return error(428, "If-Match assignment revision is required");
+  if (revision !== `"${state.revision}"`) return error(409, "assignment changed; reload it");
+  return undefined;
+}
+async function json(request: Request): Promise<unknown> {
+  try {
+    return JSON.parse(await request.text());
+  } catch {
+    return undefined;
+  }
+}
+function known(questionId: string): typeof publishedProblemFixture.catalogProblem | undefined {
+  return questionId === publishedProblemFixture.catalogProblem.questionId
+    ? publishedProblemFixture.catalogProblem
+    : undefined;
+}
+function makeItems(
   state: MockAssignmentState,
-  input: AssignmentEditorInput,
-  preserveExisting = true,
+  questionIds: ReadonlyArray<string>,
 ): AssignmentSummary["items"] {
-  const claimed = new Set<string>();
-  return input.problems.map((reference, position) => {
-    const prior = preserveExisting
-      ? state.assignment.items.find(
-          (item) =>
-            item.deliveryState === "active" &&
-            item.reference.problem === reference.problem &&
-            item.reference.version === reference.version &&
-            !claimed.has(item.id),
-        )
-      : undefined;
-    const id = prior?.id ?? mockAssignmentId(state.nextItemId++);
-    claimed.add(id);
+  return questionIds.map((questionId, position) => {
+    const summary = known(questionId);
     return {
-      id,
-      reference,
+      id: itemId(state.nextItemId++),
+      questionId,
+      title: summary?.metadata.title ?? "Published question",
+      backend: summary?.backend ?? "native",
+      capabilities: summary?.capabilities ?? [],
       position,
-      pointsPossible: prior?.pointsPossible ?? "1",
+      pointsPossible: "1",
       deliveryState: "active",
-      scoringMode: prior?.scoringMode ?? "normal",
+      scoringMode: "normal",
     };
   });
 }
-
-async function assignmentInput(request: Request): Promise<AssignmentEditorInput | undefined> {
-  try {
-    const text = await request.text();
-    if (hasDuplicateJsonObjectMember(text)) return undefined;
-    return decodeAssignmentEditorInput(JSON.parse(text), "request");
-  } catch (error: unknown) {
-    if (error instanceof DecodeError || error instanceof SyntaxError) return undefined;
-    throw error;
-  }
-}
-
-function assignmentValidationFailure(input: AssignmentEditorInput): Response | undefined {
-  const violations = input.problems
-    .filter((reference) => reference.version === MOCK_UNSUPPORTED_ASSIGNMENT_VERSION)
-    .flatMap((reference) => [
-      {
-        title: "Mock capability-limited published question",
-        reference,
-        capability: "serverGrading",
-      },
-      {
-        title: "Mock capability-limited published question",
-        reference,
-        capability: "perQuestionTiming",
-      },
-    ]);
-  if (violations.length === 0) return undefined;
-  return jsonResponse(
-    { error: "assignment configuration is not supported", violations },
-    422,
-    noStoreHeaders(),
-  );
-}
-
-function assignmentRequestFailure(input: AssignmentEditorInput): Response | undefined {
-  if (input.problems.length === 0) {
-    return assignmentError(422, "assignment must reference at least one published problem version");
-  }
-  const references = new Set(
-    input.problems.map((reference) => `${reference.problem}/${reference.version}`),
-  );
-  if (references.size !== input.problems.length) {
-    return assignmentError(422, "assignment problem references must be unique");
-  }
-  return undefined;
-}
-
-function validAssignmentRevision(value: string | null): boolean {
-  if (value === null || !/^"[1-9][0-9]*"$/u.test(value)) return false;
-  return BigInt(value.slice(1, -1)) <= 9_223_372_036_854_775_807n;
-}
-
 export async function respondAuthoring(
   request: Request,
   state: MockAssignmentState,
   secondaryCourseId: string,
 ): Promise<Response | undefined> {
-  const segments = pathSegments(request);
-  const resource = segments[1];
-  if (
-    resource === "courses" &&
-    segments[2] === secondaryCourseId &&
-    segments[3] === "assignments" &&
-    segments.length === 4
-  ) {
-    if (request.method !== "GET") return methodNotAllowed(request);
-    return jsonResponse({ items: [], nextCursor: null });
-  }
-  if (
-    resource === "courses" &&
-    segments[2] === publishedProblemFixture.course.id &&
-    segments[3] === "assignments" &&
-    segments.length === 4
-  ) {
-    if (request.method === "GET") {
+  const s = pathSegments(request);
+  const course = publishedProblemFixture.course.id;
+  if (s[1] === "courses" && s[2] === secondaryCourseId && s[3] === "assignments" && s.length === 4)
+    return request.method === "GET"
+      ? jsonResponse({ items: [], nextCursor: null })
+      : methodNotAllowed(request);
+  if (s[1] === "courses" && s[2] === course && s[3] === "assignments" && s.length === 4) {
+    if (request.method === "GET")
       return jsonResponse({ items: [state.assignment], nextCursor: null });
-    }
     if (request.method !== "POST") return methodNotAllowed(request);
-    const input = await assignmentInput(request);
-    if (input === undefined) return assignmentError(422, "assignment request is invalid");
-    const requestFailure = assignmentRequestFailure(input);
-    if (requestFailure !== undefined) return requestFailure;
-    const validationFailure = assignmentValidationFailure(input);
-    if (validationFailure !== undefined) return validationFailure;
-    const publicId = Number(state.nextId);
-    const id = mockAssignmentId(state.nextId);
-    state.nextId += 1n;
-    state.assignment = {
-      id,
-      publicId,
-      tenant: publishedProblemFixture.assignment.tenant,
-      courseId: publishedProblemFixture.course.id,
-      title: input.title,
-      items: mockAssignmentItems(state, input, false),
-      selectionGroups: [],
-      policies: input.policies,
-    };
-    state.revision = 1n;
-    state.assignmentTiming = input.assignmentTiming;
-    return assignmentEditorResponse(state.assignment, state.assignmentTiming, state.revision, 201);
+    const body = await json(request);
+    try {
+      const input = decodeAssignmentCreateInput(body, "request");
+      state.assignment = {
+        ...state.assignment,
+        id: itemId(state.nextId++),
+        title: input.title,
+        items: makeItems(state, input.questionIds),
+        selectionGroups: [],
+        policies: input.policies,
+      };
+      state.assignmentTiming = input.assignmentTiming;
+      state.revision = 1n;
+      return response(state, 201);
+    } catch {
+      return error(422, "assignment request is invalid");
+    }
   }
   if (
-    resource === "courses" &&
-    segments[2] === publishedProblemFixture.course.id &&
-    segments[3] === "assignments" &&
-    segments[4] === state.assignment.id &&
-    segments.length === 5
+    s[1] === "courses" &&
+    s[2] === course &&
+    s[3] === "assignments" &&
+    s[4] === state.assignment.id &&
+    s.length === 5
   ) {
     if (request.method !== "PUT") return methodNotAllowed(request);
-    const revision = request.headers.get("if-match");
-    if (revision === null) return assignmentError(428, "If-Match assignment revision is required");
-    if (!validAssignmentRevision(revision)) {
-      return assignmentError(422, "If-Match assignment revision is invalid");
+    const conflict = valid(request.headers.get("if-match"), state);
+    if (conflict !== undefined) return conflict;
+    try {
+      const input = decodeAssignmentEditorInput(await json(request), "request");
+      state.assignment = {
+        ...state.assignment,
+        title: input.title,
+        items: input.items.map((item) => ({
+          ...state.assignment.items.find((old) => old.id === item.id)!,
+          ...item,
+        })),
+        policies: input.policies,
+      };
+      state.assignmentTiming = input.assignmentTiming;
+      state.revision += 1n;
+      return response(state);
+    } catch {
+      return error(422, "assignment request is invalid");
     }
-    if (revision !== `"${state.revision}"`) {
-      return assignmentError(409, "assignment changed; reload it");
-    }
-    const input = await assignmentInput(request);
-    if (input === undefined) return assignmentError(422, "assignment request is invalid");
-    const requestFailure = assignmentRequestFailure(input);
-    if (requestFailure !== undefined) return requestFailure;
-    const validationFailure = assignmentValidationFailure(input);
-    if (validationFailure !== undefined) return validationFailure;
-    state.assignment = {
-      ...state.assignment,
-      title: input.title,
-      items: mockAssignmentItems(state, input),
-      policies: input.policies,
-    };
-    state.assignmentTiming = input.assignmentTiming;
-    state.revision += 1n;
-    return assignmentEditorResponse(state.assignment, state.assignmentTiming, state.revision);
   }
-  if (resource === "assignments" && segments[2] === state.assignment.id) {
-    if (request.method === "GET") {
-      return assignmentEditorResponse(state.assignment, state.assignmentTiming, state.revision);
+  if (
+    s[1] === "courses" &&
+    s[2] === course &&
+    s[3] === "assignments" &&
+    s[4] === state.assignment.id &&
+    s[5] === "items"
+  ) {
+    const conflict = valid(request.headers.get("if-match"), state);
+    if (conflict !== undefined) return conflict;
+    if (s.length === 6 && request.method === "POST") {
+      let body;
+      try {
+        body = decodeAddAssignmentItemInput(await json(request), "request");
+      } catch {
+        return error(422, "assignment item request is invalid");
+      }
+      const next = makeItems(state, [body.questionId])[0];
+      if (next === undefined) return error(422, "assignment item request is invalid");
+      state.assignment = {
+        ...state.assignment,
+        items: [...state.assignment.items, { ...next, position: body.position }],
+      };
+      state.revision += 1n;
+      return response(state);
+    }
+    const item = s[6];
+    if (item === undefined) return methodNotAllowed(request);
+    if (s.length === 7 && request.method === "DELETE") {
+      if ((await request.text()).length !== 0)
+        return error(400, "assignment item removal does not accept a request body");
+      state.assignment = {
+        ...state.assignment,
+        items: state.assignment.items.filter((candidate) => candidate.id !== item),
+      };
+      state.revision += 1n;
+      return response(state);
+    }
+    if (s.length === 8 && s[7] === "question" && request.method === "PUT") {
+      let body;
+      try {
+        body = decodeReplaceAssignmentItemQuestionInput(await json(request), "request");
+      } catch {
+        return error(422, "assignment item request is invalid");
+      }
+      const summary = known(body.questionId);
+      if (summary === undefined) return error(422, "assignment item request is invalid");
+      state.assignment = {
+        ...state.assignment,
+        items: state.assignment.items.map((candidate) =>
+          candidate.id === item
+            ? {
+                ...candidate,
+                questionId: summary.questionId,
+                title: summary.metadata.title,
+                backend: summary.backend,
+                capabilities: summary.capabilities,
+              }
+            : candidate,
+        ),
+      };
+      state.revision += 1n;
+      return response(state);
     }
     return methodNotAllowed(request);
   }
+  if (s[1] === "assignments" && s[2] === state.assignment.id && request.method === "GET")
+    return response(state);
   return undefined;
 }

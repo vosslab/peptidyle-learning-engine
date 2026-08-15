@@ -73,3 +73,30 @@ def test_adapter_compose_action_cannot_bypass_its_cleanup_preview() -> None:
 
 	with pytest.raises(local_stack_control.models.ControllerError):
 		local_stack_control.consumer.require_safe_compose_arguments(["down"])
+
+
+#============================================
+def test_full_stack_lifecycle_request_is_closed_and_has_a_bounded_timeout(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""Only approved disposable owners receive an explicit non-browser lifecycle request."""
+	env_file, capability_file = private_environment(tmp_path)
+	target = local_stack_control.models.ComposeTarget(
+		repo_root=tmp_path,
+		project="ple-chapter-one-browser-0123456789ab",
+		env_file=env_file,
+		compose_files=(),
+		provider=local_stack_control.models.ComposeProvider(("podman", "compose"), "podman compose"),
+		with_smtp=False,
+		env_setting_names=(),
+	)
+	disposable = local_stack_control.models.DisposableComposeTarget(
+		target, "chapter-one-browser", capability_file,
+		"ple-chapter-one-browser-", env_file,
+	)
+
+	options = local_stack_control.consumer.lifecycle_options(disposable, 60)
+
+	assert options.timeout_seconds == 60 and options.build and not options.open_browser
+	with pytest.raises(local_stack_control.models.ControllerError, match="between 1 and 600"):
+		local_stack_control.consumer.lifecycle_options(disposable, 601)

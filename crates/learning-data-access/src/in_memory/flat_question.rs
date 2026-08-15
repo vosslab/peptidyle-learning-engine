@@ -168,7 +168,6 @@ mod tests {
         DraftRecord {
             tenant: tenant(),
             question,
-            revises: None,
             derived_from: None,
         }
     }

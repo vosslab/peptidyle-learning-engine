@@ -2,13 +2,12 @@
 
 import dataclasses
 import hashlib
-import os
 import pathlib
 import re
-import stat
 
 import local_stack_control.env_file
 import local_stack_control.models
+import local_stack_control.private_files
 import local_stack_control.process
 
 
@@ -238,16 +237,7 @@ def new_disposable_target(
 #============================================
 def require_disposable_capability_file(capability_file: pathlib.Path) -> bytes:
 	"""Return one exact runner-held 32-byte capability from a private file."""
-	if capability_file.is_symlink() or not capability_file.is_file():
-		raise local_stack_control.models.ControllerError(
-			"disposable capability file must be a regular file"
-		)
-	metadata = capability_file.stat()
-	if metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) != 0o600:
-		raise local_stack_control.models.ControllerError(
-			"disposable capability file must be current-user mode 0600"
-		)
-	raw = capability_file.read_bytes()
+	raw = local_stack_control.private_files.read_current_user_private_file(capability_file, 32)
 	if len(raw) != 32:
 		raise local_stack_control.models.ControllerError(
 			"disposable capability file must contain exactly 32 bytes"

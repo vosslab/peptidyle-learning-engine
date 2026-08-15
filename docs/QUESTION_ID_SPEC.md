@@ -6,7 +6,9 @@ This specification records a human-directed product decision developed by the re
 
 PLE uses one short, human-approachable Question ID for instructors to recognize, copy, communicate, and enter. Public Question IDs are not sequential numeric IDs and are not UUIDs. Internal UUIDs may remain hidden where useful for persistence or implementation, but instructors should neither see nor use them as question identities.
 
-PLE maintains a single current version of a question. Questions can be forked to create a separately owned question that can then change independently. The original owner may also fix bugs in the original question, with those corrections propagating forward to uses of that question rather than creating instructor-facing question versions.
+One Question ID names one immutable published question. Every authored content change, including a
+bug fix, publishes a new Question ID and fresh hidden publication evidence. An optional one-way
+provenance link may identify the source question without changing it or its assignments.
 
 ## Format
 
@@ -103,21 +105,27 @@ Collision handling should generate another candidate rather than modifying an ex
 
 The 100,000,000-question product cap must be enforced independently of the larger encoded namespace.
 
-## Question identity, correction, and forking
+## Question identity and authored changes
 
-One Question ID identifies one question across its lifetime. PLE does not expose or maintain multiple instructor-facing versions of a question.
+One Question ID identifies one immutable published question across its lifetime. PLE does not
+maintain an update-in-place, successor, or version-selection path for it.
 
-The original owner may correct bugs in a question. Those corrections propagate forward to uses of that question, following the intended ADAPT-style content model, rather than requiring instructors to locate and adopt a newly numbered version.
-
-When someone needs to make substantive independent changes rather than propagate a correction to the original, the question can be forked. A fork receives a new Question ID and becomes an independently changeable question. The relationship to the source question should remain available as provenance where useful.
+An author publishes a new Question ID for every content change. The new question may retain
+explicit provenance to its source for attribution and licensing, but provenance does not grant
+authority over the source or advance an assignment.
 
 Internal identifiers, snapshots, audit evidence, or immutable records may still exist where required for grading history, reproducibility, security, or persistence. These mechanisms are hidden implementation details and do not create multiple human-facing versions of the Question ID.
 
 ## Instructor workflows
 
-Question IDs are intended for occasional direct lookup and communication, not as the primary mechanism for propagating or organizing groups of questions.
+Question IDs are intended for occasional direct lookup and communication, not as the primary
+mechanism for organizing groups of questions.
 
-Question propagation should happen through higher-level teaching structures. An instructor should be able to import or copy an entire assignment, or select a checklist of questions from an existing assignment, rather than reconstructing an assignment through Question ID ranges or repeated manual ID entry. This is the preferred replacement for the range behavior that sequential numeric IDs might otherwise provide.
+An instructor should be able to import or copy an entire assignment, or select a checklist of
+questions from an existing assignment, rather than reconstructing an assignment through Question
+ID ranges or repeated manual ID entry. When an Instructor deliberately changes an assigned question,
+the editor shows the existing and replacement Question IDs and requires a revision-checked
+replacement. Issued work retains its original exact evidence; future runs use the selected replacement.
 
 When an instructor enters a Question ID, the interface should resolve it to recognizable question information before an irreversible or significant action. A syntactically valid ID or valid HMAC character does not establish authorization or prove that the intended question was selected.
 
@@ -176,4 +184,10 @@ This specification replaces the current instructor-facing `P-<number>-v<version>
 
 The manager should identify all documentation, schemas, generated contracts, API routes, browser controls, tests, fixtures, and content workflows that currently treat sequential IDs or versioned question IDs as the human-facing contract.
 
-The resulting product should converge on one Crockford Base32 Question ID per question, owner-propagated bug fixes, explicit forking for independently changed questions, and assignment-level or checklist-based reuse for propagating collections of questions. Hidden internal identity and historical evidence may remain where required to preserve grading records, provenance, reproducibility, and security.
+The resulting product uses one Crockford Base32 Question ID per immutable published question. Every
+content change, including a bug fix, publishes a new Question ID. An Instructor deliberately uses
+a revision-checked assignment-item replacement when future runs should use that new question;
+issued work retains its original exact evidence. Assignment-level or checklist-based reuse remains
+the preferred way to reuse collections of questions. Hidden internal identity and historical
+evidence remain available where required to preserve grading records, provenance, reproducibility,
+and security.

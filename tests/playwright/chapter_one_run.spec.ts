@@ -106,6 +106,34 @@ async function openCourseFromDashboard(page: Page, courseTitle: string): Promise
   });
 }
 
+async function openLibrary(page: Page): Promise<void> {
+  const library = page.getByRole("link", { name: "Library", exact: true });
+  await tabTo(page, library);
+  await page.keyboard.press("Enter");
+  await expect(page.locator("[data-route-surface=library]")).toBeVisible();
+}
+
+async function searchLibrary(page: Page, search: string): Promise<void> {
+  const input = page.getByLabel("Search published questions");
+  await tabTo(page, input);
+  await input.fill(search);
+}
+
+async function openLibraryQuestion(page: Page, title: string): Promise<string> {
+  const row = page.locator(".catalog-row", {
+    has: page.getByRole("heading", { name: title, exact: true }),
+  });
+  await expect(row).toBeVisible();
+  const questionId = row.locator("code");
+  await expect(questionId).toHaveText(/^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u);
+  const displayId = await questionId.innerText();
+  const open = row.getByRole("link", { name: "Open question", exact: true });
+  await tabTo(page, open);
+  await page.keyboard.press("Enter");
+  await expect(page.locator("[data-route-surface=problemDetail]")).toBeVisible();
+  return displayId;
+}
+
 async function completeChapter(page: Page, chapter: ChapterJourney): Promise<void> {
   await openCourseFromDashboard(page, chapter.course);
 
@@ -156,6 +184,105 @@ async function completeChapter(page: Page, chapter: ChapterJourney): Promise<voi
   await expect(summary.getByRole("button", { name: "Start another practice run" })).toBeVisible();
 }
 
+/**
+ * Selector contract: the instructor assignment overview exposes an accessible Edit assignment
+ * link, and assignment_editor_page.tsx exposes Assignment content, Replace, Replacement Question
+ * ID, Check Question ID, Replace with selected question, Reload assignment, and its live status.
+ */
+async function openAssignmentEditor(page: Page, chapter: ChapterJourney): Promise<void> {
+  await openCourseFromDashboard(page, chapter.course);
+  const assignment = page.locator(".course-card").filter({
+    has: page.getByRole("heading", { name: chapter.assignment }),
+  });
+  const review = assignment.getByRole("link", { name: "Review assignment", exact: true });
+  await expect(review).toBeVisible();
+  await tabTo(page, review);
+  await page.keyboard.press("Enter");
+  await expect(page.locator("[data-route-surface=assignmentOverview]")).toBeVisible();
+  const edit = page.getByRole("link", { name: "Edit assignment", exact: true });
+  await expect(edit).toBeVisible();
+  await tabTo(page, edit);
+  await page.keyboard.press("Enter");
+  await expect(page.locator("[data-route-surface=assignmentEditor]")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Assignment editor", exact: true })).toBeVisible();
+}
+
+async function selectDifferentPublishedQuestion(
+  page: Page,
+  originalQuestionId: string,
+): Promise<string> {
+  const search = page.getByLabel("Search published questions");
+  await tabTo(page, search);
+  await search.fill("Genetics Chapter 1");
+  const searchButton = page.getByRole("button", { name: "Search library", exact: true });
+  await tabTo(page, searchButton);
+  await page.keyboard.press("Enter");
+  const choices = page.locator("article.assignment-editor-row");
+  await expect(choices.first()).toBeVisible();
+  for (let index = 0; index < (await choices.count()); index += 1) {
+    const choice = choices.nth(index);
+    const candidate = await choice.locator("code").innerText();
+    if (candidate === originalQuestionId) continue;
+    const choose = choice.getByRole("button", { name: "Use this Question ID", exact: true });
+    await tabTo(page, choose);
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("textbox", { name: "Replacement Question ID", exact: true }),
+    ).toHaveValue(candidate);
+    return candidate;
+  }
+  throw new Error("The real Chapter 1 catalog needs a replacement Question ID.");
+}
+
+async function prepareReplacement(page: Page, originalQuestionId: string): Promise<string> {
+  await page.bringToFront();
+  const replace = page.getByRole("button", { name: "Replace", exact: true }).first();
+  await tabTo(page, replace);
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("heading", { name: "Replace assigned question", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "Future runs use the replacement. Already issued work stays with its original question.",
+    ),
+  ).toBeVisible();
+  const replacementQuestionId = await selectDifferentPublishedQuestion(page, originalQuestionId);
+  const check = page.getByRole("button", { name: "Check Question ID", exact: true });
+  await tabTo(page, check, "backward");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByText(`Selected: ${replacementQuestionId}`, { exact: false }),
+  ).toBeVisible();
+  return replacementQuestionId;
+}
+
+async function issueRunAndReadFirstQuestion(page: Page, chapter: ChapterJourney): Promise<string> {
+  await openCourseFromDashboard(page, chapter.course);
+  const assignment = page.locator(".course-card").filter({
+    has: page.getByRole("heading", { name: chapter.assignment }),
+  });
+  const review = assignment.getByRole("link", { name: "Review assignment", exact: true });
+  await expect(review).toBeVisible();
+  await tabTo(page, review);
+  await page.keyboard.press("Enter");
+  const openedRun = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/runs" && response.request().method() === "POST",
+  );
+  const start = page.getByRole("button", { name: "Start or resume practice", exact: true });
+  await activateWithKeyboard(page, start);
+  expect((await openedRun).status()).toBe(201);
+  const question = chapter.questions[0];
+  if (question === undefined) throw new Error("Chapter 1 needs one issued question.");
+  await expect(page.getByRole("heading", { name: question.title, exact: true })).toBeVisible();
+  return question.title;
+}
+
+function assignmentEditorStatus(page: Page): Locator {
+  return page.locator('[data-route-surface="assignmentEditor"] > p[role="status"]');
+}
+
 test.describe("private live Chapter 1 browser acceptance", () => {
   test.skip(
     configuredLiveWebworkInputs === undefined,
@@ -178,8 +305,8 @@ test.describe("private live Chapter 1 browser acceptance", () => {
     const search = page.getByLabel("Search published questions");
     await tabTo(page, search);
     await search.fill(title);
-    const searchCatalog = page.getByRole("button", { name: "Search catalog", exact: true });
-    await tabTo(page, searchCatalog);
+    const searchLibrary = page.getByRole("button", { name: "Search library", exact: true });
+    await tabTo(page, searchLibrary);
     await page.keyboard.press("Enter");
     const catalogRow = await catalogResultByQuestionId(page, title);
     const humanReference = catalogRow.locator("code");
@@ -192,9 +319,9 @@ test.describe("private live Chapter 1 browser acceptance", () => {
     await tabTo(page, copyId);
     await page.keyboard.press("Enter");
     await expect(catalogRow.getByRole("status")).toHaveText(`Copied ${displayId}.`);
-    const addByQuestionId = page.getByText("Add by question ID", { exact: true });
-    await expect(addByQuestionId).toBeVisible();
-    await tabTo(page, addByQuestionId);
+    const addSeveralQuestionIds = page.getByText("Add several Question IDs", { exact: true });
+    await expect(addSeveralQuestionIds).toBeVisible();
+    await tabTo(page, addSeveralQuestionIds);
     await page.keyboard.press("Enter");
     const questionIds = page.getByLabel("Question IDs");
     await expect(questionIds).toBeVisible();
@@ -204,10 +331,187 @@ test.describe("private live Chapter 1 browser acceptance", () => {
     const addById = page.getByRole("button", { name: "Add questions by ID" });
     await tabTo(page, addById);
     await page.keyboard.press("Enter");
-    await expect(page.locator(".assignment-editor-import-success")).toHaveText(
+    await expect(assignmentEditorStatus(page)).toHaveText(
       `Added ${displayId} to the unsaved selection.`,
     );
-    await expect(page.locator(".assignment-editor-list")).toContainText(`${displayId}WeBWorK`);
+    const addedRow = page.locator(".assignment-editor-list .assignment-editor-row", {
+      has: page.getByRole("heading", { name: title, exact: true }),
+    });
+    await expect(addedRow).toHaveCount(1);
+    await expect(addedRow.locator("code")).toHaveText(displayId);
+    await expect(addedRow.getByRole("heading", { name: title, exact: true })).toBeVisible();
+    await expect(addedRow.locator("p")).toContainText("WeBWorK");
+  });
+
+  test("instructor discovers the real Chapter 1 library through concepts, a typo, and disclosed evidence", async ({
+    page,
+  }) => {
+    const inputs = liveInputs();
+
+    await signIn(page, inputs.instructorCredential, "Courses you teach");
+    await openLibrary(page);
+    await searchLibrary(page, "genetic disorder");
+    await expect(
+      page.getByRole("heading", { name: "Genetic disorders: Which one?", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        name: "Genetics Chapter 1: Phenylalanine metabolism",
+        exact: true,
+      }),
+    ).toBeVisible();
+
+    await searchLibrary(page, "phenylalnine");
+    await expect(
+      page.getByRole("heading", { name: "Genetic disorders: Which one?", exact: true }),
+    ).not.toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        name: "Genetics Chapter 1: Phenylalanine metabolism",
+        exact: true,
+      }),
+    ).toBeVisible();
+
+    await searchLibrary(page, "genetic disorder");
+    const evidence = page.getByLabel("Evidence");
+    const disclosedEvidenceOption = evidence.locator('option[value="available"]');
+    await expect(disclosedEvidenceOption).toHaveCount(1);
+    await expect(disclosedEvidenceOption).toHaveText("Has disclosed evidence (1)");
+    await tabTo(page, evidence);
+    await evidence.selectOption("available");
+    await expect(evidence).toHaveValue("available");
+    await expect(
+      page.getByRole("heading", { name: "Genetic disorders: Which one?", exact: true }),
+    ).not.toBeVisible();
+    const availableId = await openLibraryQuestion(
+      page,
+      "Genetics Chapter 1: Phenylalanine metabolism",
+    );
+    await expect(page.locator(".catalog-statistics-panel")).toContainText(
+      "Anonymous learning evidence",
+    );
+    await expect(page.locator(".catalog-statistics-panel")).toContainText("Cohort size");
+    await expect(page.locator(".catalog-statistics-panel")).toContainText("learners");
+    await expect(page.locator("body")).not.toContainText(
+      /tenant|student|response|answer key|source|grading/iu,
+    );
+    await expect(page.locator("body")).not.toContainText(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu,
+    );
+    await expect(page.getByText(availableId, { exact: true })).toBeVisible();
+
+    const returnToLibrary = page.getByRole("link", {
+      name: "Return to problem library",
+      exact: true,
+    });
+    await tabTo(page, returnToLibrary);
+    await page.keyboard.press("Enter");
+    await expect(page.locator("[data-route-surface=library]")).toBeVisible();
+    await evidence.selectOption("");
+    await expect(evidence).toHaveValue("");
+    const unavailableId = await openLibraryQuestion(page, "Genetic disorders: Which one?");
+    await expect(page.locator(".catalog-statistics-panel")).toContainText("Insufficient evidence");
+    await expect(page.locator("body")).not.toContainText(
+      /tenant|student|response|answer key|source|grading/iu,
+    );
+    await expect(page.locator("body")).not.toContainText(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu,
+    );
+    await expect(page.getByText(unavailableId, { exact: true })).toBeVisible();
+  });
+
+  test("Question-ID replacement preserves an issued learner run and recovers truthfully from a stale editor", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    const inputs = liveInputs();
+    const chapter = CHAPTERS[0];
+    if (chapter === undefined) throw new Error("Chapter 1 journey is unavailable.");
+    const browser = page.context().browser();
+    if (browser === null) throw new Error("Live browser is unavailable.");
+    const studentContext = await browser.newContext();
+    const replacingContext = await browser.newContext();
+    const studentPage = await studentContext.newPage();
+    const replacingPage = await replacingContext.newPage();
+    try {
+      await studentPage.bringToFront();
+      await signIn(studentPage, inputs.studentCredential, "Pick up where you left off");
+      const issuedQuestionTitle = await issueRunAndReadFirstQuestion(studentPage, chapter);
+
+      await page.bringToFront();
+      await signIn(page, inputs.instructorCredential, "Courses you teach");
+      await openAssignmentEditor(page, chapter);
+      const originalQuestionId = await page
+        .locator(".assignment-editor-list")
+        .getByRole("listitem")
+        .first()
+        .locator("code")
+        .innerText();
+      await expect(page.locator(".assignment-editor-list")).toContainText(originalQuestionId);
+
+      await replacingPage.bringToFront();
+      await signIn(replacingPage, inputs.instructorCredential, "Courses you teach");
+      await openAssignmentEditor(replacingPage, chapter);
+      const replacementQuestionId = await prepareReplacement(replacingPage, originalQuestionId);
+      const replacementRequest = replacingPage.waitForRequest(
+        (request) =>
+          request.method() === "PUT" &&
+          request.url().includes("/question") &&
+          request.postData() === JSON.stringify({ questionId: replacementQuestionId }),
+      );
+      const replace = replacingPage.getByRole("button", {
+        name: "Replace with selected question",
+        exact: true,
+      });
+      await tabTo(replacingPage, replace);
+      await replacingPage.keyboard.press("Enter");
+      const sent = await replacementRequest;
+      expect(JSON.parse(sent.postData() ?? "{}")).toEqual({ questionId: replacementQuestionId });
+      await expect(assignmentEditorStatus(replacingPage)).toHaveText(
+        "Replacement saved. Future runs use the replacement; issued work stays with its original question.",
+      );
+      await expect(replacingPage.locator(".assignment-editor-list")).toContainText(
+        replacementQuestionId,
+      );
+      await expect(replacingPage.locator("body")).not.toContainText(
+        /problemId|versionId|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu,
+      );
+
+      await page.bringToFront();
+      await prepareReplacement(page, originalQuestionId);
+      const staleQuestionId = await page
+        .getByRole("textbox", { name: "Replacement Question ID", exact: true })
+        .inputValue();
+      const staleReplace = page.getByRole("button", {
+        name: "Replace with selected question",
+        exact: true,
+      });
+      await tabTo(page, staleReplace);
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("alert")).toContainText(
+        "A newer assignment revision is available.",
+      );
+      await expect(
+        page.getByRole("textbox", { name: "Replacement Question ID", exact: true }),
+      ).toHaveValue(staleQuestionId);
+      const reload = page.getByRole("button", { name: "Reload assignment", exact: true });
+      await tabTo(page, reload);
+      await page.keyboard.press("Enter");
+      await expect(page.locator(".assignment-editor-list")).toContainText(replacementQuestionId);
+
+      await studentPage.bringToFront();
+      await studentPage.goto(inputs.baseUrl);
+      await expect(
+        studentPage.getByRole("heading", { name: "Pick up where you left off" }),
+      ).toBeVisible();
+      expect(await issueRunAndReadFirstQuestion(studentPage, chapter)).toBe(issuedQuestionTitle);
+      await expect(studentPage.locator("body")).not.toContainText(
+        /problemId|versionId|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu,
+      );
+    } finally {
+      await replacingContext.close();
+      await studentContext.close();
+    }
   });
 
   test("student completes the selected exact four-question chapters with visible keyboard controls", async ({

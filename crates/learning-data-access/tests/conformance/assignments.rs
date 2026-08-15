@@ -18,7 +18,6 @@ where
     let draft = DraftRecord {
         tenant,
         question: draft_question(WorkspaceId::from_uuid(uuid(seed + 2))),
-        revises: None,
         derived_from: None,
     };
     let saved = store
@@ -60,6 +59,8 @@ where
     let context = TenantContext::from_authenticated_session(tenant);
     let foreign_context = TenantContext::from_authenticated_session(foreign_tenant);
     let instructor = UserId::from_uuid(uuid(70_002));
+    let student = UserId::from_uuid(uuid(70_006));
+    let future_student = UserId::from_uuid(uuid(70_007));
     let course = CourseId::from_uuid(uuid(70_003));
     let wrong_course = CourseId::from_uuid(uuid(70_004));
     store
@@ -69,10 +70,20 @@ where
                 id: course,
                 tenant,
                 title: "Assignment CAS course".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+                members: vec![
+                    CourseMembership {
+                        user: instructor,
+                        role: CourseMembershipRole::Instructor,
+                    },
+                    CourseMembership {
+                        user: student,
+                        role: CourseMembershipRole::Student,
+                    },
+                    CourseMembership {
+                        user: future_student,
+                        role: CourseMembershipRole::Student,
+                    },
+                ],
             },
         )
         .await
@@ -171,15 +182,48 @@ where
         PublicationScope::Institution,
     )
     .await;
+    let replacement_reference = publish_assignment_version(
+        store,
+        context,
+        tenant,
+        instructor,
+        70_140,
+        PublicationScope::Public,
+    )
+    .await;
+    let post_run_replacement_reference = publish_assignment_version(
+        store,
+        context,
+        tenant,
+        instructor,
+        70_150,
+        PublicationScope::Public,
+    )
+    .await;
 
     let assignment = AssignmentId::from_uuid(uuid(70_200));
+    let mut initial_items = fixed_items(vec![published, deprecated]);
+    initial_items[1].position = 2;
     let initial = AssignmentRecord {
         id: assignment,
         tenant,
         course_id: course,
         title: "Ordered source selection".to_string(),
-        items: fixed_items(vec![published, deprecated]),
-        selection_groups: Vec::new(),
+        items: initial_items,
+        selection_groups: vec![AssignmentSelectionGroup {
+            id: AssignmentSelectionGroupId::from_uuid(uuid(70_208)),
+            position: 1,
+            draw_count: 1,
+            points_per_item: PointValue::from_whole(1),
+            ordering: SelectionOrdering::CandidateOrder,
+            algorithm_version: 1,
+            candidates: vec![AssignmentSelectionCandidate {
+                id: AssignmentItemId::from_uuid(uuid(70_209)),
+                position: 0,
+                reference: published,
+                delivery_state: AssignmentDeliveryState::Active,
+            }],
+        }],
         policies: policies(),
     };
     let created = store
@@ -195,10 +239,14 @@ where
         continued_practice: ContinuedPractice::Closed,
         variation: VariationPolicy::SelectedProblemVariants,
     };
+    let mut reordered_items = initial.items.clone();
+    reordered_items.reverse();
+    reordered_items[0].position = 0;
+    reordered_items[1].position = 2;
     let update = AssignmentUpdate {
         title: "Reordered source selection".to_string(),
-        items: fixed_items(vec![deprecated, published]),
-        selection_groups: Vec::new(),
+        items: reordered_items,
+        selection_groups: initial.selection_groups.clone(),
         policies: updated_policies,
     };
     let updated = store
@@ -235,14 +283,328 @@ where
             .expect("read updated assignment"),
         Some(updated.clone())
     );
+
+    let replaced_item = updated.record.items[0].id;
+    let replacement = store
+        .replace_assignment_fixed_item(
+            context,
+            ReplaceAssignmentFixedItemCommand {
+                course,
+                assignment,
+                current_item: updated.record.items[0].id,
+                expected_revision: updated.revision,
+                replacement: replacement_reference,
+            },
+        )
+        .await
+        .expect("focused replacement updates future assignment definition");
+    assert_eq!(replacement.record.items[0].id, replaced_item);
+    assert_eq!(replacement.record.items[0].reference, replacement_reference);
+    assert_eq!(
+        replacement.record.items[0].points_possible, updated.record.items[0].points_possible,
+        "replacement retains the assignment-authored slot settings"
+    );
+    assert_eq!(
+        store
+            .replace_assignment_fixed_item(
+                context,
+                ReplaceAssignmentFixedItemCommand {
+                    course,
+                    assignment,
+                    current_item: updated.record.items[0].id,
+                    expected_revision: updated.revision,
+                    replacement: replacement_reference,
+                },
+            )
+            .await,
+        Err(StoreError::Conflict),
+        "focused replacement uses the assignment revision as a strong CAS"
+    );
+    let inserted_item = AssignmentItem {
+        id: AssignmentItemId::from_uuid(uuid(70_207)),
+        reference: published,
+        position: 1,
+        points_possible: PointValue::from_whole(2),
+        delivery_state: AssignmentDeliveryState::Active,
+        scoring_mode: AssignmentScoringMode::Normal,
+    };
+    let added = store
+        .add_assignment_fixed_item(
+            context,
+            AddAssignmentFixedItemCommand {
+                course,
+                assignment,
+                expected_revision: replacement.revision,
+                item: inserted_item.clone(),
+            },
+        )
+        .await
+        .expect("pre-evidence add inserts at the requested future-run position");
+    assert_eq!(added.record.items[1].id, inserted_item.id);
+    assert_eq!(added.record.selection_groups[0].position, 2);
+    let removed = store
+        .remove_assignment_fixed_item(
+            context,
+            RemoveAssignmentFixedItemCommand {
+                course,
+                assignment,
+                item: inserted_item.id,
+                expected_revision: added.revision,
+            },
+        )
+        .await
+        .expect("pre-evidence removal changes the future definition");
+    assert!(
+        removed
+            .record
+            .items
+            .iter()
+            .all(|item| item.id != inserted_item.id)
+    );
+    assert_eq!(removed.record.selection_groups[0].position, 1);
+    assert_eq!(removed.record.items[1].position, 2);
+
+    let enrollment = EnrollmentId::from_uuid(uuid(70_210));
+    let run = RunId::from_uuid(uuid(70_211));
+    store
+        .create_enrollment(
+            context,
+            AssignmentEnrollment {
+                id: enrollment,
+                tenant,
+                assignment,
+                user: student,
+                student: StudentId::from_uuid(uuid(70_212)),
+                first_completed_at: None,
+                current_grade_run: None,
+                best_grade_run: None,
+            },
+        )
+        .await
+        .expect("student enrollment creates before the issued-run snapshot");
+    store
+        .apply_activity_transition(
+            context,
+            ActivityTransition::StartRun {
+                run: AssignmentRun {
+                    id: run,
+                    public_id: question_model::RunPublicId::new(70_211)
+                        .expect("valid public run ID"),
+                    tenant,
+                    enrollment,
+                    run_number: 1,
+                    started_at: ActivityTimestamp::from_unix_millis(100),
+                    completed_at: None,
+                    score: None,
+                    mode: RunMode::Assigned,
+                    variation: VariationPolicy::SelectedProblemVariants,
+                },
+            },
+        )
+        .await
+        .expect("run start freezes the current fixed-item reference");
+    let old_run_attempt = store
+        .issue_or_resume_question_attempt(
+            context,
+            IssueQuestionAttemptCommand {
+                actor: student,
+                attempt: QuestionAttemptId::from_uuid(uuid(70_214)),
+                run,
+                assignment_position: 0,
+                problem: replacement_reference.problem,
+                question_version: replacement_reference.version,
+                seed: 42,
+                parameter_hash: "assignment-snapshot".to_string(),
+                provenance: AttemptProvenance {
+                    adapter: implementation("native"),
+                    renderer: None,
+                    generator: Some(generator("molar-mass")),
+                    source_artifact: None,
+                    asset_objects: Vec::new(),
+                    grading: implementation("numeric"),
+                    rendered_question_sha256: "assignment-snapshot".to_string(),
+                },
+                presentation_capability: PresentationCapability::NotApplicable,
+                presentation: None,
+                presentation_snapshot: None,
+                grading_envelope: None,
+                flat_grading: None,
+                flat_grading_capability: FlatGradingCapability::NotApplicable,
+                webwork_replay: None,
+                webwork_grading: None,
+                webwork_grading_capability: WebworkGradingCapability::NotApplicable,
+                prefetched: None,
+                predecessor_submission: None,
+            },
+        )
+        .await
+        .expect("issued attempt freezes the pre-replacement exact immutable reference");
+    assert_eq!(
+        (old_run_attempt.problem, old_run_attempt.question_version),
+        (replacement_reference.problem, replacement_reference.version)
+    );
+    let post_run_replacement = store
+        .replace_assignment_fixed_item(
+            context,
+            ReplaceAssignmentFixedItemCommand {
+                course,
+                assignment,
+                current_item: replaced_item,
+                expected_revision: removed.revision,
+                replacement: post_run_replacement_reference,
+            },
+        )
+        .await
+        .expect("post-run replacement changes only the future assignment definition");
+    assert_eq!(post_run_replacement.record.items[0].id, replaced_item);
+    assert_eq!(
+        post_run_replacement.record.items[0].reference,
+        post_run_replacement_reference
+    );
+    let receipt = store
+        .submit_question_attempt(
+            context,
+            SubmitQuestionAttemptCommand {
+                actor: student,
+                attempt: old_run_attempt.id,
+                response: StudentResponse::Numeric { value: 18.0 },
+                result: AttemptResult {
+                    correct: true,
+                    points_earned: 1.0,
+                    points_possible: 1.0,
+                },
+                feedback: FeedbackContent::default(),
+                idempotency_key: SubmissionIdempotencyKey::parse("stable-slot-replacement")
+                    .expect("valid submission key"),
+            },
+        )
+        .await
+        .expect("old issued item grades through its stable assignment slot");
+    assert_eq!(receipt.attempt.id, old_run_attempt.id);
+    let future_enrollment = EnrollmentId::from_uuid(uuid(70_216));
+    let future_run = RunId::from_uuid(uuid(70_217));
+    store
+        .create_enrollment(
+            context,
+            AssignmentEnrollment {
+                id: future_enrollment,
+                tenant,
+                assignment,
+                user: future_student,
+                student: StudentId::from_uuid(uuid(70_218)),
+                first_completed_at: None,
+                current_grade_run: None,
+                best_grade_run: None,
+            },
+        )
+        .await
+        .expect("future learner enrollment saves");
+    store
+        .apply_activity_transition(
+            context,
+            ActivityTransition::StartRun {
+                run: AssignmentRun {
+                    id: future_run,
+                    public_id: question_model::RunPublicId::new(70_217)
+                        .expect("valid future public run ID"),
+                    tenant,
+                    enrollment: future_enrollment,
+                    run_number: 1,
+                    started_at: ActivityTimestamp::from_unix_millis(130),
+                    completed_at: None,
+                    score: None,
+                    mode: RunMode::Assigned,
+                    variation: VariationPolicy::SelectedProblemVariants,
+                },
+            },
+        )
+        .await
+        .expect("future run snapshots the replacement definition");
+    let future_attempt = store
+        .issue_or_resume_question_attempt(
+            context,
+            IssueQuestionAttemptCommand {
+                actor: future_student,
+                attempt: QuestionAttemptId::from_uuid(uuid(70_219)),
+                run: future_run,
+                assignment_position: 0,
+                problem: post_run_replacement_reference.problem,
+                question_version: post_run_replacement_reference.version,
+                seed: 43,
+                parameter_hash: "future-assignment-snapshot".to_string(),
+                provenance: AttemptProvenance {
+                    adapter: implementation("native"),
+                    renderer: None,
+                    generator: Some(generator("molar-mass")),
+                    source_artifact: None,
+                    asset_objects: Vec::new(),
+                    grading: implementation("numeric"),
+                    rendered_question_sha256: "future-assignment-snapshot".to_string(),
+                },
+                presentation_capability: PresentationCapability::NotApplicable,
+                presentation: None,
+                presentation_snapshot: None,
+                grading_envelope: None,
+                flat_grading: None,
+                flat_grading_capability: FlatGradingCapability::NotApplicable,
+                webwork_replay: None,
+                webwork_grading: None,
+                webwork_grading_capability: WebworkGradingCapability::NotApplicable,
+                prefetched: None,
+                predecessor_submission: None,
+            },
+        )
+        .await
+        .expect("future run issues the replacement publication");
+    assert_eq!(
+        (future_attempt.problem, future_attempt.question_version),
+        (
+            post_run_replacement_reference.problem,
+            post_run_replacement_reference.version
+        )
+    );
+    assert_eq!(
+        store
+            .add_assignment_fixed_item(
+                context,
+                AddAssignmentFixedItemCommand {
+                    course,
+                    assignment,
+                    expected_revision: post_run_replacement.revision,
+                    item: inserted_item.clone(),
+                },
+            )
+            .await,
+        Err(StoreError::Conflict)
+    );
+    assert_eq!(
+        store
+            .remove_assignment_fixed_item(
+                context,
+                RemoveAssignmentFixedItemCommand {
+                    course,
+                    assignment,
+                    item: replaced_item,
+                    expected_revision: post_run_replacement.revision,
+                },
+            )
+            .await,
+        Err(StoreError::Conflict)
+    );
+    let current_definition = AssignmentUpdate {
+        title: post_run_replacement.record.title.clone(),
+        items: post_run_replacement.record.items.clone(),
+        selection_groups: post_run_replacement.record.selection_groups.clone(),
+        policies: post_run_replacement.record.policies,
+    };
     assert_eq!(
         store
             .replace_assignment_preserving_timing(
                 context,
                 wrong_course,
                 assignment,
-                updated.revision,
-                update.clone()
+                post_run_replacement.revision,
+                current_definition.clone()
             )
             .await,
         Err(StoreError::NotFound),
@@ -254,8 +616,8 @@ where
                 foreign_context,
                 course,
                 assignment,
-                updated.revision,
-                update.clone()
+                post_run_replacement.revision,
+                current_definition.clone()
             )
             .await,
         Err(StoreError::NotFound),
@@ -263,10 +625,26 @@ where
     );
     assert_eq!(
         store
+            .replace_assignment_fixed_item(
+                foreign_context,
+                ReplaceAssignmentFixedItemCommand {
+                    course,
+                    assignment,
+                    current_item: replaced_item,
+                    expected_revision: post_run_replacement.revision,
+                    replacement: post_run_replacement_reference,
+                },
+            )
+            .await,
+        Err(StoreError::NotFound),
+        "foreign tenant cannot invoke the focused replacement broker"
+    );
+    assert_eq!(
+        store
             .get_assignment_for_edit(context, assignment)
             .await
             .expect("failed writes leave assignment unchanged"),
-        Some(updated.clone())
+        Some(post_run_replacement.clone())
     );
 
     assert!(matches!(

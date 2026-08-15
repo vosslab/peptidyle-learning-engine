@@ -85,7 +85,7 @@ export interface FlatQuestionDraftDisplayState {
 
 type Review = {
   readonly revision: string;
-  readonly priorVersion: string | null;
+  readonly baseline: "newQuestion";
   readonly title: string;
   readonly changed: ReadonlyArray<string>;
 };
@@ -673,7 +673,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
       }
       const nextReview: Review = {
         revision: diff.revision,
-        priorVersion: diff.prior?.version ?? null,
+        baseline: diff.baseline,
         title: diff.current.title,
         changed: diff.changed,
       };
@@ -701,14 +701,14 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
       return;
     }
     transition({ kind: "publishStarted" });
-    setStatus("Publishing the current question...");
+    setStatus("Publishing a new Question ID...");
     try {
       await props.repository.publish(props.workspace, scope());
       transition({
         kind: "publishSucceeded",
         reference: "/library",
       });
-      setStatus("The current question is published.");
+      setStatus("The new Question ID is published.");
     } catch (error: unknown) {
       transition({
         kind: "publishFailed",
@@ -912,7 +912,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
               </section>
               <section class="editor-panel" aria-labelledby="flat-publish-heading">
                 <h2 id="flat-publish-heading">Publish review</h2>
-                <p>Review the saved content before updating the current question.</p>
+                <p>Review the saved content before publishing a new Question ID.</p>
                 <Show when={review() === null}>
                   <button
                     type="button"
@@ -932,9 +932,8 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
                         <strong>Question:</strong> {activeReview().title}
                       </p>
                       <p>
-                        {activeReview().priorVersion === null
-                          ? "This is the question's first publication."
-                          : "This updates the current published question."}
+                        This publication creates a new Question ID. Existing assignments keep their
+                        assigned questions until an instructor deliberately replaces an item.
                       </p>
                       <h3>Changed sections</h3>
                       <ul>
@@ -954,7 +953,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
                           <option value="public">Public</option>
                         </select>
                       </label>
-                      <p>Confirming publishes this saved private draft as the current question.</p>
+                      <p>Confirming publishes this saved private draft with a new Question ID.</p>
                       <button
                         type="button"
                         class="primary-action"

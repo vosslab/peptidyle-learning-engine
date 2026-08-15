@@ -30,44 +30,55 @@ pilot. External activation cannot hide unfinished repository work.
 
 ### Evidence classification for every work package
 
-Apply the [test evidence model](../../TEST_EVIDENCE_MODEL.md) and permanent checklist to every
-`Validation` item. Keep small deterministic behavior/contract checks permanent. Source inventories,
-config inspection, migrations, screenshots, timings, and reconstruction probes are one-time scratch
-evidence. Real service checks remain opt-in E2E/live. Fixtures require a stable serialized contract;
-otherwise use inline builders.
+Apply the [test evidence model](../../TEST_EVIDENCE_MODEL.md) and permanent checklist to every `Validation` item.
+Keep small deterministic behavior/contract checks permanent. Source inventories, config inspection, migrations,
+screenshots, timings, and reconstruction probes are one-time scratch evidence. Real service checks remain opt-in
+E2E/live. Fixtures require a stable serialized contract; otherwise use inline builders.
+
+The active professor-capability roadmap applies this boundary to WP-R2. Offline Memory conformance belongs to
+`crates/learning-data-access/tests/conformance/publication.rs` and `assignments.rs`; disposable PostgreSQL/RLS
+persistence and role claims to `tests/e2e/e2e_wp_r2_postgres_rls.py`; manufactured manifest convergence to
+`crates/project-tools/src/e2e_seed/tests.rs`; and the disposable real host-seed/renderer claim to
+`tests/e2e/e2e_wp_r2_host_seed_renderer.py`. `tests/test_assignment_editor_ui.mjs` owns authored mock
+decoder/client/editor behavior, while `tests/playwright/assignment_editor.spec.ts` owns its mock-backed visible
+replacement behavior. `local_stack_control/acceptance_lanes.py` is the sole live browser replacement route and
+`tests/walkthrough/run_ui_walkthrough.py` the sole M6 composition journey. WP-R2 creates no fixture directory,
+predicts no assigned live Question ID, count, or hash, and records inventories, screenshots, and timing only in
+`_temp_professor_roadmap_20260814/wp_r2_closeout.review.md`. `generated/api/` remains ignored derivative output of
+`crates/project-tools/src/tsgen.rs`.
 
 ## Decisions
 
 ### In-scope decision ledger
 
-| Topic                     | Decision for version 1                                                                                                                                                                                                                                                                                                                                                                                                                                   | Owning package |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| Flat family runtime       | PLE flat JSON v2 implements MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT with protected visual authoring; RC5 still owns all-family integrated acceptance, HOTSPOT lifecycle closure, and pilot content                                                                                                                                                                                                                                        | WP-RC4/RC5     |
-| Flat source               | Use closed PLE flat JSON v2 as the only native reader for all eight families, based on reviewed QTI Package Maker item semantics; external QTI-JSONL remains a separate adapter concern                                                                                                                                                                                                                                                                  | WP-RC4         |
-| Grade default             | `highest`                                                                                                                                                                                                                                                                                                                                                                                                                                                | WP-RC0         |
-| New-run variation         | `newSeeds`; resuming an issued attempt preserves its seed                                                                                                                                                                                                                                                                                                                                                                                                | WP-RC0         |
-| Retention defaults        | Notify at 30 days, archive at 100 days, delete learner records at 365 days, and publish aggregates only at k >= 5                                                                                                                                                                                                                                                                                                                                        | WP-RC0         |
-| Course deletion           | Retain assignment definitions by default; delete learner records and student-record objects                                                                                                                                                                                                                                                                                                                                                              | WP-RC0         |
-| Operational payloads      | Keep normalized source/public/private payloads in PostgreSQL only within their existing hard ceilings; refuse an oversized write rather than silently moving a hot-path model                                                                                                                                                                                                                                                                            | WP-RC0         |
-| WeBWorK source            | Copy the exact licensed user-authored `content/pilot/webwork/which_hydrophobic-simple.pgml` fixture and provenance sidecar into immutable PLE object storage at publication; attempts never depend on a mutable OPL checkout                                                                                                                                                                                                                             | WP-RC3         |
-| WeBWorK protocol          | Preserve RC3's bounded server-only projection and grading proof through the current private external `webwork-pg-renderer` `/render-api`; WebWork2, render-course credentials, and MariaDB stay outside the runtime                                                                                                                                                                                                                                      | WP-RC3/RC3R    |
-| Course banner timing      | Candidate expires after 60 minutes; a protected course-banner delivery grant lasts at most 60 minutes and rechecks the exact current pointer                                                                                                                                                                                                                                                                                                             | WP-RC1         |
-| QTI profile v1            | Canvas 1.2 and Blackboard 2.1 remain strict static single-choice profiles; unsupported media, feedback, `sub`, and `sup` refuse without loss                                                                                                                                                                                                                                                                                                             | WP-RC6         |
-| QTI profile export        | Canvas and Blackboard export run as background jobs and appear in the author UI only as queued status plus a protected download                                                                                                                                                                                                                                                                                                                          | WP-RC6         |
-| H5P                       | Serve native H5P only as ungraded practice and import supported static families into the protected native model for grading                                                                                                                                                                                                                                                                                                                              | WP-RC6         |
-| Object lifecycle          | Database records define intended existence; bucket inventory proves bytes; reconciliation quarantines twice-observed orphans and alerts on missing referenced bytes. Publication queues a pending private source transactionally; only the dedicated publisher may write and activate the immutable tagged public copy.                                                                                                                                  | WP-RC7         |
-| Production identity       | PLE-owned global `UserId`; short-lived single-use email authentication is the canonical sign-in path, discoverable passkeys are optional convenience credentials, and optional institutional OIDC/SAML links to an existing account behind `IdentityProvider`                                                                                                                                                                                            | WP-RC8         |
-| Enrollment                | Invite by email; retain course-scoped roster email, institutional roster ID, and display label for enrollment/manual grade export; enforce optional exact-domain policy; atomically create course membership plus all assignment enrollments/summaries. Every learner-scoped Store read or mutation rechecks active Student membership under the same authority/locking boundary, so revocation takes effect across stale browser identifiers and races. | WP-RC8         |
-| LTI                       | Implement LTI 1.3 launch plus Assignment and Grade Services passback as a separate verified credential path                                                                                                                                                                                                                                                                                                                                              | WP-RC9         |
-| Learner file upload       | Use a server-issued attempt-bound upload record, non-deliverable temporary storage, closed inspection worker, SHA-256, atomic manual-submission consumption, and protected student-record delivery                                                                                                                                                                                                                                                       | WP-FU1..WP-FU6 |
-| Infrastructure            | Use OpenTofu in `deploy/opentofu/`; production is AWS Fargate (API, worker, and dedicated public-asset publisher), RDS PostgreSQL, four S3/KMS storage domains, CloudFront, ALB, WAF, Secrets Manager, VPC endpoints, and private networking. The renderer is externally managed and disabled until separately attested.                                                                                                                                 | WP-RC10        |
-| Anonymous traffic         | Ship a static `www` landing origin, same-origin authenticated app/API, aggregate edge metrics, bounded WAF/rate rules, and no client analytics                                                                                                                                                                                                                                                                                                           | WP-RC11        |
-| Migration names           | Continue compact ordered names such as `2026080908_secure_question_grading_payloads.sql`; the date and two-digit sequence are the readable ordering contract                                                                                                                                                                                                                                                                                             | WP-P2          |
-| Source ownership          | After the WP-RC3 live gate and before WP-RC4, extract every maintained source at 1,000 lines or more into capability modules behind stable facades; add a permanent no-exception size gate                                                                                                                                                                                                                                                               | WP-ARCH1       |
-| Course visual default     | `grass`, with the accepted 15-theme catalog and one 1200 by 328 WebP center crop                                                                                                                                                                                                                                                                                                                                                                         | WP-RC1         |
-| Release content           | Genetics and biochemistry Chapter 1 each ship four questions: WeBWorK MC, WeBWorK MATCH, flat MC, and flat MATCH                                                                                                                                                                                                                                                                                                                                         | WP-RC5         |
-| Human question references | Every current question has one random, non-sequential Crockford Base32 Question ID displayed as `AAA-BBBB`. Its final character is validated server-side with the durable Question ID HMAC key. No UUID, sequence number, or version number is shown. Owner corrections retain this ID and propagate to future assignment runs; a fork receives a new ID. Hidden immutable snapshots remain only for grading and provenance.                             | WP-HG1, WP-UI1 |
-| Interface composition     | Standard presentation is palette-faithful at a 5.5:1 ordinary-text target; increased contrast is optional and account-backed. Instructor work targets 1280 by 800, student work remains responsive, and typed public route references replace UUID navigation without changing authorization.                                                                                                                                                            | WP-UI1         |
+| Topic                     | Decision for version 1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Owning package        |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| Flat family runtime       | PLE flat JSON v2 implements MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT with protected visual authoring; RC5 still owns all-family integrated acceptance, HOTSPOT lifecycle closure, and pilot content                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | WP-RC4/RC5            |
+| Flat source               | Use closed PLE flat JSON v2 as the only native reader for all eight families, based on reviewed QTI Package Maker item semantics; external QTI-JSONL remains a separate adapter concern                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | WP-RC4                |
+| Grade default             | `highest`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | WP-RC0                |
+| New-run variation         | `newSeeds`; resuming an issued attempt preserves its seed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | WP-RC0                |
+| Retention defaults        | Notify at 30 days, archive at 100 days, delete learner records at 365 days, and publish aggregates only at k >= 5                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | WP-RC0                |
+| Course deletion           | Retain assignment definitions by default; delete learner records and student-record objects                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | WP-RC0                |
+| Operational payloads      | Keep normalized source/public/private payloads in PostgreSQL only within their existing hard ceilings; refuse an oversized write rather than silently moving a hot-path model                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | WP-RC0                |
+| WeBWorK source            | Copy the exact licensed user-authored `content/pilot/webwork/which_hydrophobic-simple.pgml` fixture and provenance sidecar into immutable PLE object storage at publication; attempts never depend on a mutable OPL checkout                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | WP-RC3                |
+| WeBWorK protocol          | Preserve RC3's bounded server-only projection and grading proof through the current private external `webwork-pg-renderer` `/render-api`; WebWork2, render-course credentials, and MariaDB stay outside the runtime                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | WP-RC3/RC3R           |
+| Course banner timing      | Candidate expires after 60 minutes; a protected course-banner delivery grant lasts at most 60 minutes and rechecks the exact current pointer                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | WP-RC1                |
+| QTI profile v1            | Canvas 1.2 and Blackboard 2.1 remain strict static single-choice profiles; unsupported media, feedback, `sub`, and `sup` refuse without loss                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | WP-RC6                |
+| QTI profile export        | Canvas and Blackboard export run as background jobs and appear in the author UI only as queued status plus a protected download                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | WP-RC6                |
+| H5P                       | Serve native H5P only as ungraded practice and import supported static families into the protected native model for grading                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | WP-RC6                |
+| Object lifecycle          | Database records define intended existence; bucket inventory proves bytes; reconciliation quarantines twice-observed orphans and alerts on missing referenced bytes. Publication queues a pending private source transactionally; only the dedicated publisher may write and activate the immutable tagged public copy.                                                                                                                                                                                                                                                                                                                                                                                                         | WP-RC7                |
+| Production identity       | PLE-owned global `UserId`; short-lived single-use email authentication is the canonical sign-in path, discoverable passkeys are optional convenience credentials, and optional institutional OIDC/SAML links to an existing account behind `IdentityProvider`                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | WP-RC8                |
+| Enrollment                | Invite by email; retain course-scoped roster email, institutional roster ID, and display label for enrollment/manual grade export; enforce optional exact-domain policy; atomically create course membership plus all assignment enrollments/summaries. Every learner-scoped Store read or mutation rechecks active Student membership under the same authority/locking boundary, so revocation takes effect across stale browser identifiers and races.                                                                                                                                                                                                                                                                        | WP-RC8                |
+| LTI                       | Implement LTI 1.3 launch plus Assignment and Grade Services passback as a separate verified credential path                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | WP-RC9                |
+| Learner file upload       | Use a server-issued attempt-bound upload record, non-deliverable temporary storage, closed inspection worker, SHA-256, atomic manual-submission consumption, and protected student-record delivery                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | WP-FU1..WP-FU6        |
+| Infrastructure            | Use OpenTofu in `deploy/opentofu/`; production is AWS Fargate (API, worker, and dedicated public-asset publisher), RDS PostgreSQL, four S3/KMS storage domains, CloudFront, ALB, WAF, Secrets Manager, VPC endpoints, and private networking. The renderer is externally managed and disabled until separately attested.                                                                                                                                                                                                                                                                                                                                                                                                        | WP-RC10               |
+| Anonymous traffic         | Ship a static `www` landing origin, same-origin authenticated app/API, aggregate edge metrics, bounded WAF/rate rules, and no client analytics                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | WP-RC11               |
+| Migration names           | Continue compact ordered names such as `2026080908_secure_question_grading_payloads.sql`; the date and two-digit sequence are the readable ordering contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | WP-P2                 |
+| Source ownership          | After the WP-RC3 live gate and before WP-RC4, extract every maintained source at 1,000 lines or more into capability modules behind stable facades; add a permanent no-exception size gate                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | WP-ARCH1              |
+| Course visual default     | `grass`, with the accepted 15-theme catalog and one 1200 by 328 WebP center crop                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | WP-RC1                |
+| Release content           | Genetics and biochemistry Chapter 1 each ship four questions: WeBWorK MC, WeBWorK MATCH, flat MC, and flat MATCH                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | WP-RC5                |
+| Human question references | The assigned `AAA-BBBB` Question ID is the sole durable question identity and names one random, non-sequential, immutable published question. No UUID, sequence number, or version number is shown. Every content change receives a new Question ID plus fresh opaque hidden `ProblemId`/`VersionId` evidence with optional immutable provenance; existing assignments and runs remain exact until an Instructor explicitly, revision-checked replaces an item. Legacy `ProblemPublicId`/`P-...`, `ProblemVersionNumber`, predecessor/version-chain, and tenant-derived host-seed question UUIDs are removed by WP-R2. Hidden immutable snapshots remain only for authorized replay, grading, audit, provenance, and transport. | WP-HG1, WP-UI1, WP-R2 |
+| Interface composition     | Standard presentation is palette-faithful at a 5.5:1 ordinary-text target; increased contrast is optional and account-backed. Instructor work targets 1280 by 800, student work remains responsive, and typed public route references replace UUID navigation without changing authorization.                                                                                                                                                                                                                                                                                                                                                                                                                                   | WP-UI1                |
 
 `WP-RC0` is a decision-freeze documentation package completed by this plan. It updates the plan,
 status, and durable owner guidance; the behavior defaults already present in source remain gates for
@@ -109,6 +120,32 @@ No package may defer a required file or behavior to a later implementer. If impl
 invalidates a decision, the owner updates this decision ledger, every consumer package, and the
 acceptance gate in one reviewed planning patch before code continues.
 
+**2026-08-14 no-drift acceptance.** WP-R2 is accepted after its final Validation. The Question ID
+workflow now uses one immutable publication per assigned ID: owner-correction propagation, sequential
+public identity, and version-chain resolution are removed from the pre-production schema and code.
+Hidden exact internal references remain authorized replay, grading, audit, provenance, and transport
+evidence, not a user-supplied locator or latest-resolution feature. Native and WeBWorK host seed
+publishers mint fresh opaque question IDs and use protected-manifest or verified-existing-record rerun
+recovery; deterministic fixed IDs remain limited to isolated unit fixtures, derived render/cache
+identities, and non-question seed records.
+
+**2026-08-14 orchestration dependency.** Python owns stateful subprocess, Podman, private-file,
+polling, cleanup, and lane aggregation. WP-R1 is accepted: Chapter One pilot/browser and aggregate
+acceptance lanes run in Python over existing typed `local_stack_control`, and the designated renderer
+image name selects the rebuild target while each live run records its OCI configuration ID. M0 remains
+open; WP-PY-L1 is accepted on 2026-08-15 after final offline/live Validation and three independent
+reviews with no P0-P3 finding. It replaces `local_stack_control/launch.sh`,
+`_restart.sh`, and `containers/local_identity_bootstrap.sh` all at once before M1; it deletes the shell
+implementation instead of shipping a Python wrapper or dual launcher. M1 retains its separate declared
+dependency gates. The next current package is WP-RC8 acceptance;
+later packages may migrate
+remaining E2E, developer, renderer-probe, and destructive-cleanup scripts.
+
+The remaining complex-script order is explicit: after WP-PY-L1, the canonical WeBWorK
+renderer/host-seed acceptance owner converts its stateful runner; the release-candidate composition
+owner follows. Python owns state, parsing, subprocesses, private inputs, polling, and cleanup in each
+conversion, with a direct shell `exec` facade where a shell entry remains.
+
 ## Non-goals
 
 The out-of-scope ledger above is exhaustive for known exclusions. An implementer may not create a
@@ -117,18 +154,18 @@ after WP-RC12 closes.
 
 ## Architecture and ownership
 
-| Boundary                           | Authoritative owner                                             | Rule                                                                                                                                              |
-| ---------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Product decisions and defaults     | `docs/HUMAN_GUIDANCE.md` plus this ledger                       | Code may expose configuration but must ship the decided defaults                                                                                  |
-| Public question and response types | `crates/question_model`                                         | Answer-free and generated to TypeScript                                                                                                           |
-| Source interpretation              | `crates/adapters/native`, `qti`, `webwork`, `h5p`, `imathas`    | Each format has one strict versioned adapter                                                                                                      |
-| Grading                            | `crates/grading` plus injected server-only adapter capabilities | Never in Wasm, generated TS, or browser JSON                                                                                                      |
-| Persistence and RLS                | `crates/learning-data-access` and `schemas/migrations`          | Memory/PostgreSQL parity; PostgreSQL is production authority                                                                                      |
-| Objects                            | `crates/objects`                                                | Typed keys, checksums, role-based delivery, inventory and reconciliation                                                                          |
-| HTTP and workers                   | `crates/server`                                                 | Same-origin, bounded request handling; protected asset grants and external-tool launch are POST-only; durable jobs carry explicit least authority |
-| Browser                            | `src/`                                                          | Strict decoders, accessible visible flows, no source archive parsing                                                                              |
-| Local stack                        | `local_stack_control/` and `containers/`                                | One maintained `python3 local_stack.py` front door around the existing build/start/migrate/seed/wait/open path                                  |
-| Production deployment              | `deploy/opentofu/`                                              | Declarative, reviewable, drift-detectable, disposable before activation                                                                           |
+| Boundary                           | Authoritative owner                                             | Rule                                                                                                                                                                                          |
+| ---------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product decisions and defaults     | `docs/HUMAN_GUIDANCE.md` plus this ledger                       | Code may expose configuration but must ship the decided defaults                                                                                                                              |
+| Public question and response types | `crates/question_model`                                         | Answer-free and generated to TypeScript                                                                                                                                                       |
+| Source interpretation              | `crates/adapters/native`, `qti`, `webwork`, `h5p`, `imathas`    | Each format has one strict versioned adapter                                                                                                                                                  |
+| Grading                            | `crates/grading` plus injected server-only adapter capabilities | Never in Wasm, generated TS, or browser JSON                                                                                                                                                  |
+| Persistence and RLS                | `crates/learning-data-access` and `schemas/migrations`          | Memory/PostgreSQL parity; PostgreSQL is production authority                                                                                                                                  |
+| Objects                            | `crates/objects`                                                | Typed keys, checksums, role-based delivery, inventory and reconciliation                                                                                                                      |
+| HTTP and workers                   | `crates/server`                                                 | Same-origin, bounded request handling; protected asset grants and external-tool launch are POST-only; durable jobs carry explicit least authority                                             |
+| Browser                            | `src/`                                                          | Strict decoders, accessible visible flows, no source archive parsing                                                                                                                          |
+| Local stack                        | `local_stack_control/` and `containers/`                        | Python owns complex orchestration. WP-R1 converts Chapter One and aggregate acceptance; WP-PY-L1 was accepted 2026-08-15 after directly replacing the shell lifecycle with focused Python modules, final offline/live Validation, and named final reviews. |
+| Production deployment              | `deploy/opentofu/`                                              | Declarative, reviewable, drift-detectable, disposable before activation                                                                                                                       |
 
 ## Dependency map
 
@@ -157,18 +194,15 @@ WP-RC3 accepted compatibility proof ---> WP-ARCH1 accepted source decomposition
              WP-P1..WP-P6 secure learner payload ---> WP-RC5 eight families/pilot
                                                         |
                                                         v
-                                                WP-RC6 profiles/H5P
-
+WP-RC6 profiles/H5P
 WP-P2 persistent bindings ---> WP-RC7 M5 reconciliation/integration
-
 WP-RC8 accepted identity/enrollment ---> WP-RC9 LTI ---> WP-FU1..WP-FU6 secure uploads ---> WP-RC10 OpenTofu
                                                                         |
                                                                         v
                                                              WP-RC11 bot controls
                                                                         |
                                                                         v
-                                                             WP-RC12 release acceptance
-
+WP-RC12 release acceptance
 WP-RC3R accepted catalog publication ---> WP-HG1 operational human references
                                                |
                                                v
@@ -181,31 +215,25 @@ WP-RC3R accepted catalog publication ---> WP-HG1 operational human references
                               RC5 Chapter 1 workflow acceptance (not RC5 completion)
 ```
 
-The human owner reprioritized WP-UI1 interface composition as the immediate repository-owned package,
-and it is now accepted. WP-RC8's production composition is complete, while its external provider,
-browser, and independent closeout gates remain. WP-RC4 resumes after that acceptance.
-Its internal version 2 implementation no longer waits on external QTI-JSONL artifacts. WP-P1 may
-proceed alongside RC4 closeout, but the complete
-WP-P1 through WP-P6 boundary must be accepted before WP-RC5. WP-RC7's
-non-schema inventory work may proceed earlier; its schema work begins only after WP-P2 preserves the
-reserved migration ordering below.
+The human owner reprioritized WP-UI1 interface composition as the immediate repository-owned package, and it is now
+accepted. WP-RC8's production composition is complete, while its external provider, browser, and independent
+closeout gates remain. WP-RC4 resumes after that acceptance; its internal version 2 implementation no longer waits
+on external QTI-JSONL artifacts. WP-P1 may proceed alongside RC4 closeout, but the complete WP-P1 through WP-P6
+boundary must be accepted before WP-RC5. WP-RC7's non-schema inventory work may proceed earlier; its schema work
+begins only after WP-P2 preserves the reserved migration ordering below.
 
 ### WP-UI1: Compose the PLE teaching workspace
 
-- **Status:** accepted on 2026-08-13. The owner rejected the previous geometry and default contrast
-  as component-correct but page-level inefficient and visually flattened; the completed review and
-  evidence are recorded in `docs/UI_DESIGN_REVIEW.md`.
-- **Contract:** implement `docs/UI_DESIGN_GUIDE.md` and
-  `docs/active_plans/workstreams/ui_design_system_implementation.md`. Standard
-  presentation is the default; increased contrast is an account preference. No UUID appears in
-  visible/announced UI or application navigation. Questions use the non-sequential Crockford Base32
-  identity in `docs/QUESTION_ID_SPEC.md`; hidden snapshots remain internal. Public references remain
-  locators under existing authorization.
-- **Order:** route, Question ID, and gradebook identity; account preference; shared system/theme;
-  instructor pages and assignment reuse; student pages; then browser rendering and measured
-  acceptance.
-- **Success:** representative pages satisfy the workstream's behavior and visual gates without
-  changing grading, answer secrecy, tenancy, or learning semantics.
+- **Status:** accepted on 2026-08-13. The owner rejected the previous geometry and default contrast as component-correct
+  but page-level inefficient and visually flattened; the completed review and evidence are recorded in `docs/UI_DESIGN_REVIEW.md`.
+- **Contract:** implement `docs/UI_DESIGN_GUIDE.md` and `docs/active_plans/workstreams/ui_design_system_implementation.md`.
+  Standard presentation is the default; increased contrast is an account preference. No UUID appears in visible/announced
+  UI or application navigation. Questions use the non-sequential Crockford Base32 identity in `docs/QUESTION_ID_SPEC.md`;
+  hidden snapshots remain internal. Public references remain locators under existing authorization.
+- **Order:** route, Question ID, and gradebook identity; account preference; shared system/theme; instructor pages and
+  assignment reuse; student pages; then browser rendering and measured acceptance.
+- **Success:** representative pages satisfy the workstream's behavior and visual gates without changing grading, answer
+  secrecy, tenancy, or learning semantics.
 
 ### WP-HG1: Close the human-guidance operational workflow gaps
 
@@ -224,8 +252,8 @@ reserved migration ordering below.
   generated public contracts and strict decoders, `src/api/`, `src/pages/assignment_editor_*`, mock
   catalog handlers, focused Rust/TypeScript/Playwright tests, `tests/playwright/ui_walkthrough_instructor_setup.spec.ts`,
   `tests/walkthrough/`, this plan, the walkthrough plan, status, and post-acceptance documentation.
-- **Behavior:** the editor displays and can copy a human reference, accepts pasted exact references
-  in one obvious add-by-ID control, resolves only the immutable requested tuple under the current
+- **Behavior:** the editor displays and can copy a human reference, accepts pasted exact Question IDs in one
+  obvious add-by-ID control, resolves the one immutable published question named by that ID under the current
   tenant, and changes the assignment only after a whole pasted batch resolves. It preserves pasted
   text and the existing draft for malformed, unavailable, unauthorized, duplicate, race, and network
   cases with labelled recovery. The browser accepts no UUID as a question identifier and exposes no
@@ -233,11 +261,12 @@ reserved migration ordering below.
   copyable in canonical `AAA-BBBB` form.
 - **Numeric and endpoint contract:** use one seven-character Crockford Base32 Question ID, displayed
   as `AAA-BBBB`, rather than public number/version pairs. The server validates its HMAC-derived
-  checksum before resolving the current assignable question through tenant and actor authorization.
+  checksum before resolving that exact published question through tenant and actor authorization.
   Live and mock resolver semantics agree: malformed or checksum-invalid is 400, unavailable is 404,
-  unauthorized is 403, and an accessible current question succeeds. A PostgreSQL conformance case
+  unauthorized is 403, and an accessible exact published question succeeds. A PostgreSQL conformance case
   proves a valid Question ID cannot resolve a foreign-tenant-only question. Hidden immutable snapshots
-  and version identity remain internal for grading and provenance.
+  and version identity remain internal for authorized replay, grading, audit, provenance, and
+  transport; no instructor-facing selector or latest-resolution path accepts them.
 - **Canonical walkthrough behavior:** J13 searches the published catalog only to find the displayed
   human references, copies and pastes the four Genetics Chapter 1 `AAA-BBBB` Question IDs, visibly
   observes four selected questions, creates the assignment, and hands only its public
@@ -257,9 +286,9 @@ reserved migration ordering below.
   permission, redacted report, and refreshed public instructor screenshots; the isolated
   PostgreSQL/MinIO eight-question publication oracle; and independent architecture/security/HCI
   review. These are recorded evidence, not brittle permanent-suite fixtures.
-- **Success:** a real instructor can copy a displayed `AAA-BBBB` Question ID, paste it, add that
-  current question without recognizing a UUID, and construct the required four-question Chapter 1 assignment;
-  all recovery cases leave their work intact. The evidence distinguishes this completed vertical
+- **Success:** a real instructor can copy a displayed `AAA-BBBB` Question ID, paste it, add that exact
+  published question without recognizing a UUID, and construct the required four-question Chapter 1
+  assignment; all recovery cases leave their work intact. The evidence distinguishes this completed vertical
   slice from unfinished RC4--RC12 release work.
 
 #### WP-HG1.T: Connect whole-run timing to the assignment editor
@@ -269,92 +298,88 @@ reserved migration ordering below.
 - **Depends on:** the existing course-owned `AssignmentTimingPolicy`, the visible assignment editor,
   and the shared assignment revision. Implement the Rust/store/editor contract before the Solid form,
   then run focused behavior gates before the current-stack walkthrough.
-- **Contract:** whole-run timing remains course-owned `AssignmentTimingPolicy`. The editor alone
-  exposes `assignmentTiming: { timeLimitSeconds: positive u32 | null }`; `null` is an intentional
-  untimed assignment. A new mastery draft receives the Rust-generated `900`-second default. Create,
-  update, and editor GET compose assignment definition and timing atomically under one revision;
-  published question versions and their immutable question-level `TimingPolicy` do not change.
-- **Behavior:** the instructor can see and save an accessible `Time limit for each practice run`
-  fieldset with Timed/Untimed choices and a minutes input. A new mastery assignment visibly starts at
-  15 minutes. The student sees a server-backed countdown for a timed run and `Untimed` only when the
-  saved value is null. Invalid input and conflicts preserve the instructor's draft.
-- **Permanent tests:** Rust Memory/PostgreSQL editor conformance for default, atomic create/replace,
-  stale revision, and active-run deadline handling; strict HTTP/decoder/client
-  tests for the nullable field; and keyboard-focused editor/student Playwright tests for the default,
-  toggle, validation, recovery, and saved display. These assert behavior, not source strings or
-  fixture counts.
-- **One-time acceptance evidence:** run the real Podman PostgreSQL plus `webwork-pg-renderer`
-  walkthrough. The instructor creates the Genetics assignment from copied `AAA-BBBB` Question IDs with
-  the 15-minute default visible; the student sees the server-backed countdown, completes/retries, and
-  starts a fresh timed practice run. Refresh and visually review the public screenshots at the guide
-  boundary. The clean-stack walkthrough and screenshot capture supplied this one-time evidence; it
-  remains separate from the permanent timing behavior tests.
-- **Success:** the canonical instructor-to-student walkthrough truthfully shows the course-owned
-  15-minute whole-run limit without duplicating it into flat or WeBWorK question sources.
+- **Contract:** whole-run timing remains course-owned `AssignmentTimingPolicy`. The editor alone exposes
+  `assignmentTiming: { timeLimitSeconds: positive u32 | null }`; `null` is an intentional untimed
+  assignment. A new mastery draft receives the Rust-generated `900`-second default. Create, update, and
+  editor GET compose assignment definition and timing atomically under one revision; published question
+  versions and their immutable question-level `TimingPolicy` do not change.
+- **Behavior:** the instructor can see and save an accessible `Time limit for each practice run` fieldset
+  with Timed/Untimed choices and a minutes input. A new mastery assignment visibly starts at 15 minutes.
+  The student sees a server-backed countdown for a timed run and `Untimed` only when the saved value is
+  null. Invalid input and conflicts preserve the instructor's draft.
+- **Permanent tests:** Rust Memory/PostgreSQL editor conformance for default, atomic create/replace, stale
+  revision, and active-run deadline handling; strict HTTP/decoder/client tests for the nullable field;
+  and keyboard-focused editor/student Playwright tests for the default, toggle, validation, recovery, and
+  saved display. These assert behavior, not source strings or fixture counts.
+- **One-time acceptance evidence:** run the real Podman PostgreSQL plus `webwork-pg-renderer` walkthrough.
+  The instructor creates the Genetics assignment from copied `AAA-BBBB` Question IDs with the 15-minute
+  default visible; the student sees the server-backed countdown, completes/retries, and starts a fresh
+  timed practice run. Refresh and visually review the public screenshots at the guide boundary. The
+  clean-stack walkthrough and screenshot capture supplied this one-time evidence; it remains separate from
+  the permanent timing behavior tests.
+- **Success:** the canonical instructor-to-student walkthrough truthfully shows the course-owned 15-minute
+  whole-run limit without duplicating it into flat or WeBWorK question sources.
 
 #### WP-HG1 accepted evidence boundary
 
-WP-HG1 permanently retains only offline behavior contracts for Question ID parsing and resolution,
-editor recovery and atomicity, explicit runner configuration, assignment timing, keyboard use, and
-responsive task completion. These checks protect teaching behavior, authorization boundaries, and
-recoverable work rather than fixture counts, source strings, CSS tokens, or screenshot pixels.
+WP-HG1 permanently retains only offline behavior contracts for Question ID parsing and resolution, editor
+recovery and atomicity, explicit runner configuration, assignment timing, keyboard use, and responsive task
+completion. These checks protect teaching behavior, authorization boundaries, and recoverable work rather
+than fixture counts, source strings, CSS tokens, or screenshot pixels.
 
 The rebuilt PostgreSQL, MinIO, and `webwork-pg-renderer` teaching loop; clipboard setup; isolated
-release-content sweep; screenshot refresh and visual inspection; and independent architecture,
-security, and HCI reviews are recorded one-time acceptance evidence. They are not ordinary pytest
-or browser-suite fixtures. This accepted package does not close the broader release plan.
+release-content sweep; screenshot refresh and visual inspection; and independent architecture, security,
+and HCI reviews are recorded one-time acceptance evidence. They are not ordinary pytest or browser-suite
+fixtures. This accepted package does not close the broader release plan.
 
 ### Pre-production design cleanup
 
-PLE has no users or durable production data. Complete this cleanup in order before the affected
-package or walkthrough acceptance. It removes provisional variants from the current design; it does
-not rewrite historical audit reports.
+PLE has no users or durable production data. Complete this cleanup in order before the affected package or
+walkthrough acceptance. It removes provisional variants from the current design; it does not rewrite
+historical audit reports.
 
-- [x] **Unify the roster model.** The code and focused review use the PLE-owned course roster as the
-      single source for local and production flows: `2026080913_local_development_roster.sql`, its
-      separate source, and duplicate Store path are gone. Local-file auth identifies the fictional
-      actor; its `learner_alias` is composition metadata only. The local-only visible roster adapter
-      resolves that alias and invokes the canonical `UpsertCourseMember` transaction, which creates
-      the no-contact roster, membership, and enrollment records used by the UI. Production omits the
-      adapter and control. Live PostgreSQL conformance and the empty-database teaching loop passed.
+- [x] **Unify the roster model.** The code and focused review use the PLE-owned course roster as the single
+      source for local and production flows: `2026080913_local_development_roster.sql`, its separate source,
+      and duplicate Store path are gone. Local-file auth identifies the fictional actor; its `learner_alias`
+      is composition metadata only. The local-only visible roster adapter resolves that alias and invokes the
+      canonical `UpsertCourseMember` transaction, which creates the no-contact roster, membership, and
+      enrollment records used by the UI. Production omits the adapter and control. Live PostgreSQL
+      conformance and the empty-database teaching loop passed.
 - [x] **Require the submission receipt snapshot.** Persist the authoritative attempt presentation
-      `PresentationEnvelopeV1` plus exact public `AssetBindingV1` snapshot with every first receipt
-      before returning feedback or advancing. Require an explicit issued capability: `EnvelopeV1`
-      has the checksummed public snapshot and matching server-only grading envelope, while
-      `NotApplicable` has neither. Native flat and WeBWorK issuance additionally persist explicit,
-      checksummed, family-owned first-grade contracts; required contracts are never inferred from a
-      nullable field. Translate public rendered IDs through that immutable private envelope for first
-      grading; never reload a current catalog/grader definition or rerender backend state. Derive disclosure
-      from the policy persisted at issuance; make active and submitted question `GET` replay the
-      attempt/receipt snapshot rather than catalog, adapter-cache, renderer, or backend state.
-      A checksummed `nextIssued` descriptor is immutable; only initial recovery may resolve the
-      sole `nextPending` predecessor, and replay never resubmits. Prove missing/mismatched payload
-      refusal and correct feedback/advance after refresh, duplicate submission, replica recovery,
-      and unavailable successor data with focused permanent Store/server/browser behavior tests and
-      an ignored disposable live PostgreSQL oracle. HOTSPOT issuance with real asset metadata remains
-      a separate WP-RC5 dependency and is not claimed by this task.
-- [x] **Adopt the v2-only native flat reader.** Removed the native flat v1 reader, its compatibility
-      branches, and v1-only fixtures after moving current pilot source and inline test inputs to
-      the closed v2 contract. Retain exact v2 source validation, answer-free public/private
-      compilation, and all-family grading/learner behavior. Use inline or generated inputs under
-      the fixture policy; do not retain duplicate v1 fixtures. This task leaves genuine current
-      versioned protocols intact: `PresentationBindingV1`, QTI profile v1, the migration ledger,
-      and human-readable `AAA-BBBB` Question IDs.
-- [x] **Separate clean-stack screenshots from durability evidence.** Run the canonical eleven-image
-      fake-user screenshot capture against a disposable, empty Podman stack and inspect the
-      atomically produced public images. Run retained-volume progress, replay, and gradebook
-      durability evidence as a separate live acceptance with its own report. The screenshot path
-      proves first-use teaching clarity; the retained-volume path proves persistence. Neither result
-      substitutes for the other. The screenshot runner owns a mode-0600 derived Compose env and
-      project-scoped application image, refuses competing PLE stacks and occupied fixed ports, and
-      removes only its generated project volumes. It invokes the launcher's explicit
-      `--canonical-walkthrough` mode so all fake-user runtime artifacts remain in private runner
-      state rather than using env-path equality or mutating ordinary local-stack artifacts.
+      `PresentationEnvelopeV1` plus exact public `AssetBindingV1` snapshot with every first receipt before
+      returning feedback or advancing. Require an explicit issued capability: `EnvelopeV1` has the checksummed
+      public snapshot and matching server-only grading envelope, while `NotApplicable` has neither. Native flat
+      and WeBWorK issuance additionally persist explicit, checksummed, family-owned first-grade contracts;
+      required contracts are never inferred from a nullable field. Translate public rendered IDs through that
+      immutable private envelope for first grading; never reload a current catalog/grader definition or rerender
+      backend state. Derive disclosure from the policy persisted at issuance; make active and submitted question
+      `GET` replay the attempt/receipt snapshot rather than catalog, adapter-cache, renderer, or backend state.
+      A checksummed `nextIssued` descriptor is immutable; only initial recovery may resolve the sole
+      `nextPending` predecessor, and replay never resubmits. Prove missing/mismatched payload refusal and correct
+      feedback/advance after refresh, duplicate submission, replica recovery, and unavailable successor data with
+      focused permanent Store/server/browser behavior tests and an ignored disposable live PostgreSQL oracle.
+      HOTSPOT issuance with real asset metadata remains a separate WP-RC5 dependency and is not claimed by this
+      task.
+- [x] **Adopt the v2-only native flat reader.** Removed the native flat v1 reader, its compatibility branches,
+      and v1-only fixtures after moving current pilot source and inline test inputs to the closed v2 contract.
+      Retain exact v2 source validation, answer-free public/private compilation, and all-family grading/learner
+      behavior. Use inline or generated inputs under the fixture policy; do not retain duplicate v1 fixtures.
+      This task leaves genuine current versioned protocols intact: `PresentationBindingV1`, QTI profile v1, the
+      migration ledger, and human-readable `AAA-BBBB` Question IDs.
+- [x] **Separate clean-stack screenshots from durability evidence.** Run the canonical eleven-image fake-user
+      screenshot capture against a disposable, empty Podman stack and inspect the atomically produced public
+      images. Run retained-volume progress, replay, and gradebook durability evidence as a separate live
+      acceptance with its own report. The screenshot path proves first-use teaching clarity; the retained-volume
+      path proves persistence. Neither result substitutes for the other. The screenshot runner owns a mode-0600
+      derived Compose env and project-scoped application image, refuses competing PLE stacks and occupied fixed
+      ports, and removes only its generated project volumes. It invokes the lifecycle's explicit
+      `--canonical-walkthrough` mode so all fake-user runtime artifacts remain in private runner state rather
+      than using env-path equality or mutating ordinary local-stack artifacts.
 
-**Broader-release reminder:** closing WP-HG1 and WP-UI1 does not close the release. The
-dependency-ordered follow-on sequence remains WP-RC8 acceptance, WP-RC4, WP-P1 through WP-P6,
-WP-RC5, WP-RC6, WP-RC7, WP-RC9, WP-FU1 through WP-FU6, WP-RC10, WP-RC11, and WP-RC12, plus the
-external operator and institutional sign-offs recorded in the rollout checklist.
+**Broader-release reminder:** closing WP-HG1 and WP-UI1 does not close the release. The dependency-ordered
+follow-on sequence remains WP-RC8 acceptance, WP-RC4, WP-P1 through WP-P6, WP-RC5, WP-RC6, WP-RC7, WP-RC9,
+WP-FU1 through WP-FU6, WP-RC10, WP-RC11, and WP-RC12, plus the external operator and institutional sign-offs
+recorded in the rollout checklist.
 
 ## Milestone plan
 
@@ -432,7 +457,7 @@ tests/`; both diff checks. The contact sheet and exact theme inventory are not p
   `containers/webwork/probe_render_rpc.sh`, `containers/webwork/webwork2.mojolicious.yml`,
   `containers/webwork/site.conf`, `containers/webwork/course.conf`, and
   `containers/webwork/init_render_course.sh` for exact-source OCI build, private MariaDB, and
-  render-course configuration; private `local_stack_control/launch.sh`; the immutable fixture and provenance under
+  render-course configuration; focused private local-stack lifecycle modules; the immutable fixture and provenance under
   `content/pilot/webwork/`; `crates/project-tools/src/e2e_seed.rs`;
   `tests/e2e/e2e_webwork_api_secret_mode.sh`, `tests/e2e/e2e_webwork_render_rpc.sh`,
   `tests/playwright/webwork_live_config.ts` and `tests/playwright/webwork_run.spec.ts`; container,
@@ -468,7 +493,7 @@ tests/`; both diff checks. The contact sheet and exact theme inventory are not p
 - **Files:** `crates/adapters/webwork/src/http_renderer/`, its protocol owner and tests;
   `crates/server/src/composition/` settings/tests; `containers/compose.yaml`,
   `containers/env.example`, `containers/webwork/probe_render_api.sh`, and
-  private `local_stack_control/launch.sh`; the WebWork E2E/Playwright/container tests; current contract,
+  focused private local-stack lifecycle modules; the WebWork E2E/Playwright/container tests; current contract,
   architecture, operation, status, and changelog docs.
 - **Behavior:** consume a declared private image built and maintained by the external
   `webwork-pg-renderer` project. PLE records the selected OCI identity and sends only trusted
@@ -488,7 +513,7 @@ tests/`; both diff checks. The contact sheet and exact theme inventory are not p
   seed, grades correct and incorrect submissions, proves the cache/replay behavior, survives
   renderer restart without educational-record loss, and exposes no renderer endpoint or protected
   material to the browser.
-- **Validation:** fast offline adapter/server behavior tests; a volume-preserving launcher
+- **Validation:** fast offline adapter/server behavior tests; a volume-preserving typed lifecycle
   teardown/rebuild and the render/grade/cache/outage path are opt-in E2E; browser network trace;
   strict Rust, documentation, and full repository gates; independent review with no P0/P1. Exact
   source/Compose topology scans were implementation probes and are not retained tests. The live
@@ -539,7 +564,7 @@ tests/`; both diff checks. The contact sheet and exact theme inventory are not p
   `src/components/response_widget.tsx`; behavior tests beside each owner;
   `content/pilot/chapter_1_assignments.yaml` and copied, licensed source
   under `content/pilot/sources/`; `crates/project-tools/src/pilot_content.rs`;
-  `tests/e2e/e2e_chapter_one_pilot.sh`; `tests/e2e/e2e_chapter_one_browser.sh`;
+  `tests/e2e/e2e_chapter_one_pilot.py`; `tests/e2e/e2e_chapter_one_browser.py`;
   `tests/playwright/chapter_one_run.spec.ts`; `docs/PILOT_CONTENT.md`.
 - **WeBWorK MATCH files:** the bounded Chapter 1 slice extends
   `crates/adapters/webwork/src/http_renderer/`, `renderer_contract.rs`, their contract tests, server

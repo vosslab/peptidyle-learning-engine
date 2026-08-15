@@ -71,7 +71,6 @@ fn flat_fixture(tenant: TenantId, workspace: WorkspaceId, source: &str) -> FlatF
         draft: DraftRecord {
             tenant,
             question,
-            revises: None,
             derived_from: None,
         },
         source: ObjectRecord {

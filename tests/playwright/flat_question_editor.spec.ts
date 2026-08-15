@@ -131,8 +131,8 @@ test.beforeAll(async () => {
           getWorkspacePublicationDiff: async () => {
             publicCalls.push({ kind: "diff", body: JSON.stringify({ title: source.title, changed: ["title"] }) });
             return {
-              draftRevision: revision, revision: '"' + revision + '"', baseline: "firstPublication", prior: null,
-              previous: null, changed: ["title"], current: {
+              draftRevision: revision, revision: '"' + revision + '"', baseline: "newQuestion",
+              changed: ["title"], current: {
                 sourceBackend: "native", title: source.title, prompt: { blocks: ["text"] },
                 response: { kind: "multipleChoice", optionCount: 2 },
                 attemptPolicy: source.attemptPolicy, timingPolicy: source.timingPolicy,

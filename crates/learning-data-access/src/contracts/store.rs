@@ -68,11 +68,11 @@ pub trait CatalogStore: Send + Sync {
         reference: ProblemVersionRef,
     ) -> Result<Option<PublishedProblemRecord>, StoreError>;
 
-    /// Resolves a Question ID to the current assignable question under the caller's authorization.
+    /// Resolves a visible Question ID to its exact immutable publication under
+    /// the caller's authorization.
     ///
-    /// The returned summary retains its internal immutable version identity for
-    /// storage and grading, but this display reference never promises an exact
-    /// caller-visible version or upgrade contract.
+    /// A Question ID identifies one publication. This lookup neither follows
+    /// a successor nor selects a latest version.
     async fn resolve_catalog_problem(
         &self,
         context: TenantContext,
@@ -128,30 +128,6 @@ pub trait CatalogStore: Send + Sync {
         actor: UserId,
         reference: ProblemVersionRef,
         transition: CatalogTransition,
-    ) -> Result<PublishedProblemRecord, StoreError>;
-}
-
-/// Server-only authority required for an original-owner correction.
-///
-/// The session hash is a one-way capability resolved by the server from the
-/// authenticated cookie; browser request bodies never supply it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct OwnerCorrectionAuthority {
-    /// Authenticated original owner who is publishing the correction.
-    pub actor: UserId,
-    /// Active server-resolved session capability.
-    pub session: SessionTokenHash,
-}
-
-/// Exceptional catalog publication path for original-owner bug corrections.
-#[async_trait]
-pub trait OwnerCorrectionStore: Send + Sync {
-    /// Atomically publishes a successor of an existing published question.
-    async fn publish_owner_correction(
-        &self,
-        context: TenantContext,
-        authority: OwnerCorrectionAuthority,
-        command: PublishDraftCommand,
     ) -> Result<PublishedProblemRecord, StoreError>;
 }
 
@@ -387,6 +363,36 @@ pub trait Store:
             update,
         )
         .await
+    }
+
+    /// Replaces one fixed assignment item through the focused
+    /// revision-checked replacement capability.
+    async fn replace_assignment_fixed_item(
+        &self,
+        context: TenantContext,
+        command: ReplaceAssignmentFixedItemCommand,
+    ) -> Result<StoredAssignment, StoreError> {
+        CourseAssignmentStore::replace_assignment_fixed_item_impl(self, context, command).await
+    }
+
+    /// Inserts one fresh fixed item through the focused revision-checked
+    /// pre-evidence editing capability.
+    async fn add_assignment_fixed_item(
+        &self,
+        context: TenantContext,
+        command: AddAssignmentFixedItemCommand,
+    ) -> Result<StoredAssignment, StoreError> {
+        CourseAssignmentStore::add_assignment_fixed_item_impl(self, context, command).await
+    }
+
+    /// Removes one fixed item through the focused revision-checked
+    /// pre-evidence editing capability.
+    async fn remove_assignment_fixed_item(
+        &self,
+        context: TenantContext,
+        command: RemoveAssignmentFixedItemCommand,
+    ) -> Result<StoredAssignment, StoreError> {
+        CourseAssignmentStore::remove_assignment_fixed_item_impl(self, context, command).await
     }
 
     /// Delegates to the focused [`CourseAssignmentStore`] capability.

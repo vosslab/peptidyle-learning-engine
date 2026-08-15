@@ -69,7 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
 	logs.add_argument("services", nargs="*")
 	logs.set_defaults(handler=local_stack_control.commands.logs)
 
-	start = subparsers.add_parser("start", help="delegate initialization to the launcher")
+	start = subparsers.add_parser("start", help="initialize and start the local teaching stack")
 	add_target_options(start)
 	start.add_argument("--release", action="store_true")
 	start.add_argument("--skip-build", action="store_true")
@@ -80,7 +80,7 @@ def build_parser() -> argparse.ArgumentParser:
 	add_target_options(stop)
 	stop.set_defaults(handler=local_stack_control.commands.stop)
 
-	restart = subparsers.add_parser("restart", help="recreate one Compose-owned service")
+	restart = subparsers.add_parser("restart", help="restart api, worker, gateway, or webwork-renderer")
 	add_target_options(restart)
 	restart.add_argument("service")
 	restart.set_defaults(handler=local_stack_control.commands.restart)
@@ -98,7 +98,7 @@ def build_parser() -> argparse.ArgumentParser:
 	reset.add_argument("--dry-run", action="store_true")
 	reset.set_defaults(handler=local_stack_control.commands.reset)
 
-	validate = subparsers.add_parser("validate", help="check canonical config and report runtime")
+	validate = subparsers.add_parser("validate", help="read-only check of initialized config and available engine")
 	add_target_options(validate)
 	validate.add_argument("--json", action="store_true")
 	validate.set_defaults(handler=local_stack_control.commands.validate)

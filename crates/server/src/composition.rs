@@ -22,8 +22,14 @@ use backend::PersistentDependencies;
 use local_identity::*;
 use settings::StorageRuntime;
 #[cfg(feature = "local-development-auth")]
-pub use worker::run_local_development_worker_from_env;
-pub use worker::{run_production_worker_from_env, run_public_asset_publisher_from_env};
+pub use worker::{
+    run_local_development_invitation_delivery_worker_from_env,
+    run_local_development_worker_from_env,
+};
+pub use worker::{
+    run_production_invitation_delivery_worker_from_env, run_production_worker_from_env,
+    run_public_asset_publisher_from_env,
+};
 
 pub(super) use std::net::SocketAddr;
 pub(super) use std::sync::Arc;

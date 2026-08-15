@@ -82,7 +82,6 @@ fn compiled() -> (DraftRecord, FlatQuestionGradingPayload, Vec<u8>) {
         DraftRecord {
             tenant: tenant(),
             question,
-            revises: None,
             derived_from: None,
         },
         FlatQuestionGradingPayload::from_private(&private).expect("private fixture persists"),

@@ -113,8 +113,6 @@ export function createCatalogRepository(client: ApiClient): CatalogBrowseReposit
       return {
         items: page.items.map((item) => ({
           displayId: item.questionId,
-          problemId: item.problem,
-          versionId: item.version,
           title: item.metadata.title,
           summary: `Published ${item.backend} problem.`,
           taxonomy: item.metadata.taxonomy.map((term) => `${term.scheme}:${term.code}`),

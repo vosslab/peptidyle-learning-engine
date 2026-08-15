@@ -68,11 +68,12 @@ pub use crate::catalog::{
     CatalogProblemDetail, CatalogProblemSummary, CatalogSearchFacets, CatalogSearchPage,
     CatalogSearchQuery, CatalogSearchQueryError, CatalogStatisticsAvailability,
     CatalogStatisticsFacet, CatalogStatisticsStatus, CatalogTaxonomyFacet, CatalogTaxonomyFilter,
-    MAX_CATALOG_TAXONOMY_FACETS, MAX_QUESTION_ID_COUNT, ProblemDisplayRef, ProblemPublicId,
-    ProblemVersionNumber, ProblemVersionRef, PublicationScope, QUESTION_ID_ALPHABET,
-    QUESTION_ID_COMPACT_LENGTH, QUESTION_ID_IDENTIFIER_LENGTH, QuestionBackend, QuestionId,
+    MAX_CATALOG_TAXONOMY_FACETS, MAX_QUESTION_ID_COUNT, ProblemDisplayRef, ProblemVersionRef,
+    PublicationScope, QUESTION_ID_ALPHABET, QUESTION_ID_COMPACT_LENGTH,
+    QUESTION_ID_IDENTIFIER_LENGTH, QuestionBackend, QuestionId,
 };
 pub use crate::course::{
+    AssignmentItemSummary, AssignmentSelectionCandidateSummary, AssignmentSelectionGroupSummary,
     AssignmentSummary, CourseMembership, CourseMembershipRole, CourseSummary, GradebookSummaryRow,
 };
 pub use crate::course_appearance::{

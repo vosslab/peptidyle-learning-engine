@@ -24,7 +24,10 @@ csv.workspace = true
 domain.workspace = true
 grading.workspace = true
 objects = { workspace = true, features = ["s3"] }
-question_model.workspace = true
+# Host-only E2E seeding follows the same production presentation-binding path
+# as the server, including OS-backed nonce generation. The browser/WASM bridge
+# deliberately does not enable this server-side identity-generation feature.
+question_model = { workspace = true, features = ["generate"] }
 learning-data-access = { workspace = true, features = ["postgres"] }
 serde.workspace = true
 serde_json.workspace = true

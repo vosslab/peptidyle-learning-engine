@@ -200,7 +200,6 @@ pub(super) async fn contracted_route_fixture(
                 language: "en-US".into(),
             },
         },
-        revises: None,
         derived_from: None,
     };
     let reference = ProblemVersionRef { problem, version };

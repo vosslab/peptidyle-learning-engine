@@ -2,10 +2,10 @@
 
 import { MAX_CATALOG_TAXONOMY_FACETS } from "../../../generated/api/MAX_CATALOG_TAXONOMY_FACETS";
 import type { AssignmentDeliveryState } from "../../../generated/api/AssignmentDeliveryState";
-import type { AssignmentItem } from "../../../generated/api/AssignmentItem";
+import type { AssignmentItemSummary as AssignmentItem } from "../../../generated/api/AssignmentItemSummary";
 import type { AssignmentScoringMode } from "../../../generated/api/AssignmentScoringMode";
-import type { AssignmentSelectionCandidate } from "../../../generated/api/AssignmentSelectionCandidate";
-import type { AssignmentSelectionGroup } from "../../../generated/api/AssignmentSelectionGroup";
+import type { AssignmentSelectionCandidateSummary as AssignmentSelectionCandidate } from "../../../generated/api/AssignmentSelectionCandidateSummary";
+import type { AssignmentSelectionGroupSummary as AssignmentSelectionGroup } from "../../../generated/api/AssignmentSelectionGroupSummary";
 import type { AssignmentSummary } from "../../../generated/api/AssignmentSummary";
 import type { AssignmentRunTiming } from "../../../generated/api/AssignmentRunTiming";
 import { MAX_ASSIGNMENT_TIME_LIMIT_SECONDS } from "../../../generated/api/MAX_ASSIGNMENT_TIME_LIMIT_SECONDS";
@@ -34,8 +34,11 @@ import type { RunPolicies } from "../../../generated/api/RunPolicies";
 import type { SelectionOrdering } from "../../../generated/api/SelectionOrdering";
 import type {
   AssignmentCapabilityViolation,
+  AddAssignmentItemInput,
+  AssignmentCreateInput,
   AssignmentEditorDetail,
   AssignmentEditorInput,
+  ReplaceAssignmentItemQuestionInput,
   CourseCreateInput,
   CourseRouteData,
 } from "../contracts";
@@ -66,7 +69,6 @@ import {
   decodeCursor,
   decodeEnvelopeTitle,
   decodeIdentifier,
-  decodeProblemVersionRef,
   decodePublicRouteNumber,
   decodeQuestionMetadata,
   decodeTaxonomyTerm,
@@ -93,24 +95,17 @@ export function decodeCatalogProblemSummary(
   const record = decodeRecord(value, path);
   if (strict) {
     requireOnlyFields(record, path, [
-      "problem",
       "questionId",
-      "version",
       "backend",
       "capabilities",
       "metadata",
       "scope",
       "lifecycle",
-      "authors",
-      "previousVersion",
-      "derivedFrom",
       "publishedAt",
     ]);
   }
   const decoded = {
-    problem: decodeIdentifier(field(record, "problem", path), `${path}.problem`),
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-    version: decodeIdentifier(field(record, "version", path), `${path}.version`),
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
       "native",
       "webwork",
@@ -131,17 +126,6 @@ export function decodeCatalogProblemSummary(
       field(record, "lifecycle", path),
       `${path}.lifecycle`,
       strict,
-    ),
-    authors: decodeArray(field(record, "authors", path), `${path}.authors`, decodeIdentifier),
-    previousVersion: decodeNullable(
-      field(record, "previousVersion", path),
-      `${path}.previousVersion`,
-      decodeIdentifier,
-    ),
-    derivedFrom: decodeNullable(
-      field(record, "derivedFrom", path),
-      `${path}.derivedFrom`,
-      decodeProblemVersionRef,
     ),
     publishedAt: decodeTimestamp(field(record, "publishedAt", path), `${path}.publishedAt`),
   } satisfies CatalogProblemSummary;
@@ -603,7 +587,10 @@ function decodeAssignmentItem(value: unknown, path: string): AssignmentItem {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
-    "reference",
+    "questionId",
+    "title",
+    "backend",
+    "capabilities",
     "position",
     "pointsPossible",
     "deliveryState",
@@ -611,7 +598,54 @@ function decodeAssignmentItem(value: unknown, path: string): AssignmentItem {
   ]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    reference: decodeProblemVersionRef(field(record, "reference", path), `${path}.reference`, true),
+    questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
+    title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
+    backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
+      "native",
+      "webwork",
+      "qti",
+      "h5p",
+      "imathas",
+    ]),
+    capabilities: decodeBackendCapabilities(
+      field(record, "capabilities", path),
+      `${path}.capabilities`,
+    ),
+    position: decodeNonnegativeInteger(field(record, "position", path), `${path}.position`),
+    pointsPossible: decodePointValue(
+      field(record, "pointsPossible", path),
+      `${path}.pointsPossible`,
+    ),
+    deliveryState: decodeStringEnum(field(record, "deliveryState", path), `${path}.deliveryState`, [
+      "active",
+      "retired",
+    ] as const satisfies ReadonlyArray<AssignmentDeliveryState>),
+    scoringMode: decodeStringEnum(field(record, "scoringMode", path), `${path}.scoringMode`, [
+      "normal",
+      "fullCredit",
+      "extraCredit",
+      "excluded",
+    ] as const satisfies ReadonlyArray<AssignmentScoringMode>),
+  };
+}
+
+/** Request-only item shape: the server already owns display metadata. */
+function decodeAssignmentUpdateItem(
+  value: unknown,
+  path: string,
+): AssignmentEditorInput["items"][number] {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "id",
+    "questionId",
+    "position",
+    "pointsPossible",
+    "deliveryState",
+    "scoringMode",
+  ]);
+  return {
+    id: decodeIdentifier(field(record, "id", path), `${path}.id`),
+    questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
     position: decodeNonnegativeInteger(field(record, "position", path), `${path}.position`),
     pointsPossible: decodePointValue(
       field(record, "pointsPossible", path),
@@ -635,11 +669,31 @@ function decodeAssignmentSelectionCandidate(
   path: string,
 ): AssignmentSelectionCandidate {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["id", "position", "reference", "deliveryState"]);
+  requireOnlyFields(record, path, [
+    "id",
+    "position",
+    "questionId",
+    "title",
+    "backend",
+    "capabilities",
+    "deliveryState",
+  ]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     position: decodeNonnegativeInteger(field(record, "position", path), `${path}.position`),
-    reference: decodeProblemVersionRef(field(record, "reference", path), `${path}.reference`, true),
+    questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
+    title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
+    backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
+      "native",
+      "webwork",
+      "qti",
+      "h5p",
+      "imathas",
+    ]),
+    capabilities: decodeBackendCapabilities(
+      field(record, "capabilities", path),
+      `${path}.capabilities`,
+    ),
     deliveryState: decodeStringEnum(field(record, "deliveryState", path), `${path}.deliveryState`, [
       "active",
       "retired",
@@ -724,14 +778,10 @@ export function decodeAssignmentEditorInput(
   path = "response",
 ): AssignmentEditorInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["title", "problems", "policies", "assignmentTiming"]);
+  requireOnlyFields(record, path, ["title", "items", "policies", "assignmentTiming"]);
   const decoded = {
     title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
-    problems: decodeArray(
-      field(record, "problems", path),
-      `${path}.problems`,
-      (reference, referencePath) => decodeProblemVersionRef(reference, referencePath, true),
-    ),
+    items: decodeArray(field(record, "items", path), `${path}.items`, decodeAssignmentUpdateItem),
     policies: decodeRunPolicies(field(record, "policies", path), `${path}.policies`, true),
     assignmentTiming: decodeAssignmentRunTiming(
       field(record, "assignmentTiming", path),
@@ -739,6 +789,50 @@ export function decodeAssignmentEditorInput(
     ),
   } satisfies AssignmentEditorInput;
   return decoded;
+}
+
+export function decodeAssignmentCreateInput(
+  value: unknown,
+  path = "response",
+): AssignmentCreateInput {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["title", "questionIds", "policies", "assignmentTiming"]);
+  return {
+    title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
+    questionIds: decodeArray(
+      field(record, "questionIds", path),
+      `${path}.questionIds`,
+      decodeQuestionId,
+    ),
+    policies: decodeRunPolicies(field(record, "policies", path), `${path}.policies`, true),
+    assignmentTiming: decodeAssignmentRunTiming(
+      field(record, "assignmentTiming", path),
+      `${path}.assignmentTiming`,
+    ),
+  };
+}
+
+export function decodeAddAssignmentItemInput(
+  value: unknown,
+  path = "response",
+): AddAssignmentItemInput {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["questionId", "position"]);
+  return {
+    questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
+    position: decodeNonnegativeInteger(field(record, "position", path), `${path}.position`),
+  };
+}
+
+export function decodeReplaceAssignmentItemQuestionInput(
+  value: unknown,
+  path = "response",
+): ReplaceAssignmentItemQuestionInput {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["questionId"]);
+  return {
+    questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
+  };
 }
 
 /**
@@ -768,10 +862,8 @@ export function decodeAssignmentEditorDetail(
     tenant: summary.tenant,
     courseId: summary.courseId,
     title: summary.title,
-    problems: summary.items
-      .filter((item) => item.deliveryState === "active")
-      .sort((left, right) => left.position - right.position)
-      .map((item) => item.reference),
+    items: summary.items,
+    selectionGroups: summary.selectionGroups,
     policies: summary.policies,
     assignmentTiming: decodeAssignmentRunTiming(
       field(record, "assignmentTiming", path),
@@ -815,13 +907,12 @@ export function decodeAssignmentCapabilityViolations(
     `${path}.violations`,
     (entry, entryPath) => {
       const violation = decodeRecord(entry, entryPath);
-      requireOnlyFields(violation, entryPath, ["title", "reference", "capability"]);
+      requireOnlyFields(violation, entryPath, ["title", "questionId", "capability"]);
       const decoded = {
         title: decodeEnvelopeTitle(field(violation, "title", entryPath), `${entryPath}.title`),
-        reference: decodeProblemVersionRef(
-          field(violation, "reference", entryPath),
-          `${entryPath}.reference`,
-          true,
+        questionId: decodeQuestionId(
+          field(violation, "questionId", entryPath),
+          `${entryPath}.questionId`,
         ),
         capability: decodeCapability(
           field(violation, "capability", entryPath),

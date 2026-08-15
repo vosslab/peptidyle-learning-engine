@@ -1,8 +1,8 @@
 # Container port mapping
 
 This document maps the supported local Podman ports. The executable source of
-truth is [containers/compose.yaml](../containers/compose.yaml); the launcher
-selects the gateway host port in private `local_stack_control/launch.sh`.
+truth is [containers/compose.yaml](../containers/compose.yaml); the typed
+`local_stack_control` lifecycle selects the gateway host port.
 
 All published ports bind to `127.0.0.1`. They are local-development access
 points, not services exposed to the LAN.
@@ -20,12 +20,12 @@ points, not services exposed to the LAN.
 | `worker` | no supported HTTP listener | none | Background process, not a browser endpoint. |
 
 The default gateway host port is controlled by `PLE_GATEWAY_HOST_PORT`. The
-launcher resolves a one-run inherited value first, then an explicit ignored
+lifecycle resolves a one-run inherited value first, then an explicit ignored
 `containers/env.local` value, then the `8080` default. It does not silently
 replace a prior local value such as `3001`. A free inherited override leaves
 the local file unchanged and supplies a matching local WebAuthn origin for that
-launch. If the selected port is occupied, the launcher records a free gateway
-port from the reserved range. Always use the launcher-printed URL or read
+launch. If the selected port is occupied, the lifecycle records a free gateway
+port from the reserved range. Always use the lifecycle-printed URL or read
 `PLE_GATEWAY_HOST_PORT` before opening the browser.
 
 ## Internal port reuse

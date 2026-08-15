@@ -3,7 +3,8 @@
 import pathlib
 import collections.abc
 
-import walklib.models
+import tests.walkthrough.walklib as walklib
+import tests.walkthrough.walklib.models as models
 
 
 #============================================
@@ -11,7 +12,7 @@ def run_specification(
 	playwright_config_file: pathlib.Path | None,
 	specification: str,
 	run_required: collections.abc.Callable[
-		[list[str], dict[str, str]], walklib.models.CommandResult
+		[list[str], dict[str, str]], models.CommandResult
 	],
 	environment: dict[str, str],
 ) -> None:

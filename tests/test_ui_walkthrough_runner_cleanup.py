@@ -1,16 +1,13 @@
 """Offline cleanup behavior for the explicit UI walkthrough runner."""
 
-import importlib
 import json
 import pathlib
-import sys
 
 import pytest
 
+import tests.walkthrough.walklib.models as walkthrough_models
+import tests.walkthrough.walklib.runner as walkthrough
 
-WALKTHROUGH_DIRECTORY = pathlib.Path(__file__).resolve().parent / "walkthrough"
-sys.path.insert(0, str(WALKTHROUGH_DIRECTORY))
-walkthrough = importlib.import_module("walklib.runner")
 
 
 class CleanupCommands:
@@ -31,7 +28,8 @@ class CleanupCommands:
 		self.capability_digest = ""
 		self.calls: list[tuple[list[str], dict[str, str] | None]] = []
 
-	def __call__(self, command: list[str], environ: dict[str, str] | None) -> object:
+	def __call__(self, command: list[str], environ: dict[str, str] | None, stdin: str | None = None) -> object:
+		del stdin
 		self.calls.append((command, environ))
 		if command[:4] == ["podman", "info", "--format", "json"]:
 			return walkthrough.CommandResult(0, '{"host":{"security":{"rootless":true}}}', "")
@@ -79,7 +77,7 @@ def test_finish_removes_private_state_and_does_not_publish_secret(tmp_path: path
 	private_directory = runner.private_state_directory
 	secret = "student=private"
 	runner.write_private_child_inputs(
-		walkthrough.walklib.models.ArrangementChildInputs(tmp_path / f"{secret}-manifest.json")
+		walkthrough_models.ArrangementChildInputs(tmp_path / f"{secret}-manifest.json")
 	)
 
 	assert runner.finish(True) == 0
@@ -108,7 +106,7 @@ def test_compose_cleanup_failure_retains_private_recovery_state(
 	private_directory = runner.private_state_directory
 	secret = "student=private"
 	runner.write_private_child_inputs(
-		walkthrough.walklib.models.ArrangementChildInputs(tmp_path / f"{secret}-manifest.json")
+		walkthrough_models.ArrangementChildInputs(tmp_path / f"{secret}-manifest.json")
 	)
 	runner.stack_launch_attempted = True
 

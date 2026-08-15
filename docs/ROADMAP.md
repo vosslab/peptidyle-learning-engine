@@ -11,7 +11,7 @@ before its first production deployment the unreleased history can become one rev
 baseline. Once that baseline ships, each later schema change becomes an immutable forward migration.
 
 Migrations establish schema, roles, policies, views, grants, and compatibility projections. They do
-not create teaching data. The local launcher applies migrations first, but the current seed command
+not create teaching data. The local typed lifecycle applies migrations first, but the current seed command
 still requires `--apply-migrations` and invokes the same ledger a second time, normally as a no-op.
 The baseline work must make the seed require a compatible pre-migrated database so schema and
 teaching-data ownership are structurally separate before production.
@@ -57,7 +57,7 @@ forward ledger forever.
   migration projection through restricted roles.
 - `tests/e2e/e2e_database_baseline.sh` already proves an empty database, a second no-op apply,
   status, verification, checksum detection, RLS/grant behavior, and selected live database contracts.
-- Private `local_stack_control/launch.sh` runs migrations and then the host-only deterministic E2E seed. Today the
+- The private typed local-stack lifecycle runs migrations and then the host-only deterministic E2E seed. Today the
   seed requires `--apply-migrations` and invokes the migration ledger again; this is normally a
   no-op, but it leaves schema authority in a command intended to own demonstration data.
 - The active release plan remains the authority for package acceptance and deployment order.
@@ -156,8 +156,8 @@ it owns only disposable teaching data outside the baseline migration.
 - Owner: local-stack integrator.
 - Work packages: DB-BL3.
 - Needs: accepted DB-BL2.
-- Provides: clean-volume launcher, API, worker, and browser evidence.
-- Review boundary, when modifying the repository: launcher, container, test, and operations docs.
+- Provides: clean-volume typed lifecycle, API, worker, and browser evidence.
+- Review boundary, when modifying the repository: lifecycle, container, test, and operations docs.
 
 ### DB-BL3R: Independent release review
 
@@ -212,11 +212,11 @@ it owns only disposable teaching data outside the baseline migration.
 ### DB-BL3: Prove runtime and recovery
 
 - Owner: local-stack integrator.
-- Touch points: `local_stack_control/launch.sh`, `crates/project-tools/src/e2e_seed.rs`, its focused modules,
+- Touch points: focused `local_stack_control` lifecycle modules, `crates/project-tools/src/e2e_seed.rs`, its focused modules,
   `tests/e2e/`, `tests/playwright/`, and operations docs only where the ownership contract changes.
 - Depends on: DB-BL2 and DB-BL2R.
 - Acceptance criteria: the seed refuses an absent or incompatible baseline without applying DDL;
-  on a newly created local PostgreSQL volume, the launcher alone applies and verifies the baseline,
+  on a newly created local PostgreSQL volume, the typed lifecycle alone applies and verifies the baseline,
   then runs the data-only deterministic seed, starts every required service, and passes the
   representative browser suite.
 - Evidence or review, when useful: retain command outputs, schema status before/after seed, and
@@ -262,11 +262,11 @@ No new fast pytest should snapshot relation counts, migration filenames, or comp
 | Existing `e2e_database_baseline.sh` fresh/no-op/security path | Permanent E2E gate | It exercises a durable clean-cluster and role-boundary contract. |
 | Old-chain versus candidate-baseline schema dump | One-time implementation evidence | The old chain disappears after the cutover; an exact comparison would become stale. |
 | Candidate baseline object inventory | One-time implementation evidence | It proves the replacement rather than a continuing user-visible behavior. |
-| Local launcher with empty volume and deterministic seed | Permanent E2E/operational gate | It protects the durable migration-first, data-only-seed-second contract. |
+| Local typed lifecycle with empty volume and deterministic seed | Permanent E2E/operational gate | It protects the durable migration-first, data-only-seed-second contract. |
 | Representative browser walkthrough after bootstrap | Permanent Playwright acceptance | It protects teaching workflows, not migration geometry. |
 
 Run the repository fast suites separately from real service checks. Keep external-network, Podman,
-PostgreSQL, launcher, and browser work under `tests/e2e/` or Playwright, never under `pytest tests/`.
+PostgreSQL, lifecycle, and browser work under `tests/e2e/` or Playwright, never under `pytest tests/`.
 
 ## Migration and compatibility policy
 
@@ -301,7 +301,7 @@ tested backup/restore path and repair schema changes with a new forward migratio
 - [ ] DB-BL1 inventory and independent comparison procedure are accepted.
 - [ ] DB-BL2 baseline passes two clean-cluster fresh/no-op/status/verify cycles.
 - [ ] DB-BL2R accepts role, RLS, view, and grant fidelity.
-- [ ] DB-BL3 passes launcher, seed separation, API/worker readiness, and Playwright acceptance.
+- [ ] DB-BL3 passes typed lifecycle, seed separation, API/worker readiness, and Playwright acceptance.
 - [ ] DB-BL3R accepts backup, restore, and failure-recovery rehearsal.
 - [ ] The baseline and all durable forward-ledger instructions are documented before deployment.
 

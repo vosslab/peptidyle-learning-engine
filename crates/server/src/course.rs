@@ -5,6 +5,7 @@
 
 mod assignments;
 mod invitation_capability;
+pub(crate) mod invitation_delivery_worker;
 mod invitation_email;
 mod policy;
 mod projection;
@@ -13,8 +14,8 @@ mod roster;
 mod routing;
 
 pub use invitation_capability::{
-    CourseInvitationDelivery, CourseInvitationDeliveryError, CourseInvitationIssuer,
-    CourseInvitationSecret, UnavailableCourseInvitationDelivery,
+    CourseInvitationDelivery, CourseInvitationDeliveryAttempt, CourseInvitationDeliveryError,
+    CourseInvitationIssuer, CourseInvitationSecret, UnavailableCourseInvitationDelivery,
 };
 pub use invitation_email::{
     SmtpCourseInvitationDelivery, SmtpCourseInvitationDeliveryConfig, SmtpTlsMode,
@@ -28,18 +29,13 @@ pub use routing::{router, router_with_invitations};
 #[cfg(test)]
 use assignments::{AssignmentRevisionHeaderError, required_assignment_revision};
 #[cfg(test)]
-use axum::http::header::{ETAG, IF_MATCH};
+use axum::http::header::IF_MATCH;
 #[cfg(test)]
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 #[cfg(test)]
-use learning_data_access::{CourseRecord, Store};
+use learning_data_access::Store;
 #[cfg(test)]
-use question_model::{
-    AssignmentId, CourseId, CourseMembership, CourseMembershipRole, ProblemVersionRef, RunPolicies,
-    UserRole,
-};
-#[cfg(test)]
-use routing::CreateAssignmentRequest;
+use question_model::{ProblemVersionRef, RunPolicies, UserRole};
 #[cfg(test)]
 use std::sync::Arc;
 

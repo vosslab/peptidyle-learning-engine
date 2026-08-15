@@ -37,10 +37,14 @@ async fn catalog_search_discovers_broad_terms_and_intent_order_without_backend_s
         .expect("broad catalog discovery");
 
     assert_eq!(
-        page.items.first().map(|item| item.problem),
-        Some(focused.problem)
+        page.items.first().map(|item| item.question_id.clone()),
+        Some(focused.question_id.clone())
     );
-    assert!(page.items.iter().any(|item| item.problem == broad.problem));
+    assert!(
+        page.items
+            .iter()
+            .any(|item| item.question_id == broad.question_id)
+    );
 }
 
 #[tokio::test]
@@ -63,8 +67,8 @@ async fn catalog_search_admits_a_deliberate_word_typo() {
         .expect("typo catalog discovery");
 
     assert_eq!(
-        page.items.first().map(|item| item.problem),
-        Some(record.problem)
+        page.items.first().map(|item| item.question_id.clone()),
+        Some(record.question_id.clone())
     );
 }
 
@@ -100,7 +104,10 @@ async fn catalog_search_continuation_is_query_bound_and_has_no_equal_score_dupli
         )
         .await
         .expect("second catalog page");
-    assert_ne!(initial.items[0].problem, continuation.items[0].problem);
+    assert_ne!(
+        initial.items[0].question_id,
+        continuation.items[0].question_id
+    );
     assert!(matches!(
         store
             .search_catalog(
@@ -166,7 +173,7 @@ async fn catalog_search_continuation_excludes_later_publication_and_keeps_comple
         !continuation
             .items
             .iter()
-            .any(|item| item.problem == later.problem)
+            .any(|item| item.question_id == later.question_id)
     );
     assert_eq!(continuation.facets.statistics.unavailable, 2);
 }

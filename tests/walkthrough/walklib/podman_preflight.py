@@ -6,7 +6,8 @@ import local_stack_control.discovery
 import local_stack_control.models
 import local_stack_control.process
 
-import walklib.models
+import tests.walkthrough.walklib as walklib
+import tests.walkthrough.walklib.models as models
 
 
 #============================================
@@ -18,7 +19,7 @@ def assert_no_active_ple_stack(
 	try:
 		snapshots = local_stack_control.discovery.project_snapshots(runner, repository_root)
 	except local_stack_control.models.ControllerError as error:
-		raise walklib.models.RunnerError("cannot inspect active PLE stack before walkthrough") from error
+		raise models.RunnerError("cannot inspect active PLE stack before walkthrough") from error
 	for snapshot in snapshots:
 		if len(snapshot.containers) == 0:
 			continue

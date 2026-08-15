@@ -50,12 +50,14 @@ PLE keeps four related but different things separate:
 | Assignment activity | One tenant/course's teaching configuration | Course and assignment IDs |
 | Learner activity | Tenant-owned educational record | Enrollment, run, and attempt IDs |
 
-Publication is the boundary between the first two rows. An assignment references
-an exact immutable `(ProblemId, VersionId)` pair; it does not copy prompt,
-assets, source, or answer material into the course. A run is one pass through
-that assignment, and an attempt is one issued instance of one assignment
-position. Repeated use of the same question version therefore does not merge
-distinct assignment positions or learner attempts.
+Publication is the boundary between the first two rows. Every content change
+publishes a new immutable question with a fresh Question ID and fresh hidden
+`(ProblemId, VersionId)` pair; optional one-way provenance may identify its
+source. An assignment, run, or attempt retains its exact pinned pair and does
+not copy prompt, assets, source, or answer material into the course. A run is
+one pass through that assignment, and an attempt is one issued instance of one
+assignment position. Repeated use of the same exact published question does not
+merge distinct assignment positions or learner attempts.
 
 The type-level identity and browser-safety rules are defined in
 [QUESTION_MODEL.md](QUESTION_MODEL.md). The enrollment, run, attempt, and
@@ -86,11 +88,14 @@ repeats it before writing a durable transition.
 
 ### 3. Commit an immutable publication
 
-The server resolves the tenant-owned draft, validates it, mints published
-identities only after success, and commits immutable metadata, public payload,
-private grader material or source binding, visibility grant, and draft removal
-as one transaction. A publication never mutates an existing version. A revision
-retains a published problem identity and mints a new version; a fork mints both.
+The server resolves the tenant-owned draft, validates it, mints a fresh Question
+ID and hidden `(ProblemId, VersionId)` pair only after success, and commits
+immutable metadata, public payload, private grader material or source binding,
+visibility grant, and draft removal as one transaction. A publication never
+mutates an existing published question. Every content change publishes a new
+question; optional one-way provenance may identify its source. A deliberate,
+revision-checked assignment replacement changes future runs only, while issued
+runs and attempts retain their original exact evidence.
 
 Object storage follows the same boundary. The database records intended object
 existence and typed object identities; it does not give a browser a bucket key

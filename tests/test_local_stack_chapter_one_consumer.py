@@ -19,8 +19,11 @@ class ProviderRunner(local_stack_control.process.CommandRunner):
 		argv: list[str],
 		environment: dict[str, str] | None = None,
 		cwd: pathlib.Path | None = None,
+		stdin: str | None = None,
 	) -> local_stack_control.models.CommandResult:
 		"""Provide an available provider response for target construction."""
+		if stdin is not None:
+			raise AssertionError("provider discovery does not accept stdin")
 		result = local_stack_control.models.CommandResult(tuple(argv), 0, "", "")
 		return result
 

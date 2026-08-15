@@ -92,6 +92,7 @@ impl crate::CourseAssignmentStore for MemoryStore {
             time_limit_seconds: update.assignment_timing.time_limit_seconds,
             ..AssignmentTimingPolicy::default()
         })?;
+        crate::ensure_assignment_update_preserves_references(&existing, &update.assignment)?;
         let assignment = AssignmentRecord {
             id: assignment,
             tenant: context.tenant_id(),
@@ -176,6 +177,226 @@ impl crate::CourseAssignmentStore for MemoryStore {
         state
             .assignment_scoring
             .insert(key, (stored.scoring_generation, stored.scoring_status));
+        Ok(stored)
+    }
+    async fn replace_assignment_fixed_item_impl(
+        &self,
+        context: TenantContext,
+        command: ReplaceAssignmentFixedItemCommand,
+    ) -> Result<StoredAssignment, StoreError> {
+        let mut state = self.write_state()?;
+        let key = (context.tenant_id(), command.assignment);
+        let existing = state
+            .assignments
+            .get(&key)
+            .cloned()
+            .ok_or(StoreError::NotFound)?;
+        if existing.course_id != command.course {
+            return Err(StoreError::NotFound);
+        }
+        let revision = state
+            .assignment_revisions
+            .get(&key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        if revision != command.expected_revision {
+            return Err(StoreError::Conflict);
+        }
+        let mut replacement = existing.clone();
+        let item = replacement
+            .items
+            .iter_mut()
+            .find(|item| item.id == command.current_item)
+            .ok_or(StoreError::NotFound)?;
+        item.reference = command.replacement;
+        validate_assignment(&replacement)?;
+        validate_memory_assignment_references(&state, context, &replacement)?;
+        let stored = StoredAssignment {
+            record: replacement,
+            revision: revision.next()?,
+            assignment_timing: question_model::AssignmentRunTiming {
+                time_limit_seconds: state
+                    .assignment_timing
+                    .get(&key)
+                    .copied()
+                    .ok_or(StoreError::NotFound)?
+                    .time_limit_seconds,
+            },
+            scoring_generation: state
+                .assignment_scoring
+                .get(&key)
+                .copied()
+                .ok_or(StoreError::NotFound)?
+                .0,
+            scoring_status: state
+                .assignment_scoring
+                .get(&key)
+                .copied()
+                .ok_or(StoreError::NotFound)?
+                .1,
+        };
+        state.assignments.insert(key, stored.record.clone());
+        state.assignment_revisions.insert(key, stored.revision);
+        Ok(stored)
+    }
+    async fn add_assignment_fixed_item_impl(
+        &self,
+        context: TenantContext,
+        command: AddAssignmentFixedItemCommand,
+    ) -> Result<StoredAssignment, StoreError> {
+        let mut state = self.write_state()?;
+        let key = (context.tenant_id(), command.assignment);
+        let existing = state
+            .assignments
+            .get(&key)
+            .cloned()
+            .ok_or(StoreError::NotFound)?;
+        if existing.course_id != command.course {
+            return Err(StoreError::NotFound);
+        }
+        let revision = state
+            .assignment_revisions
+            .get(&key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        if revision != command.expected_revision {
+            return Err(StoreError::Conflict);
+        }
+        if super::course_policy::memory_assignment_has_run(&state, &existing) {
+            return Err(StoreError::Conflict);
+        }
+        if existing.items.iter().any(|item| item.id == command.item.id)
+            || existing
+                .selection_groups
+                .iter()
+                .flat_map(|group| &group.candidates)
+                .any(|candidate| candidate.id == command.item.id)
+        {
+            return Err(StoreError::AlreadyExists);
+        }
+        let source_count = existing
+            .items
+            .len()
+            .checked_add(existing.selection_groups.len())
+            .ok_or_else(|| {
+                StoreError::Unavailable("assignment source count overflowed".to_string())
+            })?;
+        if usize::try_from(command.item.position).map_err(|_| {
+            StoreError::InvalidRecord("assignment item position is invalid".to_string())
+        })? > source_count
+        {
+            return Err(StoreError::InvalidRecord(
+                "assignment item position is outside the assignment source range".to_string(),
+            ));
+        }
+        let mut replacement = existing.clone();
+        for item in &mut replacement.items {
+            if item.position >= command.item.position {
+                item.position = item.position.checked_add(1).ok_or_else(|| {
+                    StoreError::Unavailable("assignment item position limit reached".to_string())
+                })?;
+            }
+        }
+        for group in &mut replacement.selection_groups {
+            if group.position >= command.item.position {
+                group.position = group.position.checked_add(1).ok_or_else(|| {
+                    StoreError::Unavailable("assignment group position limit reached".to_string())
+                })?;
+            }
+        }
+        replacement.items.push(command.item);
+        replacement.items.sort_by_key(|item| item.position);
+        validate_assignment(&replacement)?;
+        validate_memory_assignment_references(&state, context, &replacement)?;
+        let timing = state
+            .assignment_timing
+            .get(&key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        let (generation, status) = state
+            .assignment_scoring
+            .get(&key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        let stored = StoredAssignment {
+            record: replacement,
+            revision: revision.next()?,
+            assignment_timing: question_model::AssignmentRunTiming {
+                time_limit_seconds: timing.time_limit_seconds,
+            },
+            scoring_generation: generation,
+            scoring_status: status,
+        };
+        state.assignments.insert(key, stored.record.clone());
+        state.assignment_revisions.insert(key, stored.revision);
+        Ok(stored)
+    }
+    async fn remove_assignment_fixed_item_impl(
+        &self,
+        context: TenantContext,
+        command: RemoveAssignmentFixedItemCommand,
+    ) -> Result<StoredAssignment, StoreError> {
+        let mut state = self.write_state()?;
+        let key = (context.tenant_id(), command.assignment);
+        let existing = state
+            .assignments
+            .get(&key)
+            .cloned()
+            .ok_or(StoreError::NotFound)?;
+        if existing.course_id != command.course {
+            return Err(StoreError::NotFound);
+        }
+        let revision = state
+            .assignment_revisions
+            .get(&key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        if revision != command.expected_revision {
+            return Err(StoreError::Conflict);
+        }
+        if super::course_policy::memory_assignment_has_run(&state, &existing) {
+            return Err(StoreError::Conflict);
+        }
+        let removal = existing
+            .items
+            .iter()
+            .position(|item| item.id == command.item)
+            .ok_or(StoreError::NotFound)?;
+        let mut replacement = existing.clone();
+        let removed_position = replacement.items.remove(removal).position;
+        for item in &mut replacement.items {
+            if item.position > removed_position {
+                item.position -= 1;
+            }
+        }
+        for group in &mut replacement.selection_groups {
+            if group.position > removed_position {
+                group.position -= 1;
+            }
+        }
+        replacement.items.sort_by_key(|item| item.position);
+        validate_assignment(&replacement)?;
+        let timing = state
+            .assignment_timing
+            .get(&key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        let (generation, status) = state
+            .assignment_scoring
+            .get(&key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        let stored = StoredAssignment {
+            record: replacement,
+            revision: revision.next()?,
+            assignment_timing: question_model::AssignmentRunTiming {
+                time_limit_seconds: timing.time_limit_seconds,
+            },
+            scoring_generation: generation,
+            scoring_status: status,
+        };
+        state.assignments.insert(key, stored.record.clone());
+        state.assignment_revisions.insert(key, stored.revision);
         Ok(stored)
     }
     async fn delete_and_regrade_assignment_item_impl(

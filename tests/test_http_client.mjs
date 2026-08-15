@@ -531,17 +531,12 @@ test("the HTTP client decodes every implemented route and composes a run screen"
   );
   await client.logout();
   assert.equal(
-    (await client.listProblems("next page")).items[0].problem,
-    fixture.catalogProblem.problem,
+    (await client.listProblems("next page")).items[0].questionId,
+    fixture.catalogProblem.questionId,
   );
   assert.equal(
-    (
-      await client.getProblemVersion(
-        fixture.publishedProblem.problem,
-        fixture.publishedProblem.version,
-      )
-    ).version,
-    fixture.publishedProblem.version,
+    (await client.getCatalogProblemDetail(fixture.catalogProblem.questionId)).summary.questionId,
+    fixture.catalogProblem.questionId,
   );
   assert.deepEqual((await client.listTaxonomy()).items, fixture.publishedProblem.metadata.taxonomy);
   assert.equal((await client.listCourses()).items[0].id, fixture.course.id);

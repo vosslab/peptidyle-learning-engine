@@ -124,11 +124,11 @@ export function createWorkspaceEditorRepository(
       const diff = await client.getWorkspacePublicationDiff(draft.workspace);
       return {
         revision: diff.revision,
-        priorVersion: diff.prior?.version ?? null,
+        baseline: diff.baseline,
         proposedTitle: diff.current.title,
         sections: diff.changed.map((label) => ({
           label,
-          before: diff.baseline === "revision" ? "Changed" : null,
+          before: null,
           after: "Current saved draft",
         })),
       };
@@ -143,7 +143,7 @@ export function createWorkspaceEditorRepository(
           throw new WorkspaceConflictError(409, `/api/problems/${draft.workspace}/publish`);
         }
         const result = await client.publishWorkspace(draft.workspace, scope, reviewedRevision);
-        return { kind: "published", reference: result.reference };
+        return { kind: "published", questionId: result.summary.questionId };
       } catch (error: unknown) {
         if (error instanceof PublicationValidationError) {
           return { kind: "validationFailed", violations: error.violations };

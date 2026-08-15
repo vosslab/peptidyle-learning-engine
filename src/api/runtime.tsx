@@ -8,10 +8,9 @@ import type { CourseId } from "../../generated/api/CourseId";
 import type { CatalogProblemDetail } from "../../generated/api/CatalogProblemDetail";
 import type { CatalogSearchPage } from "../../generated/api/CatalogSearchPage";
 import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery";
-import type { ProblemId } from "../../generated/api/ProblemId";
+import type { QuestionId } from "../../generated/api/QuestionId";
 import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
 import type { RunId } from "../../generated/api/RunId";
-import type { VersionId } from "../../generated/api/VersionId";
 import type { ApiClient } from "./client";
 import type {
   AssignmentSummary,
@@ -33,7 +32,7 @@ export interface ApiRuntime {
   readonly queries: {
     readonly courses: QueryFunction<[], CursorPage<CourseSummary>>;
     readonly catalogSearch: QueryFunction<[CatalogSearchQuery], CatalogSearchPage>;
-    readonly catalogDetail: QueryFunction<[ProblemId, VersionId], CatalogProblemDetail>;
+    readonly catalogDetail: QueryFunction<[QuestionId], CatalogProblemDetail>;
     readonly gradebook: QueryFunction<[CourseId], CursorPage<GradebookSummaryRow>>;
     readonly assignments: QueryFunction<[CourseId], CursorPage<AssignmentSummary>>;
     readonly assignment: QueryFunction<[AssignmentId], AssignmentSummary>;
@@ -54,8 +53,7 @@ export function createApiRuntime(client: ApiClient): ApiRuntime {
         "catalog-search",
       ),
       catalogDetail: query(
-        (problemId: ProblemId, versionId: VersionId) =>
-          client.getCatalogProblemDetail(problemId, versionId),
+        (questionId: QuestionId) => client.getCatalogProblemDetail(questionId),
         "catalog-detail",
       ),
       gradebook: query((courseId: CourseId) => client.listGradebook(courseId), "course-gradebook"),

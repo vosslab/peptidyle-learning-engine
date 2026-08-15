@@ -8,13 +8,15 @@ import local_stack_control.env_file
 import local_stack_control.models
 import local_stack_control.process
 
-import walklib.models
+import tests.walkthrough.walklib as walklib
+import tests.walkthrough.walklib.models as models
 
 
 def command_result(
 	command: list[str],
 	environ: dict[str, str] | None,
-) -> walklib.models.CommandResult:
+	stdin: str | None = None,
+) -> models.CommandResult:
 	"""Run one argv-array command without a shell and capture its process result."""
 	base_environment = dict(os.environ) if environ is None else environ
 	effective_environment = local_stack_control.env_file.sanitized_runtime_environment(
@@ -26,6 +28,7 @@ def command_result(
 		text=True,
 		capture_output=True,
 		check=False,
+		input=stdin,
 	)
 	result = walklib.models.CommandResult(
 		completed.returncode,
@@ -47,11 +50,11 @@ class WalkthroughControllerRunner(local_stack_control.process.CommandRunner):
 		argv: list[str],
 		environment: dict[str, str] | None = None,
 		cwd: pathlib.Path | None = None,
+		stdin: str | None = None,
 	) -> local_stack_control.models.CommandResult:
 		"""Capture one controller command through the walkthrough-owned boundary."""
 		# The trusted runner changes to the repository root before lifecycle work.
-		# Walkthrough tests inject a two-argument runner, so cwd remains controller metadata.
-		# The legacy callback intentionally has no cwd argument.
+		# The injectable boundary owns executable input; cwd remains controller metadata.
 		del cwd
 		base_environment = (
 			local_stack_control.process.current_environment()
@@ -61,7 +64,7 @@ class WalkthroughControllerRunner(local_stack_control.process.CommandRunner):
 		effective_environment = local_stack_control.env_file.sanitized_runtime_environment(
 			base_environment
 		)
-		result = self.run_command(argv, effective_environment)
+		result = self.run_command(argv, effective_environment, stdin)
 		adapted = local_stack_control.models.CommandResult(
 			argv=tuple(argv),
 			returncode=result.returncode,

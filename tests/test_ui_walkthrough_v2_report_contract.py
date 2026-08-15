@@ -69,7 +69,11 @@ class V2ReportContractTests(unittest.TestCase):
 			state.write_text("[]\n", encoding="ascii")
 			inputs = walkthrough.RunnerInputs(1, state, "report.json", False, False, False, False)
 
-			def run_child(command: list[str], environ: dict[str, str] | None) -> object:
+			def run_child(
+				command: list[str], environ: dict[str, str] | None, stdin: str | None = None
+			) -> object:
+				if stdin is not None:
+					raise AssertionError("report rendering does not accept stdin")
 				return walkthrough.CommandResult(0, valid_output(), "unexpected diagnostic")
 
 			runner = walkthrough.WalkthroughRunner(inputs, repository_root, {}, run_child)

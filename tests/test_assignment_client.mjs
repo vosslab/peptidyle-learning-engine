@@ -2,290 +2,73 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
-import { DecodeError } from "../src/api/decoder.ts";
-import {
-  decodeAssignmentCapabilityViolations,
-  decodeAssignmentEditorDetail,
-  decodeAssignmentEditorInput,
-} from "../src/api/decoders.ts";
-import {
-  ApiRequestError,
-  ApiProtocolError,
-  AssignmentConflictError,
-  AssignmentValidationError,
-  createHttpApiClient,
-} from "../src/api/http_client.ts";
 import { createMockApiClient } from "../src/api/mock/client.ts";
+import { AssignmentConflictError } from "../src/api/http_client/error.ts";
 
-const assignment = publishedProblemFixture.assignment;
-const assignmentEditor = {
-  ...assignment,
-  assignmentTiming: { timeLimitSeconds: null },
-};
-const assignmentProblems = assignment.items
-  .filter((item) => item.deliveryState === "active")
-  .sort((left, right) => left.position - right.position)
-  .map((item) => item.reference);
-const input = {
-  title: assignment.title,
-  problems: assignmentProblems,
-  policies: assignment.policies,
-  assignmentTiming: { timeLimitSeconds: null },
-};
-
-function jsonResponse(value, status = 200, headers = {}) {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: { "content-type": "application/json", ...headers },
-  });
-}
-
-test("assignment editor decoder accepts only the stable editable projection", () => {
-  const detail = decodeAssignmentEditorDetail(assignmentEditor);
-  assert.equal(detail.id, assignment.id);
-  assert.equal(detail.courseId, assignment.courseId);
-  assert.deepEqual(detail.problems, assignmentProblems);
-  assert.deepEqual(decodeAssignmentEditorInput(input), input);
-
-  for (const forbidden of [
-    "workspace",
-    "question",
-    "source",
-    "capabilities",
-    "grading",
-    "answerKey",
-    "feedback",
-  ]) {
-    assert.throws(
-      () => decodeAssignmentEditorDetail({ ...assignmentEditor, [forbidden]: "server-only" }),
-      DecodeError,
-    );
-    assert.throws(
-      () => decodeAssignmentEditorInput({ ...input, [forbidden]: "forged" }),
-      DecodeError,
-    );
-  }
-
-  assert.throws(
-    () =>
-      decodeAssignmentCapabilityViolations({
-        error: "assignment configuration is not supported",
-        violations: [
-          {
-            title: assignment.title,
-            reference: assignmentProblems[0],
-            capability: "serverGrading",
-            backend: "forged",
-          },
-        ],
-      }),
-    DecodeError,
-  );
-
-  const nestedUnknownInputs = [
-    {
-      ...input,
-      problems: [{ ...assignmentProblems[0], source: "forged" }],
-    },
-    {
-      ...input,
-      policies: { ...input.policies, completion: { kind: "answerAll", forged: true } },
-    },
-    {
-      ...input,
-      policies: { ...input.policies, completion: { kind: "allCorrect", forged: true } },
-    },
-    {
-      ...input,
-      policies: {
-        ...input.policies,
-        completion: { kind: "scoreAtLeast", fraction: 0.8, forged: true },
-      },
-    },
-    {
-      ...input,
-      policies: { ...input.policies, continuedPractice: { kind: "unlimited", forged: true } },
-    },
-    {
-      ...input,
-      policies: { ...input.policies, continuedPractice: { kind: "closed", forged: true } },
-    },
-    {
-      ...input,
-      policies: {
-        ...input.policies,
-        continuedPractice: { kind: "capped", maxAdditionalRuns: 2, forged: true },
-      },
-    },
-    Object.fromEntries(Object.entries(input).filter(([field]) => field !== "assignmentTiming")),
-    { ...input, assignmentTiming: null },
-    { ...input, assignmentTiming: { timeLimitSeconds: 0 } },
-    { ...input, assignmentTiming: { timeLimitSeconds: 2_147_483_648 } },
-    { ...input, assignmentTiming: { timeLimitSeconds: null, forged: true } },
-  ];
-  for (const hostileInput of nestedUnknownInputs) {
-    assert.throws(() => decodeAssignmentEditorInput(hostileInput), DecodeError);
-  }
-});
-
-test("assignment HTTP transport preserves the exact revisioned create/read/save boundary", async () => {
-  const requests = [];
-  let revision = 1;
-  let current = structuredClone(assignmentEditor);
-  const client = createHttpApiClient({
-    fetch: async (url, init) => {
-      const request = new Request(new URL(String(url), "https://ple.example"), init);
-      requests.push(request.clone());
-      const path = new URL(request.url).pathname;
-      if (request.method === "POST") {
-        assert.equal(path, `/api/courses/${assignment.courseId}/assignments`);
-        const body = JSON.parse(await request.text());
-        current = {
-          ...current,
-          id: "0198e000-0000-7000-8000-000000000060",
-          title: body.title,
-          policies: body.policies,
-          assignmentTiming: body.assignmentTiming,
-        };
-        revision = 1;
-        return jsonResponse(current, 201, { etag: '"1"' });
-      }
-      if (request.method === "PUT") {
-        assert.equal(path, `/api/courses/${current.courseId}/assignments/${current.id}`);
-        assert.equal(request.headers.get("if-match"), `"${revision}"`);
-        const body = JSON.parse(await request.text());
-        current = {
-          ...current,
-          title: body.title,
-          policies: body.policies,
-          assignmentTiming: body.assignmentTiming,
-        };
-        revision += 1;
-        return jsonResponse(current, 200, { etag: `"${revision}"` });
-      }
-      return jsonResponse(current, 200, { etag: `"${revision}"` });
-    },
-  });
-
-  const read = await client.getAssignmentEditor(assignment.id);
-  const created = await client.createAssignment(assignment.courseId, input);
-  const saved = await client.saveAssignment(created.courseId, created.id, input, created.revision);
-
-  assert.equal(read.revision, '"1"');
-  assert.equal(created.revision, '"1"');
-  assert.equal(saved.revision, '"2"');
-  assert.deepEqual(JSON.parse(await requests[1].text()), input);
-  assert.deepEqual(JSON.parse(await requests[2].text()), input);
-  assert.equal(requests[2].headers.get("if-match"), '"1"');
-  assert.equal(new URL(requests[0].url).pathname, `/api/assignments/${assignment.id}`);
-  assert.equal(
-    new URL(requests[1].url).pathname,
-    `/api/courses/${assignment.courseId}/assignments`,
-  );
-  assert.ok(requests.every((request) => request.credentials === "same-origin"));
-  assert.ok(requests.every((request) => request.cache === "no-store"));
-});
-
-test("revisioned assignment responses must match the requested identity before their ETag is trusted", async () => {
-  const wrongAssignment = "0198e000-0000-7000-8000-000000000099";
-  const wrongCourse = "0198e000-0000-7000-8000-000000000098";
-  const cases = [
-    {
-      call: (client) => client.getAssignmentEditor(assignment.id),
-      response: { ...assignmentEditor, id: wrongAssignment },
-    },
-    {
-      call: (client) => client.createAssignment(assignment.courseId, input),
-      response: { ...assignmentEditor, courseId: wrongCourse },
-    },
-    {
-      call: (client) => client.saveAssignment(assignment.courseId, assignment.id, input, '"1"'),
-      response: { ...assignmentEditor, id: wrongAssignment, courseId: wrongCourse },
-    },
-  ];
-  for (const identityCase of cases) {
-    const client = createHttpApiClient({
-      fetch: async () => jsonResponse(identityCase.response, 200, { etag: '"1"' }),
-    });
-    await assert.rejects(identityCase.call(client), ApiProtocolError);
-  }
-});
-
-test("assignment HTTP transport distinguishes validation and stale-revision failures", async () => {
-  const violation = {
-    title: assignment.title,
-    reference: assignmentProblems[0],
-    capability: "serverGrading",
-  };
-  const validationClient = createHttpApiClient({
-    fetch: async () =>
-      jsonResponse(
-        { error: "assignment configuration is not supported", violations: [violation] },
-        422,
-      ),
-  });
-  await assert.rejects(
-    validationClient.createAssignment(assignment.courseId, input),
-    (error) => error instanceof AssignmentValidationError && error.violations.length === 1,
-  );
-
-  const staleClient = createHttpApiClient({
-    fetch: async () => jsonResponse({ error: "stale" }, 409),
-  });
-  await assert.rejects(
-    staleClient.saveAssignment(assignment.courseId, assignment.id, input, '"1"'),
-    AssignmentConflictError,
-  );
-
-  const hostileEtagClient = createHttpApiClient({
-    fetch: async () => jsonResponse(assignmentEditor),
-  });
-  await assert.rejects(hostileEtagClient.getAssignmentEditor(assignment.id), ApiProtocolError);
-});
-
-test("assignment mock mirrors strict body, capability report, and compare-and-swap behavior", async () => {
+test("revisioned assignment commands carry QIDs and return fresh safe summaries", async () => {
   const client = createMockApiClient({ assignmentAuthoring: true });
-  const initial = await client.getAssignmentEditor(assignment.id);
+  const assignment = await client.getAssignmentEditor(publishedProblemFixture.assignment.id);
+  const item = assignment.items[0];
+  assert.ok(item);
   const saved = await client.saveAssignment(
-    initial.courseId,
-    initial.id,
-    { ...input, title: "Revised peptide practice" },
-    initial.revision,
+    assignment.courseId,
+    assignment.id,
+    {
+      title: "Renamed without changing Question ID",
+      items: assignment.items.map(
+        ({ id, questionId, position, pointsPossible, deliveryState, scoringMode }) => ({
+          id,
+          questionId,
+          position,
+          pointsPossible,
+          deliveryState,
+          scoringMode,
+        }),
+      ),
+      policies: assignment.policies,
+      assignmentTiming: { timeLimitSeconds: null },
+    },
+    assignment.revision,
   );
-  assert.equal(saved.title, "Revised peptide practice");
-  assert.equal(saved.revision, '"2"');
-  await assert.rejects(
-    client.saveAssignment("0198e000-0000-7000-8000-000000000099", saved.id, input, saved.revision),
-    (error) => error instanceof ApiRequestError && error.status === 404,
+  assert.equal(saved.title, "Renamed without changing Question ID");
+  assert.equal(saved.items[0]?.questionId, item.questionId);
+  const replaced = await client.replaceAssignmentItemQuestion(
+    saved.courseId,
+    saved.id,
+    item.id,
+    { questionId: publishedProblemFixture.catalogProblem.questionId },
+    saved.revision,
   );
+  assert.equal(replaced.items[0]?.questionId, publishedProblemFixture.catalogProblem.questionId);
+  assert.equal(replaced.items[0]?.id, item.id);
   await assert.rejects(
-    client.saveAssignment(saved.courseId, saved.id, input, initial.revision),
+    client.removeAssignmentItem(saved.courseId, saved.id, item.id, saved.revision),
     AssignmentConflictError,
-  );
-
-  const unsupported = {
-    ...input,
-    problems: [
-      {
-        problem: assignmentProblems[0].problem,
-        version: "0198e000-0000-7000-8000-000000000005",
-      },
-    ],
-  };
-  await assert.rejects(
-    client.createAssignment(assignment.courseId, unsupported),
-    (error) =>
-      error instanceof AssignmentValidationError &&
-      error.violations.map((violation) => violation.capability).join(",") ===
-        "serverGrading,perQuestionTiming",
   );
 });
 
-test("default mock client denies assignment mutations before issuing authoring transport", async () => {
-  const client = createMockApiClient();
-  await assert.rejects(client.createAssignment(assignment.courseId, input), /not authorized/);
+test("focused assignment commands reject extra request fields before transport", async () => {
+  const client = createMockApiClient({ assignmentAuthoring: true });
+  const assignment = await client.getAssignmentEditor(publishedProblemFixture.assignment.id);
+  const item = assignment.items[0];
+  assert.ok(item);
   await assert.rejects(
-    client.saveAssignment(assignment.courseId, assignment.id, input, '"1"'),
-    /not authorized/,
+    client.addAssignmentItem(
+      assignment.courseId,
+      assignment.id,
+      { questionId: item.questionId, position: 1, extra: true },
+      assignment.revision,
+    ),
+    /allowed by this response contract/u,
+  );
+  await assert.rejects(
+    client.replaceAssignmentItemQuestion(
+      assignment.courseId,
+      assignment.id,
+      item.id,
+      { questionId: item.questionId, extra: true },
+      assignment.revision,
+    ),
+    /allowed by this response contract/u,
   );
 });

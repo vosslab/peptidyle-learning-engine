@@ -16,12 +16,12 @@ use crate::{
     AuthenticationRateLimitDecision, AuthenticationRateLimitKey, AuthenticationRateLimitScope,
     BeginEmailAuthentication, BeginWebauthnCeremony, BrowserBindingHash,
     CompleteEmailAuthentication, CompleteEmailAuthenticationAndCreateSession,
-    CompletePasskeyAuthenticationAndCreateSession, CompletedAccountSession,
-    CompletedEmailAuthentication, CompletedPasskeySession, ConsumeAuthenticationRateLimit,
-    CredentialIdHash, EmailAuthenticationChallenge, EmailAuthenticationPurpose, EmailChallengeId,
-    EmailChallengeSecretHash, Page, PageRequest, PasskeyId, PasskeyRecord, RegisterPasskey,
-    StoreError, WebauthnCeremony, WebauthnCeremonyId, WebauthnCeremonyKind, WebauthnState,
-    validated_account_display_name,
+    CompleteEmailChangeAndRevokeUserSessions, CompletePasskeyAuthenticationAndCreateSession,
+    CompletedAccountSession, CompletedEmailAuthentication, CompletedPasskeySession,
+    ConsumeAuthenticationRateLimit, CredentialIdHash, EmailAuthenticationChallenge,
+    EmailAuthenticationPurpose, EmailChallengeId, EmailChallengeSecretHash, Page, PageRequest,
+    PasskeyId, PasskeyRecord, RegisterPasskey, StoreError, WebauthnCeremony, WebauthnCeremonyId,
+    WebauthnCeremonyKind, WebauthnState, validated_account_display_name,
 };
 
 const AUTH_EXPIRY_CLEANUP_BATCH: i64 = 128;
@@ -168,6 +168,43 @@ impl AccountIdentityStore for PostgresStore {
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(CompletedAccountSession {
             authentication,
+            session,
+        })
+    }
+
+    async fn complete_email_change_and_revoke_user_sessions(
+        &self,
+        command: CompleteEmailChangeAndRevokeUserSessions,
+    ) -> Result<CompletedAccountSession, StoreError> {
+        let mut transaction = self.begin_auth().await?;
+        let row = sqlx::query(
+            "SELECT user_id, normalized_email, delivery_email, display_name, platform_roles, \
+                    created_at_millis, updated_at_millis, session_created_at_millis, \
+                    session_expires_at_millis \
+             FROM ple_complete_email_change_and_revoke_sessions($1, $2, $3, $4, $5)",
+        )
+        .bind(command.authentication.token_hash.as_bytes().to_vec())
+        .bind(command.authentication.browser_binding.as_bytes().to_vec())
+        .bind(command.authentication.proposed_user.as_uuid())
+        .bind(command.session_token_hash.as_bytes().to_vec())
+        .bind(i64::from(command.session_lifetime.as_seconds()))
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
+        let account = decode_account(&row)?;
+        let session = AccountSessionRecord {
+            token_hash: command.session_token_hash,
+            user: account.user,
+            created_at: timestamp(&row, "session_created_at_millis")?,
+            expires_at: timestamp(&row, "session_expires_at_millis")?,
+        };
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(CompletedAccountSession {
+            authentication: CompletedEmailAuthentication {
+                account,
+                created: false,
+            },
             session,
         })
     }

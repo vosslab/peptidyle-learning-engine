@@ -25,6 +25,9 @@ export function testIgnoreFromEnvironment(
   if (!activation.webwork) {
     ignored.push("**/chapter_one_run.spec.ts");
   }
+  if (environment["PLE_WP_R2_WEBWORK_QUESTION_ID"] === undefined) {
+    ignored.push("**/e2e/wp_r2_host_seed_renderer.spec.ts");
+  }
   if (environment["PLE_CAPTURE_COURSE_APPEARANCE_VISUALS"] !== "1") {
     ignored.push("**/course_appearance_visual.spec.ts");
   }

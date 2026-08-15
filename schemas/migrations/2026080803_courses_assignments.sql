@@ -384,14 +384,31 @@ CREATE FUNCTION public.ple_guard_assignment_content_lock() RETURNS trigger
 DECLARE row_tenant uuid := COALESCE(NEW.tenant_id, OLD.tenant_id);
 DECLARE row_assignment uuid := COALESCE(NEW.assignment_id, OLD.assignment_id);
 DECLARE content_changed boolean;
+DECLARE is_assignment_replacement_broker boolean := current_user = 'ple_assignment_reference_lock_broker'
+    AND COALESCE(current_setting('ple.assignment_edit_kind', true), '') = 'replace_fixed_item';
 BEGIN
     IF TG_OP = 'UPDATE' THEN
+        IF TG_TABLE_NAME = 'assignment_item' THEN
+            IF NEW.assignment_item_id IS DISTINCT FROM OLD.assignment_item_id THEN
+                RAISE EXCEPTION 'assignment item identities are immutable'
+                    USING ERRCODE = '55000';
+            END IF;
+        ELSIF TG_TABLE_NAME = 'assignment_selection_candidate' THEN
+            IF NEW.candidate_id IS DISTINCT FROM OLD.candidate_id THEN
+                RAISE EXCEPTION 'assignment item identities are immutable'
+                    USING ERRCODE = '55000';
+            END IF;
+        END IF;
         content_changed := (NEW.problem_id, NEW.version_id)
             IS DISTINCT FROM (OLD.problem_id, OLD.version_id);
+        IF content_changed AND NOT is_assignment_replacement_broker THEN
+            RAISE EXCEPTION 'assignment item references change through the focused replacement capability'
+                USING ERRCODE = '55000';
+        END IF;
     ELSE
         content_changed := true;
     END IF;
-    IF content_changed AND EXISTS (
+    IF content_changed AND NOT is_assignment_replacement_broker AND EXISTS (
         SELECT 1 FROM public.assignment_run run
          JOIN public.enrollment enrollment
            ON enrollment.tenant_id = run.tenant_id
@@ -488,11 +505,11 @@ CREATE TRIGGER assignment_selection_group_position_guard
     FOR EACH ROW EXECUTE FUNCTION public.ple_guard_assignment_position();
 
 CREATE TRIGGER assignment_item_content_lock
-    BEFORE INSERT OR DELETE OR UPDATE OF problem_id, version_id ON public.assignment_item
+    BEFORE INSERT OR DELETE OR UPDATE OF assignment_item_id, problem_id, version_id ON public.assignment_item
     FOR EACH ROW EXECUTE FUNCTION public.ple_guard_assignment_content_lock();
 
 CREATE TRIGGER assignment_selection_candidate_content_lock
-    BEFORE INSERT OR DELETE OR UPDATE OF problem_id, version_id ON public.assignment_selection_candidate
+    BEFORE INSERT OR DELETE OR UPDATE OF candidate_id, problem_id, version_id ON public.assignment_selection_candidate
     FOR EACH ROW EXECUTE FUNCTION public.ple_guard_assignment_content_lock();
 
 CREATE TRIGGER assignment_item_retirement_guard

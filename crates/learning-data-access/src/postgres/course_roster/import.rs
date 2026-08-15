@@ -13,10 +13,10 @@ use super::{
 };
 use crate::{
     AuthenticationEmail, CommitCourseRosterImport, CommittedCourseRosterImport,
-    CourseRosterImportId, CourseRosterImportRow, CourseRosterImportRowInput,
-    CourseRosterImportState, CourseRosterSupportAction, RosterImportRevision,
-    RosterImportRowStatus, RosterRevision, SessionTokenHash, StageCourseRosterImport, StoreError,
-    TenantContext,
+    CourseInvitationDeliveryId, CourseRosterImportId, CourseRosterImportRow,
+    CourseRosterImportRowInput, CourseRosterImportState, CourseRosterSupportAction,
+    RosterImportRevision, RosterImportRowStatus, RosterRevision, SessionTokenHash,
+    StageCourseRosterImport, StoreError, TenantContext,
 };
 
 const IMPORT_CLEANUP_BATCH: i64 = 128;
@@ -285,6 +285,17 @@ pub(super) async fn commit(
         .bind(command.import.as_uuid())
         .bind(i32::from(row_number))
         .fetch_one(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        sqlx::query(
+            "INSERT INTO course_invitation_delivery \
+             (tenant_id, course_id, invitation_id, delivery_id) VALUES ($1, $2, $3, $4)",
+        )
+        .bind(tenant.as_uuid())
+        .bind(command.course.as_uuid())
+        .bind(invitation_id.as_uuid())
+        .bind(CourseInvitationDeliveryId::generate()?.as_uuid())
+        .execute(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
         invitations.push((

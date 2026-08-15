@@ -75,7 +75,6 @@ where
         let draft = DraftRecord {
             tenant,
             question: draft_question(workspace),
-            revises: None,
             derived_from: None,
         };
         let saved_draft = store

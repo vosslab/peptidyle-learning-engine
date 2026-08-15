@@ -60,15 +60,20 @@ The draft rule is carried by the type rather than a flag:
 `QuestionDefinition::problem` is `Option<ProblemId>`, and `is_draft()` reads
 that option. There is no separate boolean to fall out of sync with it.
 
-`ProblemVersionRef` carries the exact `(ProblemId, VersionId)` pair used by
-assignments and lineage. `PublicationScope` distinguishes institution-visible
-and public immutable versions; private content remains a draft and therefore
-has no publication-scope variant or `ProblemId`.
+Each Question ID names exactly one immutable published question. Publishing
+creates its fresh opaque `(ProblemId, VersionId)` pair; a content change
+receives a new Question ID and another fresh pair. `ProblemVersionRef` keeps
+that exact pair only in trusted delivery, grading, replay, audit, and optional
+non-operative provenance records. `PublicationScope` distinguishes
+institution-visible and public immutable publications; private content remains
+a draft and therefore has no publication-scope variant or `ProblemId`.
 
-`CatalogProblemSummary` is the hot browse projection. It contains identity,
-backend family, capabilities, metadata, scope, lifecycle, authors, lineage,
-and publication time, but not prompt, response, or private source-locator
-fields. Exact version lookup loads the separate `QuestionDefinition` payload.
+`CatalogProblemSummary` is the hot browse projection. It contains the Question
+ID, backend family, capabilities, metadata, scope, lifecycle, and publication
+time, but not prompt, response, private source-locator fields, or the opaque
+internal pair. Trusted server work resolves the Question ID and loads the
+separate internal `QuestionDefinition` payload. Browser catalog detail uses
+that safe Question-ID projection and presents one immutable publication.
 
 `CourseMembershipRole` represents only the student and instructor values that
 may be stored on a direct membership. There is no second effective-course-role
@@ -76,9 +81,9 @@ enum.
 
 `Sysadmin` is a platform `UserRole`, never a course-membership value; it cannot
 replace direct Instructor membership for general FERPA access. `CourseSummary`
-and `AssignmentSummary` are Rust-owned browser projections. Assignment
-summaries carry an ordered list of exact `ProblemVersionRef` values and never
-embed a question payload.
+and `AssignmentSummary` are Rust-owned browser projections. Their item and
+selection-candidate summaries carry Question IDs and safe display metadata,
+never an opaque `ProblemVersionRef` or question payload.
 
 ### Capabilities
 
@@ -124,8 +129,8 @@ reviewed table covering all eight capabilities and the return-all behavior.
 
 | Field           | Type                      | Purpose                                  |
 | --------------- | ------------------------- | ---------------------------------------- |
-| `version`       | `VersionId`               | This immutable version                   |
-| `problem`       | `Option<ProblemId>`       | Present once published                   |
+| `version`       | `VersionId`               | Opaque half of the immutable pair        |
+| `problem`       | `Option<ProblemId>`       | Other opaque half, present once published |
 | `workspace`     | `WorkspaceId`             | Authoring workspace                      |
 | `source`        | `QuestionSource`          | Which engine, and where to find it there |
 | `prompt`        | `Vec<ContentBlock>`       | Renderable content, in order             |
@@ -178,16 +183,16 @@ attempt and provides a consistency binding for that presentation.
 server-minted nonce, title, prompt, and an answer-free `ResponseSchemaV1`.
 The schema currently covers the eight native flat families:
 
-| `ResponseSchemaV1` | Shared response definition |
-| ------------------ | -------------------------- |
-| `singleChoice` | exactly-one multiple choice |
-| `multipleAnswer` | one-or-more multiple choice |
-| `fillIn` | short text |
-| `multiFillIn` | multi-blank |
-| `numerical` | numeric |
-| `matching` | matching |
-| `ordering` | ordering |
-| `hotspot` | hotspot |
+| `ResponseSchemaV1` | Shared response definition  |
+| ------------------ | --------------------------- |
+| `singleChoice`     | exactly-one multiple choice |
+| `multipleAnswer`   | one-or-more multiple choice |
+| `fillIn`           | short text                  |
+| `multiFillIn`      | multi-blank                 |
+| `numerical`        | numeric                     |
+| `matching`         | matching                    |
+| `ordering`         | ordering                    |
+| `hotspot`          | hotspot                     |
 
 `FileUpload` and `ExternalTool` intentionally have no `ResponseSchemaV1`
 variant. The presentation builder rejects them as unsupported rather than

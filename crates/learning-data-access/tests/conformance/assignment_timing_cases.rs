@@ -618,7 +618,7 @@ async fn editor_assignment_timing_replaces_with_one_revision_and_preserves_acces
             learning_data_access::AssignmentEditorUpdate {
                 assignment: learning_data_access::AssignmentUpdate {
                     title: "Retimed mastery".to_string(),
-                    items: fixed_items(vec![reference]),
+                    items: created.record.items.clone(),
                     selection_groups: Vec::new(),
                     policies: policies(),
                 },

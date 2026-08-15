@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use objects::Sha256Digest;
 use question_model::{CourseId, TenantId, UserId};
 
+use super::super::invitation_delivery::create_pending;
 use super::{
     CourseInvitation, CourseInvitationId, CourseInvitationStatus, CourseMemberStatus,
     bump_roster_revision, roster_policy, timestamp_after_seconds,
@@ -25,6 +26,44 @@ pub(in crate::in_memory) struct StoredCourseRosterImport {
     normalized_rows: Vec<CourseRosterImportRowInput>,
     commit_idempotency_key: Option<RosterIdempotencyKey>,
     committed: Option<CommittedCourseRosterImport>,
+}
+
+/// Finds the committed bulk-import provenance for one invitation without
+/// exposing row email or invitation secret material.
+pub(in crate::in_memory) fn delivery_provenance(
+    state: &State,
+    tenant: TenantId,
+    course: CourseId,
+    invitation: CourseInvitationId,
+) -> Result<Option<(CourseRosterImportId, u16, RosterIdempotencyKey)>, StoreError> {
+    let mut result = None;
+    for ((entry_tenant, entry_course, import), stored) in &state.roster_imports {
+        if *entry_tenant != tenant || *entry_course != course {
+            continue;
+        }
+        let Some(committed) = &stored.committed else {
+            continue;
+        };
+        let Some((row_number, _)) = committed
+            .invitations
+            .iter()
+            .find(|(_, record)| record.id == invitation)
+        else {
+            continue;
+        };
+        let commit_idempotency_key = stored.commit_idempotency_key.clone().ok_or_else(|| {
+            StoreError::Unavailable("committed roster import lacks its receipt".to_string())
+        })?;
+        if result
+            .replace((*import, *row_number, commit_idempotency_key))
+            .is_some()
+        {
+            return Err(StoreError::Unavailable(
+                "invitation has multiple roster import provenances".to_string(),
+            ));
+        }
+    }
+    Ok(result)
 }
 
 pub(super) fn stage(
@@ -175,6 +214,7 @@ pub(super) fn commit(
                 record: invitation.clone(),
             },
         );
+        create_pending(state, tenant, command.course, invitation.id)?;
         invitations.push((row_number, invitation));
     }
     let roster_revision = bump_roster_revision(

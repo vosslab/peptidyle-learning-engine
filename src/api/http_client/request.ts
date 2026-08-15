@@ -20,8 +20,11 @@ import type {
 } from "../contracts";
 import {
   decodeAssignmentCapabilityViolations,
+  decodeAddAssignmentItemInput,
+  decodeAssignmentCreateInput,
   decodeAssignmentEditorDetail,
   decodeAssignmentEditorInput,
+  decodeReplaceAssignmentItemQuestionInput,
   decodeAssignmentRun,
   decodeCapabilityViolations,
   decodeCourseAppearance,
@@ -245,6 +248,9 @@ export function createRequestClient(
   | "createCourse"
   | "createAssignment"
   | "saveAssignment"
+  | "addAssignmentItem"
+  | "removeAssignmentItem"
+  | "replaceAssignmentItemQuestion"
   | "startRun"
   | "prefetchNextQuestion"
   | "submitResponse"
@@ -403,7 +409,7 @@ export function createRequestClient(
         basePath,
         assignmentPath(courseId),
         { courseId },
-        { method: "POST", body: decodeAssignmentEditorInput(input, "request") },
+        { method: "POST", body: decodeAssignmentCreateInput(input, "request") },
       ),
     saveAssignment: (
       courseId,
@@ -423,6 +429,69 @@ export function createRequestClient(
         {
           method: "PUT",
           body: decodeAssignmentEditorInput(input, "request"),
+          headers: { "if-match": revision },
+        },
+      );
+    },
+    addAssignmentItem: (
+      courseId,
+      assignmentId,
+      input,
+      revision,
+    ): ReturnType<ApiClient["addAssignmentItem"]> => {
+      if (!validRevision(revision))
+        return Promise.reject(
+          new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
+        );
+      return requestAssignmentEditor(
+        fetchImplementation,
+        basePath,
+        `${assignmentPath(courseId, assignmentId)}/items`,
+        { courseId, assignmentId },
+        {
+          method: "POST",
+          body: decodeAddAssignmentItemInput(input, "request"),
+          headers: { "if-match": revision },
+        },
+      );
+    },
+    removeAssignmentItem: (
+      courseId,
+      assignmentId,
+      itemId,
+      revision,
+    ): ReturnType<ApiClient["removeAssignmentItem"]> => {
+      if (!validRevision(revision))
+        return Promise.reject(
+          new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
+        );
+      return requestAssignmentEditor(
+        fetchImplementation,
+        basePath,
+        `${assignmentPath(courseId, assignmentId)}/items/${encodedId(itemId)}`,
+        { courseId, assignmentId },
+        { method: "DELETE", headers: { "if-match": revision } },
+      );
+    },
+    replaceAssignmentItemQuestion: (
+      courseId,
+      assignmentId,
+      itemId,
+      input,
+      revision,
+    ): ReturnType<ApiClient["replaceAssignmentItemQuestion"]> => {
+      if (!validRevision(revision))
+        return Promise.reject(
+          new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
+        );
+      return requestAssignmentEditor(
+        fetchImplementation,
+        basePath,
+        `${assignmentPath(courseId, assignmentId)}/items/${encodedId(itemId)}/question`,
+        { courseId, assignmentId },
+        {
+          method: "PUT",
+          body: decodeReplaceAssignmentItemQuestionInput(input, "request"),
           headers: { "if-match": revision },
         },
       );

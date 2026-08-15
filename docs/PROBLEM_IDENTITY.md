@@ -4,7 +4,7 @@ This document is the durable map of identities that name questions and their
 related records. It answers two easy-to-confuse questions:
 
 1. What durable record is this?
-2. Which stable, human-usable Question ID names the current question?
+2. Which stable, human-usable Question ID names that exact published question?
 
 The first answer uses typed UUID identities. The second uses one validated
 `AAA-BBBB` Crockford Base32 Question ID. Presentation-scoped response IDs are
@@ -45,18 +45,19 @@ feature and is absent from the browser/Wasm build.
 
 ### Authoring and shared content
 
-| Identifier | Names | Ownership and lifetime |
-| --- | --- | --- |
-| `WorkspaceId` | One private instructor authoring workspace | Tenant-owned, mutable draft boundary |
-| `WorkspaceImportId` | One staged import in a workspace | Tenant-owned until publication resolves it |
-| `ProblemId` | One logical published problem across revisions | Shared immutable-content lineage |
-| `VersionId` | One exact immutable published revision | Shared content; referenced by assignments and attempts |
-| `AssetId` | One logical published asset | Shared content identity, independent of physical placement |
-| `ObjectId` | One immutable object-store record | Physical/source/rendition object identity; never a substitute for `AssetId` |
+| Identifier          | Names                                                  | Ownership and lifetime                                                      |
+| ------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------- |
+| `WorkspaceId`       | One private instructor authoring workspace             | Tenant-owned, mutable draft boundary                                        |
+| `WorkspaceImportId` | One staged import in a workspace                       | Tenant-owned until publication resolves it                                  |
+| `ProblemId`         | Internal identity for one immutable published question | Shared immutable-content provenance and retrieval                           |
+| `VersionId`         | Internal exact immutable publication evidence          | Shared content; referenced by assignments and attempts                      |
+| `AssetId`           | One logical published asset                            | Shared content identity, independent of physical placement                  |
+| `ObjectId`          | One immutable object-store record                      | Physical/source/rendition object identity; never a substitute for `AssetId` |
 
-`ProblemVersionRef { problem, version }` is the only complete durable reference
-to a question version. Assignment items, attempts, exported manifests, and
-lineage use that pair rather than silently resolving a latest version.
+`ProblemVersionRef { problem, version }` is the complete internal durable
+reference to immutable published evidence. Assignment items, attempts,
+exported manifests, and provenance use that pair rather than resolving a
+latest version. It is not an instructor-facing version picker.
 
 `AssetId` answers "which logical asset does content cite?" `ObjectId` answers
 "which immutable stored bytes or source artifact reproduce this record?" An
@@ -65,16 +66,16 @@ deduplication or rendition replacement without rewriting question content.
 
 ### Tenant-owned teaching records
 
-| Identifier | Names | Why it must remain distinct |
-| --- | --- | --- |
-| `TenantId` | One RLS and institutional boundary | Every educational record carries it directly |
-| `CourseId`, `CourseGroupId` | A course/section and its current group | Course membership is not assignment ownership |
-| `AssignmentId` | One tenant assignment | Defines learning activity and policy, not content |
-| `AssignmentItemId`, `AssignmentSelectionGroupId` | A stable assignment item or random-selection group | Preserves position and selection semantics when content repeats |
-| `EnrollmentId` | One student's relationship to one assignment | Keeps repeated runs on one durable educational record |
-| `RunId` | One pass through an assignment | Preserves earlier completed runs while allowing continued practice |
-| `QuestionAttemptId` | One issued question in one run | Binds an answer to the learner, run, exact version, seed, timing, and backend |
-| `StudentId`, `UserId` | Pedagogical student and authenticated person | They may map to the same provider UUID, but are not interchangeable concepts |
+| Identifier                                       | Names                                              | Why it must remain distinct                                                   |
+| ------------------------------------------------ | -------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `TenantId`                                       | One RLS and institutional boundary                 | Every educational record carries it directly                                  |
+| `CourseId`, `CourseGroupId`                      | A course/section and its current group             | Course membership is not assignment ownership                                 |
+| `AssignmentId`                                   | One tenant assignment                              | Defines learning activity and policy, not content                             |
+| `AssignmentItemId`, `AssignmentSelectionGroupId` | A stable assignment item or random-selection group | Preserves position and selection semantics when content repeats               |
+| `EnrollmentId`                                   | One student's relationship to one assignment       | Keeps repeated runs on one durable educational record                         |
+| `RunId`                                          | One pass through an assignment                     | Preserves earlier completed runs while allowing continued practice            |
+| `QuestionAttemptId`                              | One issued question in one run                     | Binds an answer to the learner, run, exact version, seed, timing, and backend |
+| `StudentId`, `UserId`                            | Pedagogical student and authenticated person       | They may map to the same provider UUID, but are not interchangeable concepts  |
 
 An ID names a record; it does not grant access to it. Authentication, tenant
 context, authorization, RLS, lifecycle checks, and server-side ownership checks
@@ -84,45 +85,53 @@ decide whether a caller may read or change the record.
 
 `QuestionId` is the only catalog identity presented to a person. Its canonical
 form is `AAA-BBBB`: six random Crockford Base32 identity characters plus one
-server-validated HMAC-SHA256 character. It is non-sequential, copyable, and
-stable across original-owner corrections. A fork receives a new Question ID.
-It is not authorization evidence and never replaces `ProblemVersionRef` in
-hidden storage, attempt provenance, or historical grading.
+server-validated HMAC-SHA256 character. It is non-sequential and copyable. One
+Question ID names one immutable published question. Every authored content
+change, including an original-owner correction, publishes a new Question ID;
+an explicit provenance link may identify its source question. A Question ID is
+not authorization evidence and never replaces `ProblemVersionRef` in hidden
+storage, attempt provenance, or historical grading.
 
-## Publication and version lineage
+## Publication and provenance
 
 The lifecycle state machine is a small pure model:
 
-| State | Published pair present | Discovery | New assignments | Exact historical resolution |
-| --- | --- | --- | --- | --- |
-| `Draft` | No | No | No | No |
-| `Validated` | No | No | No | No |
-| `Published` | Yes | Yes | Yes | Yes |
-| `Deprecated` | Yes | No | Yes, by exact reference | Yes |
-| `Archived` | Yes | No | No | Yes |
+| State        | Published pair present | Discovery | New assignments         | Exact historical resolution |
+| ------------ | ---------------------- | --------- | ----------------------- | --------------------------- |
+| `Draft`      | No                     | No        | No                      | No                          |
+| `Validated`  | No                     | No        | No                      | No                          |
+| `Published`  | Yes                    | Yes       | Yes                     | Yes                         |
+| `Deprecated` | Yes                    | No        | Yes, by exact reference | Yes                         |
+| `Archived`   | Yes                    | No        | No                      | Yes                         |
 
 Only these forward transitions are legal:
 
-| From | Event | To |
-| --- | --- | --- |
-| `Draft` | `Validate` | `Validated` |
-| `Validated` | `Publish { publication }` | `Published` |
-| `Published` | `Deprecate { reason }` | `Deprecated` |
-| `Deprecated` | `Archive` | `Archived` |
+| From         | Event                     | To           |
+| ------------ | ------------------------- | ------------ |
+| `Draft`      | `Validate`                | `Validated`  |
+| `Validated`  | `Publish { publication }` | `Published`  |
+| `Published`  | `Deprecate { reason }`    | `Deprecated` |
+| `Deprecated` | `Archive`                 | `Archived`   |
 
 `question_model::lifecycle::apply` rejects skips, reversals, and empty
 deprecation explanations. The pure transition receives the publication pair;
-the server publication flow is responsible for minting that pair and recording
-the immutable payload, scope, authorship, and provenance atomically. There is
-no restore transition. A correction publishes a new hidden immutable snapshot,
-moves current assignment definitions forward for future runs, and never
-modifies a learner's historical run.
+the server publication flow records the immutable payload, scope, authorship,
+and provenance atomically. There is no restore transition.
 
-Within one problem, `previousVersion` makes a linear revision chain. A
-third-party derivative starts a different `ProblemId` and records its source
-`ProblemVersionRef` in `derivedFrom`; this preserves attribution and license
-lineage without granting the derivative author write access to the source
-chain.
+PLE does not support problem drift. A correction or other content change is a
+new published question with a new Question ID, not a successor of the existing
+Question ID. It may record explicit `derivedFrom` provenance to the exact
+source question, preserving attribution and license lineage without granting
+the derivative author write access to the source.
+
+Existing assignments and issued runs retain their exact references. An
+Instructor may deliberately replace an assignment item only through an
+explicit, revision-checked edit; publication, correction, lifecycle work, and
+background processing never advance an assignment automatically. This is the
+durable no-drift contract. The Store and server keep assignment replacement
+separate from publication: a replacement changes the future assignment
+definition only after a revision check, while issued snapshots continue to use
+their original exact pair. The accepted WP-R2 boundary enforces this contract.
 
 Publication scope is `Institution` or `Public`. It applies only after
 publication. There is intentionally no "private published problem" scope:
@@ -166,13 +175,13 @@ single ordinary text or numeric field has no reason to carry one. The browser
 shows ordinary labels and content, not the code, then submits the compact code
 inside the family-specific answer shape.
 
-| Durable semantic ID | Rendered item ID |
-| --- | --- |
-| `ChoiceId` (or another internal slot/item identity) | `RenderedItemIdV1` |
-| Stable across the authored question's semantics | Valid only inside one attempt presentation |
-| Used by server grading and content models | Used for compact browser correspondence |
-| May be longer opaque text | Exactly four lowercase hex characters |
-| Never inferred from a label or position | Derived from the full rendered context |
+| Durable semantic ID                                 | Rendered item ID                           |
+| --------------------------------------------------- | ------------------------------------------ |
+| `ChoiceId` (or another internal slot/item identity) | `RenderedItemIdV1`                         |
+| Stable across the authored question's semantics     | Valid only inside one attempt presentation |
+| Used by server grading and content models           | Used for compact browser correspondence    |
+| May be longer opaque text                           | Exactly four lowercase hex characters      |
+| Never inferred from a label or position             | Derived from the full rendered context     |
 
 At issuance, PLE derives IDs for the entire presentation, requires uniqueness
 across roles as well as within a response family, retries with a fresh
@@ -209,10 +218,10 @@ It must not silently issue a new seed or grade a stale answer.
 - Draft, shared published content, tenant educational records, and physical
   objects have different owners and identifiers.
 - Publication is a new immutable identity boundary, not an edit in place.
-- Current assignment definitions follow original-owner corrections; issued
-  runs and attempts pin exact hidden snapshots for historical replay.
-- A normal browser surface presents one current question and its Question ID,
-  never a version picker, sequence number, or UUID.
+- Each Question ID names one immutable published question. Existing assignments
+  and issued runs pin their exact hidden evidence for historical replay.
+- A normal browser surface presents that exact question and its Question ID,
+  never a version picker, "latest" resolution, sequence number, or UUID.
 - `QuestionAttemptId` identifies the server-owned grading context; it is not a
   bearer capability.
 - A compact rendered ID is local to one presentation and never becomes a

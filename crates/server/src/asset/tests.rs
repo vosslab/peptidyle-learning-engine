@@ -110,7 +110,6 @@ async fn publish(
     let draft = DraftRecord {
         tenant: context.tenant_id(),
         question: question(version, workspace),
-        revises: None,
         derived_from: None,
     };
     let saved = store

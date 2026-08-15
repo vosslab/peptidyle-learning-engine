@@ -6,12 +6,12 @@ use async_trait::async_trait;
 use question_model::taxonomy::TaxonomyTerm;
 use question_model::{
     ActivityTimestamp, CatalogLifecycle, CatalogProblemDetail, CatalogProblemSummary,
-    CatalogSearchPage, CatalogSearchQuery, DraftQuestionSource, ProblemPublicId,
-    ProblemVersionNumber, ProblemVersionRef, PublicationScope, QuestionDefinition,
-    QuestionStatisticsDisclosure, UserId,
+    CatalogSearchPage, CatalogSearchQuery, DraftQuestionSource, ProblemVersionRef,
+    PublicationScope, QuestionDefinition, QuestionStatisticsDisclosure, UserId,
 };
 use serde_json::Value;
 use sqlx::Row;
+use sqlx::types::Uuid;
 
 use super::connection::{map_sqlx_error, retry_transaction};
 use super::{
@@ -22,11 +22,11 @@ use super::{
     taxonomy_page_from_rows, validated_deprecation_reason,
 };
 use crate::{
-    CatalogSourceStore, CatalogStore, CatalogTransition, DraftRecord, OwnerCorrectionAuthority,
-    OwnerCorrectionStore, Page, PageRequest, PublishDraftCommand, PublishedProblemRecord,
-    PublishedSourceArtifact, QtiImportRegistry, StoreError, TenantContext, WorkspaceDraftRevision,
-    WorkspaceFlatQuestionSource, ensure_tenant, validate_draft, validate_flat_question_publication,
-    validate_publication_source, validate_published, validate_qti_publication_promotion,
+    CatalogSourceStore, CatalogStore, CatalogTransition, DraftRecord, Page, PageRequest,
+    PublishDraftCommand, PublishedProblemRecord, PublishedSourceArtifact, QtiImportRegistry,
+    StoreError, TenantContext, WorkspaceDraftRevision, WorkspaceFlatQuestionSource, ensure_tenant,
+    validate_draft, validate_flat_question_publication, validate_publication_source,
+    validate_published, validate_qti_publication_promotion,
     validate_source_artifact_for_publication, validate_source_artifact_identity,
 };
 
@@ -38,10 +38,6 @@ impl CatalogStore for PostgresStore {
         actor: UserId,
         command: PublishDraftCommand,
     ) -> Result<PublishedProblemRecord, StoreError> {
-        if command.expected_draft.revises.is_some() && context.owner_correction_session().is_none()
-        {
-            return Err(StoreError::Forbidden);
-        }
         retry_transaction(|| {
             let command = command.clone();
             async move {
@@ -220,91 +216,22 @@ impl CatalogStore for PostgresStore {
                 };
 
                 let publication = command.publication;
-                let (authors, previous_version, derived_from, existing_display_identity) =
-                    if let Some(revises) = command.expected_draft.revises {
-                        if publication.problem != revises.problem {
-                            return Err(StoreError::InvalidRecord(
-                                "revision must remain in its existing problem chain".to_string(),
-                            ));
-                        }
-                        let base_row = sqlx::query(
-                            "SELECT pv.problem_id, p.public_id, p.question_id, p.owner_user_id, pv.version_id, pv.version_number, \
-                            pvp.payload, pvp.payload_sha256, pv.lifecycle, pv.lifecycle_reason \
-                     FROM problem_version AS pv \
-                     JOIN problem AS p USING (problem_id) \
-                     JOIN problem_version_payload AS pvp USING (problem_id, version_id) \
-                     WHERE pv.problem_id = $1 AND pv.version_id = $2 \
-                       AND p.owner_tenant_id = $3 \
-                     FOR UPDATE OF pv",
-                        )
-                        .bind(revises.problem.as_uuid())
-                        .bind(revises.version.as_uuid())
-                        .bind(context.tenant_id().as_uuid())
-                        .fetch_optional(&mut *transaction)
-                        .await
-                        .map_err(map_sqlx_error)?
-                        .ok_or(StoreError::NotFound)?;
-                        let base = decode_catalog_payload_row(&base_row)?;
-                        let original_owner = UserId::from_uuid(
-                            base_row
-                                .try_get("owner_user_id")
-                                .map_err(map_sqlx_error)?,
-                        );
-                        if original_owner != command.publisher {
-                            return Err(StoreError::Forbidden);
-                        }
-                        let has_successor: bool = sqlx::query_scalar(
-                            "SELECT EXISTS(SELECT 1 FROM problem_version \
-                     WHERE problem_id = $1 AND previous_version_id = $2)",
-                        )
-                        .bind(revises.problem.as_uuid())
-                        .bind(revises.version.as_uuid())
-                        .fetch_one(&mut *transaction)
-                        .await
-                        .map_err(map_sqlx_error)?;
-                        if has_successor {
-                            return Err(StoreError::Conflict);
-                        }
-                        (
-                            base.authors,
-                            Some(revises.version),
-                            base.derived_from,
-                            Some((
-                                base.question_id,
-                                base.public_id,
-                                base.version_number
-                                    .value()
-                                    .checked_add(1)
-                                    .and_then(|value| ProblemVersionNumber::new(u64::from(value)))
-                                    .ok_or_else(|| {
-                                        StoreError::Unavailable(
-                                            "problem version number limit reached".to_string(),
-                                        )
-                                    })?,
-                            )),
-                        )
-                    } else {
-                        if let Some(source) = command.expected_draft.derived_from {
-                            let source_visible: bool = sqlx::query_scalar(
-                                "SELECT EXISTS(SELECT 1 FROM problem_version \
+                let authors = vec![command.publisher];
+                let derived_from = command.expected_draft.derived_from;
+                if let Some(source) = derived_from {
+                    let source_visible: bool = sqlx::query_scalar(
+                        "SELECT EXISTS(SELECT 1 FROM problem_version \
                          WHERE problem_id = $1 AND version_id = $2)",
-                            )
-                            .bind(source.problem.as_uuid())
-                            .bind(source.version.as_uuid())
-                            .fetch_one(&mut *transaction)
-                            .await
-                            .map_err(map_sqlx_error)?;
-                            if !source_visible {
-                                return Err(StoreError::NotFound);
-                            }
-                        }
-                        (
-                            vec![command.publisher],
-                            None,
-                            command.expected_draft.derived_from,
-                            None,
-                        )
-                    };
+                    )
+                    .bind(source.problem.as_uuid())
+                    .bind(source.version.as_uuid())
+                    .fetch_one(&mut *transaction)
+                    .await
+                    .map_err(map_sqlx_error)?;
+                    if !source_visible {
+                        return Err(StoreError::NotFound);
+                    }
+                }
 
                 let duplicate_version: bool = sqlx::query_scalar(
                     "SELECT EXISTS(SELECT 1 FROM problem_version \
@@ -319,9 +246,7 @@ impl CatalogStore for PostgresStore {
                     return Err(StoreError::AlreadyExists);
                 }
 
-                let (question_id, public_id, version_number) = match existing_display_identity {
-                    Some(identity) => identity,
-                    None => {
+                let question_id = {
                         let license =
                             serde_json::to_value(&command.expected_draft.question.metadata.license)
                                 .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
@@ -342,14 +267,14 @@ impl CatalogStore for PostgresStore {
                                 "Question ID product limit reached".to_string(),
                             ));
                         }
-                        let mut inserted = None;
+                        let mut issued_question_id = None;
                         for _ in 0..64 {
                             let question_id = self.question_ids.issue()?;
-                            let value: Option<i64> = sqlx::query_scalar(
+                            let inserted_problem: Option<Uuid> = sqlx::query_scalar(
                                 "INSERT INTO problem \
                          (problem_id, question_id, owner_tenant_id, owner_user_id, visibility, license) \
                          VALUES ($1, $2, $3, $4, $5, $6) \
-                         ON CONFLICT (question_id) DO NOTHING RETURNING public_id",
+                         ON CONFLICT (question_id) DO NOTHING RETURNING problem_id",
                             )
                             .bind(publication.problem.as_uuid())
                             .bind(question_id.compact())
@@ -360,31 +285,16 @@ impl CatalogStore for PostgresStore {
                             .fetch_optional(&mut *transaction)
                             .await
                             .map_err(map_sqlx_error)?;
-                            if let Some(value) = value {
-                                inserted = Some((question_id, value));
+                            if inserted_problem == Some(publication.problem.as_uuid()) {
+                                issued_question_id = Some(question_id);
                                 break;
                             }
                         }
-                        let (question_id, value) = inserted.ok_or_else(|| {
+                        issued_question_id.ok_or_else(|| {
                             StoreError::Unavailable(
                                 "Question ID collision retry exhausted".to_string(),
                             )
-                        })?;
-                        let value = u64::try_from(value).map_err(|_| {
-                            StoreError::Unavailable(
-                                "stored problem public ID is invalid".to_string(),
-                            )
-                        })?;
-                        (
-                            question_id,
-                            ProblemPublicId::new(value).ok_or_else(|| {
-                                StoreError::Unavailable(
-                                    "stored problem public ID is invalid".to_string(),
-                                )
-                            })?,
-                            ProblemVersionNumber::new(1).expect("one is positive"),
-                        )
-                    }
+                        })?
                 };
 
                 let published_at_millis: i64 = sqlx::query_scalar(
@@ -407,15 +317,12 @@ impl CatalogStore for PostgresStore {
                 let record = PublishedProblemRecord {
                     problem: publication.problem,
                     question_id,
-                    public_id,
                     version: publication.version,
-                    version_number,
                     question,
                     capabilities: command.capabilities,
                     scope: command.scope,
                     lifecycle: CatalogLifecycle::Published,
                     authors,
-                    previous_version,
                     derived_from,
                     published_at: ActivityTimestamp::from_unix_millis(published_at_millis),
                 };
@@ -575,7 +482,7 @@ impl CatalogStore for PostgresStore {
     ) -> Result<Option<PublishedProblemRecord>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         let row = sqlx::query(
-            "SELECT pv.problem_id, p.public_id, p.question_id, pv.version_id, pv.version_number, \
+            "SELECT pv.problem_id, p.question_id, pv.version_id, \
                     pvp.payload, pvp.payload_sha256, pv.lifecycle, pv.lifecycle_reason \
              FROM problem_version AS pv \
              JOIN problem AS p USING (problem_id) \
@@ -603,14 +510,13 @@ impl CatalogStore for PostgresStore {
         let question_id = reference.question_id.compact();
         let mut transaction = self.begin_tenant(context).await?;
         let row = sqlx::query(
-            "SELECT pv.problem_id, p.public_id, p.question_id, pv.version_id, pv.version_number, \
+            "SELECT pv.problem_id, p.question_id, pv.version_id, \
                     pvp.payload, pvp.payload_sha256, pv.lifecycle, pv.lifecycle_reason \
              FROM problem AS p \
              JOIN problem_version AS pv USING (problem_id) \
              JOIN problem_version_payload AS pvp USING (problem_id, version_id) \
              WHERE p.question_id = $1 \
-               AND pv.lifecycle IN ('published', 'deprecated') \
-             ORDER BY pv.version_number DESC LIMIT 1",
+               AND pv.lifecycle IN ('published', 'deprecated')",
         )
         .bind(question_id)
         .fetch_optional(&mut *transaction)
@@ -630,19 +536,17 @@ impl CatalogStore for PostgresStore {
         let limit = i64::from(page.size.get()) + 1;
         let mut transaction = self.begin_tenant(context).await?;
         let rows = sqlx::query(
-            "SELECT document.problem_id::text || '/' || document.version_id::text AS stable_key, \
-                    document.problem_id, document.question_id, document.version_id, \
-                    document.version_number, document.backend, document.capabilities, \
+            "SELECT document.question_id AS stable_key, document.question_id, \
+                    document.backend, document.capabilities, \
                     document.metadata, document.publication_scope, document.lifecycle, \
-                    document.lifecycle_reason, document.authors, document.previous_version_id, \
-                    document.derived_from_problem_id, document.derived_from_version_id, \
+                    document.lifecycle_reason, \
                     floor(extract(epoch FROM document.published_at) * 1000)::bigint \
                         AS published_at_millis \
              FROM catalog_search_document AS document \
              WHERE document.lifecycle = 'published' \
                AND ($1::text IS NULL \
-                    OR document.problem_id::text || '/' || document.version_id::text > $1) \
-             ORDER BY document.problem_id::text, document.version_id::text LIMIT $2",
+                    OR document.question_id > $1) \
+             ORDER BY document.question_id LIMIT $2",
         )
         .bind(cursor)
         .bind(limit)
@@ -710,7 +614,7 @@ impl CatalogStore for PostgresStore {
         // k-gated reader; it never joins catalog payload or learner history.
         let mut transaction = self.begin_tenant_snapshot(context).await?;
         let row = sqlx::query(
-            "SELECT pv.problem_id, p.public_id, p.question_id, pv.version_id, pv.version_number, \
+            "SELECT pv.problem_id, p.question_id, pv.version_id, \
                     pvp.payload, pvp.payload_sha256, pv.lifecycle, pv.lifecycle_reason \
              FROM problem_version AS pv \
              JOIN problem AS p USING (problem_id) \
@@ -764,7 +668,7 @@ impl CatalogStore for PostgresStore {
     ) -> Result<PublishedProblemRecord, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         let row = sqlx::query(
-            "SELECT pv.problem_id, p.public_id, p.question_id, pv.version_id, pv.version_number, \
+            "SELECT pv.problem_id, p.question_id, pv.version_id, \
                     pvp.payload, pvp.payload_sha256, pv.lifecycle, pv.lifecycle_reason \
              FROM problem_version AS pv \
              JOIN problem AS p USING (problem_id) \
@@ -823,30 +727,6 @@ impl CatalogStore for PostgresStore {
         }
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(record)
-    }
-}
-
-#[async_trait]
-impl OwnerCorrectionStore for PostgresStore {
-    async fn publish_owner_correction(
-        &self,
-        context: TenantContext,
-        authority: OwnerCorrectionAuthority,
-        command: PublishDraftCommand,
-    ) -> Result<PublishedProblemRecord, StoreError> {
-        if command.expected_draft.revises.is_none() || authority.actor != command.publisher {
-            return Err(StoreError::Forbidden);
-        }
-        // The publication transaction owns all later writes.  The RLS policy
-        // and SECURITY DEFINER trigger independently revalidate this local
-        // session capability before any cross-tenant propagation occurs.
-        CatalogStore::publish_draft(
-            self,
-            context.with_owner_correction_session(authority.session),
-            authority.actor,
-            command,
-        )
-        .await
     }
 }
 

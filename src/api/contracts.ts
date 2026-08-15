@@ -17,7 +17,6 @@ import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionD
 import type { WorkspaceDraftSummary } from "../../generated/api/WorkspaceDraftSummary";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { Capability } from "../../generated/api/Capability";
-import type { ProblemVersionRef } from "../../generated/api/ProblemVersionRef";
 import type { PublicationScope } from "../../generated/api/PublicationScope";
 import type { License } from "../../generated/api/License";
 import type { TaxonomyTerm } from "../../generated/api/TaxonomyTerm";
@@ -33,7 +32,7 @@ import type { CourseAppearance } from "../../generated/api/CourseAppearance";
 import type { Seed } from "../../generated/api/Seed";
 import type { VersionId } from "../../generated/api/VersionId";
 import type { AssignmentRunTiming } from "../../generated/api/AssignmentRunTiming";
-import type { AssignmentPublicId } from "../../generated/api/AssignmentPublicId";
+import type { CatalogProblemSummary } from "../../generated/api/CatalogProblemSummary";
 
 export type { AssignmentSummary, CourseSummary };
 export type { GradebookSummaryRow };
@@ -52,15 +51,7 @@ export interface CourseRouteData {
  * source, capability declarations, keys, grading, or learner-feedback policy
  * into the editor transport.
  */
-export interface AssignmentEditorDetail {
-  readonly id: AssignmentId;
-  readonly publicId: AssignmentPublicId;
-  /** Tenant ownership remains visible to existing assignment consumers. */
-  readonly tenant: TenantId;
-  readonly courseId: CourseId;
-  readonly title: string;
-  readonly problems: ReadonlyArray<ProblemVersionRef>;
-  readonly policies: RunPolicies;
+export interface AssignmentEditorDetail extends AssignmentSummary {
   /** Course-owned whole-practice-run timer; null explicitly means Untimed. */
   readonly assignmentTiming: AssignmentRunTiming;
   /** Strong server-issued ETag; send it byte-for-byte when updating. */
@@ -79,12 +70,36 @@ export type NavigationResolution =
   | { readonly kind: "workspace"; readonly workspaceId: WorkspaceId };
 
 /** The exact mutable body accepted for assignment creation and replacement. */
-export interface AssignmentEditorInput {
+export interface AssignmentCreateInput {
   readonly title: string;
-  readonly problems: ReadonlyArray<ProblemVersionRef>;
+  readonly questionIds: ReadonlyArray<string>;
   readonly policies: RunPolicies;
   /** Modern editor saves always state the whole-run timing choice explicitly. */
   readonly assignmentTiming: AssignmentRunTiming;
+}
+
+/** The ordinary editor save keeps each assigned Question ID unchanged. */
+export interface AssignmentEditorInput {
+  readonly title: string;
+  readonly items: ReadonlyArray<{
+    readonly id: string;
+    readonly questionId: string;
+    readonly position: number;
+    readonly pointsPossible: string;
+    readonly deliveryState: "active" | "retired";
+    readonly scoringMode: "normal" | "fullCredit" | "extraCredit" | "excluded";
+  }>;
+  readonly policies: RunPolicies;
+  readonly assignmentTiming: AssignmentRunTiming;
+}
+
+export interface AddAssignmentItemInput {
+  readonly questionId: string;
+  readonly position: number;
+}
+
+export interface ReplaceAssignmentItemQuestionInput {
+  readonly questionId: string;
 }
 
 /** The deliberately small public request accepted when an instructor creates a course. */
@@ -95,7 +110,7 @@ export interface CourseCreateInput {
 /** One server-derived capability conflict for a selected immutable version. */
 export interface AssignmentCapabilityViolation {
   readonly title: string;
-  readonly reference: ProblemVersionRef;
+  readonly questionId: string;
   readonly capability: Capability;
 }
 
@@ -218,9 +233,7 @@ export type PublicationValidationResponse =
 export interface PublicationDiff {
   readonly draftRevision: number;
   readonly revision: string;
-  readonly baseline: "firstPublication" | "revision";
-  readonly prior: ProblemVersionRef | null;
-  readonly previous: PublicationSemanticProjection | null;
+  readonly baseline: "newQuestion";
   readonly current: PublicationSemanticProjection;
   readonly changed: ReadonlyArray<
     | "sourceBackend"
@@ -267,7 +280,7 @@ export type PublicationResponseKind =
   | "externalTool";
 
 export interface PublicationResult {
-  readonly reference: ProblemVersionRef;
+  readonly summary: CatalogProblemSummary;
 }
 
 export interface PublicationRequest {

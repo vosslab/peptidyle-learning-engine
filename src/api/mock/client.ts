@@ -11,12 +11,11 @@ import type { CatalogProblemDetail } from "../../../generated/api/CatalogProblem
 import type { CatalogSearchPage } from "../../../generated/api/CatalogSearchPage";
 import type { GradebookSummaryRow } from "../../../generated/api/GradebookSummaryRow";
 import type { EnrollmentId } from "../../../generated/api/EnrollmentId";
-import type { ProblemId } from "../../../generated/api/ProblemId";
+import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
 import type { RunId } from "../../../generated/api/RunId";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
-import type { VersionId } from "../../../generated/api/VersionId";
 import type { DraftQuestionDefinition } from "../../../generated/api/DraftQuestionDefinition";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import type { PublicationScope } from "../../../generated/api/PublicationScope";
@@ -39,8 +38,11 @@ import {
   decodeCourseBannerCandidateReceipt,
   decodeCourseCreateInput,
   decodeAssignmentCapabilityViolations,
+  decodeAddAssignmentItemInput,
   decodeAssignmentEditorDetail,
   decodeAssignmentEditorInput,
+  decodeReplaceAssignmentItemQuestionInput,
+  decodeAssignmentCreateInput,
   decodeAssignmentSummary,
   decodeFeedbackReleaseResponse,
   decodeIssuedPresentationEnvelope,
@@ -440,9 +442,7 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
       return Promise.resolve({
         draftRevision: workspaceRevision,
         revision: `"${workspaceRevision}"`,
-        baseline: "firstPublication",
-        prior: null,
-        previous: null,
+        baseline: "newQuestion",
         current: publicationProjection(detail.draft),
         changed: [],
       });
@@ -465,12 +465,7 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
           new WorkspaceConflictError(409, `/api/problems/${workspace}/publish`),
         );
       }
-      return Promise.resolve({
-        reference: {
-          problem: publishedProblemFixture.publishedProblem.problem,
-          version: publishedProblemFixture.publishedProblem.version,
-        },
-      });
+      return Promise.resolve({ summary: publishedProblemFixture.catalogProblem });
     },
     listProblems: (cursor?: string) => {
       const expected = {
@@ -490,26 +485,10 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
         decodeCatalogProblemSummary(value, decoderPath, true),
       );
     },
-    getCatalogProblemDetail: (
-      problemId: ProblemId,
-      versionId: VersionId,
-    ): Promise<CatalogProblemDetail> => {
-      if (
-        problemId !== publishedProblemFixture.publishedProblem.problem ||
-        versionId !== publishedProblemFixture.publishedProblem.version
-      ) {
-        return Promise.reject(
-          new Error("Mock catalog detail does not recognize this immutable version"),
-        );
-      }
-      const path = `/api/problems/${problemId}/versions/${versionId}/detail`;
+    getCatalogProblemDetail: (questionId: QuestionId): Promise<CatalogProblemDetail> => {
+      const path = `/api/problems/by-id/${questionId}/detail`;
       return decodeMockCatalogResponse(mockFetch(path), path, decodeCatalogProblemDetail);
     },
-    getProblemVersion: (problemId: ProblemId, versionId: VersionId) =>
-      expectSerialized(
-        mockFetch(`/api/problems/${problemId}/versions/${versionId}`),
-        publishedProblemFixture.publishedProblem,
-      ),
     listTaxonomy: (cursor?: string) => {
       const expected = {
         items: publishedProblemFixture.publishedProblem.metadata.taxonomy,
@@ -629,10 +608,10 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
         `/api/assignments/${assignmentId}`,
         { assignmentId },
       ),
-    createAssignment: (courseId: CourseId, input: AssignmentEditorInput) => {
+    createAssignment: (courseId: CourseId, input) => {
       const authorizationError = assignmentAuthoringError();
       if (authorizationError !== undefined) return Promise.reject(authorizationError);
-      const body = decodeAssignmentEditorInput(input, "request");
+      const body = decodeAssignmentCreateInput(input, "request");
       const path = `/api/courses/${courseId}/assignments`;
       return requestMockAssignment(
         mockFetch(path, {
@@ -666,6 +645,48 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
           body: JSON.stringify(body),
         }),
         path,
+        { courseId, assignmentId },
+      );
+    },
+    addAssignmentItem: async (courseId, assignmentId, input, revision) => {
+      const authorizationError = assignmentAuthoringError();
+      if (authorizationError !== undefined) return Promise.reject(authorizationError);
+      const body = decodeAddAssignmentItemInput(input, "request");
+      await client.resolveCatalogProblem(body.questionId);
+      return await requestMockAssignment(
+        mockFetch(`/api/courses/${courseId}/assignments/${assignmentId}/items`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "if-match": revision },
+          body: JSON.stringify(body),
+        }),
+        `/api/courses/${courseId}/assignments/${assignmentId}/items`,
+        { courseId, assignmentId },
+      );
+    },
+    removeAssignmentItem: (courseId, assignmentId, itemId, revision) => {
+      const authorizationError = assignmentAuthoringError();
+      if (authorizationError !== undefined) return Promise.reject(authorizationError);
+      return requestMockAssignment(
+        mockFetch(`/api/courses/${courseId}/assignments/${assignmentId}/items/${itemId}`, {
+          method: "DELETE",
+          headers: { "if-match": revision },
+        }),
+        `/api/courses/${courseId}/assignments/${assignmentId}/items/${itemId}`,
+        { courseId, assignmentId },
+      );
+    },
+    replaceAssignmentItemQuestion: async (courseId, assignmentId, itemId, input, revision) => {
+      const authorizationError = assignmentAuthoringError();
+      if (authorizationError !== undefined) return Promise.reject(authorizationError);
+      const body = decodeReplaceAssignmentItemQuestionInput(input, "request");
+      await client.resolveCatalogProblem(body.questionId);
+      return await requestMockAssignment(
+        mockFetch(`/api/courses/${courseId}/assignments/${assignmentId}/items/${itemId}/question`, {
+          method: "PUT",
+          headers: { "content-type": "application/json", "if-match": revision },
+          body: JSON.stringify(body),
+        }),
+        `/api/courses/${courseId}/assignments/${assignmentId}/items/${itemId}/question`,
         { courseId, assignmentId },
       );
     },

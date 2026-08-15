@@ -74,9 +74,9 @@ body limit, status response, and Rust type remain in the linked owner.
 | --- | --- | --- | --- |
 | Health | `GET /health` | Readiness only; it is not an authenticated API session probe. | [crates/server/src/composition/router.rs](../crates/server/src/composition/router.rs) |
 | Auth/session | production `POST /api/auth/passwordless/email/start` and `/complete`; account-email start/complete; passkey registration/authentication start/complete; passkey list/revoke; account course list/select; `GET /api/auth/session`; `POST /api/auth/logout`; local development additionally has legacy `POST /api/auth/login` | PLE-owned accounts use email as the canonical sign-in path and optional passkeys as shortcuts. Email and passkey completion issue a bounded HttpOnly `ple_account_session`; invitation claim or course selection then derives a tenant-scoped `ple_session` from an authorized relationship. Production composes this provider-free graph with an eight-hour `FirstPartyHttps` policy and does not mount the legacy route. | [crates/server/src/auth.rs](../crates/server/src/auth.rs), [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) |
-| Catalog | `GET /api/problems`, `/search`, `/by-id/{reference}`, `/{problem}/versions/{version}`, `/{problem}/versions/{version}/detail`, `GET /api/taxonomy` | Browse and detail are browser-safe catalog projections. Source, private response/grading material, credentials, and student records are excluded. | [crates/server/src/catalog/routes.rs](../crates/server/src/catalog/routes.rs) |
-| Catalog lifecycle | `POST /api/problems/{workspace}/publish`, `POST /api/problems/{problem}/versions/{version}/deprecate`, `/archive` | Publication mints immutable content from an authorized workspace. Lifecycle actions operate on immutable published versions and retain historical references. | [crates/server/src/catalog/routes.rs](../crates/server/src/catalog/routes.rs) |
-| Course and assignment | `GET/POST /api/courses`, `GET/POST /api/courses/{course}/assignments`, `GET /api/courses/{course}`, `/gradebook`, `GET /api/assignments/{assignment}`, `PUT /api/courses/{course}/assignments/{assignment}` | Course comes from path plus membership. Assignment create/update bodies carry title, immutable version references, and policies; they cannot select tenant, draft, source, or answer payload. | [crates/server/src/course/routing.rs](../crates/server/src/course/routing.rs) |
+| Catalog | `GET /api/problems`, `/search`, `/by-id/{reference}`, `/by-id/{reference}/detail`, `GET /api/taxonomy` | Browse, exact-ID lookup, and detail are browser-safe Question-ID projections. Source, private response/grading material, credentials, internal publication pairs, and student records are excluded. | [crates/server/src/catalog/routes.rs](../crates/server/src/catalog/routes.rs) |
+| Catalog lifecycle | `POST /api/problems/{workspace}/publish`, `POST /api/problems/by-id/{reference}/deprecate`, `/archive` | Publication mints one new immutable question with a fresh Question ID and hidden exact publication evidence. Lifecycle actions resolve the Question ID under authorization and retain protected historical evidence. | [crates/server/src/catalog/routes.rs](../crates/server/src/catalog/routes.rs) |
+| Course and assignment | `GET/POST /api/courses`, `GET/POST /api/courses/{course}/assignments`, `GET /api/courses/{course}`, `/gradebook`, `GET /api/assignments/{assignment}`, `PUT /api/courses/{course}/assignments/{assignment}`, `POST .../items`, `DELETE .../items/{item}`, `PUT .../items/{item}/question` | Course comes from path plus membership. Create and focused item mutations select Question IDs; ordinary update preserves the selected items while changing title, order, points, delivery, scoring, or policies. Item mutations use assignment `If-Match`; a revision conflict preserves the caller's input for reload and retry. | [crates/server/src/course/routing.rs](../crates/server/src/course/routing.rs) |
 | Course roster | `GET /api/courses/{course}/roster`; invitation create/revoke/redeem; enrollment-policy replace; member revoke; roster-import preview/commit; `POST /api/courses/{course}/assignments/{assignment}/grade-export.csv` | Direct Instructors own the workflow. A Sysadmin may use only the closed list/invite/policy/revoke/import support operations; the Store records actor/course/action/time for each support disclosure or change. Invitation claim resolves the authenticated PLE account and atomically reconciles membership, assignment enrollments, and empty summaries. Grade export remains direct-Instructor-only, synchronous, no-store, and excludes global account IDs. | [crates/server/src/course/roster.rs](../crates/server/src/course/roster.rs), [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) |
 | Course appearance | `GET/PUT /api/courses/{course}/appearance`, `POST /api/courses/{course}/appearance/banner-candidates` | Safe theme/banner projection; candidate upload uses raw bounded raster bytes and returns an opaque candidate receipt. Current appearance update uses strong `If-Match`. | [crates/server/src/course_appearance.rs](../crates/server/src/course_appearance.rs) |
 | Workspace | `GET /api/workspaces`, `GET/PUT/DELETE /api/workspaces/{workspace}`, `POST /publication-validation`, `GET /publication-diff` | Private authoring draft surface. Mutation and publication review use the strong workspace revision ETag. | [crates/server/src/workspace.rs](../crates/server/src/workspace.rs) |
@@ -96,8 +96,8 @@ body limit, status response, and Rust type remain in the linked owner.
 
 The route table describes the shared application router assembled by
 [`crates/server/src/composition/router.rs`](../crates/server/src/composition/router.rs).
-It injects account and session Stores, invitation issuer/delivery capabilities,
-passwordless email delivery and rate-limit issuer, and optional WebAuthn
+It injects account and session Stores, the invitation issuer, passwordless
+email delivery and rate-limit issuer, and optional WebAuthn
 configuration. Local development additionally layers its `IdentityProvider`
 and legacy login route over that graph. This makes the account, passwordless,
 passkey, invitation, and roster route families independently testable without
@@ -221,8 +221,8 @@ not-found responses where that distinction would leak ownership.
 PLE currently uses stable `/api/...` paths, not a global `/v1` URL prefix.
 Versioning is therefore explicit at the boundary that evolves:
 
-- immutable problem versions and deterministic seeds identify delivered
-  educational content;
+- immutable published questions, their protected exact evidence, and deterministic seeds identify
+  delivered educational content;
 - strong numeric resource revisions protect concurrent workspace, assignment,
   course-appearance, QTI-review, and conversion updates;
 - closed Rust/TypeScript discriminants version a DTO by adding a reviewed,

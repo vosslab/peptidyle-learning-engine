@@ -338,25 +338,36 @@ content only.
 The browser supplies a workspace identifier and requested publication scope,
 but never a new `ProblemId` or a backend capability declaration. The server
 loads the tenant-owned draft, resolves capabilities from its trusted adapter
-registry, returns the complete capability-violation list, and generates a
-fresh problem identifier for a new work or fork. The store compares and locks
-the same draft before committing metadata, immutable payload, visibility
-grant, and draft deletion in one transaction.
+registry, returns the complete capability-violation list, and generates fresh
+published identities for a new work, correction, or derivative. The store
+compares and locks the same draft before committing metadata, immutable
+payload, visibility grant, and draft deletion in one transaction.
 
 Public publication requires Instructor or Sysadmin authority plus the
 institution's optional review gate. Institution publication permits an
-Instructor or Sysadmin. Post-publication transitions require
-both an eligible role and author ownership. Database privileges permit only
-the lifecycle fields to change; published identity, scope, payload,
-capabilities, metadata, authorship, and lineage cannot be updated or deleted by
-the application role.
+Instructor or Sysadmin. Post-publication transitions require both an eligible
+role and author ownership. Database privileges permit only the lifecycle fields
+to change; published identity, scope, payload, capabilities, metadata,
+authorship, and lineage cannot be updated or deleted by the application role.
+
+The no-drift contract requires every content change, including an
+original-owner correction, to publish a new Question ID with optional explicit
+provenance. Existing assignments retain their exact references until an
+Instructor makes a deliberate, revision-checked replacement; no lifecycle or
+background action may select a successor for them. The server resolves only the
+Question ID chosen by the Instructor for a revision-checked replacement; it
+does not select a successor or internal publication pair on the browser's
+behalf. The accepted WP-R2 boundary enforces this contract.
 
 Catalog browse responses contain hot browser-safe metadata only. They expose a
 backend family but no native family name, WeBWorK path, QTI package identifier,
 H5P package identifier, prompt, response definition, or answer-bearing value.
-Deprecated and archived versions are hidden from browse, but exact authorized
-lookup remains available for historical records. Deprecation remains usable by
-an exact new reference; archival additionally blocks new assignments.
+Deprecated and archived questions are hidden from browse, but exact authorized
+internal lookup remains available for historical records. A deprecated Question
+ID may be deliberately selected for a new assignment when its lifecycle policy
+permits it; archived content is blocked. This lifecycle behavior does not add a
+successor, "latest" resolution, or automatic
+assignment replacement.
 
 ## Course authorization boundary
 
@@ -371,20 +382,19 @@ and exposes only roster operations needed to help an Instructor.
 Course and membership tables use forced tenant RLS. Nonmembers receive the same
 not-found response as absent courses, limiting identity disclosure. Students
 may list and resolve assignments in their courses but receive a forbidden
-response for assignment creation. Assignment writes validate every exact
-problem/version reference against catalog visibility and lifecycle state; no
-question payload, answer key, or grading code is copied into the course row or
-returned by browse.
+response for assignment creation. Assignment writes validate each selected
+Question ID against catalog visibility and lifecycle state; no question payload,
+answer key, or grading code is copied into the course row or returned by browse.
 
-Assignment creation and replacement accept only a title, an ordered list of
-immutable problem/version references, and the four assignment-level
-`RunPolicies`. Request JSON cannot supply a tenant, course, assignment ID,
-workspace draft, capability declaration, source, or question payload. The
-server resolves each reference through tenant-visible catalog state, accepts
-published and deprecated versions but not archived versions, and uses the
-persisted immutable capability declaration with `validate_assignment_config`.
-The browser may display the returned safe title/reference/capability
-violations, but it is never the capability authority.
+Assignment creation and focused replacement accept Question IDs, while ordinary
+update retains its assigned item identities and changes assignment-owned fields.
+Request JSON cannot supply a tenant, course, assignment ID, hidden publication
+pair, workspace draft, capability declaration, source, or question payload.
+The server resolves each Question ID through tenant-visible catalog state,
+accepts published and lifecycle-permitted deprecated questions but not archived
+content, and uses the persisted immutable capability declaration with
+`validate_assignment_config`. The browser may display the returned safe title,
+Question ID, and capability violations, but it is never the capability authority.
 
 Assignment edits use a positive strong revision ETag. Course authorization is
 resolved before the `If-Match` precondition, so malformed or missing revisions

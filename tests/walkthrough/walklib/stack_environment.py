@@ -10,7 +10,8 @@ import local_stack_control.discovery
 import local_stack_control.models
 import local_stack_control.process
 
-import walklib.models
+import tests.walkthrough.walklib as walklib
+import tests.walkthrough.walklib.models as models
 
 
 APPLICATION_IMAGE_SETTING = "PLE_APPLICATION_IMAGE"
@@ -37,7 +38,7 @@ def render_private_environment(
 ) -> bytes:
 	"""Copy a selected Compose file while reserving the application image setting."""
 	if not application_image.startswith("localhost/peptidyle-learning-engine:"):
-		raise walklib.models.RunnerError("walkthrough application image is invalid")
+		raise models.RunnerError("walkthrough application image is invalid")
 	lines = source.splitlines()
 	settings = (
 		APPLICATION_IMAGE_SETTING,

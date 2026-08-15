@@ -57,7 +57,11 @@ fn hotspot_source(asset: AssetId, checksum: Sha256Digest) -> String {
     )
 }
 
-async fn restage_hotspot_revision(fixture: &Fixture, source: &str, revises: ProblemVersionRef) {
+async fn restage_hotspot_revision(
+    fixture: &Fixture,
+    source: &str,
+    derived_from: ProblemVersionRef,
+) {
     let document = FlatQuestionDocument::parse(source.as_bytes()).expect("revision source parses");
     let canonical = document
         .canonical_bytes()
@@ -93,8 +97,7 @@ async fn restage_hotspot_revision(fixture: &Fixture, source: &str, revises: Prob
                 draft: DraftRecord {
                     tenant: fixture.tenant,
                     question,
-                    revises: Some(revises),
-                    derived_from: None,
+                    derived_from: Some(derived_from),
                 },
                 source: source_record,
                 canonical_source_sha256: Sha256Digest::compute(&canonical).to_string(),
@@ -150,9 +153,9 @@ async fn hotspot_publication_copies_a_verified_private_image_to_a_fresh_catalog_
         "{}",
         String::from_utf8_lossy(&body)
     );
-    let published: question_model::QuestionDefinition =
-        serde_json::from_slice(&body).expect("published hotspot public question");
-    let question_model::ResponseDefinition::Hotspot { surface, .. } = &published.response else {
+    let published = published_record(&fixture, &body).await;
+    let question_model::ResponseDefinition::Hotspot { surface, .. } = &published.question.response
+    else {
         panic!("publication retains hotspot response");
     };
     assert_ne!(
@@ -256,12 +259,11 @@ async fn hotspot_publication_copies_a_verified_private_image_to_a_fresh_catalog_
         .expect("revision ETag text");
     let (revision_status, _, revision_body) = publish(&fixture, revision_etag).await;
     assert_eq!(revision_status, StatusCode::CREATED);
-    let revised: question_model::QuestionDefinition =
-        serde_json::from_slice(&revision_body).expect("revised hotspot question");
+    let revised = published_record(&fixture, &revision_body).await;
     let question_model::ResponseDefinition::Hotspot {
         surface: revised_surface,
         ..
-    } = &revised.response
+    } = &revised.question.response
     else {
         panic!("revision retains hotspot response");
     };

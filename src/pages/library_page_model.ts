@@ -4,10 +4,8 @@ import { normalizeQuestionIdSyntax } from "../question_id";
 
 /** A browser-safe current-question catalog record. */
 export interface CatalogBrowseRow {
-  /** Copy/paste identity used by instructors; UUID fields remain hidden deduplication keys. */
+  /** Copy/paste identity used by instructors and the browser deduplication key. */
   readonly displayId: string;
-  readonly problemId: string;
-  readonly versionId: string;
   readonly title: string;
   readonly summary: string;
   readonly taxonomy: ReadonlyArray<string>;
@@ -102,16 +100,7 @@ function stringList(value: unknown, path: string): ReadonlyArray<string> {
 function decodeRow(value: unknown, path: string): CatalogBrowseRow {
   if (
     !isRecord(value) ||
-    !hasExactKeys(value, [
-      "capabilities",
-      "displayId",
-      "license",
-      "problemId",
-      "summary",
-      "taxonomy",
-      "title",
-      "versionId",
-    ])
+    !hasExactKeys(value, ["capabilities", "displayId", "license", "summary", "taxonomy", "title"])
   ) {
     throw new Error(`${path} has an unexpected shape`);
   }
@@ -121,8 +110,6 @@ function decodeRow(value: unknown, path: string): CatalogBrowseRow {
   }
   return {
     displayId,
-    problemId: boundedText(value["problemId"], `${path}.problemId`),
-    versionId: boundedText(value["versionId"], `${path}.versionId`),
     title: boundedText(value["title"], `${path}.title`),
     summary: boundedText(value["summary"], `${path}.summary`, MAX_SUMMARY_LENGTH),
     taxonomy: stringList(value["taxonomy"], `${path}.taxonomy`),
@@ -222,7 +209,7 @@ export function catalogVirtualWindow<T>(
 }
 
 function rowKey(row: CatalogBrowseRow): string {
-  return `${row.problemId}\u0000${row.versionId}`;
+  return row.displayId;
 }
 
 function appendUnique(
@@ -241,7 +228,15 @@ function appendUnique(
   return [...previous, ...appended];
 }
 
-/** Cursor-only session: one request at a time and stale responses cannot append. */
+/**
+ * Cursor-only session: one request at a time and stale responses cannot append.
+ *
+ * A replacement query clears its old result rows while loading, but retains the
+ * last server-computed aggregates until the replacement response arrives. This
+ * keeps an already-selected native facet option present (and therefore selected)
+ * through the asynchronous transition. Those retained counts describe the last
+ * completed query only; the next completed response replaces them wholesale.
+ */
 export class CatalogBrowseSession {
   #generation = 0;
   #query = EMPTY_CATALOG_QUERY;
@@ -307,8 +302,10 @@ export class CatalogBrowseSession {
     }
     this.#loading = true;
     const retainedRows = replace || this.#state.kind === "empty" ? [] : this.#state.rows;
-    const retainedAggregates =
-      replace || this.#state.kind === "empty" ? [] : this.#state.aggregates;
+    // Replacement results must not transiently remove native select options.
+    // The aggregate values remain server-owned and are replaced, never merged,
+    // when the exact replacement query completes.
+    const retainedAggregates = this.#state.aggregates;
     const retainedCursor = replace || this.#state.kind === "empty" ? null : this.#state.nextCursor;
     this.setState({
       kind: "loading",
@@ -406,8 +403,6 @@ export function createSyntheticCatalogRepository(
         const number = start + offset + 1;
         return {
           displayId: syntheticQuestionId(number),
-          problemId: `problem-${number}`,
-          versionId: `version-${number}`,
           title: `Synthetic problem ${number}`,
           summary: "A browser-safe synthetic catalog record for virtual-list behavior checks.",
           taxonomy: ["Biochemistry"],

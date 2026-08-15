@@ -144,7 +144,7 @@ cannot name one does not belong here.
 - Extensions and bulk score override -> entitlement and accommodation pages plus explicit
   assignment-grade overrides.
 - Grade by item across students -> manual-grading queue with a by-item pivot.
-- Question usage and revision impact -> usage index and correction impact.
+- Question usage and replacement impact -> usage index and explicit replacement impact.
 - Course-wide ungraded work -> instructor attention queue.
 - Term-level date shifting with preview -> term shift through the preview plane.
 - Assignment templates and course import -> blueprints, Alpha courses, rollover.
@@ -153,7 +153,7 @@ cannot name one does not belong here.
 
 Because questions are shared and immutable, and issued runs retain exact `(ProblemId, VersionId)`
 and seed evidence, Peptidyle can compute things ADAPT cannot compute at all: cross-course item
-behavior, before-and-after comparison of a correction, and fork-versus-source comparison. Section 6
+behavior and comparison of explicitly linked replacement questions with their sources. Section 6
 turns that into professor capability rather than a statistics page.
 
 ## Design philosophy
@@ -444,9 +444,10 @@ come before the features. Peptidyle already owns the first one:
 minimum cohort size, and suppresses discrimination separately when the scored cohort is too small.
 This plan extends that contract rather than inventing a parallel one.
 
-- **Comparable observations only.** An aggregate combines observations of the same
+- **Comparable observations only.** An aggregate combines observations of the same exact internal
   `(ProblemId, VersionId)` under comparable delivery: same response family, and item scoring not
-  excluded. Comparisons across versions are stated as version-to-version, never blended.
+  excluded. A comparison is only between explicitly linked replacement questions and their source;
+  their observations are stated separately and never blended.
 - **Independence.** Repeated practice is a product feature, so repeated attempts by one learner are
   not independent observations. Difficulty and discrimination use the learner's first scored attempt
   per issued run; attempt counts and time are reported separately as behavior, not as difficulty.
@@ -475,24 +476,27 @@ they rank on relevance alone and say so.
 
 The **usage index** maps a published question to the assignments, courses, collections, and Alpha
 curricula that reference it, with tenant-safe aggregation: an author sees counts and their own
-courses by name, never another instructor's course. It powers the "used in my courses" facet, the
-correction-impact review, safe deprecation, and analysis navigation.
+courses by name, never another instructor's course. It powers the "used in my courses" facet, an
+explicit replacement-impact review, safe deprecation, and analysis navigation.
 
-### 6.3 Measure whether a correction actually helped
+### 6.3 Measure whether a replacement actually helped
 
-Attempts carry the exact version. A correction creates a new version while the old one keeps its
-evidence. Peptidyle can therefore show a before-and-after comparison for one question, under the
-section 6.0 rules: both versions must independently clear the disclosure threshold, the comparison
-names both cohort sizes, and it is presented as a description of two cohorts rather than a causal
-claim. Where the cohorts differ materially in course composition, the comparison says so instead of
-reporting a difference. ADAPT cannot compute this at all, because each course holds a private copy.
-This makes revision a measurable act rather than a hopeful one.
+Attempts carry the exact internal version evidence for the question that was issued. A correction
+publishes a distinct replacement question with a new Question ID, while the source keeps its
+evidence. Peptidyle can therefore compare explicitly linked source and replacement questions under
+the section 6.0 rules: each question must independently clear the disclosure threshold, the
+comparison names both Question IDs and cohort sizes, and it is presented as a description of two
+cohorts rather than a causal claim. Where the cohorts differ materially in course composition, the
+comparison says so instead of reporting a difference. No publication or background action moves an
+assignment; an Instructor explicitly chooses a replacement. ADAPT cannot compute this at all,
+because each course holds a private copy. This makes a replacement a measurable act rather than a
+hopeful one.
 
-### 6.4 Compare a fork with its source
+### 6.4 Compare a linked replacement with its source
 
-`derived_from_problem_id` already records lineage. Two variants of the same ancestor can be compared
+Explicit immutable provenance records lineage. A replacement question and its source can be compared
 on disclosed aggregates under the same rules, so an instructor choosing between them sees evidence
-rather than titles, and an author learns whether their fork improved on what it forked.
+rather than titles, and an author learns whether the replacement improved on its source.
 
 ### 6.5 Make the corpus discoverable with assisted tagging (separable package)
 
@@ -525,7 +529,7 @@ content is unchanged.
 ### 6.6 Give authors the feedback loop that improves the corpus
 
 An author sees disclosed aggregate evidence for their own published questions: where behavior looks
-wrong, which items are widely adopted, and whether their corrections helped. That closes the loop
+wrong, which items are widely adopted, and whether their explicitly linked replacements helped. That closes the loop
 between authoring and teaching across the whole installation, which is the long-term reason the
 shared-immutable-question design exists.
 
@@ -536,7 +540,7 @@ Item analysis must not terminate at a chart. The loop is the product.
 ```text
    notice ----> inspect ----> understand reach ----> act ----> decide ----> carry forward
    flagged      learner       usage index and        fork,     recorded    next term's
-   item in      work and      catalog evidence       correct,  decision    assignment or
+   item in      work and      catalog evidence       publish   decision    assignment or
    my course    distribution                         replace,  with        Alpha shows the
                                                      retire,   reason      decision
                                                      keep
@@ -549,8 +553,9 @@ Item analysis must not terminate at a chart. The loop is the product.
   `audit_event` tables. This is the missing gradebook drill-down.
 - **Understand reach**: the usage index and catalog statistics say whether the problem is local to
   this class or visible everywhere, which is the difference between "my teaching" and "this item".
-- **Act**: open the author workspace when owned, fork when not owned, replace the item in a future
-  assignment, or retire it from a collection or blueprint. Issued evidence is never altered.
+- **Act**: open the author workspace when owned, publish a distinct linked replacement when a content
+  change is needed, deliberately replace the item in a future assignment, or retire it from a
+  collection or blueprint. Issued evidence is never altered.
 - **Decide and carry forward**: an **improvement thread** records the decision and attaches to the
   question and to the assignment or blueprint, so the reason a question was replaced survives the
   professor's memory.
@@ -560,11 +565,12 @@ into a second task-management system:
 
 - **Fields**: subject (question plus optional assignment item), observation, state, action taken,
   reason, actor, created and resolved timestamps. Nothing else.
-- **States**: `open` -> `resolved` (with one action: corrected, forked, replaced, retired, kept) or
+- **States**: `open` -> `resolved` (with one action: replacement published, forked, replaced,
+  retired, kept) or
   `dismissed`. No reopening; a later concern is a new thread.
 - **Ownership**: the instructor who created it. Co-instructors of the same course may resolve it.
 - **Visibility**: course instructors always; the question's author sees an anonymized existence
-  signal only when the thread resolves to corrected or forked, because that is feedback about their
+  signal only when the thread resolves to replacement published or forked, because that is feedback about their
   published question.
 - **Propagation**: a clone or rollover copies resolved threads as **read-only annotations** on the
   affected item. Copies never re-open, never accumulate a chain, and never travel to a third
@@ -725,7 +731,7 @@ Section 3.3 fixes the state model; this section fixes who acts.
 ## Milestones
 
 ```text
-M0  Release truth        Close existing discovery and statistics promises before RC12.
+M0  Release truth        Close discovery, statistics, and immutable-question release truth before RC12.
 M1  Course spine         Term, policy resolver, disclosure, entitlement, groups, grade scheme.
 M2  Teaching projection  Lifecycle, schedule, accommodations, pools, preview plane, rehearsal.
 M3  Discovery commons    Search metadata, collections, picker, usage index, evidence validity.
@@ -739,18 +745,26 @@ M6  Connected term       Prove the whole professor cycle at term scale on the fi
 ### M0 Release truth
 
 Depends on the current release package order. Delivers trigram and relevance search,
-relevance-bound cursors, available-statistics rendering, and a live discovery journey. Exit: exact
-Question ID behavior intact, broad and misspelled searches return intended fixtures, facets and
-pages snapshot-consistent, representative plans use indexes. Two lanes maximum.
+relevance-bound cursors, available-statistics rendering, a live discovery journey, and the
+immutable-question release truth. WP-R1 closeout also replaces the Chapter One pilot/browser and
+aggregate-acceptance shell orchestration with Python over the existing typed `local_stack_control`
+boundary. Exit: exact Question ID behavior intact; content changes publish
+a new Question ID with fresh opaque hidden `ProblemId` and `VersionId`; no publication or background
+action advances an assignment; no sequential or version-chain question identity survives; broad and
+misspelled searches return intended fixtures; facets and pages are snapshot-consistent;
+representative plans use indexes. Two lanes maximum.
 
 Status on 2026-08-14: WP-R0 is accepted with its named Memory, server, source-line, clean
-PostgreSQL baseline, and independent-review evidence. M0 remains open: WP-R1 is the next
-dependency-ordered package, and M0 still requires its remaining statistics-rendering and live
-discovery evidence.
+PostgreSQL baseline, and independent-review evidence. WP-R1 is accepted with disclosed statistics,
+Python-owned Chapter One and aggregate acceptance orchestration, a designated renderer name with
+per-run OCI configuration-ID provenance, and final Validation: repository, Rust, 4,865-case pytest,
+and seven-lane local-stack acceptance gates are green. WP-R2 is accepted with immutable-question
+release truth. WP-PY-L1 is accepted on 2026-08-15 after final offline/live Validation and its named
+independent final reviews. M0 remains open; M1 retains its separate declared dependency gates.
 
 ### M1 Course spine
 
-Depends on M0 and RC12. M1 is not one serial block. Only a small shared core is genuinely serial;
+Depends on accepted M0 (including WP-R2 and WP-PY-L1) and RC12. M1 is not one serial block. Only a small shared core is genuinely serial;
 the rest parallelizes once that core is frozen.
 
 ```text
@@ -792,7 +806,7 @@ each preview names the layer that produced every value. Three lanes plus one rev
 
 ### M3 Discovery commons
 
-Depends on M1; runs beside M2. Delivers expanded search metadata, the usage index, collections and
+Depends on M1 and accepted WP-R2; runs beside M2. Delivers expanded search metadata, the usage index, collections and
 Favorites, saved searches, bulk selection, the shared `ProblemPicker` adopted by Library and
 assignment editor, the validity contract, and quality-signal computation with disclosed inputs.
 Assisted tagging (`WP-D3`) is an optional package inside this milestone: nothing else depends on it,
@@ -812,12 +826,12 @@ contains no student record; the preview refuses an ambiguous local time. Three l
 
 ### M5 Evidence to action
 
-Depends on M2 and M4. Lanes: manual grading with by-item pivot, snippets, overrides; learner work
-inspection with audit, grade-scheme-aware gradebook; course analysis, catalog evidence, revision
-comparison, improvement threads, attention queue. Exit: a mixed assignment moves from pending manual
-work to a current course total; a flagged item leads through inspection and usage to a fork or
-correction; the decision is recorded and visible next term; the correction's effect is measurable
-against the prior version. Three lanes.
+Depends on M2, M4, and accepted WP-R2. Lanes: manual grading with by-item pivot, snippets, overrides;
+learner work inspection with audit, grade-scheme-aware gradebook; course analysis, catalog evidence,
+linked replacement comparison, improvement threads, attention queue. Exit: a mixed assignment moves
+from pending manual work to a current course total; a flagged item leads through inspection and usage
+to a distinct linked replacement; the decision is recorded and visible next term; the replacement's
+effect is measurable against its source. Three lanes.
 
 ### M6 Connected term
 
@@ -831,7 +845,9 @@ P1 finding.
 | ID | Owner | Scope | Depends on |
 | --- | --- | --- | --- |
 | WP-R0 | Catalog | Ranked full-text and trigram discovery, same-snapshot facets; accepted 2026-08-14 | none |
-| WP-R1 | UI | Disclosed statistics rendering, live broad-discovery evidence; next after accepted WP-R0 | WP-R0 |
+| WP-R1 | UI | Accepted 2026-08-14: disclosed statistics rendering, live broad-discovery evidence, and Python conversion of Chapter One pilot/browser plus aggregate acceptance lanes over existing typed `local_stack_control` | WP-R0 |
+| WP-R2 | Release truth | Accepted 2026-08-14: immutable Question-ID publication, fresh opaque hidden evidence, explicit revision-checked assignment replacement, optional immutable provenance, and real host-seed manifest recovery | accepted WP-R1 |
+| WP-PY-L1 | Python orchestration | Accepted 2026-08-15: focused Python modules replace `local_stack_control/launch.sh`, `_restart.sh`, and `containers/local_identity_bootstrap.sh`; final offline/live Validation and named independent final reviews passed | accepted WP-R2 |
 | WP-S1 | Architect | Record spine decisions in guidance and this plan | RC12 |
 | WP-S2 | Expert coder | Course term, zone, validation, migration (serial core) | WP-S1 |
 | WP-S7 | Expert coder | Typed references, shared value types, migration allocation, RLS, bylines (serial core) | WP-S1 |
@@ -844,14 +860,14 @@ P1 finding.
 | WP-T3 | Expert coder | Preview plane | WP-S4, WP-T1 |
 | WP-T4 | Expert coder | Rehearsal runs on the preview plane | WP-T3 |
 | WP-T5 | Coder | Item pool authoring over selection groups | WP-T1 |
-| WP-D1 | Expert coder | Search metadata, usage index, validity contract, quality signal | WP-S7 |
+| WP-D1 | Expert coder | Search metadata, usage index, validity contract, quality signal | WP-S7, WP-R2 |
 | WP-D2 | Coder | Collections, Favorites, saved searches, bulk actions, ProblemPicker | WP-D1 |
 | WP-D3 | Coder | Assisted tagging: worker, proposals, confirmation, provenance. **Optional; nothing depends on it** | WP-D1 |
 | WP-B1 | Expert coder | Personal blueprints and public Alpha aggregates | WP-D2, WP-S7 |
 | WP-B2 | Expert coder | Fork, instantiate, rollover, term shift, manifests, fast-forward | WP-B1, WP-T1 |
 | WP-G1 | Expert coder | Manual-grading queue, by-item pivot, snippets, overrides | WP-T2 |
 | WP-G2 | Expert coder | Learner work inspection with audit; grade-aware gradebook | WP-S6, WP-G1 |
-| WP-G3 | Coder | Course analysis, catalog evidence, revision and fork comparison | WP-G1, WP-D1 |
+| WP-G3 | Coder | Course analysis, catalog evidence, explicitly linked replacement/source comparison | WP-G1, WP-D1 |
 | WP-G4 | Coder | Improvement threads | WP-G3, WP-B2 |
 | WP-G5 | Coder | Attention queue against the actionability predicate | WP-G4, WP-T2 |
 | WP-E1 | Playwright | Behavior-named professor journeys and live-stack evidence | all behavior WPs |
@@ -859,6 +875,65 @@ P1 finding.
 
 Each package owns its capability modules and one allocated migration. Shared route registration and
 migration ordering belong to the integrator.
+
+**WP-R2 acceptance.** Remove the Memory and PostgreSQL successor/propagation mechanisms, including
+the pre-production trigger and exceptional correction authority, instead of adding a compatibility
+shim. Remove sequential `ProblemPublicId`/`P-...`, `ProblemVersionNumber`, `previous_version`, and
+predecessor/version-chain production identity, schema, parser, generated-type, and migration paths.
+Assignment creation and editing select one immutable Question ID; retained assignments and issued runs
+stay exact until an Instructor performs a visible, revision-checked replacement. Prove that every
+content change receives a distinct Question ID plus fresh opaque `ProblemId` and `VersionId`, and
+provenance may link source to replacement. Convert real persisted native and WeBWorK host seed
+publishers to mint fresh opaque publication IDs; reruns use a protected explicit manifest or verified
+existing record, never tenant-derived question UUIDs. Deterministic fixed IDs remain only in isolated
+unit fixtures, derived render/cache identities, and non-question seed records. Historical attempts
+replay their original evidence, and no instructor-facing route, selector, or latest-resolution path
+accepts or exposes an internal version identity. Hidden exact transport and audit references remain
+available where the authorization boundary requires them.
+
+**WP-R2 result.** Accepted on the final material tree: `./check_codebase.sh` passed all five steps
+with 260 Node tests; `source source_me.sh && python3 -m pytest tests/` passed 4,856 tests;
+`./check_rust.sh` passed the full Rust suite; and `source source_me.sh && python3 local_stack.py
+acceptance` passed all seven lanes. Those lanes covered ordinary browser behavior, two visual
+verifiers, the canonical walkthrough, Chapter One pilot, Chapter One browser with four live
+Question-ID replacements, and WebWork render/grade/outage. Test, UI, and architecture reviews each
+returned ACCEPT with no P0/P1 finding. The designated canonical renderer image was rebuilt only for
+the acceptance run; cleanup then removed all disposable containers, images, and volumes. M0 remains
+open; WP-PY-L1 is accepted on 2026-08-15 after final offline/live Validation and named final reviews.
+
+**WP-R1 Python closeout.** WP-R1 is accepted on 2026-08-14. Chapter One pilot/browser and aggregate
+acceptance lane sequencing now use Python with typed `local_stack_control` process, disposable-owner,
+private-input, preflight, cleanup, and result boundaries. The browser journey remains real visible
+Playwright interaction. A retained shell entry directly `exec`s the documented Python command. The
+focused typed Python lifecycle is the current default `containers` owner. `containers/env.example` supplies the
+designated local renderer image name as the stable selection and rebuild target, and each live run
+records the inspected immutable OCI image configuration ID as exact runtime provenance. Rebuilding the
+configured target supplies a new selectable local artifact after pruning while the receipt preserves
+the configuration used. M0 remains open; WP-PY-L1 is accepted on 2026-08-15 after final offline/live
+Validation and named final reviews.
+
+**WP-R2 evidence boundary.** WP-R2 uses inline builders by default and adds no fixture directory.
+`crates/learning-data-access/tests/conformance/publication.rs` and `assignments.rs` own focused offline
+Memory Store conformance, Question-ID-only commands, replacement preservation/refusal, and replay;
+`crates/server/src/catalog/tests/publication.rs` and
+`crates/server/src/course/tests/assignment_revision.rs` own server request behavior. The disposable
+PostgreSQL/RLS driver `tests/e2e/e2e_wp_r2_postgres_rls.py` owns migration, forced RLS, cross-tenant
+refusal, rollback, and persisted replay. `crates/project-tools/src/e2e_seed/tests.rs` owns manufactured
+manifest convergence, while `tests/e2e/e2e_wp_r2_host_seed_renderer.py` owns real host-seed/renderer
+publication evidence for native and WeBWorK without predicting assigned Question IDs. The authored mock
+decoder/client/model owner is `tests/test_assignment_editor_ui.mjs`; its mock-backed visible assignment
+replacement owner is `tests/playwright/assignment_editor.spec.ts`. The aggregate's only real replacement
+browser route is `local_stack_control/acceptance_lanes.py`; the M6 composition journey is only
+`tests/walkthrough/run_ui_walkthrough.py`. The ignored
+`_temp_professor_roadmap_20260814/wp_r2_closeout.review.md` records one-time migration, source, route,
+generated-consumer, and schema inventories, rendered screenshots, and timing observations.
+
+**Python orchestration validation.** WP-PY-L1 follows WP-R2 with the direct lifecycle, restart, and local
+identity bootstrap conversion implemented above. The remaining complex E2E and canonical WeBWorK
+acceptance scripts migrate afterward in their release-package dependency order: the renderer/host-seed
+acceptance owner first, then the release-candidate composition owner. Each migration places state,
+parsing, subprocess, private-environment, polling, and cleanup behavior in Python; any retained shell
+entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter One and aggregate work.
 
 ## Acceptance criteria
 
@@ -879,10 +954,10 @@ migration ordering belong to the integrator.
   carries evidence context and improvement threads into the clone.
 - Fast-forward updates only untouched reusable fields before the first issued run; divergence
   produces selected copy or new assignment, never an automatic merge.
-- A flagged item leads from analysis to learner evidence to usage to a fork or correction, and the
-  decision is recorded and visible in next term's material.
-- After a correction, the professor can compare the new version's disclosed behavior with the prior
-  version's, with sample sizes shown.
+- A flagged item leads from analysis to learner evidence to usage to a distinct linked replacement,
+  and the decision is recorded and visible in next term's material.
+- After an explicitly linked replacement is published, the professor can compare its disclosed
+  behavior with its source's, with both Question IDs and sample sizes shown.
 - Human taxonomy editing alone makes the corpus discoverable. If assisted tagging ships, no tag
   enters the catalog without a confirming user and recorded model provenance, and no grader-only
   material, answer key, or learner response is ever sent to a model.
@@ -900,22 +975,27 @@ migration ordering belong to the integrator.
 ## Test and verification strategy
 
 - Derived-state tests: the same inputs produce the same verdict through the resolver, the preview
-  plane, and production reads; a stopped worker delays receipts without changing any verdict; replay
-  of a completed job is idempotent.
+  plane, and production reads; an injected worker state and fixed clock prove delayed receipts preserve
+  the verdict; replay of a completed job is idempotent. A stopped-worker process check belongs to its
+  named E2E lane.
 - Entitlement tests: each interaction case in section 2.4, including a materialized record whose
   derived authority is now false.
 - Validity tests: suppression below the k-anonymity minimum, discrimination suppressed separately
-  when the scored cohort is small, first-attempt independence, version-scoped comparison, and the
+  when the scored cohort is small, first-attempt independence, comparison of explicitly linked
+  replacement/source questions with separately scoped exact-version evidence, and the
   insufficient-evidence answer contributing nothing to ranking.
 - Domain tests: resolver precedence and provenance for every gate and modifier combination,
   extend-only accommodation semantics, disclosure evaluation across the time axis, grade computation
   in all three modes with rounding and drop rules, relative-calendar scheduling and DST refusal,
   pool draw determinism by algorithm version, clone manifest normalization, fast-forward eligibility,
   quality-signal computation with insufficient-sample behavior, and issued-run structural locks.
-- Memory and PostgreSQL conformance: entitlement, group purposes and exclusivity policy, collection
-  ownership, usage-index aggregation boundaries, public Alpha reads and creator-only writes,
+- Memory conformance: ordinary crate tests cover entitlement, group purposes and exclusivity policy,
+  collection ownership, usage-index aggregation boundaries, public Alpha reads and creator-only writes,
   cross-tenant cloning, rollover exclusions, overrides, audited work inspection, rehearsal exclusion
   from every aggregate, tagging provenance, and retention.
+- PostgreSQL/RLS proof: a named disposable PostgreSQL E2E exercises the same selected Store semantics
+  where transactions, persistence, roles, and forced RLS are the contract. It is opt-in and separate
+  from ordinary Cargo, Node, and pytest gates.
 - Server tests: authentication, role checks, non-enumeration, strict decoding, strong revisions,
   idempotency, cache policy, audited reads, and absence of secret fields in every new response.
 - TypeScript and Node: strict decoders, short route references, query and cursor recovery, local
@@ -927,7 +1007,9 @@ migration ordering belong to the integrator.
   gradebook total and audited learner work inspection; analysis to fork to recorded decision;
   attention-queue routing; keyboard, recovery, and canonical viewport behavior.
 - Keep the canonical pilot walkthrough on its existing known-ID teaching loop; new journeys are
-  separate visible evidence.
+  separate visible evidence. `tests/walkthrough/` owns the one live M6 professor-to-two-student
+  composition journey, with Playwright as its interaction engine; the aggregate acceptance invokes it
+  once after package invariants are green.
 - Final acceptance requires the full Validation suite in
   [docs/TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md) green on the final material tree with
   no required skip.
@@ -969,11 +1051,11 @@ One narrative journey, run live, exercising the architecture as a system rather 
 7. She grades by item, applies one override with a reason, and watches the course total recalculate
    in the selected grade mode.
 8. Analysis flags one item; she inspects a learner's exact variant, checks catalog usage and
-   cross-course behavior, forks the question with a correction, records the decision, and replaces
-   the item in next term's Alpha.
+   cross-course behavior, publishes an explicitly linked replacement with a new Question ID, records
+   the decision, and deliberately replaces the item in next term's Alpha.
 9. She rolls the course into a Spring term with a term shift; the preview resolves every date, the
    improvement thread is visible on the replaced item, and no student record travels.
-10. After the second term, she compares the corrected question's behavior with the prior version.
+10. After the second term, she compares the linked replacement question's behavior with its source.
 
 ## Migration and compatibility policy
 
@@ -1003,7 +1085,8 @@ One narrative journey, run live, exercising the architecture as a system rather 
   impossibility at the store boundary and conformance tests on every aggregate.
 - **Evidence misreading**: professors treating small or non-comparable samples as fact; mitigated by
   the section 6.0 validity contract: existing k-anonymity suppression, first-attempt independence,
-  version-scoped comparison, disclosed cohort sizes, and an explicit insufficient-evidence answer.
+  separately scoped exact-version evidence, comparison only of explicitly linked replacement/source
+  questions, disclosed cohort sizes, and an explicit insufficient-evidence answer.
 - **Acceptance-oracle concentration**: M6 becoming the first place core behavior is checked;
   mitigated by the invariant list that must be green in small permanent tests before M6 runs.
 - **Entitlement drift**: derived authority and materialized records disagreeing after roster or
@@ -1055,6 +1138,10 @@ One narrative journey, run live, exercising the architecture as a system rather 
   7, and no assignees, comments, or notifications.
 - Every disclosed statistic obeys the section 6.0 validity contract, extending the existing
   k-anonymity disclosure policy rather than adding a parallel one.
+- A Question ID names one immutable published question. Every content change receives a new Question
+  ID with optional immutable provenance; retained assignments and issued runs remain exact until an
+  Instructor deliberately replaces an assignment item. Internal `(ProblemId, VersionId)` evidence
+  is never an instructor-facing selector.
 - Group membership is many-to-many; section exclusivity is a course policy that warns, not a schema
   constraint.
 - Rehearsal runs are instructor-visible only, discarded when the assignment definition changes, and

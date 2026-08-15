@@ -1,0 +1,48 @@
+/* catalog_statistics_panel.css - compact evidence scan panel for catalog detail. */
+
+.catalog-statistics-panel {
+  margin-block: var(--ple-section-gap);
+  padding: var(--ple-panel-padding);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-group);
+  background: color-mix(in srgb, var(--ple-card-surface) 82%, transparent);
+  box-shadow: var(--ple-shadow);
+}
+
+.catalog-statistics-panel h2 {
+  margin: 0;
+}
+
+.catalog-statistics-introduction {
+  margin: var(--ple-space-2) 0 0;
+  color: var(--ple-muted);
+}
+
+.catalog-statistics-measures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ple-section-gap) var(--ple-layout-gap);
+  margin: var(--ple-section-gap) 0 0;
+}
+
+.catalog-statistics-measures > div {
+  min-inline-size: 0;
+}
+
+.catalog-statistics-measures dt {
+  color: var(--ple-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.catalog-statistics-measures dd {
+  margin: var(--ple-space-1) 0 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+@media (max-width: 20rem) {
+  .catalog-statistics-measures {
+    grid-template-columns: 1fr;
+  }
+}

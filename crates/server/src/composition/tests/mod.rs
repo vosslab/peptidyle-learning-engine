@@ -24,6 +24,7 @@ use crate::auth::{CookieTransport, IdentityProviderError};
 use crate::catalog::ReviewGateError;
 
 mod presentation_routes;
+mod production_router;
 
 #[derive(Debug)]
 struct TestIdentity;
@@ -86,11 +87,18 @@ fn composed_memory_router() -> Router {
     composed_memory_router_with_legacy_login(true)
 }
 
-fn composed_memory_router_with_legacy_login(legacy_login: bool) -> Router {
+pub(super) fn composed_memory_router_with_legacy_login(legacy_login: bool) -> Router {
     composed_memory_router_and_store(legacy_login).0
 }
 
 fn composed_memory_router_and_store(legacy_login: bool) -> (Router, Arc<MemoryStore>) {
+    composed_memory_router_and_store_with_session_config(legacy_login, session_config())
+}
+
+pub(super) fn composed_memory_router_and_store_with_session_config(
+    legacy_login: bool,
+    session_config: SessionConfig,
+) -> (Router, Arc<MemoryStore>) {
     let (store, grader) = MemoryStore::with_flat_question_grader();
     let store = Arc::new(store);
     let objects = Arc::new(MemoryObjectStore::default());
@@ -146,9 +154,8 @@ fn composed_memory_router_and_store(legacy_login: bool) -> (Router, Arc<MemorySt
             native_adapter,
             Arc::new(TestIdentity),
             Arc::new(TestReview),
-            session_config(),
+            session_config,
             crate::course::CourseInvitationIssuer::unavailable(),
-            Arc::new(crate::course::UnavailableCourseInvitationDelivery),
             Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery),
             crate::auth::PasswordlessRateLimitIssuer::unavailable(),
             crate::auth::ClientAddressPolicy::direct(),
@@ -170,9 +177,8 @@ fn composed_memory_router_and_store(legacy_login: bool) -> (Router, Arc<MemorySt
             backends,
             native_adapter,
             Arc::new(TestReview),
-            session_config(),
+            session_config,
             crate::course::CourseInvitationIssuer::unavailable(),
-            Arc::new(crate::course::UnavailableCourseInvitationDelivery),
             Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery),
             crate::auth::PasswordlessRateLimitIssuer::unavailable(),
             crate::auth::ClientAddressPolicy::direct(),
@@ -189,50 +195,6 @@ fn composed_memory_router_and_store(legacy_login: bool) -> (Router, Arc<MemorySt
         )
     };
     (router, store)
-}
-
-#[test]
-fn production_session_config_uses_first_party_https() {
-    let config = super::backend::production_session_config();
-    assert_eq!(config.transport(), CookieTransport::FirstPartyHttps);
-    assert_eq!(config.lifetime().as_seconds(), 8 * 60 * 60);
-}
-
-#[tokio::test]
-async fn production_composition_has_passwordless_routes_without_local_login() {
-    let app = composed_memory_router_with_legacy_login(false);
-    for (method, uri) in [
-        ("POST", "/api/auth/passwordless/email/start"),
-        ("POST", "/api/course-invitations/redeem"),
-        ("POST", "/api/auth/account/course-session"),
-        ("POST", "/api/auth/passkeys/authentication/start"),
-        ("GET", "/api/auth/session"),
-        ("POST", "/api/auth/logout"),
-    ] {
-        let response = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method(method)
-                    .uri(uri)
-                    .body(Body::from("{}"))
-                    .expect("production-style route request"),
-            )
-            .await
-            .expect("production-style route response");
-        assert_ne!(response.status(), StatusCode::NOT_FOUND, "{uri}");
-    }
-    let local_login = app
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/api/auth/login")
-                .body(Body::from("{}"))
-                .expect("local login request"),
-        )
-        .await
-        .expect("local login response");
-    assert_eq!(local_login.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]

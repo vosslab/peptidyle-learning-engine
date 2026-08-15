@@ -811,19 +811,25 @@ textarea:hover {
   color: var(--ple-muted);
 }
 
-.roster-section {
-  margin-top: var(--ple-space-3);
+.confirmation-dialog {
+  position: fixed;
+  z-index: 20;
+  inset: 50% auto auto 50%;
+  width: min(calc(100vw - 2rem), 34rem);
+  padding: var(--ple-panel-padding);
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-group);
+  background: var(--ple-card-surface);
+  box-shadow: var(--ple-shadow);
 }
 
-.roster-table input[type="checkbox"] {
-  width: 1.15rem;
-  min-height: 1.15rem;
+.confirmation-dialog h2 {
+  margin-top: 0;
 }
 
-.roster-import-preview {
-  display: grid;
-  gap: var(--ple-space-3);
-  margin-top: var(--ple-space-4);
+.confirmation-dialog::backdrop {
+  background: color-mix(in srgb, var(--ple-ink) 42%, transparent);
 }
 
 .startup {

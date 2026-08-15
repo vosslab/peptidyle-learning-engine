@@ -41,7 +41,6 @@ import {
   decodeEnvelopeTitle,
   decodeIdentifier,
   decodeLicense,
-  decodeProblemVersionRef,
   decodePublicRouteNumber,
   decodeTaxonomyTerm,
   field,
@@ -611,46 +610,18 @@ function decodePublicationSemanticProjection(
 
 export function decodePublicationDiff(value: unknown, path = "response"): PublicationDiff {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "draftRevision",
-    "baseline",
-    "prior",
-    "previous",
-    "current",
-    "changed",
-  ]);
+  requireOnlyFields(record, path, ["draftRevision", "baseline", "current", "changed"]);
   const draftRevision = decodePositiveInteger(
     field(record, "draftRevision", path),
     `${path}.draftRevision`,
   );
   const baseline = decodeStringEnum(field(record, "baseline", path), `${path}.baseline`, [
-    "firstPublication",
-    "revision",
+    "newQuestion",
   ] as const);
-  const prior = decodeNullable(
-    field(record, "prior", path),
-    `${path}.prior`,
-    decodeProblemVersionRef,
-  );
-  const previous = decodeNullable(
-    field(record, "previous", path),
-    `${path}.previous`,
-    decodePublicationSemanticProjection,
-  );
   const current = decodePublicationSemanticProjection(
     field(record, "current", path),
     `${path}.current`,
   );
-  if (
-    baseline === "firstPublication"
-      ? prior !== null || previous !== null
-      : prior === null || previous === null
-  ) {
-    throw new DecodeError(
-      `${path}.prior`,
-      "a baseline-consistent immutable reference and semantic predecessor",
-    );
-  }
   const changed = decodeBoundedArray(
     field(record, "changed", path),
     `${path}.changed`,
@@ -659,7 +630,7 @@ export function decodePublicationDiff(value: unknown, path = "response"): Public
   );
   if (
     new Set(changed).size !== changed.length ||
-    (baseline === "firstPublication" && changed.length !== 0)
+    (baseline === "newQuestion" && changed.length !== 0)
   ) {
     throw new DecodeError(`${path}.changed`, "unique baseline-consistent semantic fields");
   }
@@ -667,8 +638,6 @@ export function decodePublicationDiff(value: unknown, path = "response"): Public
     draftRevision,
     revision: `"${draftRevision}"`,
     baseline,
-    prior,
-    previous,
     current,
     changed,
   };

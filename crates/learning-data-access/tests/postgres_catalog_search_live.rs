@@ -78,7 +78,6 @@ fn draft(tenant: TenantId, workspace: WorkspaceId, title: &str) -> DraftRecord {
                 language: "en-US".to_string(),
             },
         },
-        revises: None,
         derived_from: None,
     }
 }
@@ -150,9 +149,9 @@ async fn postgres_catalog_search_store_preserves_ranked_cursor_behavior() {
         exact_page
             .items
             .iter()
-            .map(|item| item.problem)
+            .map(|item| item.question_id.clone())
             .collect::<Vec<_>>(),
-        vec![exact.problem]
+        vec![exact.question_id]
     );
     let first = store
         .search_catalog(
@@ -193,7 +192,7 @@ async fn postgres_catalog_search_store_preserves_ranked_cursor_behavior() {
         )
         .await
         .expect("second keyset page");
-    assert_ne!(first.items[0].problem, second.items[0].problem);
+    assert_ne!(first.items[0].question_id, second.items[0].question_id);
     assert!(
         store
             .search_catalog(
@@ -245,7 +244,7 @@ async fn postgres_catalog_search_store_preserves_ranked_cursor_behavior() {
         continued
             .items
             .iter()
-            .all(|item| item.problem != later.problem)
+            .all(|item| item.question_id != later.question_id)
     );
 }
 
@@ -276,15 +275,16 @@ async fn postgres_catalog_search_continuation_preserves_snapshot_visibility_boun
         .search_catalog(context, query.clone())
         .await
         .expect("first catalog snapshot page");
-    let first_problem = first.items[0].problem;
+    let first_question_id = first.items[0].question_id.clone();
     let disclosure_target = records
         .iter()
-        .find(|record| record.problem != first_problem)
+        .find(|record| record.question_id != first_question_id)
         .expect("a remaining record can cross the disclosure threshold");
     let lifecycle_target = records
         .iter()
         .find(|record| {
-            record.problem != first_problem && record.problem != disclosure_target.problem
+            record.question_id != first_question_id
+                && record.question_id != disclosure_target.question_id
         })
         .expect("a different remaining record can become lifecycle-hidden");
 
@@ -336,14 +336,11 @@ async fn postgres_catalog_search_continuation_preserves_snapshot_visibility_boun
         continuation
             .items
             .iter()
-            .any(|item| item.problem == disclosure_target.problem)
+            .any(|item| item.question_id == disclosure_target.question_id)
     );
-    assert!(
-        continuation
-            .items
-            .iter()
-            .all(|item| item.problem != lifecycle_target.problem && item.problem != later.problem)
-    );
+    assert!(continuation.items.iter().all(|item| {
+        item.question_id != lifecycle_target.question_id && item.question_id != later.question_id
+    }));
     assert_eq!(continuation.facets.statistics.available, 0);
     assert!(continuation_total > continuation.items.len() as u64);
 

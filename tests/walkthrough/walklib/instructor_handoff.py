@@ -6,7 +6,8 @@ import pathlib
 import re
 import stat
 
-import walklib.models
+import tests.walkthrough.walklib as walklib
+import tests.walkthrough.walklib.models as models
 
 
 MAX_JOURNEY_ELAPSED_MS = 30 * 60 * 1000
@@ -39,7 +40,7 @@ def read_handoff(
 		or journey_state_file.name != "journeys.json"
 		or journey_state_file.is_symlink()
 	):
-		raise walklib.models.RunnerError(HANDOFF_ERROR)
+		raise models.RunnerError(HANDOFF_ERROR)
 	parent = journey_state_file.parent
 	parent_descriptor = -1
 	file_descriptor = -1

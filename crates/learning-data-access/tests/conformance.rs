@@ -75,32 +75,37 @@ use learning_data_access::{
     AuthenticationEmail, AuthenticationRateLimitDecision, AuthenticationRateLimitKey,
     AuthenticationRateLimitPolicy, AuthenticationRateLimitScope, BeginEmailAuthentication,
     BrowserBindingHash, ClaimCourseInvitation, CommitCourseRosterImport,
-    CompleteEmailAuthentication, CompleteEmailAuthenticationAndCreateSession,
+    CompleteCourseInvitationDelivery, CompleteEmailAuthentication,
+    CompleteEmailAuthenticationAndCreateSession, CompleteEmailChangeAndRevokeUserSessions,
     CompletePasskeyAuthenticationAndCreateSession, ConsumeAuthenticationRateLimit,
-    CourseInvitationLifetime, CourseInvitationSecretHash, CourseRosterId,
-    CourseRosterImportLifetime, CourseRosterImportRowInput, CourseRosterStore,
+    CourseInvitationDeliveryState, CourseInvitationDeliveryStore,
+    CourseInvitationDeliveryWorkerStore, CourseInvitationLifetime, CourseInvitationSecretHash,
+    CourseRosterId, CourseRosterImportLifetime, CourseRosterImportRowInput, CourseRosterStore,
     CourseRosterSupportAction, CreateCourseInvitation, CreateManualGradeExport, CredentialIdHash,
     EmailAuthenticationPurpose, EmailChallengeId, EmailChallengeLifetime, EmailChallengeSecretHash,
-    ManualGradeExportStore, PasskeyId, PasskeyRecord, RegisterPasskey, RevokeCourseMember,
-    RosterIdempotencyKey, RosterImportInvitation, RosterImportRowStatus, RosterRevision,
-    StageCourseRosterImport, WebauthnState, validated_passkey_label,
+    InvitationDeliveryReissuance, ManualGradeExportStore, PasskeyId, PasskeyRecord,
+    RegisterPasskey, RevokeCourseInvitation, RevokeCourseMember, RosterIdempotencyKey,
+    RosterImportInvitation, RosterImportRowStatus, RosterRevision, StageCourseRosterImport,
+    WebauthnState, validated_passkey_label,
 };
 use learning_data_access::{
-    ActivityTransition, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssetPublication,
-    AssetStore, AssignmentExceptionLimit, AssignmentExceptionTimestamp, AssignmentPolicyException,
-    AssignmentPolicyExceptionTarget, AssignmentRecord, AssignmentScoringCommitOutcome,
-    AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore, AssignmentUpdate,
-    AttemptAutoSubmitCommitOutcome, AttemptAutoSubmitWorkerCommand, AttemptAutoSubmitWorkerStore,
-    AttemptSupportAction, AttemptSupportActionId, CatalogSourceStore, CatalogStore,
-    CatalogTransition, ClearAttemptCommand, CourseGroupRecord, CourseListScope, CourseRecord,
-    Cursor, DeleteAndRegradeAssignmentItemCommand, DeleteAssignmentPolicyExceptionCommand,
-    DraftRecord, EvaluationRevision, FlatGradingCapability, ForceSubmitAttemptCommand,
+    ActivityTransition, AddAssignmentFixedItemCommand, AssetDeliveryId, AssetDeliveryRecord,
+    AssetDeliveryScope, AssetPublication, AssetStore, AssignmentExceptionLimit,
+    AssignmentExceptionTimestamp, AssignmentPolicyException, AssignmentPolicyExceptionTarget,
+    AssignmentRecord, AssignmentScoringCommitOutcome, AssignmentScoringWorkerCommand,
+    AssignmentScoringWorkerStore, AssignmentUpdate, AttemptAutoSubmitCommitOutcome,
+    AttemptAutoSubmitWorkerCommand, AttemptAutoSubmitWorkerStore, AttemptSupportAction,
+    AttemptSupportActionId, CatalogSourceStore, CatalogStore, CatalogTransition,
+    ClearAttemptCommand, CourseGroupRecord, CourseListScope, CourseRecord, Cursor,
+    DeleteAndRegradeAssignmentItemCommand, DeleteAssignmentPolicyExceptionCommand, DraftRecord,
+    EvaluationRevision, FlatGradingCapability, ForceSubmitAttemptCommand,
     IssueQuestionAttemptCommand, ManualCredit, ManualGradeActionId, ManualGradingStore,
-    OwnerCorrectionAuthority, OwnerCorrectionStore, PageRequest, PageSize, PrefetchedQuestion,
-    PresentationCapability, PublishDraftCommand, PublishedSourceArtifact, PutCourseGroupCommand,
-    ReleaseAttemptFeedbackCommand, ReservePrefetchedQuestionCommand, SessionLifetime, SessionStore,
-    SessionSubject, SessionTokenHash, SetAssignmentPolicyExceptionCommand, SetManualGradeCommand,
-    Store, StoreError, SubmissionIdempotencyKey, SubmitPendingManualQuestionAttemptCommand,
+    PageRequest, PageSize, PrefetchedQuestion, PresentationCapability, PublishDraftCommand,
+    PublishedSourceArtifact, PutCourseGroupCommand, ReleaseAttemptFeedbackCommand,
+    RemoveAssignmentFixedItemCommand, ReplaceAssignmentFixedItemCommand,
+    ReservePrefetchedQuestionCommand, SessionLifetime, SessionStore, SessionSubject,
+    SessionTokenHash, SetAssignmentPolicyExceptionCommand, SetManualGradeCommand, Store,
+    StoreError, SubmissionIdempotencyKey, SubmitPendingManualQuestionAttemptCommand,
     SubmitQuestionAttemptCommand, TenantContext, UpdateAssignmentTimingCommand,
     WebworkGradingCapability, WebworkReplayControlV1, WebworkReplayMappingV1,
 };
@@ -132,19 +137,21 @@ use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
 use question_model::response::StudentResponse;
 use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
-use question_model::taxonomy::{License, Tag, TaxonomyTerm};
+use question_model::taxonomy::{License, Tag};
 use question_model::{
     ActivityTimestamp, AssetId, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId,
     AssignmentItem, AssignmentItemId, AssignmentPolicyExceptionId, AssignmentRun,
-    AssignmentScoringMode, AssignmentTimingPolicy, AttemptProvenance, AttemptResult, AttemptStatus,
-    AttemptTimerRecord, BackendCapabilities, Capability, CatalogLifecycle, CompletionRequirement,
+    AssignmentScoringMode, AssignmentSelectionCandidate, AssignmentSelectionGroup,
+    AssignmentSelectionGroupId, AssignmentTimingPolicy, AttemptProvenance, AttemptResult,
+    AttemptStatus, AttemptTimerRecord, BackendCapabilities, Capability, CompletionRequirement,
     ContinuedPractice, CourseGroupId, CourseId, CourseMembership, CourseMembershipRole,
     DraftQuestionDefinition, DraftQuestionSource, EnrollmentId, FeedbackContent,
     GeneratorReference, GradePolicy, GradingDefinition, ImplementationVersion,
-    LateSubmissionPolicy, ObjectId, PointValue, ProblemId, ProblemVersionRef, PublicationScope,
-    QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionMetadata, QuestionSource,
-    RenderedItemIdV1, ResponseDefinition, RunId, RunMode, RunPolicies, SourceArtifact, StudentId,
-    TenantId, UserId, UserRole, VariationPolicy, VersionId, WorkspaceId, WorkspaceImportId,
+    LateSubmissionPolicy, ObjectId, PointValue, ProblemDisplayRef, ProblemId, ProblemVersionRef,
+    PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionMetadata,
+    QuestionSource, RenderedItemIdV1, ResponseDefinition, RunId, RunMode, RunPolicies,
+    SelectionOrdering, SourceArtifact, StudentId, TenantId, UserId, UserRole, VariationPolicy,
+    VersionId, WorkspaceId, WorkspaceImportId,
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 use uuid::Uuid;
@@ -214,6 +221,20 @@ fn policies() -> RunPolicies {
         continued_practice: ContinuedPractice::Unlimited,
         variation: VariationPolicy::NewSeeds,
     }
+}
+
+/// Run the focused immutable-publication and assignment-revision contract
+/// against a durable Store implementation.
+///
+/// The memory test remains the ordinary owner; an ignored disposable database
+/// oracle calls this explicit wrapper to prove the same behavior through
+/// PostgreSQL transactions, RLS, and broker functions.
+pub(crate) async fn exercise_durable_publication_assignment_contract<S>(store: &S)
+where
+    S: Store + CatalogStore,
+{
+    exercise_publication_identity_boundary(store).await;
+    exercise_assignment_cas(store).await;
 }
 
 fn implementation(id: &str) -> ImplementationVersion {

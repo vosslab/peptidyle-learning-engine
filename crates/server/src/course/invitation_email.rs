@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use learning_data_access::AuthenticationEmail;
 use lettre::message::{Mailbox, Message, header::ContentType};
 use lettre::transport::smtp::authentication::Credentials;
+use lettre::transport::smtp::response::{Category, Code, Detail, Severity};
 use lettre::{AsyncSmtpTransport, AsyncTransport, Tokio1Executor};
 use url::Url;
 
@@ -13,7 +14,8 @@ use crate::auth::{
 };
 
 use super::invitation_capability::{
-    CourseInvitationDelivery, CourseInvitationDeliveryError, CourseInvitationSecret,
+    CourseInvitationDelivery, CourseInvitationDeliveryAttempt, CourseInvitationDeliveryError,
+    CourseInvitationSecret,
 };
 
 /// Encrypted SMTP submission mode selected by the external provider.
@@ -59,6 +61,81 @@ pub struct SmtpCourseInvitationDelivery {
     redeem_url: Url,
     email_auth_url: Url,
     email_change_url: Url,
+}
+
+/// The only SMTP failure classes permitted in operator telemetry.  The
+/// transport keeps the provider response private; this classification uses
+/// only Lettre's public error kind and numeric status code.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SmtpDeliveryFailureCategory {
+    DnsOrConnectivity,
+    TlsHandshake,
+    Authentication,
+    ProviderRejection,
+}
+
+impl SmtpDeliveryFailureCategory {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::DnsOrConnectivity => "dns_or_connectivity",
+            Self::TlsHandshake => "tls_handshake",
+            Self::Authentication => "authentication",
+            Self::ProviderRejection => "provider_rejection",
+        }
+    }
+}
+
+fn smtp_delivery_failure_category(
+    error: &lettre::transport::smtp::Error,
+) -> SmtpDeliveryFailureCategory {
+    if error.is_tls() {
+        return SmtpDeliveryFailureCategory::TlsHandshake;
+    }
+    if error
+        .status()
+        .is_some_and(smtp_status_is_authentication_failure)
+    {
+        return SmtpDeliveryFailureCategory::Authentication;
+    }
+    if error.is_response() {
+        return SmtpDeliveryFailureCategory::ProviderRejection;
+    }
+    SmtpDeliveryFailureCategory::DnsOrConnectivity
+}
+
+fn smtp_status_is_authentication_failure(status: Code) -> bool {
+    matches!(
+        (status.severity, status.category, status.detail),
+        (
+            Severity::PermanentNegativeCompletion,
+            Category::Unspecified3,
+            Detail::Zero | Detail::Four | Detail::Five,
+        )
+    )
+}
+
+fn record_smtp_delivery_failure(error: &lettre::transport::smtp::Error) {
+    let category = smtp_delivery_failure_category(error);
+    let delivery_outcome = smtp_delivery_outcome(error);
+    // Invitation delivery inherits the worker's opaque durable delivery ID;
+    // synchronous passwordless mail may instead inherit its request span. Do
+    // not record the SMTP error itself: it can include an upstream response.
+    tracing::warn!(
+        event = "smtp_delivery_failed",
+        delivery_outcome,
+        category = category.as_str(),
+    );
+}
+
+/// SMTP 4xx/5xx rejections are explicit negative replies. All other Lettre
+/// failures can occur after `DATA` without a returned reply, so telemetry
+/// must not assert that no submission happened.
+fn smtp_delivery_outcome(error: &lettre::transport::smtp::Error) -> &'static str {
+    if error.is_transient() || error.is_permanent() {
+        "known_rejected"
+    } else {
+        "ambiguous"
+    }
 }
 
 impl std::fmt::Debug for SmtpCourseInvitationDelivery {
@@ -170,6 +247,38 @@ impl SmtpCourseInvitationDelivery {
             ))
             .map_err(|_| PasswordlessEmailDeliveryError::Unavailable)
     }
+
+    async fn send_message(&self, message: Message) -> Result<(), ()> {
+        match self.transport.send(message).await {
+            Ok(_) => Ok(()),
+            Err(error) => {
+                record_smtp_delivery_failure(&error);
+                Err(())
+            }
+        }
+    }
+
+    async fn attempt_invitation_message(
+        &self,
+        message: Message,
+    ) -> CourseInvitationDeliveryAttempt {
+        match self.transport.send(message).await {
+            Ok(_) => CourseInvitationDeliveryAttempt::AcceptedByProvider,
+            Err(error) => {
+                record_smtp_delivery_failure(&error);
+                if error.is_transient() {
+                    CourseInvitationDeliveryAttempt::RetryableFailure
+                } else if error.is_permanent() {
+                    CourseInvitationDeliveryAttempt::PermanentFailure
+                } else {
+                    // Lettre does not expose the SMTP phase for connection,
+                    // TLS, parser, timeout, or response-loss errors. Treating
+                    // any of them as retryable could duplicate a DATA submit.
+                    CourseInvitationDeliveryAttempt::Ambiguous
+                }
+            }
+        }
+    }
 }
 
 #[async_trait]
@@ -185,10 +294,8 @@ impl PasswordlessEmailDelivery for SmtpCourseInvitationDelivery {
         action: PasswordlessEmailAction,
     ) -> Result<(), PasswordlessEmailDeliveryError> {
         let message = self.email_authentication_message(email, secret, action)?;
-        self.transport
-            .send(message)
+        self.send_message(message)
             .await
-            .map(|_| ())
             .map_err(|_| PasswordlessEmailDeliveryError::Unavailable)
     }
 }
@@ -199,22 +306,25 @@ impl CourseInvitationDelivery for SmtpCourseInvitationDelivery {
         true
     }
 
-    async fn send_course_invitation(
+    async fn attempt_course_invitation(
         &self,
         email: &AuthenticationEmail,
         invitation_secret: &CourseInvitationSecret,
-    ) -> Result<(), CourseInvitationDeliveryError> {
-        let message = self.message(email, invitation_secret)?;
-        self.transport
-            .send(message)
-            .await
-            .map(|_| ())
-            .map_err(|_| CourseInvitationDeliveryError::Unavailable)
+    ) -> CourseInvitationDeliveryAttempt {
+        match self.message(email, invitation_secret) {
+            Ok(message) => self.attempt_invitation_message(message).await,
+            // This is a local construction failure before SMTP is attempted.
+            Err(CourseInvitationDeliveryError::Unavailable) => {
+                CourseInvitationDeliveryAttempt::RetryableFailure
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
     use super::*;
 
     fn config(base: &str) -> SmtpCourseInvitationDeliveryConfig {
@@ -259,5 +369,79 @@ mod tests {
         let debug = format!("{value:?}");
         assert!(!debug.contains("fixture-only-secret"));
         assert!(!debug.contains("ple@example.edu"));
+    }
+
+    #[test]
+    fn authentication_statuses_have_a_redacted_operator_category() {
+        let authentication = Code::new(
+            Severity::PermanentNegativeCompletion,
+            Category::Unspecified3,
+            Detail::Five,
+        );
+        let rejection = Code::new(
+            Severity::PermanentNegativeCompletion,
+            Category::MailSystem,
+            Detail::Zero,
+        );
+
+        assert!(smtp_status_is_authentication_failure(authentication));
+        assert!(!smtp_status_is_authentication_failure(rejection));
+    }
+
+    #[tokio::test]
+    async fn smtp_authentication_failure_stays_adapter_coarse() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test listener");
+        let port = listener.local_addr().expect("listener address").port();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("test client");
+            let (reader, mut writer) = stream.into_split();
+            let mut reader = BufReader::new(reader);
+            let mut command = String::new();
+            writer
+                .write_all(b"220 test SMTP\r\n")
+                .await
+                .expect("greeting");
+            reader.read_line(&mut command).await.expect("EHLO");
+            writer
+                .write_all(b"250-test SMTP\r\n250-AUTH PLAIN\r\n250 OK\r\n")
+                .await
+                .expect("EHLO reply");
+            command.clear();
+            reader.read_line(&mut command).await.expect("AUTH");
+            writer
+                .write_all(b"535 authentication rejected\r\n")
+                .await
+                .expect("AUTH reply");
+        });
+        let transport = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous("127.0.0.1")
+            .port(port)
+            .credentials(Credentials::new(
+                "operator@example.edu".to_string(),
+                "fixture-only-secret".to_string(),
+            ))
+            .build();
+        let delivery = SmtpCourseInvitationDelivery {
+            transport,
+            from: "PLE <ple@example.edu>".parse().expect("sender mailbox"),
+            redeem_url: Url::parse("https://ple.example.edu/course-invitations/redeem")
+                .expect("redeem URL"),
+            email_auth_url: Url::parse("https://ple.example.edu/auth/email/complete")
+                .expect("email auth URL"),
+            email_change_url: Url::parse("https://ple.example.edu/auth/account/email/complete")
+                .expect("email change URL"),
+        };
+        let message = Message::builder()
+            .from("PLE <ple@example.edu>".parse().expect("sender mailbox"))
+            .to("learner@example.edu".parse().expect("recipient mailbox"))
+            .subject("fixture")
+            .body("fixture body".to_string())
+            .expect("SMTP message");
+
+        let result = delivery.attempt_invitation_message(message).await;
+
+        assert_eq!(result, CourseInvitationDeliveryAttempt::PermanentFailure);
+        server.await.expect("SMTP server task");
     }
 }

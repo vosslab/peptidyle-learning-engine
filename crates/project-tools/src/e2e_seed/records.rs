@@ -19,6 +19,29 @@ pub(super) fn webwork_capabilities() -> BackendCapabilities {
         .expect("tracked pilot source uses the WeBWorK backend")
 }
 
+/// The deterministic course and assignment records guard host-only replay.
+/// Creating the course before publication turns every interrupted prefix into
+/// an explicit reset-or-repair state rather than a second fresh publication.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum SeedReplayState {
+    Fresh,
+    Replay,
+}
+
+pub(super) fn seed_replay_state(
+    course_marker_exists: bool,
+    assignment_marker_exists: bool,
+    seed_name: &str,
+) -> Result<SeedReplayState> {
+    match (course_marker_exists, assignment_marker_exists) {
+        (false, false) => Ok(SeedReplayState::Fresh),
+        (true, true) => Ok(SeedReplayState::Replay),
+        _ => bail!(
+            "{seed_name} has an incomplete deterministic marker state; reset the disposable database before seeding"
+        ),
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(super) struct SeedIds {
     pub(super) workspace: WorkspaceId,
@@ -54,8 +77,8 @@ pub(super) struct SeedIds {
     pub(super) timing_exception_attempt: QuestionAttemptId,
 }
 
-/// A disjoint deterministic ID namespace lets the opt-in WebWork pilot seed
-/// coexist with the native replica seed in the same disposable database.
+/// The opt-in WebWork seed keeps its disposable course scaffold stable while
+/// each published question receives fresh opaque identities.
 #[derive(Clone, Copy)]
 pub(super) struct WebworkPilotSeedIds {
     pub(super) workspace: WorkspaceId,
@@ -69,13 +92,31 @@ pub(super) struct WebworkPilotSeedIds {
 }
 
 impl WebworkPilotSeedIds {
-    pub(super) fn for_tenant(tenant: TenantId) -> Self {
-        let id = |label| webwork_pilot_uuid(tenant, label);
+    pub(super) fn fresh_for_tenant(tenant: TenantId) -> Self {
+        let id = |label| webwork_pilot_scaffold_uuid(tenant, label);
         Self {
-            workspace: WorkspaceId::from_uuid(id("workspace")),
-            problem: ProblemId::from_uuid(id("problem")),
-            version: VersionId::from_uuid(id("version")),
-            source_object: ObjectId::from_uuid(id("source-object")),
+            workspace: WorkspaceId::generate(),
+            problem: ProblemId::generate(),
+            version: VersionId::generate(),
+            source_object: ObjectId::generate(),
+            course: CourseId::from_uuid(id("course")),
+            assignment: AssignmentId::from_uuid(id("assignment")),
+            assignment_item: AssignmentItemId::from_uuid(id("assignment-item")),
+            enrollment: EnrollmentId::from_uuid(id("enrollment")),
+        }
+    }
+
+    pub(super) fn from_published(
+        tenant: TenantId,
+        record: &learning_data_access::PublishedProblemRecord,
+        source_object: ObjectId,
+    ) -> Self {
+        let id = |label| webwork_pilot_scaffold_uuid(tenant, label);
+        Self {
+            workspace: record.question.workspace,
+            problem: record.problem,
+            version: record.version,
+            source_object,
             course: CourseId::from_uuid(id("course")),
             assignment: AssignmentId::from_uuid(id("assignment")),
             assignment_item: AssignmentItemId::from_uuid(id("assignment-item")),
@@ -85,11 +126,11 @@ impl WebworkPilotSeedIds {
 }
 
 impl SeedIds {
-    pub(super) fn for_tenant(tenant: TenantId) -> Self {
+    pub(super) fn fresh_for_tenant(tenant: TenantId) -> Self {
         Self {
-            workspace: WorkspaceId::from_uuid(derived_uuid(tenant, "workspace")),
-            problem: ProblemId::from_uuid(derived_uuid(tenant, "problem")),
-            version: VersionId::from_uuid(derived_uuid(tenant, "version")),
+            workspace: WorkspaceId::generate(),
+            problem: ProblemId::generate(),
+            version: VersionId::generate(),
             course: CourseId::from_uuid(derived_uuid(tenant, "course")),
             assignment: AssignmentId::from_uuid(derived_uuid(tenant, "assignment")),
             assignment_item: AssignmentItemId::from_uuid(derived_uuid(tenant, "assignment-item")),
@@ -156,6 +197,17 @@ impl SeedIds {
             )),
         }
     }
+
+    pub(super) fn from_published(
+        tenant: TenantId,
+        record: &learning_data_access::PublishedProblemRecord,
+    ) -> Self {
+        let mut ids = Self::fresh_for_tenant(tenant);
+        ids.workspace = record.question.workspace;
+        ids.problem = record.problem;
+        ids.version = record.version;
+        ids
+    }
 }
 
 /// Stable IDs make the manifest repeatable for an isolated disposable E2E DB.
@@ -174,9 +226,11 @@ pub(super) fn derived_uuid(tenant: TenantId, label: &str) -> Uuid {
     Uuid::from_bytes(bytes)
 }
 
-pub(super) fn webwork_pilot_uuid(tenant: TenantId, label: &str) -> Uuid {
+/// Keeps the native and WebWork disposable scaffolds disjoint without
+/// assigning any publication identity from the tenant.
+fn webwork_pilot_scaffold_uuid(tenant: TenantId, label: &str) -> Uuid {
     let mut hasher = Sha256::new();
-    hasher.update(b"ple-webwork-pilot-e2e-seed-v1:");
+    hasher.update(b"ple-webwork-pilot-e2e-scaffold-v1:");
     hasher.update(tenant.as_uuid().as_bytes());
     hasher.update(label.as_bytes());
     let digest = hasher.finalize();

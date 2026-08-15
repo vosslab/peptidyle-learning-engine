@@ -27,19 +27,38 @@ fn parsing_requires_distinct_course_members() {
 }
 
 #[test]
-fn ids_are_stable_and_separated_by_purpose() {
+fn parsing_accepts_child_only_database_url() {
+    let parsed = parse_arguments_with_database_url(
+        &[
+            "--tenant".to_string(),
+            "00000000-0000-0000-0000-000000000001".to_string(),
+            "--instructor".to_string(),
+            "00000000-0000-0000-0000-000000000002".to_string(),
+            "--student".to_string(),
+            "00000000-0000-0000-0000-000000000003".to_string(),
+            "--apply-migrations".to_string(),
+        ],
+        Some("postgres://child-only".to_string()),
+    )
+    .expect("child environment supplies the database URL");
+    assert_eq!(parsed.database_url, "postgres://child-only");
+}
+
+#[test]
+fn deterministic_seed_scaffold_keeps_non_question_records_separate() {
     let tenant = TenantId::from_uuid(Uuid::from_u128(9));
-    let first = SeedIds::for_tenant(tenant);
-    let second = SeedIds::for_tenant(tenant);
+    let first = SeedIds::fresh_for_tenant(tenant);
+    let second = SeedIds::fresh_for_tenant(tenant);
     assert_eq!(first.assignment, second.assignment);
     assert_ne!(first.assignment.as_uuid(), first.enrollment.as_uuid());
     assert_ne!(first.problem.as_uuid(), first.version.as_uuid());
+    assert_ne!(first.problem, second.problem);
 }
 
 #[test]
 fn webwork_pilot_enrollment_rerun_preserves_server_owned_progress() {
     let tenant = TenantId::from_uuid(Uuid::from_u128(20));
-    let ids = SeedIds::for_tenant(tenant);
+    let ids = SeedIds::fresh_for_tenant(tenant);
     let user = UserId::from_uuid(Uuid::from_u128(21));
     let expected = AssignmentEnrollment {
         id: ids.enrollment,
@@ -135,34 +154,245 @@ fn webwork_pilot_storage_settings_are_opt_in_and_deterministic() {
     assert_eq!(storage.private_content_bucket, "private-content");
 }
 
-#[test]
-fn chapter_one_seed_keeps_the_exact_two_by_four_teaching_matrix() {
-    let chapters = pilot_chapters().expect("the tracked pilot inventory is valid");
-    assert_eq!(chapters.len(), 2);
-    for chapter in chapters {
-        assert_eq!(chapter.questions.len(), 4);
-        assert!(matches!(
-            chapter.questions[0].kind,
-            PilotQuestionKind::WebworkMultipleChoice
-        ));
-        assert!(matches!(
-            chapter.questions[1].kind,
-            PilotQuestionKind::WebworkMatching
-        ));
-        assert!(matches!(
-            chapter.questions[2].kind,
-            PilotQuestionKind::FlatMultipleChoice
-        ));
-        assert!(matches!(
-            chapter.questions[3].kind,
-            PilotQuestionKind::FlatMatching
-        ));
-        for question in chapter.questions {
-            assert!(!question.slug.is_empty());
-            assert!(!question.title.is_empty());
-            assert!(!question.source.is_empty());
-        }
+fn resume_manifest(tenant: TenantId) -> ChapterOnePilotManifest {
+    let mut question_identity = 1_u128;
+    ChapterOnePilotManifest {
+        chapters: pilot_chapters()
+            .unwrap()
+            .into_iter()
+            .enumerate()
+            .map(|(chapter_index, chapter)| ChapterManifest {
+                course_id: CourseId::from_uuid(pilot_uuid(tenant, &chapter.slug, "course")),
+                assignment_id: AssignmentId::from_uuid(pilot_uuid(
+                    tenant,
+                    &chapter.slug,
+                    "assignment",
+                )),
+                enrollment_id: EnrollmentId::from_uuid(Uuid::from_u128(
+                    900 + chapter_index as u128,
+                )),
+                slug: chapter.slug,
+                questions: chapter
+                    .questions
+                    .into_iter()
+                    .map(|question| {
+                        let identity = question_identity;
+                        question_identity += 1;
+                        QuestionManifest {
+                            slug: question.slug,
+                            display_id: format!("CAT-{identity:04}"),
+                            problem_id: ProblemId::from_uuid(Uuid::from_u128(100 + identity)),
+                            version_id: VersionId::from_uuid(Uuid::from_u128(200 + identity)),
+                        }
+                    })
+                    .collect(),
+            })
+            .collect(),
     }
+}
+
+fn synthetic_resume_specs() -> Vec<PilotChapterSpec> {
+    vec![
+        PilotChapterSpec {
+            slug: "first".to_string(),
+            course_title: "First".to_string(),
+            assignment_title: "First assignment".to_string(),
+            questions: vec![PilotQuestionSpec {
+                slug: "first-question".to_string(),
+                title: "First question".to_string(),
+                source_path: "synthetic".to_string(),
+                source: b"synthetic",
+                kind: PilotQuestionKind::FlatMultipleChoice,
+                points: 1,
+            }],
+        },
+        PilotChapterSpec {
+            slug: "second".to_string(),
+            course_title: "Second".to_string(),
+            assignment_title: "Second assignment".to_string(),
+            questions: vec![PilotQuestionSpec {
+                slug: "second-question".to_string(),
+                title: "Second question".to_string(),
+                source_path: "synthetic".to_string(),
+                source: b"synthetic",
+                kind: PilotQuestionKind::FlatMultipleChoice,
+                points: 1,
+            }],
+        },
+    ]
+}
+
+fn synthetic_resume_manifest(
+    tenant: TenantId,
+    tracked: &[PilotChapterSpec],
+) -> ChapterOnePilotManifest {
+    let mut identity = 1_u128;
+    ChapterOnePilotManifest {
+        chapters: tracked
+            .iter()
+            .enumerate()
+            .map(|(chapter_index, chapter)| ChapterManifest {
+                slug: chapter.slug.clone(),
+                course_id: CourseId::from_uuid(pilot_uuid(tenant, &chapter.slug, "course")),
+                assignment_id: AssignmentId::from_uuid(pilot_uuid(
+                    tenant,
+                    &chapter.slug,
+                    "assignment",
+                )),
+                enrollment_id: EnrollmentId::from_uuid(Uuid::from_u128(
+                    900 + chapter_index as u128,
+                )),
+                questions: chapter
+                    .questions
+                    .iter()
+                    .map(|question| {
+                        let current = identity;
+                        identity += 1;
+                        QuestionManifest {
+                            slug: question.slug.clone(),
+                            display_id: format!("CAT-{current:04}"),
+                            problem_id: ProblemId::from_uuid(Uuid::from_u128(100 + current)),
+                            version_id: VersionId::from_uuid(Uuid::from_u128(200 + current)),
+                        }
+                    })
+                    .collect(),
+            })
+            .collect(),
+    }
+}
+
+#[test]
+fn resume_manifest_validation_rejects_identity_drift() {
+    let tenant = TenantId::from_uuid(Uuid::from_u128(88));
+    let tracked = pilot_chapters().unwrap();
+    let valid = resume_manifest(tenant);
+    assert!(validate_resume_manifest(&valid, tenant, &tracked).is_ok());
+    let tracked = synthetic_resume_specs();
+    let valid = synthetic_resume_manifest(tenant, &tracked);
+    assert!(validate_resume_manifest(&valid, tenant, &tracked).is_ok());
+
+    let mut wrong = valid.clone();
+    wrong
+        .chapters
+        .first_mut()
+        .expect("synthetic manifest has a chapter")
+        .slug = "unexpected-order".to_string();
+    assert!(validate_resume_manifest(&wrong, tenant, &tracked).is_err());
+
+    let mut wrong = valid.clone();
+    wrong
+        .chapters
+        .first_mut()
+        .expect("synthetic manifest has a chapter")
+        .course_id = CourseId::from_uuid(Uuid::from_u128(999));
+    assert!(validate_resume_manifest(&wrong, tenant, &tracked).is_err());
+
+    let mut wrong = valid.clone();
+    wrong
+        .chapters
+        .first_mut()
+        .expect("synthetic manifest has a chapter")
+        .assignment_id = AssignmentId::from_uuid(Uuid::from_u128(999));
+    assert!(validate_resume_manifest(&wrong, tenant, &tracked).is_err());
+
+    let mut duplicate = valid.clone();
+    let enrollment = duplicate
+        .chapters
+        .first()
+        .expect("synthetic manifest has a chapter")
+        .enrollment_id;
+    let another_chapter = duplicate
+        .chapters
+        .get_mut(1)
+        .expect("synthetic manifest has another chapter");
+    another_chapter.enrollment_id = enrollment;
+    assert!(validate_resume_manifest(&duplicate, tenant, &tracked).is_err());
+
+    let mut duplicate = valid.clone();
+    let display_id = duplicate
+        .chapters
+        .iter()
+        .flat_map(|chapter| &chapter.questions)
+        .next()
+        .expect("synthetic manifest has a question")
+        .display_id
+        .clone();
+    duplicate
+        .chapters
+        .iter_mut()
+        .flat_map(|chapter| &mut chapter.questions)
+        .nth(1)
+        .expect("synthetic manifest has another question")
+        .display_id = display_id;
+    assert!(validate_resume_manifest(&duplicate, tenant, &tracked).is_err());
+
+    let mut duplicate = valid.clone();
+    let (problem_id, version_id) = duplicate
+        .chapters
+        .iter()
+        .flat_map(|chapter| &chapter.questions)
+        .next()
+        .map(|question| (question.problem_id, question.version_id))
+        .expect("synthetic manifest has a question");
+    let target = duplicate
+        .chapters
+        .iter_mut()
+        .flat_map(|chapter| &mut chapter.questions)
+        .nth(1)
+        .expect("synthetic manifest has another question");
+    target.problem_id = problem_id;
+    target.version_id = version_id;
+    assert!(validate_resume_manifest(&duplicate, tenant, &tracked).is_err());
+
+    let mut noncanonical = valid.clone();
+    noncanonical
+        .chapters
+        .iter_mut()
+        .flat_map(|chapter| &mut chapter.questions)
+        .next()
+        .expect("synthetic manifest has a question")
+        .display_id = "cat-0001".to_string();
+    assert!(validate_resume_manifest(&noncanonical, tenant, &tracked).is_err());
+
+    let unknown =
+        serde_json::from_str::<ChapterOnePilotManifest>(r#"{"chapters":[],"extra":true}"#);
+    assert!(unknown.is_err());
+}
+
+#[test]
+fn chapter_one_course_markers_select_fresh_or_protected_resume() {
+    let fresh = chapter_one_corpus_state([false, false]).expect("empty markers select fresh");
+    assert_eq!(fresh, ChapterOneCorpusState::Fresh);
+    assert_eq!(
+        chapter_one_resume_manifest_path(fresh, Some("obsolete-host-manifest.json"))
+            .expect("fresh publication ignores a host manifest candidate"),
+        None
+    );
+
+    let published = chapter_one_corpus_state([true, true]).expect("full markers select resume");
+    assert_eq!(published, ChapterOneCorpusState::Published);
+    assert!(chapter_one_resume_manifest_path(published, None).is_err());
+    assert_eq!(
+        chapter_one_resume_manifest_path(published, Some("resume-manifest.json"))
+            .expect("published markers require their manifest"),
+        Some("resume-manifest.json")
+    );
+
+    assert!(chapter_one_corpus_state([true, false]).is_err());
+}
+
+#[test]
+fn outer_seed_marker_decision_stops_interrupted_publication_before_a_fresh_retry() {
+    assert_eq!(
+        seed_replay_state(false, false, "test seed").expect("empty scaffold starts fresh"),
+        SeedReplayState::Fresh
+    );
+    assert_eq!(
+        seed_replay_state(true, true, "test seed").expect("complete scaffold replays"),
+        SeedReplayState::Replay
+    );
+    assert!(seed_replay_state(true, false, "test seed").is_err());
+    assert!(seed_replay_state(false, true, "test seed").is_err());
 }
 
 #[tokio::test]
@@ -180,7 +410,7 @@ async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster(
         .flat_map(|chapter| chapter.questions)
         .find(|question| matches!(question.kind, PilotQuestionKind::WebworkMultipleChoice))
         .expect("the Chapter 1 matrix includes a WeBWorK multiple-choice question");
-    let question_ids = question_ids(tenant, &question.slug);
+    let question_ids = QuestionIds::generate();
     let published = publish_webwork_question(
         &store,
         &objects::memory::MemoryObjectStore::default(),
@@ -188,6 +418,7 @@ async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster(
         instructor,
         &question,
         &question_ids,
+        None,
     )
     .await
     .expect("the fixture publishes an assignment item through the catalog contract");
@@ -362,7 +593,7 @@ fn chapter_one_seed_sources_compile_and_use_evidence_bounded_capabilities() {
 }
 
 #[tokio::test]
-async fn chapter_one_webwork_publishers_converge_on_one_current_immutable_version() {
+async fn chapter_one_webwork_publishers_retain_one_exact_immutable_publication() {
     let tenant = TenantId::from_uuid(Uuid::from_u128(91));
     let context = TenantContext::from_authenticated_session(tenant);
     let publisher = UserId::from_uuid(Uuid::from_u128(92));
@@ -377,13 +608,13 @@ async fn chapter_one_webwork_publishers_converge_on_one_current_immutable_versio
             )
         })
         .expect("the teaching matrix includes a WebWork question");
-    let ids = question_ids(tenant, &question.slug);
+    let ids = QuestionIds::generate();
     let store = learning_data_access::in_memory::MemoryStore::default();
     let objects = objects::memory::MemoryObjectStore::default();
 
     let (first, second) = tokio::join!(
-        publish_webwork_question(&store, &objects, context, publisher, &question, &ids),
-        publish_webwork_question(&store, &objects, context, publisher, &question, &ids),
+        publish_webwork_question(&store, &objects, context, publisher, &question, &ids, None),
+        publish_webwork_question(&store, &objects, context, publisher, &question, &ids, None),
     );
     let first = first.expect("first concurrent publisher converges");
     let second = second.expect("second concurrent publisher converges");
@@ -410,8 +641,6 @@ async fn chapter_one_webwork_publishers_converge_on_one_current_immutable_versio
         .await
         .expect("source bytes are stored");
 
-    assert_eq!(published.version_number.value(), 1);
-    assert_eq!(published.previous_version, None);
     assert!(published.capabilities.supports(Capability::Hints));
     assert_eq!(
         published.question.attempt_policy.feedback,
@@ -425,27 +654,29 @@ async fn chapter_one_webwork_publishers_converge_on_one_current_immutable_versio
     assert!(!projected.contains(source_text));
     assert!(!projected.contains("correctResponse"));
 
-    let versions = store
-        .list_catalog(
-            context,
-            PageRequest::first(PageSize::new(10).expect("page size is valid")),
-        )
-        .await
-        .expect("catalog listing succeeds")
-        .items
-        .into_iter()
-        .filter(|item| item.question_id == published.question_id)
-        .map(|item| item.version)
-        .collect::<Vec<_>>();
-    assert_eq!(
-        versions,
-        vec![published.version],
-        "concurrent publication retains one current question instead of creating a synthetic successor"
-    );
+    assert_eq!(published.question_id, first.question_id);
 
-    let rerun = publish_webwork_question(&store, &objects, context, publisher, &question, &ids)
-        .await
-        .expect("rerun converges");
+    let host_manifest = Manifest {
+        assignment_id: AssignmentId::from_uuid(Uuid::from_u128(701)),
+        enrollment_id: EnrollmentId::from_uuid(Uuid::from_u128(702)),
+        question_id: first.question_id.clone(),
+        problem_id: first.problem,
+        version_id: first.version,
+    };
+    let encoded = serde_json::to_value(host_manifest).expect("host manifest serializes");
+    assert_eq!(encoded["questionId"], first.question_id.to_string());
+
+    let rerun = publish_webwork_question(
+        &store,
+        &objects,
+        context,
+        publisher,
+        &question,
+        &QuestionIds::from_published(&published),
+        Some(&published),
+    )
+    .await
+    .expect("rerun converges");
     assert_eq!(rerun, published);
 }
 
@@ -481,16 +712,13 @@ fn chapter_one_seed_storage_flag_is_explicit_and_mutually_exclusive() {
 
 #[test]
 fn tracked_webwork_fixture_matches_declared_digest_and_provenance() {
-    assert_eq!(
-        objects::Sha256Digest::compute(WEBWORK_PILOT_SOURCE).to_string(),
-        WEBWORK_PILOT_SOURCE_SHA256
-    );
+    let source_digest = objects::Sha256Digest::compute(WEBWORK_PILOT_SOURCE).to_string();
     let provenance: serde_json::Value = serde_json::from_slice(include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../content/pilot/webwork/which_hydrophobic-simple.provenance.json"
     )))
     .expect("tracked provenance is JSON");
-    assert_eq!(provenance["sha256"], WEBWORK_PILOT_SOURCE_SHA256);
+    assert_eq!(provenance["sha256"], source_digest);
     assert_eq!(
         provenance["copiedFrom"],
         "OTHER_REPOS/biology-problems-website/site_docs/biochemistry/topic01/downloads/which_hydrophobic-simple.pgml"
@@ -531,9 +759,9 @@ fn webwork_pilot_draft_uses_immutable_source_and_declared_capabilities() {
 }
 
 #[test]
-fn webwork_pilot_published_source_binds_one_deterministic_problem_object_key() {
+fn webwork_pilot_source_key_binds_fresh_publication_identity() {
     let tenant = TenantId::from_uuid(Uuid::from_u128(9));
-    let ids = WebworkPilotSeedIds::for_tenant(tenant);
+    let ids = WebworkPilotSeedIds::fresh_for_tenant(tenant);
     let reference = ProblemVersionRef {
         problem: ids.problem,
         version: ids.version,
@@ -555,15 +783,16 @@ fn webwork_pilot_published_source_binds_one_deterministic_problem_object_key() {
 }
 
 #[test]
-fn webwork_pilot_ids_are_stable_and_disjoint_from_native_seed() {
+fn webwork_pilot_keeps_scaffold_stable_while_publication_ids_are_fresh() {
     let tenant = TenantId::from_uuid(Uuid::from_u128(9));
-    let first = WebworkPilotSeedIds::for_tenant(tenant);
-    let second = WebworkPilotSeedIds::for_tenant(tenant);
-    let native = SeedIds::for_tenant(tenant);
+    let first = WebworkPilotSeedIds::fresh_for_tenant(tenant);
+    let second = WebworkPilotSeedIds::fresh_for_tenant(tenant);
+    let native = SeedIds::fresh_for_tenant(tenant);
     assert_eq!(first.assignment, second.assignment);
     assert_ne!(first.problem.as_uuid(), first.source_object.as_uuid());
     assert_ne!(first.problem.as_uuid(), native.problem.as_uuid());
     assert_ne!(first.assignment.as_uuid(), native.assignment.as_uuid());
+    assert_ne!(first.problem, second.problem);
 }
 
 #[test]
@@ -584,7 +813,6 @@ async fn injected_draft_create_conflict_rereads_and_accepts_only_exact_seed_cont
     let draft = DraftRecord {
         tenant,
         question: webwork_pilot_draft(WorkspaceId::from_uuid(Uuid::from_u128(83))),
-        revises: None,
         derived_from: None,
     };
     let raced = store
@@ -612,7 +840,7 @@ async fn webwork_pilot_converges_after_every_persisted_prefix_and_on_rerun() {
     let instructor = UserId::from_uuid(Uuid::from_u128(92));
     let student = UserId::from_uuid(Uuid::from_u128(93));
     let context = TenantContext::from_authenticated_session(tenant);
-    let ids = WebworkPilotSeedIds::for_tenant(tenant);
+    let ids = WebworkPilotSeedIds::fresh_for_tenant(tenant);
     let reference = ProblemVersionRef {
         problem: ids.problem,
         version: ids.version,
@@ -634,7 +862,6 @@ async fn webwork_pilot_converges_after_every_persisted_prefix_and_on_rerun() {
     let draft = DraftRecord {
         tenant,
         question: webwork_pilot_draft(ids.workspace),
-        revises: None,
         derived_from: None,
     };
     let capabilities = webwork_capabilities();
@@ -733,7 +960,6 @@ async fn webwork_pilot_converges_after_every_persisted_prefix_and_on_rerun() {
         DraftRecord {
             tenant,
             question: webwork_pilot_draft(ids.workspace),
-            revises: None,
             derived_from: None,
         },
         reference,

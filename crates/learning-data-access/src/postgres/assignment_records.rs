@@ -20,9 +20,9 @@ pub(super) async fn validate_postgres_assignment_references(
         ));
     }
     for reference in assignment.references() {
-        // The broker performs the exact public-or-granted visibility check and
-        // retains a share lock through this transaction. Deprecated immutable
-        // versions remain assignable; archived versions are historical-only.
+        // The broker performs the exact visible-publication check and retains
+        // a share lock through this transaction. Each Question ID has one
+        // immutable publication, so this never selects a successor.
         let lifecycle: Option<String> =
             sqlx::query_scalar("SELECT public.ple_lock_assignable_problem_version($1, $2)")
                 .bind(reference.problem.as_uuid())
@@ -32,7 +32,7 @@ pub(super) async fn validate_postgres_assignment_references(
                 .map_err(map_sqlx_error)?;
         if !matches!(lifecycle.as_deref(), Some("published" | "deprecated")) {
             return Err(StoreError::InvalidRecord(format!(
-                "assignment references a missing, hidden, or inactive published version {}/{}",
+                "assignment references a missing, hidden, or inactive publication {}/{}",
                 reference.problem, reference.version
             )));
         }
@@ -716,15 +716,14 @@ pub(super) async fn insert_problem_version(
     let derived_from_version = record.derived_from.map(|source| source.version.as_uuid());
     sqlx::query(
         "INSERT INTO problem_version \
-         (problem_id, version_id, version_number, content_sha256, workspace_id, title, \
+         (problem_id, version_id, content_sha256, workspace_id, title, \
           backend, capabilities, metadata, \
-          publication_scope, lifecycle, lifecycle_reason, authors, previous_version_id, \
+          publication_scope, lifecycle, lifecycle_reason, authors, \
           derived_from_problem_id, derived_from_version_id) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)",
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
     )
     .bind(record.problem.as_uuid())
     .bind(record.version.as_uuid())
-    .bind(i64::from(record.version_number.value()))
     .bind(content_sha256)
     .bind(record.question.workspace.as_uuid())
     .bind(&record.question.metadata.title)
@@ -735,7 +734,6 @@ pub(super) async fn insert_problem_version(
     .bind(lifecycle)
     .bind(lifecycle_reason)
     .bind(Json(record.authors.clone()))
-    .bind(record.previous_version.map(|version| version.as_uuid()))
     .bind(derived_from_problem)
     .bind(derived_from_version)
     .execute(&mut **transaction)

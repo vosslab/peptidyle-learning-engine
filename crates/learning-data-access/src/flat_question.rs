@@ -637,7 +637,6 @@ mod tests {
         let draft = DraftRecord {
             tenant: tenant(),
             question: question(),
-            revises: None,
             derived_from: None,
         };
         let command = crate::UpsertFlatQuestionCommand {

@@ -26,6 +26,8 @@ pub enum ProductionLoginProfile {
     Api,
     /// Background worker: tenant data only; never account authentication.
     Worker,
+    /// Invitation delivery dispatcher: only the function-only outbox capability.
+    InvitationDeliveryWorker,
     /// Public asset publisher: no tenant/application tables, only its queue capability.
     Publisher,
 }
@@ -97,6 +99,9 @@ impl LoginContract {
         match self {
             Self::Production(ProductionLoginProfile::Api) => "ple_api_login",
             Self::Production(ProductionLoginProfile::Worker) => "ple_worker_login",
+            Self::Production(ProductionLoginProfile::InvitationDeliveryWorker) => {
+                "ple_invitation_delivery_worker_login"
+            }
             Self::Production(ProductionLoginProfile::Publisher) => "ple_publisher_login",
             Self::Grader => "ple_grading_reader",
         }
@@ -118,6 +123,12 @@ impl LoginContract {
                 role_name: "ple_app",
                 set_option: true,
             }],
+            Self::Production(ProductionLoginProfile::InvitationDeliveryWorker) => {
+                &[ExpectedMembership {
+                    role_name: "ple_invitation_delivery_worker",
+                    set_option: true,
+                }]
+            }
             Self::Production(ProductionLoginProfile::Publisher) => &[ExpectedMembership {
                 role_name: "ple_public_asset_publisher",
                 set_option: true,
@@ -410,9 +421,6 @@ pub(super) fn map_sqlx_error(error: sqlx::Error) -> StoreError {
 fn map_database_error(code: Option<&str>, constraint: Option<&str>) -> Option<StoreError> {
     match code {
         Some("40001") | Some("40P01") => Some(StoreError::RetryableTransaction),
-        Some("23505") if constraint == Some("problem_version_linear_chain_idx") => {
-            Some(StoreError::Conflict)
-        }
         Some("23505") => Some(StoreError::AlreadyExists),
         Some("23503") => Some(StoreError::InvalidRecord(constraint_message(
             constraint,
@@ -460,9 +468,9 @@ fn constraint_message(constraint: Option<&str>, kind: &str) -> String {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-    use tokio::sync::Barrier;
+    use tokio::sync::{Barrier, Notify};
 
     use super::*;
 
@@ -578,6 +586,15 @@ mod tests {
             )
             .is_err()
         );
+        let delivery_worker =
+            LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker);
+        assert!(
+            verified_connect_options(
+                "postgres://ple_invitation_delivery_worker_login:secret@db.example/ple?sslmode=verify-full",
+                delivery_worker,
+            )
+            .is_ok()
+        );
     }
 
     #[test]
@@ -585,6 +602,7 @@ mod tests {
         for contract in [
             LoginContract::Production(ProductionLoginProfile::Api),
             LoginContract::Production(ProductionLoginProfile::Worker),
+            LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
             LoginContract::Production(ProductionLoginProfile::Publisher),
             LoginContract::Grader,
         ] {
@@ -618,6 +636,7 @@ mod tests {
         for contract in [
             LoginContract::Production(ProductionLoginProfile::Api),
             LoginContract::Production(ProductionLoginProfile::Worker),
+            LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
             LoginContract::Production(ProductionLoginProfile::Publisher),
         ] {
             let mut delegable = authority(contract);
@@ -648,6 +667,7 @@ mod tests {
         for contract in [
             LoginContract::Production(ProductionLoginProfile::Api),
             LoginContract::Production(ProductionLoginProfile::Worker),
+            LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
             LoginContract::Production(ProductionLoginProfile::Publisher),
         ] {
             for expected in contract.expected_capabilities() {
@@ -702,15 +722,36 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn retry_transaction_stops_after_three_aborted_attempts() {
-        let attempts = AtomicUsize::new(0);
+    async fn permanently_aborted_transaction_returns_without_success_effects() {
+        let committed = AtomicBool::new(false);
+        let post_commit_effect = AtomicBool::new(false);
         let result = retry_transaction(|| {
-            attempts.fetch_add(1, Ordering::Relaxed);
+            let committed = &committed;
+            let post_commit_effect = &post_commit_effect;
+            committed.store(false, Ordering::Relaxed);
+            post_commit_effect.store(false, Ordering::Relaxed);
             std::future::ready(Err::<(), _>(StoreError::RetryableTransaction))
         })
         .await;
         assert_eq!(result, Err(StoreError::RetryableTransaction));
-        assert_eq!(attempts.load(Ordering::Relaxed), 3);
+        assert!(!committed.load(Ordering::Relaxed));
+        assert!(!post_commit_effect.load(Ordering::Relaxed));
+    }
+
+    #[tokio::test]
+    async fn transient_transaction_abort_restarts_a_fresh_operation() {
+        let first_attempt = AtomicBool::new(true);
+        let committed = AtomicBool::new(false);
+        let result = retry_transaction(|| {
+            if first_attempt.swap(false, Ordering::Relaxed) {
+                return std::future::ready(Err(StoreError::RetryableTransaction));
+            }
+            committed.store(true, Ordering::Relaxed);
+            std::future::ready(Ok(()))
+        })
+        .await;
+        assert_eq!(result, Ok(()));
+        assert!(committed.load(Ordering::Relaxed));
     }
 
     #[tokio::test]
@@ -742,18 +783,33 @@ mod tests {
         .expect("seed retry fixture");
 
         let barrier = Arc::new(Barrier::new(2));
+        let initial_commit_complete = Arc::new(AtomicBool::new(false));
+        let initial_commit_notifier = Arc::new(Notify::new());
         let first_attempts = Arc::new(AtomicUsize::new(0));
         let second_attempts = Arc::new(AtomicUsize::new(0));
         let run = |own: i32,
                    observed: i32,
                    attempts: Arc<AtomicUsize>,
                    barrier: Arc<Barrier>,
+                   initial_commit_complete: Arc<AtomicBool>,
+                   initial_commit_notifier: Arc<Notify>,
                    pool: PgPool| async move {
             retry_transaction(|| {
                 let pool = pool.clone();
                 let barrier = barrier.clone();
+                let initial_commit_complete = initial_commit_complete.clone();
+                let initial_commit_notifier = initial_commit_notifier.clone();
                 let first_attempt = attempts.fetch_add(1, Ordering::Relaxed) == 0;
                 async move {
+                    if !first_attempt {
+                        while !initial_commit_complete.load(Ordering::Acquire) {
+                            let notified = initial_commit_notifier.notified();
+                            if initial_commit_complete.load(Ordering::Acquire) {
+                                break;
+                            }
+                            notified.await;
+                        }
+                    }
                     let mut transaction = pool.begin().await.map_err(map_sqlx_error)?;
                     sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
                         .execute(&mut *transaction)
@@ -777,14 +833,35 @@ mod tests {
                     .execute(&mut *transaction)
                     .await
                     .map_err(map_sqlx_error)?;
-                    transaction.commit().await.map_err(map_sqlx_error)
+                    transaction.commit().await.map_err(map_sqlx_error)?;
+                    if first_attempt {
+                        initial_commit_complete.store(true, Ordering::Release);
+                        initial_commit_notifier.notify_waiters();
+                    }
+                    Ok(())
                 }
             })
             .await
         };
         let (first, second) = tokio::join!(
-            run(1, 2, first_attempts.clone(), barrier.clone(), pool.clone()),
-            run(2, 1, second_attempts.clone(), barrier, pool.clone())
+            run(
+                1,
+                2,
+                first_attempts.clone(),
+                barrier.clone(),
+                initial_commit_complete.clone(),
+                initial_commit_notifier.clone(),
+                pool.clone(),
+            ),
+            run(
+                2,
+                1,
+                second_attempts.clone(),
+                barrier,
+                initial_commit_complete,
+                initial_commit_notifier,
+                pool.clone(),
+            )
         );
         first.expect("first serializable operation commits");
         second.expect("second serializable operation commits after retry");

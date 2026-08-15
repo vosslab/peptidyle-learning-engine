@@ -184,12 +184,12 @@ test("a publish refusal preserves the caller's unversioned draft for correction"
 
 test("publication presents an immutable comparison before confirmation", () => {
   const diff = {
-    priorVersion: "00000000-0000-0000-0000-000000000099",
+    baseline: "newQuestion",
     proposedTitle: draft.title,
     sections: [{ label: "Prompt", before: "Older prompt", after: "Estimate the omega angle." }],
   };
 
-  assert.equal(diff.priorVersion, "00000000-0000-0000-0000-000000000099");
+  assert.equal(diff.baseline, "newQuestion");
   assert.equal(diff.sections[0].label, "Prompt");
 });
 

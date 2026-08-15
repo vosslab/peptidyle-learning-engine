@@ -1,4 +1,4 @@
-# Applied only by local_stack_control/launch.sh --with-smtp. PLE connects to an
+# Applied only by local_stack.py start --with-smtp. PLE connects to an
 # operator-selected external SMTP submission service; this overlay does not
 # run a mail server or add a mail-deliverability component to the stack.
 services:
@@ -44,6 +44,27 @@ services:
         source: ple_smtp_runtime
         target: /run/ple-smtp-secrets
         read_only: true
+
+  invitation-delivery-worker:
+    depends_on:
+      smtp-secret-init:
+        condition: service_completed_successfully
+    environment:
+      PLE_SMTP_RELAY: ${PLE_SMTP_RELAY:?set PLE_SMTP_RELAY to the provider SMTP hostname}
+      PLE_SMTP_PORT: ${PLE_SMTP_PORT:?set PLE_SMTP_PORT to the provider submission port}
+      PLE_SMTP_TLS_MODE: ${PLE_SMTP_TLS_MODE:?set PLE_SMTP_TLS_MODE to starttls or implicit-tls}
+      PLE_SMTP_USERNAME: ${PLE_SMTP_USERNAME:?set PLE_SMTP_USERNAME to the provider SMTP username}
+      PLE_SMTP_PASSWORD_FILE: /run/ple-smtp-secrets/smtp_password
+      PLE_SMTP_FROM: ${PLE_SMTP_FROM:?set PLE_SMTP_FROM to the provider-authorized sender mailbox}
+      PLE_PUBLIC_APP_BASE_URL: ${PLE_PUBLIC_APP_BASE_URL:?set PLE_PUBLIC_APP_BASE_URL to the public HTTPS PLE origin}
+    volumes:
+      - type: volume
+        source: ple_smtp_runtime
+        target: /run/ple-smtp-secrets
+        read_only: true
+    networks:
+      - default
+      - api_outbound
 
 volumes:
   ple_smtp_runtime:

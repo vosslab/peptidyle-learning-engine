@@ -1,6 +1,6 @@
 # Implementation status and handoff
 
-Last updated: 2026-08-14
+Last updated: 2026-08-15
 
 This file is a durable execution handoff. The architecture, scope, milestone order, security
 boundaries, and acceptance criteria remain authoritative in `implementation_plan.md`. Durable owner
@@ -17,8 +17,8 @@ source, follow those sources and correct this file.
 - Complete one dependency-ordered slice, run its behavior gates, obtain an independent review, and
   update `../CHANGELOG.md` before advancing.
 - Use `source source_me.sh && python3 ...` for repository Python commands.
-- Use `python3 local_stack.py` for routine local-stack status, logs, normal stop,
-  reset preview, and validation delegation. The launcher remains the startup/bootstrap owner.
+- Use `python3 local_stack.py` for routine local-stack status, logs, start, restart, normal stop,
+  reset preview, and validation. Its typed Python lifecycle is the startup/bootstrap owner.
 - Keep maintained source ASCII/ISO-8859-1 compatible. Write non-Latin Unicode in Rust fixtures with
   escapes such as `\u{1F9EC}`.
 - `../CLAUDE_HOOK_USAGE_GUIDE.md` is intentionally removed and does not govern Codex work.
@@ -71,6 +71,43 @@ remains open, and WP-R1 is the next dependency-ordered package.
   PostgreSQL 17 all-32-migration, idempotence, and verification baseline; named Store,
   continuation/disclosure, qualitative plan, broker/RLS/ownership, and maintained baseline lanes;
   and final independent ACCEPT. This is not full-repository, browser, or M0 acceptance.
+
+## Accepted task: WP-R1 local teaching-loop evidence
+
+WP-R1 is independently accepted on 2026-08-14. M0 remains open; WP-R2 is the next
+dependency-ordered package.
+
+- The completed statistics UI discloses the available release-truth evidence.
+- Python owns the Chapter One pilot, Chapter One browser journey, and aggregate acceptance lanes over
+  the typed `local_stack_control` boundary.
+- The designated renderer image name is the stable local selection and rebuild target; each live run
+  records its resolved OCI configuration ID as exact runtime provenance.
+- Final Validation passed on the final material tree: `./check_codebase.sh`, `./check_rust.sh`, and
+  `source source_me.sh && python3 -m pytest tests/` (4,865 passed), followed by
+  `source source_me.sh && python3 local_stack.py acceptance` with all seven lanes green: ordinary
+  browser, two visual checks, canonical walkthrough, Chapter One pilot, Chapter One browser, and
+  canonical WebWork browser acceptance. The final independent review returned ACCEPT with no P0/P1.
+
+## Accepted task: WP-R2 immutable-question release truth
+
+WP-R2 is accepted on the final material tree. WP-PY-L1 is accepted on 2026-08-15 after final offline
+and live Validation and its three named independent reviews. M0 remains open; WP-RC8 acceptance is the
+next package in the active release plan.
+
+- Every content change publishes a new immutable `AAA-BBBB` Question ID and fresh hidden
+  `(ProblemId, VersionId)` evidence. Optional one-way provenance retains source attribution without
+  changing the source or advancing an assignment.
+- Assignment creation and focused item replacement select Question IDs. A revision-checked
+  replacement changes future runs, while existing assignments, issued runs, and attempts retain their
+  exact evidence.
+- The final Validation passed: `./check_codebase.sh` completed five steps with 260 Node tests;
+  `source source_me.sh && python3 -m pytest tests/` passed 4,856 tests; `./check_rust.sh` passed the
+  full Rust suite; and `source source_me.sh && python3 local_stack.py acceptance` passed all seven
+  lanes: ordinary browser, two visual verifiers, canonical walkthrough, Chapter One pilot, Chapter
+  One browser with four live Question-ID replacements, and WebWork render/grade/outage.
+- Test, UI, and architecture reviews returned ACCEPT with no P0/P1 finding. The canonical renderer
+  image was rebuilt only for acceptance; cleanup removed all disposable containers, images, and
+  volumes while retaining the recorded OCI configuration ID as runtime provenance.
 
 ## Previously accepted task: MOD-RETENTION R4.3
 
@@ -285,7 +322,7 @@ The WP-QTI-12 independent review and documentation close-out is complete:
   instructor-identifier sub-slice does not close the broader guidance audit. The assignment editor
   resolves catalog titles and displays copyable canonical `AAA-BBBB` Crockford Question IDs plus
   backend labels rather than presenting UUID tuples as problem numbers. Server-side checksum
-  validation and tenant/actor authorization resolve the current assignable question; hidden
+  validation and tenant/actor authorization resolve the exact assigned Question ID; hidden
   immutable snapshots and version identity remain internal for grading and provenance. Its
   **Add by question ID** control accepts one or more comma- or newline-separated exact IDs,
   resolves all of them before changing the draft, and preserves both pasted input and the assignment
@@ -311,12 +348,26 @@ The WP-QTI-12 independent review and documentation close-out is complete:
   no-mouse audit. The primary route uses Tab, Shift+Tab, Space, explicit submission, and native link
   activation; Arrow, digit, Enter-to-submit, and Escape extensions have separately classified
   component scenarios. Representative VoiceOver and NVDA sessions remain a fall-pilot human gate.
-- Private `local_stack_control/launch.sh` is the maintained build/bootstrap seam behind the public controller. It preflights the
-  private configuration, generates ignored local identities and secrets, builds the code, migrates
-  and seeds PostgreSQL before API/worker startup, provisions the distinct grader login, waits for
-  the semantic gateway health response, and opens the browser without deleting persistent volumes.
-  The accepted stateless PG renderer is a required default local-stack service using its pinned
-  external image and private `/render-api` integration.
+- Focused private `local_stack_control` Python modules are the maintained build/bootstrap seam behind
+  the public controller. They own lifecycle sequencing, default-only private configuration and local
+  identity, renderer selection and OCI configuration-ID provenance, Podman subprocess control, polling,
+  migration, seeding, grading-role provisioning, semantic readiness, and optional browser opening without
+  deleting persistent volumes. The accepted stateless PG renderer remains a required default local-stack
+  service using its selected rebuild target, per-run OCI configuration ID, and private `/render-api`
+  integration. WP-PY-L1 has passed final offline and live Validation: default typed start/status/validate,
+  renderer stop/restart plus full WebWork RPC, schema-v2 canonical walkthrough J11-J13/J1-J5/J8,
+  replica/restart durable replay, and all seven aggregate lanes. The final state has zero containers/networks
+  and exactly `containers_ple_pgdata`, `containers_ple_miniodata`, and `containers_ple_identity_runtime`
+  retained. `final_python_repository_review.ae3`, `final_podman_security_review.c2`, and
+  `walkthrough_acceptance_final_review.ae3` each ACCEPT with no P0-P3 finding; WP-PY-L1 is accepted on
+  2026-08-15. M0 remains open and WP-RC8 acceptance is next.
+
+  Live evidence also corrected renderer OCI-ID normalization; database-seed environment fallback;
+  unsupported Compose `rm` removal; restart recovery/readiness; semantic renderer probing; Chapter 1
+  private provenance output; replica Question-ID manifest handling; and browser readiness/foreground
+  handoff. The maintained sibling `webwork-pg-renderer` required its own PG build-context and standalone
+  compatibility fixes; those sibling changes are dependency evidence only and are neither staged nor
+  committed by this repository status.
 - [docs/DATABASE_STRUCTURE.md](../DATABASE_STRUCTURE.md) maps implemented revision, assignment, and
   isolated-score relations. The human owner has superseded the earlier institutional-OIDC-only
   decision: WP-RC8 now owns PLE-managed passwordless accounts, invite-by-email enrollment, passkeys,
@@ -384,7 +435,7 @@ are clean; and three independent reviewers reported no P0/P1/P2.
   without widening the public schema-v2 report: J13 verifies an operational human-readable
   `AAA-BBBB` Question ID plus backend label rather than UUID text, copies/pastes the four exact
   Genetics Chapter 1 IDs, and visibly observes four selected questions before creation. Server-side
-  checksum validation and tenant/actor authorization resolve the current assignable question;
+  checksum validation and tenant/actor authorization resolve the exact assigned Question ID;
   immutable snapshots and version identity remain internal for grading and provenance. The complete
   two-chapter eight-question sweep remains the isolated release oracle.
 - The current runner refactor replaces inherited hidden Python walkthrough switches with documented
@@ -426,7 +477,7 @@ does not silently accept a future package.
 | Human-guidance area                                               | Current disposition                                           | Evidence or remaining owner                                                                                                                                                                                                                                                                      |
 | ----------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Device priorities and visual density                              | Accepted for the current instructor and learner surfaces      | Canonical 1280 by 800 clean-stack screenshots, 800 by 1280 student/tablet task coverage, one narrow-phone compatibility guard, and the compact-interface browser gates. CSS Grid/Flexbox plus media/container queries remain the default; no responsive-menu dependency was added.               |
-| Human-readable instructor identifiers                             | Accepted                                                      | The live instructor path copies and pastes four exact Genetics `AAA-BBBB` Question IDs. Server checksum validation and tenant/actor authorization resolve current assignable questions, while malformed/unavailable/unauthorized/duplicate recovery remains covered by permanent behavior tests. |
+| Human-readable instructor identifiers                             | Accepted                                                      | The live instructor path copies and pastes four exact Genetics `AAA-BBBB` Question IDs. Server checksum validation and tenant/actor authorization resolve each exact assigned Question ID, while malformed/unavailable/unauthorized/duplicate recovery remains covered by permanent behavior tests. |
 | Teaching loop, timing, repeat practice, and gradebook             | Accepted as WP-HG1                                            | The visible no-email J11/J12/J13/J1--J5/J8 path, 15-minute run, fresh second run, and two-run gradebook passed with redacted private evidence.                                                                                                                                                   |
 | Student keyboard interaction and native-family recovery           | Accepted for implemented surfaces                             | Platform Tab/Shift+Tab plus Enter/Space works through the live learner path; all eight native widgets have keyboard controls, answer-free progress, and unsubmitted reset/recovery behavior.                                                                                                     |
 | Native flat v2 authoring and runtime                              | Implemented; integrated package acceptance remains WP-RC4/RC5 | All eight closed v2 source families, protected visual editors, server-only grading, immutable HOTSPOT publication, and issue-time asset binding are implemented. Full all-family PostgreSQL/object-store author-to-learner lifecycle and screen-reader closeout remain open.                     |

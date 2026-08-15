@@ -5,15 +5,15 @@ use sqlx::{Postgres, Row, Transaction};
 use std::collections::BTreeSet;
 
 use super::course_roster_decode::*;
-use super::{PostgresStore, map_sqlx_error, page_from_keyed_records};
+use super::{PostgresStore, map_sqlx_error, page_from_keyed_records, retry_transaction};
 use crate::{
     ClaimCourseInvitation, ClaimedCourseMembership, CommitCourseRosterImport,
-    CommittedCourseRosterImport, CourseEnrollmentPolicy, CourseInvitation, CourseInvitationId,
-    CourseMemberId, CourseMemberStatus, CourseRosterContact, CourseRosterImportPreview,
-    CourseRosterMember, CourseRosterPage, CourseRosterStore, CourseRosterSupportAction,
-    CreateCourseInvitation, PageRequest, ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation,
-    RevokeCourseMember, RosterRevision, SessionTokenHash, StageCourseRosterImport, StoreError,
-    TenantContext, UpsertCourseMember,
+    CommittedCourseRosterImport, CourseEnrollmentPolicy, CourseInvitation,
+    CourseInvitationDeliveryId, CourseInvitationId, CourseMemberId, CourseMemberStatus,
+    CourseRosterContact, CourseRosterImportPreview, CourseRosterMember, CourseRosterPage,
+    CourseRosterStore, CourseRosterSupportAction, CreateCourseInvitation, PageRequest,
+    ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation, RevokeCourseMember, RosterRevision,
+    SessionTokenHash, StageCourseRosterImport, StoreError, TenantContext, UpsertCourseMember,
 };
 
 #[path = "course_roster/authority.rs"]
@@ -22,11 +22,16 @@ mod authority;
 mod enrollment;
 #[path = "course_roster/import.rs"]
 mod import;
+#[path = "course_roster/state.rs"]
+mod state;
 
 use authority::require_course;
 pub(super) use authority::{
     precheck_course_roster_authority, require_audited_course_roster_actor,
     require_course_instructor,
+};
+pub(super) use state::{
+    ensure_roster_state, lock_course_roster_cross_product, reconcile_new_assignment,
 };
 
 #[async_trait]
@@ -38,6 +43,9 @@ impl CourseRosterStore for PostgresStore {
         course: CourseId,
         page: PageRequest,
     ) -> Result<CourseRosterPage, StoreError> {
+        retry_transaction(|| {
+            let page = page.clone();
+            async move {
         let mut transaction = self.begin_tenant_writable_snapshot(context).await?;
         require_course(&mut transaction, context.tenant_id(), course).await?;
         require_audited_course_roster_actor(
@@ -107,6 +115,9 @@ impl CourseRosterStore for PostgresStore {
         let entries = page_from_keyed_records(&mut records, page.size.get())?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(CourseRosterPage { entries, policy })
+            }
+        })
+        .await
     }
 
     async fn create_course_invitation(
@@ -115,34 +126,37 @@ impl CourseRosterStore for PostgresStore {
         session: SessionTokenHash,
         command: CreateCourseInvitation,
     ) -> Result<CourseInvitation, StoreError> {
-        let tenant = context.tenant_id();
-        let mut transaction = self.begin_tenant(context).await?;
-        precheck_course_roster_authority(&mut transaction, session, command.course).await?;
-        lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-        let actor = require_audited_course_roster_actor(
-            &mut transaction,
-            session,
-            command.course,
-            CourseRosterSupportAction::CreateInvitation,
-        )
-        .await?;
-        let policy = load_policy(&mut transaction, tenant, command.course, true).await?;
-        if !policy.validates(&command.email) {
-            return Err(StoreError::InvalidRecord(
-                "invitation email domain is not permitted".to_string(),
-            ));
-        }
-        sqlx::query(
-            "UPDATE course_invitation SET status = 'expired' \
+        retry_transaction(|| {
+            let command = command.clone();
+            async move {
+                let tenant = context.tenant_id();
+                let mut transaction = self.begin_tenant(context).await?;
+                precheck_course_roster_authority(&mut transaction, session, command.course).await?;
+                lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
+                let actor = require_audited_course_roster_actor(
+                    &mut transaction,
+                    session,
+                    command.course,
+                    CourseRosterSupportAction::CreateInvitation,
+                )
+                .await?;
+                let policy = load_policy(&mut transaction, tenant, command.course, true).await?;
+                if !policy.validates(&command.email) {
+                    return Err(StoreError::InvalidRecord(
+                        "invitation email domain is not permitted".to_string(),
+                    ));
+                }
+                sqlx::query(
+                    "UPDATE course_invitation SET status = 'expired' \
              WHERE tenant_id = $1 AND course_id = $2 AND status = 'pending' \
                AND expires_at <= transaction_timestamp()",
-        )
-        .bind(tenant.as_uuid())
-        .bind(command.course.as_uuid())
-        .execute(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if let Some(row) = sqlx::query(
+                )
+                .bind(tenant.as_uuid())
+                .bind(command.course.as_uuid())
+                .execute(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+                if let Some(row) = sqlx::query(
             "SELECT invitation_id, token_hash, normalized_email, delivery_email, roster_id, \
                     invited_by, status, claimed_user_id, \
                     floor(extract(epoch FROM created_at) * 1000)::bigint AS created_at_millis, \
@@ -171,9 +185,9 @@ impl CourseRosterStore for PostgresStore {
             }
             return Err(StoreError::Conflict);
         }
-        let invitation_id = CourseInvitationId::generate()?;
-        let row = sqlx::query(
-            "INSERT INTO course_invitation \
+                let invitation_id = CourseInvitationId::generate()?;
+                let row = sqlx::query(
+                    "INSERT INTO course_invitation \
              (tenant_id, course_id, invitation_id, token_hash, normalized_email, \
               delivery_email, roster_id, invited_by, idempotency_key, expires_at) \
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, \
@@ -182,24 +196,38 @@ impl CourseRosterStore for PostgresStore {
                        status, claimed_user_id, \
                        floor(extract(epoch FROM created_at) * 1000)::bigint AS created_at_millis, \
                        floor(extract(epoch FROM expires_at) * 1000)::bigint AS expires_at_millis",
-        )
-        .bind(tenant.as_uuid())
-        .bind(command.course.as_uuid())
-        .bind(invitation_id.as_uuid())
-        .bind(command.token_hash.as_bytes().to_vec())
-        .bind(command.email.normalized())
-        .bind(command.email.delivery())
-        .bind(command.roster_id.as_str())
-        .bind(actor.as_uuid())
-        .bind(command.idempotency_key.as_str())
-        .bind(i64::from(command.lifetime.as_seconds()))
-        .fetch_one(&mut *transaction)
+                )
+                .bind(tenant.as_uuid())
+                .bind(command.course.as_uuid())
+                .bind(invitation_id.as_uuid())
+                .bind(command.token_hash.as_bytes().to_vec())
+                .bind(command.email.normalized())
+                .bind(command.email.delivery())
+                .bind(command.roster_id.as_str())
+                .bind(actor.as_uuid())
+                .bind(command.idempotency_key.as_str())
+                .bind(i64::from(command.lifetime.as_seconds()))
+                .fetch_one(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+                sqlx::query(
+                    "INSERT INTO course_invitation_delivery \
+             (tenant_id, course_id, invitation_id, delivery_id) VALUES ($1, $2, $3, $4)",
+                )
+                .bind(tenant.as_uuid())
+                .bind(command.course.as_uuid())
+                .bind(invitation_id.as_uuid())
+                .bind(CourseInvitationDeliveryId::generate()?.as_uuid())
+                .execute(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+                bump_revision(&mut transaction, tenant, command.course, None).await?;
+                let invitation = decode_invitation(&row, tenant, command.course)?;
+                transaction.commit().await.map_err(map_sqlx_error)?;
+                Ok(invitation)
+            }
+        })
         .await
-        .map_err(map_sqlx_error)?;
-        bump_revision(&mut transaction, tenant, command.course, None).await?;
-        let invitation = decode_invitation(&row, tenant, command.course)?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(invitation)
     }
 
     async fn replace_course_enrollment_policy(
@@ -208,37 +236,40 @@ impl CourseRosterStore for PostgresStore {
         session: SessionTokenHash,
         command: ReplaceCourseEnrollmentPolicy,
     ) -> Result<CourseEnrollmentPolicy, StoreError> {
-        let tenant = context.tenant_id();
-        let candidate = CourseEnrollmentPolicy {
-            course: command.course,
-            allowed_domains: command.allowed_domains,
-            signup_posture: command.signup_posture,
-            revision: command.expected_revision,
-        };
-        candidate
-            .validate_shape()
-            .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-        let mut transaction = self.begin_tenant(context).await?;
-        precheck_course_roster_authority(&mut transaction, session, command.course).await?;
-        lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-        require_audited_course_roster_actor(
-            &mut transaction,
-            session,
-            command.course,
-            CourseRosterSupportAction::ReplaceEnrollmentPolicy,
-        )
-        .await?;
-        let current = load_policy(&mut transaction, tenant, command.course, true).await?;
-        if current.revision != command.expected_revision {
-            return Err(StoreError::Conflict);
-        }
-        if current.allowed_domains == candidate.allowed_domains
-            && current.signup_posture == candidate.signup_posture
-        {
-            transaction.commit().await.map_err(map_sqlx_error)?;
-            return Ok(current);
-        }
-        sqlx::query(
+        retry_transaction(|| {
+            let command = command.clone();
+            async move {
+                let tenant = context.tenant_id();
+                let candidate = CourseEnrollmentPolicy {
+                    course: command.course,
+                    allowed_domains: command.allowed_domains,
+                    signup_posture: command.signup_posture,
+                    revision: command.expected_revision,
+                };
+                candidate
+                    .validate_shape()
+                    .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+                let mut transaction = self.begin_tenant(context).await?;
+                precheck_course_roster_authority(&mut transaction, session, command.course).await?;
+                lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
+                require_audited_course_roster_actor(
+                    &mut transaction,
+                    session,
+                    command.course,
+                    CourseRosterSupportAction::ReplaceEnrollmentPolicy,
+                )
+                .await?;
+                let current = load_policy(&mut transaction, tenant, command.course, true).await?;
+                if current.revision != command.expected_revision {
+                    return Err(StoreError::Conflict);
+                }
+                if current.allowed_domains == candidate.allowed_domains
+                    && current.signup_posture == candidate.signup_posture
+                {
+                    transaction.commit().await.map_err(map_sqlx_error)?;
+                    return Ok(current);
+                }
+                sqlx::query(
             "DELETE FROM course_allowed_email_domain WHERE tenant_id = $1 AND course_id = $2",
         )
         .bind(tenant.as_uuid())
@@ -246,137 +277,154 @@ impl CourseRosterStore for PostgresStore {
         .execute(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        for rule in &candidate.allowed_domains {
-            sqlx::query(
-                "INSERT INTO course_allowed_email_domain \
+                for rule in &candidate.allowed_domains {
+                    sqlx::query(
+                        "INSERT INTO course_allowed_email_domain \
                  (tenant_id, course_id, normalized_domain, include_subdomains) \
                  VALUES ($1, $2, $3, $4)",
-            )
-            .bind(tenant.as_uuid())
-            .bind(command.course.as_uuid())
-            .bind(rule.domain.as_str())
-            .bind(rule.include_subdomains)
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        }
-        let revision = bump_revision(
-            &mut transaction,
-            tenant,
-            command.course,
-            Some(command.expected_revision),
-        )
-        .await?;
-        sqlx::query(
-            "UPDATE course_roster_state SET signup_posture = $3 \
+                    )
+                    .bind(tenant.as_uuid())
+                    .bind(command.course.as_uuid())
+                    .bind(rule.domain.as_str())
+                    .bind(rule.include_subdomains)
+                    .execute(&mut *transaction)
+                    .await
+                    .map_err(map_sqlx_error)?;
+                }
+                let revision = bump_revision(
+                    &mut transaction,
+                    tenant,
+                    command.course,
+                    Some(command.expected_revision),
+                )
+                .await?;
+                sqlx::query(
+                    "UPDATE course_roster_state SET signup_posture = $3 \
              WHERE tenant_id = $1 AND course_id = $2",
-        )
-        .bind(tenant.as_uuid())
-        .bind(command.course.as_uuid())
-        .bind(posture_name(candidate.signup_posture))
-        .execute(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(CourseEnrollmentPolicy {
-            revision,
-            ..candidate
+                )
+                .bind(tenant.as_uuid())
+                .bind(command.course.as_uuid())
+                .bind(posture_name(candidate.signup_posture))
+                .execute(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+                transaction.commit().await.map_err(map_sqlx_error)?;
+                Ok(CourseEnrollmentPolicy {
+                    revision,
+                    ..candidate
+                })
+            }
         })
+        .await
     }
 
     async fn claim_course_invitation(
         &self,
         command: ClaimCourseInvitation,
     ) -> Result<ClaimedCourseMembership, StoreError> {
-        let mut transaction = self.begin_app().await?;
-        let row = sqlx::query(
-            "SELECT tenant_id, course_id, invitation_id, normalized_email, delivery_email, \
+        retry_transaction(|| {
+            let command = command.clone();
+            async move {
+                let mut transaction = self.begin_app().await?;
+                let row = sqlx::query(
+                    "SELECT tenant_id, course_id, invitation_id, normalized_email, delivery_email, \
                     roster_id, status, claimed_user_id, \
                     floor(extract(epoch FROM expires_at) * 1000)::bigint AS expires_at_millis \
              FROM public.ple_claim_course_invitation_context($1)",
-        )
-        .bind(command.token_hash.as_bytes().to_vec())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?
-        .ok_or(StoreError::NotFound)?;
-        let tenant = TenantId::from_uuid(row.try_get("tenant_id").map_err(map_sqlx_error)?);
-        let course = CourseId::from_uuid(row.try_get("course_id").map_err(map_sqlx_error)?);
-        let invitation_id =
-            CourseInvitationId::from_uuid(row.try_get("invitation_id").map_err(map_sqlx_error)?);
-        let normalized: String = row.try_get("normalized_email").map_err(map_sqlx_error)?;
-        if normalized != command.verified_email.normalized() {
-            return Err(StoreError::Forbidden);
-        }
-        let status: String = row.try_get("status").map_err(map_sqlx_error)?;
-        let claimed_user: Option<Uuid> = row.try_get("claimed_user_id").map_err(map_sqlx_error)?;
-        if status == "claimed" {
-            if claimed_user.map(UserId::from_uuid) != Some(command.user) {
-                return Err(StoreError::Conflict);
-            }
-            let member =
-                load_member_by_user(&mut transaction, tenant, course, command.user).await?;
-            let policy = load_policy(&mut transaction, tenant, course, false).await?;
-            transaction.commit().await.map_err(map_sqlx_error)?;
-            return Ok(ClaimedCourseMembership {
-                tenant,
-                course,
-                member,
-                roster_revision: policy.revision,
-            });
-        }
-        let expires_at: i64 = row.try_get("expires_at_millis").map_err(map_sqlx_error)?;
-        let now: i64 = sqlx::query_scalar(
-            "SELECT floor(extract(epoch FROM transaction_timestamp()) * 1000)::bigint",
-        )
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if status != "pending" || expires_at <= now {
-            return Err(StoreError::NotFound);
-        }
-        let roster_id: String = row.try_get("roster_id").map_err(map_sqlx_error)?;
-        let delivery: String = row.try_get("delivery_email").map_err(map_sqlx_error)?;
-        let student = resolve_learner(&mut transaction, tenant, command.user).await?;
-        let member = upsert_claimed_member(
-            &mut transaction,
-            tenant,
-            course,
-            command.user,
-            student,
-            &command.display_name,
-            &normalized,
-            &delivery,
-            &roster_id,
-        )
-        .await?;
-        ensure_student_membership(&mut transaction, tenant, course, command.user).await?;
-        reconcile_member_assignments(&mut transaction, tenant, course, command.user, student)
-            .await?;
-        let updated = sqlx::query(
-            "UPDATE course_invitation SET status = 'claimed', claimed_user_id = $4, \
+                )
+                .bind(command.token_hash.as_bytes().to_vec())
+                .fetch_optional(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?
+                .ok_or(StoreError::NotFound)?;
+                let tenant = TenantId::from_uuid(row.try_get("tenant_id").map_err(map_sqlx_error)?);
+                let course = CourseId::from_uuid(row.try_get("course_id").map_err(map_sqlx_error)?);
+                let invitation_id = CourseInvitationId::from_uuid(
+                    row.try_get("invitation_id").map_err(map_sqlx_error)?,
+                );
+                let normalized: String = row.try_get("normalized_email").map_err(map_sqlx_error)?;
+                if normalized != command.verified_email.normalized() {
+                    return Err(StoreError::Forbidden);
+                }
+                let status: String = row.try_get("status").map_err(map_sqlx_error)?;
+                let claimed_user: Option<Uuid> =
+                    row.try_get("claimed_user_id").map_err(map_sqlx_error)?;
+                if status == "claimed" {
+                    if claimed_user.map(UserId::from_uuid) != Some(command.user) {
+                        return Err(StoreError::Conflict);
+                    }
+                    let member =
+                        load_member_by_user(&mut transaction, tenant, course, command.user).await?;
+                    let policy = load_policy(&mut transaction, tenant, course, false).await?;
+                    transaction.commit().await.map_err(map_sqlx_error)?;
+                    return Ok(ClaimedCourseMembership {
+                        tenant,
+                        course,
+                        member,
+                        roster_revision: policy.revision,
+                    });
+                }
+                let expires_at: i64 = row.try_get("expires_at_millis").map_err(map_sqlx_error)?;
+                let now: i64 = sqlx::query_scalar(
+                    "SELECT floor(extract(epoch FROM transaction_timestamp()) * 1000)::bigint",
+                )
+                .fetch_one(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+                if status != "pending" || expires_at <= now {
+                    return Err(StoreError::NotFound);
+                }
+                let roster_id: String = row.try_get("roster_id").map_err(map_sqlx_error)?;
+                let delivery: String = row.try_get("delivery_email").map_err(map_sqlx_error)?;
+                let student = resolve_learner(&mut transaction, tenant, command.user).await?;
+                let member = upsert_claimed_member(
+                    &mut transaction,
+                    tenant,
+                    course,
+                    command.user,
+                    student,
+                    &command.display_name,
+                    &normalized,
+                    &delivery,
+                    &roster_id,
+                )
+                .await?;
+                ensure_student_membership(&mut transaction, tenant, course, command.user).await?;
+                reconcile_member_assignments(
+                    &mut transaction,
+                    tenant,
+                    course,
+                    command.user,
+                    student,
+                )
+                .await?;
+                let updated = sqlx::query(
+                    "UPDATE course_invitation SET status = 'claimed', claimed_user_id = $4, \
                     claimed_at = transaction_timestamp() \
              WHERE tenant_id = $1 AND course_id = $2 AND invitation_id = $3 \
                    AND status = 'pending'",
-        )
-        .bind(tenant.as_uuid())
-        .bind(course.as_uuid())
-        .bind(invitation_id.as_uuid())
-        .bind(command.user.as_uuid())
-        .execute(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if updated.rows_affected() != 1 {
-            return Err(StoreError::Conflict);
-        }
-        let roster_revision = bump_revision(&mut transaction, tenant, course, None).await?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(ClaimedCourseMembership {
-            tenant,
-            course,
-            member,
-            roster_revision,
+                )
+                .bind(tenant.as_uuid())
+                .bind(course.as_uuid())
+                .bind(invitation_id.as_uuid())
+                .bind(command.user.as_uuid())
+                .execute(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+                if updated.rows_affected() != 1 {
+                    return Err(StoreError::Conflict);
+                }
+                let roster_revision = bump_revision(&mut transaction, tenant, course, None).await?;
+                transaction.commit().await.map_err(map_sqlx_error)?;
+                Ok(ClaimedCourseMembership {
+                    tenant,
+                    course,
+                    member,
+                    roster_revision,
+                })
+            }
         })
+        .await
     }
 
     async fn upsert_course_member(
@@ -384,61 +432,79 @@ impl CourseRosterStore for PostgresStore {
         context: TenantContext,
         command: UpsertCourseMember,
     ) -> Result<ClaimedCourseMembership, StoreError> {
-        let tenant = context.tenant_id();
-        let mut transaction = self.begin_tenant(context).await?;
-        lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-        let student = resolve_learner(&mut transaction, tenant, command.user).await?;
-        if let Some(existing) =
-            load_member_by_user_optional(&mut transaction, tenant, command.course, command.user)
+        retry_transaction(|| {
+            let command = command.clone();
+            async move {
+                let tenant = context.tenant_id();
+                let mut transaction = self.begin_tenant(context).await?;
+                lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
+                let student = resolve_learner(&mut transaction, tenant, command.user).await?;
+                if let Some(existing) = load_member_by_user_optional(
+                    &mut transaction,
+                    tenant,
+                    command.course,
+                    command.user,
+                )
                 .await?
-            && existing.status == CourseMemberStatus::Active
-        {
-            ensure_student_membership(&mut transaction, tenant, command.course, command.user)
+                    && existing.status == CourseMemberStatus::Active
+                {
+                    ensure_student_membership(
+                        &mut transaction,
+                        tenant,
+                        command.course,
+                        command.user,
+                    )
+                    .await?;
+                    reconcile_member_assignments(
+                        &mut transaction,
+                        tenant,
+                        command.course,
+                        command.user,
+                        student,
+                    )
+                    .await?;
+                    let policy =
+                        load_policy(&mut transaction, tenant, command.course, false).await?;
+                    transaction.commit().await.map_err(map_sqlx_error)?;
+                    return Ok(ClaimedCourseMembership {
+                        tenant,
+                        course: command.course,
+                        member: existing,
+                        roster_revision: policy.revision,
+                    });
+                }
+                let member = upsert_course_member_record(
+                    &mut transaction,
+                    tenant,
+                    command.course,
+                    command.user,
+                    student,
+                    &command.display_name,
+                    command.roster_contact.as_ref(),
+                )
                 .await?;
-            reconcile_member_assignments(
-                &mut transaction,
-                tenant,
-                command.course,
-                command.user,
-                student,
-            )
-            .await?;
-            let policy = load_policy(&mut transaction, tenant, command.course, false).await?;
-            transaction.commit().await.map_err(map_sqlx_error)?;
-            return Ok(ClaimedCourseMembership {
-                tenant,
-                course: command.course,
-                member: existing,
-                roster_revision: policy.revision,
-            });
-        }
-        let member = upsert_course_member_record(
-            &mut transaction,
-            tenant,
-            command.course,
-            command.user,
-            student,
-            &command.display_name,
-            command.roster_contact.as_ref(),
-        )
-        .await?;
-        ensure_student_membership(&mut transaction, tenant, command.course, command.user).await?;
-        reconcile_member_assignments(
-            &mut transaction,
-            tenant,
-            command.course,
-            command.user,
-            student,
-        )
-        .await?;
-        let roster_revision = bump_revision(&mut transaction, tenant, command.course, None).await?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(ClaimedCourseMembership {
-            tenant,
-            course: command.course,
-            member,
-            roster_revision,
+                ensure_student_membership(&mut transaction, tenant, command.course, command.user)
+                    .await?;
+                reconcile_member_assignments(
+                    &mut transaction,
+                    tenant,
+                    command.course,
+                    command.user,
+                    student,
+                )
+                .await?;
+                let roster_revision =
+                    bump_revision(&mut transaction, tenant, command.course, None).await?;
+                transaction.commit().await.map_err(map_sqlx_error)?;
+                Ok(ClaimedCourseMembership {
+                    tenant,
+                    course: command.course,
+                    member,
+                    roster_revision,
+                })
+            }
         })
+        .await
     }
 
     async fn revoke_course_member(
@@ -447,68 +513,71 @@ impl CourseRosterStore for PostgresStore {
         session: SessionTokenHash,
         command: RevokeCourseMember,
     ) -> Result<RosterRevision, StoreError> {
-        let tenant = context.tenant_id();
-        let mut transaction = self.begin_tenant(context).await?;
-        precheck_course_roster_authority(&mut transaction, session, command.course).await?;
-        lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-        require_audited_course_roster_actor(
-            &mut transaction,
-            session,
-            command.course,
-            CourseRosterSupportAction::RevokeMember,
-        )
-        .await?;
-        let current = load_policy(&mut transaction, tenant, command.course, true).await?;
-        if current.revision != command.expected_revision {
-            return Err(StoreError::Conflict);
-        }
-        let row = sqlx::query(
-            "SELECT user_id, status FROM course_roster_member \
+        retry_transaction(|| async move {
+            let tenant = context.tenant_id();
+            let mut transaction = self.begin_tenant(context).await?;
+            precheck_course_roster_authority(&mut transaction, session, command.course).await?;
+            lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
+            require_audited_course_roster_actor(
+                &mut transaction,
+                session,
+                command.course,
+                CourseRosterSupportAction::RevokeMember,
+            )
+            .await?;
+            let current = load_policy(&mut transaction, tenant, command.course, true).await?;
+            if current.revision != command.expected_revision {
+                return Err(StoreError::Conflict);
+            }
+            let row = sqlx::query(
+                "SELECT user_id, status FROM course_roster_member \
              WHERE tenant_id = $1 AND course_id = $2 AND course_member_id = $3 FOR UPDATE",
-        )
-        .bind(tenant.as_uuid())
-        .bind(command.course.as_uuid())
-        .bind(command.member.as_uuid())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?
-        .ok_or(StoreError::NotFound)?;
-        let user: Uuid = row.try_get("user_id").map_err(map_sqlx_error)?;
-        let status: String = row.try_get("status").map_err(map_sqlx_error)?;
-        if status == "revoked" {
-            transaction.commit().await.map_err(map_sqlx_error)?;
-            return Ok(current.revision);
-        }
-        sqlx::query(
-            "UPDATE course_roster_member SET status = 'revoked', \
+            )
+            .bind(tenant.as_uuid())
+            .bind(command.course.as_uuid())
+            .bind(command.member.as_uuid())
+            .fetch_optional(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?
+            .ok_or(StoreError::NotFound)?;
+            let user: Uuid = row.try_get("user_id").map_err(map_sqlx_error)?;
+            let status: String = row.try_get("status").map_err(map_sqlx_error)?;
+            if status == "revoked" {
+                transaction.commit().await.map_err(map_sqlx_error)?;
+                return Ok(current.revision);
+            }
+            sqlx::query(
+                "UPDATE course_roster_member SET status = 'revoked', \
                     revoked_at = transaction_timestamp() \
              WHERE tenant_id = $1 AND course_id = $2 AND course_member_id = $3",
-        )
-        .bind(tenant.as_uuid())
-        .bind(command.course.as_uuid())
-        .bind(command.member.as_uuid())
-        .execute(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        sqlx::query(
-            "DELETE FROM course_member \
+            )
+            .bind(tenant.as_uuid())
+            .bind(command.course.as_uuid())
+            .bind(command.member.as_uuid())
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+            sqlx::query(
+                "DELETE FROM course_member \
              WHERE tenant_id = $1 AND course_id = $2 AND user_id = $3 AND role = 'student'",
-        )
-        .bind(tenant.as_uuid())
-        .bind(command.course.as_uuid())
-        .bind(user)
-        .execute(&mut *transaction)
+            )
+            .bind(tenant.as_uuid())
+            .bind(command.course.as_uuid())
+            .bind(user)
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+            let revision = bump_revision(
+                &mut transaction,
+                tenant,
+                command.course,
+                Some(command.expected_revision),
+            )
+            .await?;
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            Ok(revision)
+        })
         .await
-        .map_err(map_sqlx_error)?;
-        let revision = bump_revision(
-            &mut transaction,
-            tenant,
-            command.course,
-            Some(command.expected_revision),
-        )
-        .await?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(revision)
     }
 
     async fn revoke_course_invitation(
@@ -517,68 +586,71 @@ impl CourseRosterStore for PostgresStore {
         session: SessionTokenHash,
         command: RevokeCourseInvitation,
     ) -> Result<RosterRevision, StoreError> {
-        let tenant = context.tenant_id();
-        let mut transaction = self.begin_tenant(context).await?;
-        precheck_course_roster_authority(&mut transaction, session, command.course).await?;
-        lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-        require_audited_course_roster_actor(
-            &mut transaction,
-            session,
-            command.course,
-            CourseRosterSupportAction::RevokeInvitation,
-        )
-        .await?;
-        let current = load_policy(&mut transaction, tenant, command.course, true).await?;
-        if current.revision != command.expected_revision {
-            return Err(StoreError::Conflict);
-        }
-        let status: String = sqlx::query_scalar(
-            "SELECT status FROM course_invitation \
+        retry_transaction(|| async move {
+            let tenant = context.tenant_id();
+            let mut transaction = self.begin_tenant(context).await?;
+            precheck_course_roster_authority(&mut transaction, session, command.course).await?;
+            lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
+            require_audited_course_roster_actor(
+                &mut transaction,
+                session,
+                command.course,
+                CourseRosterSupportAction::RevokeInvitation,
+            )
+            .await?;
+            let current = load_policy(&mut transaction, tenant, command.course, true).await?;
+            if current.revision != command.expected_revision {
+                return Err(StoreError::Conflict);
+            }
+            let status: String = sqlx::query_scalar(
+                "SELECT status FROM course_invitation \
              WHERE tenant_id = $1 AND course_id = $2 AND invitation_id = $3 FOR UPDATE",
-        )
-        .bind(tenant.as_uuid())
-        .bind(command.course.as_uuid())
-        .bind(command.invitation.as_uuid())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?
-        .ok_or(StoreError::NotFound)?;
-        match status.as_str() {
-            "pending" => {}
-            "revoked" => {
-                transaction.commit().await.map_err(map_sqlx_error)?;
-                return Ok(current.revision);
+            )
+            .bind(tenant.as_uuid())
+            .bind(command.course.as_uuid())
+            .bind(command.invitation.as_uuid())
+            .fetch_optional(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?
+            .ok_or(StoreError::NotFound)?;
+            match status.as_str() {
+                "pending" => {}
+                "revoked" => {
+                    transaction.commit().await.map_err(map_sqlx_error)?;
+                    return Ok(current.revision);
+                }
+                "claimed" | "expired" => return Err(StoreError::Conflict),
+                _ => {
+                    return Err(StoreError::Unavailable(
+                        "stored invitation status is invalid".to_string(),
+                    ));
+                }
             }
-            "claimed" | "expired" => return Err(StoreError::Conflict),
-            _ => {
-                return Err(StoreError::Unavailable(
-                    "stored invitation status is invalid".to_string(),
-                ));
-            }
-        }
-        let updated = sqlx::query(
-            "UPDATE course_invitation SET status = 'revoked' \
+            let updated = sqlx::query(
+                "UPDATE course_invitation SET status = 'revoked' \
              WHERE tenant_id = $1 AND course_id = $2 AND invitation_id = $3 \
                AND status = 'pending'",
-        )
-        .bind(tenant.as_uuid())
-        .bind(command.course.as_uuid())
-        .bind(command.invitation.as_uuid())
-        .execute(&mut *transaction)
+            )
+            .bind(tenant.as_uuid())
+            .bind(command.course.as_uuid())
+            .bind(command.invitation.as_uuid())
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+            if updated.rows_affected() != 1 {
+                return Err(StoreError::Conflict);
+            }
+            let revision = bump_revision(
+                &mut transaction,
+                tenant,
+                command.course,
+                Some(command.expected_revision),
+            )
+            .await?;
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            Ok(revision)
+        })
         .await
-        .map_err(map_sqlx_error)?;
-        if updated.rows_affected() != 1 {
-            return Err(StoreError::Conflict);
-        }
-        let revision = bump_revision(
-            &mut transaction,
-            tenant,
-            command.course,
-            Some(command.expected_revision),
-        )
-        .await?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(revision)
     }
 
     async fn stage_course_roster_import(
@@ -587,7 +659,11 @@ impl CourseRosterStore for PostgresStore {
         session: SessionTokenHash,
         command: StageCourseRosterImport,
     ) -> Result<CourseRosterImportPreview, StoreError> {
-        import::stage(self, context, session, command).await
+        retry_transaction(|| {
+            let command = command.clone();
+            async move { import::stage(self, context, session, command).await }
+        })
+        .await
     }
 
     async fn commit_course_roster_import(
@@ -596,66 +672,12 @@ impl CourseRosterStore for PostgresStore {
         session: SessionTokenHash,
         command: CommitCourseRosterImport,
     ) -> Result<CommittedCourseRosterImport, StoreError> {
-        import::commit(self, context, session, command).await
-    }
-}
-
-pub(super) async fn ensure_roster_state(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-) -> Result<(), StoreError> {
-    sqlx::query(
-        "INSERT INTO course_roster_state (tenant_id, course_id) VALUES ($1, $2) \
-         ON CONFLICT (tenant_id, course_id) DO NOTHING",
-    )
-    .bind(tenant.as_uuid())
-    .bind(course.as_uuid())
-    .execute(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    Ok(())
-}
-
-pub(super) async fn reconcile_new_assignment(
-    transaction: &mut Transaction<'_, Postgres>,
-    assignment: &crate::AssignmentRecord,
-) -> Result<(), StoreError> {
-    let rows = sqlx::query(
-        "SELECT user_id, student_id FROM course_roster_member \
-         WHERE tenant_id = $1 AND course_id = $2 AND status = 'active' ORDER BY user_id",
-    )
-    .bind(assignment.tenant.as_uuid())
-    .bind(assignment.course_id.as_uuid())
-    .fetch_all(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    for row in rows {
-        enrollment::insert_missing_enrollment(
-            transaction,
-            assignment.tenant,
-            assignment.id,
-            UserId::from_uuid(row.try_get("user_id").map_err(map_sqlx_error)?),
-            StudentId::from_uuid(row.try_get("student_id").map_err(map_sqlx_error)?),
-        )
-        .await?;
-    }
-    Ok(())
-}
-
-pub(super) async fn lock_course_roster_cross_product(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-) -> Result<(), StoreError> {
-    sqlx::query("SELECT 1 FROM course WHERE tenant_id = $1 AND course_id = $2 FOR UPDATE")
-        .bind(tenant.as_uuid())
-        .bind(course.as_uuid())
-        .fetch_optional(&mut **transaction)
+        retry_transaction(|| {
+            let command = command.clone();
+            async move { import::commit(self, context, session, command).await }
+        })
         .await
-        .map_err(map_sqlx_error)?
-        .ok_or(StoreError::NotFound)?;
-    Ok(())
+    }
 }
 
 async fn reconcile_member_assignments(

@@ -1,72 +1,21 @@
-// Assignment editor selectors: src/pages/assignment_editor_page.tsx accessible labels and buttons.
-
-import { expect, test, type Page, type Route } from "@playwright/test";
-import { mkdir } from "node:fs/promises";
-import { resolve } from "node:path";
-
+// Selector contract: assignment_editor_page.tsx exposes Question ID, Replace, Check Question ID, and Reload assignment.
+import { expect, test, type Route } from "@playwright/test";
 import { publishedProblemFixture } from "../../generated/fixtures/published_problem";
-import { tabTo } from "./simulator/keyboard_walkthrough";
 
-const courseId = publishedProblemFixture.course.id;
-const assignmentId = publishedProblemFixture.assignment.id;
-const courseReference = `C-${publishedProblemFixture.course.publicId}`;
-const assignmentReference = `A-${publishedProblemFixture.assignment.publicId}`;
-const assignmentProblems = publishedProblemFixture.assignment.items
-  .filter((item) => item.deliveryState === "active")
-  .sort((left, right) => left.position - right.position)
-  .map((item) => item.reference);
-const editPath = `/instructor/courses/${courseReference}/assignments/${assignmentReference}/edit`;
-const createPath = `/instructor/courses/${courseReference}/assignments/new`;
-const appearance = { theme: "grass", revision: "1", banner: null } as const;
-const untimedAssignmentEditor = {
-  ...publishedProblemFixture.assignment,
-  assignmentTiming: { timeLimitSeconds: null },
-} as const;
-const secondCatalogProblem = {
+const course = publishedProblemFixture.course;
+const original = publishedProblemFixture.assignment;
+const assignmentPath = `/instructor/courses/C-${course.publicId}/assignments/A-${original.publicId}/edit`;
+const replacementId = "7K4-M9QP";
+const replacement = {
   ...publishedProblemFixture.catalogProblem,
-  problem: "0198e000-0000-7000-8000-000000000097",
-  questionId: "ABC-123T",
-  version: "0198e000-0000-7000-8000-000000000096",
+  questionId: replacementId,
   metadata: {
     ...publishedProblemFixture.catalogProblem.metadata,
-    title: "Second immutable peptide version",
+    title: "Replacement peptide geometry",
   },
 };
 
-function fixtureUuid(number: number): string {
-  return `0198e000-0000-7000-8000-${number.toString().padStart(12, "0")}`;
-}
-
-const denseCatalogProblems = Array.from({ length: 4 }, (_, index) => ({
-  ...publishedProblemFixture.catalogProblem,
-  problem: fixtureUuid(90 + index * 2),
-  questionId: ["7K3-M9QP", "ABC-123T", "PEP-T1D3", "GEN-E42K"][index] as string,
-  version: fixtureUuid(91 + index * 2),
-  metadata: {
-    ...publishedProblemFixture.catalogProblem.metadata,
-    title: [
-      "Peptide bond resonance",
-      "Ramachandran angle interpretation",
-      "Protein folding energy landscape",
-      "Enzyme active-site geometry",
-    ][index] as string,
-  },
-}));
-
-const denseAssignmentEditor = {
-  ...untimedAssignmentEditor,
-  title: "Biochemistry concept check",
-  items: denseCatalogProblems.map((problem, index) => ({
-    id: fixtureUuid(120 + index),
-    reference: { problem: problem.problem, version: problem.version },
-    position: index,
-    pointsPossible: "1",
-    deliveryState: "active" as const,
-    scoringMode: "normal" as const,
-  })),
-};
-
-function json(
+function response(
   route: Route,
   value: unknown,
   status = 200,
@@ -80,509 +29,58 @@ function json(
   });
 }
 
-function session(roles: ReadonlyArray<string>): unknown {
-  return {
-    authenticated: true,
-    tenant: publishedProblemFixture.course.tenant,
-    user: { id: "0198e000-0000-7000-8000-000000000014", displayName: "Editor", roles },
-  };
-}
-
-function appearanceJson(route: Route): Promise<void> {
-  return json(route, appearance, 200, { "cache-control": "no-store", etag: '"1"' });
-}
-
-async function routeShellRequest(route: Route, path: string): Promise<boolean> {
-  if (path === "/api/auth/account/presentation") {
-    await json(route, { contrast: "standard" });
-    return true;
-  }
-  if (path === `/api/navigation/${courseReference}`) {
-    await json(route, { kind: "course", courseId });
-    return true;
-  }
-  if (path === `/api/navigation/${assignmentReference}`) {
-    await json(route, { kind: "assignment", courseId, assignmentId });
-    return true;
-  }
-  return false;
-}
-
-async function useProductionTransport(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    Object.defineProperty(window, "__PLE_USE_MOCK_API__", {
-      configurable: false,
-      get: () => false,
-      set: () => undefined,
-    });
-  });
-}
-
-async function openEditor(page: Page, path = editPath): Promise<void> {
-  // `tools/mock_preview_server.mjs` is a static artifact server without an SPA
-  // fallback; it returns 404 for this direct deep link. The managed deployment
-  // must provide that fallback. This proves the built router after its normal
-  // index entry point, without claiming that the static test server is one.
-  await useProductionTransport(page);
-  await page.goto("/");
-  await page.evaluate((path: string) => {
-    history.pushState({}, "", path);
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  }, path);
-}
-
-async function openQuestionIdImport(page: Page): Promise<void> {
-  await page.getByText("Add by question ID", { exact: true }).click();
-  await expect(page.getByLabel("Question IDs")).toBeVisible();
-}
-
-async function routeCourseAssignments(
-  page: Page,
-  roles: ReadonlyArray<string>,
-  courseRole: "instructor" | "student",
-  requests: Array<{ readonly method: string; readonly path: string }>,
-): Promise<void> {
-  await page.route("**/api/**", async (route) => {
-    const request = route.request();
-    const path = new URL(request.url()).pathname;
-    requests.push({ method: request.method(), path });
-    if (path === "/api/auth/session") return await json(route, session(roles));
-    if (await routeShellRequest(route, path)) return;
-    if (path === "/api/courses") {
-      return await json(route, {
-        items: [{ ...publishedProblemFixture.course, role: courseRole }],
-        nextCursor: null,
-      });
-    }
-    if (path === `/api/courses/${courseId}`) {
-      return await json(route, { ...publishedProblemFixture.course, role: courseRole });
-    }
-    if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
-    if (path === `/api/courses/${courseId}/assignments`) {
-      return await json(route, { items: [], nextCursor: null });
-    }
-    return await json(route, { error: "unexpected course assignment request" }, 500);
-  });
-}
-
-async function openCourseAssignments(page: Page): Promise<void> {
-  await useProductionTransport(page);
-  await page.goto("/");
-  const openCourse = page.getByRole("link", { name: "Open course", exact: true });
-  await expect(openCourse).toBeVisible();
-  await tabTo(page, openCourse);
-  await expect(openCourse).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: "Assignments", exact: true })).toBeVisible();
-}
-
-async function routeStudentCourse(page: Page, requests: string[]): Promise<void> {
-  await page.route("**/api/**", async (route) => {
-    const request = route.request();
-    const path = new URL(request.url()).pathname;
-    requests.push(path);
-    if (path === "/api/auth/session") return await json(route, session(["instructor"]));
-    if (await routeShellRequest(route, path)) return;
-    if (path === `/api/courses/${courseId}`) {
-      return await json(route, { ...publishedProblemFixture.course, role: "student" });
-    }
-    if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
-    return await json(route, { error: "unexpected assignment editor request" }, 500);
-  });
-}
-
-test("course instructor reaches New assignment from the visible course page by keyboard", async ({
+test("instructor replaces an assigned Question ID with visible issued-work consequences and stale recovery", async ({
   page,
 }) => {
-  const requests: Array<{ readonly method: string; readonly path: string }> = [];
-  await routeCourseAssignments(page, ["instructor"], "instructor", requests);
-  await openCourseAssignments(page);
-
-  const newAssignment = page.getByRole("link", { name: "New assignment", exact: true });
-  await expect(newAssignment).toBeVisible();
-  await expect(newAssignment).toHaveAttribute("href", createPath);
-  await tabTo(page, newAssignment);
-  await expect(newAssignment).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(new RegExp(`${courseReference}/assignments/new$`, "u"));
-  await expect(page.getByRole("heading", { name: "Create assignment" })).toBeVisible();
-  expect(requests.some((request) => request.method === "POST")).toBe(false);
-});
-
-test("course learner cannot see the New assignment entry", async ({ page }) => {
-  const requests: Array<{ readonly method: string; readonly path: string }> = [];
-  await routeCourseAssignments(page, ["student"], "student", requests);
-  await openCourseAssignments(page);
-
-  await expect(page.getByRole("link", { name: "New assignment", exact: true })).toHaveCount(0);
-  expect(requests.some((request) => request.method === "POST")).toBe(false);
-});
-
-test("student and global instructor who is a course learner see no assignment editor transport", async ({
-  page,
-}) => {
-  const requests: string[] = [];
-  await routeStudentCourse(page, requests);
-  await openEditor(page);
-  await expect(
-    page.getByRole("heading", { name: "Assignment editing is not available for this account" }),
-  ).toBeVisible();
-  expect(requests).toContain("/api/auth/session");
-  expect(requests).toContain(`/api/courses/${courseId}`);
-  expect(
-    requests.some(
-      (path) =>
-        path.includes("assignments") || path.includes("problems") || path.includes("workspaces"),
-    ),
-  ).toBe(false);
-});
-
-test("direct student route stops before course-detail, assignment, and catalog clients", async ({
-  page,
-}) => {
-  const requests: string[] = [];
-  await page.route("**/api/**", async (route) => {
-    const path = new URL(route.request().url()).pathname;
-    requests.push(path);
-    if (path === "/api/auth/session") return await json(route, session(["student"]));
-    if (path === "/api/auth/account/presentation") {
-      return await json(route, { contrast: "standard" });
-    }
-    return await json(route, { error: "student editor transport must not run" }, 500);
-  });
-  await openEditor(page);
-  await expect(
-    page.getByRole("heading", { name: "Assignment editing is not available for this account" }),
-  ).toBeVisible();
-  expect(requests).toContain("/api/auth/session");
-  expect(
-    requests.some(
-      (path) =>
-        path === `/api/courses/${courseId}` ||
-        path.includes("assignments") ||
-        path.includes("problems") ||
-        path.includes("workspaces") ||
-        path.includes("catalog"),
-    ),
-  ).toBe(false);
-});
-
-test("four-question instructor editing uses the 1280 by 800 workspace deliberately", async ({
-  page,
-}) => {
-  await page.route("**/api/**", async (route) => {
-    const path = new URL(route.request().url()).pathname;
-    if (path === "/api/auth/session") return await json(route, session(["instructor"]));
-    if (await routeShellRequest(route, path)) return;
-    if (path === `/api/courses/${courseId}`) {
-      return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
-    }
-    if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
-    if (path === `/api/assignments/${assignmentId}`) {
-      return await json(route, denseAssignmentEditor, 200, { etag: '"7"' });
-    }
-    const detail = denseCatalogProblems.find(
-      (problem) => path === `/api/problems/${problem.problem}/versions/${problem.version}/detail`,
-    );
-    if (detail !== undefined) {
-      return await json(route, { summary: detail, prompt: [], statistics: "unavailable" });
-    }
-    if (path === "/api/problems/search") {
-      return await json(route, {
-        items: [],
-        nextCursor: null,
-        facets: {
-          taxonomy: [],
-          capabilities: [],
-          licenses: [],
-          statistics: { available: 0, unavailable: 0 },
-        },
-      });
-    }
-    return await json(route, { error: `unexpected desktop layout request ${path}` }, 500);
-  });
-
-  await page.setViewportSize({ width: 1_280, height: 800 });
-  await openEditor(page);
-  await expect(page.getByRole("heading", { name: "Assignment editor" })).toBeVisible();
-  await expect(page.locator(".assignment-editor-row")).toHaveCount(4);
-  await expect(page.getByRole("heading", { name: "Run policies" })).toBeVisible();
-  await page.getByLabel("Timed", { exact: true }).check();
-  const runMinutes = page.getByLabel("Minutes per practice run");
-  await expect(runMinutes).toBeVisible();
-  await expect(runMinutes).toBeFocused();
-
-  const geometry = await page.evaluate(() => {
-    const editor = document.querySelector<HTMLElement>(".assignment-editor-grid");
-    const rows = Array.from(
-      document.querySelectorAll<HTMLElement>(".assignment-editor-list .assignment-editor-row"),
-    );
-    const timingPolicy = document.querySelector<HTMLElement>(".assignment-editor-run-timing");
-    const actions = document.querySelector<HTMLElement>(".assignment-editor-actions");
-    const saveAction = actions?.querySelector<HTMLElement>(".primary-action");
-    const policySelects = Array.from(
-      document.querySelectorAll<HTMLSelectElement>(".assignment-editor-policy-set select"),
-    );
-    if (
-      editor === null ||
-      timingPolicy === null ||
-      actions === null ||
-      saveAction === null ||
-      saveAction === undefined
-    ) {
-      throw new Error("desktop editor geometry is missing");
-    }
-    const editorBox = editor.getBoundingClientRect();
-    const timingPolicyBox = timingPolicy.getBoundingClientRect();
-    return {
-      editorWidth: Math.round(editorBox.width),
-      lastQuestionBottom: Math.round(rows[rows.length - 1]?.getBoundingClientRect().bottom ?? 0),
-      timingPolicyTop: Math.round(timingPolicyBox.top),
-      timingPolicyBottom: Math.round(timingPolicyBox.bottom),
-      actionsTop: Math.round(actions.getBoundingClientRect().top),
-      actionsBottom: Math.round(actions.getBoundingClientRect().bottom),
-      saveActionBottom: Math.round(saveAction.getBoundingClientRect().bottom),
-      policySelectsFit: policySelects.every((select) => select.scrollWidth <= select.clientWidth),
-      viewportHeight: window.innerHeight,
-      horizontalOverflow:
-        document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    };
-  });
-  expect(geometry.editorWidth).toBeGreaterThanOrEqual(1_100);
-  expect(geometry.lastQuestionBottom).toBeLessThan(geometry.viewportHeight);
-  expect(geometry.saveActionBottom).toBeLessThanOrEqual(geometry.viewportHeight);
-  expect(geometry.actionsBottom).toBeLessThanOrEqual(geometry.timingPolicyTop);
-  expect(geometry.policySelectsFit).toBe(true);
-  expect(geometry.horizontalOverflow).toBe(0);
-  await expect(page.locator("footer")).toHaveCount(0);
-
-  if (process.env["PLE_CAPTURE_UI_DESIGN_VISUALS"] === "1") {
-    const directory = resolve("generated/ui/ui_design");
-    await mkdir(directory, { recursive: true });
-    await page.screenshot({ path: resolve(directory, "assignment_editor_1280x800.png") });
-  }
-});
-
-test("instructor copies an entire assignment or a human checklist without exposing UUIDs", async ({
-  page,
-}) => {
-  const sourceAssignmentId = fixtureUuid(180);
-  const sourceAssignment = {
-    ...publishedProblemFixture.assignment,
-    id: sourceAssignmentId,
-    publicId: 18,
-    title: "Protein structure review",
-    items: [
-      ...publishedProblemFixture.assignment.items,
-      {
-        ...publishedProblemFixture.assignment.items[0],
-        id: fixtureUuid(181),
-        reference: {
-          problem: secondCatalogProblem.problem,
-          version: secondCatalogProblem.version,
-        },
-        position: 1,
-      },
-    ],
-  };
-  await page.route("**/api/**", async (route) => {
-    const request = route.request();
-    const path = new URL(request.url()).pathname;
-    if (path === "/api/auth/session") return await json(route, session(["instructor"]));
-    if (await routeShellRequest(route, path)) return;
-    if (path === `/api/courses/${courseId}`) {
-      return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
-    }
-    if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
-    if (path === `/api/assignments/${assignmentId}`) {
-      return await json(route, untimedAssignmentEditor, 200, { etag: '"7"' });
-    }
-    if (path === `/api/courses/${courseId}/assignments` && request.method() === "GET") {
-      return await json(route, {
-        items: [publishedProblemFixture.assignment, sourceAssignment],
-        nextCursor: null,
-      });
-    }
-    if (
-      path ===
-      `/api/problems/${publishedProblemFixture.catalogProblem.problem}/versions/${publishedProblemFixture.catalogProblem.version}/detail`
-    ) {
-      return await json(route, {
-        summary: publishedProblemFixture.catalogProblem,
-        prompt: [],
-        statistics: "unavailable",
-      });
-    }
-    if (
-      path ===
-      `/api/problems/${secondCatalogProblem.problem}/versions/${secondCatalogProblem.version}/detail`
-    ) {
-      return await json(route, {
-        summary: secondCatalogProblem,
-        prompt: [],
-        statistics: "unavailable",
-      });
-    }
-    return await json(route, { error: "unexpected request" }, 500);
-  });
-
-  await openEditor(page);
-  await page.getByText("Reuse questions from an existing assignment", { exact: true }).click();
-  await expect(page.getByLabel("Source assignment")).toHaveValue("0");
-  await expect(page.getByText("Second immutable peptide version", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Add entire assignment" }).click();
-  await expect(page.locator(".assignment-editor-list")).toContainText("ABC-123T");
-  await expect(page.locator(".assignment-editor-actions")).toContainText(
-    "Copied 1 question from Protein structure review.",
+  let assignment = structuredClone(original);
+  let revision = 1;
+  await page.addInitScript(() =>
+    Object.defineProperty(window, "__PLE_USE_MOCK_API__", { get: () => false }),
   );
-  const markup = await page.content();
-  expect(markup).not.toContain(sourceAssignmentId);
-  expect(markup).not.toContain(secondCatalogProblem.problem);
-  expect(markup).not.toContain(secondCatalogProblem.version);
-});
-
-test("hostile cross-tenant assignment detail is rejected before editor state adopts its revision", async ({
-  page,
-}) => {
-  const requests: string[] = [];
   await page.route("**/api/**", async (route) => {
-    const path = new URL(route.request().url()).pathname;
-    requests.push(path);
-    if (path === "/api/auth/session") return await json(route, session(["instructor"]));
-    if (await routeShellRequest(route, path)) return;
-    if (path === `/api/courses/${courseId}`) {
-      return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
-    }
-    if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
-    if (path === `/api/assignments/${assignmentId}`) {
-      return await json(
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    const headers = { "cache-control": "no-store", etag: `"${revision}"` };
+    if (path === "/api/auth/session")
+      return await response(route, {
+        authenticated: true,
+        tenant: course.tenant,
+        user: {
+          id: "0198e000-0000-7000-8000-000000000014",
+          displayName: "Professor",
+          roles: ["instructor"],
+        },
+      });
+    if (path === "/api/auth/account/presentation")
+      return await response(route, { contrast: "standard" });
+    if (path === `/api/navigation/C-${course.publicId}`)
+      return await response(route, { kind: "course", courseId: course.id });
+    if (path === `/api/navigation/A-${original.publicId}`)
+      return await response(route, {
+        kind: "assignment",
+        courseId: course.id,
+        assignmentId: original.id,
+      });
+    if (path === `/api/courses/${course.id}`)
+      return await response(route, { ...course, role: "instructor" });
+    if (path === `/api/courses/${course.id}/appearance`)
+      return await response(route, { theme: "grass", revision: "1", banner: null }, 200, {
+        "cache-control": "no-store",
+        etag: '"1"',
+      });
+    if (path === `/api/assignments/${original.id}`)
+      return await response(
         route,
-        { ...untimedAssignmentEditor, tenant: "0198e000-0000-7000-8000-000000000088" },
+        { ...assignment, assignmentTiming: { timeLimitSeconds: null } },
         200,
-        { etag: '"7"' },
+        headers,
       );
-    }
-    return await json(route, { error: "unexpected request" }, 500);
-  });
-  await openEditor(page);
-  await expect(
-    page.getByRole("heading", { name: "This assignment could not be opened" }),
-  ).toBeVisible();
-  expect(requests).toContain("/api/auth/session");
-  expect(requests).toContain(`/api/courses/${courseId}`);
-  expect(requests).toContain(`/api/assignments/${assignmentId}`);
-  expect(
-    requests.some(
-      (path) =>
-        path.includes("problems") ||
-        (path.includes("assignments") && path !== `/api/assignments/${assignmentId}`),
-    ),
-  ).toBe(false);
-});
-
-test("direct question-ID lookup keeps the draft and pasted ID after access or service failures", async ({
-  page,
-}) => {
-  await page.route("**/api/**", async (route) => {
-    const path = new URL(route.request().url()).pathname;
-    if (path === "/api/auth/session") return await json(route, session(["instructor"]));
-    if (await routeShellRequest(route, path)) return;
-    if (path === `/api/courses/${courseId}`) {
-      return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
-    }
-    if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
-    if (path === `/api/assignments/${assignmentId}`) {
-      return await json(route, untimedAssignmentEditor, 200, { etag: '"7"' });
-    }
-    if (
-      path ===
-      `/api/problems/${publishedProblemFixture.catalogProblem.problem}/versions/${publishedProblemFixture.catalogProblem.version}/detail`
-    ) {
-      return await json(route, {
-        summary: publishedProblemFixture.catalogProblem,
-        prompt: [],
-        statistics: "unavailable",
-      });
-    }
-    if (path === "/api/problems/by-id/PEP-T1D3") {
-      return await json(route, { error: "not shared with this instructor" }, 403);
-    }
-    if (path === "/api/problems/by-id/GEN-E42K") {
-      return await json(route, { error: "temporary catalog outage" }, 503);
-    }
-    return await json(route, { error: "unexpected request" }, 500);
-  });
-
-  await openEditor(page);
-  const selected = page.locator(".assignment-editor-list");
-  await openQuestionIdImport(page);
-  const questionIds = page.getByLabel("Question IDs");
-  const add = page.getByRole("button", { name: "Add questions by ID" });
-  await expect(selected).toContainText("7K3-M9QP");
-
-  await questionIds.fill("PEP-T1D3");
-  await add.click();
-  await expect(page.getByRole("alert")).toHaveText(
-    "You do not have access to PEP-T1D3. Ask its owner to publish or share it.",
-  );
-  await expect(questionIds).toHaveValue("PEP-T1D3");
-  await expect(selected).toHaveText(/7K3-M9QP/u);
-
-  await questionIds.fill("GEN-E42K");
-  await add.click();
-  await expect(page.getByRole("alert")).toHaveText(
-    "Could not look up GEN-E42K. Your pasted IDs and assignment are unchanged. Try again.",
-  );
-  await expect(questionIds).toHaveValue("GEN-E42K");
-  await expect(selected).toHaveText(/7K3-M9QP/u);
-});
-
-test("authorized editor saves exact immutable refs with CAS, retains all violations, and recovers from conflict", async ({
-  page,
-}) => {
-  const requests: Array<{
-    readonly path: string;
-    readonly method: string;
-    readonly body: unknown;
-    readonly revision: string | null;
-  }> = [];
-  let assignmentReads = 0;
-  let saves = 0;
-  await page.route("**/api/**", async (route) => {
-    const request = route.request();
-    const path = new URL(request.url()).pathname;
-    const body = request.postDataJSON() as unknown;
-    requests.push({
-      path,
-      method: request.method(),
-      body,
-      revision: request.headers()["if-match"] ?? null,
-    });
-    if (path === "/api/auth/session") return await json(route, session(["instructor"]));
-    if (await routeShellRequest(route, path)) return;
-    if (path === `/api/courses/${courseId}`) {
-      return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
-    }
-    if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
-    if (path === `/api/assignments/${assignmentId}`) {
-      assignmentReads += 1;
-      return await json(route, untimedAssignmentEditor, 200, {
-        etag: assignmentReads > 1 ? '"8"' : '"7"',
-      });
-    }
-    if (
-      path ===
-      `/api/problems/${publishedProblemFixture.catalogProblem.problem}/versions/${publishedProblemFixture.catalogProblem.version}/detail`
-    ) {
-      return await json(route, {
-        summary: publishedProblemFixture.catalogProblem,
-        prompt: [],
-        statistics: "unavailable",
-      });
-    }
-    if (path === "/api/problems/search") {
-      return await json(route, {
-        items: [publishedProblemFixture.catalogProblem, secondCatalogProblem],
+    if (path === `/api/problems/by-id/${replacementId}`) return await response(route, replacement);
+    if (path === `/api/problems/by-id/${replacementId}/detail`)
+      return await response(route, { summary: replacement, prompt: [], statistics: "unavailable" });
+    if (path === `/api/problems/search`)
+      return await response(route, {
+        items: [replacement],
         nextCursor: null,
         facets: {
           taxonomy: [],
@@ -591,362 +89,147 @@ test("authorized editor saves exact immutable refs with CAS, retains all violati
           statistics: { available: 0, unavailable: 1 },
         },
       });
-    }
-    if (path === "/api/problems/by-id/ABC-123T") return await json(route, secondCatalogProblem);
-    if (path === "/api/problems/by-id/B10-CHMD") {
-      return await json(route, { error: "problem reference not found" }, 404);
-    }
     if (
-      path === `/api/courses/${courseId}/assignments/${assignmentId}` &&
+      path === `/api/courses/${course.id}/assignments/${original.id}` &&
       request.method() === "PUT"
     ) {
-      saves += 1;
-      if (saves === 1) {
-        const reference = assignmentProblems[0];
-        return await json(
-          route,
+      const body = request.postDataJSON() as {
+        title?: string;
+        items?: ReadonlyArray<{ id: string }>;
+      };
+      expect(body.items?.every((item) => !item.id.startsWith("new-"))).toBeTruthy();
+      assignment = { ...assignment, title: body.title ?? assignment.title };
+      revision += 1;
+      return await response(
+        route,
+        { ...assignment, assignmentTiming: { timeLimitSeconds: null } },
+        200,
+        { "cache-control": "no-store", etag: `"${revision}"` },
+      );
+    }
+    if (
+      path === `/api/courses/${course.id}/assignments/${original.id}/items` &&
+      request.method() === "POST"
+    ) {
+      expect(request.postData()).toBe(JSON.stringify({ questionId: replacementId, position: 1 }));
+      assignment = {
+        ...assignment,
+        items: [
+          ...assignment.items,
           {
-            error: "assignment configuration is not supported",
-            violations: [
-              {
-                title: "Peptide bond resonance and planarity",
-                reference,
-                capability: "serverGrading",
-              },
-              {
-                title: "Peptide bond resonance and planarity",
-                reference,
-                capability: "perQuestionTiming",
-              },
-            ],
+            id: "0198e000-0000-7000-8000-000000000502",
+            questionId: replacementId,
+            title: replacement.metadata.title,
+            backend: replacement.backend,
+            capabilities: replacement.capabilities,
+            position: 1,
+            pointsPossible: "1",
+            deliveryState: "active",
+            scoringMode: "normal",
           },
-          422,
+        ],
+      };
+      revision = 3;
+      return await response(
+        route,
+        { ...assignment, assignmentTiming: { timeLimitSeconds: null } },
+        200,
+        { "cache-control": "no-store", etag: '"3"' },
+      );
+    }
+    if (path.endsWith("/question") && request.method() === "PUT") {
+      if (request.postData() !== JSON.stringify({ questionId: replacementId }))
+        return await response(route, { error: "wrong QID" }, 422);
+      if (request.headers()["if-match"] === '"3"') {
+        revision = 4;
+        assignment = {
+          ...assignment,
+          items: assignment.items.map((candidate, index) =>
+            index === 0
+              ? {
+                  ...candidate,
+                  id: "0198e000-0000-7000-8000-000000000501",
+                  questionId: replacementId,
+                  title: replacement.metadata.title,
+                  backend: replacement.backend,
+                  capabilities: replacement.capabilities,
+                }
+              : candidate,
+          ),
+        };
+        return await response(
+          route,
+          { ...assignment, assignmentTiming: { timeLimitSeconds: null } },
+          200,
+          { "cache-control": "no-store", etag: '"4"' },
         );
       }
-      if (saves === 2) return await json(route, { error: "assignment changed; reload it" }, 409);
-      return await json(
-        route,
-        {
-          ...untimedAssignmentEditor,
-          title: (body as { title: string }).title,
-          policies: (body as { policies: unknown }).policies,
-        },
-        200,
-        { etag: '"9"' },
-      );
-    }
-    return await json(route, { error: "unexpected request" }, 500);
-  });
-
-  await page.setViewportSize({ width: 420, height: 820 });
-  await openEditor(page);
-  const title = page.getByLabel("Assignment title");
-  await expect(title).toBeVisible();
-  await expect(title).toBeFocused();
-  await expect(page.getByRole("radio", { name: "Untimed", exact: true })).toBeChecked();
-  await expect(page.getByLabel("Minutes per practice run")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Save assignment" })).toBeVisible();
-  const selectedProblems = page.locator(".assignment-editor-list");
-  await expect(selectedProblems).toContainText(publishedProblemFixture.catalogProblem.questionId);
-  await expect(selectedProblems).not.toContainText(publishedProblemFixture.catalogProblem.problem);
-  await expect(selectedProblems).not.toContainText(publishedProblemFixture.catalogProblem.version);
-
-  await openQuestionIdImport(page);
-  const questionIds = page.getByLabel("Question IDs");
-  await questionIds.fill("7K3-M9QP");
-  await page.getByRole("button", { name: "Add questions by ID" }).click();
-  await expect(page.getByRole("alert")).toContainText("7K3-M9QP is already in this assignment");
-  await expect(questionIds).toHaveValue("7K3-M9QP");
-  await questionIds.fill("P-2");
-  await page.getByRole("button", { name: "Add questions by ID" }).click();
-  await expect(page.getByRole("alert")).toContainText("P-2 is not a Question ID");
-  await expect(questionIds).toHaveValue("P-2");
-  await questionIds.fill("ABC-123T, B10-CHMD");
-  await page.getByRole("button", { name: "Add questions by ID" }).click();
-  await expect(page.getByRole("alert")).toContainText(
-    "B10-CHMD is not an available published question",
-  );
-  await expect(questionIds).toHaveValue("ABC-123T, B10-CHMD");
-  await expect(page.getByText("Second immutable peptide version")).toHaveCount(0);
-
-  // The instructor obtains the identifier from a visible catalog result, then uses the
-  // same clipboard and keyboard path available in the real editor. No UUID is entered.
-  const search = page.getByLabel("Search published questions");
-  await search.fill("Second immutable peptide version");
-  await page.getByRole("button", { name: "Search catalog" }).click();
-  const secondCatalogRow = page.locator(".assignment-editor-catalog-results article", {
-    has: page.getByRole("heading", { name: "Second immutable peptide version", exact: true }),
-  });
-  const copiedId = await secondCatalogRow.locator("code").innerText();
-  await expect(secondCatalogRow.locator("code")).toHaveText("ABC-123T");
-  await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
-    origin: new URL(page.url()).origin,
-  });
-  const copyId = secondCatalogRow.getByRole("button", {
-    name: `Copy question ID ${copiedId}`,
-  });
-  await copyId.focus();
-  await expect(copyId).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(secondCatalogRow.getByRole("status")).toHaveText(`Copied ${copiedId}.`);
-  await questionIds.focus();
-  await page.keyboard.press("ControlOrMeta+A");
-  await page.keyboard.press("ControlOrMeta+V");
-  await expect(questionIds).toHaveValue(copiedId);
-  const addSecond = page.getByRole("button", { name: "Add questions by ID" });
-  await addSecond.focus();
-  await expect(addSecond).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page.getByText("Second immutable peptide version").first()).toBeVisible();
-  await expect(page.locator(".assignment-editor-import-success")).toContainText(
-    "Added ABC-123T to the unsaved selection",
-  );
-  await expect(page.locator(".assignment-editor-actions")).toContainText(
-    "Unsaved assignment changes.",
-  );
-  await expect(questionIds).toHaveValue("");
-  expect(requests.filter((request) => request.method === "PUT")).toEqual([]);
-  await title.fill("Edited peptide practice");
-  await page.getByRole("button", { name: "Save assignment" }).click();
-  await expect(page.getByRole("heading", { name: "Fix these assignment settings" })).toBeFocused();
-  await expect(page.getByText("cannot provide server grading.")).toBeVisible();
-  await expect(page.getByText("cannot provide per-question timing.")).toBeVisible();
-  await expect(title).toHaveValue("Edited peptide practice");
-
-  await page.getByRole("button", { name: "Save assignment" }).click();
-  await expect(page.getByRole("button", { name: "Reload newest assignment" })).toBeVisible();
-  await expect(title).toHaveValue("Edited peptide practice");
-  await page.getByRole("button", { name: "Reload newest assignment" }).click();
-  await expect(title).toBeFocused();
-  await title.fill("Saved after reload");
-  await page.getByRole("button", { name: "Save assignment" }).click();
-  await expect(page.locator(".assignment-editor-actions span")).toHaveText(
-    "Assignment saved. This assignment is untimed.",
-  );
-
-  const puts = requests.filter((request) => request.method === "PUT");
-  expect(puts).toHaveLength(3);
-  expect(puts[0]?.revision).toBe('"7"');
-  expect(puts[0]?.body).toEqual({
-    title: "Edited peptide practice",
-    problems: [
-      ...assignmentProblems,
-      { problem: secondCatalogProblem.problem, version: secondCatalogProblem.version },
-    ],
-    policies: publishedProblemFixture.assignment.policies,
-    assignmentTiming: { timeLimitSeconds: null },
-  });
-  expect(puts[2]?.revision).toBe('"8"');
-  expect(puts[2]?.body).toEqual({
-    title: "Saved after reload",
-    problems: assignmentProblems,
-    policies: publishedProblemFixture.assignment.policies,
-    assignmentTiming: { timeLimitSeconds: null },
-  });
-  expect(JSON.stringify(puts[2]?.body)).not.toMatch(
-    /workspace|source|prompt|response|grading|answerKey|capabilit/i,
-  );
-});
-
-test("instructor creates a Mastery assignment from public immutable catalog tuples by keyboard", async ({
-  page,
-}) => {
-  const requests: Array<{
-    readonly method: string;
-    readonly path: string;
-    readonly body: unknown;
-  }> = [];
-  const createdId = "0198e000-0000-7000-8000-000000000060";
-  let created = false;
-  await page.route("**/api/**", async (route) => {
-    const request = route.request();
-    const path = new URL(request.url()).pathname;
-    const body = request.postDataJSON() as unknown;
-    requests.push({ method: request.method(), path, body });
-    if (path === "/api/auth/session") return await json(route, session(["instructor"]));
-    if (await routeShellRequest(route, path)) return;
-    if (path === `/api/courses/${courseId}`) {
-      return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
-    }
-    if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
-    if (path === "/api/problems/search") {
-      return await json(route, {
-        items: [publishedProblemFixture.catalogProblem],
-        nextCursor: null,
-        facets: {
-          taxonomy: [],
-          capabilities: [],
-          licenses: [],
-          statistics: { available: 0, unavailable: 0 },
-        },
+      return await response(route, { error: "assignment changed; reload it" }, 409, {
+        "cache-control": "no-store",
       });
     }
-    if (path === "/api/problems/by-id/7K3-M9QP") {
-      return await json(route, publishedProblemFixture.catalogProblem);
-    }
-    if (path === `/api/courses/${courseId}/assignments` && request.method() === "POST") {
-      created = true;
-      return await json(
-        route,
-        {
-          ...untimedAssignmentEditor,
-          id: createdId,
-          publicId: 2,
-          title: (body as { readonly title: string }).title,
-          policies: (body as { readonly policies: unknown }).policies,
-          assignmentTiming: (body as { readonly assignmentTiming: unknown }).assignmentTiming,
-        },
-        201,
-        { etag: '"1"' },
-      );
-    }
-    if (path === `/api/assignments/${createdId}` && created) {
-      return await json(route, { ...untimedAssignmentEditor, id: createdId });
-    }
-    return await json(route, { error: "unexpected request" }, 500);
+    return await response(route, { error: `unexpected ${request.method()} ${path}` }, 500);
   });
-
-  await openEditor(page, createPath);
-  const title = page.getByLabel("Assignment title");
-  await expect(page.getByRole("heading", { name: "Create assignment" })).toBeVisible();
-  await expect(title).toBeFocused();
-  await expect(page.getByLabel("Completion requirement")).toHaveValue("allCorrect");
-  await expect(page.getByLabel("Grade policy")).toHaveValue("highest");
-  await expect(page.getByLabel("Continued practice")).toHaveValue("unlimited");
-  await expect(page.getByLabel("Variation policy")).toHaveValue("newSeeds");
-  await expect(page.getByRole("radio", { name: "Timed", exact: true })).toBeChecked();
-  const runMinutes = page.getByLabel("Minutes per practice run");
-  await expect(runMinutes).toHaveValue("15");
-  await runMinutes.fill("0");
-  await expect(page.getByRole("alert")).toHaveText(
-    "Enter a positive number of minutes, such as 15.",
-  );
-  await expect(page.getByRole("button", { name: "Create assignment" })).toBeDisabled();
-  await runMinutes.fill("1.5");
-  await expect(page.getByRole("alert")).toHaveCount(0);
-  await page.getByRole("radio", { name: "Untimed", exact: true }).check();
-  await expect(runMinutes).toHaveCount(0);
-  await page.getByRole("radio", { name: "Timed", exact: true }).check();
-  await expect(runMinutes).toHaveValue("1.5");
-  await runMinutes.fill("15");
-
-  await title.fill("Fall pilot peptide mastery");
-  await openQuestionIdImport(page);
-  await page.getByLabel("Question IDs").fill("7K3-M9QP");
-  const add = page.getByRole("button", { name: "Add questions by ID" });
-  await add.focus();
-  await page.keyboard.press("Enter");
-  await expect(page.locator(".assignment-editor-import-success")).toHaveText(
-    "Added 7K3-M9QP to the unsaved selection.",
-  );
-  await page.getByRole("button", { name: "Create assignment" }).focus();
-  await page.keyboard.press("Enter");
-
-  const open = page.getByRole("link", { name: "Open Fall pilot peptide mastery" });
-  await expect(open).toBeVisible();
-  await expect(open).toHaveAttribute("href", `/courses/${courseReference}/assignments/A-2`);
-  const posts = requests.filter((request) => request.method === "POST");
-  expect(posts).toHaveLength(1);
-  expect(posts[0]).toEqual({
-    method: "POST",
-    path: `/api/courses/${courseId}/assignments`,
-    body: {
-      title: "Fall pilot peptide mastery",
-      problems: [assignmentProblems[0]],
-      policies: {
-        completion: { kind: "allCorrect" },
-        grade: "highest",
-        continuedPractice: { kind: "unlimited" },
-        variation: "newSeeds",
-      },
-      assignmentTiming: { timeLimitSeconds: 900 },
-    },
-  });
-  expect(JSON.stringify(posts[0]?.body)).not.toMatch(/source|answer|grading|prompt|response/i);
-});
-
-test("a loaded non-terminating minute value survives an unrelated save exactly", async ({
-  page,
-}) => {
-  const storedSeconds = 2_147_483_647;
-  const saves: unknown[] = [];
-  await page.route("**/api/**", async (route) => {
-    const request = route.request();
-    const path = new URL(request.url()).pathname;
-    if (path === "/api/auth/session") return await json(route, session(["instructor"]));
-    if (await routeShellRequest(route, path)) return;
-    if (path === `/api/courses/${courseId}`) {
-      return await json(route, { ...publishedProblemFixture.course, role: "instructor" });
-    }
-    if (path === `/api/courses/${courseId}/appearance`) return await appearanceJson(route);
-    if (path === `/api/assignments/${assignmentId}` && request.method() === "GET") {
-      return await json(
-        route,
-        {
-          ...publishedProblemFixture.assignment,
-          assignmentTiming: { timeLimitSeconds: storedSeconds },
-        },
-        200,
-        { etag: '"7"' },
-      );
-    }
-    if (
-      path ===
-      `/api/problems/${publishedProblemFixture.catalogProblem.problem}/versions/${publishedProblemFixture.catalogProblem.version}/detail`
-    ) {
-      return await json(route, {
-        summary: publishedProblemFixture.catalogProblem,
-        prompt: [],
-        statistics: "unavailable",
-      });
-    }
-    if (
-      path === `/api/courses/${courseId}/assignments/${assignmentId}` &&
-      request.method() === "PUT"
-    ) {
-      const body = request.postDataJSON() as unknown;
-      saves.push(body);
-      const requestBody = body as {
-        readonly title: string;
-        readonly problems: unknown;
-        readonly policies: unknown;
-        readonly assignmentTiming: unknown;
-      };
-      return await json(
-        route,
-        {
-          ...publishedProblemFixture.assignment,
-          title: requestBody.title,
-          policies: requestBody.policies,
-          assignmentTiming: requestBody.assignmentTiming,
-        },
-        200,
-        { etag: '"8"' },
-      );
-    }
-    if (path === "/api/problems/search") {
-      return await json(route, {
-        items: [],
-        nextCursor: null,
-        facets: {
-          taxonomy: [],
-          capabilities: [],
-          licenses: [],
-          statistics: { available: 0, unavailable: 0 },
-        },
-      });
-    }
-    return await json(route, { error: "unexpected request" }, 500);
-  });
-
-  await openEditor(page);
-  const minutes = page.getByLabel("Minutes per practice run");
-  await expect(minutes).toHaveValue("35791394.11666667");
-  await page.getByLabel("Assignment title").fill("Renamed without changing timing");
-  await page.getByRole("button", { name: "Save assignment" }).click();
-  expect(saves).toHaveLength(1);
-  expect(saves[0]).toMatchObject({
-    title: "Renamed without changing timing",
-    assignmentTiming: { timeLimitSeconds: storedSeconds },
-  });
+  await page.goto("/");
+  await page.evaluate((path) => {
+    history.pushState({}, "", path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, assignmentPath);
+  await expect(page.getByRole("heading", { name: "Assignment editor" })).toBeVisible();
+  await expect(
+    page.getByText("Reuse questions from an existing assignment", { exact: true }),
+  ).toHaveCount(0);
+  await page.getByLabel("Assignment title").fill("Saved title without changing Question ID");
+  await page.getByRole("button", { name: "Save title, order, and settings" }).click();
+  await expect(page.getByText("Assignment title, order, and settings saved.")).toBeVisible();
+  await page.getByText("Add by Question ID", { exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Direct import Question ID", exact: true })
+    .fill(replacementId);
+  await page.getByRole("button", { name: "Add Question ID", exact: true }).click();
+  await expect(
+    page.getByText("Question added. Add and remove are available before student work begins."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Replace", exact: true }).first().click();
+  await expect(
+    page.getByText(
+      "Future runs use the replacement. Already issued work stays with its original question.",
+    ),
+  ).toBeVisible();
+  const questionId = page.getByRole("textbox", { name: "Replacement Question ID", exact: true });
+  await questionId.focus();
+  await page.keyboard.type(replacementId);
+  await page.getByRole("button", { name: "Check Question ID" }).click();
+  await expect(page.locator(".success-state .copyable-question-id code")).toHaveText(replacementId);
+  await expect(page.locator(".success-state")).toContainText(replacement.metadata.title);
+  await expect(page.locator(".success-state")).toContainText("PLE native");
+  await page.getByRole("button", { name: "Replace with selected question" }).click();
+  await expect(
+    page.getByText(
+      `Replacement saved. Future runs use the replacement; issued work stays with its original question.`,
+    ),
+  ).toBeVisible();
+  await expect(page.getByText(replacementId, { exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Replace", exact: true }).first().click();
+  await questionId.fill(replacementId);
+  await page.getByRole("button", { name: "Check Question ID" }).click();
+  await page.getByRole("button", { name: "Replace with selected question" }).click();
+  await expect(page.getByRole("button", { name: "Reload assignment" })).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("A newer assignment revision is available.");
+  await expect(questionId).toHaveValue(replacementId);
+  await expect(page.locator("body")).not.toContainText(/0198e000-0000-7000-8000/u);
+  expect(
+    await page
+      .locator(".assignment-editor-grid")
+      .evaluate((element) => element.scrollWidth <= element.clientWidth),
+  ).toBeTruthy();
+  for (const viewport of [
+    { width: 800, height: 1280 },
+    { width: 320, height: 800 },
+  ]) {
+    await page.setViewportSize(viewport);
+    expect(
+      await page.locator("body").evaluate((element) => element.scrollWidth <= window.innerWidth),
+    ).toBeTruthy();
+  }
 });

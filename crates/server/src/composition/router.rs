@@ -32,7 +32,6 @@ pub(super) fn compose_router<S, O, C, B, P, R>(
     review_gate: Arc<R>,
     session_config: SessionConfig,
     invitation_issuer: crate::course::CourseInvitationIssuer,
-    invitation_delivery: Arc<dyn crate::course::CourseInvitationDelivery>,
     passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
     passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
     client_address_policy: crate::auth::ClientAddressPolicy,
@@ -42,7 +41,6 @@ pub(super) fn compose_router<S, O, C, B, P, R>(
 where
     S: Store
         + CatalogStore
-        + learning_data_access::OwnerCorrectionStore
         + learning_data_access::FlatQuestionAssetStore
         + FlatQuestionStore
         + FlatImportProvenanceStore
@@ -55,6 +53,7 @@ where
         + RetentionApiStore
         + CourseRecordsAccessStore
         + learning_data_access::CourseRosterStore
+        + learning_data_access::CourseInvitationDeliveryStore
         + learning_data_access::ManualGradeExportStore
         + learning_data_access::AccountIdentityStore
         + learning_data_access::AccountSessionStore
@@ -80,7 +79,6 @@ where
             review_gate,
             session_config,
             invitation_issuer,
-            invitation_delivery,
             passwordless_email_delivery,
             passwordless_rate_limit_issuer,
             client_address_policy,
@@ -109,7 +107,6 @@ pub(super) fn compose_passwordless_router<S, O, C, B, R>(
     review_gate: Arc<R>,
     session_config: SessionConfig,
     invitation_issuer: crate::course::CourseInvitationIssuer,
-    invitation_delivery: Arc<dyn crate::course::CourseInvitationDelivery>,
     passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
     passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
     client_address_policy: crate::auth::ClientAddressPolicy,
@@ -120,7 +117,6 @@ pub(super) fn compose_passwordless_router<S, O, C, B, R>(
 where
     S: Store
         + CatalogStore
-        + learning_data_access::OwnerCorrectionStore
         + learning_data_access::FlatQuestionAssetStore
         + FlatQuestionStore
         + FlatImportProvenanceStore
@@ -133,6 +129,7 @@ where
         + RetentionApiStore
         + CourseRecordsAccessStore
         + learning_data_access::CourseRosterStore
+        + learning_data_access::CourseInvitationDeliveryStore
         + learning_data_access::ManualGradeExportStore
         + learning_data_access::AccountIdentityStore
         + learning_data_access::AccountSessionStore
@@ -201,7 +198,6 @@ where
         .merge(crate::course::router_with_invitations_and_local_teaching(
             Arc::clone(&store),
             invitation_issuer,
-            invitation_delivery,
             local_teaching_roster,
         ))
         .merge(crate::navigation::router(Arc::clone(&store)))

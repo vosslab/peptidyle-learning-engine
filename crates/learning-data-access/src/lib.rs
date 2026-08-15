@@ -43,6 +43,7 @@ mod flat_question;
 mod flat_question_assets;
 mod gradebook_cursor;
 pub mod in_memory;
+mod invitation_delivery;
 mod item_analysis;
 /// In-memory backend used by tests and lanes waiting for PostgreSQL.
 pub mod jobs;
@@ -76,12 +77,13 @@ pub use crate::account_identity::{
     AuthenticationEmail, AuthenticationRateLimitDecision, AuthenticationRateLimitKey,
     AuthenticationRateLimitPolicy, AuthenticationRateLimitScope, BeginEmailAuthentication,
     BeginWebauthnCeremony, BrowserBindingHash, CompleteEmailAuthentication,
-    CompleteEmailAuthenticationAndCreateSession, CompletePasskeyAuthenticationAndCreateSession,
-    CompletedAccountSession, CompletedEmailAuthentication, CompletedPasskeySession,
-    ConsumeAuthenticationRateLimit, CredentialIdHash, EmailAuthenticationChallenge,
-    EmailAuthenticationPurpose, EmailChallengeId, EmailChallengeLifetime, EmailChallengeSecretHash,
-    EmailDomain, PasskeyId, PasskeyRecord, RegisterPasskey, WebauthnCeremony, WebauthnCeremonyId,
-    WebauthnCeremonyKind, WebauthnCeremonyLifetime, WebauthnState, validated_account_display_name,
+    CompleteEmailAuthenticationAndCreateSession, CompleteEmailChangeAndRevokeUserSessions,
+    CompletePasskeyAuthenticationAndCreateSession, CompletedAccountSession,
+    CompletedEmailAuthentication, CompletedPasskeySession, ConsumeAuthenticationRateLimit,
+    CredentialIdHash, EmailAuthenticationChallenge, EmailAuthenticationPurpose, EmailChallengeId,
+    EmailChallengeLifetime, EmailChallengeSecretHash, EmailDomain, PasskeyId, PasskeyRecord,
+    RegisterPasskey, WebauthnCeremony, WebauthnCeremonyId, WebauthnCeremonyKind,
+    WebauthnCeremonyLifetime, WebauthnState, validated_account_display_name,
     validated_passkey_label,
 };
 pub use crate::account_presentation::{
@@ -140,6 +142,14 @@ pub use crate::flat_question_assets::{
     FlatQuestionAssetStore, MAX_WORKSPACE_FLAT_QUESTION_ASSET_LABEL_CHARS,
     MAX_WORKSPACE_FLAT_QUESTION_ASSET_PROVENANCE_CHARS, WORKSPACE_FLAT_QUESTION_IMAGE_MEDIA_TYPES,
     WorkspaceFlatQuestionAsset, validate_workspace_flat_question_asset_record,
+};
+pub use crate::invitation_delivery::MAX_COURSE_INVITATION_DELIVERY_ATTEMPTS;
+pub use crate::invitation_delivery::{
+    ClaimedCourseInvitationDelivery, CompleteCourseInvitationDelivery, CourseInvitationDelivery,
+    CourseInvitationDeliveryId, CourseInvitationDeliveryLeaseId,
+    CourseInvitationDeliveryOutcomeCode, CourseInvitationDeliveryState,
+    CourseInvitationDeliveryStore, CourseInvitationDeliveryWorkerStore,
+    InvitationDeliveryReissuance, PreparedCourseInvitationDelivery,
 };
 pub use crate::item_analysis::{
     CourseItemAnalysisCommitOutcome, CourseItemAnalysisStore, CourseItemAnalysisWorkerCommand,

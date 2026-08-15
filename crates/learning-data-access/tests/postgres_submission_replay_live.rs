@@ -5,9 +5,9 @@
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, DraftRecord,
-    FlatGradingCapability, IssueQuestionAttemptCommand, PresentationCapability,
-    PublishDraftCommand, Store, StoreError, SubmissionIdempotencyKey, SubmitQuestionAttemptCommand,
-    TenantContext, UpsertCourseMember,
+    FlatGradingCapability, IssueQuestionAttemptCommand, PrefetchedQuestion, PresentationCapability,
+    PublishDraftCommand, ReservePrefetchedQuestionCommand, Store, StoreError,
+    SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -29,6 +29,8 @@ use question_model::{
     ProblemVersionRef, PublicationScope, QuestionAttemptId, QuestionMetadata, QuestionSource,
     ResponseDefinition, RunId, StudentResponse, TenantId, UserId, VersionId, WorkspaceId,
 };
+use std::sync::Arc;
+use tokio::sync::Barrier;
 use uuid::Uuid;
 
 fn id() -> Uuid {
@@ -194,7 +196,6 @@ async fn publish_question(
                 language: "en-US".to_string(),
             },
         },
-        revises: None,
         derived_from: None,
     };
     let saved = store
@@ -227,7 +228,7 @@ async fn publish_question(
 
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL acceptance database"]
-async fn postgres_submission_replay_requires_its_immutable_receipt_snapshot() {
+async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concurrent_prefetch() {
     let database_url = std::env::var("PLE_TEST_DATABASE_URL")
         .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
     let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
@@ -321,27 +322,98 @@ async fn postgres_submission_replay_requires_its_immutable_receipt_snapshot() {
         )
         .await
         .expect("issue receipt snapshot question");
-    let response = StudentResponse::Numeric { value: 18.0 };
-    let key = SubmissionIdempotencyKey::parse("receipt-snapshot-replay")
-        .expect("valid receipt snapshot key");
-    let submitted = store
-        .submit_question_attempt(
+    let (successor_binding, successor_presentation) = receipt_presentation(reference, 2);
+    let prefetched_successor = PrefetchedQuestion {
+        tenant,
+        run: run.id,
+        predecessor: attempt.id,
+        assignment_position: 1,
+        problem: reference.problem,
+        question_version: reference.version,
+        seed: 2,
+        presentation_capability: PresentationCapability::EnvelopeV1,
+        presentation: successor_binding,
+        presentation_snapshot: successor_presentation.clone(),
+        grading_envelope: grading_envelope(reference, 2),
+        flat_grading: None,
+        flat_grading_capability: FlatGradingCapability::NotApplicable,
+        webwork_replay: None,
+        webwork_grading: None,
+        webwork_grading_capability: learning_data_access::WebworkGradingCapability::NotApplicable,
+        parameter_hash: "receipt-successor-parameters".to_string(),
+        provenance: provenance(),
+    };
+    let reserved_prefetch = store
+        .reserve_or_resume_prefetched_question(
             context,
-            SubmitQuestionAttemptCommand {
+            ReservePrefetchedQuestionCommand {
                 actor: student,
-                attempt: attempt.id,
-                response: response.clone(),
-                result: AttemptResult {
-                    correct: true,
-                    points_earned: 1.0,
-                    points_possible: 1.0,
-                },
-                feedback: FeedbackContent::default(),
-                idempotency_key: key.clone(),
+                reservation: prefetched_successor.clone(),
             },
         )
         .await
-        .expect("commit immutable receipt snapshot");
+        .expect("reserve the exact successor before submission");
+    assert_eq!(
+        reserved_prefetch, prefetched_successor,
+        "the sequential reservation retains the descriptor that promotion must consume"
+    );
+    let response = StudentResponse::Numeric { value: 18.0 };
+    let key = SubmissionIdempotencyKey::parse("receipt-snapshot-replay")
+        .expect("valid receipt snapshot key");
+    let submission = SubmitQuestionAttemptCommand {
+        actor: student,
+        attempt: attempt.id,
+        response: response.clone(),
+        result: AttemptResult {
+            correct: true,
+            points_earned: 1.0,
+            points_possible: 1.0,
+        },
+        feedback: FeedbackContent::default(),
+        idempotency_key: key.clone(),
+    };
+    // This coordinates concurrent Store invocations. It intentionally makes
+    // no claim that PostgreSQL held both transactions at a particular lock
+    // point: establishing that would require a test-only database hook or
+    // timing control outside this public Store behavior oracle.
+    let barrier = Arc::new(Barrier::new(2));
+    let submit_store = store.clone();
+    let submit_barrier = Arc::clone(&barrier);
+    let submit = tokio::spawn(async move {
+        submit_barrier.wait().await;
+        submit_store
+            .submit_question_attempt(context, submission)
+            .await
+    });
+    let prefetch_store = store.clone();
+    let prefetch_barrier = Arc::clone(&barrier);
+    let reservation = prefetched_successor.clone();
+    let prefetch = tokio::spawn(async move {
+        prefetch_barrier.wait().await;
+        prefetch_store
+            .reserve_or_resume_prefetched_question(
+                context,
+                ReservePrefetchedQuestionCommand {
+                    actor: student,
+                    reservation,
+                },
+            )
+            .await
+    });
+    let submitted = submit
+        .await
+        .expect("submission task completes")
+        .expect("concurrent submission commits one immutable receipt");
+    match prefetch.await.expect("prefetch task completes") {
+        Ok(reservation) => {
+            assert_eq!(
+                reservation, prefetched_successor,
+                "a concurrent resume preserves the exact reserved descriptor"
+            );
+        }
+        Err(StoreError::Conflict) => {}
+        Err(error) => panic!("concurrent prefetch has a supported outcome: {error:?}"),
+    }
     let replay_store =
         PostgresStore::new(lazy_pool(&database_url).expect("fresh replay PostgreSQL pool"));
     assert_eq!(
@@ -352,7 +424,6 @@ async fn postgres_submission_replay_requires_its_immutable_receipt_snapshot() {
         "an intact receipt replays exactly"
     );
 
-    let (successor_binding, successor_presentation) = receipt_presentation(reference, 2);
     let successor = store
         .issue_or_resume_question_attempt(
             context,
@@ -376,12 +447,19 @@ async fn postgres_submission_replay_requires_its_immutable_receipt_snapshot() {
                 parameter_hash: "receipt-successor-parameters".to_string(),
                 provenance: provenance(),
                 webwork_replay: None,
-                prefetched: None,
+                prefetched: Some(prefetched_successor),
                 predecessor_submission: Some(attempt.id),
             },
         )
         .await
         .expect("issue and link the immutable successor receipt");
+    assert_eq!(
+        store
+            .finalize_submission_next_attempt(context, student, attempt.id, Some(successor.id))
+            .await,
+        Ok(()),
+        "promotion records the exact immutable successor receipt"
+    );
     let mut successor_corruption = begin_disposable_corruption(&pool, tenant).await;
     let corrupted_successor = sqlx::query(
         "UPDATE submission_next_attempt \

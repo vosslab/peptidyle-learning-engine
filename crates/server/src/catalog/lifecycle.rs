@@ -3,7 +3,7 @@ use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use learning_data_access::{CatalogStore, CatalogTransition, SessionStore, Store};
-use question_model::{ProblemId, ProblemVersionRef, UserRole, VersionId};
+use question_model::{ProblemDisplayRef, ProblemVersionRef, UserRole};
 use serde::Deserialize;
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
@@ -20,7 +20,7 @@ pub(super) struct DeprecateProblemRequest {
 pub(super) async fn deprecate_problem<S, B, R>(
     State(state): State<CatalogRouteState<S, B, R>>,
     headers: HeaderMap,
-    Path((problem, version)): Path<(ProblemId, VersionId)>,
+    Path(reference): Path<String>,
     Json(request): Json<DeprecateProblemRequest>,
 ) -> Response
 where
@@ -31,7 +31,7 @@ where
     transition_problem(
         state,
         headers,
-        ProblemVersionRef { problem, version },
+        reference,
         CatalogTransition::Deprecate {
             reason: request.reason,
         },
@@ -42,26 +42,20 @@ where
 pub(super) async fn archive_problem<S, B, R>(
     State(state): State<CatalogRouteState<S, B, R>>,
     headers: HeaderMap,
-    Path((problem, version)): Path<(ProblemId, VersionId)>,
+    Path(reference): Path<String>,
 ) -> Response
 where
     S: Store + CatalogStore + SessionStore + 'static,
     B: BackendRegistry + 'static,
     R: PublicReviewGate + 'static,
 {
-    transition_problem(
-        state,
-        headers,
-        ProblemVersionRef { problem, version },
-        CatalogTransition::Archive,
-    )
-    .await
+    transition_problem(state, headers, reference, CatalogTransition::Archive).await
 }
 
 async fn transition_problem<S, B, R>(
     state: CatalogRouteState<S, B, R>,
     headers: HeaderMap,
-    reference: ProblemVersionRef,
+    reference: String,
     transition: CatalogTransition,
 ) -> Response
 where
@@ -76,6 +70,22 @@ where
     if !may_manage_catalog(authenticated.record.subject.roles()) {
         return error_response(StatusCode::FORBIDDEN, "catalog change is not authorized");
     }
+    let reference = match reference.parse::<ProblemDisplayRef>() {
+        Ok(reference) => reference,
+        Err(error) => return error_response(StatusCode::BAD_REQUEST, error),
+    };
+    let reference = match state
+        .store
+        .resolve_catalog_problem(authenticated.tenant_context, reference)
+        .await
+    {
+        Ok(Some(record)) => ProblemVersionRef {
+            problem: record.problem,
+            version: record.version,
+        },
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "question ID not found"),
+        Err(error) => return store_error_response(error),
+    };
     let actor = authenticated.record.subject.user();
     match state
         .store

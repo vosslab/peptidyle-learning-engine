@@ -12,7 +12,7 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -26,15 +26,45 @@ const REPLICA_HEADER_PREFIX = "ple-replica-e2e-api-";
 const POSTGRES_USER = "ple_e2e";
 const POSTGRES_DATABASE = "ple_e2e";
 const POSTGRES_PASSWORD = "ple-e2e-local-only";
-const POSTGRES_IMAGE_SHA256 = "7958605b474b3d264a969cb3a123d6aa00ad1e1fe9da8a69984dabb704d93317";
-const MINIO_IMAGE_SHA256 = "14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e";
-const MINIO_MC_IMAGE_SHA256 = "a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727";
-const SECRET_INIT_IMAGE_SHA256 = "48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d";
-const WEBWORK_RENDERER_IMAGE =
-  "localhost/pg-renderer@sha256:d606c4b5d82d425729643c4f36d093d549759a416d0527f0340ae0a7319a8456";
+const CANONICAL_SELECTION_NAMES = [
+  "PLE_GATEWAY_IMAGE_SHA256",
+  "PLE_POSTGRES_IMAGE_SHA256",
+  "PLE_MINIO_IMAGE_SHA256",
+  "PLE_MINIO_MC_IMAGE_SHA256",
+  "PLE_SECRET_INIT_IMAGE_SHA256",
+  "PLE_WEBWORK_RENDERER_IMAGE",
+  "PLE_WEBWORK_RENDERER_BASE_URL",
+  "PLE_WEBWORK_RENDERER_ID",
+  "PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS",
+  "PLE_WEBWORK_MAX_RESPONSE_BYTES",
+];
 
 function fail(message) {
   throw new Error(message);
+}
+
+async function canonicalStackSelections() {
+  const text = await readFile(join(REPO_ROOT, "containers", "env.example"), "utf8");
+  const values = new Map();
+  for (const [index, line] of text.split(/\r?\n/).entries()) {
+    const trimmed = line.trim();
+    if (trimmed === "" || trimmed.startsWith("#")) continue;
+    const separator = line.indexOf("=");
+    if (separator < 1) fail(`canonical environment line ${index + 1} is not NAME=value`);
+    const name = line.slice(0, separator);
+    const value = line.slice(separator + 1);
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) || values.has(name)) {
+      fail(`canonical environment line ${index + 1} is invalid`);
+    }
+    values.set(name, value);
+  }
+  return Object.fromEntries(
+    CANONICAL_SELECTION_NAMES.map((name) => {
+      const value = values.get(name);
+      if (!value) fail(`canonical environment must select ${name}`);
+      return [name, value];
+    }),
+  );
 }
 
 function requireUuid(value, label) {
@@ -43,6 +73,11 @@ function requireUuid(value, label) {
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     label,
   );
+  return value;
+}
+
+function requireQuestionId(value) {
+  assert.match(value, /^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/, "seed manifest questionId");
   return value;
 }
 
@@ -57,9 +92,14 @@ function parseManifest(text) {
     "assignmentId",
     "enrollmentId",
     "problemId",
+    "questionId",
     "versionId",
   ]);
-  for (const [name, value] of Object.entries(manifest)) requireUuid(value, `seed manifest ${name}`);
+  requireUuid(manifest.assignmentId, "seed manifest assignmentId");
+  requireUuid(manifest.enrollmentId, "seed manifest enrollmentId");
+  requireUuid(manifest.problemId, "seed manifest problemId");
+  requireQuestionId(manifest.questionId);
+  requireUuid(manifest.versionId, "seed manifest versionId");
   return manifest;
 }
 
@@ -534,12 +574,7 @@ async function postgresCounts(manifestPath, tenantId, attemptId) {
 }
 
 async function runLive() {
-  const gatewayDigest = process.env.PLE_E2E_GATEWAY_IMAGE_SHA256;
-  if (!/^[a-f0-9]{64}$/.test(gatewayDigest ?? "")) {
-    fail(
-      "PLE_E2E_GATEWAY_IMAGE_SHA256 must be a 64-character pinned Caddy digest for the live E2E",
-    );
-  }
+  const selections = await canonicalStackSelections();
 
   const project = `ple-replica-e2e-${randomBytes(5).toString("hex")}`;
   const applicationImage = `localhost/peptidyle-learning-engine:${project}`;
@@ -585,12 +620,12 @@ async function runLive() {
         `PLE_MINIO_API_HOST_PORT=${minioPort}`,
         `PLE_MINIO_CONSOLE_HOST_PORT=${minioConsolePort}`,
         `PLE_GATEWAY_HOST_PORT=${gatewayPort}`,
-        `PLE_GATEWAY_IMAGE_SHA256=${gatewayDigest}`,
+        `PLE_GATEWAY_IMAGE_SHA256=${selections.PLE_GATEWAY_IMAGE_SHA256}`,
         `PLE_APPLICATION_IMAGE=${applicationImage}`,
-        `PLE_POSTGRES_IMAGE_SHA256=${POSTGRES_IMAGE_SHA256}`,
-        `PLE_MINIO_IMAGE_SHA256=${MINIO_IMAGE_SHA256}`,
-        `PLE_MINIO_MC_IMAGE_SHA256=${MINIO_MC_IMAGE_SHA256}`,
-        `PLE_SECRET_INIT_IMAGE_SHA256=${SECRET_INIT_IMAGE_SHA256}`,
+        `PLE_POSTGRES_IMAGE_SHA256=${selections.PLE_POSTGRES_IMAGE_SHA256}`,
+        `PLE_MINIO_IMAGE_SHA256=${selections.PLE_MINIO_IMAGE_SHA256}`,
+        `PLE_MINIO_MC_IMAGE_SHA256=${selections.PLE_MINIO_MC_IMAGE_SHA256}`,
+        `PLE_SECRET_INIT_IMAGE_SHA256=${selections.PLE_SECRET_INIT_IMAGE_SHA256}`,
         `PLE_LOCAL_AUTH_HOST_FILE=${identityPath}`,
         `PLE_INVITATION_TOKEN_SECRET_HOST_FILE=${invitationSecretPath}`,
         `PLE_QUESTION_ID_SECRET_HOST_FILE=${questionIdSecretPath}`,
@@ -599,12 +634,13 @@ async function runLive() {
         "PLE_WEBAUTHN_RP_ID=localhost",
         `PLE_WEBAUTHN_ORIGIN=http://localhost:${gatewayPort}`,
         "PLE_WEBAUTHN_RP_NAME=PLE replica E2E",
-        `PLE_WEBWORK_RENDERER_IMAGE=${WEBWORK_RENDERER_IMAGE}`,
-        "PLE_WEBWORK_RENDERER_ID=vosslab-webwork-pg-renderer",
+        `PLE_WEBWORK_RENDERER_IMAGE=${selections.PLE_WEBWORK_RENDERER_IMAGE}`,
+        `PLE_WEBWORK_RENDERER_BASE_URL=${selections.PLE_WEBWORK_RENDERER_BASE_URL}`,
+        `PLE_WEBWORK_RENDERER_ID=${selections.PLE_WEBWORK_RENDERER_ID}`,
         `PLE_WEBWORK_PROBLEM_JWT_SECRET=${randomBytes(32).toString("hex")}`,
         `PLE_WEBWORK_SESSION_JWT_SECRET=${randomBytes(32).toString("hex")}`,
-        "PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS=15",
-        "PLE_WEBWORK_MAX_RESPONSE_BYTES=1048576",
+        `PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS=${selections.PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS}`,
+        `PLE_WEBWORK_MAX_RESPONSE_BYTES=${selections.PLE_WEBWORK_MAX_RESPONSE_BYTES}`,
         `PLE_DISPOSABLE_CAPABILITY_SHA256=${capabilitySha256}`,
       ].join("\n") + "\n",
       { mode: 0o600 },

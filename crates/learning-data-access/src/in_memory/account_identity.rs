@@ -8,11 +8,12 @@ use crate::{
     AccountSessionRecord, AccountSessionStore, AccountSessionTokenHash,
     AuthenticationRateLimitDecision, AuthenticationRateLimitScope, BeginEmailAuthentication,
     BeginWebauthnCeremony, CompleteEmailAuthentication,
-    CompleteEmailAuthenticationAndCreateSession, CompletePasskeyAuthenticationAndCreateSession,
-    CompletedAccountSession, CompletedEmailAuthentication, CompletedPasskeySession,
-    ConsumeAuthenticationRateLimit, EmailAuthenticationChallenge, EmailAuthenticationPurpose, Page,
-    PageRequest, PasskeyId, PasskeyRecord, RegisterPasskey, StoreError, WebauthnCeremony,
-    WebauthnCeremonyId, validated_account_display_name,
+    CompleteEmailAuthenticationAndCreateSession, CompleteEmailChangeAndRevokeUserSessions,
+    CompletePasskeyAuthenticationAndCreateSession, CompletedAccountSession,
+    CompletedEmailAuthentication, CompletedPasskeySession, ConsumeAuthenticationRateLimit,
+    EmailAuthenticationChallenge, EmailAuthenticationPurpose, Page, PageRequest, PasskeyId,
+    PasskeyRecord, RegisterPasskey, StoreError, WebauthnCeremony, WebauthnCeremonyId,
+    validated_account_display_name,
 };
 use question_model::{ActivityTimestamp, CourseId, CourseMembershipRole, UserId};
 
@@ -192,6 +193,67 @@ impl AccountIdentityStore for MemoryStore {
             let session = AccountSessionRecord {
                 token_hash: command.session_token_hash,
                 user: authentication.account.user,
+                created_at: state.authoritative_time,
+                expires_at: timestamp_after_seconds(
+                    state.authoritative_time,
+                    command.session_lifetime.as_seconds(),
+                )?,
+            };
+            state
+                .account_sessions
+                .insert(command.session_token_hash, session.clone());
+            Ok(CompletedAccountSession {
+                authentication,
+                session,
+            })
+        })();
+        if result.is_err() {
+            *state = rollback;
+        }
+        result
+    }
+
+    async fn complete_email_change_and_revoke_user_sessions(
+        &self,
+        command: CompleteEmailChangeAndRevokeUserSessions,
+    ) -> Result<CompletedAccountSession, StoreError> {
+        let mut state = self.write_state()?;
+        let rollback = state.clone();
+        let result = (|| {
+            if !matches!(
+                state
+                    .email_challenges
+                    .get(&command.authentication.token_hash)
+                    .map(|challenge| &challenge.record.purpose),
+                Some(EmailAuthenticationPurpose::ChangeEmail { .. })
+            ) {
+                return Err(StoreError::NotFound);
+            }
+            if state
+                .account_sessions
+                .contains_key(&command.session_token_hash)
+            {
+                return Err(StoreError::AlreadyExists);
+            }
+            let authentication =
+                complete_email_authentication_locked(&mut state, command.authentication)?;
+            if authentication.created {
+                return Err(StoreError::InvalidRecord(
+                    "email replacement must not create an account".to_string(),
+                ));
+            }
+            let user = authentication.account.user;
+            state
+                .account_sessions
+                .retain(|_, session| session.user != user);
+            for stored in state.sessions.values_mut() {
+                if stored.record.subject.user() == user {
+                    stored.revoked = true;
+                }
+            }
+            let session = AccountSessionRecord {
+                token_hash: command.session_token_hash,
+                user,
                 created_at: state.authoritative_time,
                 expires_at: timestamp_after_seconds(
                     state.authoritative_time,

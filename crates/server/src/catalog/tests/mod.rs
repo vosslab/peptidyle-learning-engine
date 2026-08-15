@@ -1,3 +1,4 @@
+mod publication;
 mod search;
 
 use super::*;
@@ -161,7 +162,6 @@ fn draft(tenant: TenantId, workspace: WorkspaceId, version: VersionId) -> DraftR
                 language: "en-US".to_string(),
             },
         },
-        revises: None,
         derived_from: None,
     }
 }
@@ -334,10 +334,9 @@ async fn publication_uses_server_capabilities_roles_and_fresh_problem_identity()
         .expect("publish response");
     assert_eq!(published.status(), StatusCode::CREATED);
     let published = response_json(published).await;
-    assert_ne!(published["problem"], serde_json::Value::Null);
-    assert_ne!(published["version"], serde_json::json!(version));
-    assert_ne!(published["version"], serde_json::Value::Null);
-    assert_eq!(published["workspace"], serde_json::json!(workspace));
+    assert!(published["questionId"].is_string());
+    assert!(published.get("problem").is_none());
+    assert!(published.get("version").is_none());
 }
 
 #[tokio::test]

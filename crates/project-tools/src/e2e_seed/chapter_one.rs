@@ -137,42 +137,10 @@ fn pilot_question(question: crate::pilot_content::Question) -> Result<PilotQuest
     })
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct ChapterOnePilotManifest {
-    chapters: Vec<ChapterManifest>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ChapterManifest {
-    slug: String,
-    course_id: CourseId,
-    assignment_id: AssignmentId,
-    enrollment_id: EnrollmentId,
-    questions: Vec<QuestionManifest>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct QuestionManifest {
-    slug: String,
-    display_id: String,
-    problem_id: ProblemId,
-    version_id: VersionId,
-}
-
-pub(super) struct QuestionIds {
-    pub(super) workspace: WorkspaceId,
-    pub(super) problem: ProblemId,
-    pub(super) version: VersionId,
-    pub(super) workspace_source: ObjectId,
-    pub(super) published_source: ObjectId,
-}
-
 pub(super) async fn seed_chapter_one_pilot(
     arguments: &SeedArguments,
 ) -> Result<ChapterOnePilotManifest> {
+    let chapter_specs = pilot_chapters()?;
     let storage = arguments
         .chapter_one_pilot
         .as_ref()
@@ -184,18 +152,49 @@ pub(super) async fn seed_chapter_one_pilot(
         .context("applying embedded migrations for Chapter 1 pilot seed")?;
     let store = question_id_store(pool)?;
     let context = TenantContext::from_authenticated_session(arguments.tenant);
+    let resumed = select_chapter_one_resume_manifest(
+        &store,
+        context,
+        arguments.tenant,
+        &chapter_specs,
+        arguments.chapter_one_existing_manifest.as_deref(),
+    )
+    .await?;
     let objects = pilot_object_store(storage)?;
-    let chapter_specs = pilot_chapters()?;
     let mut chapters = Vec::with_capacity(chapter_specs.len());
+    let mut statistics_fixture = None;
 
     for chapter in chapter_specs {
         let course_id = CourseId::from_uuid(pilot_uuid(arguments.tenant, &chapter.slug, "course"));
         let assignment_id =
             AssignmentId::from_uuid(pilot_uuid(arguments.tenant, &chapter.slug, "assignment"));
+        // The deterministic course is the durable outer marker. It exists
+        // before any question/object publication, so an interrupted Chapter
+        // One run stops at the protected manifest boundary instead of
+        // classifying retained publication as a fresh corpus.
+        ensure_webwork_pilot_course(
+            &store,
+            context,
+            CourseRecord {
+                id: course_id,
+                tenant: arguments.tenant,
+                title: chapter.course_title.clone(),
+                members: vec![CourseMembership {
+                    user: arguments.instructor,
+                    role: CourseMembershipRole::Instructor,
+                }],
+            },
+        )
+        .await?;
         let mut published = Vec::with_capacity(chapter.questions.len());
         let mut items = Vec::with_capacity(chapter.questions.len());
         for (position, question) in chapter.questions.iter().enumerate() {
-            let ids = question_ids(arguments.tenant, &question.slug);
+            let existing =
+                resumed_question(&store, context, resumed.as_ref(), &chapter.slug, question)
+                    .await?;
+            let ids = existing
+                .as_ref()
+                .map_or_else(QuestionIds::generate, QuestionIds::from_published);
             let record = match question.kind {
                 PilotQuestionKind::WebworkMultipleChoice | PilotQuestionKind::WebworkMatching => {
                     publish_webwork_question(
@@ -205,6 +204,7 @@ pub(super) async fn seed_chapter_one_pilot(
                         arguments.instructor,
                         question,
                         &ids,
+                        existing.as_ref(),
                     )
                     .await?
                 }
@@ -216,6 +216,7 @@ pub(super) async fn seed_chapter_one_pilot(
                         arguments.instructor,
                         question,
                         &ids,
+                        existing.as_ref(),
                     )
                     .await?
                 }
@@ -224,6 +225,22 @@ pub(super) async fn seed_chapter_one_pilot(
                 problem: record.problem,
                 version: record.version,
             };
+            if is_catalog_statistics_fixture(question) {
+                if !matches!(question.kind, PilotQuestionKind::FlatMultipleChoice) {
+                    bail!(
+                        "Chapter 1 catalog-statistics fixture must remain a flat multiple-choice question"
+                    );
+                }
+                if statistics_fixture
+                    .replace(ChapterOneStatisticsFixture {
+                        reference,
+                        source: question.source,
+                    })
+                    .is_some()
+                {
+                    bail!("Chapter 1 catalog-statistics fixture is published more than once");
+                }
+            }
             items.push(AssignmentItem {
                 id: AssignmentItemId::from_uuid(pilot_uuid(
                     arguments.tenant,
@@ -244,20 +261,6 @@ pub(super) async fn seed_chapter_one_pilot(
             });
         }
 
-        ensure_webwork_pilot_course(
-            &store,
-            context,
-            CourseRecord {
-                id: course_id,
-                tenant: arguments.tenant,
-                title: chapter.course_title.clone(),
-                members: vec![CourseMembership {
-                    user: arguments.instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
-            },
-        )
-        .await?;
         ensure_webwork_pilot_assignment(
             &store,
             context,
@@ -293,7 +296,16 @@ pub(super) async fn seed_chapter_one_pilot(
             questions: published,
         });
     }
-    Ok(ChapterOnePilotManifest { chapters })
+    let statistics_fixture = statistics_fixture
+        .ok_or_else(|| anyhow::anyhow!("Chapter 1 catalog-statistics fixture is missing"))?;
+    seed_chapter_one_statistics(&store, context, arguments, statistics_fixture).await?;
+    let output = ChapterOnePilotManifest { chapters };
+    if resumed.as_ref().is_some_and(|input| input != &output) {
+        bail!(
+            "existing Chapter 1 manifest does not exactly match regenerated publication manifest"
+        );
+    }
+    Ok(output)
 }
 
 /// Creates the disposable Chapter 1 learner through the sole roster owner.
@@ -356,6 +368,7 @@ pub(super) async fn publish_webwork_question<S, O>(
     publisher: UserId,
     spec: &PilotQuestionSpec,
     ids: &QuestionIds,
+    existing: Option<&PublishedProblemRecord>,
 ) -> Result<PublishedProblemRecord>
 where
     S: Store + CatalogStore + CatalogSourceStore + AuthoritativeTimeStore,
@@ -375,7 +388,6 @@ where
             spec,
             FeedbackDisclosure::ImmediateCorrectness,
         ),
-        revises: None,
         derived_from: None,
     };
     let source_sha256 = objects::Sha256Digest::compute(spec.source).to_string();
@@ -390,6 +402,23 @@ where
         version: ids.version,
         object: ids.published_source,
     };
+    if let Some(existing) = existing {
+        return verify_resumed_question(
+            store,
+            objects,
+            context,
+            publisher,
+            existing,
+            &draft.question,
+            &source,
+            &capabilities,
+            question_model::QuestionBackend::Webwork,
+            spec.source,
+            "text/x-wework-pg",
+        )
+        .await
+        .map(|()| existing.clone());
+    }
     if let Some(existing) = store.get_catalog_problem(context, reference).await? {
         verify_existing_question(
             store,
@@ -404,8 +433,6 @@ where
             &source_key,
             spec.source,
             "text/x-wework-pg",
-            None,
-            1,
         )
         .await?;
         return Ok(existing);
@@ -444,8 +471,6 @@ where
                 &source_key,
                 spec.source,
                 "text/x-wework-pg",
-                None,
-                1,
             )
             .await?;
             return Ok(existing);
@@ -491,6 +516,7 @@ async fn publish_flat_question(
     publisher: UserId,
     spec: &PilotQuestionSpec,
     ids: &QuestionIds,
+    existing: Option<&PublishedProblemRecord>,
 ) -> Result<PublishedProblemRecord> {
     let reference = ProblemVersionRef {
         problem: ids.problem,
@@ -508,7 +534,6 @@ async fn publish_flat_question(
     let draft = DraftRecord {
         tenant: context.tenant_id(),
         question,
-        revises: None,
         derived_from: None,
     };
     let family = match &draft.question.source {
@@ -521,6 +546,23 @@ async fn publish_flat_question(
     let capabilities = NativeAdapter::new()
         .capabilities(&published_source)
         .context("resolving reviewed flat pilot capabilities")?;
+    if let Some(existing) = existing {
+        return verify_resumed_question(
+            store,
+            objects,
+            context,
+            publisher,
+            existing,
+            &draft.question,
+            &published_source,
+            &capabilities,
+            question_model::QuestionBackend::Native,
+            &canonical,
+            adapter_native::flat_question::FLAT_QUESTION_MEDIA_TYPE,
+        )
+        .await
+        .map(|()| existing.clone());
+    }
     let published_key = ObjectKey::ProblemSource {
         problem: ids.problem,
         version: ids.version,
@@ -540,8 +582,6 @@ async fn publish_flat_question(
             &published_key,
             &canonical,
             adapter_native::flat_question::FLAT_QUESTION_MEDIA_TYPE,
-            None,
-            1,
         )
         .await?;
         return Ok(existing);
@@ -630,8 +670,6 @@ async fn publish_flat_question(
                 &published_key,
                 &canonical,
                 adapter_native::flat_question::FLAT_QUESTION_MEDIA_TYPE,
-                None,
-                1,
             )
             .await?;
             return Ok(existing);
@@ -834,8 +872,6 @@ async fn verify_existing_question<S, O>(
     expected_key: &ObjectKey,
     expected_bytes: &[u8],
     expected_media_type: &str,
-    expected_previous_version: Option<VersionId>,
-    expected_version_number: u32,
 ) -> Result<()>
 where
     S: CatalogSourceStore,
@@ -852,9 +888,7 @@ where
         || record.scope != PublicationScope::Institution
         || record.lifecycle != CatalogLifecycle::Published
         || record.authors.as_slice() != [publisher]
-        || record.previous_version != expected_previous_version
         || record.derived_from.is_some()
-        || record.version_number.value() != expected_version_number
     {
         bail!("existing Chapter 1 pilot publication differs from reviewed content");
     }
@@ -890,27 +924,45 @@ where
     Ok(())
 }
 
-pub(super) fn question_ids(tenant: TenantId, slug: &str) -> QuestionIds {
-    QuestionIds {
-        workspace: WorkspaceId::from_uuid(pilot_uuid(tenant, slug, "workspace")),
-        problem: ProblemId::from_uuid(pilot_uuid(tenant, slug, "problem")),
-        version: VersionId::from_uuid(pilot_uuid(tenant, slug, "version")),
-        workspace_source: ObjectId::from_uuid(pilot_uuid(tenant, slug, "workspace-source")),
-        published_source: ObjectId::from_uuid(pilot_uuid(tenant, slug, "published-source")),
-    }
-}
-
-pub(super) fn pilot_uuid(tenant: TenantId, slug: &str, purpose: &str) -> Uuid {
-    let mut hasher = Sha256::new();
-    hasher.update(b"ple-chapter-one-pilot-v1:");
-    hasher.update(tenant.as_uuid().as_bytes());
-    hasher.update(slug.as_bytes());
-    hasher.update(b":");
-    hasher.update(purpose.as_bytes());
-    let digest = hasher.finalize();
-    let mut bytes = [0_u8; 16];
-    bytes.copy_from_slice(&digest[..16]);
-    bytes[6] = (bytes[6] & 0x0f) | 0x50;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    Uuid::from_bytes(bytes)
+#[allow(clippy::too_many_arguments)]
+async fn verify_resumed_question<S, O>(
+    store: &S,
+    objects: &O,
+    context: TenantContext,
+    publisher: UserId,
+    record: &PublishedProblemRecord,
+    expected_draft: &DraftQuestionDefinition,
+    expected_source: &QuestionSource,
+    expected_capabilities: &BackendCapabilities,
+    expected_backend: question_model::QuestionBackend,
+    expected_bytes: &[u8],
+    expected_media_type: &str,
+) -> Result<()>
+where
+    S: CatalogSourceStore,
+    O: ObjectStore,
+{
+    let reference = ProblemVersionRef {
+        problem: record.problem,
+        version: record.version,
+    };
+    let artifact = store
+        .catalog_source_artifact(context, reference)
+        .await?
+        .context("resumed Chapter 1 publication has no source artifact")?;
+    verify_existing_question(
+        store,
+        objects,
+        context,
+        publisher,
+        record,
+        expected_draft,
+        expected_source,
+        expected_capabilities,
+        expected_backend,
+        &artifact.object.key,
+        expected_bytes,
+        expected_media_type,
+    )
+    .await
 }

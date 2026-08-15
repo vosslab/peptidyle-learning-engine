@@ -105,7 +105,6 @@ async fn publish(
     let record = DraftRecord {
         tenant,
         question: draft(WorkspaceId::from_uuid(id()), title, response),
-        revises: None,
         derived_from: None,
     };
     let saved = store

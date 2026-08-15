@@ -1,17 +1,14 @@
 """Offline behavioral tests for explicit UI walkthrough child inputs."""
 
-import importlib
 import json
 import pathlib
-import sys
 
 import pytest
 
+import tests.walkthrough.walklib.instructor_handoff as instructor_handoff
+import tests.walkthrough.walklib.models as walkthrough_models
+import tests.walkthrough.walklib.runner as walkthrough
 
-WALKTHROUGH_DIRECTORY = pathlib.Path(__file__).resolve().parent / "walkthrough"
-sys.path.insert(0, str(WALKTHROUGH_DIRECTORY))
-walkthrough = importlib.import_module("walklib.runner")
-instructor_handoff = importlib.import_module("walklib.instructor_handoff")
 
 
 class RecordingCommands:
@@ -20,7 +17,8 @@ class RecordingCommands:
 	def __init__(self) -> None:
 		self.calls: list[tuple[list[str], dict[str, str] | None]] = []
 
-	def __call__(self, command: list[str], environ: dict[str, str] | None) -> object:
+	def __call__(self, command: list[str], environ: dict[str, str] | None, stdin: str | None = None) -> object:
+		del stdin
 		self.calls.append((command, environ))
 		return walkthrough.CommandResult(0, "", "")
 
@@ -32,7 +30,8 @@ class StackCommands:
 		self.project = project
 		self.listener_port = listener_port
 
-	def __call__(self, command: list[str], _environ: dict[str, str] | None) -> object:
+	def __call__(self, command: list[str], _environ: dict[str, str] | None, stdin: str | None = None) -> object:
+		del stdin
 		if command[0] == "lsof":
 			stdout = "123\n" if f"-iTCP:{self.listener_port}" in command else ""
 			return walkthrough.CommandResult(0 if stdout else 1, stdout, "")
@@ -172,6 +171,24 @@ def test_selected_env_file_wins_and_ple_values_are_not_forwarded(tmp_path: pathl
 
 
 #============================================
+def test_controller_adapter_preserves_optional_stdin_without_exposing_it() -> None:
+	"""Lifecycle SQL/probe input crosses the walkthrough runner boundary without output inspection."""
+	observed: list[bool] = []
+
+	def receive_input(
+		command: list[str], environment: dict[str, str] | None, stdin: str | None
+	) -> object:
+		del command, environment
+		observed.append(stdin is not None)
+		return walkthrough.CommandResult(0, "", "")
+
+	adapter = walkthrough.WalkthroughControllerRunner(receive_input)
+	adapter.run(["probe"], stdin="private input")
+
+	assert observed == [True]
+
+
+#============================================
 def test_private_stack_environment_preserves_source_and_owns_image(tmp_path: pathlib.Path) -> None:
 	"""The launcher gets compact settings plus runner-owned paths and image identity."""
 	repository = tmp_path / "repository"
@@ -196,6 +213,23 @@ def test_private_stack_environment_preserves_source_and_owns_image(tmp_path: pat
 	assert f"PLE_INVITATION_TOKEN_SECRET_HOST_FILE={private_env.parent}/.secrets/invitation_token_secret" in private_contents
 	assert f"PLE_QUESTION_ID_SECRET_HOST_FILE={private_env.parent}/.secrets/question_id_secret" in private_contents
 	assert private_env.parent.name.startswith("ple-ui-walkthrough-") and not private_env.exists()
+
+
+#============================================
+def test_walkthrough_validation_uses_source_environment_before_private_bootstrap(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""Read-only validation precedes start on the initialized source, not teaching-private state."""
+	repository = tmp_path / "repository"
+	source = write_env_file(repository, "containers/env.local", 3010)
+	source.chmod(0o600)
+	runner = walkthrough.WalkthroughRunner(resolved_inputs(repository), repository, {}, RecordingCommands())
+	runner.prepare_journey_state()
+	runner.create_private_stack_environment()
+	private_env = runner.stack_env_file()
+
+	assert runner.inputs.env_file == source and runner.inputs.env_file != private_env
+	runner.remove_private_state()
 
 
 #============================================
@@ -324,7 +358,7 @@ def test_instructor_arrangement_uses_only_private_launcher_manifest(tmp_path: pa
 	private_manifest.write_text(private_contents, encoding="ascii")
 	private_manifest.chmod(0o600)
 	runner.write_private_child_inputs(
-		walkthrough.walklib.models.ArrangementChildInputs(private_manifest)
+		walkthrough_models.ArrangementChildInputs(private_manifest)
 	)
 	observed: dict[str, str] = {}
 
@@ -366,7 +400,7 @@ def test_private_child_handoff_redacts_credentials_and_is_removed(tmp_path: path
 	)
 	runner.prepare_journey_state()
 	runner.write_private_child_inputs(
-		walkthrough.walklib.models.ArrangementChildInputs(manifest)
+		walkthrough_models.ArrangementChildInputs(manifest)
 	)
 	input_path = runner.child_inputs_file
 	assert input_path is not None

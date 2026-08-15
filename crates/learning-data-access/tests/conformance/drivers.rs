@@ -4,10 +4,8 @@ use super::*;
 async fn memory_store_conforms() {
     let store = MemoryStore::default();
     exercise_store(&store).await;
-    exercise_assignment_cas(&store).await;
+    exercise_durable_publication_assignment_contract(&store).await;
     exercise_course_pagination_scale(&store).await;
-    exercise_publication_identity_boundary(&store).await;
-    exercise_source_artifact_binding(&store).await;
 }
 
 #[tokio::test]

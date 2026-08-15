@@ -276,6 +276,25 @@ async fn publish(fixture: &Fixture, revision: &str) -> (StatusCode, HeaderMap, V
     publish_with_scope(fixture, revision, "institution").await
 }
 
+async fn published_record(
+    fixture: &Fixture,
+    body: &[u8],
+) -> learning_data_access::PublishedProblemRecord {
+    let summary: question_model::CatalogProblemSummary =
+        serde_json::from_slice(body).expect("safe catalog publication summary");
+    fixture
+        .store
+        .resolve_catalog_problem(
+            fixture.context(),
+            question_model::ProblemDisplayRef {
+                question_id: summary.question_id,
+            },
+        )
+        .await
+        .expect("publication lookup")
+        .expect("published question remains visible to the author")
+}
+
 async fn publish_with_scope(
     fixture: &Fixture,
     revision: &str,
@@ -856,10 +875,9 @@ async fn current_publish_is_private_atomic_and_stale_publish_preserves_staging()
     );
     assert_no_store(&headers);
     assert_no_private_tokens(&body);
-    let published: question_model::QuestionDefinition =
-        serde_json::from_slice(&body).expect("published browser projection");
+    let published = published_record(&fixture, &body).await;
     assert!(
-        matches!(published.source, QuestionSource::Native { ref family } if family == FLAT_SINGLE_CHOICE_V2_FAMILY)
+        matches!(published.question.source, QuestionSource::Native { ref family } if family == FLAT_SINGLE_CHOICE_V2_FAMILY)
     );
     let reference = ProblemVersionRef {
         problem: published.problem,

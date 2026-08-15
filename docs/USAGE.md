@@ -1,8 +1,8 @@
 # Usage
 
-Use the root local-stack controller for a complete local teaching-system test. It delegates startup
-to the maintained launcher, which owns build, migration, seed, health check, browser entry, native
-questions, and the separate standalone WeBWorK PG renderer. PLE remains the only assignment
+Use the root local-stack controller for a complete local teaching-system test. Focused typed Python
+lifecycle modules own build, migration, seed, health check, browser entry, native questions, and the
+separate standalone WeBWorK PG renderer. PLE remains the only assignment
 platform: the renderer is a private stateless engine, not WebWork2.
 
 ## Quick start
@@ -13,13 +13,7 @@ Build and open the local stack:
 source source_me.sh && python3 local_stack.py start
 ```
 
-The direct launcher is reserved for recovering or diagnosing launcher behavior:
-
-```bash
-source source_me.sh && ./local_stack_control/launch.sh
-```
-
-The launcher prints the loopback application URL and the path to ignored local instructor and
+The lifecycle prints the loopback application URL and the path to ignored local instructor and
 student credentials. Paste one value from `containers/local-login.txt` into the local sign-in form.
 The resulting browser session is HttpOnly; the bearer value is not stored in browser storage.
 This local-file session exercises seeded course work, not passwordless account creation,
@@ -28,18 +22,26 @@ invitation claim, email sign-in, or passkey enrollment.
 The normal local launch publishes the reviewed Genetics Chapter 1 and Biochemistry Chapter 1
 Mastery assignments. Each has exactly four questions in the documented order: WeBWorK MC, WeBWorK
 MATCH, PLE flat MC, and PLE flat MATCH. The answer-free seed manifest is written with mode 0600 to
-`containers/local-chapter-one-pilot.json`; every instructor-readable `displayId` is a current
-`AAA-BBBB` Question ID. The reviewed WeBWorK sources provide retry correctness without
+`containers/local-chapter-one-pilot.json`; every instructor-readable `displayId` is the ID of that
+exact published `AAA-BBBB` question. The reviewed WeBWorK sources provide retry correctness without
 answer disclosure; UUIDs remain internal routing fields.
 
 When composing an assignment, prefer **Reuse questions from an existing assignment** and either
 add the whole set or select questions from its checklist. For direct lookup, copy a visible
 `AAA-BBBB` ID with **Copy ID** from the library. The editor accepts IDs separated by commas or new
-lines and resolves each to the current question. Confirm the selected list contains the WeBWorK MC,
+lines and resolves each to that exact published question; it never resolves a successor or "latest"
+version. Confirm the selected list contains the WeBWorK MC,
 WeBWorK MATCH, PLE flat MC, and PLE flat MATCH questions, then keep **Timed** selected with **15** minutes per
 practice run before creating the assignment. UUIDs are not an instructor input. A malformed,
 unavailable, unauthorized, or already-selected ID leaves both the pasted text and the assignment
 unchanged so the instructor can correct and retry it.
+
+An authored correction is a new Question ID, optionally linked to its source
+through provenance. Existing assignments remain pinned to their selected
+questions until the Instructor deliberately makes a revision-checked
+replacement. The editor shows the existing and replacement Question IDs before
+confirmation. Issued runs retain their original exact evidence; future runs use
+the selected replacement.
 
 For a headless run or a quick restart with a known-current browser bundle:
 
@@ -48,22 +50,14 @@ source source_me.sh && python3 local_stack.py start --no-open
 source source_me.sh && python3 local_stack.py start --skip-build --no-open
 ```
 
-If the controller itself is being diagnosed, the direct launcher equivalents are:
-
-```bash
-source source_me.sh && ./local_stack_control/launch.sh --no-open
-source source_me.sh && ./local_stack_control/launch.sh --skip-build --no-open
-```
-
 `--skip-build` requires an already-built `dist/index.html` and `dist/main.js`; use it only after a
-successful `./build.sh` or normal launcher run.
+successful `./build.sh` or normal controller run.
 
 ## Local stack controller
 
 Run `source source_me.sh && python3 local_stack.py --help` to see the supported command surface.
 The controller is the normal front door. It resolves the repository root and explicit Compose
-target, keeps inspection read-only, and delegates initialization and service readiness to the
-launcher instead of reproducing them in a second startup path.
+target, keeps inspection read-only, and calls its focused lifecycle modules directly.
 
 ```bash
 source source_me.sh && python3 local_stack.py doctor
@@ -82,7 +76,7 @@ source source_me.sh && python3 local_stack.py validate
 - `logs` scopes output to the selected project. It defaults to `gateway api worker`; pass
   `--tail N`, `--follow`, or supported service names as needed. Logs can contain private local
   diagnostics, so do not publish them.
-- `validate` runs the launcher's canonical read-only configuration check, then reports observed
+- `validate` runs the typed lifecycle's canonical read-only configuration check, then reports observed
   runtime state. It does not bootstrap a missing environment file.
 
 Start, stop, and restart use the default `containers` project. `start` is the only ordinary path
@@ -97,12 +91,14 @@ source source_me.sh && python3 local_stack.py stop
 
 `start` accepts `--release`, `--skip-build`, `--no-open`, `--env-file PATH`, and `--with-smtp`.
 `restart` is deliberately limited to `api`, `worker`, `gateway`, or `webwork-renderer`; it routes
-through the launcher-owned readiness path and refuses a stack that is not ready. `stop` runs a
+through the lifecycle-owned readiness path and refuses a stack that is not ready. `stop` runs a
 project-scoped Compose shutdown and retains the named PostgreSQL, MinIO, and local identity data
 volumes for the next `start`.
 
-Reset is the separate destructive operation. Preview its exact labelled project, resources, and
-Compose command first; only the confirmation form removes the default stack's named data volumes.
+Reset is the separate destructive operation. Preview its exact labelled project, resources,
+database-bound Chapter 1 manifest, and Compose command first; only the confirmation form removes
+the default stack's named data volumes and then clears that manifest after the labelled resources
+are gone.
 
 ```bash
 source source_me.sh && python3 local_stack.py reset --dry-run
@@ -110,9 +106,9 @@ source source_me.sh && python3 local_stack.py reset --confirm-project containers
 source source_me.sh && python3 local_stack.py start --no-open
 ```
 
-Do not use reset for an unknown, caller-owned, or disposable project. It never performs global
-Podman cleanup and does not remove images. After a confirmed reset, use `start` to recreate and
-seed the disposable pre-production teaching data.
+Use `reset` for the displayed `containers` target. Global Podman cleanup and image lifecycle use
+their dedicated commands. After a confirmed reset, use `start` to recreate and seed the disposable
+pre-production teaching data.
 
 Run the complete live browser Validation test suite only when there is no existing default or
 walkthrough stack that the suite could mistake for its own:
@@ -163,7 +159,7 @@ and the explicit child-input boundary above. It also shows the
 keyboard-focused J1/J2/J3/J4/J5/J8 outcomes and refreshed fake-user screenshots. Email,
 canonical onboarding, J6/J7, all eight response families, multi-learner, and complete two-chapter
 release acceptance remain outside this walkthrough. Run
-`bash tests/e2e/e2e_chapter_one_browser.sh` for the separate complete Genetics
+`source source_me.sh && python3 tests/e2e/e2e_chapter_one_browser.py` for the separate complete Genetics
 and Biochemistry eight-question learner gate.
 
 ## Configuration preflight
@@ -178,22 +174,23 @@ first local installation has no `containers/env.local`, so use `python3 local_st
 once to bootstrap it before expecting validation to succeed.
 
 `validate` never bootstraps an environment. This is equally true for a custom
-`--env-file path/to/env.local`: the file must already exist and satisfy the launcher contract.
+`--env-file path/to/env.local`: the file must already exist and satisfy the typed lifecycle contract.
 
 ## Standalone WeBWorK PG renderer
 
-The normal launcher starts PLE with the private external PG renderer, waits for its semantic
+The normal typed lifecycle starts PLE with the private external PG renderer, waits for its semantic
 render-and-grade probe, publishes only the exact two-assignment Chapter 1 teaching corpus, and then
 starts the application. The browser
 communicates with PLE only; it does not receive renderer credentials, source, or upstream state.
-The renderer image must already be available locally under the immutable
-`PLE_WEBWORK_RENDERER_IMAGE` reference (normally
-`localhost/pg-renderer@sha256:d606c4b5d82d425729643c4f36d093d549759a416d0527f0340ae0a7319a8456`),
-having been built or obtained from the separate `webwork-pg-renderer` project. Build that sibling
-under a convenient tag, copy its reviewed `RepoDigests` manifest reference, then place that full
-`repository@sha256:<64-lowercase-hex>` value in `containers/env.local`; PLE never builds the
-renderer and rejects mutable tags. The launcher records the separately resolved image configuration
-ID as renderer-version provenance after it resolves the configured manifest reference.
+The renderer image must already be available locally under the reviewed name
+selected by `PLE_WEBWORK_RENDERER_IMAGE` (normally
+`localhost/pg-renderer:reviewed`), having been built or obtained from the
+separate `webwork-pg-renderer` project. Build that sibling under that designated
+name. The lifecycle resolves its OCI configuration ID before startup, confirms
+the renderer container uses the same ID, and atomically records the selected
+name plus ID as renderer-version provenance. A published deployment may select
+a pullable `repository@sha256:<64-lowercase-hex>` value through the same
+setting.
 
 Keep `containers/env.local` and `containers/local-login.txt` local. The renderer has no database,
 persistent volume, or published host port. PLE does not run WebWork2 or MariaDB; see
@@ -231,10 +228,10 @@ Use a focused `cargo test -p <package> <filter>` while editing one Rust behavior
 Both accept `--release` for optimized artifacts.
 
 To validate or run a pre-existing non-default environment file, pass its path explicitly. The
-launcher does not bootstrap, rewrite, seed, or create credentials for it. Its required values are
+lifecycle does not bootstrap, rewrite, seed, or create credentials for it. Its required values are
 listed in [containers/env.example](../containers/env.example). The invitation issuer enables
 copy-link enrollment without SMTP. Production now uses the PLE passwordless/account/session graph
-with secure first-party cookies; the local-file launcher is selected only by its exact development
+with secure first-party cookies; the local-file lifecycle is selected only by its exact development
 flag. See the [current status report](active_plans/reports/project_status_report_2026-08-10.md).
 
 A custom environment must set `PLE_QUESTION_ID_SECRET_HOST_FILE` to an absolute, regular,

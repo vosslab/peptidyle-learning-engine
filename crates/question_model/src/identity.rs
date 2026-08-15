@@ -7,8 +7,8 @@
 //!
 //! The lifecycle rule in one sentence a maintainer can apply: a draft lives in
 //! an instructor workspace and has no [`ProblemId`]; publishing is the only
-//! transition that constructs one; a published version is immutable
-//! thereafter.
+//! transition that constructs a fresh `(ProblemId, VersionId)` pair; one
+//! immutable published question owns that pair thereafter.
 //!
 //! Fresh server-minted identifiers are UUIDv7: random enough that a catalog
 //! number leaks no volume information, time-ordered enough to index well, and
@@ -38,19 +38,19 @@ pub struct WorkspaceId(Uuid);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct WorkspaceImportId(Uuid);
 
-/// A published problem, stable across every version of it.
+/// One opaque identity in an immutable published-question pair.
 ///
-/// Constructed only on the publish transition (WP-C2). A draft has no
-/// `ProblemId`, which is what makes "drafts carry no catalog number" a property
-/// of the type rather than a rule to remember.
+/// Publishing constructs this together with a fresh [`VersionId`]. A content
+/// change receives a new Question ID and another fresh pair. A draft has no
+/// `ProblemId`, which makes "drafts carry no catalog number" a property of
+/// the type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ProblemId(Uuid);
 
-/// One immutable version of a problem.
+/// The second opaque identity in an immutable published-question pair.
 ///
-/// Assignments reference `(ProblemId, VersionId)` so that improving a problem
-/// leaves an already-assigned course delivering exactly what it delivered
-/// before.
+/// Trusted storage keeps `(ProblemId, VersionId)` as exact delivery, grading,
+/// replay, and audit evidence. Browser summaries use the assigned Question ID.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct VersionId(Uuid);
 

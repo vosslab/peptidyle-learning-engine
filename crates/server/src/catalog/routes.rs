@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::routing::{get, post};
-use learning_data_access::{CatalogStore, OwnerCorrectionStore, SessionStore, Store};
+use learning_data_access::{CatalogStore, SessionStore, Store};
 
 use super::{BackendRegistry, PublicReviewGate};
 use super::{lifecycle, publication, query};
@@ -13,7 +13,7 @@ const MAX_CATALOG_BODY_BYTES: usize = 64 * 1_024;
 /// Builds the authenticated `/api/problems` and `/api/taxonomy` route group.
 pub fn router<S, B, R>(store: Arc<S>, backends: Arc<B>, review_gate: Arc<R>) -> Router
 where
-    S: Store + CatalogStore + OwnerCorrectionStore + SessionStore + 'static,
+    S: Store + CatalogStore + SessionStore + 'static,
     B: BackendRegistry + 'static,
     R: PublicReviewGate + 'static,
 {
@@ -33,11 +33,7 @@ where
             get(query::resolve_problem_reference::<S, B, R>),
         )
         .route(
-            "/api/problems/{problem}/versions/{version}",
-            get(query::get_problem::<S, B, R>),
-        )
-        .route(
-            "/api/problems/{problem}/versions/{version}/detail",
+            "/api/problems/by-id/{reference}/detail",
             get(query::get_problem_detail::<S, B, R>),
         )
         .route(
@@ -45,11 +41,11 @@ where
             post(publication::publish_problem::<S, B, R>),
         )
         .route(
-            "/api/problems/{problem}/versions/{version}/deprecate",
+            "/api/problems/by-id/{reference}/deprecate",
             post(lifecycle::deprecate_problem::<S, B, R>),
         )
         .route(
-            "/api/problems/{problem}/versions/{version}/archive",
+            "/api/problems/by-id/{reference}/archive",
             post(lifecycle::archive_problem::<S, B, R>),
         )
         .route("/api/taxonomy", get(query::list_taxonomy::<S, B, R>))

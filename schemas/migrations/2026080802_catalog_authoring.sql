@@ -225,14 +225,12 @@ ALTER TABLE ONLY public.catalog_tenant_grant FORCE ROW LEVEL SECURITY;
 
 CREATE TABLE public.problem (
     problem_id uuid NOT NULL,
-    public_id bigint GENERATED ALWAYS AS IDENTITY,
     owner_tenant_id uuid NOT NULL,
     owner_user_id uuid NOT NULL,
     visibility text NOT NULL,
     license text NOT NULL,
     lifecycle text DEFAULT 'published'::text NOT NULL,
     created_at timestamp with time zone DEFAULT transaction_timestamp() NOT NULL
-    ,CONSTRAINT problem_public_id_check CHECK ((public_id > 0))
     ,CONSTRAINT problem_visibility_check CHECK ((visibility = ANY (ARRAY['institution'::text, 'public'::text])))
     ,CONSTRAINT problem_lifecycle_check CHECK ((lifecycle = ANY (ARRAY['published'::text, 'deprecated'::text, 'archived'::text])))
 );
@@ -242,7 +240,6 @@ ALTER TABLE ONLY public.problem FORCE ROW LEVEL SECURITY;
 CREATE TABLE public.problem_version (
     problem_id uuid NOT NULL,
     version_id uuid NOT NULL,
-    version_number bigint NOT NULL,
     model_schema_version integer DEFAULT 1 NOT NULL,
     content_sha256 character(64) NOT NULL,
     workspace_id uuid NOT NULL,
@@ -255,18 +252,17 @@ CREATE TABLE public.problem_version (
     publication_scope text DEFAULT 'public'::text NOT NULL,
     lifecycle_reason text,
     authors jsonb DEFAULT '[]'::jsonb NOT NULL,
-    previous_version_id uuid,
     derived_from_problem_id uuid,
     derived_from_version_id uuid,
     CONSTRAINT problem_version_authors_check CHECK ((jsonb_typeof(authors) = 'array'::text)),
     CONSTRAINT problem_version_backend_check CHECK ((backend = ANY (ARRAY['native'::text, 'webwork'::text, 'qti'::text, 'h5p'::text, 'imathas'::text]))),
     CONSTRAINT problem_version_capabilities_check CHECK ((jsonb_typeof(capabilities) = 'array'::text)),
     CONSTRAINT problem_version_derived_pair_check CHECK (((derived_from_problem_id IS NULL) = (derived_from_version_id IS NULL))),
+    CONSTRAINT problem_version_derived_from_distinct_problem_check CHECK ((derived_from_problem_id IS NULL OR derived_from_problem_id <> problem_id)),
     CONSTRAINT problem_version_lifecycle_check CHECK ((lifecycle = ANY (ARRAY['published'::text, 'deprecated'::text, 'archived'::text]))),
     CONSTRAINT problem_version_lifecycle_reason_check CHECK ((((lifecycle = 'published'::text) AND (lifecycle_reason IS NULL)) OR ((lifecycle = ANY (ARRAY['deprecated'::text, 'archived'::text])) AND ((char_length(btrim(lifecycle_reason)) >= 1) AND (char_length(btrim(lifecycle_reason)) <= 1000))))),
     CONSTRAINT problem_version_metadata_check CHECK ((jsonb_typeof(metadata) = 'object'::text)),
     CONSTRAINT problem_version_publication_scope_check CHECK ((publication_scope = ANY (ARRAY['institution'::text, 'public'::text]))),
-    CONSTRAINT problem_version_number_check CHECK ((version_number > 0)),
     CONSTRAINT problem_version_model_schema_version_check CHECK ((model_schema_version > 0)),
     CONSTRAINT problem_version_content_sha256_check CHECK ((content_sha256 ~ '^[0-9a-f]{64}$'::text))
 );
@@ -325,8 +321,6 @@ ALTER TABLE ONLY public.problem_collection_member FORCE ROW LEVEL SECURITY;
 CREATE TABLE public.catalog_search_document (
     problem_id uuid NOT NULL,
     version_id uuid NOT NULL,
-    public_id bigint NOT NULL,
-    version_number bigint NOT NULL,
     title text NOT NULL,
     backend text NOT NULL,
     metadata jsonb NOT NULL,
@@ -334,7 +328,6 @@ CREATE TABLE public.catalog_search_document (
     lifecycle text NOT NULL,
     lifecycle_reason text,
     authors jsonb NOT NULL,
-    previous_version_id uuid,
     derived_from_problem_id uuid,
     derived_from_version_id uuid,
     published_at timestamp with time zone NOT NULL,
@@ -716,9 +709,6 @@ ALTER TABLE ONLY public.catalog_tenant_grant
 ALTER TABLE ONLY public.problem
     ADD CONSTRAINT problem_pkey PRIMARY KEY (problem_id);
 
-ALTER TABLE ONLY public.problem
-    ADD CONSTRAINT problem_public_id_key UNIQUE (public_id);
-
 ALTER TABLE public.problem_version
     ADD CONSTRAINT problem_version_authors_nonempty_check CHECK ((jsonb_array_length(authors) > 0));
 
@@ -729,7 +719,10 @@ ALTER TABLE ONLY public.problem_version
     ADD CONSTRAINT problem_version_pkey PRIMARY KEY (problem_id, version_id);
 
 ALTER TABLE ONLY public.problem_version
-    ADD CONSTRAINT problem_version_number_key UNIQUE (problem_id, version_number);
+    ADD CONSTRAINT problem_version_problem_id_key UNIQUE (problem_id);
+
+ALTER TABLE ONLY public.problem_version
+    ADD CONSTRAINT problem_version_version_id_key UNIQUE (version_id);
 
 ALTER TABLE ONLY public.problem_collection
     ADD CONSTRAINT problem_collection_pkey PRIMARY KEY (owner_tenant_id, collection_id);
@@ -826,15 +819,11 @@ CREATE INDEX problem_version_capabilities_idx ON public.problem_version USING gi
 
 CREATE INDEX catalog_search_document_search_idx ON public.catalog_search_document USING gin (search_text);
 
-CREATE INDEX catalog_search_document_public_id_idx ON public.catalog_search_document USING btree (public_id, version_number);
-
 CREATE INDEX problem_version_catalog_idx ON public.problem_version USING btree (lifecycle, title, problem_id, version_id);
 
 CREATE INDEX problem_version_catalog_search_key_idx ON public.problem_version USING btree (problem_id, version_id) WHERE (lifecycle = 'published'::text);
 
 CREATE INDEX problem_version_catalog_search_text_idx ON public.problem_version USING gin (to_tsvector('simple'::regconfig, ((title || ' '::text) || (metadata)::text)));
-
-CREATE UNIQUE INDEX problem_version_linear_chain_idx ON public.problem_version USING btree (problem_id, previous_version_id) WHERE (previous_version_id IS NOT NULL);
 
 CREATE INDEX problem_version_metadata_idx ON public.problem_version USING gin (metadata jsonb_path_ops);
 
@@ -867,9 +856,6 @@ ALTER TABLE ONLY public.problem_version
 
 ALTER TABLE public.problem_version_payload
     ADD CONSTRAINT problem_version_payload_problem_id_version_id_fkey FOREIGN KEY (problem_id, version_id) REFERENCES public.problem_version(problem_id, version_id);
-
-ALTER TABLE ONLY public.problem_version
-    ADD CONSTRAINT problem_version_previous_fk FOREIGN KEY (problem_id, previous_version_id) REFERENCES public.problem_version(problem_id, version_id) DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE ONLY public.problem_version
     ADD CONSTRAINT problem_version_problem_id_fkey FOREIGN KEY (problem_id) REFERENCES public.problem(problem_id);
@@ -1271,25 +1257,6 @@ ALTER TABLE public.workspace_qti_import_unsupported ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY workspace_qti_import_unsupported_app_prepared_insert ON public.workspace_qti_import_unsupported FOR INSERT TO ple_app WITH CHECK (((tenant_id = public.ple_current_tenant()) AND public.ple_qti_import_is_prepared(tenant_id, workspace_id, import_id)));
 
-CREATE FUNCTION public.ple_validate_problem_version_number() RETURNS trigger
-    LANGUAGE plpgsql
-    SET search_path TO 'pg_catalog', 'public'
-    AS $$
-DECLARE expected_version bigint;
-BEGIN
-    PERFORM pg_advisory_xact_lock(hashtextextended(NEW.problem_id::text, 0));
-    SELECT COALESCE(MAX(version_number), 0) + 1
-      INTO expected_version
-      FROM public.problem_version
-     WHERE problem_id = NEW.problem_id;
-    IF NEW.version_number <> expected_version THEN
-        RAISE EXCEPTION 'problem version number must be the next one-based value'
-            USING ERRCODE = '23514';
-    END IF;
-    RETURN NEW;
-END
-$$;
-
 CREATE FUNCTION public.ple_protect_published_problem_version() RETURNS trigger
     LANGUAGE plpgsql
     SET search_path TO 'pg_catalog', 'public'
@@ -1309,23 +1276,22 @@ CREATE FUNCTION public.ple_project_catalog_search_document() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'pg_catalog', 'public'
     AS $$
-DECLARE stable_public_id bigint;
+DECLARE stable_question_id character(7);
 BEGIN
-    SELECT public_id INTO stable_public_id
+    SELECT question_id INTO stable_question_id
       FROM public.problem
      WHERE problem_id = NEW.problem_id;
     INSERT INTO public.catalog_search_document (
-        problem_id, version_id, public_id, version_number, title, backend,
+        problem_id, version_id, question_id, title, backend,
         metadata, publication_scope, lifecycle, lifecycle_reason, authors,
-        previous_version_id, derived_from_problem_id, derived_from_version_id,
+        derived_from_problem_id, derived_from_version_id,
         published_at,
         authors_text, question_type, language, license, taxonomy,
         keywords, capabilities, search_text
     ) VALUES (
         NEW.problem_id,
         NEW.version_id,
-        stable_public_id,
-        NEW.version_number,
+        stable_question_id,
         NEW.title,
         NEW.backend,
         NEW.metadata,
@@ -1333,7 +1299,6 @@ BEGIN
         NEW.lifecycle,
         NEW.lifecycle_reason,
         NEW.authors,
-        NEW.previous_version_id,
         NEW.derived_from_problem_id,
         NEW.derived_from_version_id,
         NEW.created_at,
@@ -1571,10 +1536,6 @@ $$;
 ALTER FUNCTION public.ple_guard_pinned_workspace_qti_import() OWNER TO ple_qti_provenance_broker;
 REVOKE ALL ON FUNCTION public.ple_guard_pinned_workspace_qti_import() FROM PUBLIC;
 
-CREATE TRIGGER problem_version_number_guard
-    BEFORE INSERT ON public.problem_version
-    FOR EACH ROW EXECUTE FUNCTION public.ple_validate_problem_version_number();
-
 CREATE TRIGGER problem_version_immutability
     BEFORE UPDATE ON public.problem_version
     FOR EACH ROW EXECUTE FUNCTION public.ple_protect_published_problem_version();
@@ -1643,8 +1604,6 @@ GRANT SELECT ON TABLE public.catalog_tenant_grant TO ple_statistics_broker;
 
 GRANT SELECT,INSERT ON TABLE public.problem TO ple_app;
 GRANT SELECT ON TABLE public.problem TO ple_catalog_ownership_broker;
-GRANT USAGE,SELECT ON SEQUENCE public.problem_public_id_seq TO ple_app;
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.problem_collection TO ple_app;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.problem_collection_member TO ple_app;
 GRANT SELECT ON TABLE public.catalog_search_document TO ple_app, ple_student;

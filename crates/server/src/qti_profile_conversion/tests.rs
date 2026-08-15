@@ -199,8 +199,7 @@ async fn fixture_for_item_identifier(item_identifier: &str) -> Fixture {
             DraftRecord {
                 tenant,
                 question,
-                revises: Some(lineage),
-                derived_from: None,
+                derived_from: Some(lineage),
             },
         )
         .await
@@ -435,7 +434,7 @@ async fn recognized_item_conversion_creates_answer_free_flat_draft_source_and_or
     assert!(!returned_etag.starts_with("W/"));
     assert_ne!(returned_etag, fixture.initial_etag);
     assert_eq!(returned_etag, format!("\"{}\"", draft.revision.value()));
-    assert_eq!(draft.record.revises, Some(fixture.lineage));
+    assert_eq!(draft.record.derived_from, Some(fixture.lineage));
     assert!(
         fixture
             .store

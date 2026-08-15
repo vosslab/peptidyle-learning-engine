@@ -183,8 +183,8 @@ async fn seed_non_flat_answer_key(
     .expect("seed non-flat problem");
     sqlx::query(
         "INSERT INTO public.problem_version \
-         (problem_id, version_id, version_number, content_sha256, workspace_id, title, backend, publication_scope, authors) \
-         VALUES ($1, $2, 1, $3, $4, 'non-flat grading filter fixture', $5, 'public', '[\"fixture\"]'::jsonb)",
+         (problem_id, version_id, content_sha256, workspace_id, title, backend, publication_scope, authors) \
+         VALUES ($1, $2, $3, $4, 'non-flat grading filter fixture', $5, 'public', '[\"fixture\"]'::jsonb)",
     )
     .bind(reference.problem.as_uuid())
     .bind(reference.version.as_uuid())
@@ -254,7 +254,6 @@ async fn postgres_flat_question_publication_preserves_private_grading_boundary()
     let draft = DraftRecord {
         tenant: tenant_a,
         question,
-        revises: None,
         derived_from: None,
     };
     let source_record = flat_source(tenant_a, workspace, &source_bytes);
@@ -469,7 +468,6 @@ async fn postgres_flat_question_publication_preserves_private_grading_boundary()
     let matching_draft = DraftRecord {
         tenant: tenant_a,
         question: matching_question,
-        revises: None,
         derived_from: None,
     };
     let matching_source = flat_source(tenant_a, matching_workspace, &matching_source_bytes);

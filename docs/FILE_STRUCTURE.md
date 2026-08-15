@@ -28,10 +28,14 @@ from this file map.
 +- check_codebase.sh     Vendored TypeScript and browser gate
 +- check_rust.sh         Repository-owned Cargo and Rust gate
 +- local_stack.py        Public local Podman controller entry point
-+- local_stack_control/  Local Podman controller package and private lifecycle helpers
-   +- launch.sh          Private launcher for build, bootstrap, migration, seed, and readiness
++- local_stack_control/  Local Podman controller package and focused private lifecycle modules
+   +- acceptance_lanes.py Ordered aggregate acceptance-lane owner
+   +- chapter_one.py     Private atomic Chapter 1 publication boundary
+   +- lifecycle.py       Typed lifecycle sequencing for start, validate, and restart
+   +- local_environment.py Default-only private environment bootstrap
+   +- local_identity.py  Local credential and hash-only identity projection
+   +- renderer.py        Selected renderer OCI provenance and probe boundary
    +- _consumer_cli.py   Private disposable-consumer adapter
-   +- _restart.sh        Sourced private stateless-service restart helper
 `- run_playwright_tests.sh Browser test entry point
 ```
 
@@ -40,22 +44,22 @@ container build context, or runtime dependency.
 
 ## Rust workspace
 
-| Path | Owns |
-| --- | --- |
-| [crates/question_model/](../crates/question_model/) | Question types, capabilities, identifiers, and public presentation schemas. |
-| [crates/domain/](../crates/domain/) | Attempt state, policies, seeded generation, timing inputs, and answer-free validation. |
-| [crates/grading/](../crates/grading/) | Answer keys, checkers, and correctness decisions. |
-| [crates/objects/](../crates/objects/) | Typed object-store interface, four bucket domains, checksums, image validation, and MinIO/S3 backends. |
-| [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, in-memory and PostgreSQL implementations, RLS, capability roles, migrations, and conformance tests. |
-| [crates/adapters/native/](../crates/adapters/native/) | First-party generated questions and flat-question source compilation. |
-| [crates/adapters/webwork/](../crates/adapters/webwork/) | Private renderer protocol, safe projection, cache, and grading delegation. |
-| [crates/adapters/qti/](../crates/adapters/qti/) | Bounded QTI parsing, profile mapping, and private grading handoff. |
-| [crates/adapters/h5p/](../crates/adapters/h5p/) | H5P practice import and capability declaration. |
-| [crates/adapters/imathas/](../crates/adapters/imathas/) | iMathAS provider and broker boundary. |
-| [crates/export/](../crates/export/) | Print model plus PDF and DOCX writers. |
-| [crates/wasm/](../crates/wasm/) | `wasm-bindgen` facade over answer-free domain behavior. |
-| [crates/server/](../crates/server/) | Axum API, auth, authorization, broker, ordinary worker, dedicated public-asset publisher, and dependency composition. |
-| [crates/project-tools/](../crates/project-tools/) | Repository-only code generation, fixture, pilot-content validation, migration, and E2E seed commands. |
+| Path                                                            | Owns                                                                                                                  |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| [crates/question_model/](../crates/question_model/)             | Question types, capabilities, identifiers, and public presentation schemas.                                           |
+| [crates/domain/](../crates/domain/)                             | Attempt state, policies, seeded generation, timing inputs, and answer-free validation.                                |
+| [crates/grading/](../crates/grading/)                           | Answer keys, checkers, and correctness decisions.                                                                     |
+| [crates/objects/](../crates/objects/)                           | Typed object-store interface, four bucket domains, checksums, image validation, and MinIO/S3 backends.                |
+| [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, in-memory and PostgreSQL implementations, RLS, capability roles, migrations, and conformance tests.  |
+| [crates/adapters/native/](../crates/adapters/native/)           | First-party generated questions and flat-question source compilation.                                                 |
+| [crates/adapters/webwork/](../crates/adapters/webwork/)         | Private renderer protocol, safe projection, cache, and grading delegation.                                            |
+| [crates/adapters/qti/](../crates/adapters/qti/)                 | Bounded QTI parsing, profile mapping, and private grading handoff.                                                    |
+| [crates/adapters/h5p/](../crates/adapters/h5p/)                 | H5P practice import and capability declaration.                                                                       |
+| [crates/adapters/imathas/](../crates/adapters/imathas/)         | iMathAS provider and broker boundary.                                                                                 |
+| [crates/export/](../crates/export/)                             | Print model plus PDF and DOCX writers.                                                                                |
+| [crates/wasm/](../crates/wasm/)                                 | `wasm-bindgen` facade over answer-free domain behavior.                                                               |
+| [crates/server/](../crates/server/)                             | Axum API, auth, authorization, broker, ordinary worker, dedicated public-asset publisher, and dependency composition. |
+| [crates/project-tools/](../crates/project-tools/)               | Repository-only code generation, fixture, pilot-content validation, migration, and E2E seed commands.                 |
 
 Cargo package directories use hyphens; Rust imports use underscores. For
 example, `learning-data-access` is imported as `learning_data_access`.
@@ -196,10 +200,10 @@ The default local services are PostgreSQL, MinIO, API, ordinary worker,
 gateway, and a private standalone renderer. PostgreSQL and MinIO use named
 volumes; the other service containers can be rebuilt from configuration.
 
-`local_stack_control/launch.sh` owns the local stack's build, bootstrap, migration,
-seed, renderer, and semantic-readiness sequence. `python3 local_stack.py` is the
-operator-facing controller and delegates normal start/restart and validation to
-that launcher boundary. Its `local_stack_control/` package is organized by
+`python3 local_stack.py` is the operator-facing controller. Its focused
+`local_stack_control/` modules own the local stack's build, bootstrap, migration,
+seed, renderer, restart, validation, and semantic-readiness sequence directly.
+The package is organized by
 concern: `models.py` declares typed targets and inspected resources;
 `process.py` provides the command boundary; `compose.py` resolves providers and
 target environments; `env_file.py` validates safe environment-file metadata;
@@ -242,10 +246,11 @@ directories are reproducible ignored output. Checked-in fixtures under
 `tests/fixtures/` are source evidence and should change deliberately.
 
 `python3 local_stack.py acceptance` is the explicit live aggregate entry point. It
-hands lifecycle conflict detection and environment sanitization to the controller;
-`tests/playwright/run_validation_lanes.sh` then
-runs the maintained browser and real-stack lanes. Those opt-in commands are
-live acceptance evidence, not part of the fast offline `pytest tests/` suite.
+hands lifecycle conflict detection and environment sanitization to the controller, then
+`local_stack_control/acceptance_lanes.py` runs the maintained browser and real-stack lanes in a
+fixed fail-fast order. `tests/playwright/run_validation_lanes.sh` is only a compatibility `exec`
+facade back to that public Python command. Those opt-in commands are live acceptance evidence, not
+part of the fast offline `pytest tests/` suite.
 
 `tests/e2e/e2e_database_baseline.sh` selects the ignored PostgreSQL catalog
 Store, disclosure, and qualitative plan suites by exact test name. It creates
@@ -287,7 +292,7 @@ offline test.
   preserve applied migrations as history.
 - Put normal local-stack lifecycle policy in `local_stack_control/`; use
   `python3 local_stack.py` for its public command. Keep initialization, migration,
-  seeding, and semantic startup behavior in private `local_stack_control/launch.sh`.
+  seeding, and semantic startup behavior in focused typed Python modules.
 - Put a disposable E2E lifecycle owner in `local_stack_control/consumer.py`
   only when it has a closed project namespace, a private manifest, and a
   project-scoped cleanup contract.

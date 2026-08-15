@@ -13,6 +13,7 @@ use axum::http::{HeaderValue, StatusCode};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use base64::Engine;
+use tracing::Instrument;
 
 /// A bounded drain lets an orchestrator replace an unhealthy instance without
 /// allowing a wedged keep-alive or streaming request to hold the process
@@ -45,7 +46,11 @@ pub async fn request_lifecycle(request: Request, next: Next) -> Response {
     };
     let method = request.method().clone();
     let started = Instant::now();
-    let mut response = next.run(request).await;
+    // SMTP and other trusted adapters inherit this span.  They may add a
+    // bounded operator event without ever receiving browser input or a
+    // recipient/token value as an argument.
+    let request_span = tracing::info_span!("http_request", request_id = %request_id);
+    let mut response = next.run(request).instrument(request_span).await;
     let elapsed_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
 
     // The generated value is URL/header safe by construction. Failure cannot

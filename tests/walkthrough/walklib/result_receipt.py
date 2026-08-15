@@ -5,10 +5,10 @@ import os
 import pathlib
 import secrets
 
-import walklib.models
+import tests.walkthrough.walklib.models as models
 
 
-RunnerError = walklib.models.RunnerError
+RunnerError = models.RunnerError
 
 
 #============================================

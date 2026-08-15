@@ -10,6 +10,7 @@ import local_stack_control.consumer
 import local_stack_control.discovery
 import local_stack_control.models
 import local_stack_control.process
+import local_stack_control.lifecycle
 
 
 #============================================
@@ -195,13 +196,16 @@ def main() -> None:
 			raise SystemExit(result)
 		if args.action == "launch":
 			local_stack_control.consumer.require_mutating_capability(runner, disposable)
-			argv, environment = local_stack_control.consumer.launch_command(
+			result = local_stack_control.lifecycle.start_lifecycle(
 				disposable,
-				args.timeout_seconds,
+				runner,
+				root,
+				local_stack_control.consumer.lifecycle_options(
+					disposable, args.timeout_seconds
+				),
 			)
-			print("Command: " + shlex.join(argv))
-			result = runner.stream(argv, environment, root)
-			raise SystemExit(result)
+			print(f"Disposable stack ready: {result.gateway_url}")
+			raise SystemExit(0)
 		if args.action == "diagnostics":
 			result = run_diagnostics(runner, disposable, tuple(args.service))
 			raise SystemExit(result)

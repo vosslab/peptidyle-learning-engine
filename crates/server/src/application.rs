@@ -11,8 +11,10 @@ enum ProcessMode {
     Api,
     HealthProbe,
     Worker,
+    InvitationDeliveryWorker,
     PublicAssetPublisher,
     LocalDevelopmentWorker,
+    LocalDevelopmentInvitationDeliveryWorker,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,10 +29,16 @@ fn process_mode(arguments: &[String]) -> anyhow::Result<ProcessMode> {
         [] => Ok(ProcessMode::Api),
         [flag] if flag == "--health-probe" => Ok(ProcessMode::HealthProbe),
         [flag] if flag == "--worker" => Ok(ProcessMode::Worker),
+        [flag] if flag == "--invitation-delivery-worker" => {
+            Ok(ProcessMode::InvitationDeliveryWorker)
+        }
         [flag] if flag == "--public-asset-publisher" => Ok(ProcessMode::PublicAssetPublisher),
         [flag] if flag == "--local-worker" => Ok(ProcessMode::LocalDevelopmentWorker),
+        [flag] if flag == "--local-invitation-delivery-worker" => {
+            Ok(ProcessMode::LocalDevelopmentInvitationDeliveryWorker)
+        }
         _ => anyhow::bail!(
-            "usage: peptidyle-api [--health-probe|--worker|--public-asset-publisher|--local-worker]"
+            "usage: peptidyle-api [--health-probe|--worker|--invitation-delivery-worker|--public-asset-publisher|--local-worker|--local-invitation-delivery-worker]"
         ),
     }
 }
@@ -69,6 +77,10 @@ pub(crate) async fn run() -> anyhow::Result<()> {
     if mode == ProcessMode::Worker {
         return server_core::composition::run_production_worker_from_env().await;
     }
+    if mode == ProcessMode::InvitationDeliveryWorker {
+        return server_core::composition::run_production_invitation_delivery_worker_from_env()
+            .await;
+    }
     if mode == ProcessMode::PublicAssetPublisher {
         return server_core::composition::run_public_asset_publisher_from_env().await;
     }
@@ -77,6 +89,15 @@ pub(crate) async fn run() -> anyhow::Result<()> {
         return server_core::composition::run_local_development_worker_from_env().await;
         #[cfg(not(feature = "local-development-auth"))]
         anyhow::bail!("--local-worker requires a binary built with local-development-auth");
+    }
+    if mode == ProcessMode::LocalDevelopmentInvitationDeliveryWorker {
+        #[cfg(feature = "local-development-auth")]
+        return server_core::composition::run_local_development_invitation_delivery_worker_from_env()
+            .await;
+        #[cfg(not(feature = "local-development-auth"))]
+        anyhow::bail!(
+            "--local-invitation-delivery-worker requires a binary built with local-development-auth"
+        );
     }
 
     // Container health check mode. The same binary probes its own /health so

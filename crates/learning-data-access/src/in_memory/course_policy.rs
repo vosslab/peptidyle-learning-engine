@@ -463,6 +463,21 @@ pub(super) fn validate_memory_assignment_content_lock(
     Ok(())
 }
 
+/// Issued runs are immutable learner evidence even before an answer is
+/// submitted. Ordinary additions and removals therefore finish before the
+/// first run is created; replacement has its own focused path that preserves
+/// existing run-item snapshots.
+pub(super) fn memory_assignment_has_run(state: &State, assignment: &AssignmentRecord) -> bool {
+    state.runs.values().any(|run| {
+        state
+            .enrollments
+            .get(&(run.tenant, run.enrollment))
+            .is_some_and(|enrollment| {
+                enrollment.tenant == assignment.tenant && enrollment.assignment == assignment.id
+            })
+    })
+}
+
 pub(super) fn memory_item_has_active_attempt(
     state: &State,
     assignment: &AssignmentRecord,

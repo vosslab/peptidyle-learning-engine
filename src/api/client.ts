@@ -13,16 +13,14 @@ import type { CourseAppearanceUpdate } from "../../generated/api/CourseAppearanc
 import type { CourseBannerCandidateReceipt } from "../../generated/api/CourseBannerCandidateReceipt";
 import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
 import type { EnrollmentId } from "../../generated/api/EnrollmentId";
-import type { ProblemId } from "../../generated/api/ProblemId";
+import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionAttempt } from "../../generated/api/QuestionAttempt";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
-import type { QuestionDefinition } from "../../generated/api/QuestionDefinition";
 import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
 import type { RunId } from "../../generated/api/RunId";
 import type { StudentAssignmentSummary } from "../../generated/api/StudentAssignmentSummary";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { TaxonomyTerm } from "../../generated/api/TaxonomyTerm";
-import type { VersionId } from "../../generated/api/VersionId";
 import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { PublicationScope } from "../../generated/api/PublicationScope";
@@ -30,7 +28,10 @@ import type { CapabilityValidator, FormatValidator, TimerEvaluator } from "../wa
 import type { CourseRosterClient } from "./enrollment";
 import type {
   AssignmentEditorDetail,
+  AssignmentCreateInput,
   AssignmentEditorInput,
+  AddAssignmentItemInput,
+  ReplaceAssignmentItemQuestionInput,
   AssignmentSummary,
   AuthSession,
   CourseCreateInput,
@@ -82,14 +83,7 @@ export interface ApiClient extends CourseRosterClient {
   /** Resolves one copyable instructor-facing ID to its exact safe catalog summary. */
   readonly resolveCatalogProblem: (displayReference: string) => Promise<CatalogProblemSummary>;
   /** Gets the safe immutable library projection, never a question definition. */
-  readonly getCatalogProblemDetail: (
-    problemId: ProblemId,
-    versionId: VersionId,
-  ) => Promise<CatalogProblemDetail>;
-  readonly getProblemVersion: (
-    problemId: ProblemId,
-    versionId: VersionId,
-  ) => Promise<QuestionDefinition>;
+  readonly getCatalogProblemDetail: (questionId: QuestionId) => Promise<CatalogProblemDetail>;
   readonly listTaxonomy: (cursor?: string) => Promise<CursorPage<TaxonomyTerm>>;
   readonly listCourses: (cursor?: string) => Promise<CursorPage<CourseSummary>>;
   /** Creates one course for an authenticated instructor or sysadmin. */
@@ -127,13 +121,32 @@ export interface ApiClient extends CourseRosterClient {
   /** Creates a tenant-owned assignment in the course named only by the path. */
   readonly createAssignment: (
     courseId: CourseId,
-    input: AssignmentEditorInput,
+    input: AssignmentCreateInput,
   ) => Promise<AssignmentEditorDetail>;
   /** Replaces an assignment using its most recently observed strong ETag. */
   readonly saveAssignment: (
     courseId: CourseId,
     assignmentId: AssignmentId,
     input: AssignmentEditorInput,
+    revision: string,
+  ) => Promise<AssignmentEditorDetail>;
+  readonly addAssignmentItem: (
+    courseId: CourseId,
+    assignmentId: AssignmentId,
+    input: AddAssignmentItemInput,
+    revision: string,
+  ) => Promise<AssignmentEditorDetail>;
+  readonly removeAssignmentItem: (
+    courseId: CourseId,
+    assignmentId: AssignmentId,
+    itemId: string,
+    revision: string,
+  ) => Promise<AssignmentEditorDetail>;
+  readonly replaceAssignmentItemQuestion: (
+    courseId: CourseId,
+    assignmentId: AssignmentId,
+    itemId: string,
+    input: ReplaceAssignmentItemQuestionInput,
     revision: string,
   ) => Promise<AssignmentEditorDetail>;
   readonly getEnrollment: (enrollmentId: EnrollmentId) => Promise<EnrollmentView>;

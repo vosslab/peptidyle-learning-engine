@@ -176,7 +176,6 @@ fn imported_qti_draft(
                 language: "en-US".to_string(),
             },
         },
-        revises: None,
         derived_from: None,
     }
 }
@@ -662,8 +661,8 @@ async fn qti_publish_endpoint_is_the_only_route_that_promotes_committed_staging(
     );
     let published: serde_json::Value =
         serde_json::from_slice(&body).expect("published browser projection");
-    assert_eq!(published["source"]["backend"], "qti");
-    assert!(published["source"].get("importId").is_none());
+    assert_eq!(published["backend"], "qti");
+    assert!(published.get("source").is_none());
     assert!(
         fixture
             .store

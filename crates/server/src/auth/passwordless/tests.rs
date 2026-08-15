@@ -427,6 +427,17 @@ async fn signed_in_account_changes_email_only_after_new_address_verification() {
         .await
         .expect("complete response");
     assert_eq!(complete.status(), StatusCode::OK);
+    let replacement_account_cookie = complete
+        .headers()
+        .get_all(SET_COOKIE)
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .find_map(|value| {
+            value
+                .starts_with(ACCOUNT_SESSION_COOKIE)
+                .then(|| value.split(';').next().expect("cookie pair").to_string())
+        })
+        .expect("replacement account cookie");
     assert_eq!(
         store
             .get_account(user)
@@ -437,6 +448,35 @@ async fn signed_in_account_changes_email_only_after_new_address_verification() {
             .normalized(),
         "new.learner@example.edu"
     );
+
+    let stale_session = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/account/email/start")
+                .header("content-type", "application/json")
+                .header("cookie", &account_cookie)
+                .body(Body::from(r#"{"email":"stale@example.edu"}"#))
+                .expect("stale-session request"),
+        )
+        .await
+        .expect("stale-session response");
+    assert_eq!(stale_session.status(), StatusCode::UNAUTHORIZED);
+    let replacement_session = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/account/email/start")
+                .header("content-type", "application/json")
+                .header("cookie", &replacement_account_cookie)
+                .body(Body::from(r#"{"email":"replacement@example.edu"}"#))
+                .expect("replacement-session request"),
+        )
+        .await
+        .expect("replacement-session response");
+    assert_eq!(replacement_session.status(), StatusCode::ACCEPTED);
 
     let replay = app
         .oneshot(

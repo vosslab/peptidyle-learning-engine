@@ -255,9 +255,12 @@ evidence is deployed.
 
 The main immutable and idempotent boundaries are:
 
-- Published catalog versions, public payloads, and answer-key associations are
-  immutable. Corrections publish a new version rather than mutating a version
-  pinned by an assignment or issued run.
+- Published catalog questions, public payloads, and answer-key associations are
+  immutable. Every content change publishes a new Question ID with fresh hidden
+  `(ProblemId, VersionId)` evidence; optional one-way provenance may identify
+  its source. Assignments, issued runs, and attempts retain their exact pinned
+  evidence until an Instructor performs a deliberate revision-checked replacement
+  for future runs.
 - `question_attempt` records immutable identity/evidence with controlled state
   transitions. `submission` is append-only response evidence and binds a
   tenant-scoped idempotency key. Receipts and worker leases fence retries so an

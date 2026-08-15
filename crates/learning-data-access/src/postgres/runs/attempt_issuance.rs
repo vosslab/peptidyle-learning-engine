@@ -23,8 +23,8 @@ use super::super::connection::map_sqlx_error;
 use super::super::row_decode::{
     decode_current_attempt_row, decode_payload_row, decode_presentation_binding_row, encode_payload,
 };
-use super::super::submission::load_attempt_for_external_update;
 use super::super::transaction_context::{database_timestamp, load_published_record};
+use super::learner_transition::{lock_predecessor_for_learner_run, record_submission_successor};
 
 #[cfg(feature = "postgres")]
 pub(super) async fn issue_or_resume_question_attempt(
@@ -33,6 +33,16 @@ pub(super) async fn issue_or_resume_question_attempt(
     command: IssueQuestionAttemptCommand,
 ) -> Result<QuestionAttempt, StoreError> {
     let tenant = context.tenant_id();
+    if let Some(predecessor) = command.predecessor_submission {
+        lock_predecessor_for_learner_run(
+            transaction,
+            tenant,
+            command.actor,
+            command.run,
+            predecessor,
+        )
+        .await?;
+    }
     let run = load_run_for_update(transaction, tenant, command.run).await?;
     if run.completed_at.is_some() || run.score.is_some() {
         return Err(StoreError::InvalidRecord(
@@ -202,7 +212,7 @@ pub(super) async fn issue_or_resume_question_attempt(
         let row = sqlx::query(
             "SELECT payload, payload_sha256, presentation_descriptor_version, \
                     presentation_nonce, presentation_digest FROM question_prefetch \
-             WHERE tenant_id = $1 AND run_id = $2 AND predecessor_attempt_id = $3 AND assignment_position = $4 FOR UPDATE",
+             WHERE tenant_id = $1 AND run_id = $2 AND predecessor_attempt_id = $3 AND assignment_position = $4",
         )
         .bind(tenant.as_uuid())
         .bind(command.run.as_uuid())
@@ -570,53 +580,8 @@ pub(super) async fn issue_or_resume_question_attempt(
         .map_err(map_sqlx_error)?;
     }
     if let Some(predecessor) = command.predecessor_submission {
-        if load_attempt_for_external_update(transaction, tenant, predecessor)
-            .await?
-            .run
-            != command.run
-        {
-            return Err(StoreError::Conflict);
-        }
-        let submitted: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM submission_idempotency WHERE tenant_id = $1 AND attempt_id = $2)",
-        )
-        .bind(tenant.as_uuid())
-        .bind(predecessor.as_uuid())
-        .fetch_one(&mut **transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if !submitted {
-            return Err(StoreError::Conflict);
-        }
-        // `SELECT .. FOR UPDATE` would require a table-wide UPDATE grant even
-        // though successor links are immutable. The primary key serializes
-        // concurrent insertions; a loser reads and accepts only the exact link.
         let next = ReceiptNextAttempt::from_attempt(&attempt);
-        let (next_payload, next_payload_sha256) = encode_payload(&next)?;
-        let inserted = sqlx::query(
-            "INSERT INTO submission_next_attempt \
-             (tenant_id, predecessor_attempt_id, next_attempt_id, next_attempt_occurred_at, \
-              next_payload, next_payload_sha256) \
-             VALUES ($1, $2, $3, transaction_timestamp(), $4, $5) \
-             ON CONFLICT (tenant_id, predecessor_attempt_id) DO NOTHING",
-        )
-        .bind(tenant.as_uuid())
-        .bind(predecessor.as_uuid())
-        .bind(attempt.id.as_uuid())
-        .bind(next_payload)
-        .bind(next_payload_sha256)
-        .execute(&mut **transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if inserted.rows_affected() == 0 {
-            super::require_exact_submission_successor(
-                transaction,
-                tenant,
-                predecessor,
-                Some(&next),
-            )
-            .await?;
-        }
+        record_submission_successor(transaction, tenant, predecessor, &next).await?;
     }
     Ok(attempt)
 }

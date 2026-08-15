@@ -9,10 +9,10 @@ use axum::http::header::{CONTENT_TYPE, ETAG, IF_MATCH};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use learning_data_access::{
-    AuthenticationEmail, CommitCourseRosterImport, CourseInvitationLifetime, CourseRosterId,
-    CourseRosterImportId, CourseRosterImportLifetime, CourseRosterImportPreview,
-    CourseRosterImportRowInput, CourseRosterImportState, RosterImportInvitation,
-    RosterImportRevision, RosterImportRowStatus, StageCourseRosterImport,
+    AuthenticationEmail, CommitCourseRosterImport, CourseInvitationDeliveryStore,
+    CourseInvitationLifetime, CourseRosterId, CourseRosterImportId, CourseRosterImportLifetime,
+    CourseRosterImportPreview, CourseRosterImportRowInput, CourseRosterImportState,
+    RosterImportInvitation, RosterImportRevision, RosterImportRowStatus, StageCourseRosterImport,
 };
 use objects::Sha256Digest;
 use question_model::CourseId;
@@ -20,8 +20,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     CourseRosterRouteState, DEFAULT_INVITATION_LIFETIME_SECONDS, RevisionHeaderError,
-    enrollment_unavailable, require_roster_support_access, required_idempotency_key,
-    required_roster_revision,
+    coarse_delivery_outcome, enrollment_unavailable, require_roster_support_access,
+    required_idempotency_key, required_roster_revision,
 };
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 use crate::course::projection::{error_response, store_error_response};
@@ -48,6 +48,7 @@ struct PreviewRowResponse {
     email: Option<String>,
     roster_id: Option<String>,
     status: &'static str,
+    reason: &'static str,
 }
 
 #[derive(Debug, Deserialize)]
@@ -63,6 +64,14 @@ struct CommitResponse {
     import_revision: u64,
     roster_revision: u64,
     invitations_created: usize,
+    delivery: Vec<CommitDeliveryResponse>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CommitDeliveryResponse {
+    row_number: u16,
+    outcome: &'static str,
 }
 
 pub(super) async fn preview<S>(
@@ -74,6 +83,7 @@ where
     S: learning_data_access::Store
         + learning_data_access::CourseRecordsAccessStore
         + learning_data_access::CourseRosterStore
+        + CourseInvitationDeliveryStore
         + learning_data_access::SessionStore
         + 'static,
 {
@@ -153,6 +163,7 @@ where
     S: learning_data_access::Store
         + learning_data_access::CourseRecordsAccessStore
         + learning_data_access::CourseRosterStore
+        + CourseInvitationDeliveryStore
         + learning_data_access::SessionStore
         + 'static,
 {
@@ -165,9 +176,6 @@ where
         require_roster_support_access(state.store.as_ref(), &authenticated, course).await
     {
         return response;
-    }
-    if !state.delivery.is_configured() {
-        return enrollment_unavailable();
     }
     let expected_import_revision = match required_import_revision(&headers) {
         Ok(revision) => revision,
@@ -262,23 +270,31 @@ where
         Ok(committed) => committed,
         Err(error) => return store_error_response(error),
     };
+    // Committing the import creates the durable delivery rows in the same
+    // Store transaction.  Never send here: a request retry must replay the
+    // stored commit rather than re-submit every message.
+    let mut delivery = Vec::with_capacity(committed.invitations.len());
     for (row_number, invitation) in &committed.invitations {
-        let Some((_, secret, _)) = secrets
-            .iter()
-            .find(|(candidate, _, _)| candidate == row_number)
-        else {
-            return enrollment_unavailable();
-        };
-        if state
-            .delivery
-            .send_course_invitation(&invitation.email, secret)
+        let state = match state
+            .store
+            .course_invitation_delivery_state(
+                authenticated.tenant_context,
+                authenticated.record.token_hash,
+                course,
+                invitation.id,
+            )
             .await
-            .is_err()
         {
-            return enrollment_unavailable();
-        }
+            Ok(Some(value)) => value,
+            Ok(None) => return enrollment_unavailable(),
+            Err(error) => return store_error_response(error),
+        };
+        delivery.push(CommitDeliveryResponse {
+            row_number: *row_number,
+            outcome: coarse_delivery_outcome(state),
+        });
     }
-    commit_response(committed)
+    commit_response(committed, delivery)
 }
 
 fn parse_csv(body: &[u8]) -> Result<Vec<CourseRosterImportRowInput>, &'static str> {
@@ -372,6 +388,7 @@ fn preview_response(preview: CourseRosterImportPreview) -> Response {
                         .then(|| row.roster_id.map(|value| value.as_str().to_string()))
                         .flatten(),
                     status: status_name(row.status),
+                    reason: reason_name(row.status),
                 }
             })
             .collect(),
@@ -379,7 +396,10 @@ fn preview_response(preview: CourseRosterImportPreview) -> Response {
     response_with_import_revision(StatusCode::OK, response, import_revision)
 }
 
-fn commit_response(committed: learning_data_access::CommittedCourseRosterImport) -> Response {
+fn commit_response(
+    committed: learning_data_access::CommittedCourseRosterImport,
+    delivery: Vec<CommitDeliveryResponse>,
+) -> Response {
     let revision = committed.import_revision;
     response_with_import_revision(
         StatusCode::OK,
@@ -388,6 +408,7 @@ fn commit_response(committed: learning_data_access::CommittedCourseRosterImport)
             import_revision: committed.import_revision.value(),
             roster_revision: committed.roster_revision.value(),
             invitations_created: committed.invitations.len(),
+            delivery,
         },
         revision,
     )
@@ -445,5 +466,16 @@ fn status_name(status: RosterImportRowStatus) -> &'static str {
         RosterImportRowStatus::AlreadyPending => "alreadyPending",
         RosterImportRowStatus::Duplicate => "duplicate",
         RosterImportRowStatus::Invalid => "invalid",
+    }
+}
+
+/// Safe instructional category: never source CSV text or account identity.
+fn reason_name(status: RosterImportRowStatus) -> &'static str {
+    match status {
+        RosterImportRowStatus::ReadyToInvite => "ready",
+        RosterImportRowStatus::AlreadyMember => "alreadyOnRoster",
+        RosterImportRowStatus::AlreadyPending => "invitationPending",
+        RosterImportRowStatus::Duplicate => "duplicateInFile",
+        RosterImportRowStatus::Invalid => "correctEmailOrRosterId",
     }
 }

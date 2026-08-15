@@ -22,6 +22,7 @@ mod feedback;
 mod flat_import_provenance;
 mod flat_question;
 mod flat_question_assets;
+mod invitation_delivery;
 mod item_analysis;
 mod manual_grade_export;
 mod navigation_references;
@@ -71,10 +72,10 @@ use question_model::{
     CatalogSearchQuery, CatalogStatisticsAvailability, CatalogStatisticsFacet,
     CatalogTaxonomyFacet, CourseGroupId, CourseId, CourseMembershipRole, CourseSummary,
     EnrollmentId, EnrollmentStatus, MAX_CATALOG_TAXONOMY_FACETS, PresentationBindingV1, ProblemId,
-    ProblemPublicId, ProblemVersionNumber, ProblemVersionRef, PublicationScope, QuestionAttempt,
-    QuestionAttemptId, QuestionEnvelope, QuestionStatisticsDisclosure, RunId, RunMode,
-    ScoringGeneration, ScoringStatus, StatisticsDisclosurePolicy, StudentAssignmentSummary,
-    StudentId, StudentResponse, TenantId, UserId, VersionId, WorkspaceId, WorkspaceImportId,
+    ProblemVersionRef, PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionEnvelope,
+    QuestionStatisticsDisclosure, RunId, RunMode, ScoringGeneration, ScoringStatus,
+    StatisticsDisclosurePolicy, StudentAssignmentSummary, StudentId, StudentResponse, TenantId,
+    UserId, VersionId, WorkspaceId, WorkspaceImportId,
 };
 
 use crate::gradebook_cursor::GradebookCursor;
@@ -84,13 +85,13 @@ use crate::run_summary_cursor::RunSummaryCursor;
 use crate::statistics::{StatisticsContribution, derive_statistics_contributions};
 use crate::{
     AccountRecord, AccountSessionRecord, AccountSessionTokenHash, ActivityTransition,
-    AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssignmentDefinitionDisposition,
-    AssignmentEditorUpdate, AssignmentPolicyException, AssignmentPolicyExceptionTarget,
-    AssignmentRecord, AssignmentRevision, AttemptSupportAction, AttemptSupportActionId,
-    AttemptSupportRecord, AuthenticationRateLimitKey, AuthenticationRateLimitScope,
-    CatalogSourceStore, CatalogStore, CatalogTransition, ClearAttemptCommand,
-    CourseEnrollmentPolicy, CourseGroupRecord, CourseGroupRevision, CourseInvitationId,
-    CourseInvitationSecretHash, CourseListScope, CourseMemberId, CourseRecord,
+    AddAssignmentFixedItemCommand, AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord,
+    AssignmentDefinitionDisposition, AssignmentEditorUpdate, AssignmentPolicyException,
+    AssignmentPolicyExceptionTarget, AssignmentRecord, AssignmentRevision, AttemptSupportAction,
+    AttemptSupportActionId, AttemptSupportRecord, AuthenticationRateLimitKey,
+    AuthenticationRateLimitScope, CatalogSourceStore, CatalogStore, CatalogTransition,
+    ClearAttemptCommand, CourseEnrollmentPolicy, CourseGroupRecord, CourseGroupRevision,
+    CourseInvitationId, CourseInvitationSecretHash, CourseListScope, CourseMemberId, CourseRecord,
     CourseRecordsAccessStore, CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState,
     CourseRetentionView, CourseRosterId, CourseRosterMember, CourseRosterSupportAudit,
     CredentialIdHash, Cursor, DeleteAndRegradeAssignmentItemCommand,
@@ -99,7 +100,8 @@ use crate::{
     InstitutionRetentionPolicy, IssueQuestionAttemptCommand, Page, PageRequest, PageSize,
     PasskeyId, PasskeyRecord, PrefetchedQuestion, PublishDraftCommand, PublishedProblemRecord,
     PublishedSourceArtifact, PutCourseGroupCommand, RETENTION_JOB_MAX_ATTEMPTS,
-    ReleaseAttemptFeedbackCommand, ReservePrefetchedQuestionCommand, ResolvedAssignmentTiming,
+    ReleaseAttemptFeedbackCommand, RemoveAssignmentFixedItemCommand,
+    ReplaceAssignmentFixedItemCommand, ReservePrefetchedQuestionCommand, ResolvedAssignmentTiming,
     ResolvedAttemptTiming, RetentionApiStore, RetentionCleanupManifest, RetentionDays,
     RetentionDispatchBatch, RetentionRevision, RetentionScheduleStore, RetentionStore,
     RetentionWork, RetentionWorkerCommand, RetentionWorkerStore, RosterIdempotencyKey,
@@ -297,7 +299,6 @@ impl MemoryStore {
 #[derive(Debug, Default, Clone)]
 struct State {
     authoritative_time: ActivityTimestamp,
-    next_problem_public_id: u64,
     next_course_public_id: u32,
     next_assignment_public_id: u32,
     next_run_public_id: u32,
@@ -329,7 +330,6 @@ struct State {
     draft_revisions: BTreeMap<(TenantId, WorkspaceId), WorkspaceDraftRevision>,
     draft_access: BTreeMap<(TenantId, WorkspaceId, UserId), WorkspaceDraftRole>,
     problem_owner_tenants: BTreeMap<ProblemId, TenantId>,
-    problem_owner_users: BTreeMap<ProblemId, UserId>,
     published: BTreeMap<(ProblemId, VersionId), PublishedProblemRecord>,
     /// Monotonic publication admission order for catalog continuations.  This
     /// is deliberately independent of the map's length: a later publication
@@ -367,6 +367,8 @@ struct State {
     roster_member_by_roster_id: BTreeMap<(TenantId, CourseId, CourseRosterId), CourseMemberId>,
     course_invitations:
         BTreeMap<(TenantId, CourseId, CourseInvitationId), course_roster::StoredCourseInvitation>,
+    invitation_deliveries:
+        BTreeMap<(TenantId, CourseId, CourseInvitationId), crate::CourseInvitationDelivery>,
     invitation_by_hash:
         BTreeMap<CourseInvitationSecretHash, (TenantId, CourseId, CourseInvitationId)>,
     invitation_idempotency: BTreeMap<
