@@ -71,9 +71,10 @@ function paginationCopy(itemName: VisiblePaginationTarget["itemName"]): {
     return {
       loadMore: "Load more courses",
       loading: "Loading more courses...",
-      loaded: /^Loaded \d+ more courses\. \d+ courses shown\.$/u,
-      complete: /^All \d+ courses are shown\.$/u,
-      error: /^Could not load more courses\. The \d+ already shown are still available\./u,
+      loaded: /^Loaded \d+ more courses\. \d+ courses visible\.$/u,
+      complete: /^Loaded \d+ course(?:s)?\.$/u,
+      error:
+        /^Could not load more courses\. The \d+ course(?:s)? already visible (?:is|are) still available\./u,
       retry: "Try loading more courses again",
       skipToLoadMore: "Skip to load more courses",
       fragmentTargetId: "course-pagination",
@@ -86,9 +87,10 @@ function paginationCopy(itemName: VisiblePaginationTarget["itemName"]): {
     return {
       loadMore: "Load more assignments",
       loading: "Loading more assignments...",
-      loaded: /^Loaded \d+ more assignments\. \d+ assignments shown\.$/u,
-      complete: /^All \d+ assignments are shown\.$/u,
-      error: /^Could not load more assignments\. The \d+ already shown are still available\./u,
+      loaded: /^Loaded \d+ more assignment(?:s)?\. \d+ assignment(?:s)? visible\.$/u,
+      complete: /^Loaded \d+ assignment(?:s)?\.$/u,
+      error:
+        /^Could not load more assignments\. The \d+ assignment(?:s)? already visible (?:is|are) still available\./u,
       retry: "Try loading more assignments again",
       skipToLoadMore: "Skip to load more assignments",
       fragmentTargetId: "assignment-pagination",
@@ -100,9 +102,10 @@ function paginationCopy(itemName: VisiblePaginationTarget["itemName"]): {
   return {
     loadMore: "Load more gradebook records",
     loading: "Loading more gradebook records...",
-    loaded: /^Loaded \d+ more gradebook records\. \d+ records shown\.$/u,
-    complete: /^All \d+ gradebook records are shown\.$/u,
-    error: /^Could not load more gradebook records\. The \d+ already shown are still available\./u,
+    loaded: /^Loaded \d+ more gradebook record(?:s)?\. \d+ gradebook record(?:s)? visible\.$/u,
+    complete: /^Loaded \d+ gradebook record(?:s)?\.$/u,
+    error:
+      /^Could not load more gradebook records\. The \d+ gradebook record(?:s)? already visible (?:is|are) still available\./u,
     retry: "Try loading more gradebook records again",
     skipToLoadMore: "Skip to load more gradebook records",
     fragmentTargetId: "gradebook-pagination",

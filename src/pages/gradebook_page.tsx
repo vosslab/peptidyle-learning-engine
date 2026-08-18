@@ -49,6 +49,10 @@ function formatRunStatus(run: AssignmentRun): string {
   return run.score === null ? "Completed" : `Completed, ${formatPercentScore(run.score)}`;
 }
 
+function pluralize(count: number, singular: string, plural: string): string {
+  return count === 1 ? singular : plural;
+}
+
 function gradebookRowKey(row: GradebookSummaryRow): string {
   return `${row.assignmentId}:${row.enrollmentId}`;
 }
@@ -102,13 +106,33 @@ function GradebookCoursePage(props: GradebookCoursePageProps): JSX.Element {
           if (next.loading) {
             message = "Loading more gradebook records...";
           } else if (next.error?.kind === "transport") {
-            message = `Could not load more gradebook records. The ${shownCount} already shown are still available.`;
+            message = `Could not load more gradebook records. The ${shownCount} ${pluralize(
+              shownCount,
+              "gradebook record",
+              "gradebook records",
+            )} already visible are still available.`;
           } else if (next.error?.kind === "protocol") {
-            message = `Gradebook pagination stopped because the next page was not distinct. The ${shownCount} already shown are still available.`;
+            message = `Gradebook pagination stopped because the next page was not distinct. The ${shownCount} ${pluralize(
+              shownCount,
+              "gradebook record",
+              "gradebook records",
+            )} already visible are still available.`;
           } else if (next.nextCursor === null) {
-            message = `All ${shownCount} gradebook records are shown.`;
+            message = `Loaded ${shownCount} ${pluralize(
+              shownCount,
+              "gradebook record",
+              "gradebook records",
+            )}.`;
           } else {
-            message = `Loaded ${addedCount} more gradebook records. ${shownCount} records shown.`;
+            message = `Loaded ${addedCount} more ${pluralize(
+              addedCount,
+              "gradebook record",
+              "gradebook records",
+            )}. ${shownCount} ${pluralize(
+              shownCount,
+              "gradebook record",
+              "gradebook records",
+            )} visible.`;
           }
           priorCount = shownCount;
           setGradebook({ kind: "ready", ...next });
@@ -122,10 +146,14 @@ function GradebookCoursePage(props: GradebookCoursePageProps): JSX.Element {
       setGradebook({ kind: "ready", ...initialState });
       setAnnouncement(
         initialState.nextCursor === null
-          ? `All ${initialState.items.length} gradebook records are shown.`
+          ? `Loaded ${initialState.items.length} ${pluralize(
+              initialState.items.length,
+              "gradebook record",
+              "gradebook records",
+            )}.`
           : initialState.items.length === 1
-            ? "Gradebook loaded with 1 assignment record."
-            : `Gradebook loaded with ${initialState.items.length} assignment records.`,
+            ? "Gradebook loaded with 1 gradebook record."
+            : `Gradebook loaded with ${initialState.items.length} gradebook records.`,
       );
     } catch {
       if (disposed || generation !== loadGeneration) return;
@@ -401,8 +429,16 @@ function GradebookCoursePage(props: GradebookCoursePageProps): JSX.Element {
                   <div class="inline-error" role="alert">
                     <p>
                       {error().kind === "transport"
-                        ? `Could not load more gradebook records. The ${ready().items.length} already shown are still available.`
-                        : `Gradebook pagination stopped because the next page was not distinct. The ${ready().items.length} already shown are still available.`}
+                        ? `Could not load more gradebook records. The ${ready().items.length} ${pluralize(
+                            ready().items.length,
+                            "gradebook record",
+                            "gradebook records",
+                          )} already visible ${ready().items.length === 1 ? "is" : "are"} still available.`
+                        : `Gradebook pagination stopped because the next page was not distinct. The ${ready().items.length} ${pluralize(
+                            ready().items.length,
+                            "gradebook record",
+                            "gradebook records",
+                          )} already visible ${ready().items.length === 1 ? "is" : "are"} still available.`}
                     </p>
                     <Show when={error().kind === "transport"}>
                       <button

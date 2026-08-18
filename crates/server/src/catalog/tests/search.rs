@@ -339,6 +339,79 @@ async fn catalog_search_and_safe_detail_are_authenticated_bounded_and_non_cachea
 }
 
 #[tokio::test]
+async fn catalog_read_routes_reject_student_access() {
+    let store = Arc::new(MemoryStore::default());
+    let tenant = TenantId::from_uuid(id(1));
+    let context = TenantContext::from_authenticated_session(tenant);
+    let instructor = UserId::from_uuid(id(31));
+    let student = UserId::from_uuid(id(32));
+    let app = router(
+        Arc::clone(&store),
+        Arc::new(FixtureRegistry {
+            capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
+        }),
+        Arc::new(ReviewNotRequired),
+    );
+    let student_cookie = issued_cookie(&store, vec![UserRole::Student], student).await;
+    let instructor_cookie = issued_cookie(&store, vec![UserRole::Instructor], instructor).await;
+    let workspace = WorkspaceId::from_uuid(id(33));
+    let version = VersionId::from_uuid(id(34));
+    let revision = store
+        .upsert_draft(
+            context,
+            instructor,
+            None,
+            draft(tenant, workspace, version),
+        )
+        .await
+        .expect("draft save")
+        .revision;
+    let published = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/problems/{workspace}/publish"))
+                .header("cookie", &instructor_cookie)
+                .header(IF_MATCH, strong_if_match(revision))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"scope":"public"}"#))
+                .expect("publish request"),
+        )
+        .await
+        .expect("publish response");
+    let published = response_json(published).await;
+    let question_id = published["questionId"].as_str().expect("Question ID");
+
+    let student_blocked_endpoints = vec![
+        "/api/problems?pageSize=1".to_string(),
+        "/api/taxonomy?pageSize=1".to_string(),
+        "/api/problems/search?text=catalog&pageSize=1".to_string(),
+        "/api/problems/by-id/not-a-question".to_string(),
+        format!("/api/problems/by-id/{question_id}"),
+        format!("/api/problems/by-id/{question_id}/detail"),
+    ];
+    for endpoint in student_blocked_endpoints {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(&endpoint)
+                    .header("cookie", &student_cookie)
+                    .body(Body::empty())
+                    .expect("read request"),
+            )
+            .await
+            .expect("read response");
+        assert_eq!(
+            response.status(),
+            StatusCode::FORBIDDEN,
+            "{endpoint} must reject student access"
+        );
+    }
+}
+
+#[tokio::test]
 async fn catalog_search_rejects_a_cursor_forged_with_an_ordinary_sha256() {
     let store = Arc::new(MemoryStore::default());
     let tenant = TenantId::from_uuid(id(1));

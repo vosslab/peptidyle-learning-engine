@@ -23,6 +23,7 @@ export interface RouteContract {
     | "courseRoster";
   readonly path: string;
   readonly surface: string;
+  readonly requiredRoles?: ReadonlyArray<"instructor" | "sysadmin">;
 }
 
 /** Product routes in the same order as the active implementation plan. */
@@ -61,13 +62,23 @@ export const ROUTE_CONTRACT = [
   },
   { id: "runAttempt", path: "/runs/:runRef", surface: "One-question-at-a-time attempt loop" },
   { id: "runSummary", path: "/runs/:runRef/summary", surface: "Run result and practice re-entry" },
-  { id: "library", path: "/library", surface: "Shared problem browser" },
+  {
+    id: "library",
+    path: "/library",
+    surface: "Shared problem browser",
+    requiredRoles: ["instructor", "sysadmin"],
+  },
   {
     id: "problemDetail",
     path: "/library/:problemRef",
     surface: "Published question detail",
   },
-  { id: "workspaceList", path: "/workspace", surface: "Instructor drafts" },
+  {
+    id: "workspaceList",
+    path: "/workspace",
+    surface: "Instructor drafts",
+    requiredRoles: ["instructor", "sysadmin"],
+  },
   {
     id: "workspaceEditor",
     path: "/workspace/:workspaceRef",

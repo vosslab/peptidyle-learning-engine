@@ -203,6 +203,15 @@ export async function respondAuthoring(
     }
     return methodNotAllowed(request);
   }
+  if (
+    s[1] === "assignments" &&
+    s[2] === state.assignment.id &&
+    s[3] === "summary" &&
+    s.length === 4
+  ) {
+    if (request.method !== "GET") return methodNotAllowed(request);
+    return jsonResponse(publishedProblemFixture.summary, 200, { "cache-control": "no-store" });
+  }
   if (s[1] === "assignments" && s[2] === state.assignment.id && request.method === "GET")
     return response(state);
   return undefined;

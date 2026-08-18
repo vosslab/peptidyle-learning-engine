@@ -460,6 +460,18 @@ pub trait Store:
         ActivityStore::learner_get_enrollment_impl(self, context, actor, enrollment).await
     }
 
+    /// Resolves one active learner enrollment for an assignment by assignment
+    /// identity, including course visibility and active-membership checks.
+    async fn learner_get_enrollment_for_assignment(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        assignment: AssignmentId,
+    ) -> Result<Option<AssignmentEnrollment>, StoreError> {
+        ActivityStore::learner_get_enrollment_for_assignment_impl(self, context, actor, assignment)
+            .await
+    }
+
     /// Historical instructor capability; the Store rechecks direct course
     /// membership instead of accepting a coarse platform role.
     async fn instructor_get_enrollment(

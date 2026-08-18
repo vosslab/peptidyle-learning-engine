@@ -7,7 +7,7 @@ use learning_data_access::{
 };
 use question_model::{
     Capability, CatalogLicenseValue, CatalogSearchQuery, CatalogStatisticsAvailability,
-    CatalogTaxonomyFilter, ProblemDisplayRef, ProblemVersionRef,
+    CatalogTaxonomyFilter, ProblemDisplayRef, ProblemVersionRef, UserRole,
 };
 use serde::Deserialize;
 
@@ -89,6 +89,9 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
+    if !may_read_catalog(authenticated.record.subject.roles()) {
+        return error_response(StatusCode::FORBIDDEN, "catalog access is not authorized");
+    }
     let page = match page_request(query) {
         Ok(page) => page,
         Err(error) => return error_response(StatusCode::BAD_REQUEST, &error.to_string()),
@@ -117,6 +120,9 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
+    if !may_read_catalog(authenticated.record.subject.roles()) {
+        return error_response(StatusCode::FORBIDDEN, "catalog access is not authorized");
+    }
     let page = match page_request(query) {
         Ok(page) => page,
         Err(error) => return error_response(StatusCode::BAD_REQUEST, &error.to_string()),
@@ -148,6 +154,9 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
+    if !may_read_catalog(authenticated.record.subject.roles()) {
+        return error_response(StatusCode::FORBIDDEN, "catalog access is not authorized");
+    }
     let query = match CatalogSearchQuery::try_from(query) {
         Ok(query) => query,
         Err(error) => return error_response(StatusCode::BAD_REQUEST, error),
@@ -176,6 +185,9 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
+    if !may_read_catalog(authenticated.record.subject.roles()) {
+        return error_response(StatusCode::FORBIDDEN, "catalog access is not authorized");
+    }
     let reference = match reference.parse::<ProblemDisplayRef>() {
         Ok(reference) => reference,
         Err(error) => return error_response(StatusCode::BAD_REQUEST, error),
@@ -208,6 +220,9 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
+    if !may_read_catalog(authenticated.record.subject.roles()) {
+        return error_response(StatusCode::FORBIDDEN, "catalog access is not authorized");
+    }
     let reference = match reference.parse::<ProblemDisplayRef>() {
         Ok(reference) => reference,
         Err(error) => return error_response(StatusCode::BAD_REQUEST, error),
@@ -247,4 +262,10 @@ fn page_request(query: CatalogQuery) -> Result<PageRequest, PaginationError> {
         }
         None => Ok(PageRequest::first(size)),
     }
+}
+
+fn may_read_catalog(roles: &[UserRole]) -> bool {
+    roles
+        .iter()
+        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
 }

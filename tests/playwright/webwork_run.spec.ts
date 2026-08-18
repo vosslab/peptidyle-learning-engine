@@ -321,13 +321,13 @@ async function openWebworkAssignment(page: Page): Promise<void> {
     has: page.getByRole("heading", { name: WEBWORK_ASSIGNMENT_TITLE }),
   });
   await expect(assignment).toHaveCount(1);
-  const review = assignment.getByRole("link", { name: "Review assignment" });
+  const review = assignment.getByRole("link", { name: "Start assignment" });
   const href = await review.getAttribute("href");
   if (href === null) throw new Error("visible assignment link is unavailable");
   assertPublicAssignmentRoute(href);
   await review.click();
   await expect(page.getByRole("heading", { name: WEBWORK_ASSIGNMENT_TITLE })).toBeVisible();
-  await page.getByRole("button", { name: "Start or resume practice" }).click();
+  await page.getByRole("button", { name: "Start or continue practice" }).click();
   await expect(page.getByRole("heading", { name: WEBWORK_QUESTION_TITLE })).toBeVisible();
 }
 
@@ -397,7 +397,7 @@ async function completeRun(
 }
 
 async function startFreshRun(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Start another practice run" }).click();
+  await page.getByRole("button", { name: "Start another practice" }).click();
   await expect(page.getByRole("heading", { name: WEBWORK_QUESTION_TITLE })).toBeVisible();
   await expect(page.getByRole("radio")).toHaveCount(5);
 }

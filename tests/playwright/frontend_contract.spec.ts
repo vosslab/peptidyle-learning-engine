@@ -326,9 +326,9 @@ test("a student reaches, validates, submits, and advances through the generated 
 
   await page.getByRole("link", { name: "Open course" }).click();
   await expect(page.getByRole("heading", { name: "Assignments" })).toBeVisible();
-  await page.getByRole("link", { name: "Review assignment" }).click();
+  await page.getByRole("link", { name: "Start assignment" }).click();
   await expect(page.getByRole("heading", { name: "Peptide bond mastery" })).toBeVisible();
-  await page.getByRole("button", { name: "Start or resume practice" }).click();
+  await page.getByRole("button", { name: "Start or continue practice" }).click();
 
   await expect(
     page.getByRole("heading", { name: "Peptide bond resonance and planarity", exact: true }),
@@ -372,7 +372,7 @@ test("a student reaches, validates, submits, and advances through the generated 
   await expect(
     page.getByRole("heading", { name: "Keep practicing with a fresh variation" }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start another practice run" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start another practice" })).toBeVisible();
 });
 
 test("a student completes the primary platform-key course-to-answer path without a pointer", async ({
@@ -390,12 +390,12 @@ test("a student completes the primary platform-key course-to-answer path without
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
 
-  const reviewAssignment = page.getByRole("link", { name: "Review assignment" });
+  const reviewAssignment = page.getByRole("link", { name: "Start assignment" });
   await tabTo(page, reviewAssignment);
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
 
-  const start = page.getByRole("button", { name: "Start or resume practice" });
+  const start = page.getByRole("button", { name: "Start or continue practice" });
   await tabTo(page, start);
   await page.keyboard.press("Space");
   await expect(page.locator("#main-content")).toBeFocused();

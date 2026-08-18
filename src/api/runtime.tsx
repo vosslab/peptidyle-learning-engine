@@ -11,9 +11,11 @@ import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery"
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
 import type { RunId } from "../../generated/api/RunId";
+import type { StudentAssignmentSummary } from "../../generated/api/StudentAssignmentSummary";
 import type { ApiClient } from "./client";
 import type {
   AssignmentSummary,
+  AssignmentSummaryWithTiming,
   CourseRouteData,
   CourseSummary,
   CursorPage,
@@ -35,7 +37,8 @@ export interface ApiRuntime {
     readonly catalogDetail: QueryFunction<[QuestionId], CatalogProblemDetail>;
     readonly gradebook: QueryFunction<[CourseId], CursorPage<GradebookSummaryRow>>;
     readonly assignments: QueryFunction<[CourseId], CursorPage<AssignmentSummary>>;
-    readonly assignment: QueryFunction<[AssignmentId], AssignmentSummary>;
+    readonly assignment: QueryFunction<[AssignmentId], AssignmentSummaryWithTiming>;
+    readonly assignmentSummary: QueryFunction<[AssignmentId], StudentAssignmentSummary>;
     readonly courseScope: QueryFunction<[CourseId], CourseRouteData>;
     readonly runScreen: QueryFunction<[RunId], RunScreenData>;
     readonly runSummary: QueryFunction<[RunId], RunSummaryResponse>;
@@ -64,6 +67,10 @@ export function createApiRuntime(client: ApiClient): ApiRuntime {
       assignment: query(
         (assignmentId: AssignmentId) => client.getAssignment(assignmentId),
         "assignment-overview",
+      ),
+      assignmentSummary: query(
+        (assignmentId: AssignmentId) => client.getAssignmentSummary(assignmentId),
+        "assignment-summary",
       ),
       courseScope: query(async (courseId: CourseId) => {
         const [summary, appearance] = await Promise.all([

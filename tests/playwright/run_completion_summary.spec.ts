@@ -240,7 +240,7 @@ test("production RunPage shows neutral completion until the summary policy loads
   expect(
     await page.evaluate(() => window.__runCompletionSummaryFixture.freshRunScreenCalls()),
   ).toBe(0);
-  await expect(fixture.getByRole("button", { name: "Start another practice run" })).toHaveCount(0);
+  await expect(fixture.getByRole("button", { name: "Start another practice" })).toHaveCount(0);
   await expect(fixture.getByRole("button", { name: "Back to assignment" })).toBeVisible();
 });
 
@@ -252,7 +252,7 @@ test("production RunPage offers fresh practice only when the summary allows it",
   await expect(
     fixture.getByRole("heading", { name: "Keep practicing with a fresh variation" }),
   ).toBeVisible();
-  await expect(fixture.getByRole("button", { name: "Start another practice run" })).toBeVisible();
+  await expect(fixture.getByRole("button", { name: "Start another practice" })).toBeVisible();
   await expect(fixture.getByRole("button", { name: "Back to assignment" })).toBeVisible();
   expect(
     await page.evaluate(() => window.__runCompletionSummaryFixture.freshRunScreenCalls()),
@@ -268,7 +268,7 @@ test("production RunPage keeps a closed run neutral and preserves the Back actio
   await expect(
     fixture.getByRole("heading", { name: "Keep practicing with a fresh variation" }),
   ).toHaveCount(0);
-  await expect(fixture.getByRole("button", { name: "Start another practice run" })).toHaveCount(0);
+  await expect(fixture.getByRole("button", { name: "Start another practice" })).toHaveCount(0);
   await expect(fixture.getByRole("button", { name: "Back to assignment" })).toBeVisible();
   expect(
     await page.evaluate(() => window.__runCompletionSummaryFixture.freshRunScreenCalls()),

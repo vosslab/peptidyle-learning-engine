@@ -43,6 +43,10 @@ export interface CourseRouteData {
   readonly appearance: CourseAppearance;
 }
 
+export interface AssignmentSummaryWithTiming extends AssignmentSummary {
+  readonly assignmentTiming: AssignmentRunTiming;
+}
+
 /**
  * The instructor-only editable projection of a tenant-owned assignment.
  *

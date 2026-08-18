@@ -172,7 +172,7 @@ test("the production course list reaches the exact 101st course through two visi
   await reachLoadMoreThroughSkipLink(page);
   await page.keyboard.press("Space");
   await expect(
-    page.getByText("Loaded 50 more courses. 100 courses shown.", { exact: true }),
+    page.getByText("Loaded 50 more courses. 100 courses visible.", { exact: true }),
   ).toBeVisible();
   const firstSecondPageCourse = page
     .getByRole("link", {
@@ -191,7 +191,7 @@ test("the production course list reaches the exact 101st course through two visi
   });
   await expect(targetLink).toBeFocused();
   await expect(page.locator(".course-card")).toHaveCount(101);
-  await expect(page.getByText("All 101 courses are shown.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Loaded 101 courses.", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => window.__courseListPaginationFixture.requests)).toEqual([
     await page.evaluate(() => window.__courseListPaginationFixture.cursor50),
     await page.evaluate(() => window.__courseListPaginationFixture.cursor100),
@@ -207,7 +207,7 @@ test("course pagination preserves visible courses, retries the exact opaque curs
   await reachLoadMoreThroughSkipLink(page);
   await page.keyboard.press("Space");
   await expect(page.getByRole("alert")).toContainText(
-    "Could not load more courses. The 50 already shown are still available.",
+    "Could not load more courses. The 50 courses already visible are still available.",
   );
   await expect(page.locator(".course-card")).toHaveCount(50);
   const retry = page.getByRole("button", { name: "Try loading more courses again", exact: true });

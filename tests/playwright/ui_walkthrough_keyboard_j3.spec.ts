@@ -63,7 +63,7 @@ async function signInAndOpenMastery(page: Page, inputs: UiWalkthroughInputs): Pr
       page
         .locator(".course-card")
         .nth(index)
-        .getByRole("link", { name: "Review assignment", exact: true }),
+        .getByRole("link", { name: "Start assignment", exact: true }),
     itemName: "assignments",
   });
   await expect(assignmentLink).toHaveCount(1);
@@ -75,7 +75,7 @@ async function signInAndOpenMastery(page: Page, inputs: UiWalkthroughInputs): Pr
 }
 
 async function resumeActiveSecondMastery(page: Page): Promise<void> {
-  const start = page.getByRole("button", { name: "Start or resume practice" });
+  const start = page.getByRole("button", { name: "Start or continue practice" });
   await expect(start).toBeVisible();
   await expect(start).toBeEnabled();
   await tabTo(page, start);
@@ -108,7 +108,7 @@ test("J3 resumes the active second Mastery run, proves cleared controls, and res
   });
   await expect(page.locator("#main-content")).toBeFocused({ timeout: 15_000 });
 
-  const resume = page.getByRole("button", { name: "Start or resume practice" });
+  const resume = page.getByRole("button", { name: "Start or continue practice" });
   await expect(resume).toBeVisible();
   await expect(resume).toBeEnabled();
   await tabTo(page, resume);

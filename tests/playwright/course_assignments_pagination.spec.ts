@@ -60,29 +60,44 @@ test.beforeAll(async () => {
           publicId: index + 100,
           courseId,
           title: "Assignment " + String(index + 1),
-          items: [],
-          selectionGroups: [],
+          items: [{ deliveryState: "active" }],
+          selectionGroups: [{ drawCount: 2 }],
         }));
         const secondPage = Array.from({ length: 50 }, (_, index) => ({
           id: "0198e000-0000-7000-8000-" + String(index + 200).padStart(12, "0"),
           publicId: index + 200,
           courseId,
           title: "Assignment " + String(index + 51),
-          items: [],
-          selectionGroups: [],
+          items: [{ deliveryState: "active" }],
+          selectionGroups: [{ drawCount: 2 }],
         }));
         const target = {
           id: "0198e000-0000-7000-8000-000000000999",
           publicId: 999,
           courseId,
           title: "Assignment 101",
-          items: [],
-          selectionGroups: [],
+          items: [{ deliveryState: "active" }],
+          selectionGroups: [{ drawCount: 2 }],
         };
-        const terminalTarget = { ...target, id: "0198e000-0000-7000-8000-000000001000", publicId: 1000, title: "Assignment 102" };
+        const terminalTarget = {
+          ...target,
+          id: "0198e000-0000-7000-8000-000000001000",
+          publicId: 1000,
+          title: "Assignment 102",
+        };
         const requests = [];
         let scenario = "success";
         let reloads = 0;
+        const studentSummary = {
+          tenant: "tenant",
+          enrollment: "enrollment",
+          currentScore: 0.72,
+          bestScore: 0.83,
+          latestScore: 0.76,
+          completedRunCount: 2,
+          totalQuestionAttempts: 5,
+          lastActivityAt: null,
+        };
         const client = {
           listAssignments: async (_course, cursor) => {
             requests.push(cursor);
@@ -93,6 +108,7 @@ test.beforeAll(async () => {
             if (cursor === "after-100") return { items: [target], nextCursor: null };
             return { items: [terminalTarget], nextCursor: null };
           },
+          getAssignmentSummary: async () => studentSummary,
         };
         document.body.replaceChildren();
         const skipToMain = document.createElement("a");
@@ -110,7 +126,7 @@ test.beforeAll(async () => {
               courseReference: "C-1",
               initialPage: { items: firstPage, nextCursor: "after-50" },
               reloadAssignments: async () => { reloads += 1; },
-              canCreateAssignment: true,
+              canCreateAssignment: false,
             });
           },
         }), mount);
@@ -156,10 +172,15 @@ test("the production list helper reaches the exact 101st assignment through two 
 }) => {
   test.setTimeout(2_000);
   await mountFixture(page);
+  const firstCard = page.locator(".course-card").first();
+  await expect(firstCard).toContainText("3 questions in each new run.");
+  await expect(firstCard).toContainText(
+    "Progress: Current 72%, Latest 76%, Best 83%, 2 completed runs.",
+  );
   const targetCard = page.locator(".course-card").filter({
     has: page.getByRole("heading", { name: "Assignment 101", exact: true }),
   });
-  const target = targetCard.getByRole("link", { name: "Review assignment", exact: true });
+  const target = targetCard.getByRole("link", { name: "Start assignment", exact: true });
   await expect(target).toHaveCount(0);
   await tabToTargetThroughVisiblePagination(page, {
     target,
@@ -168,13 +189,13 @@ test("the production list helper reaches the exact 101st assignment through two 
       page
         .locator(".course-card")
         .nth(index)
-        .getByRole("link", { name: "Review assignment", exact: true }),
+        .getByRole("link", { name: "Start assignment", exact: true }),
     itemName: "assignments",
   });
   await expect(target).toHaveCount(1);
   await expect(target).toBeFocused();
   await expect(page.locator(".course-card")).toHaveCount(101);
-  await expect(page.getByText("All 101 assignments are shown.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Loaded 101 assignments.", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => window.__assignmentPaginationFixture.requests)).toEqual([
     "after-50",
     "after-100",

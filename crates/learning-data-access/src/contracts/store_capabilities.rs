@@ -640,6 +640,14 @@ pub trait ActivityStore: Send + Sync {
         actor: UserId,
         enrollment: EnrollmentId,
     ) -> Result<Option<AssignmentEnrollment>, StoreError>;
+    /// Reads one enrollment for a current learner and assignment by active
+    /// membership identity, including course visibility gates.
+    async fn learner_get_enrollment_for_assignment_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        assignment: AssignmentId,
+    ) -> Result<Option<AssignmentEnrollment>, StoreError>;
     /// Reads one run only for its currently active learner owner. This is a
     /// distinct browser capability; historical instructor reads use separate APIs.
     async fn learner_get_run_impl(

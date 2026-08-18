@@ -321,7 +321,7 @@ test("gradebook appends a keyboard-requested 51st row once, transfers focus, and
     root.getByRole("link", { name: "Skip to load more gradebook records", exact: true }),
   ).toHaveCount(0);
   await expect(
-    root.getByText("All 51 gradebook records are shown.", { exact: true }),
+    root.getByText("Loaded 51 gradebook records.", { exact: true }),
   ).toBeVisible();
   await expect(
     root
@@ -355,7 +355,7 @@ test("gradebook preserves visible records and retries the exact opaque cursor af
   await expect(
     root
       .getByRole("alert")
-      .getByText(/Could not load more gradebook records\. The 50 already shown/),
+      .getByText(/Could not load more gradebook records\. The 50 gradebook records already visible/),
   ).toBeVisible();
   await expect(root.locator("tr.gradebook-row")).toHaveCount(50);
   await expect(root.locator("#gradebook-pagination")).toHaveCount(1);

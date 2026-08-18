@@ -88,14 +88,14 @@ native radio controls supply the behavior.
 | --------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | Enter the application | The first useful Tab stop exposes Skip to learning content; Enter moves focus to main content      | Main content is focused and named                              |
 | Choose a course       | Tab reaches the course link; Enter opens it                                                        | Route content loads and main receives focus                    |
-| Choose an assignment  | Tab reaches Review assignment; Enter opens it                                                      | Assignment title and action are available                      |
-| Begin or resume       | Tab reaches Start or resume practice; Space activates it                                           | Question heading and response control appear                   |
+| Choose an assignment  | Tab reaches Start assignment; Enter opens it                                                      | Assignment title and action are available                      |
+| Begin or resume       | Tab reaches Start or continue practice; Space activates it                                          | Question heading and response control appear                   |
 | Read the question     | Reading order follows prompt, assets, instructions, response, status, then submit                  | No interactive content is skipped or inserted out of order     |
 | Answer                | The family-specific contract below works without a pointer                                         | The selected or entered response is visibly represented        |
 | Validate              | Format state is announced without grading or disclosing an answer                                  | Ready or actionable validation text is available               |
 | Submit                | Tab reaches Submit answer; Space sends exactly one logical response                                | Pending state prevents a duplicate submission                  |
 | Read feedback         | Authorized feedback receives a heading and sensible focus; unreleased feedback is not inferred     | Student can read result and next action                        |
-| Continue              | Tab and Space operate Continue, Back to assignment, or Start another practice run                  | The next question, assignment, or fresh-seed mastery run opens |
+| Continue              | Tab and Space operate Continue, Back to assignment, or Start another practice                      | The next question, assignment, or fresh-seed practice run opens |
 | Recover               | Error, offline, stale state, and reauthentication retain the response and expose a keyboard action | Retry uses the same logical submission identity where required |
 
 Route changes focus the main content rather than leaving focus on a removed navigation element.
@@ -197,7 +197,7 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
   the student explicitly retries or edits it.
 - A failed prefetch does not block the current question. Continue falls back to the server-issued
   next state and moves focus predictably.
-- Mastery completion exposes Start another practice run through ordinary Tab and Space. A new run
+- Mastery completion exposes Start another practice through ordinary Tab and Space. A fresh practice
   receives fresh server-owned seeds; resuming the current attempt preserves its seed.
 - A student can leave a response widget with Escape or a visible return action without committing an
   answer. If leaving would discard local work, PLE asks for confirmation through a keyboard-complete

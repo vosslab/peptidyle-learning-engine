@@ -108,8 +108,8 @@ test.describe("WP-R2 private host seed and WebWork renderer", () => {
     const assignment = page.locator(".course-card").filter({
       has: page.getByRole("heading", { name: "PLE WebWork pilot E2E assignment" }),
     });
-    await assignment.getByRole("link", { name: "Review assignment" }).click();
-    await page.getByRole("button", { name: "Start or resume practice" }).click();
+    await assignment.getByRole("link", { name: "Start assignment" }).click();
+    await page.getByRole("button", { name: "Start or continue practice" }).click();
     await expect(
       page.getByRole("heading", {
         name: "Biochemistry: Identify hydrophobic compounds from formulas",

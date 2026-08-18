@@ -436,7 +436,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
               type="button"
               onClick={() => void startAnotherPractice()}
             >
-              Start another practice run
+              Start another practice
             </button>
           </Show>
           <Show when={practiceError()}>{(message) => <p class="inline-error">{message()}</p>}</Show>

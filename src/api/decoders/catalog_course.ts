@@ -39,6 +39,7 @@ import type {
   AssignmentEditorDetail,
   AssignmentEditorInput,
   ReplaceAssignmentItemQuestionInput,
+  AssignmentSummaryWithTiming,
   CourseCreateInput,
   CourseRouteData,
 } from "../contracts";
@@ -766,6 +767,33 @@ export function decodeAssignmentSummary(
     policies: decodeRunPolicies(field(record, "policies", path), `${path}.policies`),
   } satisfies AssignmentSummary;
   return decoded;
+}
+
+export function decodeAssignmentSummaryWithTiming(
+  value: unknown,
+  path = "response",
+  strict = false,
+): AssignmentSummaryWithTiming {
+  const record = decodeRecord(value, path);
+  if (strict) {
+    requireOnlyFields(record, path, [
+      "id",
+      "publicId",
+      "tenant",
+      "courseId",
+      "title",
+      "items",
+      "selectionGroups",
+      "policies",
+      "assignmentTiming",
+    ]);
+  }
+  const summary = decodeAssignmentSummary(record, path, strict);
+  const timingValue = record.assignmentTiming ?? { timeLimitSeconds: null };
+  return {
+    ...summary,
+    assignmentTiming: decodeAssignmentRunTiming(timingValue, `${path}.assignmentTiming`),
+  } satisfies AssignmentSummaryWithTiming;
 }
 
 /**

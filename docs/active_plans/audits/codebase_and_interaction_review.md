@@ -61,11 +61,11 @@ Ranked by consequence rather than by how wrong they are.
    replaced, and a sibling image shows a raw learner-UUID column. A design review cites one of these
    images as proof of a layout the current code implements differently. The public front page of the
    project currently advertises a version of the interface that no longer exists.
-3. **The product's central promise is unobservable by the learner (STU-2).** Mastery practice past
-   completion is the stated purpose, and the student cannot see best score, completed runs, or
-   trajectory. The data already exists and already feeds the instructor gradebook.
-4. **A timed run starts without telling the student its limit (STU-1).** For a timed assessment this
-   is a fairness problem, and the value is already course-owned and displayed once the run begins.
+3. **The product's central promise is now observable for learners (STU-2).** Assignment
+   overview now includes learner-visible mastery outcome fields from `student_assignment_summary`
+   before practice starts.
+4. **Timing is shown before a timed run starts (STU-1).** The student now sees the assignment time limit on
+   the overview screen before starting practice.
 5. **Schema drift is caught only by suites that do not run (ENG-1).** Roughly 450 hand-written
    queries, no compile-time checking, and the checking suites are explicitly excluded from
    `check_rust.sh`. This is the largest correctness exposure in the backend.
@@ -140,7 +140,6 @@ Recommended future work, not work this review performed. The pilot is roughly tw
 
 - The student access boundary (SEC-1, SEC-2). It contradicts a settled requirement and concerns
   student-visible content.
-- The run time limit before a timed run (STU-1). Fairness in a timed assessment.
 - The public evidence refresh (EVD-3, EVD-5, EVD-6, EVD-9). The README currently misrepresents the
   product to anyone who reads it, including pilot participants.
 - The retention authority correction (DOC-2). `docs/API_CONTRACTS.md` states a FERPA-adjacent

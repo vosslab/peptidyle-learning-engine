@@ -97,7 +97,7 @@ test("J1 student reaches visible feedback and the next question in the instructo
       page
         .locator(".course-card")
         .nth(index)
-        .getByRole("link", { name: "Review assignment", exact: true }),
+        .getByRole("link", { name: "Start assignment", exact: true }),
     itemName: "assignments",
   });
   await expect(assignmentLink).toHaveCount(1);
@@ -118,8 +118,13 @@ test("J1 student reaches visible feedback and the next question in the instructo
     has: page.locator("dt", { hasText: "Questions per run" }),
   });
   await expect(questionsPerRun.locator("dd")).toHaveText("4");
+  const runTimeLimit = page.locator(".assignment-facts > div", {
+    has: page.locator("dt", { hasText: "Run time limit" }),
+  });
+  await expect(runTimeLimit).toBeVisible();
+  await expect(runTimeLimit.locator("dd")).toHaveText("Untimed");
 
-  const start = page.getByRole("button", { name: "Start or resume practice" });
+  const start = page.getByRole("button", { name: "Start or continue practice" });
   await expect(start).toBeVisible();
   await expect(start).toBeEnabled();
   await tabTo(page, start);
@@ -157,7 +162,7 @@ test("J1 student reaches visible feedback and the next question in the instructo
   await expect(continueButton).toBeFocused();
   await page.keyboard.press("Space");
   await expect(page.locator("[data-route-surface=runAttempt]")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole("button", { name: "Start another practice run" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Start another practice" })).toHaveCount(0);
   await expectVisibleResponseControlsCleared(page);
   checkpoint(inputs, "next_question_visible");
   appendPassedJourneyState(inputs, Math.round(performance.now() - startedAt));

@@ -4,6 +4,7 @@ import { A, createAsync, revalidate } from "@solidjs/router";
 import { For, Show, Suspense, createSignal, type JSX } from "solid-js";
 
 import type { CourseId } from "../../generated/api/CourseId";
+import type { StudentAssignmentSummary } from "../../generated/api/StudentAssignmentSummary";
 import { useApiRuntime } from "../api/runtime";
 import type { AssignmentSummary, CursorPage } from "../api/contracts";
 import { CourseEntryIdentity } from "../features/course_appearance/course_entry_identity";
@@ -12,6 +13,7 @@ import {
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
 import { useSessionBootstrap } from "../auth/session_context";
+import { formatPercentScore } from "../score_format";
 import { CourseManagementNav } from "../components/course_management_nav";
 import { CursorPageSession, type CursorPageSessionState } from "./cursor_page_session";
 import {
@@ -31,6 +33,76 @@ export interface AssignmentListProps {
 function assignmentLinkId(assignment: AssignmentSummary): string {
   const id = `assignment-review-${assignmentRouteReference(assignment.publicId)}`;
   return id;
+}
+
+function assignmentQuestionCount(assignment: AssignmentSummary): number {
+  return (
+    assignment.items.filter((item) => item.deliveryState === "active").length +
+    assignment.selectionGroups.reduce((count, group) => count + group.drawCount, 0)
+  );
+}
+
+function pluralize(count: number, singular: string, plural: string): string {
+  return count === 1 ? singular : plural;
+}
+
+function formatAssignmentProgress(summary: StudentAssignmentSummary): string {
+  if (summary.completedRunCount === 0 && summary.totalQuestionAttempts === 0) {
+    return "Progress: No attempts yet.";
+  }
+  const parts: string[] = [];
+  if (summary.currentScore !== null) {
+    parts.push(`Current ${formatPercentScore(summary.currentScore)}`);
+  }
+  if (summary.latestScore !== null) {
+    parts.push(`Latest ${formatPercentScore(summary.latestScore)}`);
+  }
+  if (summary.bestScore !== null) {
+    parts.push(`Best ${formatPercentScore(summary.bestScore)}`);
+  }
+  parts.push(
+    `${summary.completedRunCount} completed run${summary.completedRunCount === 1 ? "" : "s"}`,
+  );
+  return `Progress: ${parts.join(", ")}.`;
+}
+
+interface AssignmentCardProps {
+  readonly assignment: AssignmentSummary;
+  readonly courseReference: CourseRouteReference;
+  readonly showStudentProgress: boolean;
+  readonly registerLink: (assignment: AssignmentSummary, element: HTMLAnchorElement) => void;
+}
+
+function AssignmentCard(props: AssignmentCardProps): JSX.Element {
+  const runtime = useApiRuntime();
+  const progress = createAsync(() =>
+    props.showStudentProgress
+      ? runtime.queries.assignmentSummary(props.assignment.id).catch(() => null)
+      : Promise.resolve(null),
+  );
+
+  return (
+    <article class="course-card">
+      <p class="card-kicker">Mastery practice</p>
+      <h2>{props.assignment.title}</h2>
+      <p>{assignmentQuestionCount(props.assignment)} questions in each new run.</p>
+      <Show when={props.showStudentProgress}>
+        <Suspense fallback={<p>Progress loading...</p>}>
+          <Show when={progress()} fallback={<p>Progress unavailable.</p>}>
+            {(assignmentProgress) => <p>{formatAssignmentProgress(assignmentProgress())}</p>}
+          </Show>
+        </Suspense>
+      </Show>
+      <A
+        class="quiet-link"
+        href={`/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.publicId)}`}
+        id={assignmentLinkId(props.assignment)}
+        ref={(element) => props.registerLink(props.assignment, element)}
+      >
+        Start assignment
+      </A>
+    </article>
+  );
 }
 
 export function AssignmentList(props: AssignmentListProps): JSX.Element {
@@ -54,7 +126,9 @@ export function AssignmentList(props: AssignmentListProps): JSX.Element {
   setState(session.state);
 
   function announceLoaded(count: number, total: number): void {
-    setAnnouncement(`Loaded ${count} more assignments. ${total} assignments shown.`);
+    setAnnouncement(
+      `Loaded ${count} more ${pluralize(count, "assignment", "assignments")}. ${total} ${pluralize(total, "assignment", "assignments")} visible.`,
+    );
   }
 
   function focusFirstAppended(appended: ReadonlyArray<AssignmentSummary>): void {
@@ -74,7 +148,10 @@ export function AssignmentList(props: AssignmentListProps): JSX.Element {
     const current = state();
     if (current.loading) return "Loading more assignments...";
     if (current.error !== null || current.items.length === 0) return "";
-    if (current.nextCursor === null) return `All ${current.items.length} assignments are shown.`;
+    if (current.nextCursor === null) {
+      const count = current.items.length;
+      return `Loaded ${count} ${pluralize(count, "assignment", "assignments")}.`;
+    }
     return announcement();
   }
 
@@ -141,26 +218,12 @@ export function AssignmentList(props: AssignmentListProps): JSX.Element {
         <div class="card-grid" aria-busy={state().loading}>
           <For each={state().items}>
             {(assignment) => (
-              <article class="course-card">
-                <p class="card-kicker">Mastery practice</p>
-                <h2>{assignment.title}</h2>
-                <p>
-                  {assignment.items.filter((item) => item.deliveryState === "active").length +
-                    assignment.selectionGroups.reduce(
-                      (count, group) => count + group.drawCount,
-                      0,
-                    )}{" "}
-                  questions in each new run.
-                </p>
-                <A
-                  class="quiet-link"
-                  href={`/courses/${props.courseReference}/assignments/${assignmentRouteReference(assignment.publicId)}`}
-                  id={assignmentLinkId(assignment)}
-                  ref={(element) => reviewLinks.set(assignment.id, element)}
-                >
-                  Review assignment
-                </A>
-              </article>
+              <AssignmentCard
+                assignment={assignment}
+                courseReference={props.courseReference}
+                showStudentProgress={!props.canCreateAssignment}
+                registerLink={(currentAssignment, element) => reviewLinks.set(currentAssignment.id, element)}
+              />
             )}
           </For>
         </div>
@@ -186,8 +249,9 @@ export function AssignmentList(props: AssignmentListProps): JSX.Element {
           <Show when={state().error?.kind === "transport"}>
             <section class="route-error" role="alert">
               <p>
-                Could not load more assignments. The {state().items.length} already shown are still
-                available.
+                Could not load more assignments. The {state().items.length}{" "}
+                {pluralize(state().items.length, "assignment", "assignments")} already visible{" "}
+                {state().items.length === 1 ? "is" : "are"} still available.
               </p>
               <button
                 class="primary-action"

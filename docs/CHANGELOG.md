@@ -18,6 +18,18 @@
   students, the 800 by 1280 portrait tablet is a high-priority student design target rather than a
   secondary tier, and the narrow phone remains a compatibility guard for occasional use such as
   working while commuting.
+- Closed SEC-1 so catalog browse/search/detail routes are now Instructor/Sysadmin-only on the server,
+  and made the global route contract own route-role policy for Library and Workspace. Added
+  `catalog_read_routes_reject_student_access` to prevent regressions on student catalog reads.
+- Added learner-facing assignment outcomes on the overview page from `/api/assignments/{assignment}/summary`:
+  students now see current, latest, and best score, completed runs, total attempts, and last activity
+  before they start practice.
+- Added a compact progress line to student assignment cards and made course, assignment, and
+  gradebook pagination announce count-based completion states such as `Loaded N ...` instead of the
+  old `All N ... are shown.` wording. The recovery text now describes the already visible items with
+  singular/plural grammar.
+- Student assignment cards now keep both current and latest scores in the compact progress line
+  when both are available, alongside best score and completed runs.
 
 ### Developer Tests and Notes
 

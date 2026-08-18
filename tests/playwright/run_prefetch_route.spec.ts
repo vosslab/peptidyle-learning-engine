@@ -402,7 +402,7 @@ test("fallback hides the submitted response until the successor screen is issued
     classifyPostStartSurface({
       radios: await root.getByRole("radio").count(),
       freshPractice: await root
-        .getByRole("button", { name: "Start another practice run" })
+        .getByRole("button", { name: "Start another practice" })
         .isVisible(),
       inlineErrors: await root.locator(".inline-error:visible").count(),
     }),
@@ -419,7 +419,7 @@ test("fallback hides the submitted response until the successor screen is issued
     classifyPostStartSurface({
       radios: await root.getByRole("radio").count(),
       freshPractice: await root
-        .getByRole("button", { name: "Start another practice run" })
+        .getByRole("button", { name: "Start another practice" })
         .isVisible(),
       inlineErrors: await root.locator(".inline-error:visible").count(),
     }),

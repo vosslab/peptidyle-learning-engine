@@ -10,7 +10,8 @@ use learning_data_access::{
 use serde::{Deserialize, Serialize};
 
 use super::assignments::{
-    add_assignment_item, create_assignment, get_assignment, remove_assignment_item,
+    add_assignment_item, create_assignment, get_assignment, get_assignment_summary,
+    remove_assignment_item,
     replace_assignment_item_question, update_assignment,
 };
 use super::invitation_capability::CourseInvitationIssuer;
@@ -80,6 +81,10 @@ where
         .route("/api/courses/{course}/gradebook", get(list_gradebook::<S>))
         .route("/api/courses/{course}", get(get_course::<S>))
         .route("/api/assignments/{assignment}", get(get_assignment::<S>))
+        .route(
+            "/api/assignments/{assignment}/summary",
+            get(get_assignment_summary::<S>),
+        )
         .route(
             "/api/courses/{course}/assignments/{assignment}",
             put(update_assignment::<S>),

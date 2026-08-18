@@ -39,6 +39,52 @@ async fn learner_enrollment_for_update(
     Ok(Some(enrollment))
 }
 
+async fn learner_enrollment_for_assignment_for_update(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    tenant: TenantId,
+    actor: UserId,
+    assignment: AssignmentId,
+) -> Result<Option<AssignmentEnrollment>, StoreError> {
+    let enrollment = match sqlx::query(
+        "SELECT payload, payload_sha256 FROM enrollment \
+         WHERE tenant_id = $1 AND assignment_id = $2 AND user_id = $3 FOR UPDATE",
+    )
+    .bind(tenant.as_uuid())
+    .bind(assignment.as_uuid())
+    .bind(actor.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?
+    {
+        Some(row) => Some(decode_payload_row(&row)?),
+        None => None,
+    };
+    let Some(enrollment) = enrollment else {
+        return Ok(None);
+    };
+    let course_accessible: bool = sqlx::query_scalar(
+        "SELECT public.ple_course_records_accessible(a.tenant_id, a.course_id) \
+         FROM assignment AS a WHERE a.tenant_id = $1 AND a.assignment_id = $2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(assignment.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?
+    .unwrap_or(false);
+    if !course_accessible {
+        return Err(StoreError::NotFound);
+    }
+    transaction_context::require_active_learner_membership(
+        transaction,
+        tenant,
+        assignment,
+        actor,
+    )
+    .await?;
+    Ok(Some(enrollment))
+}
+
 async fn run_page(
     transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     tenant: TenantId,
@@ -122,6 +168,23 @@ impl crate::ActivityStore for PostgresStore {
         let record =
             learner_enrollment_for_update(&mut transaction, context.tenant_id(), actor, enrollment)
                 .await?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(record)
+    }
+    async fn learner_get_enrollment_for_assignment_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        assignment: AssignmentId,
+    ) -> Result<Option<AssignmentEnrollment>, StoreError> {
+        let mut transaction = self.begin_tenant(context).await?;
+        let record = learner_enrollment_for_assignment_for_update(
+            &mut transaction,
+            context.tenant_id(),
+            actor,
+            assignment,
+        )
+        .await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(record)
     }

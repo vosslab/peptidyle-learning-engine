@@ -30,6 +30,7 @@ import type {
   AssignmentEditorDetail,
   AssignmentCreateInput,
   AssignmentEditorInput,
+  AssignmentSummaryWithTiming,
   AddAssignmentItemInput,
   ReplaceAssignmentItemQuestionInput,
   AssignmentSummary,
@@ -115,7 +116,8 @@ export interface ApiClient extends CourseRosterClient {
     courseId: CourseId,
     cursor?: string,
   ) => Promise<CursorPage<AssignmentSummary>>;
-  readonly getAssignment: (assignmentId: AssignmentId) => Promise<AssignmentSummary>;
+  readonly getAssignment: (assignmentId: AssignmentId) => Promise<AssignmentSummaryWithTiming>;
+  readonly getAssignmentSummary: (assignmentId: AssignmentId) => Promise<StudentAssignmentSummary>;
   /** Instructor-only revisioned assignment projection for the policy editor. */
   readonly getAssignmentEditor: (assignmentId: AssignmentId) => Promise<AssignmentEditorDetail>;
   /** Creates a tenant-owned assignment in the course named only by the path. */

@@ -4,6 +4,7 @@ import { A, useLocation, useNavigate, type RouteSectionProps } from "@solidjs/ro
 import { createEffect, createSignal, ErrorBoundary, Show, type JSX } from "solid-js";
 
 import { useSessionBootstrap, type SessionBootstrapState } from "./auth/session_context";
+import { ROUTE_CONTRACT, type RouteContract, type RouteId } from "./route_contract";
 import { CourseThemeScope } from "./features/course_appearance/course_theme_scope";
 import { LocalDevelopmentSignIn } from "./auth/local_development";
 import { PresentationContrastProvider } from "./presentation/contrast_context";
@@ -18,10 +19,27 @@ declare global {
 }
 
 function canUseAuthoringTools(state: SessionBootstrapState): boolean {
+  return canAccessRoute(state, "workspaceList");
+}
+
+function canAccessRoute(state: SessionBootstrapState, routeId: RouteId): boolean {
+  const route = ROUTE_CONTRACT.find((item) => item.id === routeId) as
+    | (RouteContract & { id: RouteId })
+    | undefined;
+  if (route === undefined) {
+    return false;
+  }
+  if (route.requiredRoles === undefined || route.requiredRoles.length === 0) {
+    return true;
+  }
   if (state.kind !== "authenticated") {
     return false;
   }
-  return state.session.user.roles.some((role) => ["instructor", "sysadmin"].includes(role));
+  return route.requiredRoles?.some((requiredRole) => state.session.user.roles.includes(requiredRole));
+}
+
+function canUseLibrary(state: SessionBootstrapState): boolean {
+  return canAccessRoute(state, "library");
 }
 
 type ScopedRouteSectionProps = RouteSectionProps & { readonly pathname: string };
@@ -173,9 +191,11 @@ export function App(props: RouteSectionProps): JSX.Element {
           <A href="/" activeClass="active" end>
             Courses
           </A>
-          <A href="/library" activeClass="active">
-            Library
-          </A>
+          <Show when={canUseLibrary(session.state())}>
+            <A href="/library" activeClass="active">
+              Library
+            </A>
+          </Show>
           <Show when={canUseAuthoringTools(session.state())}>
             <A href="/workspace" activeClass="active">
               Workspace

@@ -39,6 +39,10 @@ function CourseCard(props: CourseCardProps): JSX.Element {
   );
 }
 
+function pluralize(count: number, singular: string, plural: string): string {
+  return count === 1 ? singular : plural;
+}
+
 /** Visible, append-only course paging keeps a large learner roster reachable without a route shortcut. */
 export function CourseList(props: CourseListProps): JSX.Element {
   const runtime = useApiRuntime();
@@ -91,7 +95,9 @@ export function CourseList(props: CourseListProps): JSX.Element {
     if (current.loading) return "Loading more courses...";
     const shownCount = visibleCourses().length;
     if (current.error !== null || shownCount === 0) return "";
-    if (current.nextCursor === null) return `All ${shownCount} courses are shown.`;
+    if (current.nextCursor === null) {
+      return `Loaded ${shownCount} ${pluralize(shownCount, "course", "courses")}.`;
+    }
     return announcement();
   }
 
@@ -104,7 +110,7 @@ export function CourseList(props: CourseListProps): JSX.Element {
     }
     if (appended.length > 0) {
       setAnnouncement(
-        `Loaded ${appended.length} more courses. ${visibleCourses().length} courses shown.`,
+        `Loaded ${appended.length} more ${pluralize(appended.length, "course", "courses")}. ${visibleCourses().length} ${pluralize(visibleCourses().length, "course", "courses")} visible.`,
       );
       focusFirstAppended(appended);
     }
@@ -119,7 +125,7 @@ export function CourseList(props: CourseListProps): JSX.Element {
     }
     if (appended.length > 0) {
       setAnnouncement(
-        `Loaded ${appended.length} more courses. ${visibleCourses().length} courses shown.`,
+        `Loaded ${appended.length} more ${pluralize(appended.length, "course", "courses")}. ${visibleCourses().length} ${pluralize(visibleCourses().length, "course", "courses")} visible.`,
       );
       focusFirstAppended(appended);
     }
@@ -169,8 +175,9 @@ export function CourseList(props: CourseListProps): JSX.Element {
           <Show when={state().error?.kind === "transport"}>
             <section class="route-error" role="alert">
               <p>
-                Could not load more courses. The {visibleCourses().length} already shown are still
-                available.
+                Could not load more courses. The {visibleCourses().length}{" "}
+                {pluralize(visibleCourses().length, "course", "courses")} already visible{" "}
+                {visibleCourses().length === 1 ? "is" : "are"} still available.
               </p>
               <button
                 class="primary-action"

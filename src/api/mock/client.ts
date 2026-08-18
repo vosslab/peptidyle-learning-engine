@@ -43,11 +43,12 @@ import {
   decodeAssignmentEditorInput,
   decodeReplaceAssignmentItemQuestionInput,
   decodeAssignmentCreateInput,
-  decodeAssignmentSummary,
+  decodeAssignmentSummaryWithTiming,
   decodeFeedbackReleaseResponse,
   decodeIssuedPresentationEnvelope,
   decodePrefetchedNextQuestion,
   decodeQuestionEnvelope,
+  decodeStudentAssignmentSummary,
   decodeRunSummaryResponse,
   decodeSubmissionReceipt,
 } from "../decoders";
@@ -600,7 +601,7 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
     },
     getAssignment: (assignmentId: AssignmentId) => {
       const path = `/api/assignments/${assignmentId}`;
-      return decodeMockCatalogResponse(mockFetch(path), path, decodeAssignmentSummary);
+      return decodeMockCatalogResponse(mockFetch(path), path, decodeAssignmentSummaryWithTiming);
     },
     getAssignmentEditor: (assignmentId: AssignmentId) =>
       requestMockAssignment(
@@ -858,6 +859,12 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
         expected,
       );
     },
+    getAssignmentSummary: (assignmentId: AssignmentId) =>
+      decodeMockCatalogResponse(
+        mockFetch(`/api/assignments/${assignmentId}/summary`),
+        "assignment summary",
+        decodeStudentAssignmentSummary,
+      ),
     getSummary: (enrollmentId: EnrollmentId) =>
       expectSerialized(
         mockFetch(`/api/grading/summaries/${enrollmentId}`),

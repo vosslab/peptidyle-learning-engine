@@ -140,13 +140,13 @@ async function completeChapter(page: Page, chapter: ChapterJourney): Promise<voi
   const assignment = page.locator(".course-card").filter({
     has: page.getByRole("heading", { name: chapter.assignment }),
   });
-  const assignmentLink = assignment.getByRole("link", { name: "Review assignment" });
+  const assignmentLink = assignment.getByRole("link", { name: "Start assignment" });
   await tabToTargetThroughVisiblePagination(page, {
     target: assignment,
     keyboardTarget: assignmentLink,
     renderedItems: page.locator(".course-card"),
     firstAppendedControl: (index) =>
-      page.locator(".course-card").nth(index).getByRole("link", { name: "Review assignment" }),
+      page.locator(".course-card").nth(index).getByRole("link", { name: "Start assignment" }),
     itemName: "assignments",
   });
   await expect(assignment).toContainText("4 questions in each new run");
@@ -157,7 +157,7 @@ async function completeChapter(page: Page, chapter: ChapterJourney): Promise<voi
     (response) =>
       new URL(response.url()).pathname === "/api/runs" && response.request().method() === "POST",
   );
-  await activateWithKeyboard(page, page.getByRole("button", { name: "Start or resume practice" }));
+  await activateWithKeyboard(page, page.getByRole("button", { name: "Start or continue practice" }));
   const started = await runResponse;
   if (started.status() !== 201) {
     await expect(page.getByRole("alert")).toContainText("Could not open the practice run");
@@ -181,7 +181,7 @@ async function completeChapter(page: Page, chapter: ChapterJourney): Promise<voi
   await expect(
     summary.getByRole("heading", { name: "Keep practicing with a fresh variation" }),
   ).toBeVisible();
-  await expect(summary.getByRole("button", { name: "Start another practice run" })).toBeVisible();
+  await expect(summary.getByRole("button", { name: "Start another practice" })).toBeVisible();
 }
 
 /**
@@ -194,7 +194,7 @@ async function openAssignmentEditor(page: Page, chapter: ChapterJourney): Promis
   const assignment = page.locator(".course-card").filter({
     has: page.getByRole("heading", { name: chapter.assignment }),
   });
-  const review = assignment.getByRole("link", { name: "Review assignment", exact: true });
+  const review = assignment.getByRole("link", { name: "Start assignment", exact: true });
   await expect(review).toBeVisible();
   await tabTo(page, review);
   await page.keyboard.press("Enter");
@@ -262,7 +262,7 @@ async function issueRunAndReadFirstQuestion(page: Page, chapter: ChapterJourney)
   const assignment = page.locator(".course-card").filter({
     has: page.getByRole("heading", { name: chapter.assignment }),
   });
-  const review = assignment.getByRole("link", { name: "Review assignment", exact: true });
+  const review = assignment.getByRole("link", { name: "Start assignment", exact: true });
   await expect(review).toBeVisible();
   await tabTo(page, review);
   await page.keyboard.press("Enter");
@@ -270,7 +270,7 @@ async function issueRunAndReadFirstQuestion(page: Page, chapter: ChapterJourney)
     (response) =>
       new URL(response.url()).pathname === "/api/runs" && response.request().method() === "POST",
   );
-  const start = page.getByRole("button", { name: "Start or resume practice", exact: true });
+  const start = page.getByRole("button", { name: "Start or continue practice", exact: true });
   await activateWithKeyboard(page, start);
   expect((await openedRun).status()).toBe(201);
   const question = chapter.questions[0];

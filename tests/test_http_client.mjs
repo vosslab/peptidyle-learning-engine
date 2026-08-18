@@ -551,6 +551,10 @@ test("the HTTP client decodes every implemented route and composes a run screen"
     fixture.assignment.id,
   );
   assert.equal((await client.getAssignment(fixture.assignment.id)).courseId, fixture.course.id);
+  assert.deepEqual(
+    (await client.getAssignment(fixture.assignment.id)).assignmentTiming,
+    { timeLimitSeconds: null },
+  );
   assert.equal(
     (await client.getEnrollment(fixture.enrollment.id)).summary.enrollment,
     fixture.enrollment.id,

@@ -323,7 +323,7 @@ test("the learner route binds stable recovery rather than creating a key for eac
   assert.match(source, /retryWhenOnline/);
   assert.match(source, /ApiRequestError/);
   assert.match(source, /status === 401/);
-  assert.match(source, /Start another practice run/);
+  assert.match(source, /Start another practice/);
   assert.doesNotMatch(source, /onSubmit={[\s\S]{0,300}crypto\.randomUUID/);
 });
 

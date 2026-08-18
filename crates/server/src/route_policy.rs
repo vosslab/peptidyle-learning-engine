@@ -107,6 +107,7 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     mutation("/api/courses/{course}/assignments", "POST"),
     read("/api/courses/{course}/gradebook"),
     read("/api/assignments/{assignment}"),
+    read("/api/assignments/{assignment}/summary"),
     mutation("/api/courses/{course}/assignments/{assignment}", "PUT"),
     mutation(
         "/api/courses/{course}/assignments/{assignment}/items",

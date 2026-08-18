@@ -86,7 +86,7 @@ async function signInAndStartMastery(page: Page, inputs: UiWalkthroughInputs): P
       page
         .locator(".course-card")
         .nth(index)
-        .getByRole("link", { name: "Review assignment", exact: true }),
+        .getByRole("link", { name: "Start assignment", exact: true }),
     itemName: "assignments",
   });
   await expect(assignmentLink).toHaveCount(1);
@@ -95,7 +95,7 @@ async function signInAndStartMastery(page: Page, inputs: UiWalkthroughInputs): P
   await expect(assignmentLink).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
-  const start = page.getByRole("button", { name: "Start or resume practice" });
+  const start = page.getByRole("button", { name: "Start or continue practice" });
   await expect(start).toBeVisible();
   await expect(start).toBeEnabled();
   await tabTo(page, start);
@@ -108,7 +108,7 @@ async function signInAndStartMastery(page: Page, inputs: UiWalkthroughInputs): P
     inputs.screenshotDirectory,
   );
   await page.keyboard.press("Space");
-  const freshPractice = page.getByRole("button", { name: "Start another practice run" });
+  const freshPractice = page.getByRole("button", { name: "Start another practice" });
   const surface = await waitForPostStartSurface(page, freshPractice);
   if (surface === "fresh-practice") {
     throw new Error("J2 requires J1's active first run rather than a fresh practice run");
@@ -154,7 +154,7 @@ function isPollTimeout(error: unknown): boolean {
 
 async function waitForNextMasterySurface(page: Page): Promise<"run" | "complete"> {
   const radios = page.getByRole("radio");
-  const freshPractice = page.getByRole("button", { name: "Start another practice run" });
+  const freshPractice = page.getByRole("button", { name: "Start another practice" });
   const inlineErrors = page.locator(".inline-error:visible");
   // Keep the observed state in an object: `expect.poll` invokes its callback later,
   // so TypeScript correctly cannot prove an outer local variable was reassigned.
@@ -203,7 +203,7 @@ test("J2 resumes the active first run and completes the instructor-created Maste
       "four rendered question completions did not reach the Mastery completion surface",
     );
   }
-  const freshPractice = page.getByRole("button", { name: "Start another practice run" });
+  const freshPractice = page.getByRole("button", { name: "Start another practice" });
   await expect(freshPractice).toBeVisible();
   checkpoint(inputs, "first_run_completed");
   await tabTo(page, freshPractice);

@@ -18,7 +18,7 @@ use serde::Serialize;
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
 use super::policy::require_course_access;
-use super::projection::{error_response, store_error_response};
+use super::projection::{error_response, no_store, store_error_response};
 use super::routing::{
     AddAssignmentItemRequest, AssignmentItemUpdateRequest, CourseRouteState,
     CreateAssignmentRequest, ReplaceAssignmentItemQuestionRequest, UpdateAssignmentRequest,
@@ -124,6 +124,46 @@ where
         return response;
     }
     assignment_response(&state, &authenticated, StatusCode::OK, assignment).await
+}
+
+pub(super) async fn get_assignment_summary<S>(
+    State(state): State<CourseRouteState<S>>,
+    headers: HeaderMap,
+    Path(assignment): Path<AssignmentId>,
+) -> Response
+where
+    S: Store + CatalogStore + CourseRecordsAccessStore + SessionStore + 'static,
+{
+    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
+        Ok(authenticated) => authenticated,
+        Err(error) => return auth_error_response(error),
+    };
+    let enrollment = match state
+        .store
+        .learner_get_enrollment_for_assignment(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            assignment,
+        )
+        .await
+    {
+        Ok(Some(enrollment)) => enrollment,
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "assignment summary not found"),
+        Err(error) => return store_error_response(error),
+    };
+    match state
+        .store
+        .learner_get_summary(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            enrollment.id,
+        )
+        .await
+    {
+        Ok(Some(summary)) => no_store(Json(summary).into_response()),
+        Ok(None) => error_response(StatusCode::NOT_FOUND, "summary not found"),
+        Err(error) => store_error_response(error),
+    }
 }
 
 pub(super) async fn update_assignment<S>(

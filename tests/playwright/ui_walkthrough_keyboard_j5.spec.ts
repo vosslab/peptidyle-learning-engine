@@ -68,7 +68,7 @@ async function signInAndOpenGradebook(
       page
         .locator(".course-card")
         .nth(index)
-        .getByRole("link", { name: "Review assignment", exact: true }),
+        .getByRole("link", { name: "Start assignment", exact: true }),
     itemName: "assignments",
   });
   await expect(assignmentLink).toHaveCount(1);

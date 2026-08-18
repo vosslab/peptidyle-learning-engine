@@ -58,7 +58,7 @@ async function signInAndResumeSecondRun(page: Page, inputs: UiWalkthroughInputs)
       page
         .locator(".course-card")
         .nth(index)
-        .getByRole("link", { name: "Review assignment", exact: true }),
+        .getByRole("link", { name: "Start assignment", exact: true }),
     itemName: "assignments",
   });
   await expect(assignment).toHaveCount(1);
@@ -66,7 +66,7 @@ async function signInAndResumeSecondRun(page: Page, inputs: UiWalkthroughInputs)
   await tabTo(page, assignment, "backward");
   await expect(assignment).toBeFocused();
   await page.keyboard.press("Enter");
-  const resume = page.getByRole("button", { name: "Start or resume practice" });
+  const resume = page.getByRole("button", { name: "Start or continue practice" });
   await expect(resume).toBeVisible();
   await expect(resume).toBeEnabled();
   await tabTo(page, resume);
@@ -77,7 +77,7 @@ async function signInAndResumeSecondRun(page: Page, inputs: UiWalkthroughInputs)
 
 async function waitForNextMasterySurface(page: Page): Promise<"run" | "complete"> {
   const radios = page.getByRole("radio");
-  const freshPractice = page.getByRole("button", { name: "Start another practice run" });
+  const freshPractice = page.getByRole("button", { name: "Start another practice" });
   const inlineErrors = page.locator(".inline-error:visible");
   // Keep the observed state in an object: `expect.poll` invokes its callback later,
   // so TypeScript correctly cannot prove an outer local variable was reassigned.
@@ -128,7 +128,7 @@ test("J4 completes the resumed second Mastery run through visible keyboard contr
   await expect(
     page.getByRole("heading", { name: "Keep practicing with a fresh variation" }),
   ).toBeVisible({ timeout: 30_000 });
-  const freshPractice = page.getByRole("button", { name: "Start another practice run" });
+  const freshPractice = page.getByRole("button", { name: "Start another practice" });
   await expect(freshPractice).toBeVisible();
   await tabTo(page, freshPractice);
   await expect(freshPractice).toBeFocused();

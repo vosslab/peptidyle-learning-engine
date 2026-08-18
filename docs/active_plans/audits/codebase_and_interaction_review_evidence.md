@@ -58,47 +58,47 @@ pathnames rather than deriving them from the route contract.
 
 | ID | Finding | Class | Disposition |
 | --- | --- | --- | --- |
-| STU-1 | No time limit shown before a timed run starts | Source | Confirmed |
-| STU-2 | No learner mastery view | Source | Confirmed |
-| STU-3 | Implementation vocabulary shown to students | Source | Confirmed |
-| STU-4 | Three verbs enter the same practice loop | Source | Confirmed |
-| STU-5 | Student assignment rows carry no state | Source | Confirmed |
-| STU-6 | Completeness copy leaks pagination and breaks grammar | Source | Confirmed |
+| STU-1 | No time limit shown before a timed run starts | Source | Resolved |
+| STU-2 | No learner mastery view | Source | Resolved |
+| STU-3 | Implementation vocabulary shown to students | Source | Resolved |
+| STU-4 | Three verbs enter the same practice loop | Source | Resolved |
+| STU-5 | Student assignment rows carry no state | Source | Resolved |
+| STU-6 | Completeness copy leaks pagination and breaks grammar | Source | Resolved |
 
-**STU-1.** `src/pages/assignment_overview_page.tsx:66-85` renders exactly three facts: questions per
-run, variation, and feedback. The countdown appears on `run_page` after the attempt is issued. A
-student commits to a timed run without being told its limit. WP-HG1.T made whole-run timing
-course-owned and visible during the run; the decision point is one screen earlier.
+**STU-1.** `src/pages/assignment_overview_page.tsx` now renders assignment-level timing alongside other
+facts, and `/api/assignments/{assignment}` decoders now surface `assignmentTiming` with explicit Untimed
+defaulting when omitted by older payloads. The student sees timing before the timer starts.
 
-**STU-2.** `src/pages/` holds no learner analogue of `gradebook_page`. The data exists:
-`student_assignment_summary` supplies best, latest, completed count, and last activity to the
-instructor gradebook. `docs/MASTERY_ASSIGNMENT_DESIGN.md:23` promises completion "does not erase the
-opportunity to learn more", and `crates/domain/tests/run_31.rs` makes repeated post-completion
-practice a permanent contract. The learner cannot see their own trajectory, so the product's central
-promise is unobservable by the person it is made to.
+**STU-2.** `src/pages/assignment_overview_page.tsx` now projects a learner-facing outcome
+sheet from `/api/assignments/{assignment}/summary`, and the endpoint resolves one
+enrollment summary for the active learner from `student_assignment_summary`. The rendered
+facts include current score, latest score, best score, completed runs, total attempts, and
+last activity.
 
-**STU-3.** `src/pages/assignment_overview_page.tsx:79` renders "Each newly issued attempt receives a
-fresh seed." as a bold fact value; `:83` renders "Released according to the assignment policy",
-which does not tell a student whether they will see answers. `docs/HUMAN_GUIDANCE.md:507-509` asks
-for plain capability names before implementation jargon.
+**STU-3.** `src/pages/assignment_overview_page.tsx:79` now renders "Each attempt is a fresh
+variation." and `:83` now renders "Feedback and scores are released by the assignment
+settings." as student-facing terminology.
 
-**STU-4.** `src/pages/course_assignments_page.tsx:161` "Review assignment";
-`src/pages/assignment_overview_page.tsx:109` "Start or resume practice";
-`src/pages/run_page.tsx:439` "Start another practice run". "Review assignment" is the first label a
-student meets and names a different action than starting practice. The same label serves the
-instructor's course assignment list, where the intent is editing. The label is also written into
-`docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md:91`, so changing it is a contract edit.
+**STU-4.** `src/pages/course_assignments_page.tsx:161` "Start assignment";
+`src/pages/assignment_overview_page.tsx:109` "Start or continue practice";
+`src/pages/run_page.tsx:439` "Start another practice". "Start assignment" is now the first label a
+student meets and maps to the same practice-loop action. The same label is not used for instructor-only
+editing context. The label is also written into `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md:91`, so
+changing it is a contract edit.
 
-**STU-5.** The row shows title and question count only. Comparison evidence:
+**STU-5.** The row now shows title, question count, and a learner progress line pulled from the
+active assignment summary. The card can surface no-attempts, current/latest score, best score, and
+completed run count, so a student can tell whether an assignment is untouched or already in motion.
+Comparison evidence:
 `OTHER_REPOS/adapt/resources/js/pages/students/assignments.index.vue:364-415` carries points
 received, points possible, status, and submitted date, with filters by group and status. ADAPT also
-carries a z-score, which is more than a mastery product needs. PLE currently carries less than a
+carries a z-score, which is more than a mastery product needs. PLE now carries the minimum state a
 student needs to choose what to work on.
 
-**STU-6.** `src/pages/course_assignments_page.tsx:77`, `src/pages/course_list_page.tsx:94`, and
-`src/pages/gradebook_page.tsx:109,125` render "All N ... are shown."; with one item this reads
-"All 1 assignments are shown." `docs/UI_DESIGN_GUIDE.md:25-26` already asks that confirmations the
-visible content proves be left out.
+**STU-6.** `src/pages/course_assignments_page.tsx`, `src/pages/course_list_page.tsx`, and
+`src/pages/gradebook_page.tsx` now render count-based completion copy such as `Loaded N
+assignments.` and `Loaded N gradebook records.` The old `All N ... are shown.` phrasing is gone,
+and the recovery messages now describe the already visible items with singular/plural grammar.
 
 ## Instructor interaction
 

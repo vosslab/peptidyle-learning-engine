@@ -29,7 +29,7 @@ import { catalogProblemReferencePath, catalogSearchPath } from "../catalog_query
 import {
   decodeAssignmentPage,
   decodeAssignmentRun,
-  decodeAssignmentSummary,
+  decodeAssignmentSummaryWithTiming,
   decodeAttemptPage,
   decodeCatalogPage,
   decodeCatalogProblemDetail,
@@ -288,6 +288,7 @@ export function createResponseClient(
   | "listAssignments"
   | "getAssignment"
   | "getAssignmentEditor"
+  | "getAssignmentSummary"
   | "getEnrollment"
   | "listRuns"
   | "getRun"
@@ -377,7 +378,7 @@ export function createResponseClient(
         fetchImplementation,
         basePath,
         `/api/assignments/${encodedId(assignmentId)}`,
-        decodeAssignmentSummary,
+        decodeAssignmentSummaryWithTiming,
       ),
     getAssignmentEditor: (assignmentId) =>
       requestAssignmentEditor(
@@ -385,6 +386,13 @@ export function createResponseClient(
         basePath,
         `/api/assignments/${encodedId(assignmentId)}`,
         { assignmentId },
+      ),
+    getAssignmentSummary: (assignmentId: AssignmentId) =>
+      requestJson(
+        fetchImplementation,
+        basePath,
+        `/api/assignments/${encodedId(assignmentId)}/summary`,
+        decodeStudentAssignmentSummary,
       ),
     getEnrollment: (enrollmentId: EnrollmentId) =>
       requestJson(

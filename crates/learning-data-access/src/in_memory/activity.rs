@@ -57,6 +57,31 @@ impl crate::ActivityStore for MemoryStore {
         )?;
         Ok(Some(record))
     }
+    async fn learner_get_enrollment_for_assignment_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        assignment: AssignmentId,
+    ) -> Result<Option<AssignmentEnrollment>, StoreError> {
+        let state = self.read_state()?;
+        let Some(record) = state
+            .enrollments
+            .values()
+            .find(|record| record.assignment == assignment && record.user == actor)
+            .cloned()
+        else {
+            return Ok(None);
+        };
+        let assignment = assignment_record(&state, context.tenant_id(), record.assignment)?;
+        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
+        require_active_learner_membership(
+            &state,
+            context.tenant_id(),
+            assignment.course_id,
+            actor,
+        )?;
+        Ok(Some(record))
+    }
     async fn learner_get_run_impl(
         &self,
         context: TenantContext,

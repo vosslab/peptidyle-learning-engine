@@ -22,37 +22,37 @@ function fixtureMarkup({
   const copy =
     itemName === "courses"
       ? {
-          complete: "courses",
+          singular: "course",
+          plural: "courses",
           error: "Could not load more courses. The ",
           fragmentId: "course-pagination",
           load: "Load more courses",
           loaded: "more courses. ",
           loading: "Loading more courses...",
           retry: "Try loading more courses again",
-          shown: "courses",
           skip: "Skip to load more courses",
         }
       : itemName === "gradebook records"
         ? {
-            complete: "gradebook records",
+            singular: "gradebook record",
+            plural: "gradebook records",
             error: "Could not load more gradebook records. The ",
             fragmentId: "gradebook-pagination",
             load: "Load more gradebook records",
             loaded: "more gradebook records. ",
             loading: "Loading more gradebook records...",
             retry: "Try loading more gradebook records again",
-            shown: "records",
             skip: "Skip to load more gradebook records",
           }
         : {
-            complete: "assignments",
+            singular: "assignment",
+            plural: "assignments",
             error: "Could not load more assignments. The ",
             fragmentId: "assignment-pagination",
             load: "Load more assignments",
             loaded: "more assignments. ",
             loading: "Loading more assignments...",
             retry: "Try loading more assignments again",
-            shown: "assignments",
             skip: "Skip to load more assignments",
           };
   return `
@@ -92,7 +92,8 @@ function fixtureMarkup({
       const renderControl = () => {
         controls.replaceChildren();
         if (pageIndex >= pages.length) {
-          status.textContent = "All " + shownCount() + " ${copy.complete} are shown.";
+          const noun = shownCount() === 1 ? "${copy.singular}" : "${copy.plural}";
+          status.textContent = "Loaded " + shownCount() + " " + noun + ".";
           return;
         }
         const button = document.createElement("button");
@@ -106,7 +107,15 @@ function fixtureMarkup({
             if (failAtPage === pageIndex) {
               const alert = document.createElement("div");
               alert.setAttribute("role", "alert");
-              alert.textContent = "${copy.error}" + shownCount() + " already shown are still available.";
+              const noun = shownCount() === 1 ? "${copy.singular}" : "${copy.plural}";
+              alert.textContent =
+                "${copy.error}" +
+                shownCount() +
+                " " +
+                noun +
+                " already visible " +
+                (shownCount() === 1 ? "is" : "are") +
+                " still available.";
               const retry = document.createElement("button");
               retry.setAttribute("type", "button");
               retry.textContent = "${copy.retry}";
@@ -117,7 +126,15 @@ function fixtureMarkup({
             if (protocolAtPage === pageIndex) {
               const alert = document.createElement("div");
               alert.setAttribute("role", "alert");
-              alert.textContent = "Gradebook pagination stopped because the next page was not distinct. The " + shownCount() + " already shown are still available.";
+              const noun = shownCount() === 1 ? "${copy.singular}" : "${copy.plural}";
+              alert.textContent =
+                "Gradebook pagination stopped because the next page was not distinct. The " +
+                shownCount() +
+                " " +
+                noun +
+                " already visible " +
+                (shownCount() === 1 ? "is" : "are") +
+                " still available.";
               const reload = document.createElement("button");
               reload.setAttribute("type", "button");
               reload.textContent = "Reload gradebook";
@@ -128,7 +145,20 @@ function fixtureMarkup({
             const before = shownCount();
             const firstAppended = appendPage(pageIndex);
             pageIndex += 1;
-            status.textContent = "Loaded " + (shownCount() - before) + " ${copy.loaded}" + shownCount() + " ${copy.shown} shown.";
+            const appendedCount = shownCount() - before;
+            const appendedNoun =
+              appendedCount === 1 ? "${copy.singular}" : "${copy.plural}";
+            const noun = shownCount() === 1 ? "${copy.singular}" : "${copy.plural}";
+            status.textContent =
+              "Loaded " +
+              appendedCount +
+              " more " +
+              appendedNoun +
+              ". " +
+              shownCount() +
+              " " +
+              noun +
+              " visible.";
             firstAppended?.focus();
             renderControl();
           }, 15);
@@ -253,7 +283,7 @@ test("keyboard pagination fails at an announced terminal state when the target i
       itemName: "assignments",
     }),
   ).rejects.toThrow("terminal state before the target");
-  await expect(page.getByRole("status")).toContainText("All 1 assignments are shown.");
+  await expect(page.getByRole("status")).toContainText("Loaded 1 assignment.");
 });
 
 test("keyboard pagination fails closed on a visible recoverable error", async ({ page }) => {
@@ -268,7 +298,7 @@ test("keyboard pagination fails closed on a visible recoverable error", async ({
     }),
   ).rejects.toThrow("recoverable error");
   await expect(page.getByRole("alert")).toContainText(
-    "Could not load more assignments. The 1 already shown are still available.",
+    "Could not load more assignments. The 1 assignment already visible is still available.",
   );
   await expect(
     page.getByRole("button", { name: "Try loading more assignments again" }),
