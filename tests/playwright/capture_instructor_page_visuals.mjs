@@ -6,21 +6,15 @@ import { chmod, copyFile, lstat, mkdtemp, open, readdir, rename, rm } from "node
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-const screenshotNames = [
-  "instructor_page_courses.png",
-  "instructor_page_course_assignments.png",
-  "instructor_page_assignment_overview.png",
-  "instructor_page_assignment_create.png",
-  "instructor_page_assignment_edit.png",
-  "instructor_page_roster.png",
-  "instructor_page_gradebook.png",
-  "instructor_page_course_appearance.png",
-  "instructor_page_library.png",
-  "instructor_page_question_detail.png",
-  "instructor_page_workspace.png",
-  "instructor_page_question_editor.png",
-  "instructor_page_account_security.png",
-];
+import {
+  CORPUS_VIEWPORT_SIZES,
+  artifactNamesForPipeline,
+  viewportForArtifact,
+} from "./ui_corpus_manifest.ts";
+
+// The manifest is the single authority for corpus membership, so this runner validates whatever the
+// mock pipeline owns rather than carrying a second copy of the name list.
+const screenshotNames = artifactNamesForPipeline("mock");
 const temporaryParent = "/private/tmp";
 const temporaryPrefix = "ple-docs-screenshots.";
 
@@ -88,9 +82,16 @@ async function validateScreenshots(directory) {
     if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size === 0) {
       throw new Error(`${name} is not a nonempty regular file`);
     }
+    const viewport = viewportForArtifact(name);
+    if (viewport === undefined) {
+      throw new Error(`${name} needs a viewport declared in the corpus manifest`);
+    }
+    const expected = CORPUS_VIEWPORT_SIZES[viewport];
     const dimensions = await pngDimensions(filePath);
-    if (dimensions.width !== 1_280 || dimensions.height !== 800) {
-      throw new Error(`${name} must be exactly 1280 by 800 CSS pixels`);
+    if (dimensions.width !== expected.width || dimensions.height !== expected.height) {
+      throw new Error(
+        `${name} must be exactly ${expected.width} by ${expected.height} CSS pixels for the ${viewport} viewport`,
+      );
     }
   }
 }

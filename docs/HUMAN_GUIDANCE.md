@@ -15,13 +15,17 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 ## Device and viewport priorities
 
 - Design desktop-first around a canonical 1280 by 800 laptop browser window, and make the interface
-  look its best there. Instructors will usually work on laptops. A supported laptop browser may
-  occupy only part of a larger physical display; do not assume full-screen desktop use.
-- Treat an 800 by 1280 portrait browser as a representative secondary student/tablet target. Student
-  devices will be more variable than instructor devices, but that variability must not make the
-  canonical laptop interface padded, stacked, or visually compromised.
-- Keep ordinary narrow phones genuinely usable: prevent horizontal overflow, preserve accessible
-  controls and navigation, and reorganize individual components when available space requires it.
+  look its best there. This canonical laptop viewport applies to both instructors and students.
+  Instructors are expected to use laptops predominantly, and students are expected to use laptops
+  most often as well. A supported laptop browser may occupy only part of a larger physical display;
+  do not assume full-screen desktop use.
+- Treat an 800 by 1280 portrait browser as a high-priority student/tablet target alongside the
+  laptop, because student devices are more variable than instructor devices. Tablet is a student
+  design target rather than a second tier. That variability must not make the canonical laptop
+  interface padded, stacked, or visually compromised.
+- Keep ordinary narrow phones genuinely usable for occasional work, such as completing an assignment
+  on a phone while commuting: prevent horizontal overflow, preserve accessible controls and
+  navigation, and reorganize individual components when available space requires it.
   A phone layout may be less elegant and need not preserve the desktop information density or visual
   composition. Do not redesign or stack the entire product merely to optimize for a
   320-pixel-wide viewport; narrow-phone checks are compatibility guards, not the design canvas.
@@ -31,8 +35,9 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   unless the current navigation has a demonstrated interaction need that native HTML and CSS cannot
   meet cleanly.
 - Distinguish physical panel resolution from the browser's CSS-pixel viewport when recording
-  evidence. Center visual acceptance on the canonical 1280 by 800 laptop window, include the
-  representative 800 by 1280 student/tablet path, and keep one narrow-phone compatibility guard.
+  evidence. Center visual acceptance on the canonical 1280 by 800 laptop window for both roles,
+  cover student surfaces at both 1280 by 800 and the high-priority 800 by 1280 tablet target, and
+  keep one narrow-phone compatibility guard.
   Do not expand the viewport matrix without a demonstrated product problem.
 
 ## Interface composition and accessibility
@@ -45,7 +50,8 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   authoring, problem selection and organization, gradebook, roster, course management, workspace,
   and library pages should use most of the useful width when it improves scanning or editing. Four
   selected problems, their policies, and the save action should fit comfortably in that workspace.
-- Keep student workflows responsive across the representative tablet and narrow-phone guards. A
+- Compose student workflows for the canonical 1280 by 800 laptop and the high-priority 800 by 1280
+  tablet as design targets, and keep them responsive across the narrow-phone compatibility guard. A
   wide screen should not force the learner's attention across an arbitrary prompt/response split;
   keep each question and its response controls in one readable composition.
 - Establish hierarchy with composition and spacing before adding borders, weight, or color. Use

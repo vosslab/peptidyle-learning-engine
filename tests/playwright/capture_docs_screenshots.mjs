@@ -6,19 +6,11 @@ import { chmod, copyFile, lstat, mkdtemp, readdir, rename, rm } from "node:fs/pr
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-const screenshotNames = [
-  "instructor_course_overview.png",
-  "instructor_roster_active_student.png",
-  "instructor_problem_catalog.png",
-  "instructor_assignment_settings.png",
-  "instructor_assignment_created.png",
-  "genetics_chapter_one_overview.png",
-  "student_assignment_list.png",
-  "student_timed_problem.png",
-  "student_fresh_practice.png",
-  "student_retake_fresh_problem.png",
-  "instructor_gradebook_mastery_loop.png",
-];
+import { artifactNamesForPipeline } from "./ui_corpus_manifest.ts";
+
+// The manifest is the single authority for corpus membership, so this runner validates whatever the
+// live pipeline owns rather than carrying a second copy of the name list.
+const screenshotNames = artifactNamesForPipeline("live");
 const privateTemporaryParent = "/private/tmp";
 const privateTemporaryPrefix = "ple-docs-screenshots.";
 

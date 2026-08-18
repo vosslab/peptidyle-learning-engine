@@ -1,5 +1,46 @@
 # Changelog
 
+## 2026-08-18
+
+### Additions and New Features
+
+- Added one authority for the committed screenshot corpus. `tests/playwright/ui_corpus_manifest.ts`
+  declares all 24 artifacts with their surface, route, role, owning pipeline, live-capture reason,
+  and evidence purpose, and both capture runners now read it instead of holding separate name lists.
+  `tests/playwright/ui_corpus_provenance.mjs` records the capture commit per artifact, and
+  `tests/playwright/verify_ui_corpus.mjs` reports ownership gaps and staleness, so "is this visual
+  evidence current?" is answerable without re-running a capture pipeline.
+
+### Behavior or Interface Changes
+
+- Recorded the owner's device correction across `docs/HUMAN_GUIDANCE.md` and
+  `docs/UI_DESIGN_GUIDE.md`: 1280 by 800 is the canonical laptop viewport for both instructors and
+  students, the 800 by 1280 portrait tablet is a high-priority student design target rather than a
+  secondary tier, and the narrow phone remains a compatibility guard for occasional use such as
+  working while commuting.
+
+### Developer Tests and Notes
+
+- Completed a read-only codebase and human-interaction review covering the Rust workspace, the
+  SolidJS browser, the documented contracts, all 25 committed screenshots, and `OTHER_REPOS/adapt`
+  as comparison evidence. Findings and recommendations are in
+  `docs/active_plans/audits/codebase_and_interaction_review.md` with the full register in
+  `codebase_and_interaction_review_evidence.md`. The review accepts no work package.
+- Measured evidence staleness rather than assuming it. A spike compared `src`, `src/style.css`,
+  `src/pages`, `src/components`, and `src/features` and found they share one last-change commit
+  because this repository lands large batched commits, so narrowing the owning path adds no
+  discrimination. Staleness is therefore reported as a commit count rather than enforced. The
+  measurement retired the earlier reading that the mock-captured screenshots were current: all 24
+  artifacts predate the current browser sources, the 13 mock images by one commit and the 11 live
+  images by three.
+- Corpus reconciliation found `docs/screenshots/peptide_bond_mastery_overview.png` committed with no
+  producing pipeline and no citing document, and no 800 by 1280 artifact for any of the six student
+  surfaces, although the design guide already named student pages at that viewport as canonical
+  evidence.
+- Recorded that `npx tsc --noEmit -p tsconfig.lint.json` fails at HEAD on
+  `tests/playwright/roster_ui_accessibility.spec.ts(137,31)`, so `check_codebase.sh` step 2 is red on
+  the committed tree independently of this review. Left unchanged as out-of-scope project context.
+
 ## 2026-08-15
 
 ### Fixes and Maintenance

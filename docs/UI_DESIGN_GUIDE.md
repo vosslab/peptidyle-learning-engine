@@ -7,8 +7,9 @@ specific to a course rather than like a collection of generic bordered forms. Th
 space to the current teaching decision, keeps secondary explanation available without making it
 permanent noise, and makes the next action easy to recognize.
 
-Instructor work is composed first for a 1280 by 800 CSS-pixel laptop viewport. Student work adapts
-from that laptop canvas through an 800 by 1280 tablet and a narrow-phone compatibility guard.
+Instructor work is composed first for a 1280 by 800 CSS-pixel laptop viewport. Student work is
+composed for that same canonical laptop viewport and for the high-priority 800 by 1280 tablet
+target, and stays usable through a narrow-phone compatibility guard.
 
 ## Hierarchy
 
@@ -151,8 +152,9 @@ direct Question ID entry remains an occasional recovery and communication path.
 
 Use behavior tests for durable interaction and authorization contracts. Use computed browser styles,
 screenshots, and human inspection for geometry, density, hierarchy, theme character, focus, and
-responsive composition. Canonical evidence includes 1280 by 800 instructor pages, 800 by 1280
-student pages, a narrow-phone overflow guard, and standard plus increased-contrast theme samples.
+responsive composition. Canonical evidence includes 1280 by 800 instructor pages, student pages at
+both 1280 by 800 and 800 by 1280, a narrow-phone overflow guard, and standard plus
+increased-contrast theme samples.
 The accepted implementation evidence and page-level findings live in
 [UI_DESIGN_REVIEW.md](UI_DESIGN_REVIEW.md). The current instructor surface corpus lives in
 [INSTRUCTOR_PAGE_VISUALS.md](INSTRUCTOR_PAGE_VISUALS.md).

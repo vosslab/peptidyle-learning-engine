@@ -1,0 +1,172 @@
+{
+  "artifacts": {
+    "instructor_page_courses.png": {
+      "pipeline": "mock",
+      "viewport": "laptop",
+      "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
+      "capturedAt": "2026-08-13T21:34:24-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_page_course_assignments.png": {
+      "pipeline": "mock",
+      "viewport": "laptop",
+      "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
+      "capturedAt": "2026-08-13T21:34:24-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_page_assignment_overview.png": {
+      "pipeline": "mock",
+      "viewport": "laptop",
+      "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
+      "capturedAt": "2026-08-13T21:34:24-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_page_assignment_create.png": {
+      "pipeline": "mock",
+      "viewport": "laptop",
+      "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
+      "capturedAt": "2026-08-13T21:34:24-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_page_assignment_edit.png": {
+      "pipeline": "mock",
+      "viewport": "laptop",
+      "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
+      "capturedAt": "2026-08-13T21:34:24-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_page_roster.png": {
+      "pipeline": "mock",
+      "viewport": "laptop",
+      "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
+      "capturedAt": "2026-08-13T21:34:24-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_page_gradebook.png": {
+      "pipeline": "mock",
+      "viewport": "laptop",
+      "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
+      "capturedAt": "2026-08-13T21:34:24-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_page_course_appearance.png": {
+      "pipeline": "mock",
+      "viewport": "laptop",
+      "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
+      "capturedAt": "2026-08-13T21:34:24-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_page_library.png": {
+      "pipeline": "mock",
+      "viewport": "laptop",
+      "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
+      "capturedAt": "2026-08-13T21:34:24-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_page_question_detail.png": {
+      "pipeline": "mock",
+      "viewport": "laptop",
+      "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
+      "capturedAt": "2026-08-13T21:34:24-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_page_workspace.png": {
+      "pipeline": "mock",
+      "viewport": "laptop",
+      "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
+      "capturedAt": "2026-08-13T21:34:24-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_page_question_editor.png": {
+      "pipeline": "mock",
+      "viewport": "laptop",
+      "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
+      "capturedAt": "2026-08-13T21:34:24-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_page_account_security.png": {
+      "pipeline": "mock",
+      "viewport": "laptop",
+      "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
+      "capturedAt": "2026-08-13T21:34:24-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_course_overview.png": {
+      "pipeline": "live",
+      "viewport": "laptop",
+      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
+      "capturedAt": "2026-08-12T19:14:28-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_roster_active_student.png": {
+      "pipeline": "live",
+      "viewport": "laptop",
+      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
+      "capturedAt": "2026-08-12T19:14:28-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_problem_catalog.png": {
+      "pipeline": "live",
+      "viewport": "laptop",
+      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
+      "capturedAt": "2026-08-12T19:14:28-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_assignment_settings.png": {
+      "pipeline": "live",
+      "viewport": "laptop",
+      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
+      "capturedAt": "2026-08-12T19:14:28-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_assignment_created.png": {
+      "pipeline": "live",
+      "viewport": "laptop",
+      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
+      "capturedAt": "2026-08-12T19:14:28-05:00",
+      "derivedFromHistory": true
+    },
+    "instructor_gradebook_mastery_loop.png": {
+      "pipeline": "live",
+      "viewport": "laptop",
+      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
+      "capturedAt": "2026-08-12T19:14:28-05:00",
+      "derivedFromHistory": true
+    },
+    "genetics_chapter_one_overview.png": {
+      "pipeline": "live",
+      "viewport": "laptop",
+      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
+      "capturedAt": "2026-08-12T19:14:28-05:00",
+      "derivedFromHistory": true
+    },
+    "student_assignment_list.png": {
+      "pipeline": "live",
+      "viewport": "laptop",
+      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
+      "capturedAt": "2026-08-12T19:14:28-05:00",
+      "derivedFromHistory": true
+    },
+    "student_timed_problem.png": {
+      "pipeline": "live",
+      "viewport": "laptop",
+      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
+      "capturedAt": "2026-08-12T19:14:28-05:00",
+      "derivedFromHistory": true
+    },
+    "student_fresh_practice.png": {
+      "pipeline": "live",
+      "viewport": "laptop",
+      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
+      "capturedAt": "2026-08-12T19:14:28-05:00",
+      "derivedFromHistory": true
+    },
+    "student_retake_fresh_problem.png": {
+      "pipeline": "live",
+      "viewport": "laptop",
+      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
+      "capturedAt": "2026-08-12T19:14:28-05:00",
+      "derivedFromHistory": true
+    }
+  }
+}
