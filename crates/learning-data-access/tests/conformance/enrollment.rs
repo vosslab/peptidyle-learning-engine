@@ -85,6 +85,7 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![first_version]),
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: policies(),
             },
         )
@@ -143,6 +144,7 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![second_version]),
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: policies(),
             },
         )

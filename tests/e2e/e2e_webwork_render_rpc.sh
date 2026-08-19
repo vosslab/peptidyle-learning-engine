@@ -7,13 +7,17 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-ENV_FILE="${PLE_E2E_ENV_FILE:-containers/env.local}"
-E2E_ENV_DIRECTORY="$(dirname "$ENV_FILE")"
-CREDENTIAL_FILE="${PLE_E2E_STUDENT_CREDENTIAL_FILE:-$E2E_ENV_DIRECTORY/local-login.txt}"
 WORK_DIRECTORY="$(mktemp -d "${TMPDIR:-/tmp}/ple-webwork-e2e.XXXXXX")"
-MANIFEST_FILE="$WORK_DIRECTORY/webwork-renderer-fixture.json"
+chmod 700 "$WORK_DIRECTORY"
+STACK_DIRECTORY="$WORK_DIRECTORY/stack"
+mkdir -m 700 "$STACK_DIRECTORY"
+ENV_FILE=""
+STACK_MANIFEST_FILE=""
+CREDENTIAL_FILE=""
+PROJECT_NAME=""
+STACK_STARTED=0
+FIXTURE_MANIFEST_FILE="$WORK_DIRECTORY/webwork-renderer-fixture.json"
 COOKIE_JAR="$WORK_DIRECTORY/student.cookies"
-trap 'rm -rf "$WORK_DIRECTORY"' EXIT
 
 fail() {
 	echo "FAIL: $*" >&2
@@ -23,6 +27,31 @@ fail() {
 require_file() {
 	[ -r "$1" ] || fail "required local artifact is missing or unreadable: $1"
 }
+
+adapter() {
+	local action="$1"
+	shift
+	python3 -m local_stack_control._consumer_cli "$action" --manifest "$STACK_MANIFEST_FILE" "$@"
+}
+
+cleanup_stack() {
+	local status="${1:-$?}"
+	local cleanup_failed=0
+	if [ "${PLE_E2E_KEEP:-0}" = "1" ]; then
+		echo "WebWork browser E2E: preserving disposable project $PROJECT_NAME ($STACK_DIRECTORY)"
+	elif [ "$STACK_STARTED" = "1" ]; then
+		adapter cleanup || cleanup_failed=1
+	fi
+	if [ "$cleanup_failed" = "1" ]; then
+		echo "WebWork browser E2E: exact disposable cleanup failed; preserving $STACK_DIRECTORY" >&2
+		[ "$status" -ne 0 ] || status=1
+	elif [ "${PLE_E2E_KEEP:-0}" != "1" ]; then
+		rm -rf -- "$WORK_DIRECTORY"
+	fi
+	exit "$status"
+}
+
+trap cleanup_stack EXIT
 
 env_value() {
 	awk -F= -v setting_name="$1" '$1 == setting_name { value = substr($0, index($0, "=") + 1) } END { print value }' "$ENV_FILE"
@@ -178,14 +207,17 @@ if document.get("run", {}).get("completedAt") is None:
 PY
 }
 
-require_file "$ENV_FILE"
-
-# Required/no-SKIP acceptance: the canonical launcher has only the reviewed
-# Chapter 1 teaching corpus. This acceptance then creates its one-question
-# renderer fixture explicitly and keeps its answer-free manifest private to
-# this temporary directory.
 source source_me.sh
-python3 local_stack.py start --no-open --env-file "$ENV_FILE"
+# Required/no-SKIP acceptance creates a full private fixture rather than
+# starting or reusing the retained default `containers` project. The typed
+# owner is the only route that can mutate and clean this project.
+fixture_receipt="$(python3 tests/e2e/e2e_webwork_browser_fixture.py "$STACK_DIRECTORY")"
+ENV_FILE="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["env"])' "$fixture_receipt")"
+STACK_MANIFEST_FILE="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["manifest"])' "$fixture_receipt")"
+CREDENTIAL_FILE="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["login"])' "$fixture_receipt")"
+PROJECT_NAME="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["project"])' "$fixture_receipt")"
+STACK_STARTED=1
+adapter launch --timeout-seconds 240
 require_file "$CREDENTIAL_FILE"
 postgres_user="$(env_value POSTGRES_USER)"
 postgres_password="$(env_value POSTGRES_PASSWORD)"
@@ -211,15 +243,15 @@ AWS_SECRET_ACCESS_KEY="$(env_value MINIO_ROOT_PASSWORD)" \
 		--student "00000000-0000-0000-0000-000000000102" \
 		--s3-endpoint "http://127.0.0.1:${minio_port}" \
 		--s3-region "us-east-1" \
-		--private-content-bucket "private-content" >"$MANIFEST_FILE"
-chmod 600 "$MANIFEST_FILE"
-require_file "$MANIFEST_FILE"
+		--private-content-bucket "private-content" >"$FIXTURE_MANIFEST_FILE"
+chmod 600 "$FIXTURE_MANIFEST_FILE"
+require_file "$FIXTURE_MANIFEST_FILE"
 
 gateway_port="$(env_value PLE_GATEWAY_HOST_PORT)"
 gateway_port="${gateway_port:-8080}"
 case "$gateway_port" in ''|*[!0-9]*) fail "PLE_GATEWAY_HOST_PORT is not an integer" ;; esac
 BASE_URL="http://127.0.0.1:${gateway_port}"
-ASSIGNMENT_ID="$(json_value "$MANIFEST_FILE" assignmentId)"
+ASSIGNMENT_ID="$(json_value "$FIXTURE_MANIFEST_FILE" assignmentId)"
 student_credential="$(awk -F= '$1 == "student" { print $2 }' "$CREDENTIAL_FILE")"
 [ -n "$student_credential" ] || fail "local student login credential is absent"
 
@@ -236,17 +268,17 @@ api_before_run="$WORK_DIRECTORY/api-before-run.log"
 api_after_run="$WORK_DIRECTORY/api-after-run.log"
 api_after_first="$WORK_DIRECTORY/api-after-first.log"
 api_after_second="$WORK_DIRECTORY/api-after-second.log"
-python3 local_stack.py logs --env-file "$ENV_FILE" --tail all api >"$api_before_run" 2>&1 || fail "cannot read PLE API structured evidence"
+adapter read-evidence-logs >"$api_before_run" 2>&1 || fail "cannot read PLE API structured evidence"
 attempt_one="$(create_attempt "$run_one" "$attempts_one")"
-python3 local_stack.py logs --env-file "$ENV_FILE" --tail all api >"$api_after_run" 2>&1 || fail "cannot read PLE API evidence after run creation"
+adapter read-evidence-logs >"$api_after_run" 2>&1 || fail "cannot read PLE API evidence after run creation"
 question_one="$WORK_DIRECTORY/question-one.json"
 first_status="$(gateway_request GET "/api/attempts/${attempt_one}/question" "$question_one")"
 [ "$first_status" = "200" ] || fail "first PLE WebWork question request returned HTTP $first_status"
-python3 local_stack.py logs --env-file "$ENV_FILE" --tail all api >"$api_after_first" 2>&1 || fail "cannot read PLE API evidence after first question GET"
+adapter read-evidence-logs >"$api_after_first" 2>&1 || fail "cannot read PLE API evidence after first question GET"
 question_two="$WORK_DIRECTORY/question-two.json"
 second_status="$(gateway_request GET "/api/attempts/${attempt_one}/question" "$question_two")"
 [ "$second_status" = "200" ] || fail "second PLE WebWork question request returned HTTP $second_status"
-python3 local_stack.py logs --env-file "$ENV_FILE" --tail all api >"$api_after_second" 2>&1 || fail "cannot read PLE API evidence after second question GET"
+adapter read-evidence-logs >"$api_after_second" 2>&1 || fail "cannot read PLE API evidence after second question GET"
 cmp --silent "$question_one" "$question_two" || fail "same PLE WebWork attempt did not project identically from its persisted snapshot"
 
 structured_event_count() {
@@ -294,9 +326,9 @@ run_two="$WORK_DIRECTORY/run-two.json"
 attempts_two="$WORK_DIRECTORY/attempts-two.json"
 api_before_second_run="$WORK_DIRECTORY/api-before-second-run.log"
 api_after_second_run="$WORK_DIRECTORY/api-after-second-run.log"
-python3 local_stack.py logs --env-file "$ENV_FILE" --tail all api >"$api_before_second_run" 2>&1 || fail "cannot read PLE API evidence before the fresh second run"
+adapter read-evidence-logs >"$api_before_second_run" 2>&1 || fail "cannot read PLE API evidence before the fresh second run"
 attempt_two="$(create_attempt "$run_two" "$attempts_two")"
-python3 local_stack.py logs --env-file "$ENV_FILE" --tail all api >"$api_after_second_run" 2>&1 || fail "cannot read PLE API evidence after the fresh second run"
+adapter read-evidence-logs >"$api_after_second_run" 2>&1 || fail "cannot read PLE API evidence after the fresh second run"
 calls_before_second_run="$(structured_event_count "$api_before_second_run" renderer_call)"
 hits_before_second_run="$(structured_event_count "$api_before_second_run" cache_hit)"
 calls_after_second_run="$(structured_event_count "$api_after_second_run" renderer_call)"
@@ -327,16 +359,21 @@ assert_summary_score "$summary_two" 0.0
 
 # Renderer failure is local to WebWork.  Native health remains available and a
 # fresh WebWork attempt fails closed with 503 rather than falling back.
-python3 local_stack.py service stop webwork-renderer --env-file "$ENV_FILE" >/dev/null
+adapter stop-outage-service >/dev/null
 renderer_stopped=1
 restore_renderer() {
 	if [ "${renderer_stopped:-0}" = 1 ]; then
-		# The launcher recreates this stateless renderer and proves it ready.
-		python3 local_stack.py restart webwork-renderer --env-file "$ENV_FILE" >/dev/null
+		# The typed owner recreates this stateless renderer and reproves it ready.
+		adapter restart --service webwork-renderer --timeout-seconds 240 >/dev/null
 		renderer_stopped=0
 	fi
 }
-trap 'restore_renderer; rm -rf "$WORK_DIRECTORY"' EXIT
+finish() {
+	local status="$?"
+	restore_renderer || status=1
+	cleanup_stack "$status"
+}
+trap finish EXIT
 health_file="$WORK_DIRECTORY/health.json"
 health_status="$(gateway_request GET /health "$health_file")"
 [ "$health_status" = "200" ] || fail "native gateway health was not isolated from renderer outage"

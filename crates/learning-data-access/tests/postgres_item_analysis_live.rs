@@ -20,8 +20,8 @@ use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
 use question_model::response::{ResponseDefinition, StudentResponse};
 use question_model::run_policy::{
-    AttemptPolicy, CompletionRequirement, ContinuedPractice, FeedbackDisclosure, GradePolicy,
-    RunPolicies, TimingPolicy, VariationPolicy,
+    AttemptPolicy, CompletionRequirement, ContinuedPractice, GradePolicy, RunPolicies,
+    TimingPolicy, VariationPolicy,
 };
 use question_model::taxonomy::License;
 use question_model::{
@@ -73,10 +73,7 @@ fn draft(
             markdown: format!("Live item analysis: {title}"),
         }],
         response,
-        attempt_policy: AttemptPolicy {
-            max_attempts: None,
-            feedback: FeedbackDisclosure::Deferred,
-        },
+        attempt_policy: AttemptPolicy { max_attempts: None },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },
@@ -349,6 +346,7 @@ async fn postgres_item_analysis_is_current_private_and_generation_fenced() {
                 audience: question_model::AssignmentAudience::CourseWide,
                 items,
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: RunPolicies {
                     completion: CompletionRequirement::AnswerAll,
                     grade: GradePolicy::Highest,
@@ -576,6 +574,34 @@ async fn postgres_item_analysis_is_current_private_and_generation_fenced() {
     assert_eq!(report.completed_run_count, 1);
     assert!(!report.incomplete_manual_grading);
     assert_eq!(report.assignment_average_score, Some(0.75));
+    let learner_statistics = store
+        .learner_class_statistics(context, student, course, assignment)
+        .await
+        .expect("currently entitled learner receives a redacted statistics state");
+    assert_eq!(
+        learner_statistics,
+        question_model::LearnerClassStatistics::InsufficientEvidence,
+        "one completed learner is below the fixed privacy floor"
+    );
+    assert_eq!(
+        serde_json::to_value(learner_statistics).expect("serialize suppressed learner state"),
+        serde_json::json!({ "state": "insufficientEvidence" }),
+        "the suppressed state exposes neither metrics nor identities"
+    );
+    assert_eq!(
+        store
+            .learner_class_statistics(context, outsider, course, assignment)
+            .await,
+        Err(learning_data_access::StoreError::NotFound),
+        "an unenrolled actor must not receive a report or a suppression oracle"
+    );
+    assert_eq!(
+        store
+            .learner_class_statistics(foreign_context, foreign_user, course, assignment)
+            .await,
+        Err(learning_data_access::StoreError::NotFound),
+        "a foreign actor must not receive a report or a suppression oracle"
+    );
     let completion_millis = report
         .average_completion_time_millis
         .expect("terminal mixed run has a completion interval");

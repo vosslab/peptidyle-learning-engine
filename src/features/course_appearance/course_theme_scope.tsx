@@ -1,18 +1,17 @@
 // course_theme_scope.tsx - one pre-render loader and CSS-variable owner per course route.
 
 import { createAsync } from "@solidjs/router";
-import { createSignal, Show, type JSX } from "solid-js";
+import { createMemo, createSignal, Show, type JSX } from "solid-js";
 
 import { useApiRuntime } from "../../api/runtime";
 import type { CourseRouteData } from "../../api/contracts";
-import { useSessionBootstrap } from "../../auth/session_context";
 import {
   CourseThemeRouteContext,
   CourseThemePresentationContext,
   courseRouteData,
   type CourseThemeRouteData,
 } from "./course_theme_context";
-import { courseThemeRouteRequest } from "./course_theme_route";
+import { courseThemeRouteRequest, type CourseThemeRouteRequest } from "./course_theme_route";
 import { COURSE_THEME_SCOPE_STYLES } from "./course_theme_scope_styles";
 import { courseThemeStyle, courseThemeTokens, type CourseThemeTokens } from "./theme_catalog";
 import { resolveCourseRoute, resolveRunRoute } from "../../navigation/resolved_route";
@@ -30,36 +29,32 @@ type ResolvedThemeReference =
   | { readonly kind: "runAttempt"; readonly runId: RunId }
   | { readonly kind: "runSummary"; readonly runId: RunId };
 
-/** Owns all course variables below the persistent global shell and nowhere else. */
-export function CourseThemeScope(props: CourseThemeScopeProps): JSX.Element {
+type ScopedThemeRequest = Exclude<CourseThemeRouteRequest, { readonly kind: "global" }>;
+
+interface ResolvedCourseThemeScopeProps {
+  readonly request: ScopedThemeRequest;
+  readonly children: JSX.Element;
+}
+
+function ResolvedCourseThemeScope(props: ResolvedCourseThemeScopeProps): JSX.Element {
   const runtime = useApiRuntime();
-  const request = courseThemeRouteRequest(props.pathname);
-  if (request.kind === "global") return <>{props.children}</>;
-  const session = useSessionBootstrap().state();
-  if (
-    props.pathname.startsWith("/instructor/") &&
-    (session.kind !== "authenticated" ||
-      !session.session.user.roles.some((role) => ["instructor", "sysadmin"].includes(role)))
-  ) {
-    return <>{props.children}</>;
-  }
 
   const resolvedReference = createAsync<ResolvedThemeReference>(async () => {
-    switch (request.kind) {
+    switch (props.request.kind) {
       case "course":
         return {
           kind: "course",
-          courseId: await resolveCourseRoute(runtime.client, request.courseReference),
+          courseId: await resolveCourseRoute(runtime.client, props.request.courseReference),
         };
       case "runAttempt":
         return {
           kind: "runAttempt",
-          runId: await resolveRunRoute(runtime.client, request.runReference),
+          runId: await resolveRunRoute(runtime.client, props.request.runReference),
         };
       case "runSummary":
         return {
           kind: "runSummary",
-          runId: await resolveRunRoute(runtime.client, request.runReference),
+          runId: await resolveRunRoute(runtime.client, props.request.runReference),
         };
     }
   });
@@ -109,6 +104,22 @@ export function CourseThemeScope(props: CourseThemeScopeProps): JSX.Element {
           </CourseThemeRouteContext.Provider>
         );
       }}
+    </Show>
+  );
+}
+
+/** Owns course variables only after the central route boundary grants access. */
+export function CourseThemeScope(props: CourseThemeScopeProps): JSX.Element {
+  const scopedRequest = createMemo((): ScopedThemeRequest | undefined => {
+    const request = courseThemeRouteRequest(props.pathname);
+    return request.kind === "global" ? undefined : request;
+  });
+
+  return (
+    <Show when={scopedRequest()} keyed fallback={<>{props.children}</>}>
+      {(request) => (
+        <ResolvedCourseThemeScope request={request}>{props.children}</ResolvedCourseThemeScope>
+      )}
     </Show>
   );
 }

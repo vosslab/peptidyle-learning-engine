@@ -85,7 +85,7 @@ function policySummary(draft: EditorDraft): string {
     draft.timingPolicy.kind === "untimed"
       ? "untimed"
       : `${draft.timingPolicy.seconds} seconds with ${draft.timingPolicy.graceSeconds} seconds grace`;
-  return `${attempts}; ${timing}; ${draft.attemptPolicy.feedback} feedback.`;
+  return `${attempts}; ${timing}.`;
 }
 
 function safeAssetUrl(asset: string): URL {

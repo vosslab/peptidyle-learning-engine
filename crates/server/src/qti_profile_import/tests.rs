@@ -19,7 +19,7 @@ use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
 use question_model::response::ResponseDefinition;
-use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{
     ActivityTimestamp, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
@@ -115,10 +115,7 @@ fn draft(workspace: WorkspaceId) -> DraftQuestionDefinition {
             tolerance: NumericTolerance::Absolute { epsilon: 0.0 },
             unit: None,
         },
-        attempt_policy: AttemptPolicy {
-            max_attempts: None,
-            feedback: FeedbackDisclosure::ImmediateFull,
-        },
+        attempt_policy: AttemptPolicy { max_attempts: None },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },
@@ -285,7 +282,6 @@ async fn claim_import(fixture: &Fixture) -> learning_data_access::ClaimedJob {
 fn fixed_defaults() -> Vec<QtiUnsupportedFeature> {
     [
         "PLE default applied: unlimited attempts.",
-        "PLE default applied: immediate full feedback.",
         "PLE default applied: untimed.",
         "PLE default applied: en-US.",
         "PLE default applied: allRightsReserved.",

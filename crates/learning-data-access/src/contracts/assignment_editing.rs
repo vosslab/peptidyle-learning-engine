@@ -84,6 +84,7 @@ pub(crate) fn delete_and_regrade_update(
         audience: stored.record.audience.clone(),
         items: stored.record.items.clone(),
         selection_groups: stored.record.selection_groups.clone(),
+        disclosure_policy: stored.record.disclosure_policy,
         policies: stored.record.policies,
     };
     if let Some(item) = update.items.iter_mut().find(|item| item.id == target) {

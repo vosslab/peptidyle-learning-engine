@@ -127,6 +127,7 @@ async fn persist_attempt(
                     scoring_mode: AssignmentScoringMode::Normal,
                 }],
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: RunPolicies {
                     completion: CompletionRequirement::AllCorrect,
                     grade: GradePolicy::Highest,
@@ -403,9 +404,14 @@ async fn http_submit_translates_rendered_webwork_choice_without_rerendering() {
         .expect("first receipt body");
     let first_json: serde_json::Value = serde_json::from_slice(&first_body).expect("first receipt");
     assert_eq!(first_json["feedback"]["correctness"], true);
-    assert!(
-        first_json["attempt"]["result"].is_null(),
-        "immediate-correctness receipts do not expose points through the legacy attempt field"
+    assert_eq!(
+        first_json["attempt"]["result"],
+        serde_json::json!({
+            "correct": true,
+            "pointsEarned": 1.0,
+            "pointsPossible": 1.0,
+        }),
+        "the assignment's default after-submit policy releases both score and correctness"
     );
     assert_eq!(renders.load(Ordering::SeqCst), 1, "grade does not rerender");
     assert_eq!(grades.load(Ordering::SeqCst), 1, "one private grade RPC");

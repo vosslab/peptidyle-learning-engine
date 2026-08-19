@@ -2,7 +2,7 @@ use super::*;
 use crate::{CourseMemberStatus, Store};
 use question_model::answer::NumericTolerance;
 use question_model::generation::RandomizationDefinition;
-use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure};
+use question_model::run_policy::AttemptPolicy;
 use question_model::taxonomy::{License, Tag};
 use question_model::{
     AssignmentRun, AttemptProvenance, AttemptResult, AttemptTimerRecord, BackendCapabilities,
@@ -25,10 +25,7 @@ pub(super) fn record(number: u128) -> PublishedProblemRecord {
                 tolerance: NumericTolerance::Absolute { epsilon: 0.1 },
                 unit: None,
             },
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateCorrectness,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },
@@ -181,10 +178,6 @@ fn insert_statistics_issued_authority(state: &mut State, attempt: &QuestionAttem
         (attempt.tenant, attempt.id),
         crate::WebworkGradingCapability::NotApplicable,
     );
-    state.attempt_feedback_disclosures.insert(
-        (attempt.tenant, attempt.id),
-        FeedbackDisclosure::ImmediateCorrectness,
-    );
     state.attempt_timing.insert(
         (attempt.tenant, attempt.id),
         MemoryAttemptTiming {
@@ -198,6 +191,42 @@ fn insert_statistics_issued_authority(state: &mut State, attempt: &QuestionAttem
             job: None,
         },
     );
+    super::course_policy::store_issued_effective_policy_receipt(
+        state,
+        attempt.tenant,
+        attempt.id,
+        domain::effective_assignment_policy::EffectiveAssignmentPolicy {
+            available_at: domain::effective_assignment_policy::ResolvedField {
+                value: None,
+                source: domain::effective_assignment_policy::PolicySource::Base,
+            },
+            due_at: domain::effective_assignment_policy::ResolvedField {
+                value: None,
+                source: domain::effective_assignment_policy::PolicySource::Base,
+            },
+            closes_at: domain::effective_assignment_policy::ResolvedField {
+                value: None,
+                source: domain::effective_assignment_policy::PolicySource::Base,
+            },
+            time_limit_seconds: domain::effective_assignment_policy::ResolvedField {
+                value: None,
+                source: domain::effective_assignment_policy::PolicySource::Base,
+            },
+            attempt_limit: domain::effective_assignment_policy::ResolvedField {
+                value: None,
+                source: domain::effective_assignment_policy::PolicySource::Base,
+            },
+            late_submission: domain::effective_assignment_policy::ResolvedField {
+                value: question_model::LateSubmissionPolicy::Accept,
+                source: domain::effective_assignment_policy::PolicySource::Base,
+            },
+            deadline_behavior: domain::effective_assignment_policy::ResolvedField {
+                value: question_model::AssignmentDeadlineBehavior::AutoSubmit,
+                source: domain::effective_assignment_policy::PolicySource::Base,
+            },
+        },
+    )
+    .expect("statistics fixture effective-policy receipt");
 }
 
 #[test]
@@ -242,6 +271,7 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
             })
             .collect(),
         selection_groups: Vec::new(),
+        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
         policies: question_model::RunPolicies {
             completion: question_model::CompletionRequirement::AnswerAll,
             grade: question_model::GradePolicy::First,

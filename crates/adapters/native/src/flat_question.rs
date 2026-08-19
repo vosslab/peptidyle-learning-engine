@@ -17,7 +17,7 @@ pub use grading::flat_question::{
     is_flat_question_family, validate_flat_question_question, validate_for_draft,
 };
 use question_model::envelope::ContentBlock;
-use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::{License, TaxonomyTerm};
 use question_model::{
     DraftQuestionDefinition, QuestionDefinition, WorkspaceId,
@@ -59,14 +59,12 @@ pub struct FlatQuestionDocument(v2::FlatQuestionV2);
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct FlatAttemptPolicy {
     max_attempts: Option<u32>,
-    feedback: FeedbackDisclosure,
 }
 
 impl From<FlatAttemptPolicy> for AttemptPolicy {
     fn from(value: FlatAttemptPolicy) -> Self {
         Self {
             max_attempts: value.max_attempts,
-            feedback: value.feedback,
         }
     }
 }

@@ -8,7 +8,7 @@ import { feedbackAnnouncement } from "../src/components/feedback_panel.tsx";
 test("withheld and released feedback announce distinct, policy-neutral states", () => {
   assert.equal(
     feedbackAnnouncement({ kind: "awaiting", feedback: null }),
-    "Your response was recorded. Feedback is not available yet.",
+    "Your response was recorded. Feedback is not available for this response.",
   );
   assert.equal(
     feedbackAnnouncement({ kind: "released", feedback: { correctness: true } }),

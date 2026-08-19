@@ -117,7 +117,6 @@ fn qti_import_command(
 fn fixed_profile_defaults() -> Vec<QtiUnsupportedFeature> {
     [
         "PLE default applied: unlimited attempts.",
-        "PLE default applied: immediate full feedback.",
         "PLE default applied: untimed.",
         "PLE default applied: en-US.",
         "PLE default applied: allRightsReserved.",

@@ -10,6 +10,7 @@ import pytest
 # local repo modules
 import file_utils
 
+CHECK_OPTIONAL_IMPORTS_ENV = "CHECK_OPTIONAL_IMPORTS"
 REPO_ROOT = file_utils.get_repo_root()
 REPORT_NAME = file_utils.report_name(__file__)
 REQUIREMENT_FILES = (
@@ -53,6 +54,14 @@ REQ_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+")
 # Module-level dict of repo-relative POSIX key -> list of violation lines.
 # Populated by the autouse collect_report fixture before any test runs.
 VIOLATIONS_BY_FILE: dict[str, list[str]] = {}
+
+
+#============================================
+def resolve_check_optional_imports() -> bool:
+	"""
+	Resolve whether to enforce imports guarded by ImportError handling.
+	"""
+	return os.environ.get(CHECK_OPTIONAL_IMPORTS_ENV) == "1"
 
 
 #============================================
@@ -370,8 +379,7 @@ def make_report_lines(
 	# Prepend the metadata lines after the header (index 0).
 	metadata = [
 		f"Requirements source: {requirement_source}",
-		"Optional imports checked: "
-		+ ("yes (--check-optional-imports)" if check_optional_imports else "no"),
+		f"CHECK_OPTIONAL_IMPORTS: {int(check_optional_imports)}",
 	]
 	# Insert metadata right after the first header line.
 	lines = [lines[0]] + metadata + lines[1:]
@@ -385,7 +393,7 @@ HEADER = "Import requirements report"
 
 #============================================
 @pytest.fixture(scope="module", autouse=True)
-def collect_report(pytestconfig: pytest.Config) -> None:
+def collect_report() -> None:
 	"""
 	Autouse fixture: clear stale reports, populate VIOLATIONS_BY_FILE, write report.
 
@@ -399,7 +407,7 @@ def collect_report(pytestconfig: pytest.Config) -> None:
 	VIOLATIONS_BY_FILE.clear()
 	if not FILES:
 		return
-	check_optional_imports = pytestconfig.getoption("check_optional_imports")
+	check_optional_imports = resolve_check_optional_imports()
 	repo_modules = collect_repo_module_names(FILES)
 	stdlib_modules = get_stdlib_modules()
 	# load_requirement_modules raises RuntimeError when no requirements file is found;

@@ -20,11 +20,11 @@ use axum::http::Request;
 use grading::{AnswerKey, GradingError, grade};
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
-    AssignmentRecord, CatalogTransition, CourseRecord, CourseRosterStore, CreateCourseCommand,
-    DraftRecord, JobLeaseDuration, JobPayload, JobStore, MaterializeAssignmentEntitlementCommand,
-    Page, PublishDraftCommand, PublishedProblemRecord, RetentionWorkerCommand,
-    RetentionWorkerStore, SessionLifetime, SessionRecord, SessionSubject, SessionTokenHash,
-    TenantContext, UpsertCourseMember,
+    AssignmentRecord, AssignmentUpdate, CatalogTransition, CourseRecord, CourseRosterStore,
+    CreateCourseCommand, DraftRecord, JobLeaseDuration, JobPayload, JobStore,
+    MaterializeAssignmentEntitlementCommand, Page, PublishDraftCommand, PublishedProblemRecord,
+    RetentionWorkerCommand, RetentionWorkerStore, SessionLifetime, SessionRecord, SessionSubject,
+    SessionTokenHash, TenantContext, UpsertCourseMember,
 };
 use question_model::answer::{NumericTolerance, SelectionCardinality};
 use question_model::envelope::ContentBlock;
@@ -575,10 +575,7 @@ async fn fixture_with_response(
                 markdown: "What is the molar mass of water?".to_string(),
             }],
             response,
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateFull,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },
@@ -668,6 +665,7 @@ async fn fixture_with_response(
                 title: "Molar mass mastery".to_string(),
                 items: assignment_items(vec![ProblemVersionRef { problem, version }]),
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: RunPolicies {
                     completion: CompletionRequirement::AllCorrect,
                     grade: GradePolicy::Highest,
@@ -767,9 +765,7 @@ fn peptide_choice(id: &str, body: &str) -> ChoiceOption {
     }
 }
 
-async fn native_feedback_fixture(
-    policy: FeedbackDisclosure,
-) -> (
+async fn native_feedback_fixture() -> (
     Arc<MemoryStore>,
     Arc<CountingNativeBackend>,
     Router,
@@ -817,10 +813,7 @@ async fn native_feedback_fixture(
                 ],
                 selection: SelectionCardinality::ExactlyOne,
             },
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: policy,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Seeded {
                 generator: GeneratorReference {
@@ -921,6 +914,7 @@ async fn native_feedback_fixture(
                     ProblemVersionRef { problem, version },
                 ]),
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: RunPolicies {
                     completion: CompletionRequirement::AnswerAll,
                     grade: GradePolicy::Highest,

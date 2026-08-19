@@ -58,6 +58,8 @@ enforce a closed owner policy:
   isolated data-stack Compose definition.
 - `chapter-one-browser` owns its isolated full teaching stack and derived
   gateway image.
+- `webwork-browser` owns its isolated full teaching stack, private browser
+  identity fixture, renderer-outage action, and derived gateway image.
 - `wp-r2-host-seed-renderer` owns its isolated host-seed and renderer stack.
 - `replica-restart` owns the replica Compose overlay and may stop one exact API
   replica only after it proves a peer remains running.

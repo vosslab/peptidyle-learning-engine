@@ -58,8 +58,9 @@ pub use crate::activity::{
     AssignmentPolicyExceptionId, AssignmentRun, AssignmentRunItem, AssignmentSelectionGroupId,
     AttemptProvenance, AttemptResult, AttemptStatus, AttemptTimerRecord, CourseGroupId, CourseId,
     CourseMembershipId, EnrollmentId, EnrollmentStatus, ImplementationVersion,
-    IssuedAttemptCapabilityV1, QuestionAttempt, QuestionAttemptId, RunId, RunMode, SourceArtifact,
-    StudentAssignmentSummary, StudentId, TenantId,
+    IssuedAttemptCapabilityV1, LearnerAssignmentProgress, LearnerScoreState, QuestionAttempt,
+    QuestionAttemptId, RunId, RunMode, SourceArtifact, StudentAssignmentSummary, StudentId,
+    TenantId,
 };
 pub use crate::assignment::{
     AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentItem, AssignmentRunTiming,
@@ -82,6 +83,7 @@ pub use crate::catalog::{
 pub use crate::course::{
     AssignmentItemSummary, AssignmentSelectionCandidateSummary, AssignmentSelectionGroupSummary,
     AssignmentSummary, CourseMembershipRole, CourseSummary, GradebookSummaryRow,
+    LearnerAssignmentSummary,
 };
 pub use crate::course_appearance::{
     CourseAppearance, CourseAppearanceRevision, CourseAppearanceUpdate, CourseBannerAltText,
@@ -123,9 +125,10 @@ pub use crate::public_route::{
 };
 pub use crate::response::{ResponseDefinition, StudentResponse};
 pub use crate::run_policy::{
-    CompletionRequirement, ContinuedPractice, GradePolicy, RunPolicies, VariationPolicy,
+    CompletionRequirement, ContinuedPractice, GradePolicy, LearnerDisclosurePolicy,
+    LearnerDisclosureTiming, RunPolicies, VariationPolicy,
 };
 pub use crate::statistics::{
-    DEFAULT_STATISTICS_MINIMUM_COHORT_SIZE, QuestionStatisticsDisclosure, QuestionStatisticsView,
-    StatisticsDisclosurePolicy, StatisticsDisclosurePolicyError,
+    DEFAULT_STATISTICS_MINIMUM_COHORT_SIZE, LearnerClassStatistics, QuestionStatisticsDisclosure,
+    QuestionStatisticsView, StatisticsDisclosurePolicy, StatisticsDisclosurePolicyError,
 };

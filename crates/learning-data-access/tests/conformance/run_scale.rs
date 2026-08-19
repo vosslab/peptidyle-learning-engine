@@ -13,9 +13,9 @@ where
     let version = fixture.version;
     let run = &fixture.run;
     // Scale behavior is deliberately exercised through the Store, not just
-    // the cursor helper: a later practice run may contain far more outcomes
-    // than an ordinary small assignment. `apply_activity_transition` supplies
-    // persisted, server-owned attempt records without invoking a grader.
+    // the cursor helper. Every synthetic outcome uses normal issuance so it
+    // has the sealed/current S3 receipt required by learner disclosure; the
+    // summary route must never invent a fallback for fixture-only attempts.
     let scale_run_id = RunId::from_uuid(uuid(90_000 + fixture_offset));
     let scale_problems = vec![ProblemVersionRef { problem, version }; 51];
     let scale_assignment = AssignmentId::from_uuid(uuid(89_990 + fixture_offset));
@@ -30,6 +30,7 @@ where
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(scale_problems),
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: policies(),
             },
         )
@@ -40,44 +41,67 @@ where
         .await
         .expect("post-completion scale practice run");
     for position in 0_u32..51 {
+        let attempt_id =
+            QuestionAttemptId::from_uuid(uuid(90_100 + fixture_offset + u128::from(position)));
+        let (presentation, snapshot) =
+            receipt_presentation(version, 90_100 + u64::from(position), position as u8);
         store
-            .apply_activity_transition(
+            .issue_or_resume_question_attempt(
                 context,
-                ActivityTransition::RecordQuestionAttempt {
-                    attempt: Box::new(QuestionAttempt {
-                        id: QuestionAttemptId::from_uuid(uuid(
-                            90_100 + fixture_offset + u128::from(position),
-                        )),
-                        tenant,
-                        run: scale_run.id,
-                        problem,
-                        question_version: version,
-                        assignment_position: position,
-                        seed: u64::from(position),
-                        parameter_hash: format!("scale-parameter-{position}"),
-                        response: None,
-                        status: question_model::AttemptStatus::InProgress,
-                        result: None,
-                        timer: AttemptTimerRecord {
-                            issued_at: ActivityTimestamp::from_unix_millis(i64::from(position)),
-                            deadline: None,
-                            submitted_at: None,
-                        },
-                        provenance: AttemptProvenance {
-                            adapter: implementation("native"),
-                            renderer: None,
-                            generator: None,
-                            source_artifact: None,
-                            asset_objects: Vec::new(),
-                            grading: implementation("numeric"),
-                            rendered_question_sha256: format!("scale-rendered-{position}"),
-                        },
-                        issued_capability: question_model::IssuedAttemptCapabilityV1::NotApplicable,
-                    }),
+                IssueQuestionAttemptCommand {
+                    actor: student_user,
+                    attempt: attempt_id,
+                    run: scale_run.id,
+                    assignment_position: position,
+                    problem,
+                    question_version: version,
+                    seed: 90_100 + u64::from(position),
+                    presentation_capability: PresentationCapability::EnvelopeV1,
+                    presentation: Some(presentation),
+                    presentation_snapshot: Some(snapshot),
+                    grading_envelope: Some(grading_envelope(version, 90_100 + u64::from(position))),
+                    flat_grading: None,
+                    flat_grading_capability: FlatGradingCapability::NotApplicable,
+                    webwork_grading: None,
+                    webwork_grading_capability: WebworkGradingCapability::NotApplicable,
+                    parameter_hash: format!("scale-parameter-{position}"),
+                    provenance: AttemptProvenance {
+                        adapter: implementation("native"),
+                        renderer: None,
+                        generator: None,
+                        source_artifact: None,
+                        asset_objects: Vec::new(),
+                        grading: implementation("numeric"),
+                        rendered_question_sha256: format!("scale-rendered-{position}"),
+                    },
+                    webwork_replay: None,
+                    prefetched: None,
+                    predecessor_submission: None,
                 },
             )
             .await
-            .expect("persisted scale attempt");
+            .expect("issued scale attempt with effective-policy receipt");
+        store
+            .submit_question_attempt(
+                context,
+                SubmitQuestionAttemptCommand {
+                    actor: student_user,
+                    attempt: attempt_id,
+                    response: StudentResponse::Numeric { value: 1.0 },
+                    result: AttemptResult {
+                        correct: true,
+                        points_earned: 1.0,
+                        points_possible: 1.0,
+                    },
+                    feedback: FeedbackContent::default(),
+                    idempotency_key: SubmissionIdempotencyKey::parse(format!(
+                        "scale-submission-{fixture_offset}-{position}"
+                    ))
+                    .expect("valid scale idempotency key"),
+                },
+            )
+            .await
+            .expect("submitted scale attempt");
     }
     let mut cursor = None;
     let mut positions = Vec::new();

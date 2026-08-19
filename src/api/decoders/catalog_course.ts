@@ -7,8 +7,7 @@ import type { AssignmentScoringMode } from "../../../generated/api/AssignmentSco
 import type { AssignmentSelectionCandidateSummary as AssignmentSelectionCandidate } from "../../../generated/api/AssignmentSelectionCandidateSummary";
 import type { AssignmentSelectionGroupSummary as AssignmentSelectionGroup } from "../../../generated/api/AssignmentSelectionGroupSummary";
 import type { AssignmentSummary } from "../../../generated/api/AssignmentSummary";
-import type { AssignmentRunTiming } from "../../../generated/api/AssignmentRunTiming";
-import { MAX_ASSIGNMENT_TIME_LIMIT_SECONDS } from "../../../generated/api/MAX_ASSIGNMENT_TIME_LIMIT_SECONDS";
+import type { LearnerAssignmentSummary } from "../../../generated/api/LearnerAssignmentSummary";
 import type { CatalogCapabilityFacet } from "../../../generated/api/CatalogCapabilityFacet";
 import type { CatalogLicenseFacet } from "../../../generated/api/CatalogLicenseFacet";
 import type { CatalogLicenseValue } from "../../../generated/api/CatalogLicenseValue";
@@ -55,7 +54,6 @@ import type {
   AssignmentEditorDetail,
   AssignmentEditorInput,
   ReplaceAssignmentItemQuestionInput,
-  AssignmentSummaryWithTiming,
   CourseCreateInput,
   CourseRouteData,
 } from "../contracts";
@@ -95,9 +93,11 @@ import {
 } from "./shared";
 import { decodeCourseTerm } from "./course_term";
 import { decodeContentBlock } from "./question_model";
+import { decodeAssignmentRunTiming, decodeLearnerDisclosurePolicy } from "./assignment_policy";
 
 // Retain the established catalog-course import surface while course-term owns its decoding rules.
 export { decodeCourseTerm, decodeCourseTermValidationFailure } from "./course_term";
+export { decodeAssignmentRunTiming, decodeLearnerDisclosurePolicy } from "./assignment_policy";
 
 function decodeQuestionId(value: unknown, path: string): string {
   const questionId = decodeString(value, path);
@@ -785,6 +785,7 @@ export function decodeAssignmentSummary(
       "title",
       "items",
       "selectionGroups",
+      "disclosurePolicy",
       "policies",
     ]);
   }
@@ -800,36 +801,36 @@ export function decodeAssignmentSummary(
       `${path}.selectionGroups`,
       decodeAssignmentSelectionGroup,
     ),
+    disclosurePolicy: decodeLearnerDisclosurePolicy(
+      field(record, "disclosurePolicy", path),
+      `${path}.disclosurePolicy`,
+    ),
     policies: decodeRunPolicies(field(record, "policies", path), `${path}.policies`),
   } satisfies AssignmentSummary;
   return decoded;
 }
 
-export function decodeAssignmentSummaryWithTiming(
+/** Decode the learner transport, which deliberately excludes authority inputs. */
+export function decodeLearnerAssignmentSummary(
   value: unknown,
   path = "response",
-  strict = false,
-): AssignmentSummaryWithTiming {
+  strict = true,
+): LearnerAssignmentSummary {
   const record = decodeRecord(value, path);
   if (strict) {
-    requireOnlyFields(record, path, [
-      "id",
-      "reference",
-      "tenant",
-      "courseId",
-      "title",
-      "items",
-      "selectionGroups",
-      "policies",
-      "assignmentTiming",
-    ]);
+    requireOnlyFields(record, path, ["id", "reference", "title", "items", "selectionGroups"]);
   }
-  const summary = decodeAssignmentSummary(record, path, strict);
-  const timingValue = record.assignmentTiming ?? { timeLimitSeconds: null };
   return {
-    ...summary,
-    assignmentTiming: decodeAssignmentRunTiming(timingValue, `${path}.assignmentTiming`),
-  } satisfies AssignmentSummaryWithTiming;
+    id: decodeIdentifier(field(record, "id", path), `${path}.id`),
+    reference: decodeAssignmentReference(field(record, "reference", path), `${path}.reference`),
+    title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
+    items: decodeArray(field(record, "items", path), `${path}.items`, decodeAssignmentItem),
+    selectionGroups: decodeArray(
+      field(record, "selectionGroups", path),
+      `${path}.selectionGroups`,
+      decodeAssignmentSelectionGroup,
+    ),
+  } satisfies LearnerAssignmentSummary;
 }
 
 /**
@@ -842,11 +843,21 @@ export function decodeAssignmentEditorInput(
   path = "response",
 ): AssignmentEditorInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["title", "items", "policies", "assignmentTiming"]);
+  requireOnlyFields(record, path, [
+    "title",
+    "items",
+    "policies",
+    "disclosurePolicy",
+    "assignmentTiming",
+  ]);
   const decoded = {
     title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
     items: decodeArray(field(record, "items", path), `${path}.items`, decodeAssignmentUpdateItem),
     policies: decodeRunPolicies(field(record, "policies", path), `${path}.policies`, true),
+    disclosurePolicy: decodeLearnerDisclosurePolicy(
+      field(record, "disclosurePolicy", path),
+      `${path}.disclosurePolicy`,
+    ),
     assignmentTiming: decodeAssignmentRunTiming(
       field(record, "assignmentTiming", path),
       `${path}.assignmentTiming`,
@@ -860,7 +871,13 @@ export function decodeAssignmentCreateInput(
   path = "response",
 ): AssignmentCreateInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["title", "questionIds", "policies", "assignmentTiming"]);
+  requireOnlyFields(record, path, [
+    "title",
+    "questionIds",
+    "policies",
+    "disclosurePolicy",
+    "assignmentTiming",
+  ]);
   return {
     title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
     questionIds: decodeArray(
@@ -869,6 +886,10 @@ export function decodeAssignmentCreateInput(
       decodeQuestionId,
     ),
     policies: decodeRunPolicies(field(record, "policies", path), `${path}.policies`, true),
+    disclosurePolicy: decodeLearnerDisclosurePolicy(
+      field(record, "disclosurePolicy", path),
+      `${path}.disclosurePolicy`,
+    ),
     assignmentTiming: decodeAssignmentRunTiming(
       field(record, "assignmentTiming", path),
       `${path}.assignmentTiming`,
@@ -916,6 +937,7 @@ export function decodeAssignmentEditorDetail(
     "title",
     "items",
     "selectionGroups",
+    "disclosurePolicy",
     "policies",
     "assignmentTiming",
   ]);
@@ -928,6 +950,7 @@ export function decodeAssignmentEditorDetail(
     title: summary.title,
     items: summary.items,
     selectionGroups: summary.selectionGroups,
+    disclosurePolicy: summary.disclosurePolicy,
     policies: summary.policies,
     assignmentTiming: decodeAssignmentRunTiming(
       field(record, "assignmentTiming", path),
@@ -935,26 +958,6 @@ export function decodeAssignmentEditorDetail(
     ),
   } satisfies Omit<AssignmentEditorDetail, "revision">;
   return decoded;
-}
-
-function decodeAssignmentRunTiming(value: unknown, path: string): AssignmentRunTiming {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["timeLimitSeconds"]);
-  const timeLimitSeconds = decodeNullable(
-    field(record, "timeLimitSeconds", path),
-    `${path}.timeLimitSeconds`,
-    (seconds, secondsPath) => {
-      const decoded = decodePositiveInteger(seconds, secondsPath);
-      if (decoded > MAX_ASSIGNMENT_TIME_LIMIT_SECONDS) {
-        throw new DecodeError(
-          secondsPath,
-          `a positive whole-second limit no greater than ${MAX_ASSIGNMENT_TIME_LIMIT_SECONDS}`,
-        );
-      }
-      return decoded;
-    },
-  );
-  return { timeLimitSeconds };
 }
 
 export function decodeAssignmentCapabilityViolations(

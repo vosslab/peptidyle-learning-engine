@@ -62,6 +62,16 @@ test.beforeAll(async () => {
         let submitted = false;
         const templateAttempt = publishedProblemFixture.attempts[0];
         const templateRun = publishedProblemFixture.runs[0];
+        const learnerAssignment = (({ tenant, courseId, disclosurePolicy, policies, ...assignment }) => assignment)(publishedProblemFixture.assignment);
+        const learnerProgress = {
+          scoreState: "available",
+          currentScore: 1,
+          bestScore: 1,
+          latestScore: 1,
+          completedRunCount: 1,
+          totalQuestionAttempts: 1,
+          lastActivityAt: 1786000000000,
+        };
         const makeRun = (id, number) => ({ ...templateRun, id, runNumber: number, completedAt: null, score: null });
         const attempt = (run, position) => ({ ...templateAttempt, id: run === ids.run30 ? (position === 0 ? ids.a30 : ids.b30) : (position === 0 ? ids.a31 : ids.b31), run, assignmentPosition: position, seed: run === ids.run30 ? 30 + position : 130 + position, response: null, result: null, timer: { ...templateAttempt.timer, submittedAt: null }, provenance: { ...templateAttempt.provenance, renderedQuestionSha256: hash(position === 0 ? "a" : "b") } });
         const screenAttempt = () => {
@@ -97,10 +107,11 @@ test.beforeAll(async () => {
           }
           if (method === "GET" && path === "/api/runs/" + runId + "/attempts") return json({ items: [current], nextCursor: null });
           if (method === "GET" && path === "/api/attempts/" + current.id + "/question") return json(envelope(current));
+          if (method === "GET" && path === "/api/navigation/" + publishedProblemFixture.assignment.reference) return json({ kind: "assignment", courseId: publishedProblemFixture.course.id, assignmentId: publishedProblemFixture.assignment.id });
           if (method === "GET" && path === "/api/courses/" + publishedProblemFixture.course.id) return json(publishedProblemFixture.course);
           if (method === "GET" && path === "/api/courses/" + publishedProblemFixture.course.id + "/appearance") return new Response(JSON.stringify({ theme: "grass", revision: "1", banner: null }), { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store", "etag": '"1"' } });
-          if (method === "GET" && path === "/api/assignments/" + publishedProblemFixture.assignment.id) return json(publishedProblemFixture.assignment);
-          if (method === "GET" && path === "/api/enrollments/" + publishedProblemFixture.enrollment.id) return json({ enrollment: publishedProblemFixture.enrollment, summary: publishedProblemFixture.summary });
+          if (method === "GET" && path === "/api/assignments/" + publishedProblemFixture.assignment.id + "/learner") return json(learnerAssignment);
+          if (method === "GET" && path === "/api/enrollments/" + publishedProblemFixture.enrollment.id) return json({ enrollment: publishedProblemFixture.enrollment, summary: learnerProgress });
           if (method === "POST" && path === "/api/attempts/" + current.id + "/prefetch-next") {
             if (mode === "outage") return json({ error: "temporary" }, 503);
             if (mode === "hold") return new Promise((resolve) => { held.set(runId, { resolve, signal: request.signal, next: attempt(runId, 1) }); });

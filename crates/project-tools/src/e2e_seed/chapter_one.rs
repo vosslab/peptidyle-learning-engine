@@ -273,6 +273,7 @@ pub(super) async fn seed_chapter_one_pilot(
                 course_id,
                 title: chapter.assignment_title.clone(),
                 audience: question_model::AssignmentAudience::CourseWide,
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 items,
                 selection_groups: Vec::new(),
                 policies: RunPolicies {
@@ -388,20 +389,13 @@ where
     };
     let draft = DraftRecord {
         tenant: context.tenant_id(),
-        question: webwork_draft(
-            ids.workspace,
-            spec,
-            FeedbackDisclosure::ImmediateCorrectness,
-        ),
+        question: webwork_draft(ids.workspace, spec),
         derived_from: None,
     };
     let source_sha256 = objects::Sha256Digest::compute(spec.source).to_string();
-    let capabilities = adapter_webwork::reviewed_webwork_source_capabilities_for_feedback(
-        &source,
-        &source_sha256,
-        FeedbackDisclosure::ImmediateCorrectness,
-    )
-    .context("resolving reviewed WeBWorK pilot capabilities")?;
+    let capabilities =
+        adapter_webwork::reviewed_webwork_source_profile_capabilities(&source, &source_sha256)
+            .context("resolving reviewed WeBWorK pilot capabilities")?;
     let source_key = ObjectKey::ProblemSource {
         problem: ids.problem,
         version: ids.version,
@@ -810,7 +804,6 @@ where
 pub(super) fn webwork_draft(
     workspace: WorkspaceId,
     spec: &PilotQuestionSpec,
-    feedback: FeedbackDisclosure,
 ) -> DraftQuestionDefinition {
     let response = match spec.kind {
         PilotQuestionKind::WebworkMultipleChoice => ResponseDefinition::MultipleChoice {
@@ -834,10 +827,7 @@ pub(super) fn webwork_draft(
             markdown: "This question is rendered by the private WeBWorK service.".to_string(),
         }],
         response,
-        attempt_policy: AttemptPolicy {
-            max_attempts: None,
-            feedback,
-        },
+        attempt_policy: AttemptPolicy { max_attempts: None },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Seeded {
             generator: GeneratorReference {

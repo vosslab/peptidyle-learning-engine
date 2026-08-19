@@ -24,13 +24,8 @@ pub(crate) use flat_question::{
 const MAX_QTI_PROFILE_IDENTIFIER_CHARS: usize = 1_024;
 const MAX_FLAT_IMPORT_ARCHIVE_LICENSE_CHARS: usize = 512;
 const MAX_FLAT_IMPORT_ARCHIVE_PROVENANCE_CHARS: usize = 2_048;
-const FIXED_QTI_PROFILE_DEFAULTS_V1: [(&str, &str, &str); 8] = [
+const FIXED_QTI_PROFILE_DEFAULTS_V1: [(&str, &str, &str); 7] = [
     ("policy", "item", "PLE default applied: unlimited attempts."),
-    (
-        "policy",
-        "item",
-        "PLE default applied: immediate full feedback.",
-    ),
     ("policy", "item", "PLE default applied: untimed."),
     ("policy", "item", "PLE default applied: en-US."),
     ("policy", "item", "PLE default applied: allRightsReserved."),

@@ -75,10 +75,12 @@ async function signIn(
   const inputs = liveInputs();
   await page.goto(inputs.baseUrl);
   const credential = page.getByLabel("Local development credential");
+  await expect(credential).toBeVisible();
   await tabTo(page, credential);
   await expect(credential).toBeFocused();
   await credential.fill(credentialValue);
   const signIn = page.getByRole("button", { name: "Sign in locally", exact: true });
+  await expect(signIn).toBeVisible();
   await tabTo(page, signIn);
   await expect(signIn).toBeFocused();
   await page.keyboard.press("Enter");

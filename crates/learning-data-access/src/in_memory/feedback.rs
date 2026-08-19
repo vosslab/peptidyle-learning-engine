@@ -1,6 +1,42 @@
 use async_trait::async_trait;
 
 use super::*;
+use crate::LearnerDisclosureInput;
+
+/// Builds the sole S4 disclosure input from the assignment-owned schedule,
+/// the current sealed S3 receipt, and the Memory authoritative clock.  The
+/// caller has already performed learner or instructor authorization.
+pub(super) fn current_disclosure_input(
+    state: &State,
+    tenant: TenantId,
+    assignment: &AssignmentRecord,
+    attempt: QuestionAttemptId,
+    submitted_at: Option<ActivityTimestamp>,
+) -> Result<LearnerDisclosureInput, StoreError> {
+    let generation = state
+        .attempt_effective_policy_current
+        .get(&(tenant, attempt))
+        .ok_or_else(|| {
+            StoreError::Unavailable("current effective-policy receipt is missing".to_string())
+        })?;
+    let receipt = state
+        .issued_effective_policy_receipts
+        .get(&(tenant, attempt, *generation))
+        .ok_or_else(|| {
+            StoreError::Unavailable("current effective-policy receipt is corrupt".to_string())
+        })?;
+    if receipt.attempt != attempt {
+        return Err(StoreError::Unavailable(
+            "current effective-policy receipt does not bind the attempt".to_string(),
+        ));
+    }
+    Ok(LearnerDisclosureInput::new(
+        assignment.disclosure_policy,
+        receipt.policy.clone(),
+        state.authoritative_time,
+        submitted_at,
+    ))
+}
 
 #[async_trait]
 impl crate::FeedbackStore for MemoryStore {
@@ -39,15 +75,18 @@ impl crate::FeedbackStore for MemoryStore {
         if !state.submissions.contains_key(&(tenant, command.attempt)) {
             return Err(StoreError::NotFound);
         }
-        let disclosure = *state
-            .attempt_feedback_disclosures
-            .get(&(tenant, command.attempt))
-            .ok_or_else(|| {
-                StoreError::Unavailable("issued feedback disclosure is missing".to_string())
-            })?;
-        if disclosure != question_model::run_policy::FeedbackDisclosure::OnRelease {
+        let current = projected_attempt(&state, tenant, &attempt);
+        let disclosure = current_disclosure_input(
+            &state,
+            tenant,
+            &assignment,
+            command.attempt,
+            current.timer.submitted_at,
+        )?
+        .decision();
+        if !disclosure.feedback_text && !disclosure.solution {
             return Err(StoreError::InvalidRecord(
-                "feedback release requires an on-release question policy".to_string(),
+                "feedback release requires currently disclosed teaching feedback".to_string(),
             ));
         }
         if let Some(existing) = state.feedback_releases.get(&(tenant, command.attempt)) {
@@ -198,12 +237,6 @@ impl crate::FeedbackStore for MemoryStore {
                 .submissions
                 .get(&(tenant, attempt.id))
                 .map(|stored| &stored.record);
-            let feedback_policy = *state
-                .attempt_feedback_disclosures
-                .get(&(tenant, attempt.id))
-                .ok_or_else(|| {
-                    StoreError::Unavailable("issued feedback disclosure is missing".to_string())
-                })?;
             rows.push((
                 key,
                 RunSummaryOutcomeInput {
@@ -212,9 +245,14 @@ impl crate::FeedbackStore for MemoryStore {
                     submitted_at: current.timer.submitted_at,
                     response: current.response.clone(),
                     result: current.result,
-                    feedback_policy,
+                    disclosure: current_disclosure_input(
+                        &state,
+                        tenant,
+                        &assignment,
+                        current.id,
+                        current.timer.submitted_at,
+                    )?,
                     feedback: submitted.map(|record| record.feedback.clone()),
-                    release: state.feedback_releases.get(&(tenant, current.id)).cloned(),
                 },
             ));
         }

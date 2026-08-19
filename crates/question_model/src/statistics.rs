@@ -12,6 +12,60 @@ use serde::{Deserialize, Serialize};
 /// may be disclosed.
 pub const DEFAULT_STATISTICS_MINIMUM_COHORT_SIZE: u32 = 5;
 
+/// Learner-safe result of considering the current course-local assignment
+/// analysis for class-statistics disclosure.
+///
+/// This deliberately contains neither an analysis identity nor partial
+/// evidence: a learner either receives the two safe aggregate values or no
+/// cohort count/metric at all.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(
+    tag = "state",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum LearnerClassStatistics {
+    /// No current, complete, k-anonymous analysis can safely be disclosed.
+    InsufficientEvidence,
+    /// Anonymous aggregate metrics for a completed-learner cohort.
+    Available {
+        /// Number of distinct learners represented by their latest completed run.
+        completed_learner_cohort_size: u32,
+        /// Mean normalized assignment score, in the inclusive range `0.0..=1.0`.
+        assignment_average_score: f64,
+    },
+}
+
+impl LearnerClassStatistics {
+    /// Gates a current course-local analysis before it reaches a learner.
+    ///
+    /// The caller obtains the values only from the current report. Missing or
+    /// stale reports, incomplete manual grading, insufficient cohort evidence,
+    /// and malformed scores all collapse to the identity-free suppressed state.
+    pub fn from_current_analysis(
+        completed_learner_cohort_size: u32,
+        incomplete_manual_grading: bool,
+        recent_rescoring: bool,
+        assignment_average_score: Option<f64>,
+    ) -> Self {
+        let valid_average = assignment_average_score
+            .filter(|score| score.is_finite() && (0.0..=1.0).contains(score));
+        if completed_learner_cohort_size < DEFAULT_STATISTICS_MINIMUM_COHORT_SIZE
+            || incomplete_manual_grading
+            || recent_rescoring
+        {
+            return Self::InsufficientEvidence;
+        }
+        match valid_average {
+            Some(assignment_average_score) => Self::Available {
+                completed_learner_cohort_size,
+                assignment_average_score,
+            },
+            None => Self::InsufficientEvidence,
+        }
+    }
+}
+
 /// A rejected statistics-disclosure configuration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StatisticsDisclosurePolicyError {
@@ -129,5 +183,36 @@ mod tests {
         };
         let value = serde_json::to_value(view).expect("safe view serializes");
         assert!(value.get("discriminationIndex").is_none());
+    }
+
+    #[test]
+    fn learner_class_statistics_releases_only_current_complete_valid_cohorts() {
+        assert_eq!(
+            LearnerClassStatistics::from_current_analysis(5, false, false, Some(0.8)),
+            LearnerClassStatistics::Available {
+                completed_learner_cohort_size: 5,
+                assignment_average_score: 0.8,
+            }
+        );
+        for value in [
+            LearnerClassStatistics::from_current_analysis(4, false, false, Some(0.8)),
+            LearnerClassStatistics::from_current_analysis(5, true, false, Some(0.8)),
+            LearnerClassStatistics::from_current_analysis(5, false, true, Some(0.8)),
+            LearnerClassStatistics::from_current_analysis(5, false, false, None),
+            LearnerClassStatistics::from_current_analysis(5, false, false, Some(f64::NAN)),
+            LearnerClassStatistics::from_current_analysis(5, false, false, Some(1.1)),
+        ] {
+            assert_eq!(value, LearnerClassStatistics::InsufficientEvidence);
+        }
+    }
+
+    #[test]
+    fn learner_class_statistics_suppression_serializes_without_metrics() {
+        let value = serde_json::to_value(LearnerClassStatistics::InsufficientEvidence)
+            .expect("suppression serializes");
+        assert_eq!(
+            value,
+            serde_json::json!({ "state": "insufficientEvidence" })
+        );
     }
 }

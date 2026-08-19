@@ -5,7 +5,6 @@ import { Show, createResource, createSignal, type JSX } from "solid-js";
 
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import { useApiRuntime } from "../api/runtime";
-import { useSessionBootstrap } from "../auth/session_context";
 import { useWasmFacade } from "../wasm/context";
 import {
   createFlatQuestionClient,
@@ -25,27 +24,10 @@ import { createWorkspaceEditorRepository } from "./editor_workspace_repository";
 import { workspaceRouteReference } from "../navigation/public_route";
 import { resolveWorkspaceRoute } from "../navigation/resolved_route";
 
-function mayAuthorWorkspace(): boolean {
-  const session = useSessionBootstrap().state();
-  if (session.kind !== "authenticated") return false;
-  return session.session.user.roles.some((role) => ["instructor", "sysadmin"].includes(role));
-}
-
-function WorkspaceAuthoringDenied(): JSX.Element {
-  return (
-    <section class="page" data-route-surface="workspaceAuthoringDenied" aria-live="polite">
-      <p class="eyebrow">Instructor workspace</p>
-      <h1>Workspace authoring is not available for this account</h1>
-      <p>Your learning space remains available. Ask an instructor for authoring access.</p>
-    </section>
-  );
-}
-
 /** `/workspace`: a server-backed private draft list with its first draft selected. */
 export function WorkspaceListLivePage(): JSX.Element {
   const runtime = useApiRuntime();
   const navigate = useNavigate();
-  if (!mayAuthorWorkspace()) return <WorkspaceAuthoringDenied />;
   const flatRepository = createFlatQuestionRepository(createFlatQuestionClient());
   async function createFlatQuestion(): Promise<void> {
     const workspace: WorkspaceId = globalThis.crypto.randomUUID();
@@ -155,7 +137,6 @@ export function WorkspaceEditorLivePage(): JSX.Element {
   const runtime = useApiRuntime();
   const params = useParams();
   const location = useLocation<{ readonly workspace?: unknown }>();
-  if (!mayAuthorWorkspace()) return <WorkspaceAuthoringDenied />;
   const [workspace] = createResource(
     () => params["workspaceRef"],
     async (reference): Promise<WorkspaceId> => {

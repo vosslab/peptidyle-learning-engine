@@ -53,7 +53,7 @@ test.beforeAll(async () => {
             { kind: "math", latex: "\\\\omega", description: "omega" },
           ],
           response: { kind: "numeric", tolerance: { kind: "exact" }, unit: null },
-          attemptPolicy: { maxAttempts: null, feedback: "immediateCorrectness" },
+          attemptPolicy: { maxAttempts: null },
           timingPolicy: { kind: "untimed" },
           randomization: { kind: "static" },
         };

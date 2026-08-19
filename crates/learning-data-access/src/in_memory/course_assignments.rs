@@ -84,6 +84,7 @@ impl crate::CourseAssignmentStore for MemoryStore {
             audience: update.assignment.audience,
             items: update.assignment.items,
             selection_groups: update.assignment.selection_groups,
+            disclosure_policy: update.assignment.disclosure_policy,
             policies: update.assignment.policies,
         };
         validate_assignment(&assignment)?;

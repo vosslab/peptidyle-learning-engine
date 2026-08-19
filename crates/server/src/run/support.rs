@@ -8,9 +8,10 @@ pub(super) use axum::extract::{Path, Query, State};
 pub(super) use axum::http::{HeaderMap, StatusCode};
 pub(super) use axum::response::{IntoResponse, Response};
 pub(super) use learning_data_access::{
-    CatalogStore, CourseAppearanceStore, Cursor, IssueQuestionAttemptCommand, ManualGradingStore,
-    PageRequest, PageSize, PaginationError, PresentationCapability, ReceiptNextAttempt,
-    ReceiptPresentationSnapshot, SessionStore, Store, StoreError, SubmissionIdempotencyKey,
+    AuthoritativeTimeStore, CatalogStore, CourseAppearanceStore, CourseItemAnalysisStore, Cursor,
+    IssueQuestionAttemptCommand, ManualGradingStore, PageRequest, PageSize, PaginationError,
+    PresentationCapability, ReceiptNextAttempt, ReceiptPresentationSnapshot,
+    ResolveEffectivePolicyCommand, SessionStore, Store, StoreError, SubmissionIdempotencyKey,
     SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext,
 };
 #[cfg(test)]
@@ -19,19 +20,18 @@ pub(super) use question_model::generation::Seed;
 pub(super) use question_model::presentation::{
     AssetBindingV1, PresentationV1, build_presentation_v1,
 };
-pub(super) use question_model::run_policy::FeedbackDisclosure;
 pub(super) use question_model::{
     AssignmentEnrollment, AssignmentRun, AttemptResult, CourseAppearance, CourseSummary,
-    DisclosedFeedback, FeedbackContent, PresentationBindingV1, ProblemVersionRef, QuestionAttempt,
-    QuestionAttemptId, QuestionDefinition, QuestionEnvelope, RunId, StudentAssignmentSummary,
-    StudentResponse,
+    DisclosedFeedback, FeedbackContent, LearnerAssignmentProgress, PresentationBindingV1,
+    ProblemVersionRef, QuestionAttempt, QuestionAttemptId, QuestionDefinition, QuestionEnvelope,
+    RunId, StudentAssignmentSummary, StudentResponse,
 };
 pub(super) use serde::{Deserialize, Serialize};
 
 pub(super) use crate::auth::{
     AuthenticatedSession, auth_error_response, no_store, resolve_request_session,
 };
-pub(super) use crate::feedback::{FeedbackDisclosureState, project_feedback};
+pub(super) use crate::feedback::project_feedback;
 
 use super::contracts::RunBackendError;
 
@@ -126,6 +126,22 @@ pub(super) struct RunSummaryOutcome {
 pub(super) struct RunSummaryResponse {
     pub(super) course: CourseRouteData,
     pub(super) run: AssignmentRun,
+    pub(super) summary: LearnerAssignmentProgress,
+    pub(super) practice_allowed: bool,
+    pub(super) outcomes: learning_data_access::Page<RunSummaryOutcome>,
+}
+
+/// Historical course-instructor projection for a learner's run.
+///
+/// This route intentionally keeps the raw, instructor-authorized aggregate
+/// and run score separate from the learner DTO. Attempt feedback remains the
+/// same bounded presentation projection, so this response never carries an
+/// answer key, checker, source, or other private question material.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct InstructorRunSummaryResponse {
+    pub(super) course: CourseRouteData,
+    pub(super) run: AssignmentRun,
     pub(super) summary: StudentAssignmentSummary,
     pub(super) practice_allowed: bool,
     pub(super) outcomes: learning_data_access::Page<RunSummaryOutcome>,
@@ -148,7 +164,93 @@ pub(super) struct FeedbackReleaseResponse {
 #[serde(rename_all = "camelCase")]
 pub(super) struct EnrollmentView {
     pub(super) enrollment: AssignmentEnrollment,
-    pub(super) summary: StudentAssignmentSummary,
+    pub(super) summary: LearnerAssignmentProgress,
+}
+
+/// Projects aggregate progress only after S5 entitlement and S3's current
+/// effective-policy resolver have accepted the learner's access.
+pub(crate) async fn learner_assignment_progress<
+    S: Store + AuthoritativeTimeStore + CourseItemAnalysisStore,
+>(
+    store: &S,
+    authenticated: &AuthenticatedSession,
+    enrollment: &AssignmentEnrollment,
+    summary: &StudentAssignmentSummary,
+) -> Result<(LearnerAssignmentProgress, bool), Response> {
+    let assignment = store
+        .get_assignment(authenticated.tenant_context, enrollment.assignment)
+        .await
+        .map_err(store_error_response)?
+        .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "assignment not found"))?;
+    let entitlement = store
+        .evaluate_assignment_entitlement(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            assignment.course_id,
+            assignment.id,
+        )
+        .await
+        .map_err(store_error_response)?;
+    if !matches!(
+        entitlement,
+        domain::entitlement::EntitlementDecision::Granted(_)
+    ) {
+        return Err(error_response(
+            StatusCode::NOT_FOUND,
+            "assignment not found",
+        ));
+    }
+    // Even an empty summary must pass both S5 and S3: DuringAttempt may
+    // disclose class statistics before the learner has submitted work.
+    let now = store
+        .authoritative_time(authenticated.tenant_context)
+        .await
+        .map_err(store_error_response)?;
+    let resolution = store
+        .resolve_effective_policy(
+            authenticated.tenant_context,
+            ResolveEffectivePolicyCommand {
+                assignment: assignment.id,
+                lifecycle: domain::effective_assignment_policy::AssignmentLifecycleGate::Open,
+                entitlement,
+                authorization: domain::effective_assignment_policy::AuthorizationGate::Authorized,
+                now,
+                // S3 uses this input only for its start verdict; the resolved
+                // due/close policy consumed below is independent of it. The
+                // compact summary avoids an unbounded learner route scan.
+                prior_run_count: summary.completed_run_count,
+            },
+        )
+        .await
+        .map_err(store_error_response)?
+        .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "assignment not found"))?;
+    let decision = domain::disclosure_policy::evaluate_learner_disclosure(
+        assignment.disclosure_policy,
+        &resolution.decision,
+        now,
+        // Starting a run updates aggregate activity, but AfterSubmit needs
+        // evidence of an actual submitted response. The compact summary has
+        // that evidence without scanning attempts.
+        (summary.total_question_attempts > 0)
+            .then_some(summary.last_activity_at)
+            .flatten(),
+    )
+    .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "assignment not found"))?;
+    let mut progress = LearnerAssignmentProgress::from_summary(summary, decision.score);
+    if decision.class_statistics {
+        progress.class_statistics = Some(
+            store
+                .learner_class_statistics(
+                    authenticated.tenant_context,
+                    authenticated.record.subject.user(),
+                    assignment.course_id,
+                    assignment.id,
+                )
+                .await
+                .map_err(store_error_response)?,
+        );
+    }
+    Ok((progress, decision.score))
 }
 
 pub(super) fn fresh_seed() -> Result<u64, RunBackendError> {

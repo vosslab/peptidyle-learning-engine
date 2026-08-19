@@ -417,12 +417,6 @@ pub(super) async fn apply_question_attempt(
             "question attempt must match an immutable run item".to_string(),
         ));
     }
-    let feedback_disclosure =
-        load_published_record(transaction, attempt.problem, attempt.question_version)
-            .await?
-            .question
-            .attempt_policy
-            .feedback;
     // The direct activity transition owns only the checksummed QuestionAttempt
     // record.  It has no presentation snapshot, grading envelope, or
     // family-specific first-grade contract to freeze alongside an envelope
@@ -463,11 +457,10 @@ pub(super) async fn apply_question_attempt(
         "INSERT INTO question_attempt \
          (tenant_id, attempt_id, run_id, problem_id, version_id, assignment_position, \
           occurred_at, payload, payload_sha256, presentation_capability, \
-          flat_grading_required, webwork_grading_required, issued_feedback_disclosure, \
-          attempt_status, submitted_at) \
+          flat_grading_required, webwork_grading_required, attempt_status, submitted_at) \
          VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7::double precision / 1000.0), \
-          $8, $9, $10, $11, $12, $13, $14, \
-          to_timestamp($15::double precision / 1000.0))",
+          $8, $9, $10, $11, $12, $13, \
+          to_timestamp($14::double precision / 1000.0))",
     )
     .bind(tenant.as_uuid())
     .bind(attempt.id.as_uuid())
@@ -481,9 +474,6 @@ pub(super) async fn apply_question_attempt(
     .bind(issuance_shape.0)
     .bind(issuance_shape.1)
     .bind(issuance_shape.2)
-    .bind(super::submission::feedback_disclosure_name(
-        feedback_disclosure,
-    ))
     .bind(attempt_status_name(attempt.status))
     .bind(submitted_at)
     .execute(&mut **transaction)

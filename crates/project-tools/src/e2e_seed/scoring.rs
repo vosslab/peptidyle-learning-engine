@@ -145,6 +145,7 @@ pub(super) async fn exercise_scoring_generation(
             AssignmentUpdate {
                 title: current.record.title,
                 audience: current.record.audience,
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 items,
                 selection_groups: current.record.selection_groups,
                 policies: current.record.policies,
@@ -196,6 +197,7 @@ pub(super) async fn exercise_scoring_generation(
             AssignmentUpdate {
                 title: changed.record.title,
                 audience: changed.record.audience,
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 items: superseding_items,
                 selection_groups: changed.record.selection_groups,
                 policies: changed.record.policies,
@@ -847,6 +849,7 @@ pub(super) async fn recalculate_seed_item(
             AssignmentUpdate {
                 title: current.record.title,
                 audience: current.record.audience,
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 items,
                 selection_groups: current.record.selection_groups,
                 policies: current.record.policies,

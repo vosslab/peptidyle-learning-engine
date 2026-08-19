@@ -399,7 +399,7 @@ mod tests {
     };
     use question_model::generation::RandomizationDefinition;
     use question_model::response::ResponseDefinition;
-    use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+    use question_model::run_policy::{AttemptPolicy, TimingPolicy};
     use question_model::taxonomy::License;
     use question_model::{
         ActivityTimestamp, AttemptProvenance, AttemptTimerRecord, DraftQuestionSource,
@@ -613,10 +613,7 @@ mod tests {
             },
             prompt: vec![],
             response: ResponseDefinition::ExternalTool {},
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateCorrectness,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },
@@ -642,10 +639,7 @@ mod tests {
             },
             prompt: vec![],
             response: ResponseDefinition::ExternalTool {},
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateCorrectness,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },

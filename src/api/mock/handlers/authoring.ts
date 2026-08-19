@@ -1,6 +1,8 @@
 import { publishedProblemFixture } from "../../../../generated/fixtures/published_problem";
+import { fixtureLearnerAssignment, fixtureLearnerProgress } from "../fixture_contract";
 import type { AssignmentSummary } from "../../../../generated/api/AssignmentSummary";
 import type { AssignmentEditorInput } from "../../contracts";
+import type { LearnerDisclosurePolicy } from "../../../../generated/api/LearnerDisclosurePolicy";
 import {
   decodeAddAssignmentItemInput,
   decodeAssignmentCreateInput,
@@ -16,9 +18,19 @@ export interface MockAssignmentState {
   nextId: bigint;
   nextItemId: bigint;
 }
+const defaultDisclosurePolicy: LearnerDisclosurePolicy = {
+  score: "afterSubmit",
+  perItemCorrectness: "afterSubmit",
+  feedbackText: "afterSubmit",
+  solution: "afterSubmit",
+  classStatistics: "never",
+};
 export function createMockAssignmentState(): MockAssignmentState {
   return {
-    assignment: structuredClone(publishedProblemFixture.assignment),
+    assignment: {
+      ...structuredClone(publishedProblemFixture.assignment),
+      disclosurePolicy: defaultDisclosurePolicy,
+    },
     assignmentTiming: { timeLimitSeconds: null },
     revision: 1n,
     nextId: 60n,
@@ -90,7 +102,10 @@ export async function respondAuthoring(
       : methodNotAllowed(request);
   if (s[1] === "courses" && s[2] === course && s[3] === "assignments" && s.length === 4) {
     if (request.method === "GET")
-      return jsonResponse({ items: [state.assignment], nextCursor: null });
+      return jsonResponse({
+        items: [fixtureLearnerAssignment(state.assignment)],
+        nextCursor: null,
+      });
     if (request.method !== "POST") return methodNotAllowed(request);
     const body = await json(request);
     try {
@@ -102,6 +117,7 @@ export async function respondAuthoring(
         items: makeItems(state, input.questionIds),
         selectionGroups: [],
         policies: input.policies,
+        disclosurePolicy: input.disclosurePolicy,
       };
       state.assignmentTiming = input.assignmentTiming;
       state.revision = 1n;
@@ -130,6 +146,7 @@ export async function respondAuthoring(
           ...item,
         })),
         policies: input.policies,
+        disclosurePolicy: input.disclosurePolicy,
       };
       state.assignmentTiming = input.assignmentTiming;
       state.revision += 1n;
@@ -210,8 +227,18 @@ export async function respondAuthoring(
     s.length === 4
   ) {
     if (request.method !== "GET") return methodNotAllowed(request);
-    return jsonResponse(publishedProblemFixture.summary, 200, { "cache-control": "no-store" });
+    return jsonResponse(fixtureLearnerProgress(publishedProblemFixture.summary), 200, {
+      "cache-control": "no-store",
+    });
   }
+  if (
+    s[1] === "assignments" &&
+    s[2] === state.assignment.id &&
+    s[3] === "learner" &&
+    s.length === 4 &&
+    request.method === "GET"
+  )
+    return jsonResponse(fixtureLearnerAssignment(state.assignment));
   if (s[1] === "assignments" && s[2] === state.assignment.id && request.method === "GET")
     return response(state);
   return undefined;

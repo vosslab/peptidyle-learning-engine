@@ -5,8 +5,8 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
     use learning_data_access::{DraftRecord, ProblemVersionRef};
     use question_model::generation::RandomizationDefinition;
     use question_model::run_policy::{
-        AttemptPolicy, CompletionRequirement, ContinuedPractice, FeedbackDisclosure, GradePolicy,
-        RunPolicies, TimingPolicy, VariationPolicy,
+        AttemptPolicy, CompletionRequirement, ContinuedPractice, GradePolicy, RunPolicies,
+        TimingPolicy, VariationPolicy,
     };
     use question_model::{DraftQuestionDefinition, DraftQuestionSource};
 
@@ -74,10 +74,7 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
             },
             prompt: imported.prompt.clone(),
             response: imported.response.clone(),
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateCorrectness,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },
@@ -262,6 +259,7 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
                     scoring_mode: question_model::AssignmentScoringMode::Normal,
                 }],
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: RunPolicies {
                     completion: CompletionRequirement::AllCorrect,
                     grade: GradePolicy::Highest,

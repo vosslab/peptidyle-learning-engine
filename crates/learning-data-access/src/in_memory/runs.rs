@@ -758,12 +758,6 @@ pub(super) fn submit_question_attempt_locked(
     }
     let mut enrollment = enrollment_record(state, tenant, run.enrollment)?;
     let assignment = assignment_record(state, tenant, enrollment.assignment)?;
-    let feedback_disclosure = *state
-        .attempt_feedback_disclosures
-        .get(&(tenant, command.attempt))
-        .ok_or_else(|| {
-            StoreError::Unavailable("issued feedback disclosure is missing".to_string())
-        })?;
     crate::validate_attempt_result(command.result)?;
     let submitted_at = state.authoritative_time;
     let mut submitted = projected_attempt(state, tenant, &base);
@@ -771,6 +765,13 @@ pub(super) fn submit_question_attempt_locked(
     submitted.status = AttemptStatus::Submitted;
     submitted.result = Some(command.result);
     submitted.timer.submitted_at = Some(submitted_at);
+    let disclosure = super::feedback::current_disclosure_input(
+        state,
+        tenant,
+        &assignment,
+        command.attempt,
+        submitted.timer.submitted_at,
+    )?;
     let timing = state
         .attempt_timing
         .get(&(tenant, command.attempt))
@@ -884,7 +885,7 @@ pub(super) fn submit_question_attempt_locked(
         summary: next.clone(),
         feedback,
         presentation,
-        feedback_disclosure,
+        disclosure,
     };
     state.submissions.insert(
         (tenant, command.attempt),

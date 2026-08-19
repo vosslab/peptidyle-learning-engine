@@ -16,8 +16,8 @@ use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
 use question_model::response::ResponseDefinition;
 use question_model::run_policy::{
-    AttemptPolicy, CompletionRequirement, ContinuedPractice, FeedbackDisclosure, GradePolicy,
-    RunPolicies, TimingPolicy, VariationPolicy,
+    AttemptPolicy, CompletionRequirement, ContinuedPractice, GradePolicy, RunPolicies,
+    TimingPolicy, VariationPolicy,
 };
 use question_model::taxonomy::License;
 use question_model::{
@@ -70,10 +70,7 @@ fn draft_question(
             markdown: format!("Live PostgreSQL fixture: {title}"),
         }],
         response,
-        attempt_policy: AttemptPolicy {
-            max_attempts: None,
-            feedback: FeedbackDisclosure::Deferred,
-        },
+        attempt_policy: AttemptPolicy { max_attempts: None },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },
@@ -271,6 +268,7 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
                     assignment_item(manual_reference, 1),
                 ],
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: RunPolicies {
                     completion: CompletionRequirement::AnswerAll,
                     grade: GradePolicy::Highest,

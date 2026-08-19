@@ -22,7 +22,7 @@ const FLAT_MATCHING_V2_SOURCE: &str = r#"{
   },
   "feedback":{"correct":"Correct.","incorrect":"Review the allele pairs."},
   "points":2.0,
-  "attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},
+  "attemptPolicy":{"maxAttempts":null},
   "timingPolicy":{"kind":"untimed"},
   "license":{"kind":"cc0"},
   "language":"en-US"

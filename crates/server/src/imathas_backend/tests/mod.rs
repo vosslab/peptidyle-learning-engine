@@ -19,7 +19,7 @@ use objects::memory::MemoryObjectStore;
 use objects::{ObjectKey, ObjectStore, PutObject, Sha256Digest};
 use question_model::capability::Capability;
 use question_model::generation::{RandomizationDefinition, Seed};
-use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{
     ActivityTimestamp, AssignmentId, AttemptResult, BackendCapabilities, CompletionRequirement,
@@ -111,10 +111,7 @@ async fn fixture() -> Fixture {
             },
             prompt: Vec::new(),
             response: question_model::ResponseDefinition::ExternalTool {},
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateCorrectness,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },
@@ -245,6 +242,7 @@ async fn fixture() -> Fixture {
                     scoring_mode: question_model::AssignmentScoringMode::Normal,
                 }],
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: RunPolicies {
                     completion: CompletionRequirement::AllCorrect,
                     grade: GradePolicy::Highest,

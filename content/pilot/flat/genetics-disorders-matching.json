@@ -29,7 +29,7 @@
     "incorrect": "Review the chromosome, blood, hemoglobin, and lysosomal-enzyme clues."
   },
   "points": 4.0,
-  "attemptPolicy": { "maxAttempts": null, "feedback": "immediateFull" },
+  "attemptPolicy": { "maxAttempts": null },
   "timingPolicy": { "kind": "untimed" },
   "tags": ["genetics", "genetic-disorders", "chapter-1", "matching"],
   "taxonomy": [

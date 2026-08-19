@@ -55,7 +55,7 @@ interface FlatSource {
   };
   readonly feedback: { readonly correct: string | null; readonly incorrect: string | null };
   readonly points: number;
-  readonly attemptPolicy: { readonly maxAttempts: null; readonly feedback: "immediateFull" };
+  readonly attemptPolicy: { readonly maxAttempts: null };
   readonly timingPolicy: { readonly kind: "untimed" };
   readonly tags: ReadonlyArray<string>;
   readonly taxonomy: ReadonlyArray<never>;
@@ -79,7 +79,7 @@ function flatSource(title = "Original private draft"): FlatSource {
     },
     feedback: { correct: null, incorrect: null },
     points: 1,
-    attemptPolicy: { maxAttempts: null, feedback: "immediateFull" },
+    attemptPolicy: { maxAttempts: null },
     timingPolicy: { kind: "untimed" },
     tags: ["genetics"],
     taxonomy: [],

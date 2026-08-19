@@ -4,16 +4,15 @@ import { A, createAsync, revalidate } from "@solidjs/router";
 import { For, Show, Suspense, createSignal, type JSX } from "solid-js";
 
 import type { CourseId } from "../../generated/api/CourseId";
-import type { StudentAssignmentSummary } from "../../generated/api/StudentAssignmentSummary";
 import { useApiRuntime } from "../api/runtime";
-import type { AssignmentSummary, CursorPage } from "../api/contracts";
+import type { CursorPage, LearnerAssignmentSummary } from "../api/contracts";
 import { CourseEntryIdentity } from "../features/course_appearance/course_entry_identity";
 import {
   courseRouteData,
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
 import { useSessionBootstrap } from "../auth/session_context";
-import { formatPercentScore } from "../score_format";
+import { learnerProgressSummary } from "../learner_progress";
 import { CourseManagementNav } from "../components/course_management_nav";
 import { CursorPageSession, type CursorPageSessionState } from "./cursor_page_session";
 import {
@@ -25,17 +24,17 @@ import {
 export interface AssignmentListProps {
   readonly courseId: CourseId;
   readonly courseReference: CourseRouteReference;
-  readonly initialPage: CursorPage<AssignmentSummary>;
+  readonly initialPage: CursorPage<LearnerAssignmentSummary>;
   readonly reloadAssignments: () => Promise<void>;
   readonly canCreateAssignment: boolean;
 }
 
-function assignmentLinkId(assignment: AssignmentSummary): string {
+function assignmentLinkId(assignment: LearnerAssignmentSummary): string {
   const id = `assignment-review-${assignmentRouteReference(assignment.reference)}`;
   return id;
 }
 
-function assignmentQuestionCount(assignment: AssignmentSummary): number {
+function assignmentQuestionCount(assignment: LearnerAssignmentSummary): number {
   return (
     assignment.items.filter((item) => item.deliveryState === "active").length +
     assignment.selectionGroups.reduce((count, group) => count + group.drawCount, 0)
@@ -46,31 +45,11 @@ function pluralize(count: number, singular: string, plural: string): string {
   return count === 1 ? singular : plural;
 }
 
-function formatAssignmentProgress(summary: StudentAssignmentSummary): string {
-  if (summary.completedRunCount === 0 && summary.totalQuestionAttempts === 0) {
-    return "Progress: No attempts yet.";
-  }
-  const parts: string[] = [];
-  if (summary.currentScore !== null) {
-    parts.push(`Current ${formatPercentScore(summary.currentScore)}`);
-  }
-  if (summary.latestScore !== null) {
-    parts.push(`Latest ${formatPercentScore(summary.latestScore)}`);
-  }
-  if (summary.bestScore !== null) {
-    parts.push(`Best ${formatPercentScore(summary.bestScore)}`);
-  }
-  parts.push(
-    `${summary.completedRunCount} completed run${summary.completedRunCount === 1 ? "" : "s"}`,
-  );
-  return `Progress: ${parts.join(", ")}.`;
-}
-
 interface AssignmentCardProps {
-  readonly assignment: AssignmentSummary;
+  readonly assignment: LearnerAssignmentSummary;
   readonly courseReference: CourseRouteReference;
   readonly showStudentProgress: boolean;
-  readonly registerLink: (assignment: AssignmentSummary, element: HTMLAnchorElement) => void;
+  readonly registerLink: (assignment: LearnerAssignmentSummary, element: HTMLAnchorElement) => void;
 }
 
 function AssignmentCard(props: AssignmentCardProps): JSX.Element {
@@ -89,7 +68,7 @@ function AssignmentCard(props: AssignmentCardProps): JSX.Element {
       <Show when={props.showStudentProgress}>
         <Suspense fallback={<p>Progress loading...</p>}>
           <Show when={progress()} fallback={<p>Progress unavailable.</p>}>
-            {(assignmentProgress) => <p>{formatAssignmentProgress(assignmentProgress())}</p>}
+            {(assignmentProgress) => <p>{learnerProgressSummary(assignmentProgress())}</p>}
           </Show>
         </Suspense>
       </Show>
@@ -107,7 +86,7 @@ function AssignmentCard(props: AssignmentCardProps): JSX.Element {
 
 export function AssignmentList(props: AssignmentListProps): JSX.Element {
   const runtime = useApiRuntime();
-  const [state, setState] = createSignal<CursorPageSessionState<AssignmentSummary>>({
+  const [state, setState] = createSignal<CursorPageSessionState<LearnerAssignmentSummary>>({
     items: [],
     nextCursor: null,
     loading: false,
@@ -131,7 +110,7 @@ export function AssignmentList(props: AssignmentListProps): JSX.Element {
     );
   }
 
-  function focusFirstAppended(appended: ReadonlyArray<AssignmentSummary>): void {
+  function focusFirstAppended(appended: ReadonlyArray<LearnerAssignmentSummary>): void {
     const first = appended[0];
     if (first === undefined) return;
     requestAnimationFrame(() => reviewLinks.get(first.id)?.focus());

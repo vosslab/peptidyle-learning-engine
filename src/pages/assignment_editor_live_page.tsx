@@ -3,26 +3,25 @@
 import { useParams } from "@solidjs/router";
 import { Show, createSignal, onMount, type JSX } from "solid-js";
 
-import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { CourseId } from "../../generated/api/CourseId";
-import type { CourseSummary } from "../api/contracts";
+import type { AuthSession, CourseSummary } from "../api/contracts";
 import { useApiRuntime } from "../api/runtime";
-import { useSessionBootstrap, type SessionBootstrapState } from "../auth/session_context";
+import { useSessionBootstrap } from "../auth/session_context";
 import { useCourseThemeRouteData } from "../features/course_appearance/course_theme_context";
-import { AssignmentEditorPage } from "./assignment_editor_page";
+import { AssignmentEditorPage, type AssignmentEditorMode } from "./assignment_editor_page";
 import { createAssignmentEditorRepository } from "./assignment_editor_repository";
 import { resolveAssignmentRoute } from "../navigation/resolved_route";
 
 type CourseGate =
   | { readonly kind: "loading" }
-  | { readonly kind: "allowed"; readonly course: CourseSummary }
+  | {
+      readonly kind: "allowed";
+      readonly course: CourseSummary;
+      readonly courseId: CourseId;
+      readonly mode: AssignmentEditorMode;
+    }
   | { readonly kind: "denied" }
   | { readonly kind: "unavailable" };
-
-function mayOpenInstructorSurface(session: SessionBootstrapState): boolean {
-  if (session.kind !== "authenticated") return false;
-  return session.session.user.roles.some((role) => ["instructor", "sysadmin"].includes(role));
-}
 
 function AssignmentEditingDenied(): JSX.Element {
   return (
@@ -33,8 +32,8 @@ function AssignmentEditingDenied(): JSX.Element {
       aria-live="polite"
     >
       <p class="eyebrow">Instructor course design</p>
-      <h1>Assignment editing is not available for this account</h1>
-      <p>Your learning space remains available. Ask the course instructor for editing access.</p>
+      <h1>You do not manage this course</h1>
+      <p>Return to your courses and choose an assignment in a course you manage.</p>
     </section>
   );
 }
@@ -54,28 +53,25 @@ function AssignmentEditingUnavailable(): JSX.Element {
   );
 }
 
-/**
- * Route gate order is security-relevant: an account without an instructor role makes no
- * course, assignment, or catalog request; a course learner makes only the safe course check.
- */
-export function AssignmentEditorLivePage(): JSX.Element {
+interface AuthenticatedAssignmentEditorProps {
+  readonly session: AuthSession;
+}
+
+function AuthenticatedAssignmentEditor(props: AuthenticatedAssignmentEditorProps): JSX.Element {
   const runtime = useApiRuntime();
   const params = useParams();
   const scopedRoute = useCourseThemeRouteData();
-  const session = useSessionBootstrap().state();
-  const authenticated = session.kind === "authenticated" ? session.session : undefined;
-  if (authenticated === undefined) return <AssignmentEditingUnavailable />;
-  const sessionTenant = authenticated.tenant;
   const [gate, setGate] = createSignal<CourseGate>({ kind: "loading" });
-  const courseId: CourseId | undefined =
+  const courseId = (): CourseId | undefined =>
     scopedRoute?.kind === "course" ? scopedRoute.course.summary.id : undefined;
-  const assignmentReference = params["assignmentRef"];
-  const [assignmentId, setAssignmentId] = createSignal<AssignmentId>();
-  const allowedGlobalRole = mayOpenInstructorSurface(session);
+  const allowedGate = (): Extract<CourseGate, { readonly kind: "allowed" }> | undefined => {
+    const current = gate();
+    return current.kind === "allowed" ? current : undefined;
+  };
 
   async function checkCourseAccess(): Promise<void> {
-    if (!allowedGlobalRole) return;
-    if (courseId === undefined) {
+    const selectedCourseId = courseId();
+    if (selectedCourseId === undefined) {
       setGate({ kind: "unavailable" });
       return;
     }
@@ -83,8 +79,8 @@ export function AssignmentEditorLivePage(): JSX.Element {
       const course =
         scopedRoute?.kind === "course"
           ? scopedRoute.course.summary
-          : await runtime.client.getCourse(courseId);
-      if (course.id !== courseId || course.tenant !== sessionTenant) {
+          : await runtime.client.getCourse(selectedCourseId);
+      if (course.id !== selectedCourseId || course.tenant !== props.session.tenant) {
         setGate({ kind: "unavailable" });
         return;
       }
@@ -92,15 +88,17 @@ export function AssignmentEditorLivePage(): JSX.Element {
         setGate({ kind: "denied" });
         return;
       }
+      let mode: AssignmentEditorMode = { kind: "create" };
+      const assignmentReference = params["assignmentRef"];
       if (assignmentReference !== undefined) {
         const assignment = await resolveAssignmentRoute(runtime.client, assignmentReference);
-        if (assignment.courseId !== courseId) {
+        if (assignment.courseId !== selectedCourseId) {
           setGate({ kind: "unavailable" });
           return;
         }
-        setAssignmentId(assignment.assignmentId);
+        mode = { kind: "edit", assignmentId: assignment.assignmentId };
       }
-      setGate({ kind: "allowed", course });
+      setGate({ kind: "allowed", course, courseId: selectedCourseId, mode });
     } catch {
       setGate({ kind: "unavailable" });
     }
@@ -108,10 +106,10 @@ export function AssignmentEditorLivePage(): JSX.Element {
 
   onMount(() => void checkCourseAccess());
 
-  if (!allowedGlobalRole) return <AssignmentEditingDenied />;
   return (
     <Show
-      when={gate().kind === "allowed" && courseId !== undefined}
+      when={allowedGate()}
+      keyed
       fallback={
         <Show
           when={gate().kind === "loading"}
@@ -131,19 +129,29 @@ export function AssignmentEditorLivePage(): JSX.Element {
         </Show>
       }
     >
-      <AssignmentEditorPage
-        repository={createAssignmentEditorRepository(runtime.client)}
-        courseId={courseId as CourseId}
-        courseReference={
-          (gate() as Extract<CourseGate, { readonly kind: "allowed" }>).course.reference
-        }
-        mode={
-          assignmentReference === undefined
-            ? { kind: "create" }
-            : { kind: "edit", assignmentId: assignmentId() as AssignmentId }
-        }
-        tenant={sessionTenant}
-      />
+      {(allowed) => (
+        <AssignmentEditorPage
+          repository={createAssignmentEditorRepository(runtime.client)}
+          courseId={allowed.courseId}
+          courseReference={allowed.course.reference}
+          mode={allowed.mode}
+          tenant={props.session.tenant}
+        />
+      )}
+    </Show>
+  );
+}
+
+/** Relies on the outer route role boundary, then retains course-local ownership checks. */
+export function AssignmentEditorLivePage(): JSX.Element {
+  const session = useSessionBootstrap();
+  const authenticatedSession = (): AuthSession | undefined => {
+    const state = session.state();
+    return state.kind === "authenticated" ? state.session : undefined;
+  };
+  return (
+    <Show when={authenticatedSession()} keyed fallback={<AssignmentEditingUnavailable />}>
+      {(authenticated) => <AuthenticatedAssignmentEditor session={authenticated} />}
     </Show>
   );
 }

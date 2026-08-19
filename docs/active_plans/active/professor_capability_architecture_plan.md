@@ -326,10 +326,38 @@ see and when, evaluated server-side for every learner-facing projection.
    during attempt | after submit | after due | after close | never
 ```
 
-The existing `feedback_disclosure` value becomes one field of this policy, and `feedback_release`
-records stay the per-attempt receipt of a policy decision rather than a separate mechanism.
+The migration removes the former `feedback_disclosure` authority. `feedback_release` records remain
+immutable, retention-fenced audit evidence of an instructor action; they are never a policy input
+and cannot unlock or otherwise change a learner projection.
 
-### 3.3 Derived state versus durable transitions
+### 3.3 Student projection and access evidence
+
+S4 owns the learner-facing projection of the S3 disclosure result, but it does not own entitlement
+or policy resolution. Learner projections include assignment lists, run lists and details, attempt
+start, submission feedback, summaries, and other learner-facing grade or progress views. They do not
+include instructor roster or gradebook pages.
+
+Separately, the browser uses one centrally derived, fail-closed role boundary before instructor
+components or transport requests mount. A student session reaching any instructor-only route,
+including roster and gradebook, is denied before instructor transport. Direct route probes and
+no-transport assertions are required because a screenshot cannot prove authorization. The same
+boundary governs direct navigation and in-app links; it is not a learner projection or a second
+entitlement/policy authority.
+
+Permanent visual evidence uses the exact CSS-pixel matrix 1280 by 800 (16:10), 800 by 1280 (10:16),
+393 by 852 (iPhone Pro aspect), and 800 by 800 (square), planned at 40%, 30%, 20%, and 10%.
+Professor evidence remains desktop at 1280 by 800 or larger. Student evidence includes an allowed
+student surface and the visible denial of instructor-only routes. The committed corpus is organized
+under `docs/screenshots/` by instructor, student, and the student/access boundary, with
+`tests/playwright/ui_corpus_manifest.ts` as its sole screenshot ownership authority.
+
+Live evidence uses local-development credentials or invitations because email is unavailable; it
+must not claim email delivery. Fictional deterministic fixture addresses in `example.invalid` are
+permitted test data, while real email and identifying records remain prohibited. Public and private
+evidence remain separate. Screenshots become acceptance evidence only after fresh capture and
+inspection, so this plan does not claim that the new student/access captures exist or pass yet.
+
+### 3.4 Derived state versus durable transitions
 
 The repository already answers this, and the plan follows its convention rather than inventing a
 second one. `feedback_release` and the retention dispatch, stage, and notification tables persist
@@ -867,7 +895,7 @@ P1 finding.
 | WP-PROF-S2 | Expert coder | Course term, zone, validation, migration (serial core); accepted 2026-08-18 after full Validation and independent final ACCEPT reviews | WP-PROF-S1 accepted |
 | WP-PROF-S7 | Expert coder | Typed references, shared value types, migration allocation, RLS, and immutable public bylines (serial core); accepted 2026-08-19 after full Validation and independent final ACCEPT reviews | WP-PROF-S1 |
 | WP-PROF-S3 | Expert coder | Accepted 2026-08-19: effective-policy resolver, ordered gates, grant-filtered modifiers, per-field provenance, and sealed attempt receipts (lane A); full Validation and three independent final reviews passed | WP-PROF-S2, WP-PROF-S7, WP-PROF-S5 |
-| WP-PROF-S4 | Expert coder | Disclosure policy and learner projections (lane A); current-handoff state is in the status registry | WP-PROF-S3 |
+| WP-PROF-S4 | Expert coder | Disclosure policy and learner projections (lane A), including fail-closed student access evidence and the role-based visual contract; current-handoff state is in the status registry | WP-PROF-S3 |
 | WP-PROF-S5 | Expert coder | Accepted 2026-08-19: entitlement authority, typed decision/reasons and applicable group-purpose scopes, derived authority, and materialization (lane B); full Validation and three independent final reviews passed | WP-PROF-S2, WP-PROF-S7 |
 | WP-PROF-S6 | Expert coder | Grade scheme, shipped modes, worked examples, export (lane C) | WP-PROF-S2, WP-PROF-S7 |
 | WP-PROF-T1 | Expert coder | Lifecycle, schedule, late policy, instructions, scoring status | WP-PROF-S3 |
@@ -990,6 +1018,10 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
   grading implementations, private source, email, UUID, or FERPA data.
 - Professor pages stay compact and keyboard-complete at 1280 by 800; student pages keep the tablet
   and narrow-phone guards.
+- Student acceptance evidence includes an allowed student surface and fail-closed denial of
+  instructor-only routes at the exact 1280 by 800, 800 by 1280, 393 by 852, and 800 by 800 CSS-pixel
+  matrix. No-transport assertions and direct route probes accompany screenshots; pixels alone do not
+  prove authorization.
 
 ## Test and verification strategy
 
@@ -1025,6 +1057,10 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
   divergent selected copy; rollover and term shift preview; manual grading by item with override;
   gradebook total and audited learner work inspection; analysis to fork to recorded decision;
   attention-queue routing; keyboard, recovery, and canonical viewport behavior.
+- S4 browser evidence must cover the student/access contract: allowed learner projection, direct
+  roster and gradebook denial probes, a centrally derived fail-closed route boundary before transport,
+  and no instructor payload on denied navigation. Fresh capture and inspection are required before
+  screenshots count as acceptance evidence.
 - Keep the canonical pilot walkthrough on its existing known-ID teaching loop; new journeys are
   separate visible evidence. `tests/walkthrough/` owns the one live M6 professor-to-two-student
   composition journey, with Playwright as its interaction engine; the aggregate acceptance invokes it

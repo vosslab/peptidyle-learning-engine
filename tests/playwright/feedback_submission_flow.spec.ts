@@ -112,15 +112,15 @@ test("correctness-only mock feedback permits its hint but no full-disclosure sec
   await expect(panel.getByRole("heading", { name: "Why this works" })).toHaveCount(0);
 });
 
-for (const [label, attemptId] of [
-  ["deferred", "0198e000-0000-7000-8000-000000000032"],
-  ["on-release", "0198e000-0000-7000-8000-000000000033"],
+for (const [fixtureLabel, attemptId] of [
+  ["withheld fixture A", "0198e000-0000-7000-8000-000000000032"],
+  ["withheld fixture B", "0198e000-0000-7000-8000-000000000033"],
 ] as const) {
-  test(`${label} mock feedback remains explicitly awaiting`, async ({ page }) => {
+  test(`${fixtureLabel} mock response remains explicitly awaiting`, async ({ page }) => {
     await mountScenario(page, attemptId);
     const panel = page.locator("#submission-flow");
     await expect(panel.getByRole("status")).toHaveText(
-      "Your response was recorded. Feedback is not available yet.",
+      "Your response was recorded. Feedback is not available for this response.",
     );
     await expect(panel.getByRole("heading", { name: "Hint" })).toHaveCount(0);
     await expect(panel.getByRole("heading", { name: "Correct response" })).toHaveCount(0);

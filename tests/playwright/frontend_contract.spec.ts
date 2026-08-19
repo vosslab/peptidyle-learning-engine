@@ -5,6 +5,8 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 import fs from "node:fs";
 
 import { publishedProblemFixture } from "../../generated/fixtures/published_problem";
+import { respondCatalog } from "../../src/api/mock/handlers/catalog";
+import { ROUTE_CONTRACT, type RouteContract } from "../../src/route_contract";
 
 declare global {
   interface Window {
@@ -63,6 +65,101 @@ function json(route: Route, value: unknown, headers: Record<string, string> = {}
   });
 }
 
+async function fulfillResponse(route: Route, response: Response): Promise<void> {
+  await route.fulfill({
+    status: response.status,
+    headers: Object.fromEntries(response.headers.entries()),
+    body: await response.text(),
+  });
+}
+
+function materializeRoute(route: RouteContract): string {
+  return route.path
+    .replace(":courseRef", IDS.course)
+    .replace(":assignmentRef", IDS.assignment)
+    .replace(":runRef", IDS.run)
+    .replace(":problemRef", IDS.problem)
+    .replace(":workspaceRef", IDS.workspace);
+}
+
+function isInstructorTransport(pathname: string): boolean {
+  return (
+    pathname.startsWith("/api/navigation/") ||
+    pathname.startsWith("/api/problems") ||
+    pathname.startsWith("/api/workspaces") ||
+    /^\/api\/courses\/[^/]+\/(?:appearance|assignments|gradebook|roster)(?:\/|$)/u.test(pathname)
+  );
+}
+
+interface StudentBoundaryApi {
+  readonly instructorRequests: string[];
+  readonly unexpectedRequests: string[];
+}
+
+async function installStudentBoundaryApi(page: Page): Promise<StudentBoundaryApi> {
+  const instructorRequests: string[] = [];
+  const unexpectedRequests: string[] = [];
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "__PLE_USE_MOCK_API__", {
+      configurable: false,
+      get: () => false,
+      set: () => undefined,
+    });
+  });
+  await page.route("**/api/**", async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname === "/api/auth/session") {
+      await json(route, {
+        authenticated: true,
+        tenant: publishedProblemFixture.course.tenant,
+        user: {
+          id: publishedProblemFixture.enrollment.user,
+          displayName: "Fixture Student",
+          roles: ["student"],
+        },
+      });
+      return;
+    }
+    if (pathname === "/api/auth/account/presentation") {
+      await json(route, { contrast: "standard" });
+      return;
+    }
+    if (pathname === "/api/courses") {
+      await json(route, { items: [], nextCursor: null });
+      return;
+    }
+    if (isInstructorTransport(pathname)) {
+      instructorRequests.push(pathname);
+    } else {
+      unexpectedRequests.push(pathname);
+    }
+    await route.fulfill({ status: 500, body: "unexpected route-boundary transport" });
+  });
+  return { instructorRequests, unexpectedRequests };
+}
+
+test("preview serves the SPA shell only for declared browser document routes", async ({
+  request,
+}) => {
+  const documentHeaders = { accept: "text/html" };
+  const declaredRoute = await request.get(`/library/${IDS.problem}`, {
+    headers: documentHeaders,
+  });
+  expect(declaredRoute.status()).toBe(200);
+  expect(declaredRoute.headers()["content-type"]).toContain("text/html");
+  expect(await declaredRoute.text()).toContain('<base href="/">');
+
+  const refusals = await Promise.all([
+    request.get("/unknown-learning-space", { headers: documentHeaders }),
+    request.get("/missing-static.js", { headers: documentHeaders }),
+    request.get("/api/missing", { headers: documentHeaders }),
+    request.get("/api/assets/missing.svg", { headers: documentHeaders }),
+    request.get(`/library/${IDS.problem}`, { headers: { accept: "application/json" } }),
+    request.post(`/library/${IDS.problem}`, { headers: documentHeaders }),
+  ]);
+  expect(refusals.map((response) => response.status())).toEqual([404, 404, 404, 404, 404, 404]);
+});
+
 test("all product routes resolve inside the persistent shell", async ({ page }) => {
   const routes = [
     { path: "/", surface: "courses" },
@@ -78,23 +175,43 @@ test("all product routes resolve inside the persistent shell", async ({ page }) 
     },
     { path: `/runs/${IDS.run}`, surface: "runAttempt" },
     { path: `/runs/${IDS.run}/summary`, surface: "runSummary" },
-    { path: "/library", surface: "library" },
+    { path: "/library", surface: "library", restricted: true },
     {
       path: `/library/${IDS.problem}`,
       surface: "problemDetail",
+      restricted: true,
     },
-    { path: "/workspace", surface: "workspaceList" },
-    { path: `/workspace/${IDS.workspace}`, surface: "workspaceEditor" },
+    { path: "/workspace", surface: "workspaceList", restricted: true },
+    {
+      path: `/workspace/${IDS.workspace}`,
+      surface: "workspaceEditor",
+      restricted: true,
+    },
+    {
+      path: `/instructor/courses/${IDS.course}/assignments/new`,
+      surface: "assignmentCreate",
+      restricted: true,
+    },
     {
       path: `/instructor/courses/${IDS.course}/assignments/${IDS.assignment}/edit`,
       surface: "assignmentEditor",
+      restricted: true,
     },
-    { path: `/instructor/courses/${IDS.course}/gradebook`, surface: "gradebook" },
+    {
+      path: `/instructor/courses/${IDS.course}/gradebook`,
+      surface: "gradebook",
+      restricted: true,
+    },
     {
       path: `/instructor/courses/${IDS.course}/appearance`,
       surface: "courseAppearance",
+      restricted: true,
     },
-    { path: `/instructor/courses/${IDS.course}/students`, surface: "courseRoster" },
+    {
+      path: `/instructor/courses/${IDS.course}/students`,
+      surface: "courseRoster",
+      restricted: true,
+    },
   ];
 
   await page.goto("/");
@@ -102,19 +219,10 @@ test("all product routes resolve inside the persistent shell", async ({ page }) 
 
   for (const route of routes) {
     await navigateWithinSpa(page, route.path);
-    if (route.surface.startsWith("workspace")) {
-      await expect(
-        page.getByRole("heading", {
-          name: "Workspace authoring is not available for this account",
-        }),
-      ).toBeVisible();
-    } else if (route.surface === "problemDetail") {
-      await expect(
-        page.getByRole("heading", {
-          name: "Problem library is not available for this account",
-        }),
-      ).toBeVisible();
-      await expect(page.locator('[data-route-surface="problemDetail"]')).toHaveCount(0);
+    if (route.restricted === true) {
+      const denial = page.locator('[data-route-surface="routeAccessDenied"]');
+      await expect(denial).toBeVisible();
+      await expect(denial).toHaveAttribute("data-denied-route", route.surface);
     } else {
       await expect(page.locator(`[data-route-surface="${route.surface}"]`)).toBeVisible();
     }
@@ -123,6 +231,8 @@ test("all product routes resolve inside the persistent shell", async ({ page }) 
 });
 
 test("an instructor can invite a student through the platform keyboard path", async ({ page }) => {
+  const requests: string[] = [];
+  page.on("request", (request) => requests.push(new URL(request.url()).pathname));
   const course = { ...publishedProblemFixture.course, role: "instructor" };
   const invitation = {
     invitationId: "0198e000-0000-7000-8000-000000000601",
@@ -189,7 +299,14 @@ test("an instructor can invite a student through the platform keyboard path", as
       );
     }
     if (path === `/api/courses/${course.id}/assignments`) {
-      return await json(route, { items: [publishedProblemFixture.assignment], nextCursor: null });
+      const {
+        tenant: _tenant,
+        courseId: _courseId,
+        disclosurePolicy: _disclosurePolicy,
+        policies: _policies,
+        ...assignment
+      } = publishedProblemFixture.assignment;
+      return await json(route, { items: [assignment], nextCursor: null });
     }
     if (path === `/api/courses/${course.id}/roster`) return await json(route, roster());
     if (path === `/api/courses/${course.id}/invitations` && request.method() === "POST") {
@@ -210,6 +327,9 @@ test("an instructor can invite a student through the platform keyboard path", as
   await navigateWithinSpa(page, `/instructor/courses/${IDS.course}/students`);
   const email = page.getByLabel("Institutional email");
   await expect(email).toBeVisible();
+  await expect(page.getByRole("button", { name: /Add .*Fake Student/u })).toHaveCount(0);
+  await expect(page.getByText("Add local teaching student", { exact: true })).toHaveCount(0);
+  expect(requests.some((path) => path.endsWith("/local-teaching-members"))).toBe(false);
   await tabTo(page, email, 30);
   await page.keyboard.type("new.student@mail.roosevelt.edu");
   await page.keyboard.press("Tab");
@@ -229,19 +349,6 @@ test("an instructor can invite a student through the platform keyboard path", as
   );
   await expect(page.getByRole("button", { name: "Copy invitation link" })).toBeVisible();
   await expectNoBlockingAxeViolations(page);
-});
-
-test("ordinary roster composition omits local teaching controls and activation requests", async ({
-  page,
-}) => {
-  const requests: string[] = [];
-  page.on("request", (request) => requests.push(new URL(request.url()).pathname));
-  await page.goto("/");
-  await navigateWithinSpa(page, `/instructor/courses/${IDS.course}/students`);
-  await expect(page.getByRole("heading", { name: "Students", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Add .*Fake Student/u })).toHaveCount(0);
-  await expect(page.getByText("Add local teaching student", { exact: true })).toHaveCount(0);
-  expect(requests.some((path) => path.endsWith("/local-teaching-members"))).toBe(false);
 });
 
 test("student navigation hides restricted controls and focuses main content", async ({ page }) => {
@@ -267,9 +374,11 @@ test("manual student workspace navigation mounts no authoring transport", async 
   requests.length = 0;
   await navigateWithinSpa(page, `/workspace/${IDS.workspace}`);
 
-  await expect(
-    page.getByRole("heading", { name: "Workspace authoring is not available for this account" }),
-  ).toBeVisible();
+  await expect(page.locator('[data-route-surface="routeAccessDenied"]')).toHaveAttribute(
+    "data-denied-route",
+    "workspaceEditor",
+  );
+  await expect(page.locator('[data-route-surface="workspaceEditor"]')).toHaveCount(0);
   expect(
     requests.filter(
       (path) => path.startsWith("/api/workspaces") || path.includes("author-preview"),
@@ -285,11 +394,140 @@ test("manual student catalog-detail navigation mounts no catalog transport", asy
   requests.length = 0;
   await navigateWithinSpa(page, `/library/${IDS.problem}`);
 
-  await expect(
-    page.getByRole("heading", { name: "Problem library is not available for this account" }),
-  ).toBeVisible();
+  await expect(page.locator('[data-route-surface="routeAccessDenied"]')).toHaveAttribute(
+    "data-denied-route",
+    "problemDetail",
+  );
   await expect(page.locator('[data-route-surface="problemDetail"]')).toHaveCount(0);
   expect(requests.filter((path) => path.startsWith("/api/problems/by-id/"))).toEqual([]);
+});
+
+test("student deep links never mount or transport instructor route surfaces", async ({ page }) => {
+  test.setTimeout(60_000);
+  const failedAssets: string[] = [];
+  page.on("response", (response) => {
+    const resourceType = response.request().resourceType();
+    if ((resourceType === "script" || resourceType === "stylesheet") && !response.ok()) {
+      failedAssets.push(`${response.status()} ${new URL(response.url()).pathname}`);
+    }
+  });
+  const api = await installStudentBoundaryApi(page);
+  const protectedRoutes = ROUTE_CONTRACT.filter((route) => route.requiredRoles.length > 0);
+
+  for (const route of protectedRoutes) {
+    api.instructorRequests.length = 0;
+    api.unexpectedRequests.length = 0;
+    const pathname = materializeRoute(route);
+    const response = await page.goto(pathname);
+    expect(response?.status(), route.id).toBe(200);
+    const denial = page.locator('[data-route-surface="routeAccessDenied"]');
+    await expect(denial).toHaveAttribute("data-denied-route", route.id);
+    await expect(
+      page.locator('[data-route-surface]:not([data-route-surface="routeAccessDenied"])'),
+    ).toHaveCount(0);
+    await expect(page.locator("[data-course-theme]")).toHaveCount(0);
+    expect(api.instructorRequests, `${route.id} page.goto`).toEqual([]);
+    expect(api.unexpectedRequests, `${route.id} page.goto`).toEqual([]);
+
+    api.instructorRequests.length = 0;
+    api.unexpectedRequests.length = 0;
+    const reloadResponse = await page.reload();
+    expect(reloadResponse?.status(), route.id).toBe(200);
+    await expect(denial).toHaveAttribute("data-denied-route", route.id);
+    await expect(
+      page.getByRole("heading", { name: "This page is available to instructors only" }),
+    ).toBeFocused();
+    expect(api.instructorRequests, `${route.id} reload`).toEqual([]);
+    expect(api.unexpectedRequests, `${route.id} reload`).toEqual([]);
+  }
+
+  const recoveryLink = page.getByRole("link", { name: "Return to courses" });
+  await expect(page.getByRole("alert")).toContainText("available to instructors only");
+  await page.keyboard.press("Tab");
+  await expect(recoveryLink).toBeFocused();
+  await expectNoBlockingAxeViolations(page);
+  await page.keyboard.press("Enter");
+  await expect(page.locator('[data-route-surface="courses"]')).toBeVisible();
+  expect(failedAssets).toEqual([]);
+});
+
+test("unknown SPA navigation recovers safely without protected transport", async ({ page }) => {
+  const api = await installStudentBoundaryApi(page);
+  await page.goto("/");
+  await expect(page.locator('[data-route-surface="courses"]')).toBeVisible();
+  api.instructorRequests.length = 0;
+  api.unexpectedRequests.length = 0;
+
+  await navigateWithinSpa(page, "/unknown-learning-space");
+  await expect(page.locator('[data-route-surface="notFound"]')).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "That page is not part of this learning space" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Return to courses" })).toBeVisible();
+  await expect(page.locator("[data-course-theme]")).toHaveCount(0);
+  expect(api.instructorRequests).toEqual([]);
+  expect(api.unexpectedRequests).toEqual([]);
+});
+
+test("sign-out unmounts a protected surface and prevents remount transport", async ({ page }) => {
+  const catalogRequests: string[] = [];
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "__PLE_USE_MOCK_API__", {
+      configurable: false,
+      get: () => false,
+      set: () => undefined,
+    });
+  });
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const pathname = new URL(request.url()).pathname;
+    if (pathname === "/api/auth/session") {
+      await json(route, {
+        authenticated: true,
+        tenant: publishedProblemFixture.course.tenant,
+        user: {
+          id: publishedProblemFixture.enrollment.user,
+          displayName: "Catalog instructor",
+          roles: ["instructor"],
+        },
+      });
+      return;
+    }
+    if (pathname === "/api/auth/account/presentation") {
+      await json(route, { contrast: "standard" });
+      return;
+    }
+    if (pathname === "/api/auth/logout" && request.method() === "POST") {
+      await json(route, { authenticated: false });
+      return;
+    }
+    if (pathname === "/api/problems" || pathname.startsWith("/api/problems/")) {
+      catalogRequests.push(pathname);
+      await fulfillResponse(
+        route,
+        respondCatalog(
+          new Request(request.url(), {
+            method: request.method(),
+            headers: request.headers(),
+          }),
+        ),
+      );
+      return;
+    }
+    await route.fulfill({ status: 404, body: "unexpected session-transition request" });
+  });
+
+  await page.goto("/library");
+  await expect(page.locator('[data-route-surface="library"]')).toBeVisible();
+  const requestsBeforeSignOut = catalogRequests.length;
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.locator('[data-route-surface="signIn"]')).toBeVisible();
+  await expect(page.locator('[data-route-surface="library"]')).toHaveCount(0);
+
+  await navigateWithinSpa(page, "/library");
+  await expect(page.locator('[data-session-state="signedOut"]')).toBeVisible();
+  await expect(page.locator('[data-route-surface="library"]')).toHaveCount(0);
+  expect(catalogRequests).toHaveLength(requestsBeforeSignOut);
 });
 
 test("a route failure keeps the shell usable and omits raw exception details", async ({ page }) => {

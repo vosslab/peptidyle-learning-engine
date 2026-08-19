@@ -48,8 +48,8 @@ container build context, or runtime dependency.
 
 | Path                                                            | Owns                                                                                                                  |
 | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| [crates/question_model/](../crates/question_model/)             | Question types, mandatory course-term values, capabilities, identifiers, and public presentation schemas.            |
-| [crates/domain/](../crates/domain/)                             | Attempt state, policies, seeded generation, timing inputs, and answer-free validation.                                |
+| [crates/question_model/](../crates/question_model/)             | Question types, mandatory course-term values, capabilities, identifiers, learner-progress projections, and public presentation schemas.            |
+| [crates/domain/](../crates/domain/)                             | Attempt state, policies, pure learner-disclosure evaluation, seeded generation, timing inputs, and answer-free validation.                                |
 | [crates/grading/](../crates/grading/)                           | Answer keys, checkers, and correctness decisions.                                                                     |
 | [crates/objects/](../crates/objects/)                           | Typed object-store interface, four bucket domains, checksums, image validation, and MinIO/S3 backends.                |
 | [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, in-memory and PostgreSQL implementations, RLS, capability roles, migrations, and conformance tests.  |
@@ -79,8 +79,11 @@ crates/learning-data-access/
 |  +- postgres/        PostgreSQL implementations and connection attestation
 |  |  `- catalog/search.rs Canonical ranked full-text and word-similarity search
 |  |  `- effective_policy_receipts.rs Sealed effective-policy receipt persistence and reconstruction
+|  |  `- assignment_records/learner_disclosure.rs Closed five-field disclosure-column decoder
+|  |  `- item_analysis/learner_class_statistics.rs Learner-safe current course analysis projection
 |  +- activity.rs      Actor-scoped learner reads and activity ownership
 |  +- external_tool.rs External broker leases, dispatch, and finalization contracts
+|  +- feedback.rs      Private current disclosure receipt and learner-projection inputs
 |  +- jobs.rs          Durable job and publication-outbox contracts
 |  +- publication_validation/ Published content and asset registry validation
 |  +- lib.rs           Public facade and stable re-exports
@@ -114,7 +117,7 @@ crates/server/src/
 +- auth/                             Passwordless email, passkey, session, and request-boundary behavior
 +- catalog/                           Catalog query and immutable publication behavior
 +- course/                            Course, roster, invitation, and assignment routes
-+- run/                               Attempt issue, prefetch, submission, feedback, and external-tool routes
++- run/                               Attempt issue, prefetch, submission, current disclosure redaction, and external-tool routes
 +- workspace/                         Authoring workspace behavior
 +- flat_question_publication/         Native publication routes and tests
 +- public_asset_publication_worker/   Outbox handler and conditional registry activation
@@ -139,10 +142,13 @@ authority.
 ```text
 src/
 +- api/             Strict decoders, HTTP client, generated contracts, and mocks
+|  `- decoders/assignment_policy.ts Exact five-field assignment-policy decoder
 +- auth/            Account and course-session browser state
 +- components/      Reusable prompt, response, feedback, and accessibility UI
 +- features/        Capability-owned browser logic
 +- pages/           Route-level views and page-specific state
+|  `- assignment_editor_policy_panel.tsx Instructor disclosure-policy controls
++- learner_progress.ts Server-derived score-state display copy; never derives policy or timing
 +- wasm/            Shared domain WebAssembly facade and Solid context
 +- app.tsx          Application shell
 +- routes.ts        Route definitions
@@ -177,7 +183,7 @@ source and replay selection is in
 
 ```text
 schemas/
-`- migrations/        Ordered forward SQL migrations, including auth, RLS, external fences, publication outbox, and 2026081401 ranked catalog discovery
+`- migrations/        Ordered forward SQL migrations, including auth, RLS, external fences, publication outbox, 2026081401 ranked catalog discovery, and 2026081805 assignment learner-disclosure policy
 
 containers/
 +- compose.yaml       Normal local services, private networks, hardening, and one-shot setup
@@ -247,6 +253,21 @@ generated/
 `dist/`, `dist_wasm/`, `target/`, `test-results/`, and Playwright report
 directories are reproducible ignored output. Checked-in fixtures under
 `tests/fixtures/` are source evidence and should change deliberately.
+
+Committed visual evidence lives under `docs/screenshots/`, organized by role and access boundary:
+
+```text
+docs/screenshots/
++- instructor/       Desktop professor evidence at 1280 by 800 or larger
++- student/           Allowed learner surfaces across the student viewport matrix
+|  `- access/         Student denial and no-transport access evidence
+`- shared/            Evidence shared by instructor and student surfaces
+```
+
+`tests/playwright/ui_corpus_manifest.ts` is the sole screenshot ownership authority. The directories
+describe evidence boundaries; the manifest owns artifact names, routes, roles, pipelines, viewports,
+and evidence purposes. A retained image is not acceptance evidence until a fresh capture and visual
+inspection pass.
 
 `python3 local_stack.py acceptance` is the explicit live aggregate entry point. It
 hands lifecycle conflict detection and environment sanitization to the controller, then

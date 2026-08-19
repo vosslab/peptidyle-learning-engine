@@ -27,7 +27,7 @@ mod queries;
 mod routes;
 pub use routes::router;
 mod submission;
-mod support;
+pub(crate) mod support;
 #[cfg(test)]
 use support::{MAX_JSON_SAFE_INTEGER, *};
 mod external_tool;

@@ -4,8 +4,7 @@ import { A, useLocation, useNavigate, type RouteSectionProps } from "@solidjs/ro
 import { createEffect, createSignal, ErrorBoundary, Show, type JSX } from "solid-js";
 
 import { useSessionBootstrap, type SessionBootstrapState } from "./auth/session_context";
-import { rolesMayAccessRoute, type RouteId } from "./route_contract";
-import { CourseThemeScope } from "./features/course_appearance/course_theme_scope";
+import { rolesMayAccessRoute, routeContractForPathname, type RouteId } from "./route_contract";
 import { LocalDevelopmentSignIn } from "./auth/local_development";
 import { PresentationContrastProvider } from "./presentation/contrast_context";
 
@@ -36,12 +35,13 @@ function canUseLibrary(state: SessionBootstrapState): boolean {
 type ScopedRouteSectionProps = RouteSectionProps & { readonly pathname: string };
 
 function isPublicAccountRoute(pathname: string): boolean {
-  return [
-    "/sign-in",
-    "/auth/email/complete",
-    "/auth/account/email/complete",
-    "/course-invitations/redeem",
-  ].includes(pathname);
+  const routeId = routeContractForPathname(pathname)?.id;
+  return (
+    routeId === "signIn" ||
+    routeId === "emailAuthenticationComplete" ||
+    routeId === "emailChangeComplete" ||
+    routeId === "courseInvitation"
+  );
 }
 
 function SessionContent(props: ScopedRouteSectionProps): JSX.Element {
@@ -60,9 +60,7 @@ function SessionContent(props: ScopedRouteSectionProps): JSX.Element {
         />
       }
     >
-      <PresentationContrastProvider>
-        <CourseThemeScope pathname={props.pathname}>{props.children}</CourseThemeScope>
-      </PresentationContrastProvider>
+      <PresentationContrastProvider>{props.children}</PresentationContrastProvider>
     </Show>
   );
 }

@@ -37,7 +37,7 @@ const EXISTING_SOURCE: &str = r#"{
   "response":{"kind":"singleChoice","choices":[{"id":"first","text":"First"},{"id":"second","text":"Second"}],"correctChoice":"first"},
   "feedback":{},
   "points":1.0,
-  "attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},
+  "attemptPolicy":{"maxAttempts":null},
   "timingPolicy":{"kind":"untimed"},
   "license":{"kind":"allRightsReserved"},
   "language":"en-US"

@@ -207,7 +207,6 @@ pub(super) fn native_draft(workspace: WorkspaceId) -> DraftQuestionDefinition {
         },
         attempt_policy: AttemptPolicy {
             max_attempts: Some(1),
-            feedback: FeedbackDisclosure::Deferred,
         },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Seeded {
@@ -246,7 +245,6 @@ pub(super) fn webwork_pilot_draft(workspace: WorkspaceId) -> DraftQuestionDefini
         },
         attempt_policy: AttemptPolicy {
             max_attempts: Some(1),
-            feedback: FeedbackDisclosure::Deferred,
         },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Seeded {

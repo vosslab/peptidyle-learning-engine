@@ -76,6 +76,7 @@ pub(super) async fn seed_chapter_one_statistics(
                 course_id: course,
                 title: "Chapter 1 phenylalanine evidence activity".to_string(),
                 audience: question_model::AssignmentAudience::CourseWide,
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 items: vec![AssignmentItem {
                     id: AssignmentItemId::from_uuid(pilot_uuid(
                         arguments.tenant,

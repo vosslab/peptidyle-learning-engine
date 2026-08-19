@@ -293,16 +293,21 @@ test("external-tool mock child handler rejects malformed keys and every non-mark
 test("submission fixtures model disclosure at the server boundary without private fields", async () => {
   const mockFetch = createMockFetch();
   const cases = [
-    ["0198e000-0000-7000-8000-000000000030", ["correctness", "hint"]],
     [
+      "correctness-only projection",
+      "0198e000-0000-7000-8000-000000000030",
+      ["correctness", "hint"],
+    ],
+    [
+      "full feedback projection",
       "0198e000-0000-7000-8000-000000000031",
       ["correctResponse", "correctness", "hint", "pointsEarned", "pointsPossible", "rationale"],
     ],
-    ["0198e000-0000-7000-8000-000000000032", null],
-    ["0198e000-0000-7000-8000-000000000033", null],
-    ["0198e000-0000-7000-8000-000000000034", null],
+    ["withheld projection A", "0198e000-0000-7000-8000-000000000032", null],
+    ["withheld projection B", "0198e000-0000-7000-8000-000000000033", null],
+    ["external-tool withheld projection", "0198e000-0000-7000-8000-000000000034", null],
   ];
-  for (const [attemptId, expectedFields] of cases) {
+  for (const [projectionLabel, attemptId, expectedFields] of cases) {
     const response = await mockFetch(`/api/submissions/${attemptId}`, { method: "POST" });
     assert.equal(response.status, 200);
     const raw = await response.text();
@@ -314,6 +319,7 @@ test("submission fixtures model disclosure at the server boundary without privat
     assert.equal(
       receipt.feedback === null ? null : Object.keys(receipt.feedback).toSorted().join(","),
       expectedFields === null ? null : [...expectedFields].toSorted().join(","),
+      projectionLabel,
     );
   }
 });

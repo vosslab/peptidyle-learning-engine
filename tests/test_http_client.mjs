@@ -9,6 +9,8 @@ import {
   decodeDraftQuestionDefinition,
   decodeExternalToolLaunch,
   decodeCatalogPage,
+  decodeEnrollmentView,
+  decodeLearnerAssignmentSummary,
   decodeGradebookPage,
   decodeQuestionAttempt,
   decodeQuestionDefinition,
@@ -34,8 +36,23 @@ const explicitCourseTerm = {
 };
 
 test("question decoders reject published, grading, and provider-secret fields instead of dropping them", () => {
-  const draft = publishedProblemFixture.draft;
+  const draft = {
+    ...publishedProblemFixture.draft,
+    attemptPolicy: { maxAttempts: publishedProblemFixture.draft.attemptPolicy.maxAttempts },
+  };
   assert.deepEqual(decodeDraftQuestionDefinition(draft).source, draft.source);
+
+  for (const feedback of ["immediateFull", "immediateCorrectness", "deferred", "onRelease"]) {
+    assert.throws(
+      () =>
+        decodeDraftQuestionDefinition({
+          ...draft,
+          attemptPolicy: { ...draft.attemptPolicy, feedback },
+        }),
+      DecodeError,
+      "draft must reject retired question-level learner disclosure",
+    );
+  }
 
   for (const forbidden of [
     "problem",
@@ -62,10 +79,72 @@ test("question decoders reject published, grading, and provider-secret fields in
   );
   assert.throws(
     () =>
-      decodeQuestionDefinition({ ...publishedProblemFixture.publishedProblem, answer: "secret" }),
+      decodeQuestionDefinition({
+        ...publishedProblemFixture.publishedProblem,
+        attemptPolicy: {
+          maxAttempts: publishedProblemFixture.publishedProblem.attemptPolicy.maxAttempts,
+        },
+        answer: "secret",
+      }),
     DecodeError,
     "published definition must reject an answer field",
   );
+});
+
+test("learner assignment transport rejects server authority inputs", () => {
+  const learnerAssignment = {
+    id: publishedProblemFixture.assignment.id,
+    reference: publishedProblemFixture.assignment.reference,
+    title: publishedProblemFixture.assignment.title,
+    items: publishedProblemFixture.assignment.items,
+    selectionGroups: publishedProblemFixture.assignment.selectionGroups,
+  };
+  assert.deepEqual(
+    decodeLearnerAssignmentSummary(learnerAssignment, "learner", true),
+    learnerAssignment,
+  );
+  for (const forbidden of [
+    "tenant",
+    "courseId",
+    "disclosurePolicy",
+    "policies",
+    "assignmentTiming",
+  ]) {
+    assert.throws(
+      () =>
+        decodeLearnerAssignmentSummary(
+          { ...learnerAssignment, [forbidden]: "server-only" },
+          "learner",
+          true,
+        ),
+      DecodeError,
+      `learner assignment must reject ${forbidden}`,
+    );
+  }
+});
+
+test("learner enrollment transport accepts only its key-free two-field envelope", () => {
+  const valid = {
+    enrollment: publishedProblemFixture.enrollment,
+    summary: {
+      scoreState: "available",
+      currentScore: 0.75,
+      bestScore: 0.9,
+      latestScore: 0.8,
+      completedRunCount: 2,
+      totalQuestionAttempts: 5,
+      lastActivityAt: 1786000000000,
+    },
+  };
+  assert.deepEqual(decodeEnrollmentView(valid), valid);
+
+  for (const forbidden of ["policy", "clock", "evaluatedAt"]) {
+    assert.throws(
+      () => decodeEnrollmentView({ ...valid, [forbidden]: "server-only" }),
+      DecodeError,
+      `learner enrollment must reject ${forbidden}`,
+    );
+  }
 });
 
 test("external-tool response markers are exact and cannot carry browser provider material", () => {
@@ -564,14 +643,10 @@ test("the HTTP client decodes every implemented route and composes a run screen"
     (await client.listAssignments(fixture.course.id)).items[0].id,
     fixture.assignment.id,
   );
-  assert.equal((await client.getAssignment(fixture.assignment.id)).courseId, fixture.course.id);
-  assert.deepEqual((await client.getAssignment(fixture.assignment.id)).assignmentTiming, {
-    timeLimitSeconds: null,
-  });
-  assert.equal(
-    (await client.getEnrollment(fixture.enrollment.id)).summary.enrollment,
-    fixture.enrollment.id,
-  );
+  const learnerAssignment = await client.getAssignment(fixture.assignment.id);
+  assert.equal(learnerAssignment.id, fixture.assignment.id);
+  assert.ok(!JSON.stringify(learnerAssignment).includes('"disclosurePolicy"'));
+  assert.equal((await client.getEnrollment(fixture.enrollment.id)).summary.scoreState, "available");
   assert.equal((await client.listRuns(fixture.enrollment.id)).items.length, fixture.runs.length);
 
   const activeRun = await client.startRun(fixture.assignment.id);
@@ -597,7 +672,7 @@ test("the HTTP client decodes every implemented route and composes a run screen"
     ).accepted,
     true,
   );
-  assert.equal((await client.getSummary(fixture.enrollment.id)).enrollment, fixture.enrollment.id);
+  assert.equal((await client.getSummary(fixture.enrollment.id)).scoreState, "available");
   const screen = await client.getRunScreen(activeRun.id);
   assert.equal(screen.course.summary.id, fixture.course.id);
   assert.equal(screen.course.appearance.theme, "grass");
@@ -776,14 +851,15 @@ test("gradebook pageSize rejects fractional, zero, and negative client input", (
 
 test("the HTTP boundary rejects malformed success bodies without a cast", async () => {
   const malformed = structuredClone(publishedProblemFixture.assignment);
-  malformed.courseId = "not-a-uuid";
   const client = createHttpApiClient({
     fetch: () => Promise.resolve(jsonResponse(malformed)),
   });
 
   await assert.rejects(
     client.getAssignment(publishedProblemFixture.assignment.id),
-    (error) => error instanceof DecodeError && error.message === "response.courseId must be a UUID",
+    (error) =>
+      error instanceof DecodeError &&
+      error.message === "response.tenant must be a field allowed by this response contract",
   );
 });
 
@@ -823,7 +899,7 @@ test("run-screen composition rejects inconsistent resource relationships", async
       const response = await fixtureFetch(input, init);
       if (input.toString().includes("/api/enrollments/")) {
         const value = await response.json();
-        value.summary.enrollment = publishedProblemFixture.course.id;
+        value.enrollment.id = publishedProblemFixture.course.id;
         return jsonResponse(value);
       }
       return response;
@@ -883,7 +959,7 @@ test("hostile run enrollment data is rejected before pending-successor recovery 
       if (url.pathname === `/api/enrollments/${run.enrollment}`) {
         const response = await fixtureFetch(input, init);
         const value = await response.json();
-        value.summary.tenant = "0198e000-0000-7000-8000-000000000099";
+        value.enrollment.tenant = "0198e000-0000-7000-8000-000000000099";
         return jsonResponse(value);
       }
       if (url.pathname === "/api/runs" && (init?.method ?? "GET") === "POST") resumeCalls += 1;

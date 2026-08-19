@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     AssignmentDeliveryState, AssignmentId, AssignmentItemId, AssignmentReference,
     AssignmentScoringMode, AssignmentSelectionGroupId, BackendCapabilities, CourseId,
-    CourseReference, EnrollmentId, PointValue, QuestionBackend, QuestionId, RunPolicies,
-    SelectionOrdering, StudentAssignmentSummary, StudentId, TenantId,
+    CourseReference, EnrollmentId, LearnerDisclosurePolicy, PointValue, QuestionBackend,
+    QuestionId, RunPolicies, SelectionOrdering, StudentAssignmentSummary, StudentId, TenantId,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -122,8 +122,42 @@ pub struct AssignmentSummary {
     pub items: Vec<AssignmentItemSummary>,
     /// Current random-selection groups with pinned immutable candidates.
     pub selection_groups: Vec<AssignmentSelectionGroupSummary>,
+    /// Assignment-owned learner-facing disclosure schedule.
+    pub disclosure_policy: LearnerDisclosurePolicy,
     /// Four independent run policies.
     pub policies: RunPolicies,
+}
+
+/// Learner-safe assignment definition.
+///
+/// This projection deliberately omits tenant and course identities, run and
+/// disclosure policy, and other server authority inputs. Learner routes use
+/// it instead of [`AssignmentSummary`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LearnerAssignmentSummary {
+    /// Durable assignment identity scoped by the authenticated route.
+    pub id: AssignmentId,
+    /// Stable typed locator used in application navigation.
+    pub reference: AssignmentReference,
+    /// Human-facing assignment title.
+    pub title: String,
+    /// Ordered stable fixed items in the current assignment definition.
+    pub items: Vec<AssignmentItemSummary>,
+    /// Current random-selection groups with pinned immutable candidates.
+    pub selection_groups: Vec<AssignmentSelectionGroupSummary>,
+}
+
+impl From<AssignmentSummary> for LearnerAssignmentSummary {
+    fn from(assignment: AssignmentSummary) -> Self {
+        Self {
+            id: assignment.id,
+            reference: assignment.reference,
+            title: assignment.title,
+            items: assignment.items,
+            selection_groups: assignment.selection_groups,
+        }
+    }
 }
 
 /// One compact gradebook row for a course assignment enrollment.
@@ -178,6 +212,7 @@ mod tests {
                 scoring_mode: crate::AssignmentScoringMode::Normal,
             }],
             selection_groups: Vec::new(),
+            disclosure_policy: LearnerDisclosurePolicy::default(),
             policies: RunPolicies {
                 completion: CompletionRequirement::AllCorrect,
                 grade: GradePolicy::Highest,

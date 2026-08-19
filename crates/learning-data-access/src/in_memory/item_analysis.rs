@@ -9,7 +9,7 @@ use domain::item_analysis::{
 };
 use question_model::{
     AssignmentId, AssignmentItemId, AssignmentRun, AttemptStatus, CourseId, CourseMembershipRole,
-    ProblemVersionRef, ScoringGeneration, ScoringStatus, TenantId,
+    LearnerClassStatistics, ProblemVersionRef, ScoringGeneration, ScoringStatus, TenantId, UserId,
 };
 
 use super::*;
@@ -73,6 +73,35 @@ impl crate::CourseItemAnalysisStore for MemoryStore {
         report.recent_rescoring =
             *generation != report.source_scoring_generation || *status != ScoringStatus::Current;
         Ok(Some(report))
+    }
+
+    async fn learner_class_statistics(
+        &self,
+        context: TenantContext,
+        learner: UserId,
+        course: CourseId,
+        assignment: AssignmentId,
+    ) -> Result<LearnerClassStatistics, StoreError> {
+        let state = self.read_state()?;
+        let tenant = context.tenant_id();
+        super::entitlement::require_current_assignment_entitlement(
+            &state, tenant, learner, course, assignment,
+        )?;
+        require_course_records_accessible(&state, tenant, course)?;
+        let Some(mut report) = state.item_analysis.get(&(tenant, assignment)).cloned() else {
+            return Ok(LearnerClassStatistics::InsufficientEvidence);
+        };
+        let Some((generation, status)) = state.assignment_scoring.get(&(tenant, assignment)) else {
+            return Ok(LearnerClassStatistics::InsufficientEvidence);
+        };
+        report.recent_rescoring =
+            *generation != report.source_scoring_generation || *status != ScoringStatus::Current;
+        Ok(LearnerClassStatistics::from_current_analysis(
+            report.completed_run_count,
+            report.incomplete_manual_grading,
+            report.recent_rescoring,
+            report.assignment_average_score,
+        ))
     }
 }
 

@@ -118,13 +118,9 @@ test("J1 student reaches visible feedback and the next question in the instructo
     has: page.locator("dt", { hasText: "Questions per run" }),
   });
   await expect(questionsPerRun.locator("dd")).toHaveText("4");
-  const runTimeLimit = page.locator(".assignment-facts > div", {
-    has: page.locator("dt", { hasText: "Run time limit" }),
-  });
-  await expect(runTimeLimit).toBeVisible();
-  // New Mastery assignments deliberately start with the reviewed 15-minute limit.
-  // The learner must see that limit before committing to start a practice run.
-  await expect(runTimeLimit.locator("dd")).toHaveText("15 minutes");
+  // The learner-safe assignment projection does not expose timing or policy inputs.
+  await expect(page.getByText("Run time limit", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("15 minutes", { exact: true })).toHaveCount(0);
 
   const start = page.getByRole("button", { name: "Start or continue practice" });
   await expect(start).toBeVisible();

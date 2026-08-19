@@ -1,57 +1,54 @@
 // Single authority for the committed UI screenshot corpus in docs/screenshots/.
-//
-// Both capture scripts read this manifest instead of holding their own name lists, so every
-// committed artifact has exactly one owning surface and one owning pipeline. The corpus previously
-// had two independent owners and no shared declaration, which allowed one pipeline's images to age
-// out of step with the other's and left one artifact owned by neither.
 
-/** Who the surface is composed for. */
 export type CorpusRole = "instructor" | "student" | "shared";
-
-/** Which capture implementation owns the surface. */
 export type CorpusPipeline = "mock" | "live";
-
-/** Named viewport targets from the role-based visual contract in docs/HUMAN_GUIDANCE.md. */
-export type CorpusViewport = "laptop" | "tablet" | "phone";
-
-/**
- * Why a surface needs the expensive live pipeline.
- *
- * Live capture serves claims that depend on runtime state. Every other surface uses deterministic
- * mock capture, which runs without container infrastructure.
- */
+export type CorpusCaptureOwner = "instructorMock" | "studentMock" | "live";
+export type CorpusViewport = "laptop" | "tablet" | "iphonePro" | "square";
 export type CorpusLiveReason = "requiresRealGrading" | "requiresRendererOutput";
-
-/** What claim the artifact supports, so a later reviewer reads the intent directly. */
 export type CorpusEvidencePurpose =
-  "layout" | "responsive" | "themeSystem" | "gradingState" | "rendererOutput";
+  | "layout"
+  | "responsive"
+  | "themeSystem"
+  | "gradingState"
+  | "rendererOutput"
+  | "studentPerspective"
+  | "accessBoundary";
 
-/** One committed image: a surface captured at one viewport. */
 export interface CorpusArtifact {
-  readonly name: string;
+  /** Safe repository-relative identity, including the corpus and role directories. */
+  readonly path: string;
   readonly viewport: CorpusViewport;
 }
 
-/** One logical page, captured at one or more viewports. */
 export interface CorpusSurface {
   readonly surface: string;
   readonly route: string;
   readonly role: CorpusRole;
   readonly pipeline: CorpusPipeline;
+  readonly captureOwner: CorpusCaptureOwner;
   readonly evidencePurpose: CorpusEvidencePurpose;
   readonly liveReason?: CorpusLiveReason;
+  /** Exact viewport matrix required for this surface's acceptance evidence. */
+  readonly requiredViewports?: readonly CorpusViewport[];
   readonly artifacts: readonly CorpusArtifact[];
 }
 
-/** CSS-pixel sizes for each named viewport. */
 export const CORPUS_VIEWPORT_SIZES = {
   laptop: { width: 1_280, height: 800 },
   tablet: { width: 800, height: 1_280 },
-  phone: { width: 390, height: 844 },
+  iphonePro: { width: 393, height: 852 },
+  square: { width: 800, height: 800 },
 } as const satisfies Readonly<Record<CorpusViewport, { width: number; height: number }>>;
 
-/** Repository-relative directory holding the committed corpus. */
 export const CORPUS_DIRECTORY = "docs/screenshots";
+
+function artifact(
+  role: CorpusRole,
+  relativePath: string,
+  viewport: CorpusViewport = "laptop",
+): CorpusArtifact {
+  return { path: `${CORPUS_DIRECTORY}/${role}/${relativePath}`, viewport };
+}
 
 export const UI_CORPUS_MANIFEST = [
   {
@@ -59,267 +56,434 @@ export const UI_CORPUS_MANIFEST = [
     route: "/",
     role: "instructor",
     pipeline: "mock",
+    captureOwner: "instructorMock",
     evidencePurpose: "layout",
-    artifacts: [{ name: "instructor_page_courses.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_page_courses.png")],
   },
   {
     surface: "instructorCourseAssignments",
     route: "/courses/:courseRef",
     role: "instructor",
     pipeline: "mock",
+    captureOwner: "instructorMock",
     evidencePurpose: "layout",
-    artifacts: [{ name: "instructor_page_course_assignments.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_page_course_assignments.png")],
   },
   {
     surface: "assignmentOverview",
     route: "/courses/:courseRef/assignments/:assignmentRef",
-    role: "student",
+    role: "instructor",
     pipeline: "mock",
+    captureOwner: "instructorMock",
     evidencePurpose: "layout",
-    artifacts: [{ name: "instructor_page_assignment_overview.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_page_assignment_overview.png")],
   },
   {
     surface: "assignmentCreate",
     route: "/instructor/courses/:courseRef/assignments/new",
     role: "instructor",
     pipeline: "mock",
+    captureOwner: "instructorMock",
     evidencePurpose: "layout",
-    artifacts: [{ name: "instructor_page_assignment_create.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_page_assignment_create.png")],
   },
   {
     surface: "assignmentEditor",
     route: "/instructor/courses/:courseRef/assignments/:assignmentRef/edit",
     role: "instructor",
     pipeline: "mock",
+    captureOwner: "instructorMock",
     evidencePurpose: "layout",
-    artifacts: [{ name: "instructor_page_assignment_edit.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_page_assignment_edit.png")],
   },
   {
     surface: "courseRoster",
     route: "/instructor/courses/:courseRef/students",
     role: "instructor",
     pipeline: "mock",
+    captureOwner: "instructorMock",
     evidencePurpose: "layout",
-    artifacts: [{ name: "instructor_page_roster.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_page_roster.png")],
   },
   {
     surface: "gradebook",
     route: "/instructor/courses/:courseRef/gradebook",
     role: "instructor",
     pipeline: "mock",
+    captureOwner: "instructorMock",
     evidencePurpose: "layout",
-    artifacts: [{ name: "instructor_page_gradebook.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_page_gradebook.png")],
   },
   {
     surface: "courseAppearance",
     route: "/instructor/courses/:courseRef/appearance",
     role: "instructor",
     pipeline: "mock",
+    captureOwner: "instructorMock",
     evidencePurpose: "themeSystem",
-    artifacts: [{ name: "instructor_page_course_appearance.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_page_course_appearance.png")],
   },
   {
     surface: "library",
     route: "/library",
     role: "instructor",
     pipeline: "mock",
+    captureOwner: "instructorMock",
     evidencePurpose: "layout",
-    artifacts: [{ name: "instructor_page_library.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_page_library.png")],
   },
   {
     surface: "problemDetail",
     route: "/library/:problemRef",
     role: "instructor",
     pipeline: "mock",
+    captureOwner: "instructorMock",
     evidencePurpose: "layout",
-    artifacts: [{ name: "instructor_page_question_detail.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_page_question_detail.png")],
   },
   {
     surface: "workspaceList",
     route: "/workspace",
     role: "instructor",
     pipeline: "mock",
+    captureOwner: "instructorMock",
     evidencePurpose: "layout",
-    artifacts: [{ name: "instructor_page_workspace.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_page_workspace.png")],
   },
   {
     surface: "workspaceEditor",
     route: "/workspace/:workspaceRef",
     role: "instructor",
     pipeline: "mock",
+    captureOwner: "instructorMock",
     evidencePurpose: "layout",
-    artifacts: [{ name: "instructor_page_question_editor.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_page_question_editor.png")],
+  },
+  {
+    surface: "studentAllowedAssignmentOverview",
+    route: "/courses/:courseRef/assignments/:assignmentRef",
+    role: "student",
+    pipeline: "mock",
+    captureOwner: "studentMock",
+    evidencePurpose: "studentPerspective",
+    requiredViewports: ["laptop", "tablet", "iphonePro", "square"],
+    artifacts: [
+      artifact(
+        "student",
+        "access/allowed_assignment_overview/student_assignment_overview_laptop.png",
+        "laptop",
+      ),
+      artifact(
+        "student",
+        "access/allowed_assignment_overview/student_assignment_overview_tablet.png",
+        "tablet",
+      ),
+      artifact(
+        "student",
+        "access/allowed_assignment_overview/student_assignment_overview_iphone_pro.png",
+        "iphonePro",
+      ),
+      artifact(
+        "student",
+        "access/allowed_assignment_overview/student_assignment_overview_square.png",
+        "square",
+      ),
+    ],
+  },
+  {
+    surface: "studentInstructorRouteDenial",
+    route: "/instructor/courses/:courseRef/gradebook",
+    role: "student",
+    pipeline: "mock",
+    captureOwner: "studentMock",
+    evidencePurpose: "accessBoundary",
+    requiredViewports: ["laptop", "tablet", "iphonePro", "square"],
+    artifacts: [
+      artifact(
+        "student",
+        "access/instructor_route_denial/student_instructor_route_denial_laptop.png",
+        "laptop",
+      ),
+      artifact(
+        "student",
+        "access/instructor_route_denial/student_instructor_route_denial_tablet.png",
+        "tablet",
+      ),
+      artifact(
+        "student",
+        "access/instructor_route_denial/student_instructor_route_denial_iphone_pro.png",
+        "iphonePro",
+      ),
+      artifact(
+        "student",
+        "access/instructor_route_denial/student_instructor_route_denial_square.png",
+        "square",
+      ),
+    ],
   },
   {
     surface: "accountSecurity",
     route: "/account/security",
     role: "shared",
     pipeline: "mock",
+    captureOwner: "studentMock",
     evidencePurpose: "layout",
-    artifacts: [{ name: "instructor_page_account_security.png", viewport: "laptop" }],
+    artifacts: [artifact("shared", "instructor_page_account_security.png")],
   },
   {
     surface: "liveCourseOverview",
     route: "/courses/:courseRef",
     role: "instructor",
     pipeline: "live",
+    captureOwner: "live",
     liveReason: "requiresRealGrading",
     evidencePurpose: "gradingState",
-    artifacts: [{ name: "instructor_course_overview.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_course_overview.png")],
   },
   {
     surface: "liveRosterActiveStudent",
     route: "/instructor/courses/:courseRef/students",
     role: "instructor",
     pipeline: "live",
+    captureOwner: "live",
     liveReason: "requiresRealGrading",
     evidencePurpose: "gradingState",
-    artifacts: [{ name: "instructor_roster_active_student.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_roster_active_student.png")],
   },
   {
     surface: "liveProblemCatalog",
     route: "/instructor/courses/:courseRef/assignments/new",
     role: "instructor",
     pipeline: "live",
+    captureOwner: "live",
     liveReason: "requiresRealGrading",
     evidencePurpose: "gradingState",
-    artifacts: [{ name: "instructor_problem_catalog.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_problem_catalog.png")],
   },
   {
     surface: "liveAssignmentSettings",
     route: "/instructor/courses/:courseRef/assignments/:assignmentRef/edit",
     role: "instructor",
     pipeline: "live",
+    captureOwner: "live",
     liveReason: "requiresRealGrading",
     evidencePurpose: "gradingState",
-    artifacts: [{ name: "instructor_assignment_settings.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_assignment_settings.png")],
   },
   {
     surface: "liveAssignmentCreated",
     route: "/instructor/courses/:courseRef/assignments/:assignmentRef/edit",
     role: "instructor",
     pipeline: "live",
+    captureOwner: "live",
     liveReason: "requiresRealGrading",
     evidencePurpose: "gradingState",
-    artifacts: [{ name: "instructor_assignment_created.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_assignment_created.png")],
   },
   {
     surface: "liveGradebookMasteryLoop",
     route: "/instructor/courses/:courseRef/gradebook",
     role: "instructor",
     pipeline: "live",
+    captureOwner: "live",
     liveReason: "requiresRealGrading",
     evidencePurpose: "gradingState",
-    artifacts: [{ name: "instructor_gradebook_mastery_loop.png", viewport: "laptop" }],
+    artifacts: [artifact("instructor", "instructor_gradebook_mastery_loop.png")],
   },
   {
     surface: "liveGeneticsChapterOneOverview",
     route: "/courses/:courseRef/assignments/:assignmentRef",
     role: "student",
     pipeline: "live",
+    captureOwner: "live",
     liveReason: "requiresRealGrading",
     evidencePurpose: "gradingState",
-    artifacts: [{ name: "genetics_chapter_one_overview.png", viewport: "laptop" }],
+    artifacts: [artifact("student", "genetics_chapter_one_overview.png")],
   },
   {
     surface: "liveStudentAssignmentList",
     route: "/courses/:courseRef",
     role: "student",
     pipeline: "live",
+    captureOwner: "live",
     liveReason: "requiresRealGrading",
     evidencePurpose: "gradingState",
-    artifacts: [{ name: "student_assignment_list.png", viewport: "laptop" }],
+    artifacts: [artifact("student", "student_assignment_list.png")],
   },
   {
     surface: "liveStudentTimedProblem",
     route: "/runs/:runRef",
     role: "student",
     pipeline: "live",
+    captureOwner: "live",
     liveReason: "requiresRendererOutput",
     evidencePurpose: "rendererOutput",
-    artifacts: [{ name: "student_timed_problem.png", viewport: "laptop" }],
+    artifacts: [artifact("student", "student_timed_problem.png")],
   },
   {
     surface: "liveStudentFreshPractice",
     route: "/runs/:runRef/summary",
     role: "student",
     pipeline: "live",
+    captureOwner: "live",
     liveReason: "requiresRealGrading",
     evidencePurpose: "gradingState",
-    artifacts: [{ name: "student_fresh_practice.png", viewport: "laptop" }],
+    artifacts: [artifact("student", "student_fresh_practice.png")],
   },
   {
     surface: "liveStudentRetakeFreshProblem",
     route: "/runs/:runRef",
     role: "student",
     pipeline: "live",
+    captureOwner: "live",
     liveReason: "requiresRendererOutput",
     evidencePurpose: "rendererOutput",
-    artifacts: [{ name: "student_retake_fresh_problem.png", viewport: "laptop" }],
+    artifacts: [artifact("student", "student_retake_fresh_problem.png")],
   },
 ] as const satisfies ReadonlyArray<CorpusSurface>;
 
-/**
- * Viewports the role-based visual contract expects for a role.
- *
- * Instructors work at the canonical laptop viewport. Students are composed for that same laptop
- * viewport and for the high-priority tablet target. The narrow phone is a single compatibility
- * artifact rather than a per-surface pass, so it is requested explicitly instead of by role.
- */
+function allArtifacts(): ReadonlyArray<{
+  readonly artifact: CorpusArtifact;
+  readonly surface: CorpusSurface;
+}> {
+  return UI_CORPUS_MANIFEST.flatMap((surface) =>
+    surface.artifacts.map((surfaceArtifact) => ({ artifact: surfaceArtifact, surface })),
+  );
+}
+
+/** Reject absolute, traversal, non-PNG, or misplaced role paths. */
+export function validateCorpusArtifactPath(artifactPath: string, role?: CorpusRole): void {
+  const prefix = `${CORPUS_DIRECTORY}/`;
+  if (
+    artifactPath.startsWith("/") ||
+    artifactPath.includes("\\") ||
+    !artifactPath.startsWith(prefix) ||
+    artifactPath.split("/").some((part) => part === "" || part === "." || part === "..")
+  ) {
+    throw new Error(`unsafe corpus artifact path: ${artifactPath}`);
+  }
+  const relativeParts = artifactPath.slice(prefix.length).split("/");
+  if (
+    relativeParts.length < 2 ||
+    !["instructor", "student", "shared"].includes(relativeParts[0] ?? "")
+  ) {
+    throw new Error(`corpus artifact path must use a role directory: ${artifactPath}`);
+  }
+  if (role !== undefined && relativeParts[0] !== role) {
+    throw new Error(`corpus artifact path does not match role ${role}: ${artifactPath}`);
+  }
+  const nestedDirectories = relativeParts.slice(1, -1);
+  if (nestedDirectories.some((part) => !/^[a-z0-9_]+$/u.test(part))) {
+    throw new Error(`corpus artifact directory is invalid: ${artifactPath}`);
+  }
+  const basename = relativeParts[relativeParts.length - 1];
+  if (!/^[a-z0-9_]+\.png$/u.test(basename ?? "")) {
+    throw new Error(`corpus artifact basename is invalid: ${artifactPath}`);
+  }
+}
+
+function validateManifest(): void {
+  const paths = new Set<string>();
+  const basenames = new Set<string>();
+  for (const { artifact: surfaceArtifact, surface } of allArtifacts()) {
+    validateCorpusArtifactPath(surfaceArtifact.path, surface.role);
+    const basename = surfaceArtifact.path.slice(surfaceArtifact.path.lastIndexOf("/") + 1);
+    if (paths.has(surfaceArtifact.path) || basenames.has(basename)) {
+      throw new Error(`duplicate corpus artifact identity: ${surfaceArtifact.path}`);
+    }
+    if ((surface.pipeline === "live") !== (surface.captureOwner === "live")) {
+      throw new Error(`surface pipeline and capture owner disagree: ${surface.surface}`);
+    }
+    if (surface.requiredViewports !== undefined) {
+      const required = new Set<CorpusViewport>(surface.requiredViewports);
+      const present = new Set<CorpusViewport>(
+        surface.artifacts.map((artifact) => artifact.viewport),
+      );
+      if (
+        required.size !== surface.requiredViewports.length ||
+        present.size !== surface.artifacts.length ||
+        required.size !== present.size ||
+        surface.requiredViewports.some((viewport) => !present.has(viewport))
+      ) {
+        throw new Error(
+          `surface does not contain its exact required viewport matrix: ${surface.surface}`,
+        );
+      }
+    }
+    paths.add(surfaceArtifact.path);
+    basenames.add(basename);
+  }
+}
+
+validateManifest();
+
 export function expectedViewportsForRole(role: CorpusRole): readonly CorpusViewport[] {
   if (role === "student") return ["laptop", "tablet"];
   return ["laptop"];
 }
 
-/** Every artifact name the manifest declares. */
-export function manifestArtifactNames(): readonly string[] {
-  const names = UI_CORPUS_MANIFEST.flatMap((surface) =>
-    surface.artifacts.map((artifact) => artifact.name),
-  );
-  return names;
+export function manifestArtifactPaths(): readonly string[] {
+  return allArtifacts().map(({ artifact: surfaceArtifact }) => surfaceArtifact.path);
 }
 
-/** Artifact names owned by one pipeline. */
-export function artifactNamesForPipeline(pipeline: CorpusPipeline): readonly string[] {
-  const names = UI_CORPUS_MANIFEST.filter((surface) => surface.pipeline === pipeline).flatMap(
-    (surface) => surface.artifacts.map((artifact) => artifact.name),
+export function artifactPathsForPipeline(pipeline: CorpusPipeline): readonly string[] {
+  return UI_CORPUS_MANIFEST.filter((surface) => surface.pipeline === pipeline).flatMap((surface) =>
+    surface.artifacts.map((surfaceArtifact) => surfaceArtifact.path),
   );
-  return names;
 }
 
-/** The surface owning one artifact name, when the manifest declares it. */
-export function surfaceForArtifact(name: string): CorpusSurface | undefined {
-  const owner = UI_CORPUS_MANIFEST.find((surface) =>
-    surface.artifacts.some((artifact) => artifact.name === name),
+export function artifactPathsForCaptureOwner(owner: CorpusCaptureOwner): readonly string[] {
+  return UI_CORPUS_MANIFEST.filter((surface) => surface.captureOwner === owner).flatMap((surface) =>
+    surface.artifacts.map((surfaceArtifact) => surfaceArtifact.path),
   );
-  return owner;
 }
 
-/** The viewport one artifact was captured at, when the manifest declares it. */
-export function viewportForArtifact(name: string): CorpusViewport | undefined {
+export function surfaceForArtifact(artifactPath: string): CorpusSurface | undefined {
+  return UI_CORPUS_MANIFEST.find((surface) =>
+    surface.artifacts.some((surfaceArtifact) => surfaceArtifact.path === artifactPath),
+  );
+}
+
+export function surfaceByName(surfaceName: string): CorpusSurface | undefined {
+  return UI_CORPUS_MANIFEST.find((surface) => surface.surface === surfaceName);
+}
+
+export function artifactPathForBasename(basename: string): string | undefined {
+  return manifestArtifactPaths().find((artifactPath) => artifactPath.endsWith(`/${basename}`));
+}
+
+export function viewportForArtifact(artifactPath: string): CorpusViewport | undefined {
   for (const surface of UI_CORPUS_MANIFEST) {
-    const artifact = surface.artifacts.find((candidate) => candidate.name === name);
-    if (artifact !== undefined) return artifact.viewport;
+    const surfaceArtifact = surface.artifacts.find((candidate) => candidate.path === artifactPath);
+    if (surfaceArtifact !== undefined) return surfaceArtifact.viewport;
   }
   return undefined;
 }
 
-/**
- * Surfaces whose committed artifacts do not yet cover every viewport their role expects.
- *
- * This reports coverage the visual contract calls for and the corpus has yet to supply, so the gap
- * is visible as evidence rather than discovered by a reader.
- */
+export function captureOwnerForArtifact(artifactPath: string): CorpusCaptureOwner | undefined {
+  return surfaceForArtifact(artifactPath)?.captureOwner;
+}
+
 export function surfacesMissingExpectedViewports(): ReadonlyArray<{
   readonly surface: string;
   readonly missing: readonly CorpusViewport[];
 }> {
-  const gaps = UI_CORPUS_MANIFEST.map((surface) => {
-    const present = new Set<CorpusViewport>(surface.artifacts.map((artifact) => artifact.viewport));
+  return UI_CORPUS_MANIFEST.map((surface) => {
+    const present = new Set<CorpusViewport>(
+      surface.artifacts.map((surfaceArtifact) => surfaceArtifact.viewport),
+    );
     const missing = expectedViewportsForRole(surface.role).filter(
       (viewport) => !present.has(viewport),
     );
     return { surface: surface.surface, missing };
   }).filter((entry) => entry.missing.length > 0);
-  return gaps;
+}
+
+export function surfacesWithRequiredViewports(): readonly CorpusSurface[] {
+  const required: CorpusSurface[] = [];
+  for (const manifestSurface of UI_CORPUS_MANIFEST) {
+    const surface: CorpusSurface = manifestSurface;
+    if (surface.requiredViewports !== undefined) required.push(surface);
+  }
+  return required;
 }

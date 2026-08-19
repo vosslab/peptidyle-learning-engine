@@ -21,15 +21,15 @@ that implement it.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Instructor assignment editor showing four selected Genetics Chapter 1 immutable versions and Mastery run policies](docs/screenshots/instructor_assignment_settings.png)
+![Instructor assignment editor showing four selected Genetics Chapter 1 immutable versions and Mastery run policies](docs/screenshots/instructor/instructor_assignment_settings.png)
 
-![Instructor Assignment created confirmation showing Genetics Chapter 1 Practice and its Open assignment link](docs/screenshots/instructor_assignment_created.png)
+![Instructor Assignment created confirmation showing Genetics Chapter 1 Practice and its Open assignment link](docs/screenshots/instructor/instructor_assignment_created.png)
 
-![Student Genetics Chapter 1 problem showing the server-authoritative countdown and keyboard-focused response](docs/screenshots/student_timed_problem.png)
+![Student Genetics Chapter 1 problem showing the server-authoritative countdown and keyboard-focused response](docs/screenshots/student/student_timed_problem.png)
 
-![Student completed-run summary showing a correct score and keyboard focus on Start another practice run](docs/screenshots/student_fresh_practice.png)
+![Student completed-run summary showing a correct score and keyboard focus on Start another practice run](docs/screenshots/student/student_fresh_practice.png)
 
-![Student Practice run 2 showing a reset 15-minute timer and an unanswered focused response](docs/screenshots/student_retake_fresh_problem.png)
+![Student Practice run 2 showing a reset 15-minute timer and an unanswered focused response](docs/screenshots/student/student_retake_fresh_problem.png)
 <!-- screenshots:end -->
 
 These are fresh real-stack captures from the accepted local no-email teaching-loop walkthrough. See

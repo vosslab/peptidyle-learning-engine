@@ -1,13 +1,24 @@
 # Plan: Secure question grading payloads
 
+> **Current-authority supersession (WP-PROF-S4).** This accepted payload-boundary plan retains its
+> receipt and projection history, but it no longer defines learner disclosure authority. The retired
+> coarse attempt/receipt feedback policy, `Deferred` behavior, and Store-derived disclosure design
+> are superseded by the assignment-owned five-field policy in
+> [professor_capability_architecture_plan.md](../active/professor_capability_architecture_plan.md).
+> At every learner read or receipt projection, the server evaluates S5 entitlement, then S3 current
+> effective policy, authoritative time, and the submitted fact. `feedback_release` and retained
+> receipt records are audit/evidence only; neither supplies a disclosure decision or unlocks a
+> withheld field. Current contracts are maintained in [CONTRACTS.md](../../CONTRACTS.md).
+
 ## Context
 
 PLE keeps answer keys, grading logic, source archives, and renderer credentials on the server. The
 current learner boundary is nevertheless broader than needed: learner routes expose a full
-`QuestionAttempt` projection while submission contains a tagged `StudentResponse`. The attempt is
-already the authoritative record for learner, run, immutable version, seed, timing, backend, and
-feedback policy. This plan makes that authority explicit before WP-RC5 expands flat-question
-families. It is a prerequisite for WP-RC5, not a dependency of WP-RC3 live acceptance.
+`QuestionAttempt` projection while submission contains a tagged `StudentResponse`. At the time this
+plan was written, the attempt also carried a coarse feedback policy. It remains authoritative for
+learner, run, immutable version, seed, timing, and backend, but not learner disclosure. This plan
+makes the payload authority explicit before WP-RC5 expands flat-question families. It is a
+prerequisite for WP-RC5, not a dependency of WP-RC3 live acceptance.
 
 Current local evidence was rechecked on 2026-08-10 from
 `crates/question_model/src/{envelope,response,activity}.rs`, the extracted server run modules,
@@ -381,8 +392,9 @@ The compact receipt is `{ accepted, attempt, outcome, feedback, next }`; `attemp
 ID, not a full attempt record. `outcome` is either a policy-permitted aggregate or
 `{ "state":"recorded" }`. `next`, when present, contains only the next attempt ID, deadline, and
 presentation digest. The browser reuses its matching prefetched envelope; if none is available it
-loads the consolidated run screen. Deferred feedback reveals neither component scores nor correct
-answers. The response never echoes the submitted answer because the browser already owns it.
+loads the consolidated run screen. The former `Deferred` example withheld component scores and
+correct answers; current field-level disclosure instead follows the S4 evaluator stated above. The
+response never echoes the submitted answer because the browser already owns it.
 
 ### Idempotency and consistency recovery
 
@@ -524,12 +536,14 @@ prior migrations are never renamed.
 
 The later receipt closeout replaces the provisional replay shape without a compatibility reader or
 backfill. `2026080916_submission_receipt_presentations.sql` stores the first-receipt answer-free
-`PresentationEnvelopeV1`, exact public `AssetBindingV1` snapshot, checksum, and Store-derived
-feedback disclosure. `2026080917_issued_presentations_and_successor_receipts.sql` requires every
-issued attempt to declare `EnvelopeV1` with its matching checksummed snapshot or `NotApplicable`
-with no presentation data, and persists a checksummed immutable `nextIssued` descriptor. A
-submitted `GET` or retry reads those records and fails closed on a missing or mismatched payload;
-`nextPending` recovery can finish only the sole pending predecessor and never resubmits.
+`PresentationEnvelopeV1`, exact public `AssetBindingV1` snapshot, checksum, and the then-proposed
+Store-derived feedback-disclosure evidence. That evidence is retained only as receipt/audit history;
+the current evaluator never reads it for learner disclosure. `2026080917_issued_presentations_and_successor_receipts.sql`
+requires every issued attempt to declare `EnvelopeV1` with its matching checksummed snapshot or
+`NotApplicable` with no presentation data, and persists a checksummed immutable `nextIssued`
+descriptor. A submitted `GET` or retry reads those records and fails closed on a missing or
+mismatched payload; `nextPending` recovery can finish only the sole pending predecessor and never
+resubmits.
 
 `2026080919_issued_private_grading_envelopes.sql` adds the matching checksummed server-only,
 answer-free envelope with durable response identifiers. First submission validates its public

@@ -75,8 +75,7 @@ must not silently reinterpret v2 source bytes.
   },
   "points": 1.0,
   "attemptPolicy": {
-    "maxAttempts": null,
-    "feedback": "immediateFull"
+    "maxAttempts": null
   },
   "timingPolicy": {
     "kind": "untimed"
@@ -106,6 +105,12 @@ inside one closed `response` object. The common top-level members are
 `points`, `attemptPolicy`, `timingPolicy`, optional `tags`, optional
 `taxonomy`, `license`, and `language`. Unknown and duplicate members are
 refused at every level.
+
+`attemptPolicy` is closed and contains only `maxAttempts`, which controls the
+retry bound. It does not disclose results, feedback, or answers. Learner
+disclosure is assignment-owned through the independent five-field
+`LearnerDisclosurePolicy`: score, per-item correctness, feedback text,
+solution, and class statistics.
 
 The eight exact response shapes are:
 
@@ -150,8 +155,7 @@ For example, a matching question is:
   },
   "points": 2.0,
   "attemptPolicy": {
-    "maxAttempts": null,
-    "feedback": "immediateFull"
+    "maxAttempts": null
   },
   "timingPolicy": { "kind": "untimed" },
   "tags": ["nucleic-acids"],
@@ -253,8 +257,8 @@ region subsets are complete and internally consistent.
 
 Per-choice feedback is selected for the submitted choice. Correct or incorrect
 outcome feedback is appended according to the server-derived grade. The normal
-feedback-disclosure policy still decides whether and when the learner receives
-that teaching content.
+assignment-owned learner disclosure policy still decides whether and when the
+learner receives that teaching content.
 
 Canonicalization preserves choice order because order is authored behavior.
 Whitespace and JSON object-member order do not change the canonical checksum.

@@ -62,7 +62,7 @@ use domain::scoring::project_summary;
 use domain::statistics::CollapsedQuestionObservation;
 use domain::statistics::QuestionStatisticsAggregate;
 use domain::timing::{TimerEvaluation, TimerVerdict, timer_verdict};
-use question_model::run_policy::{FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::TimingPolicy;
 use question_model::taxonomy::TaxonomyTerm;
 use question_model::{
     ActivityTimestamp, AssignmentEnrollment, AssignmentId, AssignmentRun, AssignmentRunItem,
@@ -416,7 +416,6 @@ struct State {
         BTreeMap<(TenantId, QuestionAttemptId), crate::WebworkGradingCapability>,
     attempt_webwork_grading:
         BTreeMap<(TenantId, QuestionAttemptId), crate::IssuedWebworkGradingContract>,
-    attempt_feedback_disclosures: BTreeMap<(TenantId, QuestionAttemptId), FeedbackDisclosure>,
     webwork_grade_replay: BTreeMap<(TenantId, QuestionAttemptId), WebworkGradeReplayStateV1>,
     attempt_timing: BTreeMap<(TenantId, QuestionAttemptId), MemoryAttemptTiming>,
     issued_effective_policy_receipts:

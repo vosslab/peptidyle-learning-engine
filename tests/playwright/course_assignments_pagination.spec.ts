@@ -91,8 +91,7 @@ test.beforeAll(async () => {
         let scenario = "success";
         let reloads = 0;
         const studentSummary = {
-          tenant: "tenant",
-          enrollment: "enrollment",
+          scoreState: "available",
           currentScore: 0.72,
           bestScore: 0.83,
           latestScore: 0.76,
@@ -174,12 +173,11 @@ test("the production list helper reaches the exact 101st assignment through two 
   page,
 }) => {
   test.setTimeout(2_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
   await mountFixture(page);
   const firstCard = page.locator(".course-card").first();
   await expect(firstCard).toContainText("3 questions in each new run.");
-  await expect(firstCard).toContainText(
-    "Progress: Current 72%, Latest 76%, Best 83%, 2 completed runs.",
-  );
+  await expect(firstCard).toContainText("Score available: Current 72%, Latest 76%, Best 83%.");
   const targetCard = page.locator(".course-card").filter({
     has: page.getByRole("heading", { name: "Assignment 101", exact: true }),
   });
@@ -203,6 +201,21 @@ test("the production list helper reaches the exact 101st assignment through two 
     "after-50",
     "after-100",
   ]);
+});
+
+test("learner score status stays explicit at student and narrow-phone viewports", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 800, height: 1280 });
+  await mountFixture(page);
+  const firstCard = page.locator(".course-card").first();
+  await expect(firstCard).toContainText("Score available: Current 72%, Latest 76%, Best 83%.");
+
+  await page.setViewportSize({ width: 393, height: 852 });
+  await expect(firstCard).toContainText("Score available: Current 72%, Latest 76%, Best 83%.");
+  await expect(
+    firstCard.getByRole("link", { name: "Start assignment", exact: true }),
+  ).toBeVisible();
 });
 
 test("transport and cursor protocol recovery controls receive focus after keyboard activation", async ({

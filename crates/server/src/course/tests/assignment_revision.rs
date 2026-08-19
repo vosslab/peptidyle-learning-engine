@@ -6,7 +6,10 @@ use axum::body::Body;
 use axum::http::Request;
 use axum::http::header::ETAG;
 use learning_data_access::in_memory::MemoryStore;
-use learning_data_access::{CatalogStore, CourseRecord, CreateCourseCommand, Store, TenantContext};
+use learning_data_access::{
+    CatalogStore, CourseRecord, CourseRosterStore, CreateCourseCommand, Store, TenantContext,
+    UpsertCourseMember,
+};
 use question_model::{CourseId, TenantId, UserId, UserRole};
 use std::sync::Arc;
 use tower::ServiceExt;
@@ -39,6 +42,7 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
     let context = TenantContext::from_authenticated_session(tenant);
     let instructor = UserId::from_uuid(id(8_201));
     let course = CourseId::from_uuid(id(8_202));
+    let student = UserId::from_uuid(id(8_203));
     store
         .create_course(
             context,
@@ -59,6 +63,18 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
         )
         .await
         .expect("course save");
+    store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "Biochemistry learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("student membership save");
     let reference = publish_fixture(&store, context, tenant, instructor).await;
     let replacement_reference =
         publish_fixture_with_identity(&store, context, tenant, instructor, 30).await;
@@ -77,6 +93,8 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
     assert_ne!(question_id, replacement_question_id);
     let cookie =
         issued_cookie_for_tenant(&store, tenant, vec![UserRole::Instructor], instructor).await;
+    let student_cookie =
+        issued_cookie_for_tenant(&store, tenant, vec![UserRole::Student], student).await;
     let app = router(Arc::clone(&store));
 
     let unavailable = app
@@ -106,6 +124,7 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
                 .header("content-type", "application/json")
                 .body(Body::from(serde_json::json!({
                     "title": "Peptide practice", "questionIds": [question_id], "policies": policies(),
+                    "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
                     "assignmentTiming": {"timeLimitSeconds": null}
                 }).to_string()))
                 .expect("request"),
@@ -131,6 +150,125 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
         .to_string();
     assert_eq!(created["items"][0]["questionId"], question_id.to_string());
     assert!(created["items"][0].get("reference").is_none());
+    assert_eq!(
+        created["disclosurePolicy"],
+        serde_json::to_value(question_model::LearnerDisclosurePolicy::default())
+            .expect("default disclosure policy serializes")
+    );
+
+    let revised_policy = question_model::LearnerDisclosurePolicy {
+        score: question_model::LearnerDisclosureTiming::AfterDue,
+        per_item_correctness: question_model::LearnerDisclosureTiming::AfterDue,
+        feedback_text: question_model::LearnerDisclosureTiming::AfterClose,
+        solution: question_model::LearnerDisclosureTiming::AfterClose,
+        class_statistics: question_model::LearnerDisclosureTiming::Never,
+    };
+    let update_items = serde_json::json!([{
+        "id": created["items"][0]["id"],
+        "questionId": created["items"][0]["questionId"],
+        "position": created["items"][0]["position"],
+        "pointsPossible": created["items"][0]["pointsPossible"],
+        "deliveryState": created["items"][0]["deliveryState"],
+        "scoringMode": created["items"][0]["scoringMode"],
+    }]);
+    let revised = app
+        .clone()
+        .oneshot(
+            Request::put(format!("/api/courses/{course}/assignments/{assignment}"))
+                .header("cookie", &cookie)
+                .header(IF_MATCH, &etag)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "title": "Peptide practice",
+                        "items": update_items,
+                        "disclosurePolicy": revised_policy,
+                        "policies": policies(),
+                        "assignmentTiming": {"timeLimitSeconds": null}
+                    })
+                    .to_string(),
+                ))
+                .expect("request"),
+        )
+        .await
+        .expect("response");
+    assert_eq!(revised.status(), StatusCode::OK);
+    etag = revised
+        .headers()
+        .get(ETAG)
+        .expect("ETag")
+        .to_str()
+        .expect("ETag text")
+        .to_string();
+    let revised = axum::body::to_bytes(revised.into_body(), 128 * 1024)
+        .await
+        .expect("body");
+    let revised: serde_json::Value = serde_json::from_slice(&revised).expect("safe response");
+    assert_eq!(
+        revised["disclosurePolicy"],
+        serde_json::to_value(revised_policy).expect("revised disclosure policy serializes")
+    );
+
+    let reread = app
+        .clone()
+        .oneshot(
+            Request::get(format!("/api/assignments/{assignment}"))
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .expect("request"),
+        )
+        .await
+        .expect("response");
+    assert_eq!(reread.status(), StatusCode::OK);
+    let reread = axum::body::to_bytes(reread.into_body(), 128 * 1024)
+        .await
+        .expect("body");
+    let reread: serde_json::Value = serde_json::from_slice(&reread).expect("safe response");
+    assert_eq!(
+        reread["disclosurePolicy"],
+        serde_json::to_value(revised_policy).expect("revised disclosure policy serializes")
+    );
+
+    let student_editor_read = app
+        .clone()
+        .oneshot(
+            Request::get(format!("/api/assignments/{assignment}"))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("student editor request"),
+        )
+        .await
+        .expect("student editor response");
+    assert_eq!(student_editor_read.status(), StatusCode::FORBIDDEN);
+
+    let learner_read = app
+        .clone()
+        .oneshot(
+            Request::get(format!("/api/assignments/{assignment}/learner"))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("learner projection request"),
+        )
+        .await
+        .expect("learner projection response");
+    assert_eq!(learner_read.status(), StatusCode::OK);
+    let learner_read = axum::body::to_bytes(learner_read.into_body(), 128 * 1024)
+        .await
+        .expect("learner projection body");
+    let learner_read: serde_json::Value =
+        serde_json::from_slice(&learner_read).expect("learner-safe response");
+    for forbidden in [
+        "tenant",
+        "courseId",
+        "disclosurePolicy",
+        "policies",
+        "assignmentTiming",
+    ] {
+        assert!(
+            learner_read.get(forbidden).is_none(),
+            "learner projection leaked {forbidden}: {learner_read}"
+        );
+    }
 
     let add = app
         .clone()

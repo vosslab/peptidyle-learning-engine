@@ -28,13 +28,6 @@
     "expectedViolations": ["partialCredit"]
   },
   {
-    "name": "immediate correctness feedback needs hints",
-    "features": ["allOrNothing", "hints"],
-    "requiredCapabilities": [],
-    "supportedCapabilities": ["serverGrading"],
-    "expectedViolations": ["hints"]
-  },
-  {
     "name": "question timer needs per-question timing",
     "features": ["perQuestionTiming"],
     "requiredCapabilities": [],
@@ -50,8 +43,8 @@
   },
   {
     "name": "validator returns every missing capability in declaration order",
-    "features": ["seeded", "partialCredit", "hints", "perQuestionTiming"],
-    "requiredCapabilities": ["clientRendering", "printExport", "offlinePreview"],
+    "features": ["seeded", "partialCredit", "perQuestionTiming"],
+    "requiredCapabilities": ["clientRendering", "hints", "printExport", "offlinePreview"],
     "supportedCapabilities": [],
     "expectedViolations": [
       "algorithmicGeneration",

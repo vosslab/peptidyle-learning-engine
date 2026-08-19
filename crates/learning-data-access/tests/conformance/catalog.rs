@@ -96,6 +96,7 @@ async fn memory_catalog_keeps_question_identity_exact() {
                     audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![reference]),
                     selection_groups: Vec::new(),
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                     policies: policies(),
                 },
             )

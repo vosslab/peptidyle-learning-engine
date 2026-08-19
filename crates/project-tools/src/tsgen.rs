@@ -778,18 +778,6 @@ mod tests {
     }
 
     #[test]
-    fn union_wrapping_accounts_for_the_declared_type_name() {
-        let members = vec![
-            "\"immediateFull\"".to_string(),
-            "\"immediateCorrectness\"".to_string(),
-            "\"deferred\"".to_string(),
-            "\"onRelease\"".to_string(),
-        ];
-
-        assert!(join_union("FeedbackDisclosure", &members).starts_with("\n  \"immediateFull\""));
-    }
-
-    #[test]
     fn option_maps_to_a_nullable_union() {
         let item: syn::ItemStruct = syn::parse_quote! {
             #[derive(Serialize)]

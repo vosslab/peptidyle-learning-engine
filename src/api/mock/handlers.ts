@@ -33,7 +33,6 @@ export {
   externalToolFixtureAttempt,
   mockAttemptById,
   mockExternalToolSubmissionReceipt,
-  mockFeedbackForAttempt,
   mockPrefetchedNextQuestion,
   mockPrefetchSubmissionReceipt,
   prefetchFixtureAttempt,

@@ -4,29 +4,11 @@ import { A, createAsync, useParams } from "@solidjs/router";
 import { For, Show, Suspense, type JSX } from "solid-js";
 
 import { useApiRuntime } from "../api/runtime";
-import { useSessionBootstrap, type SessionBootstrapState } from "../auth/session_context";
 import { CopyableQuestionId } from "../components/copyable_question_id";
 import { parseProblemRouteReference } from "../navigation/public_route";
-import { rolesMayAccessRoute } from "../route_contract";
 import { CatalogStatisticsPanel } from "./catalog_statistics_panel";
 
-function mayReadCatalog(state: SessionBootstrapState): boolean {
-  return (
-    state.kind === "authenticated" && rolesMayAccessRoute("problemDetail", state.session.user.roles)
-  );
-}
-
-function CatalogDetailDenied(): JSX.Element {
-  return (
-    <section class="page" data-route-surface="catalogDetailDenied" aria-live="polite">
-      <p class="eyebrow">Published question library</p>
-      <h1>Problem library is not available for this account</h1>
-      <p>Your learning space remains available. Ask an instructor for library access.</p>
-    </section>
-  );
-}
-
-function CatalogDetailPage(): JSX.Element {
+export function ProblemDetailPage(): JSX.Element {
   const runtime = useApiRuntime();
   const params = useParams();
   const detail = createAsync(() => {
@@ -89,15 +71,5 @@ function CatalogDetailPage(): JSX.Element {
         </Show>
       </Suspense>
     </section>
-  );
-}
-
-/** Guards catalog detail transport with the same role contract as the library route. */
-export function ProblemDetailPage(): JSX.Element {
-  const session = useSessionBootstrap();
-  return (
-    <Show when={mayReadCatalog(session.state())} fallback={<CatalogDetailDenied />}>
-      <CatalogDetailPage />
-    </Show>
   );
 }

@@ -1,6 +1,9 @@
 use super::*;
 
 #[cfg(feature = "postgres")]
+mod learner_disclosure;
+
+#[cfg(feature = "postgres")]
 pub(super) async fn validate_postgres_assignment_references(
     transaction: &mut Transaction<'_, Postgres>,
     context: TenantContext,
@@ -456,7 +459,9 @@ pub(super) async fn load_assignment(
         "SELECT assignment_id, course_id, title, completion_policy, \
                 completion_threshold::text AS completion_threshold, \
                 attempt_selection_policy, continued_practice_policy, \
-                practice_max_additional_runs, variation_policy, audience_kind \
+                practice_max_additional_runs, variation_policy, audience_kind, \
+                score_disclosure, per_item_correctness_disclosure, feedback_text_disclosure, \
+                solution_disclosure, class_statistics_disclosure \
          FROM assignment \
          WHERE tenant_id = $1 AND assignment_id = $2",
     )
@@ -480,7 +485,9 @@ pub(super) async fn load_assignment_for_share(
         "SELECT assignment_id, course_id, title, completion_policy, \
                 completion_threshold::text AS completion_threshold, \
                 attempt_selection_policy, continued_practice_policy, \
-                practice_max_additional_runs, variation_policy, audience_kind \
+                practice_max_additional_runs, variation_policy, audience_kind, \
+                score_disclosure, per_item_correctness_disclosure, feedback_text_disclosure, \
+                solution_disclosure, class_statistics_disclosure \
          FROM assignment \
          WHERE tenant_id = $1 AND assignment_id = $2 FOR SHARE",
     )
@@ -535,6 +542,7 @@ pub(super) fn decode_assignment_header(
             continued_practice: parse_continued_practice(&practice_policy, practice_limit)?,
             variation: parse_variation_policy(&variation_policy)?,
         },
+        disclosure_policy: learner_disclosure::decode_learner_disclosure_policy(row)?,
     })
 }
 

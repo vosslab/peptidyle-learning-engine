@@ -29,7 +29,7 @@ const SOURCE: &str = r#"{
     {"id":"one","text":"One","feedback":"private"},
     {"id":"two","text":"Two","feedback":"private"}], "correctChoice":"one"},
   "feedback":{"correct":"private", "incorrect":"private"}, "points":1.0,
-  "attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},
+  "attemptPolicy":{"maxAttempts":null},
   "timingPolicy":{"kind":"untimed"}, "license":{"kind":"cc0"}, "language":"en-US"
 }"#;
 

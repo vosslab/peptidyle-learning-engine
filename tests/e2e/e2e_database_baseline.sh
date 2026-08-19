@@ -335,6 +335,12 @@ run_live_cargo_test "normalized effective policy, provenance, and RLS" env PLE_T
 	postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforced \
 	-- --ignored --exact --test-threads=1
 
+echo "database baseline E2E: assignment disclosure policy, current S3 timing, and RLS"
+run_live_cargo_test "assignment disclosure policy, current S3 timing, and RLS" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_disclosure_policy_live \
+	postgres_assignment_disclosure_policy_is_closed_revisioned_current_and_rls_bound \
+	-- --ignored --exact --test-threads=1
+
 echo "database baseline E2E: concurrent prefetch preserves immutable submission replay"
 run_live_cargo_test "concurrent prefetch preserves immutable submission replay" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_submission_replay_live \

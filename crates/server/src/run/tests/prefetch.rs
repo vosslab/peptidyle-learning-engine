@@ -3,7 +3,7 @@ use super::*;
 #[tokio::test]
 async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
     let (_store, _backend, app, student_cookie, outsider_cookie, assignment) =
-        native_feedback_fixture(FeedbackDisclosure::ImmediateCorrectness).await;
+        native_feedback_fixture().await;
     let first = active_attempt_for(&app, assignment, &student_cookie).await;
     let prefetch = || {
         Request::builder()
@@ -170,7 +170,7 @@ async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
 #[tokio::test]
 async fn prefetch_preserves_a_backend_owned_render_hash() {
     let (store, backend, _app, student_cookie, _outsider_cookie, assignment) =
-        native_feedback_fixture(FeedbackDisclosure::ImmediateCorrectness).await;
+        native_feedback_fixture().await;
     let app = router(
         store,
         Arc::new(OpaqueRenderedHashBackend { inner: backend }),
@@ -201,7 +201,7 @@ async fn prefetch_preserves_a_backend_owned_render_hash() {
 #[tokio::test]
 async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay_heals() {
     let (store, _backend, app, student_cookie, _outsider_cookie, assignment) =
-        native_feedback_fixture(FeedbackDisclosure::ImmediateCorrectness).await;
+        native_feedback_fixture().await;
     let first = active_attempt_for(&app, assignment, &student_cookie).await;
     let ester = presented_choice_id(&app, first.id, &student_cookie, 0).await;
     let response = StudentResponse::MultipleChoice {
@@ -305,7 +305,7 @@ async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay
 #[tokio::test]
 async fn successor_delivery_failure_returns_the_durable_receipt_without_regrading() {
     let (store, backend, app, student_cookie, _outsider_cookie, assignment) =
-        native_feedback_fixture(FeedbackDisclosure::ImmediateCorrectness).await;
+        native_feedback_fixture().await;
     let first = active_attempt_for(&app, assignment, &student_cookie).await;
     let ester = presented_choice_id(&app, first.id, &student_cookie, 0).await;
     let unavailable_app = router(

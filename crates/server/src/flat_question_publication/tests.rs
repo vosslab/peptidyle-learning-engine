@@ -55,7 +55,7 @@ const FLAT_SOURCE: &str = r#"{
   ],"correctChoice":"blue"},
   "feedback":{"correct":"PRIVATE_CORRECT_FEEDBACK","incorrect":"PRIVATE_INCORRECT_FEEDBACK"},
   "points":10.0,
-  "attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},
+  "attemptPolicy":{"maxAttempts":null},
   "timingPolicy":{"kind":"untimed"},
   "license":{"kind":"cc0"},
   "language":"en-US"
@@ -331,7 +331,6 @@ struct ImportedFlatFixture {
 fn fixed_profile_defaults() -> Vec<QtiUnsupportedFeature> {
     [
         "PLE default applied: unlimited attempts.",
-        "PLE default applied: immediate full feedback.",
         "PLE default applied: untimed.",
         "PLE default applied: en-US.",
         "PLE default applied: allRightsReserved.",

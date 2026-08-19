@@ -367,7 +367,7 @@ mod tests {
     use question_model::answer::SelectionCardinality;
     use question_model::envelope::ContentBlock;
     use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
-    use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+    use question_model::run_policy::{AttemptPolicy, TimingPolicy};
     use question_model::taxonomy::License;
     use question_model::{
         AttemptTimerRecord, BackendCapabilities, DraftQuestionDefinition, DraftQuestionSource,
@@ -518,7 +518,6 @@ mod tests {
             },
             attempt_policy: AttemptPolicy {
                 max_attempts: Some(2),
-                feedback: FeedbackDisclosure::ImmediateCorrectness,
             },
             timing_policy: TimingPolicy::Untimed,
             randomization: question_model::generation::RandomizationDefinition::Static,

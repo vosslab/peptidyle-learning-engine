@@ -248,6 +248,7 @@ where
                 delivery_state: AssignmentDeliveryState::Active,
             }],
         }],
+        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
         policies: policies(),
     };
     let created = store
@@ -272,6 +273,7 @@ where
         audience: initial.audience.clone(),
         items: reordered_items,
         selection_groups: initial.selection_groups.clone(),
+        disclosure_policy: initial.disclosure_policy,
         policies: updated_policies,
     };
     let updated = store
@@ -556,6 +558,7 @@ where
         audience: post_run_replacement.record.audience.clone(),
         items: post_run_replacement.record.items.clone(),
         selection_groups: post_run_replacement.record.selection_groups.clone(),
+        disclosure_policy: post_run_replacement.record.disclosure_policy,
         policies: post_run_replacement.record.policies,
     };
     assert_eq!(
@@ -620,6 +623,7 @@ where
                     audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![archived]),
                     selection_groups: Vec::new(),
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                     policies: policies(),
                 },
             )
@@ -638,6 +642,7 @@ where
                     audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![hidden]),
                     selection_groups: Vec::new(),
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                     policies: policies(),
                 },
             )
@@ -655,6 +660,7 @@ where
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![published, published]),
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: policies(),
             },
         )
@@ -680,6 +686,7 @@ where
                     audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![published]),
                     selection_groups: Vec::new(),
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                     policies: invalid_threshold,
                 },
             )

@@ -1,11 +1,13 @@
 # Instructor page visuals
 
-This gallery is the visual map of PLE's instructor interface. It captures the initial 1280 by 800
-CSS-pixel viewport for every current instructor work page with one coherent simulated course,
+This gallery is the visual map of PLE's instructor interface. Professor evidence remains desktop
+evidence at a minimum 1280 by 800 CSS-pixel viewport, with one coherent simulated course,
 question, roster, and gradebook corpus.
 
 All people and records are fictional. `Dr. Fake Professor`, `Mary Fake Student`, and
 `Jack Fake Student` are deterministic documentation identities, not real Roosevelt participants.
+Deterministic fixture addresses in the reserved `example.invalid` domain are permitted test data;
+real email addresses and real identifying records are prohibited in public evidence.
 The capture checks visible and announced page text plus browser paths for UUID exposure before it
 writes an image.
 
@@ -31,6 +33,11 @@ The authentication completion pages, invitation redemption, and student run page
 instructor-workspace gallery. The approved end-to-end teaching loop remains in
 [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md) and [STUDENT_GUIDE.md](STUDENT_GUIDE.md).
 
+The committed files are owned by `tests/playwright/ui_corpus_manifest.ts`, the sole screenshot
+ownership authority. A screenshot is acceptance evidence only after a fresh capture and inspection;
+the retained gallery does not claim that a current implementation has passed its acceptance gate.
+Keep private instructor evidence separate from public or learner evidence under `docs/screenshots/`.
+
 ## Visual gallery
 
 The course-scoped pages use the Grass palette in standard presentation. This makes the gallery useful
@@ -39,19 +46,19 @@ composition. The Account view shows where increased contrast can be selected wit
 course theme or teaching behavior.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
-![Instructor Courses workspace with course creation and three fictional courses](screenshots/instructor_page_courses.png)
-![Biochemistry course home with course navigation and three assignments](screenshots/instructor_page_course_assignments.png)
-![Assignment overview summarizing questions, grade policy, feedback, and practice entry](screenshots/instructor_page_assignment_overview.png)
-![New assignment workspace with empty content, run policies, and question catalog entry points](screenshots/instructor_page_assignment_create.png)
-![Assignment editor organizing four selected biochemistry questions beside run policies](screenshots/instructor_page_assignment_edit.png)
-![Students page with invitation, enrollment policy, pending invitation, and course roster context](screenshots/instructor_page_roster.png)
-![Gradebook with compact progress rows for two fictional students and two assignments](screenshots/instructor_page_gradebook.png)
-![Course appearance page previewing applied theme palettes and banner settings](screenshots/instructor_page_course_appearance.png)
-![Question library using the full workspace for filters and four published results](screenshots/instructor_page_library.png)
-![Published question detail with a human-facing Question ID and prompt](screenshots/instructor_page_question_detail.png)
-![Private workspace with three drafts and the selected learner-facing draft editor](screenshots/instructor_page_workspace.png)
-![Question editor with QTI import entry, question identity, prompt, and format controls](screenshots/instructor_page_question_editor.png)
-![Account security page with visual contrast preference and fictional passkeys](screenshots/instructor_page_account_security.png)
+![Instructor Courses workspace with course creation and three fictional courses](screenshots/instructor/instructor_page_courses.png)
+![Biochemistry course home with course navigation and three assignments](screenshots/instructor/instructor_page_course_assignments.png)
+![Assignment overview summarizing questions, grade policy, feedback, and practice entry](screenshots/instructor/instructor_page_assignment_overview.png)
+![New assignment workspace with empty content, run policies, and question catalog entry points](screenshots/instructor/instructor_page_assignment_create.png)
+![Assignment editor organizing four selected biochemistry questions beside run policies](screenshots/instructor/instructor_page_assignment_edit.png)
+![Students page with invitation, enrollment policy, pending invitation, and course roster context](screenshots/instructor/instructor_page_roster.png)
+![Gradebook with compact progress rows for two fictional students and two assignments](screenshots/instructor/instructor_page_gradebook.png)
+![Course appearance page previewing applied theme palettes and banner settings](screenshots/instructor/instructor_page_course_appearance.png)
+![Question library using the full workspace for filters and four published results](screenshots/instructor/instructor_page_library.png)
+![Published question detail with a human-facing Question ID and prompt](screenshots/instructor/instructor_page_question_detail.png)
+![Private workspace with three drafts and the selected learner-facing draft editor](screenshots/instructor/instructor_page_workspace.png)
+![Question editor with QTI import entry, question identity, prompt, and format controls](screenshots/instructor/instructor_page_question_editor.png)
+![Account security page with visual contrast preference and fictional passkeys](screenshots/shared/instructor_page_account_security.png)
 <!-- screenshots:end -->
 
 ## Refreshing the corpus
@@ -64,7 +71,7 @@ node tests/playwright/capture_instructor_page_visuals.mjs
 
 The launcher builds and serves the current browser application, creates a private temporary capture
 directory, runs the simulated instructor fixture, verifies the exact screenshot set and 1280 by 800
-dimensions, and atomically refreshes `docs/screenshots/instructor_page_*.png`. The capture test is
+dimensions, and atomically refreshes `docs/screenshots/instructor/`. The capture test is
 opt-in, so the ordinary browser suite checks its code without rewriting documentation assets.
 
 For the Validation test suite, use the same capture and validation path without refreshing the

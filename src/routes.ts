@@ -13,6 +13,7 @@ import { ProblemDetailPage } from "./pages/problem_detail_page";
 import { CourseAssignmentsPage } from "./pages/course_assignments_page";
 import { CourseListPage } from "./pages/course_list_page";
 import { GradebookPage } from "./pages/gradebook_page";
+import { withRouteAccessBoundary } from "./route_access_boundary";
 import { ROUTE_CONTRACT, type RouteId } from "./route_contract";
 import { RunPage } from "./pages/run_page";
 import { WorkspaceEditorLivePage, WorkspaceListLivePage } from "./pages/editor_live_pages";
@@ -49,7 +50,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
 /** Router definitions derived from the frozen contract, not a second path list. */
 export const appRoutes: ReadonlyArray<RouteDefinition> = ROUTE_CONTRACT.map((route) => ({
   path: route.path,
-  component: routeComponents[route.id],
+  component: withRouteAccessBoundary(route, routeComponents[route.id]),
   info: { id: route.id, surface: route.surface },
 }));
 

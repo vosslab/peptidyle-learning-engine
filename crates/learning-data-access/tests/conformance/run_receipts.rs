@@ -10,16 +10,12 @@ pub(super) use fixtures::{grading_envelope, receipt_next_attempt, receipt_presen
 
 pub(super) async fn exercise_run_api_receipts<S>(
     store: &S,
-    feedback_disclosure: FeedbackDisclosure,
+    disclosure_policy: LearnerDisclosurePolicy,
+    fixture_offset: u128,
 ) -> RunApiFixture
 where
     S: Store + CatalogStore + CourseRosterStore + JobStore + AssignmentScoringWorkerStore,
 {
-    let fixture_offset = if feedback_disclosure == FeedbackDisclosure::OnRelease {
-        10_000
-    } else {
-        0
-    };
     let tenant = TenantId::from_uuid(uuid(401 + fixture_offset));
     let context = TenantContext::from_authenticated_session(tenant);
     let publisher = UserId::from_uuid(uuid(402));
@@ -36,10 +32,7 @@ where
     let (attempt_presentation_binding, attempt_presentation) =
         receipt_presentation(version, 991, 7);
 
-    let mut run_question = draft_question(workspace);
-    // This fixture specifically proves receipt-time replay behavior: a later
-    // completion must not unlock deferred feedback on the earlier receipt.
-    run_question.attempt_policy.feedback = feedback_disclosure;
+    let run_question = draft_question(workspace);
     let draft = DraftRecord {
         tenant,
         question: run_question,
@@ -115,6 +108,7 @@ where
                     ProblemVersionRef { problem, version },
                 ]),
                 selection_groups: Vec::new(),
+                disclosure_policy,
                 policies: policies(),
             },
         )
@@ -176,6 +170,38 @@ where
         .await
         .expect("unanswered question should resume");
     assert_eq!(resumed_attempt, attempt);
+
+    let before_submit = store
+        .get_run_summary_page(
+            context,
+            student_user,
+            run.id,
+            PageRequest::first(PageSize::new(10).expect("valid bounded page")),
+        )
+        .await
+        .expect("summary before submission");
+    let before_submit_decision = before_submit.outcomes.items[0].disclosure.decision();
+    assert_eq!(
+        before_submit_decision.score,
+        disclosure_policy.score == LearnerDisclosureTiming::DuringAttempt,
+        "an unsubmitted attempt only exposes a during-attempt score"
+    );
+    assert_eq!(
+        before_submit_decision.per_item_correctness,
+        disclosure_policy.per_item_correctness == LearnerDisclosureTiming::DuringAttempt,
+        "per-item correctness is independently evaluated before submit"
+    );
+    assert_eq!(
+        before_submit_decision.feedback_text,
+        disclosure_policy.feedback_text == LearnerDisclosureTiming::DuringAttempt,
+        "feedback text is assignment-owned rather than question-owned"
+    );
+    assert_eq!(
+        before_submit_decision.solution,
+        disclosure_policy.solution == LearnerDisclosureTiming::DuringAttempt,
+        "solutions remain independently withheld before submit"
+    );
+    assert!(!before_submit_decision.class_statistics);
 
     let blocked_second_position = store
         .issue_or_resume_question_attempt(
@@ -455,35 +481,45 @@ where
         .expect("summary before completion");
     assert_eq!(before_completion.run.completed_at, None);
     assert_eq!(before_completion.outcomes.items.len(), 1);
+    let submitted_decision = before_completion.outcomes.items[0].disclosure.decision();
     assert_eq!(
-        before_completion.outcomes.items[0].feedback_policy, feedback_disclosure,
-        "every policy must survive in the private redactor input"
+        submitted_decision.score,
+        matches!(
+            disclosure_policy.score,
+            LearnerDisclosureTiming::DuringAttempt | LearnerDisclosureTiming::AfterSubmit
+        ),
+        "current assignment policy, not the question's legacy feedback setting, controls score"
     );
+    assert_eq!(
+        submitted_decision.per_item_correctness,
+        matches!(
+            disclosure_policy.per_item_correctness,
+            LearnerDisclosureTiming::DuringAttempt | LearnerDisclosureTiming::AfterSubmit
+        )
+    );
+    assert_eq!(
+        submitted_decision.feedback_text,
+        matches!(
+            disclosure_policy.feedback_text,
+            LearnerDisclosureTiming::DuringAttempt | LearnerDisclosureTiming::AfterSubmit
+        )
+    );
+    assert_eq!(
+        submitted_decision.solution,
+        matches!(
+            disclosure_policy.solution,
+            LearnerDisclosureTiming::DuringAttempt | LearnerDisclosureTiming::AfterSubmit
+        )
+    );
+    assert!(!submitted_decision.class_statistics);
     assert!(before_completion.outcomes.items[0].feedback.is_some());
-    assert_eq!(before_completion.outcomes.items[0].release, None);
-    if feedback_disclosure == FeedbackDisclosure::OnRelease {
+    if submitted_decision.feedback_text || submitted_decision.solution {
         assert_eq!(
             store
                 .get_attempt_feedback_release(context, student_user, attempt.id)
                 .await,
             Ok(None),
             "a student may observe only their exact unreleased attempt state"
-        );
-        assert_eq!(
-            store
-                .get_run_summary_page(
-                    context,
-                    student_user,
-                    run.id,
-                    PageRequest::first(PageSize::new(10).expect("valid bounded page")),
-                )
-                .await
-                .expect("unreleased summary")
-                .outcomes
-                .items[0]
-                .release,
-            None,
-            "summary redaction input reflects current unreleased state"
         );
         assert_eq!(
             store
@@ -520,7 +556,7 @@ where
                 },
             )
             .await
-            .expect("course instructor releases on-release feedback");
+            .expect("course instructor records a permitted feedback-release audit event");
         assert_eq!(
             store
                 .release_attempt_feedback(
@@ -541,7 +577,7 @@ where
             Ok(Some(released)),
             "the owner can read current released state without listing feedback"
         );
-        assert!(
+        assert_eq!(
             store
                 .get_run_summary_page(
                     context,
@@ -550,12 +586,13 @@ where
                     PageRequest::first(PageSize::new(10).expect("valid bounded page")),
                 )
                 .await
-                .expect("released summary")
+                .expect("audit-event summary")
                 .outcomes
                 .items[0]
-                .release
-                .is_some(),
-            "summary redaction input reads current release state, not receipt state"
+                .disclosure
+                .decision(),
+            submitted_decision,
+            "a feedback-release audit event never unlocks learner disclosure"
         );
     } else {
         assert!(matches!(

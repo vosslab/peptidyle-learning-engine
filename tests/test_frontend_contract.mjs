@@ -10,7 +10,11 @@ import { createMockApiClient } from "../src/api/mock/client.ts";
 import { createMockLocalCredentialLogin } from "../src/api/mock/local_development_auth.ts";
 import { createSessionBootstrap, sessionFailureState } from "../src/auth/session_context.tsx";
 import { prefetchMatchesIssuedSuccessor } from "../src/features/attempt/prefetch_binding.ts";
-import { ROUTE_CONTRACT } from "../src/route_contract.ts";
+import {
+  rolesMayAccessRoute,
+  routeContractForPathname,
+  ROUTE_CONTRACT,
+} from "../src/route_contract.ts";
 
 const EXPECTED_ROUTE_PATHS = [
   "/",
@@ -34,12 +38,69 @@ const EXPECTED_ROUTE_PATHS = [
   "/instructor/courses/:courseRef/students",
 ];
 
+const INSTRUCTOR_ROUTE_IDS = [
+  "library",
+  "problemDetail",
+  "workspaceList",
+  "workspaceEditor",
+  "assignmentCreate",
+  "assignmentEditor",
+  "gradebook",
+  "courseAppearance",
+  "courseRoster",
+];
+
+function materializeRoutePath(routePath) {
+  return routePath
+    .replaceAll(":courseRef", "C-1")
+    .replaceAll(":assignmentRef", "A-1")
+    .replaceAll(":runRef", "R-1")
+    .replaceAll(":problemRef", "7K3-M9QP")
+    .replaceAll(":workspaceRef", "W-1");
+}
+
 test("the product route data matches the frozen route contract", () => {
   assert.deepEqual(
     ROUTE_CONTRACT.map((route) => route.path),
     EXPECTED_ROUTE_PATHS,
   );
   assert.equal(new Set(ROUTE_CONTRACT.map((route) => route.id)).size, ROUTE_CONTRACT.length);
+});
+
+test("the route contract is the strict single source for instructor-only browser access", () => {
+  const instructorRouteIds = ROUTE_CONTRACT.filter((route) => route.requiredRoles.length > 0).map(
+    (route) => route.id,
+  );
+
+  assert.deepEqual(instructorRouteIds, INSTRUCTOR_ROUTE_IDS);
+  for (const route of ROUTE_CONTRACT) {
+    const restricted = INSTRUCTOR_ROUTE_IDS.includes(route.id);
+    assert.equal(Object.hasOwn(route, "requiredRoles"), true);
+    assert.deepEqual(route.requiredRoles, restricted ? ["instructor", "sysadmin"] : []);
+    assert.equal(rolesMayAccessRoute(route.id, ["student"]), !restricted);
+    assert.equal(rolesMayAccessRoute(route.id, ["instructor"]), true);
+    assert.equal(rolesMayAccessRoute(route.id, ["sysadmin"]), true);
+  }
+});
+
+test("declared path matching is derived from the route contract and fails closed", () => {
+  for (const route of ROUTE_CONTRACT) {
+    const pathname = materializeRoutePath(route.path);
+    assert.equal(routeContractForPathname(pathname)?.id, route.id, pathname);
+  }
+
+  for (const pathname of [
+    "",
+    "library",
+    "/library/",
+    "/library/7K3-M9QP/extra",
+    "/runs/R-1?source=unknown",
+    "/instructor/courses/C-1/gradebook/extra",
+    "/unknown-learning-space",
+  ]) {
+    assert.equal(routeContractForPathname(pathname), undefined, pathname);
+  }
+  assert.equal(rolesMayAccessRoute("unknownRoute", ["instructor", "sysadmin"]), false);
 });
 
 test("session bootstrap exposes only safe loading, authenticated, signed-out, and recovery states", async () => {
@@ -194,7 +255,9 @@ test("course browse carries membership role and safe Question ID assignment summ
   const assignments = await client.listAssignments(course.id);
   const assignment = assignments.items[0];
   assert.notEqual(assignment, undefined);
-  assert.equal(assignment.courseId, course.id);
+  assert.equal("courseId" in assignment, false);
+  assert.equal("tenant" in assignment, false);
+  assert.equal("disclosurePolicy" in assignment, false);
   assert.deepEqual(
     assignment.items.map((item) => item.questionId),
     [publishedProblemFixture.catalogProblem.questionId],

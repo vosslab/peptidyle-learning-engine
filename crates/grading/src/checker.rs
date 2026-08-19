@@ -344,7 +344,7 @@ mod tests {
     use question_model::envelope::ContentBlock;
     use question_model::generation::RandomizationDefinition;
     use question_model::response::ChoiceOption;
-    use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+    use question_model::run_policy::{AttemptPolicy, TimingPolicy};
     use question_model::taxonomy::License;
     use question_model::{ProblemId, QuestionMetadata, QuestionSource, VersionId, WorkspaceId};
     use uuid::Uuid;
@@ -368,10 +368,7 @@ mod tests {
                 markdown: "Fixture".to_string(),
             }],
             response,
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateFull,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
             grading,

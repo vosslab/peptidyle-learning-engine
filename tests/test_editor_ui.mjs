@@ -14,7 +14,7 @@ const draft = {
   source: { backend: "native", family: "peptide-bond" },
   prompt: [{ kind: "text", markdown: "Estimate the omega angle." }],
   response: { kind: "numeric", tolerance: { kind: "absolute", epsilon: 0.5 }, unit: "degrees" },
-  attemptPolicy: { maxAttempts: null, feedback: "immediateCorrectness" },
+  attemptPolicy: { maxAttempts: null },
   timingPolicy: { kind: "untimed" },
   randomization: { kind: "static" },
 };

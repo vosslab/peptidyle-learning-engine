@@ -11,6 +11,16 @@ import {
 } from "../src/api/decoders.ts";
 import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
 
+const learnerProgress = {
+  scoreState: "available",
+  currentScore: 0,
+  bestScore: 1,
+  latestScore: 0,
+  completedRunCount: 2,
+  totalQuestionAttempts: 4,
+  lastActivityAt: 1786000000000,
+};
+
 test("disclosed feedback preserves allowed accessible blocks and optional omission", () => {
   const feedback = {
     correctness: false,
@@ -28,7 +38,7 @@ test("run summary decoder accepts only its compact redacted wire shape", () => {
       appearance: { theme: "grass", revision: "1", banner: null },
     },
     run,
-    summary: publishedProblemFixture.summary,
+    summary: learnerProgress,
     practiceAllowed: true,
     outcomes: {
       items: [

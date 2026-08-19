@@ -201,24 +201,44 @@ unlimited practice, and issue new seeds on every run. Continued practice does
 not decide which score counts; grade policy remains independent.
 
 Question-level policies remain separate from `RunPolicies`. Every immutable
-published question version owns an `AttemptPolicy` (retry bound and feedback
-disclosure) and a `TimingPolicy`; an assignment cannot silently rewrite either
-one. That lets the same run model work for native, QTI, WeBWorK, and future
-question families while keeping response and grading authority server-side.
+published question version owns an `AttemptPolicy` retry bound and a
+`TimingPolicy`; an assignment cannot silently rewrite either one. Attempt
+policy does not disclose results, feedback, or answers. That lets the same run
+model work for native, QTI, WeBWorK, and future question families while keeping
+response and grading authority server-side.
 
-`FeedbackDisclosure` has four choices:
+### Learner disclosure
 
-- `ImmediateFull` shows the response, correct answer, and explanation.
-- `ImmediateCorrectness` shows correctness and a hint without the answer.
-- `Deferred` waits until the run is submitted.
-- `OnRelease` waits for an instructor release.
+Each assignment owns one `LearnerDisclosurePolicy`. Its five independent
+fields are `score`, `per_item_correctness`, `feedback_text`, `solution`, and
+`class_statistics`. Each field uses one timing: `DuringAttempt`, `AfterSubmit`,
+`AfterDue`, `AfterClose`, or `Never`.
 
-The server stores trusted feedback but projects it only when this question
-policy permits it. A deferred response does not become visible merely because
-the browser asks again; an on-release response remains hidden until an
-authorized instructor transition. See
-[MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md) for the
-learner-facing meaning of each disclosure choice.
+The server first requires the S5 learner entitlement, then uses S3's current
+effective policy and an authoritative server timestamp to evaluate every field.
+`AfterSubmit` requires that learner's submission; due and close timings use the
+current resolved boundary. A missing due or close boundary does not release its
+field. The browser receives no policy, clock, entitlement, or identifiers from
+which it could infer a withheld result.
+
+The server omits withheld fields rather than sending placeholders or answer
+material. Private feedback generation, grading keys, correct answers, and
+grading implementations remain server-only. `feedback_release` is immutable,
+retention-fenced audit evidence of an instructor action. It never unlocks or
+changes the learner projection. See
+[MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md) for the teaching
+rationale for independent disclosure choices.
+
+When the independent `class_statistics` timing permits it, the learner receives
+one server-derived anonymous union: `insufficientEvidence`, with no cohort or
+metric fields, or `available`, with only `completedLearnerCohortSize` and a
+normalized `assignmentAverageScore`. The server reads the current course-local
+analysis only after S5 and S3/time evaluation. Its completed-learner cohort is
+the latest completed run per enrollment. The default privacy floor is five;
+the server returns `insufficientEvidence` for a smaller cohort, incomplete
+manual grading, recent rescoring, or a missing or invalid average. The browser
+renders that result and never derives it from policy, timing, a clock, or
+aggregate evidence.
 
 ## Instructor activity types
 
@@ -233,19 +253,20 @@ immutable question versions selected for the assignment. A teaching-oriented
 activity-type chooser is planned as a UI layer that writes those same explicit
 values. It is not evidence that the four labels below are current API values:
 
-| Teaching activity | Current durable representation | Instructor experience status |
-| ----------------- | ------------------------------ | ---------------------------- |
-| Mastery | `AllCorrect`, `Highest`, `Unlimited`, `NewSeeds`, plus question-level retry, feedback, and timing choices | Fully representable; named chooser planned |
-| Standard graded assignment | `AnswerAll`, a chosen grade policy, `Closed`, plus question-level policies | Fully representable; named chooser planned |
-| Exam | `AnswerAll`, a chosen grade policy, `Closed`, restricted question policies, and server timing where needed | Fully representable; named chooser planned |
-| Practice | Continued runs and learning feedback are representable | A promise that it is absent from the gradebook is planned, because no separate gradebook-visibility policy exists yet |
+| Teaching activity          | Current durable representation                                                                                    | Instructor experience status                                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Mastery                    | `AllCorrect`, `Highest`, `Unlimited`, `NewSeeds`, question retry/timing, and assignment disclosure choices        | Fully representable; named chooser planned                                                                            |
+| Standard graded assignment | `AnswerAll`, a chosen grade policy, `Closed`, question retry/timing, and assignment disclosure choices            | Fully representable; named chooser planned                                                                            |
+| Exam                       | `AnswerAll`, a chosen grade policy, `Closed`, restricted question retry/timing, and assignment disclosure choices | Fully representable; named chooser planned                                                                            |
+| Practice                   | Continued runs and learning feedback are representable                                                            | A promise that it is absent from the gradebook is planned, because no separate gradebook-visibility policy exists yet |
 
 The recommended mastery bundle is a teaching default, not a special storage
 branch: all-correct completion, highest-score selection, unlimited continued
-practice, fresh seeds, unlimited question retries where appropriate, immediate
-educational feedback, and normally untimed work. A course may deliberately use
-another combination. [MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md)
-owns the detailed bundle, learner wording, and planned UI simplification.
+practice, fresh seeds, unlimited question retries where appropriate, an
+assignment disclosure policy that supports educational feedback, and normally
+untimed work. A course may deliberately use another combination.
+[MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md) owns the detailed
+bundle, learner wording, and planned UI simplification.
 
 ## Completion derivation
 
@@ -266,9 +287,16 @@ Invalid score fractions and point values are explicit errors.
 
 ## Summary projection
 
-`StudentAssignmentSummary` is the compact gradebook and course-page projection.
-It holds current, best, and latest scores, completed-run count, total question
-attempts, and last activity time. Historical runs remain separate for analysis.
+`StudentAssignmentSummary` is the compact internal and instructor gradebook
+projection. It holds current, best, and latest scores, completed-run count,
+total question attempts, and last activity time. Historical runs remain
+separate for analysis.
+
+Learner routes instead receive the key-free `LearnerAssignmentProgress`
+projection. `score_state` is `NoActivity`, `Withheld`, or `Available`. Scores
+are present only for `Available`; `NoActivity` means no submitted response and takes precedence over
+disclosure. Starting a run may set `last_activity_at` without changing that score state.
+The learner projection omits the internal tenant and enrollment identifiers.
 
 `domain::scoring::project_summary` is a pure function:
 

@@ -127,7 +127,7 @@ mod tests {
     use question_model::envelope::ContentBlock;
     use question_model::generation::RandomizationDefinition;
     use question_model::response::ResponseDefinition;
-    use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+    use question_model::run_policy::{AttemptPolicy, TimingPolicy};
     use question_model::taxonomy::License;
     use question_model::{
         ActivityTimestamp, BackendCapabilities, GradingDefinition, ProblemId, QuestionDefinition,
@@ -183,7 +183,6 @@ mod tests {
             },
             attempt_policy: AttemptPolicy {
                 max_attempts: Some(1),
-                feedback: FeedbackDisclosure::Deferred,
             },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,

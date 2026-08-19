@@ -162,7 +162,7 @@ pub struct H5pUnsupportedFeature {
 /// adapter's pure conversion boundary.  This allows worker code to apply its
 /// hostile-input protections before constructing this value.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct H5pImportRequest {
     /// Remote source retained for deterministic re-import.
     pub source: H5pSourceReference,
@@ -176,7 +176,7 @@ pub struct H5pImportRequest {
     /// does not map.  They are retained as structured data and cause a safe
     /// refusal rather than being silently discarded.
     pub unsupported_features: Vec<H5pUnsupportedFeature>,
-    /// Practice feedback and retry policy.
+    /// Practice retry policy.
     pub attempt_policy: AttemptPolicy,
     /// Timing policy requested by the source.
     ///
@@ -203,7 +203,7 @@ pub struct ImportedH5pQuestion {
     pub prompt: Vec<ContentBlock>,
     /// Response shape, without a correct answer.
     pub response: ResponseDefinition,
-    /// Practice feedback and retry behavior.
+    /// Practice retry behavior.
     pub attempt_policy: AttemptPolicy,
     /// The only timing policy currently supported by the adapter.
     pub timing_policy: TimingPolicy,
@@ -526,7 +526,7 @@ mod tests {
     use question_model::capability::Capability;
     use question_model::definition::{GradingDefinition, QuestionSource};
     use question_model::envelope::ContentBlock;
-    use question_model::run_policy::{FeedbackDisclosure, TimingPolicy};
+    use question_model::run_policy::TimingPolicy;
     use question_model::taxonomy::License;
     use uuid::Uuid;
 
@@ -575,10 +575,7 @@ mod tests {
                 },
             ],
             unsupported_features: Vec::new(),
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateCorrectness,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
         }
     }

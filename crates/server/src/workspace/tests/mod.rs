@@ -15,7 +15,7 @@ use question_model::answer::TextMatchMode;
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
 use question_model::response::ResponseDefinition;
-use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{
     BackendCapabilities, Capability, DraftQuestionDefinition, DraftQuestionSource,
@@ -68,10 +68,7 @@ fn draft(workspace: WorkspaceId, title: &str) -> DraftQuestionDefinition {
             match_mode: TextMatchMode::Normalized,
             max_length: 64,
         },
-        attempt_policy: AttemptPolicy {
-            max_attempts: None,
-            feedback: FeedbackDisclosure::ImmediateCorrectness,
-        },
+        attempt_policy: AttemptPolicy { max_attempts: None },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },

@@ -5,6 +5,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { routeContractForPathname } from "../src/route_contract.ts";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const distDir = path.join(repoRoot, "dist");
@@ -32,24 +34,55 @@ function resolveStaticPath(requestPath) {
   return resolved;
 }
 
+function isRegularFile(filePath) {
+  return fs.existsSync(filePath) && fs.statSync(filePath).isFile();
+}
+
+function acceptsHtmlDocument(request) {
+  const accept = request.headers.accept ?? "";
+  return accept
+    .split(",")
+    .map((value) => value.trim().split(";", 1)[0])
+    .includes("text/html");
+}
+
+function declaredRouteShell(request, requestPath) {
+  if (!acceptsHtmlDocument(request) || path.posix.extname(requestPath) !== "") return null;
+  if (routeContractForPathname(requestPath) === undefined) return null;
+  return path.join(distDir, "index.html");
+}
+
 const server = http.createServer((request, response) => {
   const requestUrl = new URL(request.url ?? "/", "http://127.0.0.1");
-  const filePath = resolveStaticPath(requestUrl.pathname);
-  if (request.method !== "GET" || filePath === null || !fs.existsSync(filePath)) {
+  const staticPath = resolveStaticPath(requestUrl.pathname);
+  if (request.method !== "GET" || staticPath === null) {
+    response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    response.end("Not found");
+    return;
+  }
+  const servesDeclaredRouteShell = !isRegularFile(staticPath);
+  const filePath = servesDeclaredRouteShell
+    ? declaredRouteShell(request, requestUrl.pathname)
+    : staticPath;
+  if (filePath === null || !isRegularFile(filePath)) {
     response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
     response.end("Not found");
     return;
   }
   let bytes = fs.readFileSync(filePath);
-  if (requestUrl.pathname === "/" || requestUrl.pathname.endsWith(".html")) {
+  const servesHtml = filePath.endsWith(".html");
+  if (servesHtml) {
+    let html = bytes.toString("utf8");
+    if (servesDeclaredRouteShell) {
+      html = html.replace("<head>", '<head><base href="/">');
+    }
     bytes = Buffer.from(
-      bytes
-        .toString("utf8")
-        .replace("</head>", "<script>window.__PLE_USE_MOCK_API__=true;</script></head>"),
+      html.replace("</head>", "<script>window.__PLE_USE_MOCK_API__=true;</script></head>"),
       "utf8",
     );
   }
-  response.writeHead(200, { "content-type": contentType(requestUrl.pathname) });
+  const responseType = servesHtml ? "text/html; charset=utf-8" : contentType(requestUrl.pathname);
+  response.writeHead(200, { "content-type": responseType });
   response.end(bytes);
 });
 

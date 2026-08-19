@@ -1,22 +1,19 @@
 #!/usr/bin/env node
 // Single front door for regenerating the committed UI screenshot corpus in docs/screenshots/.
 //
-// The corpus is produced by two capture implementations (see
-// tests/playwright/ui_corpus_manifest.ts): a cheap mock-backed pipeline that needs no containers,
-// and a live pipeline that needs a running Podman stack for real grading and renderer output.
-// Forcing both into one execution path would make ordinary mock regeneration depend on containers
-// even when only mock evidence changed, which is the cost that let the corpus go stale in the first
-// place. This script stays a thin dispatcher: it always refreshes the mock set, and refreshes the
-// live set only when a local stack is already reachable, so a maintainer with no stack running still
-// gets full mock coverage instead of a hard failure.
+// The corpus has narrow instructor-mock, student-mock, and live command owners (see
+// tests/playwright/ui_corpus_manifest.ts). Both deterministic built-app mock sets always run. The
+// live set runs unless the maintainer explicitly passes --skip-live, because it needs the Podman
+// stack for real grading and renderer output. Each launcher delegates file lifecycle to the same
+// shared runner while retaining only its command-specific execution.
 
 import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 import {
-  bootstrapProvenanceFromHistory,
   reconcileCorpus,
+  requiredVisualEvidenceIssues,
   summarize,
 } from "../tests/playwright/ui_corpus_provenance.mjs";
 
@@ -60,27 +57,28 @@ async function main() {
     ...mockArguments,
   ]);
 
+  process.stdout.write("\n== student/access corpus (no containers needed) ==\n");
+  await run(root, "node", [
+    "tests/playwright/capture_student_access_visuals.mjs",
+    ...mockArguments,
+  ]);
+
   if (skipLive) {
     process.stdout.write("\n== live corpus skipped (--skip-live) ==\n");
   } else {
     process.stdout.write("\n== live corpus (requires a running local stack) ==\n");
-    process.stdout.write(
-      "Run `source source_me.sh && python3 local_stack.py status` to check first, or pass\n" +
-        "--skip-live to regenerate only the mock-covered images.\n" +
-        `Run directly: node tests/playwright/capture_docs_screenshots.mjs${verifyOnly ? " --verify-only" : ""}\n`,
-    );
-  }
-
-  if (!verifyOnly) {
-    await bootstrapProvenanceFromHistory(root);
+    const liveArguments = verifyOnly ? ["--verify-only"] : [];
+    await run(root, "node", ["tests/playwright/capture_docs_screenshots.mjs", ...liveArguments]);
   }
   process.stdout.write("\n== corpus reconciliation ==\n");
   process.stdout.write(`${await summarize(root)}\n`);
   const { missing, unowned } = await reconcileCorpus(root);
-  if (missing.length > 0 || unowned.length > 0) {
-    process.stdout.write(
-      "FAIL: the corpus and its manifest disagree about which artifacts exist.\n",
-    );
+  const requiredIssues = await requiredVisualEvidenceIssues(root);
+  for (const issue of requiredIssues) {
+    process.stdout.write(`  required visual evidence failure: ${issue}\n`);
+  }
+  if (missing.length > 0 || unowned.length > 0 || requiredIssues.length > 0) {
+    process.stdout.write("FAIL: corpus ownership or required visual evidence is incomplete.\n");
     process.exitCode = 1;
     return;
   }

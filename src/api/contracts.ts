@@ -4,6 +4,7 @@ import type { AssignmentEnrollment } from "../../generated/api/AssignmentEnrollm
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { AssignmentRun } from "../../generated/api/AssignmentRun";
 import type { AssignmentSummary } from "../../generated/api/AssignmentSummary";
+import type { LearnerAssignmentSummary } from "../../generated/api/LearnerAssignmentSummary";
 import type { CourseSummary } from "../../generated/api/CourseSummary";
 import type { DisclosedFeedback } from "../../generated/api/DisclosedFeedback";
 import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
@@ -11,7 +12,7 @@ import type { QuestionAttempt } from "../../generated/api/QuestionAttempt";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
 import type { RunId } from "../../generated/api/RunId";
-import type { StudentAssignmentSummary } from "../../generated/api/StudentAssignmentSummary";
+import type { LearnerAssignmentProgress } from "../../generated/api/LearnerAssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
 import type { WorkspaceDraftSummary } from "../../generated/api/WorkspaceDraftSummary";
@@ -33,18 +34,15 @@ import type { AssignmentRunTiming } from "../../generated/api/AssignmentRunTimin
 import type { CatalogProblemSummary } from "../../generated/api/CatalogProblemSummary";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
+import type { LearnerDisclosurePolicy } from "../../generated/api/LearnerDisclosurePolicy";
 
-export type { AssignmentSummary, CourseSummary };
+export type { AssignmentSummary, CourseSummary, LearnerAssignmentSummary };
 export type { GradebookSummaryRow };
 
 /** One authorized course identity and its browser-safe appearance projection. */
 export interface CourseRouteData {
   readonly summary: CourseSummary;
   readonly appearance: CourseAppearance;
-}
-
-export interface AssignmentSummaryWithTiming extends AssignmentSummary {
-  readonly assignmentTiming: AssignmentRunTiming;
 }
 
 /**
@@ -70,6 +68,8 @@ export interface AssignmentCreateInput {
   readonly title: string;
   readonly questionIds: ReadonlyArray<string>;
   readonly policies: RunPolicies;
+  /** Assignment-owned timing for each learner-facing disclosure field. */
+  readonly disclosurePolicy: LearnerDisclosurePolicy;
   /** Modern editor saves always state the whole-run timing choice explicitly. */
   readonly assignmentTiming: AssignmentRunTiming;
 }
@@ -86,6 +86,8 @@ export interface AssignmentEditorInput {
     readonly scoringMode: "normal" | "fullCredit" | "extraCredit" | "excluded";
   }>;
   readonly policies: RunPolicies;
+  /** Assignment-owned timing for each learner-facing disclosure field. */
+  readonly disclosurePolicy: LearnerDisclosurePolicy;
   readonly assignmentTiming: AssignmentRunTiming;
 }
 
@@ -136,7 +138,8 @@ export interface SignedOutResponse {
 /** Enrollment and its transactionally maintained student summary. */
 export interface EnrollmentView {
   readonly enrollment: AssignmentEnrollment;
-  readonly summary: StudentAssignmentSummary;
+  /** Key-free current learner projection; score totals are omitted while withheld. */
+  readonly summary: LearnerAssignmentProgress;
 }
 
 /** Explicit acknowledgement of an idempotent response submission. */
@@ -185,7 +188,8 @@ export interface RunSummaryOutcome {
 export interface RunSummaryResponse {
   readonly course: CourseRouteData;
   readonly run: AssignmentRun;
-  readonly summary: StudentAssignmentSummary;
+  /** Server-derived learner progress, never a policy, clock, or enrollment identifier. */
+  readonly summary: LearnerAssignmentProgress;
   readonly practiceAllowed: boolean;
   readonly outcomes: CursorPage<RunSummaryOutcome>;
 }
@@ -298,7 +302,8 @@ export interface ExternalToolLaunch {
 /** Everything the reference run screen needs from one cached query. */
 export interface RunScreenData {
   readonly course: CourseRouteData;
-  readonly assignment: AssignmentSummary;
+  /** Learner-safe assignment projection; no policy or ownership inputs. */
+  readonly assignment: LearnerAssignmentSummary;
   readonly run: AssignmentRun;
   readonly attempt: QuestionAttempt;
   /** Server-regenerated, key-free variant bound to this issued attempt. */

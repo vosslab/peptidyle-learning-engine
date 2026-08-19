@@ -18,7 +18,7 @@ import type { QuestionAttempt } from "../../generated/api/QuestionAttempt";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
 import type { RunId } from "../../generated/api/RunId";
-import type { StudentAssignmentSummary } from "../../generated/api/StudentAssignmentSummary";
+import type { LearnerAssignmentProgress } from "../../generated/api/LearnerAssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { TaxonomyTerm } from "../../generated/api/TaxonomyTerm";
 import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
@@ -29,10 +29,9 @@ import type {
   AssignmentEditorDetail,
   AssignmentCreateInput,
   AssignmentEditorInput,
-  AssignmentSummaryWithTiming,
   AddAssignmentItemInput,
   ReplaceAssignmentItemQuestionInput,
-  AssignmentSummary,
+  LearnerAssignmentSummary,
   AuthSession,
   CourseCreateInput,
   CourseSummary,
@@ -115,9 +114,11 @@ export interface ApiClient extends CourseRosterClient {
   readonly listAssignments: (
     courseId: CourseId,
     cursor?: string,
-  ) => Promise<CursorPage<AssignmentSummary>>;
-  readonly getAssignment: (assignmentId: AssignmentId) => Promise<AssignmentSummaryWithTiming>;
-  readonly getAssignmentSummary: (assignmentId: AssignmentId) => Promise<StudentAssignmentSummary>;
+  ) => Promise<CursorPage<LearnerAssignmentSummary>>;
+  /** Learner-safe detail; the editor uses getAssignmentEditor instead. */
+  readonly getAssignment: (assignmentId: AssignmentId) => Promise<LearnerAssignmentSummary>;
+  /** Current key-free learner progress; the server omits withheld score totals. */
+  readonly getAssignmentSummary: (assignmentId: AssignmentId) => Promise<LearnerAssignmentProgress>;
   /** Instructor-only revisioned assignment projection for the policy editor. */
   readonly getAssignmentEditor: (assignmentId: AssignmentId) => Promise<AssignmentEditorDetail>;
   /** Creates a tenant-owned assignment in the course named only by the path. */
@@ -183,7 +184,7 @@ export interface ApiClient extends CourseRosterClient {
   readonly releaseAttemptFeedback: (
     attemptId: QuestionAttemptId,
   ) => Promise<FeedbackReleaseResponse>;
-  readonly getSummary: (enrollmentId: EnrollmentId) => Promise<StudentAssignmentSummary>;
+  readonly getSummary: (enrollmentId: EnrollmentId) => Promise<LearnerAssignmentProgress>;
   readonly getRunScreen: (runId: RunId) => Promise<RunScreenData>;
   /** Same-origin POST that authorizes one protected asset and returns its short-lived URL. */
   readonly issueProtectedAssetDelivery: (assetId: AssetId) => Promise<string>;

@@ -25,12 +25,12 @@ import { FEEDBACK_PANEL_STYLES } from "./feedback_panel_styles";
  * An explicit presentation state prevents a null withheld record from looking like an empty,
  * released teaching response. The server is the only authority that constructs this union.
  */
-export type FeedbackDisclosure =
+export type FeedbackPresentation =
   | { readonly kind: "awaiting"; readonly feedback: null }
   | { readonly kind: "released"; readonly feedback: DisclosedFeedback };
 
 export interface FeedbackPanelProps {
-  readonly disclosure: FeedbackDisclosure;
+  readonly disclosure: FeedbackPresentation;
   /** A server-projected record of what the learner submitted, never a question definition. */
   readonly learnerResponse?: ReadonlyArray<ContentBlock>;
   /** Resolves logical, public asset references without exposing storage locations. */
@@ -46,7 +46,7 @@ function assertNever(value: never): never {
   throw new Error(`Unknown feedback block: ${JSON.stringify(value)}`);
 }
 
-function outcomeHeading(disclosure: FeedbackDisclosure): string {
+function outcomeHeading(disclosure: FeedbackPresentation): string {
   if (disclosure.kind === "awaiting") {
     return "Response recorded";
   }
@@ -60,9 +60,9 @@ function outcomeHeading(disclosure: FeedbackDisclosure): string {
 }
 
 /** Exposed for focused behavior tests and so the neutral copy stays consistent with the heading. */
-export function feedbackAnnouncement(disclosure: FeedbackDisclosure): string {
+export function feedbackAnnouncement(disclosure: FeedbackPresentation): string {
   if (disclosure.kind === "awaiting") {
-    return "Your response was recorded. Feedback is not available yet.";
+    return "Your response was recorded. Feedback is not available for this response.";
   }
   return `Feedback released. ${outcomeHeading(disclosure)}.`;
 }
@@ -279,7 +279,7 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
       </Show>
       <Show when={props.disclosure.kind === "awaiting"}>
         <p class="feedback-panel__empty">
-          Your response was recorded. Feedback is not available yet.
+          Your response was recorded. Feedback is not available for this response.
         </p>
       </Show>
 

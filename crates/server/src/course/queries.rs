@@ -289,7 +289,9 @@ where
                     Ok(value) => value,
                     Err(response) => return response,
                 };
-                summaries.push(assignment.summary(public_id, items, selection_groups));
+                summaries.push(question_model::LearnerAssignmentSummary::from(
+                    assignment.summary(public_id, items, selection_groups),
+                ));
             }
             no_store(
                 Json(learning_data_access::Page {

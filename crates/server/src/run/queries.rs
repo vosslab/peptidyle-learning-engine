@@ -2,9 +2,7 @@
 
 use super::contracts::RunBackend;
 use super::prefetch::load_run_question;
-use super::submission::{
-    apply_feedback_disclosure, apply_receipt_feedback_disclosure, project_run_feedback,
-};
+use super::submission::{apply_learner_disclosure, project_run_feedback};
 use super::support::*;
 
 pub(super) async fn get_run<S, B>(
@@ -13,7 +11,13 @@ pub(super) async fn get_run<S, B>(
     Path(run_id): Path<RunId>,
 ) -> Response
 where
-    S: Store + CatalogStore + CourseAppearanceStore + SessionStore + 'static,
+    S: Store
+        + CatalogStore
+        + CourseAppearanceStore
+        + CourseItemAnalysisStore
+        + SessionStore
+        + AuthoritativeTimeStore
+        + 'static,
     B: RunBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
@@ -21,16 +25,25 @@ where
         Err(error) => return auth_error_response(error),
     };
     match authorized_run(state.store.as_ref(), &authenticated, run_id).await {
-        Ok(run) => no_store(Json(run).into_response()),
+        Ok(mut run) => {
+            if let Err(response) =
+                redact_learner_run_score(state.store.as_ref(), &authenticated, &mut run).await
+            {
+                return response;
+            }
+            no_store(Json(run).into_response())
+        }
         Err(response) => response,
     }
 }
 
-/// Returns the current, bounded learner-facing completion view for one run.
+/// Returns the current, bounded completion view for one authorized run.
 ///
-/// The store supplies private feedback and release facts in a single authorized page read. This
-/// route performs the only public projection, so a release changes this GET view without rewriting
-/// the immutable submission receipt that was returned at grade time.
+/// The enrolled learner receives the S5/S3-redacted DTO; a direct course
+/// instructor retains the separate, established raw historical aggregate.
+/// The store supplies private feedback and the current S3-backed disclosure
+/// input in one authorized page read. Feedback-release receipts are audit
+/// evidence only and do not change either GET projection.
 pub(super) async fn get_run_summary<S, B>(
     State(state): State<RunRouteState<S, B>>,
     headers: HeaderMap,
@@ -38,7 +51,13 @@ pub(super) async fn get_run_summary<S, B>(
     Query(query): Query<RunQuery>,
 ) -> Response
 where
-    S: Store + CatalogStore + CourseAppearanceStore + SessionStore + 'static,
+    S: Store
+        + CatalogStore
+        + CourseAppearanceStore
+        + CourseItemAnalysisStore
+        + SessionStore
+        + AuthoritativeTimeStore
+        + 'static,
     B: RunBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
@@ -76,13 +95,8 @@ where
                 &empty_feedback,
                 learning_data_access::AttemptFeedbackRecord::content,
             );
-            let feedback = project_run_feedback(
-                outcome.feedback_policy,
-                &page.run,
-                outcome.release.is_some(),
-                outcome.result,
-                content,
-            );
+            let feedback =
+                project_run_feedback(outcome.disclosure.decision(), outcome.result, content);
             RunSummaryOutcome {
                 attempt: outcome.attempt,
                 assignment_position: outcome.assignment_position,
@@ -92,32 +106,70 @@ where
             }
         })
         .collect();
-    no_store(
-        Json(RunSummaryResponse {
-            course,
-            run: page.run,
-            summary: page.summary,
-            practice_allowed: page.practice_allowed,
-            outcomes: learning_data_access::Page {
-                items: outcomes,
-                next_cursor: page.outcomes.next_cursor,
-            },
-        })
-        .into_response(),
-    )
+    let outcomes = learning_data_access::Page {
+        items: outcomes,
+        next_cursor: page.outcomes.next_cursor,
+    };
+    match run_summary_enrollment_access(state.store.as_ref(), &authenticated, page.run.enrollment)
+        .await
+    {
+        Ok(RunSummaryEnrollmentAccess::Instructor) => no_store(
+            Json(InstructorRunSummaryResponse {
+                course,
+                run: page.run,
+                summary: page.summary,
+                practice_allowed: page.practice_allowed,
+                outcomes,
+            })
+            .into_response(),
+        ),
+        Ok(RunSummaryEnrollmentAccess::Learner(enrollment)) => {
+            let (summary, score_disclosed) = match learner_assignment_progress(
+                state.store.as_ref(),
+                &authenticated,
+                &enrollment,
+                &page.summary,
+            )
+            .await
+            {
+                Ok(value) => value,
+                Err(response) => return response,
+            };
+            let mut run = page.run;
+            if !score_disclosed {
+                run.score = None;
+            }
+            no_store(
+                Json(RunSummaryResponse {
+                    course,
+                    run,
+                    summary,
+                    practice_allowed: page.practice_allowed,
+                    outcomes,
+                })
+                .into_response(),
+            )
+        }
+        Err(response) => response,
+    }
 }
 
-/// Releases one completed on-release attempt after the store derives direct instructor authority.
+/// Records an instructor feedback-release audit receipt after direct authority.
 ///
-/// The response intentionally confirms only the state transition. Private feedback remains in the
-/// store and is revealed, if permitted, only by a later run-summary GET projection.
+/// The response intentionally confirms only the content-free audit write.
+/// Learner disclosure remains controlled solely by the current S4 decision.
 pub(super) async fn release_attempt_feedback<S, B>(
     State(state): State<RunRouteState<S, B>>,
     headers: HeaderMap,
     Path(attempt): Path<QuestionAttemptId>,
 ) -> Response
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store
+        + CatalogStore
+        + SessionStore
+        + AuthoritativeTimeStore
+        + CourseItemAnalysisStore
+        + 'static,
     B: RunBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
@@ -147,7 +199,12 @@ pub(super) async fn list_attempts<S, B>(
     Query(query): Query<RunQuery>,
 ) -> Response
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store
+        + CatalogStore
+        + SessionStore
+        + AuthoritativeTimeStore
+        + CourseItemAnalysisStore
+        + 'static,
     B: RunBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
@@ -197,18 +254,8 @@ where
                 Err(error) => return store_error_response(error),
             };
             *attempt = record.attempt;
-            apply_receipt_feedback_disclosure(record.feedback_disclosure, &run, attempt);
+            apply_learner_disclosure(record.disclosure.decision(), attempt);
             continue;
-        }
-        if let Err(response) = apply_feedback_disclosure(
-            state.store.as_ref(),
-            authenticated.tenant_context,
-            &run,
-            attempt,
-        )
-        .await
-        {
-            return response;
         }
     }
     no_store(Json(page).into_response())
@@ -240,7 +287,7 @@ where
         Ok(None) => return error_response(StatusCode::NOT_FOUND, "attempt not found"),
         Err(error) => return store_error_response(error),
     };
-    let run = match authorized_run(state.store.as_ref(), &authenticated, attempt.run).await {
+    let _run = match authorized_run(state.store.as_ref(), &authenticated, attempt.run).await {
         Ok(run) => run,
         Err(response) => return response,
     };
@@ -264,16 +311,7 @@ where
             Err(error) => return store_error_response(error),
         };
         attempt = record.attempt;
-        apply_receipt_feedback_disclosure(record.feedback_disclosure, &run, &mut attempt);
-    } else if let Err(response) = apply_feedback_disclosure(
-        state.store.as_ref(),
-        authenticated.tenant_context,
-        &run,
-        &mut attempt,
-    )
-    .await
-    {
-        return response;
+        apply_learner_disclosure(record.disclosure.decision(), &mut attempt);
     }
     no_store(Json(attempt).into_response())
 }
@@ -379,7 +417,12 @@ pub(super) async fn get_enrollment<S, B>(
     Path(enrollment_id): Path<question_model::EnrollmentId>,
 ) -> Response
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store
+        + CatalogStore
+        + SessionStore
+        + AuthoritativeTimeStore
+        + CourseItemAnalysisStore
+        + 'static,
     B: RunBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
@@ -406,13 +449,31 @@ where
         Ok(None) => return error_response(StatusCode::NOT_FOUND, "summary not found"),
         Err(error) => return store_error_response(error),
     };
-    no_store(
-        Json(EnrollmentView {
-            enrollment,
-            summary,
-        })
-        .into_response(),
-    )
+    if enrollment.user == authenticated.record.subject.user() {
+        let (summary, _) = match learner_assignment_progress(
+            state.store.as_ref(),
+            &authenticated,
+            &enrollment,
+            &summary,
+        )
+        .await
+        {
+            Ok(value) => value,
+            Err(response) => return response,
+        };
+        no_store(
+            Json(EnrollmentView {
+                enrollment,
+                summary,
+            })
+            .into_response(),
+        )
+    } else {
+        no_store(
+            Json(serde_json::json!({ "enrollment": enrollment, "summary": summary }))
+                .into_response(),
+        )
+    }
 }
 
 pub(super) async fn get_summary<S, B>(
@@ -421,18 +482,25 @@ pub(super) async fn get_summary<S, B>(
     Path(enrollment_id): Path<question_model::EnrollmentId>,
 ) -> Response
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store
+        + CatalogStore
+        + SessionStore
+        + AuthoritativeTimeStore
+        + CourseItemAnalysisStore
+        + 'static,
     B: RunBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if let Err(response) =
-        authorized_enrollment(state.store.as_ref(), &authenticated, enrollment_id, false).await
-    {
-        return response;
-    }
+    let enrollment =
+        match authorized_enrollment(state.store.as_ref(), &authenticated, enrollment_id, false)
+            .await
+        {
+            Ok(enrollment) => enrollment,
+            Err(response) => return response,
+        };
     match state
         .store
         .learner_get_summary(
@@ -442,6 +510,19 @@ where
         )
         .await
     {
+        Ok(Some(summary)) if enrollment.user == authenticated.record.subject.user() => {
+            match learner_assignment_progress(
+                state.store.as_ref(),
+                &authenticated,
+                &enrollment,
+                &summary,
+            )
+            .await
+            {
+                Ok((summary, _)) => no_store(Json(summary).into_response()),
+                Err(response) => response,
+            }
+        }
         Ok(Some(summary)) => no_store(Json(summary).into_response()),
         Ok(None) => error_response(StatusCode::NOT_FOUND, "summary not found"),
         Err(error) => store_error_response(error),
@@ -455,7 +536,12 @@ pub(super) async fn list_runs<S, B>(
     Query(query): Query<RunQuery>,
 ) -> Response
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store
+        + CatalogStore
+        + SessionStore
+        + AuthoritativeTimeStore
+        + CourseItemAnalysisStore
+        + 'static,
     B: RunBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
@@ -486,7 +572,36 @@ where
             .await
     };
     match result {
-        Ok(Some(page)) => no_store(Json(page).into_response()),
+        Ok(Some(mut page)) => {
+            if enrollment.user == actor {
+                let summary = match state
+                    .store
+                    .learner_get_summary(authenticated.tenant_context, actor, enrollment_id)
+                    .await
+                {
+                    Ok(Some(summary)) => summary,
+                    Ok(None) => return error_response(StatusCode::NOT_FOUND, "summary not found"),
+                    Err(error) => return store_error_response(error),
+                };
+                let (_, score_disclosed) = match learner_assignment_progress(
+                    state.store.as_ref(),
+                    &authenticated,
+                    &enrollment,
+                    &summary,
+                )
+                .await
+                {
+                    Ok(value) => value,
+                    Err(response) => return response,
+                };
+                if !score_disclosed {
+                    for run in &mut page.items {
+                        run.score = None;
+                    }
+                }
+            }
+            no_store(Json(page).into_response())
+        }
         Ok(None) => error_response(StatusCode::NOT_FOUND, "enrollment not found"),
         Err(error) => store_error_response(error),
     }
@@ -536,6 +651,64 @@ pub(super) async fn authorized_run<S: Store>(
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "run not found"))?;
     authorized_enrollment(store, authenticated, run.enrollment, false).await?;
     Ok(run)
+}
+
+/// Redacts a run score only when the currently authenticated actor owns the
+/// enrollment. Staff historical inspection keeps its separate raw capability.
+async fn redact_learner_run_score<S: Store + AuthoritativeTimeStore + CourseItemAnalysisStore>(
+    store: &S,
+    authenticated: &AuthenticatedSession,
+    run: &mut AssignmentRun,
+) -> Result<(), Response> {
+    let actor = authenticated.record.subject.user();
+    let Some(enrollment) = store
+        .learner_get_enrollment(authenticated.tenant_context, actor, run.enrollment)
+        .await
+        .map_err(store_error_response)?
+    else {
+        return Ok(());
+    };
+    let summary = store
+        .learner_get_summary(authenticated.tenant_context, actor, enrollment.id)
+        .await
+        .map_err(store_error_response)?
+        .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "summary not found"))?;
+    let (_, score_disclosed) =
+        learner_assignment_progress(store, authenticated, &enrollment, &summary).await?;
+    if !score_disclosed {
+        run.score = None;
+    }
+    Ok(())
+}
+
+/// The store has already authorized the summary-page read. Resolve which of
+/// its two retained record capabilities applies before touching learner-only
+/// accessors: instructors never traverse a learner entitlement query.
+enum RunSummaryEnrollmentAccess {
+    Learner(AssignmentEnrollment),
+    Instructor,
+}
+
+async fn run_summary_enrollment_access<S: Store>(
+    store: &S,
+    authenticated: &AuthenticatedSession,
+    enrollment_id: question_model::EnrollmentId,
+) -> Result<RunSummaryEnrollmentAccess, Response> {
+    let actor = authenticated.record.subject.user();
+    if let Some(enrollment) = store
+        .instructor_get_enrollment(authenticated.tenant_context, actor, enrollment_id)
+        .await
+        .map_err(store_error_response)?
+        && enrollment.user != actor
+    {
+        return Ok(RunSummaryEnrollmentAccess::Instructor);
+    }
+    let enrollment = store
+        .learner_get_enrollment(authenticated.tenant_context, actor, enrollment_id)
+        .await
+        .map_err(store_error_response)?
+        .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "enrollment not found"))?;
+    Ok(RunSummaryEnrollmentAccess::Learner(enrollment))
 }
 
 pub(super) async fn run_summary_course<S>(

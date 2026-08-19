@@ -315,7 +315,7 @@ export function decodeRandomization(
 export function decodeAttemptPolicy(value: unknown, path: string, strict = false): AttemptPolicy {
   const record = decodeRecord(value, path);
   if (strict) {
-    requireOnlyFields(record, path, ["maxAttempts", "feedback"]);
+    requireOnlyFields(record, path, ["maxAttempts"]);
   }
   const decoded = {
     maxAttempts: decodeNullable(
@@ -323,12 +323,6 @@ export function decodeAttemptPolicy(value: unknown, path: string, strict = false
       `${path}.maxAttempts`,
       decodePositiveInteger,
     ),
-    feedback: decodeStringEnum(field(record, "feedback", path), `${path}.feedback`, [
-      "immediateFull",
-      "immediateCorrectness",
-      "deferred",
-      "onRelease",
-    ]),
   } satisfies AttemptPolicy;
   return decoded;
 }

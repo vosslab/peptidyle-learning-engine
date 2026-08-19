@@ -19,8 +19,8 @@ use domain::timing::{TimerEvaluation, TimerVerdict, timer_verdict};
 use objects::Sha256Digest;
 #[cfg(feature = "postgres")]
 use question_model::run_policy::{
-    CompletionRequirement, ContinuedPractice, FeedbackDisclosure, GradePolicy, RunPolicies,
-    TimingPolicy, VariationPolicy,
+    CompletionRequirement, ContinuedPractice, GradePolicy, RunPolicies, TimingPolicy,
+    VariationPolicy,
 };
 #[cfg(feature = "postgres")]
 use question_model::taxonomy::TaxonomyTerm;

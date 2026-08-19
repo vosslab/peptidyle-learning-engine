@@ -218,9 +218,12 @@ test("student route exposes no appearance read or mutation transport", async ({ 
     return await json(route, { error: "student appearance transport must not run" }, 500);
   });
   await openAppearance(page);
+  const denial = page.locator('[data-route-surface="routeAccessDenied"]');
+  await expect(denial).toHaveAttribute("data-denied-route", "courseAppearance");
   await expect(
-    page.getByRole("heading", { name: "Course appearance is not available for this account" }),
+    denial.getByRole("heading", { name: "This page is available to instructors only" }),
   ).toBeVisible();
+  await expect(page.locator('[data-route-surface="courseAppearance"]')).toHaveCount(0);
   expect(requests).toContain("GET /api/auth/session");
   expect(requests.filter((request) => request.includes("/appearance"))).toEqual([]);
   expect(requests.filter((request) => request.startsWith("PUT "))).toEqual([]);

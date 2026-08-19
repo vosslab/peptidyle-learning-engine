@@ -877,6 +877,7 @@ async fn manual_grade_export_contains_only_course_roster_identity_and_selected_s
                     scoring_mode: question_model::AssignmentScoringMode::Normal,
                 }],
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: policies(),
             },
         )

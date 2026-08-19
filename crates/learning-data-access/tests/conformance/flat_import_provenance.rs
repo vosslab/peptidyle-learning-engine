@@ -38,7 +38,7 @@ impl ConversionFixture {
         let import = WorkspaceImportId::from_uuid(uuid(seed));
         let context = TenantContext::from_authenticated_session(tenant);
         let source_text = format!(
-            r#"{{"format":"pleFlatQuestion","version":2,"title":"{title}","prompt":"Which choice is blue?","response":{{"kind":"singleChoice","choices":[{{"id":"blue","text":"Blue"}},{{"id":"red","text":"Red"}}],"correctChoice":"blue"}},"points":1.0,"attemptPolicy":{{"maxAttempts":null,"feedback":"immediateFull"}},"timingPolicy":{{"kind":"untimed"}},"license":{{"kind":"allRightsReserved"}},"language":"en-US"}}"#
+            r#"{{"format":"pleFlatQuestion","version":2,"title":"{title}","prompt":"Which choice is blue?","response":{{"kind":"singleChoice","choices":[{{"id":"blue","text":"Blue"}},{{"id":"red","text":"Red"}}],"correctChoice":"blue"}},"points":1.0,"attemptPolicy":{{"maxAttempts":null}},"timingPolicy":{{"kind":"untimed"}},"license":{{"kind":"allRightsReserved"}},"language":"en-US"}}"#
         );
         let document =
             adapter_native::flat_question::FlatQuestionDocument::parse(source_text.as_bytes())
@@ -301,7 +301,6 @@ async fn commit_profile_import(
     let mut import_command = fixture.import_command.clone();
     let profile_defaults = [
         "PLE default applied: unlimited attempts.",
-        "PLE default applied: immediate full feedback.",
         "PLE default applied: untimed.",
         "PLE default applied: en-US.",
         "PLE default applied: allRightsReserved.",

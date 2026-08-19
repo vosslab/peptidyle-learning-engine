@@ -84,13 +84,20 @@ INSERT INTO public.course_member (
 );
 
 INSERT INTO public.assignment (
-    tenant_id, assignment_id, course_id, audience_kind, title
+    tenant_id, assignment_id, course_id, audience_kind, title,
+    score_disclosure, per_item_correctness_disclosure, feedback_text_disclosure,
+    solution_disclosure, class_statistics_disclosure
 ) VALUES (
     'f1000000-0000-4000-8000-000000000002',
     'f1000000-0000-4000-8000-000000000007',
     'f1000000-0000-4000-8000-000000000006',
     'course_wide',
-    'Partition pruning assignment'
+    'Partition pruning assignment',
+    'after_submit',
+    'after_submit',
+    'after_submit',
+    'after_submit',
+    'never'
 );
 
 INSERT INTO public.enrollment (
@@ -176,8 +183,7 @@ INSERT INTO public.question_attempt (
     course_id,
     presentation_capability,
     flat_grading_required,
-    webwork_grading_required,
-    issued_feedback_disclosure
+    webwork_grading_required
 )
 SELECT
     'f1000000-0000-4000-8000-000000000002'::uuid,
@@ -194,8 +200,7 @@ SELECT
     'f1000000-0000-4000-8000-000000000006'::uuid,
     'not_applicable',
     false,
-    false,
-    'deferred'
+    false
 FROM generate_series(1, 260000) AS series(generated)
 CROSS JOIN LATERAL (
     SELECT date '2026-08-01'
@@ -402,14 +407,21 @@ SELECT
 FROM generate_series(1, 500) AS students(student_number);
 
 INSERT INTO public.assignment (
-    tenant_id, assignment_id, course_id, audience_kind, title
+    tenant_id, assignment_id, course_id, audience_kind, title,
+    score_disclosure, per_item_correctness_disclosure, feedback_text_disclosure,
+    solution_disclosure, class_statistics_disclosure
 )
 SELECT
     'f1000000-0000-4000-8000-000000000002'::uuid,
     md5('gradebook-assignment-' || assignment_number)::uuid,
     'f1000000-0000-4000-8000-00000000000b'::uuid,
     'course_wide',
-    'Gradebook assignment ' || assignment_number
+    'Gradebook assignment ' || assignment_number,
+    'after_submit',
+    'after_submit',
+    'after_submit',
+    'after_submit',
+    'never'
 FROM generate_series(1, 120) AS assignments(assignment_number);
 
 INSERT INTO public.enrollment (

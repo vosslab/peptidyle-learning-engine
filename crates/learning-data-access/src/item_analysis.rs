@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use domain::item_analysis::CourseItemAnalysisReport;
-use question_model::{AssignmentId, CourseId, ScoringGeneration};
+use question_model::{AssignmentId, CourseId, LearnerClassStatistics, ScoringGeneration, UserId};
 
 use crate::{JobId, JobLeaseToken, SessionTokenHash, StoreError, TenantContext};
 
@@ -35,6 +35,18 @@ pub trait CourseItemAnalysisStore: Send + Sync {
         course: CourseId,
         assignment: AssignmentId,
     ) -> Result<Option<CourseItemAnalysisReport>, StoreError>;
+
+    /// Returns only the k-anonymity-gated aggregate a currently entitled
+    /// learner may be shown. It never returns report, roster, or response
+    /// identity, and an absent or stale report is indistinguishable from other
+    /// insufficient evidence.
+    async fn learner_class_statistics(
+        &self,
+        context: TenantContext,
+        learner: UserId,
+        course: CourseId,
+        assignment: AssignmentId,
+    ) -> Result<LearnerClassStatistics, StoreError>;
 }
 
 /// Private staging and atomic-publication boundary for a course item-analysis rebuild.

@@ -23,8 +23,8 @@ use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
 use question_model::run_policy::{
-    AttemptPolicy, CompletionRequirement, ContinuedPractice, FeedbackDisclosure, GradePolicy,
-    RunPolicies, TimingPolicy, VariationPolicy,
+    AttemptPolicy, CompletionRequirement, ContinuedPractice, GradePolicy, RunPolicies,
+    TimingPolicy, VariationPolicy,
 };
 use question_model::taxonomy::License;
 use question_model::{
@@ -81,10 +81,7 @@ async fn publish_question(
                 tolerance: NumericTolerance::Relative { fraction: 0.01 },
                 unit: Some("g/mol".to_string()),
             },
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateFull,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },
@@ -286,6 +283,7 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
                     scoring_mode: AssignmentScoringMode::Normal,
                 }],
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: policies(),
             },
         )

@@ -8,7 +8,7 @@
 use std::collections::BTreeSet;
 
 use question_model::generation::RandomizationDefinition;
-use question_model::run_policy::{FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::TimingPolicy;
 use question_model::{
     BackendCapabilities, Capability, DraftQuestionDefinition, GradingDefinition,
     QuestionDefinition, VersionId,
@@ -34,7 +34,7 @@ pub struct AssignmentConfig {
     /// Assignment-wide features every selected backend must support.
     ///
     /// Client rendering, print export, and offline preview are requested here.
-    /// Question-authored generation, grading, hints, and timing requirements
+    /// Question-authored generation, grading, and timing requirements
     /// are derived directly from each definition and need no second flag.
     pub required_capabilities: Vec<Capability>,
 }
@@ -113,7 +113,6 @@ fn required_by_question(question: &QuestionDefinition) -> BTreeSet<Capability> {
 trait QuestionContentView {
     fn randomization(&self) -> &question_model::generation::RandomizationDefinition;
     fn grading(&self) -> &GradingDefinition;
-    fn attempt_policy(&self) -> &question_model::run_policy::AttemptPolicy;
     fn timing_policy(&self) -> &TimingPolicy;
 }
 
@@ -123,9 +122,6 @@ impl QuestionContentView for QuestionDefinition {
     }
     fn grading(&self) -> &GradingDefinition {
         &self.grading
-    }
-    fn attempt_policy(&self) -> &question_model::run_policy::AttemptPolicy {
-        &self.attempt_policy
     }
     fn timing_policy(&self) -> &TimingPolicy {
         &self.timing_policy
@@ -138,9 +134,6 @@ impl QuestionContentView for DraftQuestionDefinition {
     }
     fn grading(&self) -> &GradingDefinition {
         &self.grading
-    }
-    fn attempt_policy(&self) -> &question_model::run_policy::AttemptPolicy {
-        &self.attempt_policy
     }
     fn timing_policy(&self) -> &TimingPolicy {
         &self.timing_policy
@@ -165,9 +158,6 @@ fn required_by_content(question: &impl QuestionContentView) -> BTreeSet<Capabili
             required.insert(Capability::PartialCredit);
         }
         GradingDefinition::Ungraded => {}
-    }
-    if question.attempt_policy().feedback == FeedbackDisclosure::ImmediateCorrectness {
-        required.insert(Capability::Hints);
     }
     if matches!(question.timing_policy(), TimingPolicy::PerQuestion { .. }) {
         required.insert(Capability::PerQuestionTiming);
@@ -206,7 +196,6 @@ mod tests {
         Seeded,
         AllOrNothing,
         PartialCredit,
-        Hints,
         PerQuestionTiming,
     }
 
@@ -227,7 +216,6 @@ mod tests {
             },
             attempt_policy: AttemptPolicy {
                 max_attempts: Some(1),
-                feedback: FeedbackDisclosure::Deferred,
             },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
@@ -265,9 +253,6 @@ mod tests {
                     tolerance: NumericTolerance::Absolute { epsilon: 0.1 },
                     unit: None,
                 };
-            }
-            CaseFeature::Hints => {
-                question.attempt_policy.feedback = FeedbackDisclosure::ImmediateCorrectness;
             }
             CaseFeature::PerQuestionTiming => {
                 question.timing_policy = TimingPolicy::PerQuestion {

@@ -120,6 +120,7 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
                 audience: question_model::AssignmentAudience::CourseWide,
                 items,
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: policy,
             },
         )
@@ -376,6 +377,39 @@ async fn current_report(
         .await
         .expect("analysis read")
         .expect("analysis is current")
+}
+
+#[tokio::test]
+async fn memory_learner_class_statistics_requires_current_s5_and_never_leaks_absent_evidence() {
+    let store = MemoryStore::default();
+    store
+        .set_authoritative_time(ActivityTimestamp::from_unix_millis(1_000))
+        .expect("fixture clock");
+    let fixture = analysis_fixture(&store).await;
+
+    assert_eq!(
+        store
+            .learner_class_statistics(
+                fixture.context,
+                fixture.student,
+                fixture.course,
+                fixture.assignment,
+            )
+            .await
+            .expect("currently entitled learner"),
+        question_model::LearnerClassStatistics::InsufficientEvidence
+    );
+    assert_eq!(
+        store
+            .learner_class_statistics(
+                fixture.context,
+                UserId::from_uuid(uuid(80_099)),
+                fixture.course,
+                fixture.assignment,
+            )
+            .await,
+        Err(learning_data_access::StoreError::NotFound)
+    );
 }
 
 #[tokio::test]

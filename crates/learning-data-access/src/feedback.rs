@@ -1,6 +1,8 @@
 //! Private teaching-feedback records and their bounded validation.
 
 use crate::{AssignmentRecord, Page, StoreError};
+use domain::disclosure_policy::LearnerDisclosureDecision;
+use domain::effective_assignment_policy::EffectiveAssignmentPolicy;
 use objects::Sha256Digest;
 use question_model::envelope::ContentBlock;
 use question_model::{
@@ -20,9 +22,9 @@ pub struct AttemptFeedbackRecord {
     content_sha256: Sha256Digest,
 }
 
-/// Immutable tenant-owned decision to unlock one first-grade feedback record.
+/// Immutable tenant-owned audit receipt for an instructor feedback action.
 ///
-/// This carries no feedback content and is never an attempt-list projection.
+/// This carries no feedback content and never changes learner disclosure.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FeedbackReleaseRecord {
     pub tenant: TenantId,
@@ -31,11 +33,55 @@ pub struct FeedbackReleaseRecord {
     pub released_at: ActivityTimestamp,
 }
 
+/// Private, current learner-disclosure evaluation input.
+///
+/// This boundary deliberately contains only assignment-owned disclosure
+/// policy, the effective policy read from the current sealed S3 receipt, and
+/// authoritative temporal facts. It is neither serializable nor debug
+/// printable and cannot carry a question definition, answer key, provider
+/// material, or an entitlement decision. S5 authorization is completed before
+/// a store returns it.
+#[derive(Clone, PartialEq, Eq)]
+pub struct LearnerDisclosureInput {
+    assignment_policy: question_model::LearnerDisclosurePolicy,
+    effective_policy: EffectiveAssignmentPolicy,
+    evaluated_at: ActivityTimestamp,
+    submitted_at: Option<ActivityTimestamp>,
+}
+
+impl LearnerDisclosureInput {
+    pub(crate) fn new(
+        assignment_policy: question_model::LearnerDisclosurePolicy,
+        effective_policy: EffectiveAssignmentPolicy,
+        evaluated_at: ActivityTimestamp,
+        submitted_at: Option<ActivityTimestamp>,
+    ) -> Self {
+        Self {
+            assignment_policy,
+            effective_policy,
+            evaluated_at,
+            submitted_at,
+        }
+    }
+
+    /// Evaluates every public field from the one current server-side source.
+    pub fn decision(&self) -> LearnerDisclosureDecision {
+        domain::disclosure_policy::evaluate_allowed_learner_disclosure(
+            &self.effective_policy,
+            self.assignment_policy,
+            self.evaluated_at,
+            self.submitted_at,
+        )
+    }
+}
+
 /// Private, bounded input for server-side feedback redaction on a run summary.
 ///
 /// This is intentionally neither serializable nor debug printable. The route
-/// turns it into a public DTO only after applying the current disclosure and
-/// release policy.
+/// turns it into a public DTO only after applying the current disclosure
+/// decision. The current effective policy is read from the sealed S3 receipt;
+/// the projection then applies the current assignment disclosure policy and
+/// authoritative time. A feedback-release audit record never unlocks content.
 #[derive(Clone, PartialEq)]
 pub struct RunSummaryOutcomeInput {
     pub attempt: QuestionAttemptId,
@@ -43,9 +89,8 @@ pub struct RunSummaryOutcomeInput {
     pub submitted_at: Option<ActivityTimestamp>,
     pub response: Option<StudentResponse>,
     pub result: Option<AttemptResult>,
-    pub feedback_policy: question_model::run_policy::FeedbackDisclosure,
+    pub disclosure: LearnerDisclosureInput,
     pub feedback: Option<AttemptFeedbackRecord>,
-    pub release: Option<FeedbackReleaseRecord>,
 }
 
 /// Private run-summary material returned in one tenant-authorized store read.

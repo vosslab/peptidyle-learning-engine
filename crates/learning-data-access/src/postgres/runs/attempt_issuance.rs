@@ -324,7 +324,6 @@ pub(super) async fn issue_or_resume_question_attempt(
     }
     let question =
         load_published_record(transaction, command.problem, command.question_version).await?;
-    let issued_feedback_disclosure = question.question.attempt_policy.feedback;
     validate_issued_flat_grading(
         &question.question,
         presentation_capability,
@@ -434,9 +433,8 @@ pub(super) async fn issue_or_resume_question_attempt(
           presentation_nonce, presentation_digest, presentation_capability, presentation_payload, \
           presentation_payload_sha256, grading_envelope_payload, grading_envelope_payload_sha256, \
           flat_grading_required, flat_grading_payload, flat_grading_payload_sha256, \
-          webwork_grading_required, webwork_grading_payload, webwork_grading_payload_sha256, \
-          issued_feedback_disclosure) \
-         VALUES ($1, $2, $3, $4, $5, $6, transaction_timestamp(), $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)",
+          webwork_grading_required, webwork_grading_payload, webwork_grading_payload_sha256) \
+         VALUES ($1, $2, $3, $4, $5, $6, transaction_timestamp(), $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)",
     )
     .bind(tenant.as_uuid())
     .bind(attempt.id.as_uuid())
@@ -460,9 +458,6 @@ pub(super) async fn issue_or_resume_question_attempt(
     .bind(webwork_grading_capability.requires_contract())
     .bind(webwork_grading_payload)
     .bind(webwork_grading_payload_sha256)
-    .bind(super::super::submission::feedback_disclosure_name(
-        issued_feedback_disclosure,
-    ))
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;

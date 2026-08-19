@@ -347,47 +347,16 @@ fn translate_issued_response(
     }
 }
 
-/// Projects a historical receipt from the disclosure decision committed with
-/// that receipt. It intentionally has no catalog lookup.
-pub(super) fn apply_receipt_feedback_disclosure(
-    disclosure: FeedbackDisclosure,
-    run: &AssignmentRun,
+/// Removes the combined legacy result unless every field it contains is
+/// currently disclosed. This prevents points or correctness from leaking
+/// through `QuestionAttempt.result` beside the field-by-field feedback DTO.
+pub(super) fn apply_learner_disclosure(
+    disclosure: domain::disclosure_policy::LearnerDisclosureDecision,
     attempt: &mut QuestionAttempt,
 ) {
-    let retain_legacy_result = match disclosure {
-        // AttemptResult includes points, while ImmediateCorrectness permits
-        // only correctness. The receipt's allowlist projection carries that
-        // fact; this legacy field must not smuggle score data around it.
-        FeedbackDisclosure::ImmediateCorrectness | FeedbackDisclosure::OnRelease => false,
-        FeedbackDisclosure::ImmediateFull => true,
-        FeedbackDisclosure::Deferred => run.completed_at.is_some(),
-    };
-    if !retain_legacy_result {
+    if !(disclosure.score && disclosure.per_item_correctness) {
         attempt.result = None;
     }
-}
-
-/// Projects a current attempt view from the current catalog policy. Historical
-/// submission replay uses [`apply_receipt_feedback_disclosure`] instead.
-pub(super) async fn apply_feedback_disclosure<S: CatalogStore>(
-    store: &S,
-    context: TenantContext,
-    run: &AssignmentRun,
-    attempt: &mut QuestionAttempt,
-) -> Result<(), Response> {
-    let question = store
-        .get_catalog_problem(
-            context,
-            ProblemVersionRef {
-                problem: attempt.problem,
-                version: attempt.question_version,
-            },
-        )
-        .await
-        .map_err(store_error_response)?
-        .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "question version not found"))?;
-    apply_receipt_feedback_disclosure(question.question.attempt_policy.feedback, run, attempt);
-    Ok(())
 }
 
 pub(super) async fn finish_submission<S, B>(
@@ -485,14 +454,10 @@ pub(super) fn submission_response(
     next_issued: Option<NextIssuedAttempt>,
     next_pending: bool,
 ) -> Response {
-    let feedback = feedback_projection(
-        record.feedback_disclosure,
-        &record.run,
-        &record.attempt,
-        record.feedback.content(),
-    );
+    let decision = record.disclosure.decision();
+    let feedback = feedback_projection(decision, &record.attempt, record.feedback.content());
     let mut attempt = record.attempt;
-    apply_receipt_feedback_disclosure(record.feedback_disclosure, &record.run, &mut attempt);
+    apply_learner_disclosure(decision, &mut attempt);
     no_store(
         Json(SubmissionReceipt {
             accepted: true,
@@ -506,39 +471,18 @@ pub(super) fn submission_response(
 }
 
 pub(super) fn feedback_projection(
-    disclosure: FeedbackDisclosure,
-    run: &AssignmentRun,
+    disclosure: domain::disclosure_policy::LearnerDisclosureDecision,
     attempt: &QuestionAttempt,
     content: &FeedbackContent,
 ) -> Option<DisclosedFeedback> {
-    // A submission receipt is a historical result from the grade transition.
-    // An instructor can create an OnRelease record only after that transition,
-    // so this initial projection is unreleased. Replayed receipts retain this
-    // immutable state; the current run-summary projection receives the stored
-    // release fact above.
-    project_run_feedback(disclosure, run, false, attempt.result, content)
+    project_run_feedback(disclosure, attempt.result, content)
 }
 
-/// Projects trusted feedback with the authoritative run-completion and release facts.
-///
-/// This is the sole server projection seam for both immutable submission receipts and current
-/// run summaries. The caller supplies `released` from the durable feedback-release record when a
-/// current view is requested; the initial receipt is necessarily unreleased and remains an
-/// immutable historical response on idempotent replay.
+/// Projects trusted feedback from one current, server-side disclosure decision.
 pub(super) fn project_run_feedback(
-    policy: FeedbackDisclosure,
-    run: &AssignmentRun,
-    released: bool,
+    disclosure: domain::disclosure_policy::LearnerDisclosureDecision,
     result: Option<AttemptResult>,
     content: &FeedbackContent,
 ) -> Option<DisclosedFeedback> {
-    project_feedback(
-        policy,
-        FeedbackDisclosureState {
-            run_completed: run.completed_at.is_some(),
-            released,
-        },
-        result,
-        content,
-    )
+    project_feedback(disclosure, result, content)
 }

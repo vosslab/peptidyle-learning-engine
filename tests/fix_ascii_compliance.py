@@ -289,7 +289,6 @@ def apply_simple_fixes(text: str) -> tuple[str, bool]:
 
 	# Replace box-drawing characters with ASCII equivalents.
 	fixed_text = fixed_text.replace("\u2500", "-")   # horizontal line
-	fixed_text = fixed_text.replace("\u2501", "=")   # heavy horizontal line
 	fixed_text = fixed_text.replace("\u2502", "|")   # vertical line
 	fixed_text = fixed_text.replace("\u250C", "+")   # top-left corner
 	fixed_text = fixed_text.replace("\u2510", "+")   # top-right corner
@@ -300,17 +299,6 @@ def apply_simple_fixes(text: str) -> tuple[str, bool]:
 	fixed_text = fixed_text.replace("\u252C", "+")   # top tee
 	fixed_text = fixed_text.replace("\u2534", "+")   # bottom tee
 	fixed_text = fixed_text.replace("\u253C", "+")   # cross
-	fixed_text = fixed_text.replace("\u2550", "=")   # double horizontal line
-	fixed_text = fixed_text.replace("\u256D", "+")   # rounded top-left corner
-	fixed_text = fixed_text.replace("\u256E", "+")   # rounded top-right corner
-	fixed_text = fixed_text.replace("\u256F", "+")   # rounded bottom-right corner
-	fixed_text = fixed_text.replace("\u2570", "+")   # rounded bottom-left corner
-
-	# Replace diagram markers with readable ASCII equivalents.
-	fixed_text = fixed_text.replace("\u25C6", "*")   # black diamond
-	fixed_text = fixed_text.replace("\u25CB", "o")   # white circle
-	fixed_text = fixed_text.replace("\u25CF", "O")   # black circle
-	fixed_text = fixed_text.replace("\u2605", "*")   # black star
 
 	# Replace or drop additional symbol-like characters.
 	fixed_text = fixed_text.replace("\u037C", "(c)")

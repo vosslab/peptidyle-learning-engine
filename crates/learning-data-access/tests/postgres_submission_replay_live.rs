@@ -4,11 +4,11 @@
 
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
-    AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateCourseCommand,
-    DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand, PrefetchedQuestion,
-    PresentationCapability, PublishDraftCommand, ReservePrefetchedQuestionCommand, Store,
-    StoreError, SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext,
-    UpsertCourseMember,
+    AssignmentRecord, AssignmentUpdate, CatalogStore, CourseRecord, CourseRosterStore,
+    CreateCourseCommand, DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
+    PrefetchedQuestion, PresentationCapability, PublishDraftCommand,
+    ReservePrefetchedQuestionCommand, Store, StoreError, SubmissionIdempotencyKey,
+    SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -18,8 +18,8 @@ use question_model::presentation::{
     NonceSourceV1, PresentationBuildError, build_presentation_v1_with_nonce_source,
 };
 use question_model::run_policy::{
-    AttemptPolicy, CompletionRequirement, ContinuedPractice, FeedbackDisclosure, GradePolicy,
-    RunPolicies, TimingPolicy, VariationPolicy,
+    AttemptPolicy, CompletionRequirement, ContinuedPractice, GradePolicy, LearnerDisclosurePolicy,
+    LearnerDisclosureTiming, RunPolicies, TimingPolicy, VariationPolicy,
 };
 use question_model::taxonomy::License;
 use question_model::{
@@ -182,10 +182,7 @@ async fn publish_question(
                 tolerance: NumericTolerance::Relative { fraction: 0.01 },
                 unit: Some("g/mol".to_string()),
             },
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateFull,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },
@@ -284,6 +281,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
                     assignment_item_at(reference, 1),
                 ],
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: policies(),
             },
         )
@@ -426,14 +424,78 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
         Err(StoreError::Conflict) => {}
         Err(error) => panic!("concurrent prefetch has a supported outcome: {error:?}"),
     }
+    let initial_disclosure = submitted.disclosure.decision();
+    assert!(
+        initial_disclosure.score
+            && initial_disclosure.per_item_correctness
+            && initial_disclosure.feedback_text
+            && initial_disclosure.solution
+            && !initial_disclosure.class_statistics,
+        "the submitted receipt uses the assignment's initial, after-submit policy"
+    );
+    let current = store
+        .get_assignment_for_edit(context, assignment)
+        .await
+        .expect("read current assignment before the disclosure-only revision")
+        .expect("receipt assignment exists");
+    store
+        .replace_assignment_preserving_timing(
+            context,
+            course,
+            assignment,
+            current.revision,
+            AssignmentUpdate {
+                title: current.record.title.clone(),
+                audience: current.record.audience.clone(),
+                items: current.record.items.clone(),
+                selection_groups: current.record.selection_groups.clone(),
+                disclosure_policy: LearnerDisclosurePolicy {
+                    score: LearnerDisclosureTiming::Never,
+                    per_item_correctness: LearnerDisclosureTiming::Never,
+                    feedback_text: LearnerDisclosureTiming::Never,
+                    solution: LearnerDisclosureTiming::Never,
+                    class_statistics: LearnerDisclosureTiming::Never,
+                },
+                policies: current.record.policies,
+            },
+        )
+        .await
+        .expect("current policy revision leaves the retained receipt intact");
     let replay_store =
         PostgresStore::new(lazy_pool(&database_url).expect("fresh replay PostgreSQL pool"));
+    let replayed = replay_store
+        .replay_submission(context, student, attempt.id, &response, &key)
+        .await
+        .expect("replay is valid after a disclosure-only revision")
+        .expect("an intact receipt replays");
     assert_eq!(
-        replay_store
-            .replay_submission(context, student, attempt.id, &response, &key)
-            .await,
-        Ok(Some(submitted)),
-        "an intact receipt replays exactly"
+        replayed.attempt, submitted.attempt,
+        "a replay retains the immutable submitted attempt"
+    );
+    assert_eq!(
+        replayed.run, submitted.run,
+        "a replay retains the receipt run"
+    );
+    assert_eq!(
+        replayed.summary, submitted.summary,
+        "a replay retains the receipt summary"
+    );
+    assert!(
+        replayed.feedback == submitted.feedback,
+        "a replay retains private immutable feedback without exposing it in test output"
+    );
+    assert_eq!(
+        replayed.presentation, submitted.presentation,
+        "a replay retains the answer-free presentation receipt"
+    );
+    let replay_disclosure = replayed.disclosure.decision();
+    assert!(
+        !replay_disclosure.score
+            && !replay_disclosure.per_item_correctness
+            && !replay_disclosure.feedback_text
+            && !replay_disclosure.solution
+            && !replay_disclosure.class_statistics,
+        "a replay re-evaluates its browser projection from the current policy rather than retaining historical disclosure"
     );
 
     let successor = store

@@ -151,9 +151,14 @@ async fn submit_pending_manual_question_attempt(
     submitted.timer.submitted_at = Some(submitted_at);
     let question =
         load_published_record(transaction, submitted.problem, submitted.question_version).await?;
-    let feedback_disclosure =
-        super::submission::load_issued_feedback_disclosure(transaction, tenant, submitted.id)
-            .await?;
+    let disclosure = super::submission::current_disclosure_input(
+        transaction,
+        tenant,
+        &assignment,
+        submitted.id,
+        submitted.timer.submitted_at,
+    )
+    .await?;
     let effective_grace: Option<i32> = sqlx::query_scalar(
         "SELECT receipt.effective_grace_seconds FROM attempt_effective_policy_current current_effect \
          JOIN attempt_effective_policy_receipt receipt ON receipt.tenant_id=current_effect.tenant_id AND receipt.attempt_id=current_effect.attempt_id AND receipt.receipt_generation=current_effect.receipt_generation \
@@ -280,8 +285,8 @@ async fn submit_pending_manual_question_attempt(
     sqlx::query(
         "INSERT INTO submission_receipt_snapshot \
          (tenant_id, attempt_id, run_payload, run_payload_sha256, summary_payload, summary_payload_sha256, \
-          presentation_payload, presentation_payload_sha256, presentation_required, feedback_disclosure) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+          presentation_payload, presentation_payload_sha256, presentation_required) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
     )
     .bind(tenant.as_uuid())
     .bind(submitted.id.as_uuid())
@@ -292,7 +297,6 @@ async fn submit_pending_manual_question_attempt(
     .bind(presentation_payload)
     .bind(presentation_checksum)
     .bind(presentation.is_some())
-    .bind(super::submission::feedback_disclosure_name(feedback_disclosure))
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
@@ -302,7 +306,7 @@ async fn submit_pending_manual_question_attempt(
         summary: next,
         feedback,
         presentation,
-        feedback_disclosure,
+        disclosure,
     })
 }
 

@@ -104,10 +104,16 @@ async function useInstructorApi(page: Page): Promise<void> {
       return await route.fulfill(
         json({ theme: "grass", revision: "1", banner: null }, { etag: '"1"' }),
       );
-    if (path === `/api/courses/${course.id}/assignments`)
-      return await route.fulfill(
-        json({ items: [publishedProblemFixture.assignment], nextCursor: null }),
-      );
+    if (path === `/api/courses/${course.id}/assignments`) {
+      const {
+        tenant: _tenant,
+        courseId: _courseId,
+        disclosurePolicy: _disclosurePolicy,
+        policies: _policies,
+        ...assignment
+      } = publishedProblemFixture.assignment;
+      return await route.fulfill(json({ items: [assignment], nextCursor: null }));
+    }
     if (path === `/api/courses/${course.id}/roster`) return await route.fulfill(json(roster()));
     if (path === `/api/courses/${course.id}/invitations` && request.method() === "POST") {
       pendingInvitations = [invitation];

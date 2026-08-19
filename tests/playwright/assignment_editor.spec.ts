@@ -14,6 +14,13 @@ const replacement = {
     title: "Replacement peptide geometry",
   },
 };
+const disclosurePolicy = {
+  score: "afterSubmit",
+  perItemCorrectness: "afterSubmit",
+  feedbackText: "afterSubmit",
+  solution: "afterSubmit",
+  classStatistics: "never",
+} as const;
 
 function response(
   route: Route,
@@ -32,7 +39,7 @@ function response(
 test("instructor replaces an assigned Question ID with visible issued-work consequences and stale recovery", async ({
   page,
 }) => {
-  let assignment = structuredClone(original);
+  let assignment = { ...structuredClone(original), disclosurePolicy };
   let revision = 1;
   await page.addInitScript(() =>
     Object.defineProperty(window, "__PLE_USE_MOCK_API__", { get: () => false }),
@@ -96,9 +103,21 @@ test("instructor replaces an assigned Question ID with visible issued-work conse
       const body = request.postDataJSON() as {
         title?: string;
         items?: ReadonlyArray<{ id: string }>;
+        disclosurePolicy?: typeof disclosurePolicy;
       };
       expect(body.items?.every((item) => !item.id.startsWith("new-"))).toBeTruthy();
-      assignment = { ...assignment, title: body.title ?? assignment.title };
+      expect(body.disclosurePolicy).toEqual({
+        score: "afterDue",
+        perItemCorrectness: "duringAttempt",
+        feedbackText: "afterClose",
+        solution: "never",
+        classStatistics: "afterSubmit",
+      });
+      assignment = {
+        ...assignment,
+        title: body.title ?? assignment.title,
+        disclosurePolicy: body.disclosurePolicy ?? assignment.disclosurePolicy,
+      };
       revision += 1;
       return await response(
         route,
@@ -176,12 +195,69 @@ test("instructor replaces an assigned Question ID with visible issued-work conse
     window.dispatchEvent(new PopStateEvent("popstate"));
   }, assignmentPath);
   await expect(page.getByRole("heading", { name: "Assignment editor" })).toBeVisible();
+  const studentVisibility = page.getByRole("group", { name: "What students can see" });
+  await expect(studentVisibility).toBeVisible();
+  const fields = [
+    "Score",
+    "Per-item correctness",
+    "Feedback text",
+    "Correct answer or solution",
+    "Class statistics",
+  ];
+  for (const label of fields) {
+    const select = studentVisibility.getByRole("combobox", { name: label, exact: true });
+    await expect(select).toHaveValue(label === "Class statistics" ? "never" : "afterSubmit");
+    await expect(select.locator("option")).toHaveText([
+      "While they work",
+      "After they submit",
+      "After the due time",
+      "After the close time",
+      "Never",
+    ]);
+  }
+  await studentVisibility.getByRole("combobox", { name: "Score", exact: true }).focus();
+  await expect(
+    studentVisibility.getByRole("combobox", { name: "Score", exact: true }),
+  ).toBeFocused();
+  await studentVisibility
+    .getByRole("combobox", { name: "Score", exact: true })
+    .selectOption("afterDue");
+  await expect(studentVisibility.getByRole("combobox", { name: "Score", exact: true })).toHaveValue(
+    "afterDue",
+  );
+  await studentVisibility
+    .getByRole("combobox", { name: "Per-item correctness", exact: true })
+    .selectOption("duringAttempt");
+  await studentVisibility
+    .getByRole("combobox", { name: "Feedback text", exact: true })
+    .selectOption("afterClose");
+  await studentVisibility
+    .getByRole("combobox", { name: "Correct answer or solution", exact: true })
+    .selectOption("never");
+  await studentVisibility
+    .getByRole("combobox", { name: "Class statistics", exact: true })
+    .selectOption("afterSubmit");
   await expect(
     page.getByText("Reuse questions from an existing assignment", { exact: true }),
   ).toHaveCount(0);
   await page.getByLabel("Assignment title").fill("Saved title without changing Question ID");
   await page.getByRole("button", { name: "Save title, order, and settings" }).click();
   await expect(page.getByText("Assignment title, order, and settings saved.")).toBeVisible();
+  await expect(studentVisibility.getByRole("combobox", { name: "Score", exact: true })).toHaveValue(
+    "afterDue",
+  );
+  await expect(
+    studentVisibility.getByRole("combobox", { name: "Per-item correctness", exact: true }),
+  ).toHaveValue("duringAttempt");
+  await expect(
+    studentVisibility.getByRole("combobox", { name: "Feedback text", exact: true }),
+  ).toHaveValue("afterClose");
+  await expect(
+    studentVisibility.getByRole("combobox", { name: "Class statistics", exact: true }),
+  ).toHaveValue("afterSubmit");
+  await expect(
+    studentVisibility.getByRole("combobox", { name: "Correct answer or solution", exact: true }),
+  ).toHaveValue("never");
   await page.getByText("Add by Question ID", { exact: true }).click();
   await page
     .getByRole("textbox", { name: "Direct import Question ID", exact: true })

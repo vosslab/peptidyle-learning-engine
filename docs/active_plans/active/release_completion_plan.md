@@ -307,8 +307,8 @@ begins only after WP-P2 preserves the reserved migration ordering below.
   intentional untimed assignment. A new mastery draft received the Rust-generated `900`-second default.
   Create, update, and editor GET composed assignment definition and timing atomically under one revision;
   published question versions and their immutable question-level `TimingPolicy` did not change. That
-  removed model is not a current policy authority: accepted WP-PROF-S3's effective-policy resolver and
-  immutable sealed receipts with their current pointer are the sole current authority.
+  removed model is not a current policy authority: only accepted WP-PROF-S3's current S3-resolved
+  effective-policy verdict/decision after S5 entitlement is current authority; sealed receipts are historical evidence.
 - **Behavior:** the instructor can see and save an accessible `Time limit for each practice run` fieldset
   with Timed/Untimed choices and a minutes input. A new mastery assignment visibly starts at 15 minutes.
   The student sees a server-backed countdown for a timed run and `Untimed` only when the saved value is
@@ -358,8 +358,10 @@ historical audit reports.
       and WeBWorK issuance additionally persist explicit, checksummed, family-owned first-grade contracts;
       required contracts are never inferred from a nullable field. Translate public rendered IDs through that
       immutable private envelope for first grading; never reload a current catalog/grader definition or rerender
-      backend state. Derive disclosure from the policy persisted at issuance; make active and submitted question
-      `GET` replay the attempt/receipt snapshot rather than catalog, adapter-cache, renderer, or backend state.
+      backend state. Learner disclosure is evaluated for each projection only after current S5 entitlement,
+      from the assignment-owned five-field policy, current S3-resolved effective-policy verdict/decision,
+      authoritative time, and submission fact; active/submitted question `GET` replays the attempt/receipt snapshot
+      for presentation and grading evidence rather than catalog, adapter-cache, renderer, or backend state.
       A checksummed `nextIssued` descriptor is immutable; only initial recovery may resolve the sole
       `nextPending` predecessor, and replay never resubmits. Prove missing/mismatched payload refusal and correct
       feedback/advance after refresh, duplicate submission, replica recovery, and unavailable successor data with
@@ -437,7 +439,8 @@ tests/`; both diff checks. The contact sheet and exact theme inventory are not p
   `crates/server/src/run.rs`, and the named contract/map/status/changelog documents.
 - **Behavior:** module names describe their concrete responsibility; catalog resolve/search are
   required Store capabilities; named test adapters retain explicit limited behavior; current feedback
-  reads durable release state through the sole `project_feedback` policy.
+  uses only the current assignment disclosure decision. `feedback_release` remains audit evidence,
+  never a learner-facing authority.
 - **Success:** no maintained production file is empty or named `stub`; no production path relies on
   `todo!`, `unimplemented!`, placeholder return data, or a missing catalog-capability default.
   Explicit mocks remain under test/local-development owners.
@@ -976,11 +979,11 @@ development. They must pass, not skip, in WP-RC12 release evidence.
 
 ## Documentation close-out requirements
 
-Every package updates the changelog only after executable acceptance. A package that changes an
-owner boundary also updates contracts, code architecture, and file structure. A package that changes
-operator or user behavior updates install, usage, container/deployment, and security documentation.
-WP-RC12 replaces status prose with exact evidence, archives completed active companion plans using
-`git mv`, and leaves this plan open only for external production-activation checklist results.
+Every package updates the changelog only after executable acceptance. Packages that change owner
+boundaries also update contracts, code architecture, and file structure; changes to operator or user
+behavior also update install, usage, container/deployment, and security documentation. WP-RC12
+replaces status prose with exact evidence, archives completed active companion plans using `git mv`,
+and leaves this plan open only for external production-activation checklist results.
 
 ## Patch plan and reporting format
 
@@ -988,10 +991,8 @@ Land one work package per reviewable patch in WP-RC order. A package may use sep
 subpatches only where its file ownership table permits; the package is not accepted until the
 integrated behavior passes. Each handoff reports:
 
-- owner and work-package ID;
-- exact files changed and index state;
+- owner, work-package ID, exact files changed, index state, and one-time evidence/artifact paths;
 - user-visible and security behavior completed;
 - focused, package, and release commands with results;
-- one-time evidence and artifact paths;
 - out-of-scope decisions relied upon; and
 - independent findings and their disposition.

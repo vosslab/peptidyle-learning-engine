@@ -31,7 +31,7 @@ import {
   runRouteReference,
 } from "../navigation/public_route";
 import { QuestionRenderer } from "../components/question_renderer";
-import { FeedbackPanel, type FeedbackDisclosure } from "../components/feedback_panel";
+import { FeedbackPanel, type FeedbackPresentation } from "../components/feedback_panel";
 import { ResponseWidget } from "../components/response_widget";
 import { resumeSessionAndRetry } from "./run_page_recovery";
 import {
@@ -44,6 +44,7 @@ import { prefetchMatchesIssuedSuccessor } from "../features/attempt/prefetch_bin
 import { projectLearnerResponse } from "../features/attempt/learner_response";
 import type { ResponseFormatReport } from "../wasm/index";
 import { useWasmFacade } from "../wasm/context";
+import { learnerProgressSummary, learnerScoreValue } from "../learner_progress";
 
 function attemptContext(attempt: QuestionAttempt): AttemptContext {
   return {
@@ -343,7 +344,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
   };
   const feedbackPanelState = (
     feedback: Extract<AttemptState, { readonly phase: "feedback" }>,
-  ): FeedbackDisclosure =>
+  ): FeedbackPresentation =>
     feedback.feedback.kind === "released"
       ? { kind: "released" as const, feedback: feedback.feedback.feedback }
       : { kind: "awaiting" as const, feedback: null };
@@ -388,6 +389,13 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
           <Show when={runSummary()}>
             {(summary) => (
               <>
+                <section aria-label="Assignment score">
+                  <h3>Assignment score</h3>
+                  <p>{learnerProgressSummary(summary().summary)}</p>
+                  <Show when={summary().summary.scoreState === "available"}>
+                    <p>This run: {learnerScoreValue(summary().run.score)}</p>
+                  </Show>
+                </section>
                 <For each={summaryOutcomes()}>
                   {(outcome) => (
                     <FeedbackPanel

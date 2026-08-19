@@ -19,7 +19,7 @@ use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
 use question_model::response::ResponseDefinition;
-use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::{License, TaxonomyTerm};
 use question_model::{
     ActivityTimestamp, BackendCapabilities, Capability, DraftQuestionDefinition,
@@ -145,7 +145,6 @@ fn draft(tenant: TenantId, workspace: WorkspaceId, version: VersionId) -> DraftR
             },
             attempt_policy: AttemptPolicy {
                 max_attempts: Some(2),
-                feedback: FeedbackDisclosure::Deferred,
             },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,

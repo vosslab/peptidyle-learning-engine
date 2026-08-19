@@ -11,7 +11,7 @@ use objects::{ObjectCategory, ObjectKey, ObjectRecord, Sha256Digest};
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
-use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::{License, Tag};
 use question_model::{
     ActivityTimestamp, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, ObjectId,
@@ -49,10 +49,7 @@ fn workspace_draft(tenant: TenantId, workspace: WorkspaceId) -> DraftRecord {
                 tolerance: NumericTolerance::Relative { fraction: 0.01 },
                 unit: Some("g/mol".to_string()),
             },
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateFull,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },

@@ -12,7 +12,7 @@ use learning_data_access::{
 };
 use question_model::answer::NumericTolerance;
 use question_model::generation::RandomizationDefinition;
-use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{
     ActivityTimestamp, AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentItemId,
@@ -53,10 +53,7 @@ where
                 tolerance: NumericTolerance::Relative { fraction: 0.01 },
                 unit: None,
             },
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateFull,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },
@@ -169,6 +166,7 @@ where
                     scoring_mode: AssignmentScoringMode::Normal,
                 }],
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: question_model::RunPolicies {
                     completion: question_model::CompletionRequirement::AnswerAll,
                     grade: question_model::GradePolicy::Highest,

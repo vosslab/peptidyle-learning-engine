@@ -1,50 +1,36 @@
-/**
- * Opt-in documentation screenshot capture for the real UI walkthrough.
- *
- * The explicit private walkthrough input owns the optional directory. Ordinary
- * Playwright tests pass no directory, so their artifacts remain unchanged.
- */
+/** Opt-in documentation screenshot capture for the real UI walkthrough. */
 
-import { chmod, lstat } from "node:fs/promises";
+import { chmod, lstat, mkdir, open } from "node:fs/promises";
 import path from "node:path";
 
 import type { Locator, Page } from "@playwright/test";
 
+import {
+  artifactPathForBasename,
+  captureOwnerForArtifact,
+  CORPUS_DIRECTORY,
+  CORPUS_VIEWPORT_SIZES,
+  manifestArtifactPaths,
+  viewportForArtifact,
+  type CorpusCaptureOwner,
+} from "./ui_corpus_manifest";
+
 const CAPTURE_DIRECTORY_PARENT = "/private/tmp";
 const CAPTURE_DIRECTORY_PREFIX = "ple-docs-screenshots.";
-const CANONICAL_VIEWPORT = { width: 1_280, height: 800 } as const;
+const CAPTURE_OWNER_ENVIRONMENT = "PLE_UI_CORPUS_CAPTURE_OWNER";
 
-export const documentationScreenshotNames = [
-  "instructor_course_overview.png",
-  "instructor_roster_active_student.png",
-  "instructor_problem_catalog.png",
-  "instructor_assignment_settings.png",
-  "instructor_assignment_created.png",
-  "genetics_chapter_one_overview.png",
-  "student_assignment_list.png",
-  "student_timed_problem.png",
-  "student_fresh_practice.png",
-  "student_retake_fresh_problem.png",
-  "instructor_gradebook_mastery_loop.png",
-  "instructor_page_courses.png",
-  "instructor_page_course_assignments.png",
-  "instructor_page_assignment_overview.png",
-  "instructor_page_assignment_create.png",
-  "instructor_page_assignment_edit.png",
-  "instructor_page_roster.png",
-  "instructor_page_gradebook.png",
-  "instructor_page_course_appearance.png",
-  "instructor_page_library.png",
-  "instructor_page_question_detail.png",
-  "instructor_page_workspace.png",
-  "instructor_page_question_editor.png",
-  "instructor_page_account_security.png",
-] as const;
+export const documentationScreenshotNames = manifestArtifactPaths().map((artifactPath) =>
+  path.posix.basename(artifactPath),
+);
 
-export type DocumentationScreenshotName = (typeof documentationScreenshotNames)[number];
+export type DocumentationScreenshotName = string;
 
 export function documentationScreenshotsEnabled(screenshotDirectory?: string): boolean {
   return screenshotDirectory !== undefined;
+}
+
+function isMissingPathError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }
 
 async function validateCaptureDirectory(directory: string): Promise<void> {
@@ -58,16 +44,63 @@ async function validateCaptureDirectory(directory: string): Promise<void> {
     throw new Error("documentation screenshot directory must be runner-created under /private/tmp");
   }
   const metadata = await lstat(directory);
-  if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
-    throw new Error("documentation screenshot directory must be a regular directory");
-  }
   const getuid = process.getuid;
-  if (getuid === undefined || metadata.uid !== getuid()) {
-    throw new Error("documentation screenshot directory must be owned by this user");
+  if (
+    !metadata.isDirectory() ||
+    metadata.isSymbolicLink() ||
+    getuid === undefined ||
+    metadata.uid !== getuid() ||
+    (metadata.mode & 0o777) !== 0o700
+  ) {
+    throw new Error("documentation screenshot directory ownership or mode is unsafe");
   }
-  if ((metadata.mode & 0o777) !== 0o700) {
-    throw new Error("documentation screenshot directory must have mode 0700");
+}
+
+async function validatePrivateChildDirectory(directory: string): Promise<void> {
+  const metadata = await lstat(directory);
+  const getuid = process.getuid;
+  if (
+    !metadata.isDirectory() ||
+    metadata.isSymbolicLink() ||
+    getuid === undefined ||
+    metadata.uid !== getuid() ||
+    (metadata.mode & 0o777) !== 0o700
+  ) {
+    throw new Error(`documentation screenshot child directory is unsafe: ${directory}`);
   }
+}
+
+async function ensureCaptureParent(
+  screenshotDirectory: string,
+  artifactPath: string,
+): Promise<string> {
+  const relativePath = path.posix.relative(CORPUS_DIRECTORY, artifactPath);
+  if (relativePath.startsWith("../") || path.posix.isAbsolute(relativePath)) {
+    throw new Error("documentation screenshot artifact escapes the corpus directory");
+  }
+  const relativeParent = path.posix.dirname(relativePath);
+  let current = screenshotDirectory;
+  if (relativeParent !== ".") {
+    for (const segment of relativeParent.split("/")) {
+      current = path.join(current, segment);
+      try {
+        await mkdir(current, { mode: 0o700 });
+      } catch (error: unknown) {
+        if (!isExistingPathError(error)) throw error;
+      }
+      await validatePrivateChildDirectory(current);
+    }
+  }
+  const target = path.join(screenshotDirectory, ...relativePath.split("/"));
+  const resolvedRoot = `${path.resolve(screenshotDirectory)}${path.sep}`;
+  if (!path.resolve(target).startsWith(resolvedRoot)) {
+    throw new Error("documentation screenshot target escapes the private directory");
+  }
+  return target;
+}
+
+function isExistingPathError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "EEXIST";
 }
 
 async function validateScreenshotPath(filePath: string): Promise<void> {
@@ -83,8 +116,28 @@ async function validateScreenshotPath(filePath: string): Promise<void> {
   }
 }
 
-function isMissingPathError(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+function selectedCaptureOwner(): CorpusCaptureOwner | undefined {
+  const value = process.env[CAPTURE_OWNER_ENVIRONMENT];
+  if (value === undefined) return undefined;
+  if (value === "instructorMock" || value === "studentMock" || value === "live") return value;
+  throw new Error(`${CAPTURE_OWNER_ENVIRONMENT} names an unknown capture owner`);
+}
+
+async function pngDimensions(filePath: string): Promise<{ width: number; height: number }> {
+  const handle = await open(filePath, "r");
+  try {
+    const header = Buffer.alloc(24);
+    const { bytesRead } = await handle.read(header, 0, header.length, 0);
+    if (
+      bytesRead !== header.length ||
+      !header.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+    ) {
+      throw new Error("documentation screenshot is not a valid PNG");
+    }
+    return { width: header.readUInt32BE(16), height: header.readUInt32BE(20) };
+  } finally {
+    await handle.close();
+  }
 }
 
 /** Capture one bounded public UI state only when the dedicated launcher opts in. */
@@ -97,27 +150,30 @@ export async function captureDocumentationScreenshot(
   anchorAlignment: "top" | "bottom" = "top",
 ): Promise<void> {
   if (screenshotDirectory === undefined) return;
-  if (!documentationScreenshotNames.includes(screenshotName)) {
+  const artifactPath = artifactPathForBasename(screenshotName);
+  if (artifactPath === undefined) {
     throw new Error("documentation screenshot name is not approved");
   }
+  const owner = selectedCaptureOwner();
+  if (owner !== undefined && captureOwnerForArtifact(artifactPath) !== owner) return;
+  const viewport = viewportForArtifact(artifactPath);
+  if (viewport === undefined) {
+    throw new Error("documentation screenshot needs a manifest viewport");
+  }
+  const viewportSize = CORPUS_VIEWPORT_SIZES[viewport];
   if (
     cropTopPixels !== undefined &&
-    (!Number.isInteger(cropTopPixels) ||
-      cropTopPixels < 0 ||
-      cropTopPixels >= CANONICAL_VIEWPORT.height)
+    (!Number.isInteger(cropTopPixels) || cropTopPixels < 0 || cropTopPixels >= viewportSize.height)
   ) {
-    throw new Error(
-      "documentation screenshot crop must be a whole number below the viewport height",
-    );
+    throw new Error("documentation screenshot crop must be below the viewport height");
   }
   await validateCaptureDirectory(screenshotDirectory);
-  const filePath = path.join(screenshotDirectory, screenshotName);
+  const filePath = await ensureCaptureParent(screenshotDirectory, artifactPath);
   await validateScreenshotPath(filePath);
-  const viewportHeight = CANONICAL_VIEWPORT.height - (cropTopPixels ?? 0);
-  const anchorMargin = cropTopPixels === undefined ? 72 : 0;
-  await page.setViewportSize({ width: CANONICAL_VIEWPORT.width, height: viewportHeight });
+  await page.setViewportSize(viewportSize);
   if (anchor !== undefined) {
     await anchor.scrollIntoViewIfNeeded();
+    const anchorMargin = cropTopPixels === undefined ? 72 : 0;
     await anchor.evaluate(
       (element, options) => {
         const bounds = element.getBoundingClientRect();
@@ -143,6 +199,12 @@ export async function captureDocumentationScreenshot(
   const metadata = await lstat(filePath);
   if (metadata.isSymbolicLink() || !metadata.isFile() || metadata.size === 0) {
     throw new Error("documentation screenshot was not written as a nonempty regular file");
+  }
+  const dimensions = await pngDimensions(filePath);
+  if (dimensions.width !== viewportSize.width || dimensions.height !== viewportSize.height) {
+    throw new Error(
+      `${artifactPath} must be exactly ${viewportSize.width} by ${viewportSize.height} CSS pixels`,
+    );
   }
   await chmod(filePath, 0o644);
 }

@@ -388,7 +388,6 @@ mod tests {
     use super::*;
     use crate::answer::NumericTolerance;
     use crate::generation::RandomizationDefinition;
-    use crate::run_policy::FeedbackDisclosure;
     use uuid::Uuid;
 
     fn sample_draft() -> DraftQuestionDefinition {
@@ -404,10 +403,7 @@ mod tests {
                 tolerance: NumericTolerance::Relative { fraction: 0.01 },
                 unit: Some("g/mol".to_string()),
             },
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateFull,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },

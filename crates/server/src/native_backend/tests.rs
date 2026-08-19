@@ -19,8 +19,8 @@ use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::generation::{GeneratorReference, ParameterSpec, RandomizationDefinition};
 use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
 use question_model::run_policy::{
-    AttemptPolicy, CompletionRequirement, ContinuedPractice, FeedbackDisclosure, GradePolicy,
-    RunPolicies, TimingPolicy, VariationPolicy,
+    AttemptPolicy, CompletionRequirement, ContinuedPractice, GradePolicy, RunPolicies,
+    TimingPolicy, VariationPolicy,
 };
 use question_model::taxonomy::License;
 use question_model::{
@@ -77,10 +77,7 @@ fn draft_question(workspace: WorkspaceId, image: AssetId) -> DraftQuestionDefini
             choices: vec![choice("ester"), choice("amide"), choice("ether")],
             selection: SelectionCardinality::ExactlyOne,
         },
-        attempt_policy: AttemptPolicy {
-            max_attempts: None,
-            feedback: FeedbackDisclosure::ImmediateCorrectness,
-        },
+        attempt_policy: AttemptPolicy { max_attempts: None },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Seeded {
             generator: GeneratorReference {
@@ -142,7 +139,7 @@ const FLAT_SOURCE: &str = r#"{
             {"id":"blue","text":"Blue","feedback":"Blue feedback."}
         ],"correctChoice":"blue"},
         "feedback":{"correct":"Correct feedback.","incorrect":"Incorrect feedback."},
-        "points":10.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},
+        "points":10.0,"attemptPolicy":{"maxAttempts":null},
         "timingPolicy":{"kind":"untimed"},"license":{"kind":"cc0"},"language":"en-US"
     }"#;
 
@@ -388,6 +385,7 @@ async fn flat_run_fixture() -> (Router, String, AssignmentId) {
                     scoring_mode: question_model::AssignmentScoringMode::Normal,
                 }],
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: RunPolicies {
                     completion: CompletionRequirement::AllCorrect,
                     grade: GradePolicy::Highest,

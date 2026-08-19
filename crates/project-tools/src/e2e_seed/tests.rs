@@ -420,6 +420,7 @@ async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster(
                     scoring_mode: AssignmentScoringMode::Normal,
                 }],
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: RunPolicies {
                     completion: CompletionRequirement::AnswerAll,
                     grade: GradePolicy::Highest,
@@ -519,10 +520,9 @@ fn chapter_one_seed_sources_compile_and_use_evidence_bounded_capabilities() {
                         pg_path: question.source_path.to_string(),
                     };
                     let capabilities =
-                        adapter_webwork::reviewed_webwork_source_capabilities_for_feedback(
+                        adapter_webwork::reviewed_webwork_source_profile_capabilities(
                             &source,
                             &objects::Sha256Digest::compute(question.source).to_string(),
-                            FeedbackDisclosure::ImmediateCorrectness,
                         )
                         .expect("tracked PGML pilot source is registered");
                     assert!(capabilities.supports(Capability::AlgorithmicGeneration));
@@ -532,11 +532,8 @@ fn chapter_one_seed_sources_compile_and_use_evidence_bounded_capabilities() {
                         capabilities.supports(Capability::PartialCredit),
                         matches!(question.kind, PilotQuestionKind::WebworkMatching)
                     );
-                    let draft = webwork_draft(
-                        WorkspaceId::from_uuid(Uuid::from_u128(78)),
-                        &question,
-                        FeedbackDisclosure::ImmediateCorrectness,
-                    );
+                    let draft =
+                        webwork_draft(WorkspaceId::from_uuid(Uuid::from_u128(78)), &question);
                     assert!(
                         domain::policy::validate_draft_for_publication(&draft, &capabilities)
                             .is_empty()
@@ -597,10 +594,6 @@ async fn chapter_one_webwork_publishers_retain_one_exact_immutable_publication()
         .expect("source bytes are stored");
 
     assert!(published.capabilities.supports(Capability::Hints));
-    assert_eq!(
-        published.question.attempt_policy.feedback,
-        FeedbackDisclosure::ImmediateCorrectness
-    );
     assert_eq!(stored.bytes, question.source);
     assert_eq!(artifact.object.version, Some(published.version));
 
@@ -709,7 +702,6 @@ fn webwork_pilot_draft_uses_immutable_source_and_declared_capabilities() {
     assert!(capabilities.supports(Capability::AlgorithmicGeneration));
     assert!(capabilities.supports(Capability::ServerGrading));
     assert!(!capabilities.supports(Capability::PartialCredit));
-    assert_eq!(draft.attempt_policy.feedback, FeedbackDisclosure::Deferred);
     assert!(domain::policy::validate_draft_for_publication(&draft, &capabilities).is_empty());
 }
 
@@ -857,6 +849,7 @@ async fn webwork_pilot_converges_after_every_persisted_prefix_and_on_rerun() {
             scoring_mode: AssignmentScoringMode::Normal,
         }],
         selection_groups: Vec::new(),
+        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
         policies: RunPolicies {
             completion: CompletionRequirement::AnswerAll,
             grade: GradePolicy::Highest,

@@ -63,9 +63,10 @@ bounded import staging, and PII-free grade-export audit. WP-RC8 remains acceptan
 `2026080916_submission_receipt_presentations.sql` and
 `2026080917_issued_presentations_and_successor_receipts.sql` are pre-production,
 forward-only receipt-contract migrations. They add the receipt presentation payload/checksum
-and derived disclosure, then the issued presentation capability/payload/checksum and checksummed
-successor descriptor. They intentionally provide no legacy reader, default, or backfill: PLE has
-no production data, and missing or mismatched required payloads fail closed.
+and then the issued presentation capability/payload/checksum and checksummed successor
+descriptor. Migration 2026081805 removes 0916's retired receipt disclosure field. They
+intentionally provide no legacy reader, default, or backfill: PLE has no production data, and
+missing or mismatched required payloads fail closed.
 `2026080919_issued_private_grading_envelopes.sql` completes that issue contract with a
 checksummed server-only, answer-free grading envelope. It retains durable response IDs for
 first-submit translation and private grading; it is never part of a public receipt or learner DTO.
@@ -93,7 +94,7 @@ unfinished migration allocation, while the active release plan owns package acce
 | 2026080909 | WP-RC8           | Passwordless account, passkey/email identity, invitation, course roster, import, and grade-export audit | File present; migration gate passed; package acceptance open |
 | 2026080914 | WP-RC4           | Flat-question v2 grading                                                                                | File present; package acceptance open                        |
 | 2026080915 | WP-HG1           | Historical internal catalog display-number range                                                        | File present; public use superseded by 2026080931             |
-| 2026080916 | Receipt closeout | Submission receipt presentation payload/checksum and derived disclosure                                 | File present; live receipt oracle passed                     |
+| 2026080916 | Receipt closeout | Submission receipt presentation payload/checksum; retired disclosure field removed by 2026081805       | File present; live receipt oracle passed                     |
 | 2026080917 | Receipt closeout | Issued presentation capability/payload and successor receipt descriptor                                 | File present; live receipt oracle passed                     |
 | 2026080918 | WP-RC5           | Immutable workspace flat-question asset descriptors and delivery bindings                               | Unaccepted source corrected to canonical `private-content` descriptor bucket; live oracle pending |
 | 2026080919 | Receipt closeout | Issued private grading envelope for presentation-bearing attempts                                       | File present; live receipt oracle passed                     |
@@ -116,6 +117,7 @@ unfinished migration allocation, while the active release plan owns package acce
 | 2026081802 | WP-PROF-S7       | Positive public scalar for course groups; immutable validated public byline on published versions and catalog projection | Accepted and immutable; fresh PostgreSQL 17 baseline and RLS oracle passed |
 | 2026081803 | WP-PROF-S5       | Canonical membership episodes, derived entitlement, typed group purposes/audiences, sealed materialization provenance, and typed assignment summaries | Accepted and immutable; fresh PostgreSQL 17 baseline and RLS oracle passed |
 | 2026081804 | WP-PROF-S3       | Normalized base policy, group offsets/accommodations, individual exceptions, sealed per-attempt effective-policy receipts, field provenance, and current pointer | Accepted and immutable; fresh PostgreSQL 17 baseline and exact normalized resolver/RLS oracle passed |
+| 2026081805 | WP-PROF-S4       | Assignment-owned five-field learner disclosure policy and removal of retired coarse disclosure columns | File present; live migration and RLS evidence pending |
 
 The 2026080931 and 2026080935 entries describe superseded pre-production migration behavior. The
 current WP-R2 schema contract uses one immutable Question ID per publication, fresh hidden
@@ -148,6 +150,17 @@ student exception are normalized assignment relations. Each attempt receipt reco
 fields and their ordered sources, seals only after complete provenance exists, and is selected by a
 current pointer that can reference only a sealed generation. The schema therefore preserves why an
 issued policy applied without reconstructing historical timing from changed current inputs.
+
+`2026081805_assignment_learner_disclosure_policy.sql` makes assignment disclosure the one current
+authority. It adds non-null, checked `score_disclosure`,
+`per_item_correctness_disclosure`, `feedback_text_disclosure`,
+`solution_disclosure`, and `class_statistics_disclosure` columns. The migration uses temporary
+defaults only while adding the closed columns, then drops all defaults, so future application
+writes choose every value. It drops `assignment.feedback_disclosure`,
+`question_attempt.issued_feedback_disclosure`, and
+`submission_receipt_snapshot.feedback_disclosure`; no legacy disclosure column remains as a
+reader or writer surface. `feedback_release` remains separate immutable audit evidence under its
+retention fence, not a disclosure authority.
 
 The unaccepted `2026080930_account_presentation_preference.sql` derives presentation
 preference reads and writes only from a live, opaque 32-byte account-session hash.
@@ -232,7 +245,7 @@ Migration 0908 introduces descriptor primitives for the secure grading-payload c
 | `question_attempt.webwork_grading_*`                                 | 0922 server-only checksummed WeBWorK `QuestionDefinition`.                                                                                               | Required for issued WeBWorK attempts; first grade does not resolve a current catalog definition or reissue to recover it.               |
 | `question_prefetch.presentation_*`                                   | The same binding for one reservation before promotion to an attempt.                                                                                     | Prevents an unbound prefetch from becoming an issued render.                                                                            |
 | `submission_idempotency.request_*`                                   | Versioned request fingerprint for safe response retries.                                                                                                 | Server compares it before regrading.                                                                                                    |
-| `submission_receipt_snapshot.presentation_*`                         | First-receipt copy of the issued envelope and exact public asset bindings, plus checksum and derived disclosure.                                         | Submitted reads/replays fail closed instead of regenerating mutable presentation data.                                                  |
+| `submission_receipt_snapshot.presentation_*`                         | First-receipt copy of the issued envelope and exact public asset bindings, plus checksum.                                                              | Submitted reads/replays fail closed instead of regenerating mutable presentation data.                                                  |
 | `submission_next_attempt.next_payload`                               | Checksummed immutable descriptor of the delivered successor, or a terminal all-null row. The absence of a receipt-link row is recoverable `nextPending`. | A retry cannot infer a successor from later run state.                                                                                  |
 | `webwork_grade_replay_state`                                         | Attempt-bound, answer-free mapping needed to reproduce a private WeBWorK grade call.                                                                     | Never enters the browser envelope; contains no source text, credentials, correct answer, or raw renderer result.                        |
 
@@ -347,8 +360,15 @@ Retention is a database-backed lifecycle, not an ad hoc delete:
 `question_statistics_aggregate` is shared, identity-free statistical state.
 `question_statistics_contribution_receipt` makes first-completed-run contribution
 idempotent and supports deletion of the learner-owned receipt without deleting the aggregate.
-Course item analysis remains a separate tenant-owned current projection. Detailed cross-store
-failure/recovery behavior is owned by [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md); retention
+Course item analysis remains a separate tenant-owned current projection. Its
+learner-safe class-statistics read uses the latest completed run for each
+enrollment and releases only a metric-free `insufficientEvidence` state or an
+`available` cohort count plus normalized assignment average. The Store checks
+current S5 entitlement; the server exposes that union only when the assignment
+field's current S3/time disclosure decision allows it. The default minimum
+cohort is five, and incomplete manual grading, recent rescoring, or a missing
+or invalid average suppress metric fields. Detailed cross-store failure/recovery
+behavior is owned by [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md); retention
 policy is in [RETENTION_POLICY.md](RETENTION_POLICY.md).
 
 ## Partitioning and operations

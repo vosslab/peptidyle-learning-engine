@@ -13,7 +13,6 @@ import {
   type FlatQuestionAttemptPolicy,
   type FlatQuestionBlank,
   type FlatQuestionChoice,
-  type FlatQuestionFeedbackDisclosure,
   type FlatQuestionHotspotRegion,
   type FlatQuestionHotspotSurface,
   type FlatQuestionLicense,
@@ -40,13 +39,6 @@ const MAX_TEXT_RESPONSE_CHARS = 16_384;
 const MAX_NORMALIZED_COORDINATE = 10_000;
 const MAX_TAG_CHARS = 128;
 const MAX_METADATA_CHARS = 256;
-const FEEDBACK_DISCLOSURES = [
-  "immediateFull",
-  "immediateCorrectness",
-  "deferred",
-  "onRelease",
-] as const;
-
 function field(record: Record<string, unknown>, key: string, path: string): unknown {
   if (!(key in record)) throw new DecodeError(`${path}.${key}`, "present");
   return record[key];
@@ -454,19 +446,12 @@ function decodeOutcomeFeedback(value: unknown, path: string): FlatQuestionOutcom
 
 function decodeAttemptPolicy(value: unknown, path: string): FlatQuestionAttemptPolicy {
   const record = decodeRecord(value, path);
-  onlyFields(record, path, ["maxAttempts", "feedback"]);
+  onlyFields(record, path, ["maxAttempts"]);
   const attemptsValue = field(record, "maxAttempts", path);
-  const maxAttempts =
-    attemptsValue === null ? null : integer(attemptsValue, `${path}.maxAttempts`, 1, MAX_U32);
-  const feedback = string(field(record, "feedback", path), `${path}.feedback`);
-  return { maxAttempts, feedback: decodeFeedbackDisclosure(feedback, `${path}.feedback`) };
-}
-
-function decodeFeedbackDisclosure(value: string, path: string): FlatQuestionFeedbackDisclosure {
-  for (const candidate of FEEDBACK_DISCLOSURES) {
-    if (candidate === value) return candidate;
-  }
-  throw new DecodeError(path, "a known feedback disclosure policy");
+  return {
+    maxAttempts:
+      attemptsValue === null ? null : integer(attemptsValue, `${path}.maxAttempts`, 1, MAX_U32),
+  };
 }
 
 function decodeTimingPolicy(value: unknown, path: string): FlatQuestionTimingPolicy {

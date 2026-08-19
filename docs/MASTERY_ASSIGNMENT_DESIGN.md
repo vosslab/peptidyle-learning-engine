@@ -117,36 +117,39 @@ explicit composition of those existing values, not a hidden special case:
 | Continued practice | `Unlimited`               | Start another run after completion whenever useful                        |
 | Variation          | `NewSeeds`                | See the same concepts with fresh generated values                         |
 | Question attempts  | `max_attempts: None`      | Retry a question until correct                                            |
-| Feedback           | `ImmediateFull`           | See correctness, answer-oriented teaching feedback, and rationale at once |
+| Learner disclosure | All five fields `AfterSubmit` | See the selected score, correctness, teaching feedback, solution, and permitted statistics after submitting |
 | Timing             | `Untimed`                 | Work at a learning pace rather than against a clock                       |
 
-The first four fields are assignment `RunPolicies`. Attempt count, feedback disclosure, and question
-timer are immutable properties of the selected published question version. The current assignment
-editor says this explicitly and exposes the four run policies separately; it does not override
-question policies. See
+The first four fields are assignment `RunPolicies`. The assignment also owns the five independent
+learner-disclosure timings. Attempt count and question timer are immutable properties of the selected
+published question version. The current assignment editor exposes these assignment controls separately;
+it does not override question policies. See
 [src/pages/assignment_editor_page.tsx](../src/pages/assignment_editor_page.tsx) and
 [crates/question_model/src/definition.rs](../crates/question_model/src/definition.rs).
 
 An instructor may intentionally choose a different composition. For example, a mastery threshold can
-use `ScoreAtLeast` when partial-credit questions are pedagogically meaningful, and immediate
-correctness with a hint can be useful when showing the exact answer immediately would spoil a later
-self-explanation. Such choices remain explicit policy decisions, not accidental side effects of a
-label.
+use `ScoreAtLeast` when partial-credit questions are pedagogically meaningful, and per-item
+correctness or feedback text can use a different assignment timing when an answer-oriented solution
+would spoil a later self-explanation. Such choices remain explicit policy decisions, not accidental
+side effects of a label.
 
 ## Feedback and timing
 
 ### Feedback is server-projected
 
-Feedback policy is question-level because the same published question can appear in a practice
-assignment or a restricted assessment. The server stores trusted feedback privately, applies the
-disclosure policy, and returns only the permitted public fields:
+Each assignment independently schedules five learner-visible fields: score,
+per-item correctness, feedback text, solution, and class statistics. Each uses
+one timing: `DuringAttempt`, `AfterSubmit`, `AfterDue`, `AfterClose`, or
+`Never`. The server first requires S5 entitlement, then uses the current
+S3-resolved effective-policy verdict and authoritative time to evaluate the
+current assignment policy. A field scheduled `AfterDue` or `AfterClose` remains withheld when its
+corresponding boundary is absent; a withheld field is omitted rather than sent
+as a hidden null. `feedback_release` is immutable audit evidence of an
+instructor action, never a learner-result unlock.
 
-| Policy                 | Learner receives                                                        |
-| ---------------------- | ----------------------------------------------------------------------- |
-| `ImmediateFull`        | Correctness, points, hint, correct-response explanation, and rationale  |
-| `ImmediateCorrectness` | Correctness and hint, without points or the answer-oriented explanation |
-| `Deferred`             | Nothing until the server records the run complete                       |
-| `OnRelease`            | Nothing until an authorized instructor release                          |
+For the recommended mastery bundle, set all five fields to `AfterSubmit`.
+An assessment can instead schedule each field independently without changing
+the selected question or its retry bound.
 
 Private feedback is intentionally not serializable or debug-printable. The public
 `DisclosedFeedback` DTO omits locked fields rather than sending hidden nulls. The implementation is
@@ -180,15 +183,16 @@ Those are current user-interface facts, not evidence that a formal assignment-ty
 
 The following is a planned instructor-facing layer over the existing orthogonal model. It should be
 implemented as recognizable activity types with safe defaults, not as a new persisted combined enum.
-The stored assignment remains `RunPolicies` plus the selected published question versions and access
-policy.
+The stored assignment remains `RunPolicies`, five independent assignment disclosure timings, selected
+published question versions, and access policy. The examples below are proposed defaults, not a
+claim that an older coarse feedback bundle is directly representable.
 
 | Activity type              | Default intent                                              | Proposed policy bundle                                                                                     | Status                                                                                                  |
 | -------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Mastery                    | Repeated practice until dependable                          | `AllCorrect`, `Highest`, `Unlimited`, `NewSeeds`; normally unlimited, untimed, immediate teaching feedback | Fully representable today; chooser is planned                                                           |
-| Standard graded assignment | Complete the assigned work once under ordinary course rules | `AnswerAll`, `Latest`, `Closed`; question feedback/timing selected deliberately                            | Fully representable today; chooser is planned                                                           |
-| Exam                       | Controlled one-run assessment                               | `AnswerAll`, `Latest`, `Closed`; restricted attempts, deferred or released feedback, and server timing     | Fully representable today; chooser is planned                                                           |
-| Practice                   | Low-stakes repeated work                                    | `AnswerAll`, `Unlimited`, `NewSeeds`; learner-facing feedback and timing selected for learning             | Continued runs are representable; an explicit no-grade / gradebook-visibility policy is not yet modeled |
+| Mastery                    | Repeated practice until dependable                          | `AllCorrect`, `Highest`, `Unlimited`, `NewSeeds`; untimed; score, correctness, feedback text, solution, and class statistics each `AfterSubmit` | Fully representable today; chooser is planned |
+| Standard graded assignment | Complete the assigned work once under ordinary course rules | `AnswerAll`, `Latest`, `Closed`; each of the five assignment disclosure fields set deliberately, for example all `AfterSubmit` | Fully representable today; chooser is planned |
+| Exam                       | Controlled one-run assessment                               | `AnswerAll`, `Latest`, `Closed`; restricted attempts and server timing; each disclosure field explicitly `AfterDue`, `AfterClose`, or `Never` as appropriate | Fully representable today; chooser is planned |
+| Practice                   | Low-stakes repeated work                                    | `AnswerAll`, `Unlimited`, `NewSeeds`; each of the five assignment disclosure fields explicitly selected for learning | Continued runs are representable; an explicit no-grade / gradebook-visibility policy is not yet modeled |
 
 The Standard and Exam defaults use `Latest` because `Closed` permits one completed run, making it
 the only score candidate. That is a clear expression of current semantics, not a claim that every
@@ -216,8 +220,10 @@ mastery assignment, the preferred copy is:
 The screen should also say when a setting changes that experience:
 
 - "You can try this question again" when a retry remains.
-- "Feedback will appear after this run is complete" for deferred feedback.
-- "Feedback will appear when your instructor releases results" for on-release feedback.
+- "Feedback is available for this response" when the assignment's applicable timing and
+  boundary permit the server to include it.
+- "Feedback is not available at this time" when the server withholds it; do not promise that it
+  will become available later.
 - "This assignment is recorded" when continued practice is closed.
 - "Start another practice run" only when the server says another run is allowed.
 
@@ -236,7 +242,7 @@ The browser presents a learning experience; it does not administer the assignmen
 - validates response format again before calling a trusted grading backend;
 - computes correctness, points, retry availability, completion, and grade summary;
 - commits response, feedback record, summary projection, and completion transition atomically; and
-- applies feedback disclosure before returning a learner-facing result.
+- applies the current assignment-owned learner-disclosure decision before returning a learner-facing result.
 
 The browser can perform key-free format validation for prompt feedback, show a server-projected
 timer, and request a new practice run. It never receives an answer key or gains authority by

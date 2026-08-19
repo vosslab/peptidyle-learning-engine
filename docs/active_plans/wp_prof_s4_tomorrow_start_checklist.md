@@ -8,6 +8,26 @@
 - Multiple prior cuts were rejected until resolved where competing authority paths remained; these were repaired to enforce single-truth ownership for policy, entitlement, and course membership.
 - No new edits have been run on this turn; this file is a restart packet only.
 
+## Permanent visual and access contract
+
+- Use the exact CSS-pixel matrix: 1280 by 800 (16:10), 800 by 1280 (10:16), 393 by 852 (iPhone Pro
+  aspect), and 800 by 800 (square). Planning weights are 40%, 30%, 20%, and 10%; they are not test
+  quotas.
+- Professor evidence remains desktop at 1280 by 800 or larger. Student evidence includes an allowed
+  student surface and fail-closed denial of instructor-only routes.
+- Put committed evidence under `docs/screenshots/` by instructor, student, and the student/access
+  boundary; access artifacts use `docs/screenshots/student/access/`.
+  `tests/playwright/ui_corpus_manifest.ts` is the sole screenshot ownership authority.
+- Pair every access screenshot with no-transport assertions and direct route probes. Pixels alone
+  cannot prove authorization. The route boundary is centrally derived and fails closed before
+  instructor components or transport mount, including roster and gradebook.
+- Email is unavailable. Use local-development credentials or invitations for live evidence without
+  claiming email delivery. Fictional deterministic `example.invalid` fixture addresses are allowed,
+  while real email and identifying records are prohibited. Keep public and private evidence boundaries
+  separate.
+- Screenshots count as acceptance evidence only after a fresh capture and inspection. This checklist
+  does not claim that the planned student/access captures exist or pass yet.
+
 ## Tomorrow start sequence
 
 1) Startup lock-in (first 15 min)
@@ -27,11 +47,13 @@
   - S3 = effective policy/resolution authority.
   - S5 = entitlement and membership authority.
 
-3) Inventory pass (30–45 min)
+3) Inventory pass (30-45 min)
 
 - Map all disclosure consumers (run list, run detail, summaries, grade-facing learner projections, any retention views).
 - Ensure each path reads only through the accepted owners (S3/S5 + designated disclosure projection owners).
 - Remove/neutralize any direct legacy policy-timing authority reads; no compatibility fallback behavior.
+- Verify the centrally derived role boundary denies every instructor-only route before transport,
+  with direct roster and gradebook probes and no-transport assertions under a student session.
 
 4) Patch pass (work loop)
 
@@ -48,6 +70,8 @@
 - `git diff --check`
 - `git diff --cached --check`
 - Playwright or live E2E suites only if S4 scope touches UI/network surfaces required by the test model.
+- Fresh student/access visual capture and human inspection at the required matrix; do not treat retained
+  images as acceptance evidence.
 
 6) Closure steps
 

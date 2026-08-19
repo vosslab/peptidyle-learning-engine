@@ -13,34 +13,72 @@
 
 use serde::{Deserialize, Serialize};
 
-/// When a student may see feedback about a submitted response.
+/// The point in an assignment lifecycle when one learner-facing field may be
+/// disclosed.
 ///
-/// Disclosure is a policy in its own right because the same question serves a
-/// practice set, where immediate feedback teaches, and an exam, where it would
-/// leak answers between students.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
-pub enum FeedbackDisclosure {
-    /// The response, correct answer, and teaching explanation appear at once.
-    ImmediateFull,
-    /// Correctness and a hint appear at once, without revealing the answer.
-    ImmediateCorrectness,
-    /// Feedback stays hidden until the whole run is submitted.
-    Deferred,
-    /// Feedback stays hidden until the instructor releases it.
-    OnRelease,
-}
-
-/// How many times a student may answer one question, and what they learn.
+/// Each timing is evaluated independently so an instructor can, for example,
+/// show a score after submission while holding solutions until the assignment
+/// closes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub enum LearnerDisclosureTiming {
+    /// The field is visible while a learner is working on the attempt.
+    DuringAttempt,
+    /// The field is visible once that learner has submitted the attempt.
+    AfterSubmit,
+    /// The field is visible at or after the resolved assignment due time.
+    AfterDue,
+    /// The field is visible at or after the resolved assignment close time.
+    AfterClose,
+    /// The field is never visible to a learner through this policy.
+    Never,
+}
+
+/// Assignment-owned learner disclosure policy.
+///
+/// These independently configured fields are evaluated server-side against
+/// the effective assignment policy. They are intentionally separate from
+/// [`RunPolicies`], whose run behavior remains stable while S4 migrates
+/// learner-facing projections.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LearnerDisclosurePolicy {
+    /// When the learner may see their score.
+    pub score: LearnerDisclosureTiming,
+    /// When the learner may see per-item correctness.
+    pub per_item_correctness: LearnerDisclosureTiming,
+    /// When the learner may see teaching feedback text.
+    pub feedback_text: LearnerDisclosureTiming,
+    /// When the learner may see correct answers or solutions.
+    pub solution: LearnerDisclosureTiming,
+    /// When the learner may see anonymous class statistics.
+    pub class_statistics: LearnerDisclosureTiming,
+}
+
+impl Default for LearnerDisclosurePolicy {
+    /// Returns the policy used when authoring a new assignment.
+    ///
+    /// This is deliberately an initializer rather than a serde compatibility
+    /// fallback: an assignment payload must still carry this policy explicitly.
+    fn default() -> Self {
+        Self {
+            score: LearnerDisclosureTiming::AfterSubmit,
+            per_item_correctness: LearnerDisclosureTiming::AfterSubmit,
+            feedback_text: LearnerDisclosureTiming::AfterSubmit,
+            solution: LearnerDisclosureTiming::AfterSubmit,
+            class_statistics: LearnerDisclosureTiming::Never,
+        }
+    }
+}
+
+/// How many times a student may answer one question.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AttemptPolicy {
     /// Attempts permitted, or `None` for unlimited.
     ///
     /// `None` is the mastery case: retry until correct.
     pub max_attempts: Option<u32>,
-    /// When correctness is disclosed.
-    pub feedback: FeedbackDisclosure,
 }
 
 /// Time limits applied to a question or an attempt.
@@ -164,12 +202,18 @@ mod tests {
 
     #[test]
     fn unlimited_attempts_are_expressed_as_none() {
-        let policy = AttemptPolicy {
-            max_attempts: None,
-            feedback: FeedbackDisclosure::ImmediateFull,
-        };
+        let policy = AttemptPolicy { max_attempts: None };
         let json = serde_json::to_string(&policy).expect("serialization should succeed");
         assert!(json.contains(r#""maxAttempts":null"#));
+    }
+
+    #[test]
+    fn attempt_policy_refuses_the_removed_feedback_member() {
+        let error = serde_json::from_str::<AttemptPolicy>(
+            r#"{"maxAttempts":1,"feedback":"immediateFull"}"#,
+        )
+        .expect_err("legacy feedback must not be accepted");
+        assert!(error.to_string().contains("feedback"));
     }
 
     #[test]
@@ -195,5 +239,35 @@ mod tests {
         };
         let json = serde_json::to_string(&policy).expect("serialization should succeed");
         assert!(json.contains(r#""graceSeconds":30"#));
+    }
+
+    #[test]
+    fn learner_disclosure_policy_serializes_independent_camel_case_fields() {
+        let policy = LearnerDisclosurePolicy {
+            score: LearnerDisclosureTiming::AfterSubmit,
+            per_item_correctness: LearnerDisclosureTiming::AfterDue,
+            feedback_text: LearnerDisclosureTiming::DuringAttempt,
+            solution: LearnerDisclosureTiming::AfterClose,
+            class_statistics: LearnerDisclosureTiming::Never,
+        };
+
+        let json = serde_json::to_string(&policy).expect("serialization should succeed");
+
+        assert!(json.contains(r#""perItemCorrectness":"afterDue""#));
+        assert!(json.contains(r#""classStatistics":"never""#));
+    }
+
+    #[test]
+    fn default_learner_disclosure_policy_releases_feedback_after_submission() {
+        let policy = LearnerDisclosurePolicy::default();
+
+        assert_eq!(policy.score, LearnerDisclosureTiming::AfterSubmit);
+        assert_eq!(
+            policy.per_item_correctness,
+            LearnerDisclosureTiming::AfterSubmit
+        );
+        assert_eq!(policy.feedback_text, LearnerDisclosureTiming::AfterSubmit);
+        assert_eq!(policy.solution, LearnerDisclosureTiming::AfterSubmit);
+        assert_eq!(policy.class_statistics, LearnerDisclosureTiming::Never);
     }
 }

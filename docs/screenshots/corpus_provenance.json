@@ -1,172 +1,246 @@
 {
   "artifacts": {
-    "instructor_page_courses.png": {
+    "docs/screenshots/instructor/instructor_page_courses.png": {
       "pipeline": "mock",
       "viewport": "laptop",
       "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
       "capturedAt": "2026-08-13T21:34:24-05:00",
       "derivedFromHistory": true
     },
-    "instructor_page_course_assignments.png": {
+    "docs/screenshots/instructor/instructor_page_course_assignments.png": {
       "pipeline": "mock",
       "viewport": "laptop",
       "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
       "capturedAt": "2026-08-13T21:34:24-05:00",
       "derivedFromHistory": true
     },
-    "instructor_page_assignment_overview.png": {
+    "docs/screenshots/instructor/instructor_page_assignment_overview.png": {
       "pipeline": "mock",
       "viewport": "laptop",
       "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
       "capturedAt": "2026-08-13T21:34:24-05:00",
       "derivedFromHistory": true
     },
-    "instructor_page_assignment_create.png": {
+    "docs/screenshots/instructor/instructor_page_assignment_create.png": {
       "pipeline": "mock",
       "viewport": "laptop",
       "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
       "capturedAt": "2026-08-13T21:34:24-05:00",
       "derivedFromHistory": true
     },
-    "instructor_page_assignment_edit.png": {
+    "docs/screenshots/instructor/instructor_page_assignment_edit.png": {
       "pipeline": "mock",
       "viewport": "laptop",
       "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
       "capturedAt": "2026-08-13T21:34:24-05:00",
       "derivedFromHistory": true
     },
-    "instructor_page_roster.png": {
+    "docs/screenshots/instructor/instructor_page_roster.png": {
       "pipeline": "mock",
       "viewport": "laptop",
       "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
       "capturedAt": "2026-08-13T21:34:24-05:00",
       "derivedFromHistory": true
     },
-    "instructor_page_gradebook.png": {
+    "docs/screenshots/instructor/instructor_page_gradebook.png": {
       "pipeline": "mock",
       "viewport": "laptop",
       "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
       "capturedAt": "2026-08-13T21:34:24-05:00",
       "derivedFromHistory": true
     },
-    "instructor_page_course_appearance.png": {
+    "docs/screenshots/instructor/instructor_page_course_appearance.png": {
       "pipeline": "mock",
       "viewport": "laptop",
       "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
       "capturedAt": "2026-08-13T21:34:24-05:00",
       "derivedFromHistory": true
     },
-    "instructor_page_library.png": {
+    "docs/screenshots/instructor/instructor_page_library.png": {
       "pipeline": "mock",
       "viewport": "laptop",
       "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
       "capturedAt": "2026-08-13T21:34:24-05:00",
       "derivedFromHistory": true
     },
-    "instructor_page_question_detail.png": {
+    "docs/screenshots/instructor/instructor_page_question_detail.png": {
       "pipeline": "mock",
       "viewport": "laptop",
       "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
       "capturedAt": "2026-08-13T21:34:24-05:00",
       "derivedFromHistory": true
     },
-    "instructor_page_workspace.png": {
+    "docs/screenshots/instructor/instructor_page_workspace.png": {
       "pipeline": "mock",
       "viewport": "laptop",
       "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
       "capturedAt": "2026-08-13T21:34:24-05:00",
       "derivedFromHistory": true
     },
-    "instructor_page_question_editor.png": {
+    "docs/screenshots/instructor/instructor_page_question_editor.png": {
       "pipeline": "mock",
       "viewport": "laptop",
       "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
       "capturedAt": "2026-08-13T21:34:24-05:00",
       "derivedFromHistory": true
     },
-    "instructor_page_account_security.png": {
+    "docs/screenshots/shared/instructor_page_account_security.png": {
       "pipeline": "mock",
+      "captureOwner": "studentMock",
+      "captureGeneration": "28de1ce2-1b95-43ab-b5cc-3e7118c841ee",
+      "contentDigest": "7ed4c71c1a63b254e9916b8f0f4670c40713b7e3a90f31f92d0c187828537974",
       "viewport": "laptop",
-      "treeIdentity": "23dce408a1e8983028e587c36bc841dfefdcf084",
-      "capturedAt": "2026-08-13T21:34:24-05:00",
-      "derivedFromHistory": true
+      "treeIdentity": "8756dbc79f9507c0c40647caf114f88b0ddff9ee",
+      "capturedAt": "2026-08-19T17:21:49.562Z"
     },
-    "instructor_course_overview.png": {
+    "docs/screenshots/instructor/instructor_course_overview.png": {
       "pipeline": "live",
       "viewport": "laptop",
       "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
       "capturedAt": "2026-08-12T19:14:28-05:00",
       "derivedFromHistory": true
     },
-    "instructor_roster_active_student.png": {
+    "docs/screenshots/instructor/instructor_roster_active_student.png": {
       "pipeline": "live",
       "viewport": "laptop",
       "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
       "capturedAt": "2026-08-12T19:14:28-05:00",
       "derivedFromHistory": true
     },
-    "instructor_problem_catalog.png": {
+    "docs/screenshots/instructor/instructor_problem_catalog.png": {
       "pipeline": "live",
       "viewport": "laptop",
       "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
       "capturedAt": "2026-08-12T19:14:28-05:00",
       "derivedFromHistory": true
     },
-    "instructor_assignment_settings.png": {
+    "docs/screenshots/instructor/instructor_assignment_settings.png": {
       "pipeline": "live",
       "viewport": "laptop",
       "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
       "capturedAt": "2026-08-12T19:14:28-05:00",
       "derivedFromHistory": true
     },
-    "instructor_assignment_created.png": {
+    "docs/screenshots/instructor/instructor_assignment_created.png": {
       "pipeline": "live",
       "viewport": "laptop",
       "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
       "capturedAt": "2026-08-12T19:14:28-05:00",
       "derivedFromHistory": true
     },
-    "instructor_gradebook_mastery_loop.png": {
+    "docs/screenshots/instructor/instructor_gradebook_mastery_loop.png": {
       "pipeline": "live",
       "viewport": "laptop",
       "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
       "capturedAt": "2026-08-12T19:14:28-05:00",
       "derivedFromHistory": true
     },
-    "genetics_chapter_one_overview.png": {
+    "docs/screenshots/student/genetics_chapter_one_overview.png": {
       "pipeline": "live",
       "viewport": "laptop",
       "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
       "capturedAt": "2026-08-12T19:14:28-05:00",
       "derivedFromHistory": true
     },
-    "student_assignment_list.png": {
+    "docs/screenshots/student/student_assignment_list.png": {
       "pipeline": "live",
       "viewport": "laptop",
       "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
       "capturedAt": "2026-08-12T19:14:28-05:00",
       "derivedFromHistory": true
     },
-    "student_timed_problem.png": {
+    "docs/screenshots/student/student_timed_problem.png": {
       "pipeline": "live",
       "viewport": "laptop",
       "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
       "capturedAt": "2026-08-12T19:14:28-05:00",
       "derivedFromHistory": true
     },
-    "student_fresh_practice.png": {
+    "docs/screenshots/student/student_fresh_practice.png": {
       "pipeline": "live",
       "viewport": "laptop",
       "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
       "capturedAt": "2026-08-12T19:14:28-05:00",
       "derivedFromHistory": true
     },
-    "student_retake_fresh_problem.png": {
+    "docs/screenshots/student/student_retake_fresh_problem.png": {
       "pipeline": "live",
       "viewport": "laptop",
       "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
       "capturedAt": "2026-08-12T19:14:28-05:00",
       "derivedFromHistory": true
+    },
+    "docs/screenshots/student/access/allowed_assignment_overview/student_assignment_overview_laptop.png": {
+      "pipeline": "mock",
+      "captureOwner": "studentMock",
+      "captureGeneration": "28de1ce2-1b95-43ab-b5cc-3e7118c841ee",
+      "contentDigest": "52841910452175fb6093293c1dfcec7a4be260c1e4266762080eebf950f93780",
+      "viewport": "laptop",
+      "treeIdentity": "8756dbc79f9507c0c40647caf114f88b0ddff9ee",
+      "capturedAt": "2026-08-19T17:21:49.562Z"
+    },
+    "docs/screenshots/student/access/allowed_assignment_overview/student_assignment_overview_tablet.png": {
+      "pipeline": "mock",
+      "captureOwner": "studentMock",
+      "captureGeneration": "28de1ce2-1b95-43ab-b5cc-3e7118c841ee",
+      "contentDigest": "4a1e8dc4d3ca5250f726819bb356e1adbcc11ec6135e270bc47496d1079e90d3",
+      "viewport": "tablet",
+      "treeIdentity": "8756dbc79f9507c0c40647caf114f88b0ddff9ee",
+      "capturedAt": "2026-08-19T17:21:49.562Z"
+    },
+    "docs/screenshots/student/access/allowed_assignment_overview/student_assignment_overview_iphone_pro.png": {
+      "pipeline": "mock",
+      "captureOwner": "studentMock",
+      "captureGeneration": "28de1ce2-1b95-43ab-b5cc-3e7118c841ee",
+      "contentDigest": "6dda6587c708e377606d1525a5b47060ad053dc00405687653e61ed4d2e49be6",
+      "viewport": "iphonePro",
+      "treeIdentity": "8756dbc79f9507c0c40647caf114f88b0ddff9ee",
+      "capturedAt": "2026-08-19T17:21:49.562Z"
+    },
+    "docs/screenshots/student/access/allowed_assignment_overview/student_assignment_overview_square.png": {
+      "pipeline": "mock",
+      "captureOwner": "studentMock",
+      "captureGeneration": "28de1ce2-1b95-43ab-b5cc-3e7118c841ee",
+      "contentDigest": "f903cb19da5cb890532ab18618694c557fb5ecf56970234691718dca9e213f74",
+      "viewport": "square",
+      "treeIdentity": "8756dbc79f9507c0c40647caf114f88b0ddff9ee",
+      "capturedAt": "2026-08-19T17:21:49.562Z"
+    },
+    "docs/screenshots/student/access/instructor_route_denial/student_instructor_route_denial_laptop.png": {
+      "pipeline": "mock",
+      "captureOwner": "studentMock",
+      "captureGeneration": "28de1ce2-1b95-43ab-b5cc-3e7118c841ee",
+      "contentDigest": "7186e02d94ab2a11f34a7880918b5a1789af4b95da8fe90f6650e5788280ecf8",
+      "viewport": "laptop",
+      "treeIdentity": "8756dbc79f9507c0c40647caf114f88b0ddff9ee",
+      "capturedAt": "2026-08-19T17:21:49.562Z"
+    },
+    "docs/screenshots/student/access/instructor_route_denial/student_instructor_route_denial_tablet.png": {
+      "pipeline": "mock",
+      "captureOwner": "studentMock",
+      "captureGeneration": "28de1ce2-1b95-43ab-b5cc-3e7118c841ee",
+      "contentDigest": "e9f97ea3c1e6980fe27e583bf15a2af2fae128e82f2a152794bcddd87dbb4ac2",
+      "viewport": "tablet",
+      "treeIdentity": "8756dbc79f9507c0c40647caf114f88b0ddff9ee",
+      "capturedAt": "2026-08-19T17:21:49.562Z"
+    },
+    "docs/screenshots/student/access/instructor_route_denial/student_instructor_route_denial_iphone_pro.png": {
+      "pipeline": "mock",
+      "captureOwner": "studentMock",
+      "captureGeneration": "28de1ce2-1b95-43ab-b5cc-3e7118c841ee",
+      "contentDigest": "c0ed6fe1c4030d5adfdb17a4ca71765936ddd54336b5798296a96c99e807422e",
+      "viewport": "iphonePro",
+      "treeIdentity": "8756dbc79f9507c0c40647caf114f88b0ddff9ee",
+      "capturedAt": "2026-08-19T17:21:49.562Z"
+    },
+    "docs/screenshots/student/access/instructor_route_denial/student_instructor_route_denial_square.png": {
+      "pipeline": "mock",
+      "captureOwner": "studentMock",
+      "captureGeneration": "28de1ce2-1b95-43ab-b5cc-3e7118c841ee",
+      "contentDigest": "fed8ce1fe6276ac11e2d810a64cd6f49150b1d8737ea4d8cda13a58186cafee0",
+      "viewport": "square",
+      "treeIdentity": "8756dbc79f9507c0c40647caf114f88b0ddff9ee",
+      "capturedAt": "2026-08-19T17:21:49.562Z"
     }
   }
 }

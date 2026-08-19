@@ -397,7 +397,7 @@ mod tests {
     use objects::memory::MemoryObjectStore;
     use question_model::envelope::ContentBlock;
     use question_model::response::{ChoiceId, ChoiceOption};
-    use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+    use question_model::run_policy::{AttemptPolicy, TimingPolicy};
     use question_model::{
         ActivityTimestamp, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
         QuestionMetadata, ResponseDefinition, TenantId, UserId, WorkspaceId, WorkspaceImportId,
@@ -504,10 +504,7 @@ mod tests {
                             }],
                             selection: question_model::answer::SelectionCardinality::ExactlyOne,
                         },
-                        attempt_policy: AttemptPolicy {
-                            max_attempts: None,
-                            feedback: FeedbackDisclosure::ImmediateCorrectness,
-                        },
+                        attempt_policy: AttemptPolicy { max_attempts: None },
                         timing_policy: TimingPolicy::Untimed,
                         randomization: question_model::generation::RandomizationDefinition::Static,
                         grading: GradingDefinition::AllOrNothing { points: 1.0 },

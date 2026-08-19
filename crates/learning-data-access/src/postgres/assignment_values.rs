@@ -60,6 +60,42 @@ pub(super) fn variation_policy_name(policy: VariationPolicy) -> &'static str {
     }
 }
 
+/// Encodes the assignment-owned learner disclosure timing stored in the
+/// normalized assignment row.  This remains deliberately separate from the
+/// legacy per-attempt feedback receipt.
+#[cfg(feature = "postgres")]
+pub(super) fn learner_disclosure_timing_name(
+    timing: question_model::LearnerDisclosureTiming,
+) -> &'static str {
+    match timing {
+        question_model::LearnerDisclosureTiming::DuringAttempt => "during_attempt",
+        question_model::LearnerDisclosureTiming::AfterSubmit => "after_submit",
+        question_model::LearnerDisclosureTiming::AfterDue => "after_due",
+        question_model::LearnerDisclosureTiming::AfterClose => "after_close",
+        question_model::LearnerDisclosureTiming::Never => "never",
+    }
+}
+
+/// Decodes one mandatory learner disclosure timing.  Stored values have no
+/// permissive compatibility default: a malformed or missing row must fail
+/// closed before it can reach a learner projection.
+#[cfg(feature = "postgres")]
+pub(super) fn parse_learner_disclosure_timing(
+    value: &str,
+) -> Result<question_model::LearnerDisclosureTiming, StoreError> {
+    match value {
+        "during_attempt" => Ok(question_model::LearnerDisclosureTiming::DuringAttempt),
+        "after_submit" => Ok(question_model::LearnerDisclosureTiming::AfterSubmit),
+        "after_due" => Ok(question_model::LearnerDisclosureTiming::AfterDue),
+        "after_close" => Ok(question_model::LearnerDisclosureTiming::AfterClose),
+        "never" => Ok(question_model::LearnerDisclosureTiming::Never),
+        _ => Err(invalid_stored_assignment_value(
+            "learner disclosure timing",
+            value,
+        )),
+    }
+}
+
 #[cfg(feature = "postgres")]
 pub(super) fn assignment_scoring_mode_name(
     mode: question_model::AssignmentScoringMode,
@@ -273,5 +309,36 @@ pub(super) fn parse_catalog_lifecycle(
         _ => Err(StoreError::Unavailable(
             "stored catalog lifecycle and reason disagree".to_string(),
         )),
+    }
+}
+
+#[cfg(all(test, feature = "postgres"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn learner_disclosure_timings_round_trip_through_postgres_values() {
+        let timings = [
+            question_model::LearnerDisclosureTiming::DuringAttempt,
+            question_model::LearnerDisclosureTiming::AfterSubmit,
+            question_model::LearnerDisclosureTiming::AfterDue,
+            question_model::LearnerDisclosureTiming::AfterClose,
+            question_model::LearnerDisclosureTiming::Never,
+        ];
+
+        for timing in timings {
+            assert_eq!(
+                parse_learner_disclosure_timing(learner_disclosure_timing_name(timing)),
+                Ok(timing)
+            );
+        }
+    }
+
+    #[test]
+    fn invalid_learner_disclosure_timing_fails_closed() {
+        assert!(matches!(
+            parse_learner_disclosure_timing("immediate_full"),
+            Err(StoreError::Unavailable(_))
+        ));
     }
 }

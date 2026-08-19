@@ -120,6 +120,7 @@ where
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![ProblemVersionRef { problem, version }]),
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: external_policies,
             },
         )

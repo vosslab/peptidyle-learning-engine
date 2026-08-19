@@ -15,7 +15,7 @@ use objects::memory::MemoryObjectStore;
 use objects::{ObjectKey, ObjectStore, PutObject};
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
-use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{
     ActivityTimestamp, AssetId, AssignmentId, AssignmentRun, AttemptTimerRecord, CourseId,
@@ -252,10 +252,7 @@ async fn fixture() -> Fixture {
         },
         prompt: imported.prompt,
         response: imported.response,
-        attempt_policy: AttemptPolicy {
-            max_attempts: None,
-            feedback: FeedbackDisclosure::ImmediateCorrectness,
-        },
+        attempt_policy: AttemptPolicy { max_attempts: None },
         timing_policy: TimingPolicy::Untimed,
         randomization: question_model::generation::RandomizationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },

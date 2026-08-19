@@ -8,6 +8,7 @@ import { FeedbackPanel } from "../components/feedback_panel";
 import { useApiRuntime } from "../api/runtime";
 import { useCourseThemeRouteData } from "../features/course_appearance/course_theme_context";
 import { runRouteReference } from "../navigation/public_route";
+import { learnerProgressSummary, learnerScoreValue } from "../learner_progress";
 
 export function RunSummaryPage(): JSX.Element {
   const runtime = useApiRuntime();
@@ -90,6 +91,13 @@ export function RunSummaryPage(): JSX.Element {
                 ? "You can start a fresh practice run from your assignment."
                 : "This run is recorded."}
             </p>
+            <section aria-label="Assignment score">
+              <h2>Assignment score</h2>
+              <p>{learnerProgressSummary(current().summary)}</p>
+              <Show when={current().summary.scoreState === "available"}>
+                <p>This run: {learnerScoreValue(current().run.score)}</p>
+              </Show>
+            </section>
             <Show when={current().practiceAllowed && assignmentId() !== undefined}>
               <button class="primary-action" type="button" onClick={() => void startPractice()}>
                 Start fresh practice

@@ -103,18 +103,11 @@ async fn publication_validation_and_diff_use_persisted_draft_safe_semantics() {
     assert_eq!(
         response_json(validation).await,
         serde_json::json!({
-            "violations": [
-                {
-                    "workspace": workspace,
-                    "title": "Revised peptide question",
-                    "capability": "hints"
-                },
-                {
-                    "workspace": workspace,
-                    "title": "Revised peptide question",
-                    "capability": "perQuestionTiming"
-                }
-            ]
+            "violations": [{
+                "workspace": workspace,
+                "title": "Revised peptide question",
+                "capability": "perQuestionTiming"
+            }]
         })
     );
 

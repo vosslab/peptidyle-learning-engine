@@ -4,14 +4,15 @@ use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::routing::{delete, get, post, put};
 use learning_data_access::{
-    CatalogStore, CourseInvitationDeliveryStore, CourseRecordsAccessStore, CourseRosterStore,
-    ManualGradeExportStore, SessionStore, Store,
+    AuthoritativeTimeStore, CatalogStore, CourseInvitationDeliveryStore, CourseItemAnalysisStore,
+    CourseRecordsAccessStore, CourseRosterStore, ManualGradeExportStore, SessionStore, Store,
 };
 use serde::{Deserialize, Serialize};
 
 use super::assignments::{
     add_assignment_item, create_assignment, get_assignment, get_assignment_summary,
-    remove_assignment_item, replace_assignment_item_question, update_assignment,
+    get_learner_assignment, remove_assignment_item, replace_assignment_item_question,
+    update_assignment,
 };
 use super::invitation_capability::CourseInvitationIssuer;
 use super::queries::{create_course, get_course, list_assignments, list_courses, list_gradebook};
@@ -25,11 +26,13 @@ pub fn router<S>(store: Arc<S>) -> Router
 where
     S: Store
         + CatalogStore
+        + CourseItemAnalysisStore
         + CourseRecordsAccessStore
         + CourseRosterStore
         + CourseInvitationDeliveryStore
         + ManualGradeExportStore
         + SessionStore
+        + AuthoritativeTimeStore
         + 'static,
 {
     router_with_invitations_and_local_teaching(store, CourseInvitationIssuer::unavailable(), None)
@@ -40,11 +43,13 @@ pub fn router_with_invitations<S>(store: Arc<S>, issuer: CourseInvitationIssuer)
 where
     S: Store
         + CatalogStore
+        + CourseItemAnalysisStore
         + CourseRecordsAccessStore
         + CourseRosterStore
         + CourseInvitationDeliveryStore
         + ManualGradeExportStore
         + SessionStore
+        + AuthoritativeTimeStore
         + 'static,
 {
     router_with_invitations_and_local_teaching(store, issuer, None)
@@ -61,11 +66,13 @@ pub(crate) fn router_with_invitations_and_local_teaching<S>(
 where
     S: Store
         + CatalogStore
+        + CourseItemAnalysisStore
         + CourseRecordsAccessStore
         + CourseRosterStore
         + CourseInvitationDeliveryStore
         + ManualGradeExportStore
         + SessionStore
+        + AuthoritativeTimeStore
         + 'static,
 {
     let course_routes = Router::new()
@@ -80,6 +87,10 @@ where
         .route("/api/courses/{course}/gradebook", get(list_gradebook::<S>))
         .route("/api/courses/{course}", get(get_course::<S>))
         .route("/api/assignments/{assignment}", get(get_assignment::<S>))
+        .route(
+            "/api/assignments/{assignment}/learner",
+            get(get_learner_assignment::<S>),
+        )
         .route(
             "/api/assignments/{assignment}/summary",
             get(get_assignment_summary::<S>),
@@ -282,6 +293,7 @@ fn course_term_failure(
 pub(super) struct CreateAssignmentRequest {
     pub(super) title: String,
     pub(super) question_ids: Vec<question_model::QuestionId>,
+    pub(super) disclosure_policy: question_model::LearnerDisclosurePolicy,
     pub(super) policies: question_model::RunPolicies,
     /// Whole-run timing is always an explicit instructor decision. `null`
     /// within the object deliberately means Untimed.
@@ -293,6 +305,7 @@ pub(super) struct CreateAssignmentRequest {
 pub(super) struct UpdateAssignmentRequest {
     pub(super) title: String,
     pub(super) items: Vec<AssignmentItemUpdateRequest>,
+    pub(super) disclosure_policy: question_model::LearnerDisclosurePolicy,
     pub(super) policies: question_model::RunPolicies,
     pub(super) assignment_timing: question_model::AssignmentRunTiming,
 }
@@ -343,6 +356,7 @@ mod tests {
         serde_json::to_value(CreateAssignmentRequest {
             title: "Mastery".to_string(),
             question_ids: Vec::new(),
+            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
             policies: question_model::RunPolicies {
                 completion: question_model::CompletionRequirement::AllCorrect,
                 grade: question_model::GradePolicy::Highest,
@@ -373,5 +387,39 @@ mod tests {
         let mut invalid = explicit_request();
         invalid["assignmentTiming"] = serde_json::Value::Null;
         assert!(strict_assignment_request::<CreateAssignmentRequest>(invalid).is_err());
+    }
+
+    #[test]
+    fn assignment_disclosure_policy_is_required_and_rejects_unknown_members() {
+        let mut omitted = explicit_request();
+        omitted
+            .as_object_mut()
+            .expect("request object")
+            .remove("disclosurePolicy");
+        assert!(strict_assignment_request::<CreateAssignmentRequest>(omitted).is_err());
+
+        let mut unknown = explicit_request();
+        unknown["disclosurePolicy"]["surprise"] = serde_json::json!("never");
+        assert!(strict_assignment_request::<CreateAssignmentRequest>(unknown).is_err());
+
+        let update = serde_json::json!({
+            "title": "Mastery",
+            "items": [],
+            "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
+            "policies": question_model::RunPolicies {
+                completion: question_model::CompletionRequirement::AllCorrect,
+                grade: question_model::GradePolicy::Highest,
+                continued_practice: question_model::ContinuedPractice::Unlimited,
+                variation: question_model::VariationPolicy::NewSeeds,
+            },
+            "assignmentTiming": question_model::AssignmentRunTiming::default(),
+        });
+        assert!(strict_assignment_request::<UpdateAssignmentRequest>(update.clone()).is_ok());
+        let mut omitted_update = update;
+        omitted_update
+            .as_object_mut()
+            .expect("update request object")
+            .remove("disclosurePolicy");
+        assert!(strict_assignment_request::<UpdateAssignmentRequest>(omitted_update).is_err());
     }
 }

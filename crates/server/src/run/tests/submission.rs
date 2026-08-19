@@ -488,21 +488,107 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
     }
 
     let summary_response = app
+        .clone()
         .oneshot(
             Request::builder()
                 .uri(format!("/api/grading/summaries/{enrollment}"))
-                .header("cookie", student_cookie)
+                .header("cookie", &student_cookie)
                 .body(Body::empty())
                 .expect("request"),
         )
         .await
         .expect("summary response");
-    let summary: StudentAssignmentSummary =
-        serde_json::from_value(json(summary_response).await).expect("summary");
+    let summary = json(summary_response).await;
     assert_eq!(
-        (summary.completed_run_count, summary.total_question_attempts),
-        (1, 1)
+        (
+            summary["scoreState"].as_str(),
+            summary["completedRunCount"].as_u64(),
+            summary["totalQuestionAttempts"].as_u64(),
+            summary["currentScore"].as_f64(),
+        ),
+        (Some("available"), Some(1), Some(1), Some(1.0))
     );
+
+    let enrollment_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/enrollments/{enrollment}"))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("enrollment request"),
+        )
+        .await
+        .expect("enrollment response");
+    assert_eq!(json(enrollment_response).await["summary"], summary);
+
+    let run_summary_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/runs/{}/summary", first.id))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("run summary request"),
+        )
+        .await
+        .expect("run summary response");
+    let run_summary = json(run_summary_response).await;
+    assert_eq!(run_summary["summary"], summary);
+    assert_eq!(run_summary["run"]["score"].as_f64(), Some(1.0));
+
+    let context = TenantContext::from_authenticated_session(TenantId::from_uuid(id(1)));
+    let stored = store
+        .get_assignment_for_edit(context, assignment)
+        .await
+        .expect("assignment read")
+        .expect("fixture assignment");
+    let mut disclosure_policy = stored.record.disclosure_policy;
+    disclosure_policy.score = question_model::LearnerDisclosureTiming::Never;
+    store
+        .replace_assignment_preserving_timing(
+            context,
+            stored.record.course_id,
+            assignment,
+            stored.revision,
+            AssignmentUpdate {
+                title: stored.record.title,
+                audience: stored.record.audience,
+                items: stored.record.items,
+                selection_groups: stored.record.selection_groups,
+                disclosure_policy,
+                policies: stored.record.policies,
+            },
+        )
+        .await
+        .expect("hide score policy update");
+
+    let withheld_summary_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/grading/summaries/{enrollment}"))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("withheld summary request"),
+        )
+        .await
+        .expect("withheld summary response");
+    let withheld_summary = json(withheld_summary_response).await;
+    assert_eq!(withheld_summary["scoreState"], "withheld");
+    assert!(withheld_summary["currentScore"].is_null());
+
+    let withheld_run_response = app
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/runs/{}", first.id))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("withheld run request"),
+        )
+        .await
+        .expect("withheld run response");
+    assert!(json(withheld_run_response).await["score"].is_null());
 }
 
 #[tokio::test]

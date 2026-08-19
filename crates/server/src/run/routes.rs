@@ -9,7 +9,8 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use learning_data_access::{
-    CatalogStore, CourseAppearanceStore, ManualGradingStore, SessionStore, Store,
+    AuthoritativeTimeStore, CatalogStore, CourseAppearanceStore, CourseItemAnalysisStore,
+    ManualGradingStore, SessionStore, Store,
 };
 use question_model::RunId;
 
@@ -31,7 +32,14 @@ use super::support::{
 /// Builds the authenticated run route group around a shared store and backend registry.
 pub fn router<S, B>(store: Arc<S>, backend: Arc<B>) -> Router
 where
-    S: Store + CatalogStore + CourseAppearanceStore + ManualGradingStore + SessionStore + 'static,
+    S: Store
+        + CatalogStore
+        + CourseAppearanceStore
+        + CourseItemAnalysisStore
+        + ManualGradingStore
+        + SessionStore
+        + AuthoritativeTimeStore
+        + 'static,
     B: RunBackend + 'static,
 {
     Router::new()

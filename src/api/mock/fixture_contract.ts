@@ -10,7 +10,9 @@ import type { DraftQuestionDefinition } from "../../../generated/api/DraftQuesti
 import type { GradebookSummaryRow } from "../../../generated/api/GradebookSummaryRow";
 import type { QuestionDefinition } from "../../../generated/api/QuestionDefinition";
 import type { StudentAssignmentSummary } from "../../../generated/api/StudentAssignmentSummary";
+import type { LearnerAssignmentProgress } from "../../../generated/api/LearnerAssignmentProgress";
 import type { AssignmentSummary, CourseSummary } from "../contracts";
+import type { LearnerAssignmentSummary } from "../../../generated/api/LearnerAssignmentSummary";
 
 /** One browser-loadable asset belonging to the published fixture version. */
 export interface MockFixtureAsset {
@@ -36,4 +38,46 @@ export interface MockFixtureCorpus {
   readonly attempts: ReadonlyArray<QuestionAttempt>;
   readonly summary: StudentAssignmentSummary;
   readonly gradebook: ReadonlyArray<GradebookSummaryRow>;
+}
+
+/**
+ * Mock-only server projection for learner routes.  It intentionally copies no
+ * storage identifiers and lets focused UI tests exercise every presentation
+ * state by substituting this record at their transport boundary.
+ */
+export function fixtureLearnerProgress(
+  summary: StudentAssignmentSummary,
+): LearnerAssignmentProgress {
+  const hasActivity = summary.completedRunCount > 0 || summary.totalQuestionAttempts > 0;
+  if (!hasActivity) {
+    return {
+      scoreState: "noActivity",
+      currentScore: null,
+      bestScore: null,
+      latestScore: null,
+      completedRunCount: 0,
+      totalQuestionAttempts: 0,
+      lastActivityAt: null,
+    };
+  }
+  return {
+    scoreState: "available",
+    currentScore: summary.currentScore,
+    bestScore: summary.bestScore,
+    latestScore: summary.latestScore,
+    completedRunCount: summary.completedRunCount,
+    totalQuestionAttempts: summary.totalQuestionAttempts,
+    lastActivityAt: summary.lastActivityAt,
+  };
+}
+
+/** Remove assignment authority inputs before a mock serves a learner route. */
+export function fixtureLearnerAssignment(assignment: AssignmentSummary): LearnerAssignmentSummary {
+  return {
+    id: assignment.id,
+    reference: assignment.reference,
+    title: assignment.title,
+    items: assignment.items,
+    selectionGroups: assignment.selectionGroups,
+  };
 }

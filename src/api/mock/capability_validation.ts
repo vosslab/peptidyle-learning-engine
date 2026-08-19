@@ -30,9 +30,6 @@ function requiredByQuestion(selected: AssignmentConfig["questions"][number]): Se
     case "ungraded":
       break;
   }
-  if (selected.question.attemptPolicy.feedback === "immediateCorrectness") {
-    required.add("hints");
-  }
   if (selected.question.timingPolicy.kind === "perQuestion") {
     required.add("perQuestionTiming");
   }

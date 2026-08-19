@@ -1,5 +1,39 @@
 use super::*;
-use crate::ReceiptPresentationSnapshot;
+use crate::{LearnerDisclosureInput, ReceiptPresentationSnapshot};
+
+/// Reads the current sealed S3 receipt for an already-authorized attempt and
+/// pairs it with the current assignment disclosure policy and database clock.
+/// A missing or cross-wired receipt is unavailable authority, never a legacy
+/// policy fallback.
+#[cfg(feature = "postgres")]
+pub(super) async fn current_disclosure_input(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    assignment: &AssignmentRecord,
+    attempt: QuestionAttemptId,
+    submitted_at: Option<ActivityTimestamp>,
+) -> Result<LearnerDisclosureInput, StoreError> {
+    let receipt = super::effective_policy_receipts::read_current_effective_policy_receipt(
+        transaction,
+        tenant,
+        attempt,
+    )
+    .await?
+    .ok_or_else(|| {
+        StoreError::Unavailable("current effective-policy receipt is missing".to_string())
+    })?;
+    if receipt.attempt != attempt {
+        return Err(StoreError::Unavailable(
+            "current effective-policy receipt does not bind the attempt".to_string(),
+        ));
+    }
+    Ok(LearnerDisclosureInput::new(
+        assignment.disclosure_policy,
+        receipt.policy,
+        database_timestamp(transaction).await?,
+        submitted_at,
+    ))
+}
 
 #[cfg(feature = "postgres")]
 pub(super) async fn apply_postgres_attempt_support(
@@ -244,8 +278,7 @@ pub(super) async fn submit_question_attempt(
                 attempt.flat_grading_required, attempt.flat_grading_payload, \
                 attempt.flat_grading_payload_sha256, \
                 attempt.webwork_grading_required, attempt.webwork_grading_payload, \
-                attempt.webwork_grading_payload_sha256, \
-                attempt.issued_feedback_disclosure \
+                attempt.webwork_grading_payload_sha256 \
          FROM question_attempt AS attempt \
          LEFT JOIN attempt_effective_policy_current AS current_effect \
            ON current_effect.tenant_id = attempt.tenant_id AND current_effect.attempt_id = attempt.attempt_id \
@@ -306,7 +339,6 @@ pub(super) async fn submit_question_attempt(
     }
     let mut enrollment = load_enrollment_for_update(transaction, tenant, run.enrollment).await?;
     let assignment = load_assignment_for_share(transaction, tenant, enrollment.assignment).await?;
-    let feedback_disclosure = issued_feedback_disclosure_from_row(&attempt_row)?;
     crate::validate_attempt_result(command.result)?;
     let submitted_at = database_timestamp(transaction).await?;
     let mut submitted = base;
@@ -314,6 +346,14 @@ pub(super) async fn submit_question_attempt(
     submitted.status = AttemptStatus::Submitted;
     submitted.result = Some(command.result);
     submitted.timer.submitted_at = Some(submitted_at);
+    let disclosure = current_disclosure_input(
+        transaction,
+        tenant,
+        &assignment,
+        submitted.id,
+        submitted.timer.submitted_at,
+    )
+    .await?;
     let effective_grace = attempt_row
         .try_get::<Option<i32>, _>("effective_grace_seconds")
         .map_err(map_sqlx_error)?;
@@ -618,8 +658,8 @@ pub(super) async fn submit_question_attempt(
     sqlx::query(
         "INSERT INTO submission_receipt_snapshot \
          (tenant_id, attempt_id, run_payload, run_payload_sha256, summary_payload, summary_payload_sha256, \
-          presentation_payload, presentation_payload_sha256, presentation_required, feedback_disclosure) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+         presentation_payload, presentation_payload_sha256, presentation_required) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
     )
     .bind(tenant.as_uuid())
     .bind(submitted.id.as_uuid())
@@ -630,7 +670,6 @@ pub(super) async fn submit_question_attempt(
     .bind(receipt_presentation)
     .bind(receipt_presentation_sha256)
     .bind(presentation_capability.requires_snapshot())
-    .bind(feedback_disclosure_name(feedback_disclosure))
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
@@ -640,7 +679,7 @@ pub(super) async fn submit_question_attempt(
         summary: next,
         feedback,
         presentation,
-        feedback_disclosure,
+        disclosure,
     })
 }
 
@@ -703,7 +742,7 @@ pub(super) async fn load_submission_record(
     };
     let submitted: QuestionAttempt = decode_payload_row(&row)?;
     let feedback = load_attempt_feedback(transaction, tenant, attempt).await?;
-    let (run, summary, presentation, feedback_disclosure) =
+    let (run, summary, presentation) =
         load_submission_receipt_snapshot(transaction, tenant, attempt)
             .await?
             .ok_or_else(|| {
@@ -712,13 +751,23 @@ pub(super) async fn load_submission_record(
                         .to_string(),
                 )
             })?;
+    let enrollment = load_enrollment_for_update(transaction, tenant, run.enrollment).await?;
+    let assignment = load_assignment_for_share(transaction, tenant, enrollment.assignment).await?;
+    let disclosure = current_disclosure_input(
+        transaction,
+        tenant,
+        &assignment,
+        attempt,
+        submitted.timer.submitted_at,
+    )
+    .await?;
     let record = SubmissionRecord {
         attempt: submitted,
         run,
         summary,
         feedback,
         presentation,
-        feedback_disclosure,
+        disclosure,
     };
     // The receipt is authoritative, but both receipt GET and idempotent replay
     // must reject a partial or mismatched write rather than treating it as a
@@ -742,14 +791,13 @@ pub(super) async fn load_submission_receipt_snapshot(
         AssignmentRun,
         StudentAssignmentSummary,
         Option<ReceiptPresentationSnapshot>,
-        FeedbackDisclosure,
     )>,
     StoreError,
 > {
     let row = sqlx::query(
         "SELECT run_payload AS payload, run_payload_sha256 AS payload_sha256, \
                 summary_payload, summary_payload_sha256, presentation_payload, \
-                presentation_payload_sha256, presentation_required, feedback_disclosure \
+                presentation_payload_sha256, presentation_required \
          FROM submission_receipt_snapshot WHERE tenant_id = $1 AND attempt_id = $2",
     )
     .bind(tenant.as_uuid())
@@ -782,9 +830,7 @@ pub(super) async fn load_submission_receipt_snapshot(
         .try_get("presentation_required")
         .map_err(map_sqlx_error)?;
     let presentation = decode_receipt_presentation(&row, presentation_required)?;
-    let disclosure: String = row.try_get("feedback_disclosure").map_err(map_sqlx_error)?;
-    let feedback_disclosure = parse_feedback_disclosure(&disclosure)?;
-    Ok(Some((run, summary, presentation, feedback_disclosure)))
+    Ok(Some((run, summary, presentation)))
 }
 
 /// Reads and validates the exact presentation frozen at issue time. This is
@@ -828,36 +874,6 @@ pub(super) async fn load_issued_presentation(
     Ok(snapshot)
 }
 
-/// The feedback policy is chosen at issuance together with the immutable
-/// presentation contract. A later catalog policy edit cannot reinterpret a
-/// committed receipt.
-#[cfg(feature = "postgres")]
-pub(super) async fn load_issued_feedback_disclosure(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    attempt: QuestionAttemptId,
-) -> Result<FeedbackDisclosure, StoreError> {
-    let row = sqlx::query(
-        "SELECT issued_feedback_disclosure FROM question_attempt \
-         WHERE tenant_id = $1 AND attempt_id = $2 ORDER BY occurred_at LIMIT 1 FOR UPDATE",
-    )
-    .bind(tenant.as_uuid())
-    .bind(attempt.as_uuid())
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?
-    .ok_or(StoreError::NotFound)?;
-    issued_feedback_disclosure_from_row(&row)
-}
-
-#[cfg(feature = "postgres")]
-fn issued_feedback_disclosure_from_row(row: &PgRow) -> Result<FeedbackDisclosure, StoreError> {
-    let value: String = row
-        .try_get("issued_feedback_disclosure")
-        .map_err(map_sqlx_error)?;
-    parse_feedback_disclosure(&value)
-}
-
 #[cfg(feature = "postgres")]
 fn decode_receipt_presentation(
     row: &PgRow,
@@ -892,31 +908,6 @@ fn decode_receipt_presentation(
         }
         _ => Err(StoreError::Unavailable(
             "receipt presentation payload and checksum disagree".to_string(),
-        )),
-    }
-}
-
-#[cfg(feature = "postgres")]
-pub(in crate::postgres) fn feedback_disclosure_name(value: FeedbackDisclosure) -> &'static str {
-    match value {
-        FeedbackDisclosure::ImmediateFull => "immediate_full",
-        FeedbackDisclosure::ImmediateCorrectness => "immediate_correctness",
-        FeedbackDisclosure::Deferred => "deferred",
-        FeedbackDisclosure::OnRelease => "on_release",
-    }
-}
-
-#[cfg(feature = "postgres")]
-pub(in crate::postgres) fn parse_feedback_disclosure(
-    value: &str,
-) -> Result<FeedbackDisclosure, StoreError> {
-    match value {
-        "immediate_full" => Ok(FeedbackDisclosure::ImmediateFull),
-        "immediate_correctness" => Ok(FeedbackDisclosure::ImmediateCorrectness),
-        "deferred" => Ok(FeedbackDisclosure::Deferred),
-        "on_release" => Ok(FeedbackDisclosure::OnRelease),
-        _ => Err(StoreError::Unavailable(
-            "receipt feedback disclosure is unsupported".to_string(),
         )),
     }
 }

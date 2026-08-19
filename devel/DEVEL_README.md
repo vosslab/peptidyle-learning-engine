@@ -29,7 +29,6 @@ appropriate repo root or package.
 | [rotate_changelog.py](rotate_changelog.py) | Move old changelog day blocks into archive files. |
 | [flatten_broken_md_links.py](flatten_broken_md_links.py) | Repair or flatten broken Markdown links. |
 | [dist_clean.sh](dist_clean.sh) | Remove build artifacts, caches, and dependency installs. |
-| [refresh_ui_corpus.mjs](refresh_ui_corpus.mjs) | Regenerate the committed `docs/screenshots/` corpus from `tests/playwright/ui_corpus_manifest.ts`; refreshes the mock-backed images always, and reports how to run the live-stack images when a Podman stack is running. |
 
 ## Propagated devel scripts
 

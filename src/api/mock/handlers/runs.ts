@@ -1,4 +1,5 @@
 import { publishedProblemFixture } from "../../../../generated/fixtures/published_problem";
+import { fixtureLearnerProgress } from "../fixture_contract";
 import type { DisclosedFeedback } from "../../../../generated/api/DisclosedFeedback";
 import type { QuestionAttempt } from "../../../../generated/api/QuestionAttempt";
 import type { QuestionEnvelope } from "../../../../generated/api/QuestionEnvelope";
@@ -22,10 +23,39 @@ import {
 } from "./shared";
 
 const EXTERNAL_TOOL_FIXTURE_ATTEMPT_ID = "0198e000-0000-7000-8000-000000000034";
-const IMMEDIATE_CORRECTNESS_ATTEMPT_ID = "0198e000-0000-7000-8000-000000000030";
-const IMMEDIATE_FULL_ATTEMPT_ID = "0198e000-0000-7000-8000-000000000031";
-const DEFERRED_ATTEMPT_ID = "0198e000-0000-7000-8000-000000000032";
-const ON_RELEASE_ATTEMPT_ID = "0198e000-0000-7000-8000-000000000033";
+const CORRECTNESS_ONLY_FIXTURE_ATTEMPT_ID = "0198e000-0000-7000-8000-000000000030";
+const FULL_FEEDBACK_FIXTURE_ATTEMPT_ID = "0198e000-0000-7000-8000-000000000031";
+const WITHHELD_FIXTURE_ATTEMPT_ID_A = "0198e000-0000-7000-8000-000000000032";
+const WITHHELD_FIXTURE_ATTEMPT_ID_B = "0198e000-0000-7000-8000-000000000033";
+
+/**
+ * Complete learner-facing projections captured as mock server responses. The
+ * fixture IDs only route static corpus entries: no browser code derives these
+ * fields from policy, time, receipt, entitlement, or attempt identity.
+ */
+const correctnessOnlyProjection: DisclosedFeedback = {
+  correctness: false,
+  hint: [{ kind: "text", markdown: "Review the prompt and try another variation." }],
+};
+
+const fullFeedbackProjection: DisclosedFeedback = {
+  correctness: true,
+  pointsEarned: 1,
+  pointsPossible: 1,
+  hint: [{ kind: "text", markdown: "Review the prompt and try another variation." }],
+  correctResponse: [{ kind: "text", markdown: "A model answer is available for this example." }],
+  rationale: [{ kind: "text", markdown: "The server released this explanation for learning." }],
+};
+
+const projectedSubmissionFixtures: Readonly<
+  Record<string, { readonly feedback: DisclosedFeedback | null }>
+> = {
+  [CORRECTNESS_ONLY_FIXTURE_ATTEMPT_ID]: { feedback: correctnessOnlyProjection },
+  [FULL_FEEDBACK_FIXTURE_ATTEMPT_ID]: { feedback: fullFeedbackProjection },
+  [WITHHELD_FIXTURE_ATTEMPT_ID_A]: { feedback: null },
+  [WITHHELD_FIXTURE_ATTEMPT_ID_B]: { feedback: null },
+  [EXTERNAL_TOOL_FIXTURE_ATTEMPT_ID]: { feedback: null },
+};
 
 const externalToolTemplateAttempt = publishedProblemFixture.attempts[3];
 if (externalToolTemplateAttempt === undefined) {
@@ -226,8 +256,8 @@ function mockRunSummary(
       position % 4 === 0
         ? null
         : position % 3 === 0
-          ? mockFeedbackForAttempt({ ...template, id: IMMEDIATE_CORRECTNESS_ATTEMPT_ID })
-          : mockFeedbackForAttempt({ ...template, id: IMMEDIATE_FULL_ATTEMPT_ID });
+          ? correctnessOnlyProjection
+          : fullFeedbackProjection;
     return {
       attempt: id,
       assignmentPosition: index,
@@ -243,7 +273,7 @@ function mockRunSummary(
       appearance: mockCourseAppearance,
     },
     run: { ...run, completedAt: run.completedAt ?? run.startedAt, score: run.score ?? 1 },
-    summary: publishedProblemFixture.summary,
+    summary: fixtureLearnerProgress(publishedProblemFixture.summary),
     practiceAllowed: true,
     outcomes: {
       items,
@@ -252,34 +282,19 @@ function mockRunSummary(
   };
 }
 
-/** Honest policy matrix for browser work: withheld is explicit, never inferred from an attempt. */
-export function mockFeedbackForAttempt(attempt: QuestionAttempt): DisclosedFeedback | null {
-  switch (attempt.id) {
-    case IMMEDIATE_CORRECTNESS_ATTEMPT_ID:
-      return {
-        correctness: false,
-        hint: [{ kind: "text", markdown: "Review the prompt and try another variation." }],
-      };
-    case IMMEDIATE_FULL_ATTEMPT_ID:
-      return {
-        correctness: true,
-        pointsEarned: 1,
-        pointsPossible: 1,
-        hint: [{ kind: "text", markdown: "Review the prompt and try another variation." }],
-        correctResponse: [
-          { kind: "text", markdown: "A model answer is available for this example." },
-        ],
-        rationale: [
-          { kind: "text", markdown: "The server released this explanation for learning." },
-        ],
-      };
-    case DEFERRED_ATTEMPT_ID:
-    case ON_RELEASE_ATTEMPT_ID:
-    case EXTERNAL_TOOL_FIXTURE_ATTEMPT_ID:
-      return null;
-    default:
-      return null;
-  }
+/**
+ * Returns a complete, already-projected mock receipt. This is transport
+ * fixture selection only; the real server is the sole disclosure evaluator.
+ */
+function preprojectedSubmissionReceipt(attempt: QuestionAttempt): SubmissionReceipt {
+  const fixture = projectedSubmissionFixtures[attempt.id];
+  return {
+    accepted: true,
+    attempt,
+    feedback: fixture?.feedback ?? null,
+    nextIssued: null,
+    nextPending: false,
+  };
 }
 
 /** The mock fixture's deterministic, key-free projection for one issued attempt. */
@@ -365,7 +380,7 @@ export async function respondRun(request: Request): Promise<Response> {
     }
     return jsonResponse({
       enrollment: publishedProblemFixture.enrollment,
-      summary: publishedProblemFixture.summary,
+      summary: fixtureLearnerProgress(publishedProblemFixture.summary),
     });
   }
   if (resource === "runs" && segments[3] === "attempts" && request.method === "GET") {
@@ -457,13 +472,7 @@ export async function respondRun(request: Request): Promise<Response> {
     const attempt = mockAttemptById(segments[2] ?? "");
     return attempt === undefined
       ? jsonResponse({ error: "Unknown fixture attempt" }, 404)
-      : jsonResponse({
-          accepted: true,
-          attempt,
-          feedback: mockFeedbackForAttempt(attempt),
-          nextIssued: null,
-          nextPending: false,
-        });
+      : jsonResponse(preprojectedSubmissionReceipt(attempt));
   }
   if (
     resource === "grading" &&
@@ -471,7 +480,7 @@ export async function respondRun(request: Request): Promise<Response> {
     segments[3] === publishedProblemFixture.enrollment.id &&
     request.method === "GET"
   ) {
-    return jsonResponse(publishedProblemFixture.summary);
+    return jsonResponse(fixtureLearnerProgress(publishedProblemFixture.summary));
   }
   return routeNotFound(request);
 }

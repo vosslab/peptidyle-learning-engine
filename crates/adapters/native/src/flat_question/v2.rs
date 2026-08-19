@@ -220,10 +220,7 @@ impl FlatQuestionV2 {
             },
             feedback: FlatOutcomeFeedback::default(),
             points,
-            attempt_policy: FlatAttemptPolicy {
-                max_attempts: None,
-                feedback: question_model::run_policy::FeedbackDisclosure::ImmediateFull,
-            },
+            attempt_policy: FlatAttemptPolicy { max_attempts: None },
             timing_policy: FlatTimingPolicy::Untimed,
             tags: Vec::new(),
             taxonomy: Vec::new(),

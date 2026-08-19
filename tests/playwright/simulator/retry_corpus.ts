@@ -60,10 +60,7 @@ interface FlatQuestionSource {
   };
   readonly feedback: { readonly correct: null; readonly incorrect: null };
   readonly points: 1;
-  readonly attemptPolicy: {
-    readonly maxAttempts: null;
-    readonly feedback: "immediateFull";
-  };
+  readonly attemptPolicy: { readonly maxAttempts: null };
   readonly timingPolicy:
     | { readonly kind: "untimed" }
     | { readonly kind: "perQuestion"; readonly seconds: 900; readonly graceSeconds: 30 };
@@ -241,7 +238,7 @@ function retryCorpusSource(
     },
     feedback: { correct: null, incorrect: null },
     points: 1,
-    attemptPolicy: { maxAttempts: null, feedback: "immediateFull" },
+    attemptPolicy: { maxAttempts: null },
     timingPolicy: timedQuestion
       ? { kind: "perQuestion", seconds: 900, graceSeconds: 30 }
       : { kind: "untimed" },

@@ -275,19 +275,6 @@ impl crate::ActivityStore for MemoryStore {
                 state.runs.insert((tenant, run.id), run);
             }
             ActivityTransition::RecordQuestionAttempt { attempt } => {
-                let feedback_disclosure = state
-                    .published
-                    .get(&(attempt.problem, attempt.question_version))
-                    .ok_or(StoreError::NotFound)?
-                    .question
-                    .attempt_policy
-                    .feedback;
-                // Legacy activity-transition fixtures still mint an attempt
-                // directly, so stamp the same issuance-time disclosure that
-                // the normal issue capability persists.
-                state
-                    .attempt_feedback_disclosures
-                    .insert((tenant, attempt.id), feedback_disclosure);
                 state.attempts.insert((tenant, attempt.id), *attempt);
             }
             ActivityTransition::CompleteRun { run, score, at } => {

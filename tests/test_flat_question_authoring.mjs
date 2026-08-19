@@ -40,7 +40,7 @@ function source() {
     },
     feedback: { correct: "Exactly right.", incorrect: "Try again." },
     points: 1,
-    attemptPolicy: { maxAttempts: null, feedback: "immediateFull" },
+    attemptPolicy: { maxAttempts: null },
     timingPolicy: { kind: "untimed" },
     tags: ["example"],
     taxonomy: [],
@@ -62,7 +62,7 @@ function publicDefinition(includeVersion = false) {
       ],
       selection: { kind: "exactlyOne" },
     },
-    attemptPolicy: { maxAttempts: null, feedback: "immediateFull" },
+    attemptPolicy: { maxAttempts: null },
     timingPolicy: { kind: "untimed" },
     randomization: { kind: "static" },
     grading: { mode: "allOrNothing", points: 1 },
@@ -109,6 +109,17 @@ test("codec accepts a valid source and serializes deterministic compact JSON", (
   assert.deepEqual(parseFlatQuestionSource(serialized), decoded);
 });
 
+test("codec rejects every retired question-level feedback disclosure value", () => {
+  for (const feedback of ["immediateFull", "immediateCorrectness", "deferred", "onRelease"]) {
+    assert.throws(() =>
+      decodeFlatQuestionSource({
+        ...source(),
+        attemptPolicy: { maxAttempts: null, feedback },
+      }),
+    );
+  }
+});
+
 test("codec normalizes omitted optional feedback to Rust canonical null members", () => {
   const input = source();
   delete input.response.choices[1].feedback;
@@ -144,14 +155,14 @@ test("codec enforces Unicode title and Rust u32 numeric bounds", () => {
   const maximum = 4_294_967_295;
   const timed = {
     ...source(),
-    attemptPolicy: { maxAttempts: maximum, feedback: "immediateFull" },
+    attemptPolicy: { maxAttempts: maximum },
     timingPolicy: { kind: "perQuestion", seconds: maximum, graceSeconds: maximum },
   };
   assert.deepEqual(decodeFlatQuestionSource(timed).timingPolicy, timed.timingPolicy);
   assert.throws(() =>
     decodeFlatQuestionSource({
       ...timed,
-      attemptPolicy: { maxAttempts: maximum + 1, feedback: "immediateFull" },
+      attemptPolicy: { maxAttempts: maximum + 1 },
     }),
   );
   assert.throws(() =>

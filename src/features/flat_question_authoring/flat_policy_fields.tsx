@@ -1,22 +1,8 @@
-// flat_policy_fields.tsx - explicit scoring, attempt, disclosure, and timing policy controls.
+// flat_policy_fields.tsx - explicit scoring, retry, and timing policy controls.
 
 import { Show, type JSX } from "solid-js";
 
-import type {
-  FlatQuestionAttemptPolicy,
-  FlatQuestionFeedbackDisclosure,
-  FlatQuestionTimingPolicy,
-} from "./flat_question_source";
-
-const DISCLOSURES: ReadonlyArray<{
-  readonly value: FlatQuestionFeedbackDisclosure;
-  readonly label: string;
-}> = [
-  { value: "immediateFull", label: "Immediate full feedback" },
-  { value: "immediateCorrectness", label: "Immediate correctness only" },
-  { value: "deferred", label: "Deferred feedback" },
-  { value: "onRelease", label: "Feedback on release" },
-];
+import type { FlatQuestionAttemptPolicy, FlatQuestionTimingPolicy } from "./flat_question_source";
 
 export interface FlatPolicyFieldsProps {
   readonly points: number;
@@ -44,15 +30,11 @@ function nonnegativeInteger(value: string, fallback: number): number {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
-function isDisclosure(value: string): value is FlatQuestionFeedbackDisclosure {
-  return DISCLOSURES.some((disclosure) => disclosure.value === value);
-}
-
 function isTimingKind(value: string): value is FlatQuestionTimingPolicy["kind"] {
   return value === "untimed" || value === "perQuestion" || value === "perAttempt";
 }
 
-/** Policy edits use native controls and keep unlimited attempts as a visible, reversible choice. */
+/** Retry and timing edits use native controls and keep unlimited attempts reversible. */
 export function FlatPolicyFields(props: FlatPolicyFieldsProps): JSX.Element {
   const timingKind = (): FlatQuestionTimingPolicy["kind"] => props.timingPolicy.kind;
   const timingSeconds = (): number =>
@@ -81,7 +63,7 @@ export function FlatPolicyFields(props: FlatPolicyFieldsProps): JSX.Element {
   };
   return (
     <fieldset>
-      <legend>Scoring and response policy</legend>
+      <legend>Scoring, retries, and timing</legend>
       <div class="flat-question-authoring__grid">
         <label class="flat-question-authoring__field">
           <span>Points</span>
@@ -117,6 +99,9 @@ export function FlatPolicyFields(props: FlatPolicyFieldsProps): JSX.Element {
               })
             }
           />
+          <small class="flat-question-authoring__help">
+            This controls retries only. Assignment settings control what learners can see.
+          </small>
         </label>
       </div>
       <Show when={error("points")() !== undefined}>
@@ -144,22 +129,6 @@ export function FlatPolicyFields(props: FlatPolicyFieldsProps): JSX.Element {
           />{" "}
           Allow unlimited attempts
         </span>
-      </label>
-      <label class="flat-question-authoring__field">
-        <span>Feedback disclosure</span>
-        <select
-          value={props.attemptPolicy.feedback}
-          disabled={props.disabled}
-          onChange={(event) => {
-            const feedback = event.currentTarget.value;
-            if (isDisclosure(feedback))
-              props.onAttemptPolicyChange({ ...props.attemptPolicy, feedback });
-          }}
-        >
-          {DISCLOSURES.map((disclosure) => (
-            <option value={disclosure.value}>{disclosure.label}</option>
-          ))}
-        </select>
       </label>
       <fieldset>
         <legend>Timing</legend>

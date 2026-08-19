@@ -25,8 +25,8 @@ use question_model::generation::{
 use question_model::identity::{AssetId, ObjectId, ProblemId, VersionId, WorkspaceId};
 use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition, StudentResponse};
 use question_model::run_policy::{
-    AttemptPolicy, CompletionRequirement, ContinuedPractice, FeedbackDisclosure, GradePolicy,
-    RunPolicies, TimingPolicy, VariationPolicy,
+    AttemptPolicy, CompletionRequirement, ContinuedPractice, GradePolicy, RunPolicies,
+    TimingPolicy, VariationPolicy,
 };
 use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
@@ -315,6 +315,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
             tenant,
             course_id,
             title: "Peptide bond mastery".to_string(),
+            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
             items: vec![AssignmentItemSummary {
                 id: assignment_item_id("0198e000-0000-7000-8000-000000000017"),
                 question_id: catalog_problem.question_id.clone(),
@@ -390,7 +391,6 @@ fn draft_question(workspace: WorkspaceId, assets: &[FixtureAsset]) -> DraftQuest
         },
         attempt_policy: AttemptPolicy {
             max_attempts: None,
-            feedback: FeedbackDisclosure::ImmediateFull,
         },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Seeded {

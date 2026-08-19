@@ -10,6 +10,14 @@ external QTI-JSONL is a separate future adapter concern. WP-RC1 through WP-RC3 a
 accepted. See
 [release_completion_plan.md](../active/release_completion_plan.md) for the current package sequence.
 
+> **Current-contract supersession (WP-PROF-S4).** This is an accepted import-history plan. Its
+> former `immediateFull` authoring default is retired: current `AttemptPolicy` is exactly
+> `maxAttempts`, and imports create no learner-disclosure default. Assignment creation independently
+> chooses each of the five learner-disclosure timings through the current assignment-owned policy.
+> QTI feedback remains question content/provenance when a profile preserves it; it never supplies
+> learner timing or disclosure authority. Profile v1 still rejects vendor feedback as described
+> below. See [CONTRACTS.md](../../CONTRACTS.md) for the current contract.
+
 ## Decisions
 
 - Keep Canvas QTI 1.2 and Blackboard Original QTI 2.1 profile v1 strict, static, text-only, and
@@ -334,9 +342,12 @@ compatible parser patch with a regression fixture.
 - A nonblank vendor title is required. No filename or identifier title fallback is invented.
 - Canvas points must be present and exact.
 - Blackboard v1 defaults missing item points to `1.0` and records an explicit warning.
-- Imported flat questions default to unlimited attempts, `immediateFull` feedback, untimed,
-  `en-US`, `allRightsReserved`, empty tags, empty taxonomy, and no feedback.
-- These are PLE authoring defaults, not vendor semantics.
+- At WP-QTI acceptance, imported flat questions displayed unlimited attempts, the now-retired
+  `immediateFull` feedback default, untimed, `en-US`, `allRightsReserved`, empty tags, empty
+  taxonomy, and no feedback. This is historical evidence, not a current import contract.
+- Current imports retain no learner-disclosure default: `AttemptPolicy` contains only
+  `maxAttempts`, while assignment creation independently chooses the five disclosure timings.
+- The retained and current defaults are PLE authoring choices, not vendor semantics.
 - Every default contributes to a stable warning digest. Conversion requires the instructor to
   acknowledge the exact current digest. A changed report invalidates the acknowledgement.
 - The converted source opens in the existing flat editor before publication.

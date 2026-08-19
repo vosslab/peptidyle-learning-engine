@@ -129,8 +129,8 @@ is not a mutable Boolean that can disagree with the attempt history.
 Completion is a milestone, not a lockout. When the policy permits continued
 practice, the learner can start another run with fresh variation. For a typical
 mastery assignment this means all-correct completion, highest-score selection,
-unlimited later runs, new seeds, and immediate correctness feedback. The exact
-composition remains an assignment decision, described in
+unlimited later runs, new seeds, and five assignment disclosure fields set to
+`AfterSubmit`. The exact composition remains an assignment decision, described in
 [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md).
 
 ## Issue and present
@@ -220,9 +220,12 @@ a later summary.
 
 The learner receives only accepted status, committed attempt identity,
 policy-permitted correctness and points, sanitized feedback, and either an
-immutable `nextIssued` descriptor or `nextPending`. The Store derives feedback
-disclosure from the policy captured with the issued attempt; the request cannot
-choose it. `nextPending` means the grade receipt succeeded but successor
+immutable `nextIssued` descriptor or `nextPending`. The Store evaluates learner
+disclosure at projection time only after S5 entitlement, from the current
+S3-resolved effective-policy verdict, assignment-owned policy, authoritative
+time, and the submitted fact; the request cannot choose it. The historical S3
+receipt remains immutable attempt evidence, not a disclosure input.
+`nextPending` means the grade receipt succeeded but successor
 delivery has not; recovery may finish that single pending delivery, while a
 replay never resubmits or consults changed catalog/backend state. Withheld
 feedback remains withheld even though the result is persisted. An instructor or

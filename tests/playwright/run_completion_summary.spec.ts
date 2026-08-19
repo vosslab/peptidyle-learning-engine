@@ -97,6 +97,15 @@ test.beforeAll(async () => {
           staleRunScreenQueryCalls = 0;
           freshRunScreenCalls = 0;
           rejectStaleRunScreenQuery = false;
+          const learnerProgress = {
+            scoreState: "available",
+            currentScore: 1,
+            bestScore: 1,
+            latestScore: 1,
+            completedRunCount: 1,
+            totalQuestionAttempts: 1,
+            lastActivityAt: 1786000004300,
+          };
           const transport = async (input, init) => {
             const request = new Request(new URL(String(input), window.location.origin), init);
             const path = new URL(request.url).pathname;
@@ -119,7 +128,7 @@ test.beforeAll(async () => {
             if (request.method === "GET" && path === "/api/enrollments/" + run.enrollment) {
               return json({
                 enrollment: publishedProblemFixture.enrollment,
-                summary: publishedProblemFixture.summary,
+                summary: learnerProgress,
               });
             }
             if (request.method === "GET" && path === "/api/runs/" + runId + "/attempts") {
@@ -148,7 +157,7 @@ test.beforeAll(async () => {
               return json({
                 course: screen.course,
                 run: { ...run, completedAt: 1786000004300, score: 1 },
-                summary: publishedProblemFixture.summary,
+                summary: learnerProgress,
                 practiceAllowed,
                 outcomes: { items: [], nextCursor: null },
               });

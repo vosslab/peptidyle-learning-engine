@@ -135,7 +135,7 @@ reviewed table covering all eight capabilities and the return-all behavior.
 | `source`        | `QuestionSource`          | Which engine, and where to find it there |
 | `prompt`        | `Vec<ContentBlock>`       | Renderable content, in order             |
 | `response`      | `ResponseDefinition`      | Expected response shape                  |
-| `attemptPolicy` | `AttemptPolicy`           | Attempts allowed, feedback disclosure    |
+| `attemptPolicy` | `AttemptPolicy`           | Retry bound for this question             |
 | `timingPolicy`  | `TimingPolicy`            | Time limits, with grace                  |
 | `randomization` | `RandomizationDefinition` | How content varies                       |
 | `grading`       | `GradingDefinition`       | How a response is judged                 |
@@ -243,8 +243,10 @@ error.
 ### Policies
 
 Question-level policies are authored with the question: `AttemptPolicy`
-(attempts allowed, when feedback appears) and `TimingPolicy` (untimed, per
-question, or per attempt, each with a grace period for network delay).
+(a retry bound) and `TimingPolicy` (untimed, per question, or per attempt,
+each with a grace period for network delay). Learner disclosure is not a
+question policy: the assignment owns its five-field `LearnerDisclosurePolicy`
+and the server evaluates it for current learner projections.
 For timed work, `AttemptTimerRecord.deadline` is the server-issued base
 deadline. MOD-TIME applies any authorized, audited pause extension before it
 evaluates the inclusive grace boundary.

@@ -10,15 +10,15 @@ placeholders.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Student course assignment list showing Genetics Chapter 1 Mastery with keyboard focus on Review assignment](screenshots/student_assignment_list.png)
+![Student course assignment list showing Genetics Chapter 1 Mastery with keyboard focus on Review assignment](screenshots/student/student_assignment_list.png)
 
-![Student assignment overview for Genetics Chapter 1 Mastery with keyboard focus on Start or resume practice](screenshots/genetics_chapter_one_overview.png)
+![Student assignment overview for Genetics Chapter 1 Mastery with keyboard focus on Start or resume practice](screenshots/student/genetics_chapter_one_overview.png)
 
-![Student Genetics Chapter 1 problem showing the server-authoritative countdown and keyboard-focused response](screenshots/student_timed_problem.png)
+![Student Genetics Chapter 1 problem showing the server-authoritative countdown and keyboard-focused response](screenshots/student/student_timed_problem.png)
 
-![Student completed-run summary showing a correct score and keyboard focus on Start another practice run](screenshots/student_fresh_practice.png)
+![Student completed-run summary showing a correct score and keyboard focus on Start another practice run](screenshots/student/student_fresh_practice.png)
 
-![Student Mastery practice run 2 showing a reset 15-minute timer and an unanswered focused response](screenshots/student_retake_fresh_problem.png)
+![Student Mastery practice run 2 showing a reset 15-minute timer and an unanswered focused response](screenshots/student/student_retake_fresh_problem.png)
 <!-- screenshots:end -->
 
 ## Before you begin

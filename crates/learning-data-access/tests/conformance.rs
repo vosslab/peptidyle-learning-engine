@@ -138,7 +138,7 @@ use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
 use question_model::response::StudentResponse;
-use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::{License, Tag};
 use question_model::{
     ActivityTimestamp, AssetId, AssignmentDeliveryState, AssignmentId, AssignmentItem,
@@ -148,11 +148,12 @@ use question_model::{
     Capability, CompletionRequirement, ContinuedPractice, CourseGroupId, CourseId,
     CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource, EnrollmentId,
     EntitlementPurpose, FeedbackContent, GeneratorReference, GradePolicy, GradingDefinition,
-    ImplementationVersion, ObjectId, PointValue, ProblemDisplayRef, ProblemId, ProblemVersionRef,
-    PublicAuthorName, PublicByline, PublicationScope, QuestionAttempt, QuestionAttemptId,
-    QuestionBackend, QuestionMetadata, QuestionSource, RenderedItemIdV1, ResponseDefinition, RunId,
-    RunPolicies, SelectionOrdering, SourceArtifact, TenantId, UserId, UserRole, VariationPolicy,
-    VersionId, WorkspaceId, WorkspaceImportId,
+    ImplementationVersion, LearnerDisclosurePolicy, LearnerDisclosureTiming, ObjectId, PointValue,
+    ProblemDisplayRef, ProblemId, ProblemVersionRef, PublicAuthorName, PublicByline,
+    PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionMetadata,
+    QuestionSource, RenderedItemIdV1, ResponseDefinition, RunId, RunPolicies, SelectionOrdering,
+    SourceArtifact, TenantId, UserId, UserRole, VariationPolicy, VersionId, WorkspaceId,
+    WorkspaceImportId,
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 use uuid::Uuid;
@@ -192,10 +193,7 @@ fn draft_question(workspace: WorkspaceId) -> DraftQuestionDefinition {
             tolerance: NumericTolerance::Relative { fraction: 0.01 },
             unit: Some("g/mol".to_string()),
         },
-        attempt_policy: AttemptPolicy {
-            max_attempts: None,
-            feedback: FeedbackDisclosure::ImmediateFull,
-        },
+        attempt_policy: AttemptPolicy { max_attempts: None },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },

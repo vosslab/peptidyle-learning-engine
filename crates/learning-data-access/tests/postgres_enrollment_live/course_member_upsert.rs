@@ -69,8 +69,12 @@ async fn postgres_course_member_upsert_is_atomic_idempotent_and_tenant_scoped() 
     for (index, assignment) in assignments.iter().enumerate() {
         sqlx::query(
             "INSERT INTO assignment \
-             (tenant_id, assignment_id, course_id, audience_kind, title) \
-             VALUES ($1, $2, $3, 'course_wide', $4)",
+             (tenant_id, assignment_id, course_id, audience_kind, title, \
+              score_disclosure, per_item_correctness_disclosure, \
+              feedback_text_disclosure, solution_disclosure, \
+              class_statistics_disclosure) \
+             VALUES ($1, $2, $3, 'course_wide', $4, 'after_submit', \
+                     'after_submit', 'after_submit', 'after_submit', 'never')",
         )
         .bind(tenant.as_uuid())
         .bind(*assignment)

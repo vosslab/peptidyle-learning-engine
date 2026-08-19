@@ -5,7 +5,7 @@ import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js
 import "./instructor_data_tables.css";
 import "./course_roster_page.css";
 
-import type { AssignmentSummary } from "../api/contracts";
+import type { LearnerAssignmentSummary } from "../api/contracts";
 import type {
   AllowedEmailDomain,
   CourseInvitationEmailDelivery,
@@ -39,7 +39,7 @@ type RosterState =
   | {
       readonly kind: "ready";
       readonly roster: CourseRosterPage;
-      readonly assignments: ReadonlyArray<AssignmentSummary>;
+      readonly assignments: ReadonlyArray<LearnerAssignmentSummary>;
     }
   | { readonly kind: "error"; readonly message: string };
 

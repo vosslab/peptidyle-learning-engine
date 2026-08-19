@@ -30,8 +30,10 @@ use crate::{
     CourseItemAnalysisWorkerStore, JobPayload, SessionTokenHash, StoreError, TenantContext,
 };
 
-const REPORT_SCHEMA_VERSION: i32 = 1;
+pub(super) const REPORT_SCHEMA_VERSION: i32 = 1;
 type DeliveredItemKey = (AssignmentItemId, ProblemId, VersionId);
+
+mod learner_class_statistics;
 
 #[derive(Debug)]
 struct DeliveredItem {
@@ -151,6 +153,19 @@ impl CourseItemAnalysisStore for PostgresStore {
             || scoring_status != "current";
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(Some(report))
+    }
+
+    async fn learner_class_statistics(
+        &self,
+        context: TenantContext,
+        learner: question_model::UserId,
+        course: CourseId,
+        assignment: AssignmentId,
+    ) -> Result<question_model::LearnerClassStatistics, StoreError> {
+        learner_class_statistics::learner_class_statistics(
+            self, context, learner, course, assignment,
+        )
+        .await
     }
 }
 
@@ -784,7 +799,7 @@ fn checked_possible_points(value: BigDecimal) -> Result<f64, StoreError> {
         })
 }
 
-fn validate_report_identity(
+pub(super) fn validate_report_identity(
     report: &CourseItemAnalysisReport,
     tenant: TenantId,
     course: CourseId,

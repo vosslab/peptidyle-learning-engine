@@ -185,10 +185,7 @@ pub(super) async fn contracted_route_fixture(
             },
             prompt: Vec::new(),
             response: ResponseDefinition::ExternalTool {},
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateCorrectness,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },
@@ -310,6 +307,7 @@ pub(super) async fn contracted_route_fixture(
                 title: "Recorded assignment".into(),
                 items: assignment_items(vec![reference]),
                 selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: RunPolicies {
                     completion: CompletionRequirement::AllCorrect,
                     grade: GradePolicy::Highest,

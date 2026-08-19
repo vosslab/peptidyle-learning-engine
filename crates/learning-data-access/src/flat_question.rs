@@ -461,7 +461,7 @@ mod tests {
     use objects::{ObjectCategory, ObjectKey, ObjectRecord};
     use question_model::generation::RandomizationDefinition;
     use question_model::identity::ObjectId;
-    use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+    use question_model::run_policy::{AttemptPolicy, TimingPolicy};
     use question_model::taxonomy::License;
     use question_model::{
         DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionMetadata,
@@ -471,7 +471,7 @@ mod tests {
 
     use crate::StoreError;
 
-    const FIXTURE: &str = r#"{"format":"pleFlatQuestion","version":2,"title":"Favorite color","prompt":"What is my favorite color?","response":{"kind":"singleChoice","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"blue"},"points":1.0,"attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},"timingPolicy":{"kind":"untimed"},"license":{"kind":"cc0"},"language":"en-US"}"#;
+    const FIXTURE: &str = r#"{"format":"pleFlatQuestion","version":2,"title":"Favorite color","prompt":"What is my favorite color?","response":{"kind":"singleChoice","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"blue"},"points":1.0,"attemptPolicy":{"maxAttempts":null},"timingPolicy":{"kind":"untimed"},"license":{"kind":"cc0"},"language":"en-US"}"#;
 
     fn private() -> grading::flat_question::FlatQuestionPrivate {
         adapter_native::flat_question::FlatQuestionDocument::parse(FIXTURE.as_bytes())
@@ -499,10 +499,7 @@ mod tests {
             },
             response: ResponseDefinition::ExternalTool {},
             grading: GradingDefinition::AllOrNothing { points: 1.0 },
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateFull,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             metadata: QuestionMetadata {
                 title: "x".to_string(),
                 tags: vec![],

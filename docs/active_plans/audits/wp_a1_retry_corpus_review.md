@@ -38,10 +38,12 @@
   `POST /api/problems/{workspace}/flat-question-publish`, and the catalog
   detail GET. It performs no SQL, account, enrollment, course, membership, or
   cleanup action.
-- PASS: The authoring document matches the maintained v1 single-choice source
-  contract: private `correctChoice`, `maxAttempts: null`, `immediateFull`, and
-  `untimed`. The source selects a named RNG stream and keeps the first response
-  wrong and second response correct without exporting that information.
+- HISTORICAL: At the time of this WP-A1 review, the v1 single-choice source
+  contract included private `correctChoice`, `maxAttempts: null`, `immediateFull`, and `untimed`.
+  WP-PROF-S4 supersedes that disclosure model: current `AttemptPolicy` is `maxAttempts`-only, and the
+  assignment-owned five-field learner disclosure policy controls visibility. The reviewed source
+  still selected a named RNG stream and kept the first response wrong and second response correct
+  without exporting that information.
 - PASS: Save uses the required flat-question media type; publish uses the save
   ETag exactly and institution scope; the actual server returns 200 for save
   and 201 for publication. The local-development login route is appropriate to

@@ -35,6 +35,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	launch = actions.add_parser("launch")
 	launch.add_argument("--manifest", required=True, type=pathlib.Path)
 	launch.add_argument("--timeout-seconds", required=True, type=int)
+	restart = actions.add_parser("restart")
+	restart.add_argument("--manifest", required=True, type=pathlib.Path)
+	restart.add_argument("--service", required=True)
+	restart.add_argument("--timeout-seconds", required=True, type=int)
+	stop_outage = actions.add_parser("stop-outage-service")
+	stop_outage.add_argument("--manifest", required=True, type=pathlib.Path)
+	evidence_logs = actions.add_parser("read-evidence-logs")
+	evidence_logs.add_argument("--manifest", required=True, type=pathlib.Path)
 	diagnostics = actions.add_parser("diagnostics")
 	diagnostics.add_argument("--manifest", required=True, type=pathlib.Path)
 	diagnostics.add_argument("--service", action="append", default=[])
@@ -159,6 +167,27 @@ def write_compose_success_output(result: local_stack_control.models.CommandResul
 
 
 #============================================
+def read_evidence_logs(
+	runner: local_stack_control.process.CommandRunner,
+	disposable: local_stack_control.models.DisposableComposeTarget,
+) -> int:
+	"""Read the policy-selected service logs through one redacted bounded action."""
+	local_stack_control.consumer.require_current_resource_capability(runner, disposable)
+	argv, environment = local_stack_control.consumer.evidence_log_command(disposable)
+	result = runner.run(argv, environment, disposable.target.repo_root)
+	private_values = local_stack_control.consumer.private_environment_values(
+		disposable.target.env_file
+	)
+	sys.stdout.write(
+		local_stack_control.consumer.redact_evidence_logs(result.stdout, private_values)
+	)
+	sys.stderr.write(
+		local_stack_control.consumer.redact_evidence_logs(result.stderr, private_values)
+	)
+	return result.returncode
+
+
+#============================================
 def stop_replica_instance(
 	runner: local_stack_control.process.CommandRunner,
 	disposable: local_stack_control.models.DisposableComposeTarget,
@@ -257,6 +286,31 @@ def main() -> None:
 			)
 			print(f"Disposable stack ready: {result.gateway_url}")
 			raise SystemExit(0)
+		if args.action == "restart":
+			local_stack_control.consumer.require_mutating_capability(runner, disposable)
+			if args.service != local_stack_control.consumer.outage_service(disposable):
+				raise local_stack_control.models.ControllerError(
+					"disposable restart is limited to its declared outage service"
+				)
+			result = local_stack_control.lifecycle.restart_lifecycle(
+				disposable,
+				runner,
+				root,
+				args.service,
+				local_stack_control.consumer.restart_options(
+					disposable, args.timeout_seconds
+				),
+			)
+			print(f"Disposable stack ready: {result.gateway_url}")
+			raise SystemExit(0)
+		if args.action == "stop-outage-service":
+			local_stack_control.consumer.require_mutating_capability(runner, disposable)
+			argv, environment = local_stack_control.consumer.outage_stop_command(disposable)
+			result = runner.stream(argv, environment, root)
+			raise SystemExit(result)
+		if args.action == "read-evidence-logs":
+			result = read_evidence_logs(runner, disposable)
+			raise SystemExit(result)
 		if args.action == "diagnostics":
 			result = run_diagnostics(runner, disposable, tuple(args.service))
 			raise SystemExit(result)

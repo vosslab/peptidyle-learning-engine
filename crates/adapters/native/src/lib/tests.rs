@@ -8,7 +8,7 @@ use question_model::capability::{BackendCapabilities, Capability};
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::generation::{ParameterSpec, RandomizationDefinition};
 use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
-use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{
     AssetId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, ProblemId,
@@ -33,7 +33,7 @@ const FLAT_FAVORITE_COLOR: &str = r#"{
     "incorrect": "Try thinking of a cool color."
   },
   "points": 1.0,
-  "attemptPolicy": {"maxAttempts": null, "feedback": "immediateFull"},
+  "attemptPolicy": {"maxAttempts": null},
   "timingPolicy": {"kind": "untimed"},
   "tags": ["example"],
   "taxonomy": [],
@@ -110,10 +110,7 @@ fn peptide_question_with_generator_version(generator_version: &str) -> QuestionD
             ],
             selection: SelectionCardinality::ExactlyOne,
         },
-        attempt_policy: AttemptPolicy {
-            max_attempts: None,
-            feedback: FeedbackDisclosure::ImmediateCorrectness,
-        },
+        attempt_policy: AttemptPolicy { max_attempts: None },
         timing_policy: TimingPolicy::PerQuestion {
             seconds: 90,
             grace_seconds: 5,
@@ -676,7 +673,6 @@ fn a_second_family_plugs_into_the_registry_without_engine_changes() {
         },
         attempt_policy: AttemptPolicy {
             max_attempts: Some(1),
-            feedback: FeedbackDisclosure::Deferred,
         },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Static,
@@ -762,7 +758,6 @@ fn versioned_numeric_question(version: &str) -> QuestionDefinition {
         },
         attempt_policy: AttemptPolicy {
             max_attempts: Some(1),
-            feedback: FeedbackDisclosure::Deferred,
         },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Seeded {

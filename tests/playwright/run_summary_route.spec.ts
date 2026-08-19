@@ -93,6 +93,15 @@ test.beforeAll(async () => {
           response: publishedProblemFixture.attempts[0].response,
           feedback: null,
         }));
+        const learnerProgress = {
+          scoreState: "available",
+          currentScore: 1,
+          bestScore: 1,
+          latestScore: 1,
+          completedRunCount: 1,
+          totalQuestionAttempts: 1,
+          lastActivityAt: 1786000004300,
+        };
 
         function summaryPage(cursor) {
           const course = {
@@ -103,7 +112,7 @@ test.beforeAll(async () => {
             return {
               course,
               run,
-              summary: publishedProblemFixture.summary,
+              summary: learnerProgress,
               practiceAllowed: true,
               outcomes: { items: outcomes.slice(0, 30), nextCursor },
             };
@@ -112,7 +121,7 @@ test.beforeAll(async () => {
             return {
               course,
               run,
-              summary: publishedProblemFixture.summary,
+              summary: learnerProgress,
               practiceAllowed: true,
               outcomes: { items: outcomes.slice(30), nextCursor: null },
             };
@@ -140,7 +149,7 @@ test.beforeAll(async () => {
               : new Response(JSON.stringify(page), { headers: { "content-type": "application/json" } });
           }
           if (method === "GET" && url.pathname === "/api/enrollments/" + run.enrollment) {
-            return new Response(JSON.stringify({ enrollment: publishedProblemFixture.enrollment, summary: publishedProblemFixture.summary }), {
+            return new Response(JSON.stringify({ enrollment: publishedProblemFixture.enrollment, summary: learnerProgress }), {
               headers: { "content-type": "application/json" },
             });
           }
@@ -239,7 +248,9 @@ test("built run summary retries a bounded cursor and a fresh-practice start with
     .evaluateAll((headings) => headings.map((heading) => heading.id));
   expect(new Set(feedbackHeadingIds).size).toBe(feedbackHeadingIds.length);
   await expect(fixture.getByRole("button", { name: "Start fresh practice" })).toBeVisible();
-  await expect(fixture.getByText("Feedback is not available yet.").first()).toBeVisible();
+  await expect(
+    fixture.getByText("Feedback is not available for this response.").first(),
+  ).toBeVisible();
 
   await fixture.getByRole("button", { name: "Load more responses" }).click();
   await expect(fixture.getByText("Could not load more responses")).toBeVisible();

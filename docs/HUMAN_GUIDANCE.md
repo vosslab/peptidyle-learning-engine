@@ -42,6 +42,21 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - For planning, professor surfaces target at least 1280 by 800 CSS pixels. Use this student planning
   mix: 1280 by 800 laptop 40%, 800 by 1280 portrait tablet 30%, iPhone Pro aspect 20%, and square
   aspect 10%. These are planning weights, not test quotas or telemetry targets.
+- Permanent visual evidence is organized under `docs/screenshots/` by role and by student/access
+  boundary. The exact CSS-pixel matrix is 1280 by 800 (16:10), 800 by 1280 (10:16), 393 by 852
+  (iPhone Pro aspect), and 800 by 800 (square), with planning weights of 40%, 30%, 20%, and 10%.
+- Professor evidence remains desktop evidence at 1280 by 800 or larger. Student evidence must show
+  an allowed student surface and a fail-closed denial of instructor-only routes. Because pixels cannot
+  prove authorization, every student/access capture is paired with no-transport assertions and direct
+  route probes.
+- The committed corpus is owned only by its manifest. Screenshots count as acceptance evidence only
+  after a fresh capture and inspection; a retained image does not by itself prove that the current
+  implementation passes. Email is unavailable for live evidence, so local-development credentials or
+  invitations are permitted without claiming email delivery.
+- Keep public evidence separate from private evidence. Do not put answer keys, grading
+  implementations, private source, email, UUIDs, or FERPA records in a public or learner corpus.
+  Deterministic fictional fixture addresses in the reserved `example.invalid` domain are permitted
+  in test evidence and are not real identifying records; they must remain visibly fictional.
 
 ## Interface composition and accessibility
 

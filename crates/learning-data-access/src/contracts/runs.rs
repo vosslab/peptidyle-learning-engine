@@ -856,8 +856,11 @@ pub struct SubmissionRecord {
     /// Answer-free envelope actually rendered for this receipt, when the
     /// response family has a native presentation.
     pub presentation: Option<ReceiptPresentationSnapshot>,
-    /// Immutable disclosure policy used for this receipt's feedback.
-    pub feedback_disclosure: FeedbackDisclosure,
+    /// Current server-side disclosure input for this receipt's projection.
+    /// Immutable grading and feedback content remain in the receipt; a later
+    /// assignment policy or authoritative-clock change may alter only this
+    /// public projection.
+    pub disclosure: LearnerDisclosureInput,
 }
 
 impl std::fmt::Debug for SubmissionRecord {
@@ -871,7 +874,7 @@ impl std::fmt::Debug for SubmissionRecord {
                 "presentation",
                 &self.presentation.as_ref().map(|_| "[answer-free]"),
             )
-            .field("feedback_disclosure", &self.feedback_disclosure)
+            .field("disclosure", &"[SERVER-ONLY]")
             .finish()
     }
 }

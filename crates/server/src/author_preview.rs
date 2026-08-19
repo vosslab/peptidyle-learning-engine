@@ -318,7 +318,7 @@ mod tests {
     use question_model::envelope::ContentBlock;
     use question_model::generation::{GeneratorReference, ParameterSpec, RandomizationDefinition};
     use question_model::response::{ChoiceId, ChoiceOption};
-    use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+    use question_model::run_policy::{AttemptPolicy, TimingPolicy};
     use question_model::taxonomy::License;
     use question_model::{
         DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, QuestionMetadata,
@@ -415,10 +415,7 @@ mod tests {
                 ],
                 selection: SelectionCardinality::ExactlyOne,
             },
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateCorrectness,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Seeded {
                 generator: GeneratorReference {

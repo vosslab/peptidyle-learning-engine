@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use objects::memory::MemoryObjectStore;
 use question_model::generation::RandomizationDefinition;
-use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{DraftQuestionSource, GradingDefinition, QuestionMetadata, WorkspaceId};
 
@@ -122,10 +122,7 @@ fn question(snapshot: ObjectId, digest: String) -> QuestionDefinition {
         },
         prompt: Vec::new(),
         response: question_model::ResponseDefinition::ExternalTool {},
-        attempt_policy: AttemptPolicy {
-            max_attempts: None,
-            feedback: FeedbackDisclosure::ImmediateCorrectness,
-        },
+        attempt_policy: AttemptPolicy { max_attempts: None },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },

@@ -38,15 +38,18 @@ impl crate::FeedbackStore for PostgresStore {
         if !has_feedback {
             return Err(StoreError::NotFound);
         }
-        let disclosure = super::submission::load_issued_feedback_disclosure(
+        let disclosure = super::submission::current_disclosure_input(
             &mut transaction,
             tenant,
+            &assignment,
             command.attempt,
+            attempt.timer.submitted_at,
         )
-        .await?;
-        if disclosure != question_model::run_policy::FeedbackDisclosure::OnRelease {
+        .await?
+        .decision();
+        if !disclosure.feedback_text && !disclosure.solution {
             return Err(StoreError::InvalidRecord(
-                "feedback release requires an on-release question policy".to_string(),
+                "feedback release requires currently disclosed teaching feedback".to_string(),
             ));
         }
         let inserted = sqlx::query(
@@ -199,9 +202,11 @@ impl crate::FeedbackStore for PostgresStore {
         .ok_or(StoreError::NotFound)?;
         let summary = decode_summary_row(&summary_row)?;
 
-        // This is deliberately the sole bounded outcome query. It reads each
-        // attempt's issuance-persisted disclosure and private feedback/release
-        // rows so a later catalog edit cannot rewrite historical feedback.
+        // This is deliberately the sole bounded outcome query. It reads the
+        // current effective-policy receipt and private feedback required for
+        // the projection. The projection separately applies the current
+        // assignment disclosure policy and authoritative time; feedback-release
+        // audit records never unlock learner content and are not read here.
         let rows = sqlx::query(
             "SELECT COALESCE(si.payload, qa.payload) AS attempt_payload, \
                     COALESCE(si.payload_sha256, qa.payload_sha256) AS attempt_sha256, \
@@ -213,9 +218,7 @@ impl crate::FeedbackStore for PostgresStore {
                         AS current_submitted_at, \
                     floor(extract(epoch FROM timing.effective_deadline) * 1000)::bigint \
                         AS current_deadline_at, \
-                    qa.issued_feedback_disclosure AS feedback_policy, \
-                    af.hint, af.correct_response, af.rationale, af.content_sha256, \
-                    fr.released_by, floor(extract(epoch FROM fr.released_at) * 1000)::bigint AS released_at \
+                    af.hint, af.correct_response, af.rationale, af.content_sha256 \
              FROM question_attempt AS qa \
              LEFT JOIN submission_idempotency AS si \
                ON si.tenant_id = qa.tenant_id AND si.attempt_id = qa.attempt_id \
@@ -234,8 +237,6 @@ impl crate::FeedbackStore for PostgresStore {
               AND sc.candidate_id = ri.assignment_item_id \
              LEFT JOIN attempt_feedback AS af \
                ON af.tenant_id = qa.tenant_id AND af.attempt_id = qa.attempt_id \
-             LEFT JOIN feedback_release AS fr \
-               ON fr.tenant_id = qa.tenant_id AND fr.attempt_id = qa.attempt_id \
              WHERE qa.tenant_id = $1 AND qa.run_id = $2 \
                AND ($3::integer IS NULL OR (qa.assignment_position, qa.attempt_id) > ($3, $4::uuid)) \
                AND (NOT $7::boolean OR COALESCE(ai.delivery_state, sc.delivery_state) <> 'retired') \
@@ -261,19 +262,6 @@ impl crate::FeedbackStore for PostgresStore {
                 "attempt_sha256",
             )?;
             let feedback = feedback_from_summary_row(&row)?;
-            let release = row
-                .try_get::<Option<Uuid>, _>("released_by")
-                .map_err(map_sqlx_error)?
-                .zip(
-                    row.try_get::<Option<i64>, _>("released_at")
-                        .map_err(map_sqlx_error)?,
-                )
-                .map(|(released_by, released_at)| FeedbackReleaseRecord {
-                    tenant,
-                    attempt: attempt.id,
-                    released_by: UserId::from_uuid(released_by),
-                    released_at: ActivityTimestamp::from_unix_millis(released_at),
-                });
             outcomes.push((
                 RunSummaryCursor {
                     assignment_position: attempt.assignment_position,
@@ -285,9 +273,15 @@ impl crate::FeedbackStore for PostgresStore {
                     submitted_at: attempt.timer.submitted_at,
                     response: attempt.response,
                     result: attempt.result,
-                    feedback_policy: feedback_policy_from_summary_row(&row)?,
+                    disclosure: super::submission::current_disclosure_input(
+                        &mut transaction,
+                        tenant,
+                        &assignment,
+                        attempt.id,
+                        attempt.timer.submitted_at,
+                    )
+                    .await?,
                     feedback,
-                    release,
                 },
             ));
         }

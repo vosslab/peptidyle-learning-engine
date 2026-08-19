@@ -90,6 +90,9 @@ pub struct AssignmentRecord {
     pub items: Vec<question_model::AssignmentItem>,
     /// Random-selection groups with pinned immutable candidates.
     pub selection_groups: Vec<question_model::AssignmentSelectionGroup>,
+    /// Assignment-owned learner-facing disclosure schedule, evaluated only by
+    /// the server-side learner projection path.
+    pub disclosure_policy: question_model::LearnerDisclosurePolicy,
     /// Four independent run policies.
     pub policies: RunPolicies,
 }
@@ -115,6 +118,7 @@ pub struct AssignmentUpdate {
     pub audience: question_model::AssignmentAudience,
     pub items: Vec<question_model::AssignmentItem>,
     pub selection_groups: Vec<question_model::AssignmentSelectionGroup>,
+    pub disclosure_policy: question_model::LearnerDisclosurePolicy,
     pub policies: RunPolicies,
 }
 
@@ -244,6 +248,7 @@ impl AssignmentRecord {
             title: self.title.clone(),
             items,
             selection_groups,
+            disclosure_policy: self.disclosure_policy,
             policies: self.policies,
         }
     }
@@ -507,6 +512,7 @@ mod assignment_selection_tests {
                     })
                     .collect(),
             }],
+            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
             policies: RunPolicies {
                 completion: question_model::CompletionRequirement::AnswerAll,
                 grade: GradePolicy::Highest,
@@ -570,6 +576,7 @@ mod assignment_selection_tests {
                 })
                 .collect(),
             selection_groups: Vec::new(),
+            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
             policies: RunPolicies {
                 completion: question_model::CompletionRequirement::AnswerAll,
                 grade: GradePolicy::Highest,
@@ -695,6 +702,7 @@ mod assignment_selection_tests {
                     })
                     .collect(),
             }],
+            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
             policies: RunPolicies {
                 completion: question_model::CompletionRequirement::AnswerAll,
                 grade: GradePolicy::Highest,
@@ -799,6 +807,7 @@ mod assignment_selection_tests {
                     delivery_state: AssignmentDeliveryState::Active,
                 }],
             }],
+            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
             policies: RunPolicies {
                 completion: question_model::CompletionRequirement::AnswerAll,
                 grade: GradePolicy::Highest,
@@ -814,6 +823,7 @@ mod assignment_selection_tests {
             audience: record.audience.clone(),
             items: record.items.clone(),
             selection_groups: record.selection_groups.clone(),
+            disclosure_policy: record.disclosure_policy,
             policies: record.policies,
         }
     }

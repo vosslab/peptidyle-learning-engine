@@ -178,10 +178,7 @@ async fn qti_asset_resolution_uses_catalog_key_without_public_private_fallback()
         },
         prompt: imported.prompt,
         response: imported.response,
-        attempt_policy: AttemptPolicy {
-            max_attempts: None,
-            feedback: FeedbackDisclosure::ImmediateCorrectness,
-        },
+        attempt_policy: AttemptPolicy { max_attempts: None },
         timing_policy: TimingPolicy::Untimed,
         randomization: question_model::generation::RandomizationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },

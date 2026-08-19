@@ -30,8 +30,8 @@ use question_model::envelope::ContentBlock;
 use question_model::generation::{GeneratorReference, ParameterSpec, RandomizationDefinition};
 use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
 use question_model::run_policy::{
-    AttemptPolicy, CompletionRequirement, ContinuedPractice, FeedbackDisclosure, GradePolicy,
-    RunPolicies, TimingPolicy, VariationPolicy,
+    AttemptPolicy, CompletionRequirement, ContinuedPractice, GradePolicy, RunPolicies,
+    TimingPolicy, VariationPolicy,
 };
 use question_model::taxonomy::{License, Tag};
 use question_model::{

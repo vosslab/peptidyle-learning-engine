@@ -4,6 +4,7 @@ import type { AssignmentItemSummary } from "../../generated/api/AssignmentItemSu
 import type { Capability } from "../../generated/api/Capability";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { QuestionId } from "../../generated/api/QuestionId";
+import type { LearnerDisclosurePolicy } from "../../generated/api/LearnerDisclosurePolicy";
 import type {
   AssignmentCapabilityViolation,
   AssignmentCreateInput,
@@ -25,6 +26,7 @@ export interface AssignmentEditorDraft {
   readonly title: string;
   readonly items: ReadonlyArray<AssignmentItemSummary>;
   readonly policies: AssignmentEditorInput["policies"];
+  readonly disclosurePolicy: LearnerDisclosurePolicy;
   readonly assignmentTiming: AssignmentEditorInput["assignmentTiming"];
   readonly revision: string;
 }
@@ -95,6 +97,13 @@ export function createMasteryAssignmentDraft(courseId: string): AssignmentEditor
       continuedPractice: { kind: "unlimited" },
       variation: "newSeeds",
     },
+    disclosurePolicy: {
+      score: "afterSubmit",
+      perItemCorrectness: "afterSubmit",
+      feedbackText: "afterSubmit",
+      solution: "afterSubmit",
+      classStatistics: "never",
+    },
     assignmentTiming: { timeLimitSeconds: DEFAULT_MASTERY_TIME_LIMIT_SECONDS },
     revision: "",
   };
@@ -114,6 +123,7 @@ export function assignmentInput(draft: AssignmentEditorDraft): AssignmentEditorI
       }),
     ),
     policies: draft.policies,
+    disclosurePolicy: draft.disclosurePolicy,
     assignmentTiming: draft.assignmentTiming,
   };
 }
@@ -123,6 +133,7 @@ export function assignmentCreateInput(draft: AssignmentEditorDraft): AssignmentC
     title: draft.title,
     questionIds: draft.items.map((item) => item.questionId),
     policies: draft.policies,
+    disclosurePolicy: draft.disclosurePolicy,
     assignmentTiming: draft.assignmentTiming,
   };
 }

@@ -11,7 +11,7 @@ use question_model::capability::Capability;
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
 use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
-use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{
     GradingDefinition, ObjectId, ProblemId, QuestionMetadata, SourceArtifact, VersionId,
@@ -166,7 +166,6 @@ fn question_with_response(response: ResponseDefinition) -> QuestionDefinition {
         response,
         attempt_policy: AttemptPolicy {
             max_attempts: Some(2),
-            feedback: FeedbackDisclosure::ImmediateCorrectness,
         },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Static,
@@ -589,13 +588,9 @@ fn reviewed_chapter_sources_admit_immediate_correctness_without_widening_pg_supp
             pg_path: pg_path.to_string(),
         };
         assert!(
-            reviewed_webwork_source_capabilities_for_feedback(
-                &source,
-                source_sha256,
-                FeedbackDisclosure::ImmediateCorrectness,
-            )
-            .expect("reviewed Chapter 1 source has a capability profile")
-            .supports(Capability::Hints)
+            reviewed_webwork_source_profile_capabilities(&source, source_sha256)
+                .expect("reviewed Chapter 1 source has a capability profile")
+                .supports(Capability::Hints)
         );
     }
     let historical = reviewed_webwork_source_capabilities(

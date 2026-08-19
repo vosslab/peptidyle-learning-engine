@@ -11,11 +11,10 @@ import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery"
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
 import type { RunId } from "../../generated/api/RunId";
-import type { StudentAssignmentSummary } from "../../generated/api/StudentAssignmentSummary";
+import type { LearnerAssignmentProgress } from "../../generated/api/LearnerAssignmentProgress";
 import type { ApiClient } from "./client";
 import type {
-  AssignmentSummary,
-  AssignmentSummaryWithTiming,
+  LearnerAssignmentSummary,
   CourseRouteData,
   CourseSummary,
   CursorPage,
@@ -36,9 +35,9 @@ export interface ApiRuntime {
     readonly catalogSearch: QueryFunction<[CatalogSearchQuery], CatalogSearchPage>;
     readonly catalogDetail: QueryFunction<[QuestionId], CatalogProblemDetail>;
     readonly gradebook: QueryFunction<[CourseId], CursorPage<GradebookSummaryRow>>;
-    readonly assignments: QueryFunction<[CourseId], CursorPage<AssignmentSummary>>;
-    readonly assignment: QueryFunction<[AssignmentId], AssignmentSummaryWithTiming>;
-    readonly assignmentSummary: QueryFunction<[AssignmentId], StudentAssignmentSummary>;
+    readonly assignments: QueryFunction<[CourseId], CursorPage<LearnerAssignmentSummary>>;
+    readonly assignment: QueryFunction<[AssignmentId], LearnerAssignmentSummary>;
+    readonly assignmentSummary: QueryFunction<[AssignmentId], LearnerAssignmentProgress>;
     readonly courseScope: QueryFunction<[CourseId], CourseRouteData>;
     readonly runScreen: QueryFunction<[RunId], RunScreenData>;
     readonly runSummary: QueryFunction<[RunId], RunSummaryResponse>;

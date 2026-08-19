@@ -210,7 +210,7 @@ test("authors, publishes, and inspects an answer-free retry corpus through suppo
     byline: { names: ["PLE retry corpus fixture"] },
   });
   expect(fake.captured[1]?.data).toMatchObject({
-    attemptPolicy: { maxAttempts: null, feedback: "immediateFull" },
+    attemptPolicy: { maxAttempts: null },
     timingPolicy: { kind: "untimed" },
   });
   expect(fake.state.disposed).toBe(true);

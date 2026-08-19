@@ -6,7 +6,7 @@ const FORGED_HOTSPOT_SOURCE: &str = r#"{
   "format":"pleFlatQuestion", "version":2, "title":"Protein surface",
   "prompt":"Select the active-site region.",
   "response":{"kind":"hotspot","surface":{"asset":"00000000-0000-0000-0000-000000009999","checksum":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","description":"Protein structure"},"regions":[{"id":"site","label":"Active site","x":1000,"y":1000,"width":2000,"height":2000}],"correctRegions":["site"]},
-  "points":1.0, "attemptPolicy":{"maxAttempts":null,"feedback":"immediateFull"},
+  "points":1.0, "attemptPolicy":{"maxAttempts":null},
   "timingPolicy":{"kind":"untimed"}, "license":{"kind":"cc0"}, "language":"en-US"
 }"#;
 
@@ -53,7 +53,7 @@ async fn register_hotspot_asset(fixture: &Fixture) -> (AssetId, Vec<u8>) {
 
 fn hotspot_source(asset: AssetId, checksum: Sha256Digest) -> String {
     format!(
-        r#"{{"format":"pleFlatQuestion","version":2,"title":"Protein surface","prompt":"Select the active site.","response":{{"kind":"hotspot","surface":{{"asset":"{asset}","checksum":"{checksum}","description":"Protein structure"}},"regions":[{{"id":"site","label":"Active site","x":1000,"y":1000,"width":2000,"height":2000}}],"correctRegions":["site"]}},"points":1.0,"attemptPolicy":{{"maxAttempts":null,"feedback":"immediateFull"}},"timingPolicy":{{"kind":"untimed"}},"license":{{"kind":"cc0"}},"language":"en-US"}}"#
+        r#"{{"format":"pleFlatQuestion","version":2,"title":"Protein surface","prompt":"Select the active site.","response":{{"kind":"hotspot","surface":{{"asset":"{asset}","checksum":"{checksum}","description":"Protein structure"}},"regions":[{{"id":"site","label":"Active site","x":1000,"y":1000,"width":2000,"height":2000}}],"correctRegions":["site"]}},"points":1.0,"attemptPolicy":{{"maxAttempts":null}},"timingPolicy":{{"kind":"untimed"}},"license":{{"kind":"cc0"}},"language":"en-US"}}"#
     )
 }
 

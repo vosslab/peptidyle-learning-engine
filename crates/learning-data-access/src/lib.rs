@@ -12,7 +12,6 @@ use base64::Engine;
 use domain::run::RunModelError;
 use objects::{ObjectRecord, Sha256Digest};
 use question_model::FeedbackContent;
-use question_model::run_policy::FeedbackDisclosure;
 use question_model::taxonomy::TaxonomyTerm;
 use question_model::{
     ActivityTimestamp, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId, AssignmentItem,
@@ -123,8 +122,9 @@ pub use crate::external_tool::{
     StageExternalToolVerificationCommand,
 };
 pub use crate::feedback::{
-    AttemptFeedbackRecord, FeedbackReleaseRecord, ReleaseAttemptFeedbackCommand,
-    RunSummaryOutcomeInput, RunSummaryPageInput, private_feedback_record,
+    AttemptFeedbackRecord, FeedbackReleaseRecord, LearnerDisclosureInput,
+    ReleaseAttemptFeedbackCommand, RunSummaryOutcomeInput, RunSummaryPageInput,
+    private_feedback_record,
 };
 pub use crate::flat_import_provenance::{
     FlatImportChoiceMapPayload, FlatImportConversionVersion, FlatImportIntegrityDigests,

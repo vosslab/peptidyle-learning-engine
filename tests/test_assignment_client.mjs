@@ -25,6 +25,7 @@ test("revisioned assignment commands carry QIDs and return fresh safe summaries"
           scoringMode,
         }),
       ),
+      disclosurePolicy: assignment.disclosurePolicy,
       policies: assignment.policies,
       assignmentTiming: { timeLimitSeconds: null },
     },

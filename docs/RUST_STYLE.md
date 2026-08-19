@@ -33,10 +33,9 @@ full guidance below.
   validated domain types. See sections 8 and 9.
 - **Borrow first and make each clone intentional.** Accept the allocation cost when
   the caller needs a distinct owned value. See section 10.
-- **Use the repository's open latest-first dependency policy.** Direct registry
-  dependencies use `version = "*"` or an audited `version = ">=LATEST"` minimum;
-  [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#dependency-versions) owns repository
-  exceptions. `Cargo.lock` records the exact reviewed resolution. See section 16.
+- **The manager selects the repository's latest-first dependency form.** Use either
+  `version = "*"` or `version = ">=LATEST"`; `Cargo.lock` records the exact
+  resolution. See section 16.
 - **`rust-version` is a toolchain floor, not a dependency update policy.** It
   takes a bare version such as `"1.97.1"`; Cargo rejects range operators in this
   field. See section 16.
@@ -705,27 +704,27 @@ only from a measured need, per **use the scientific method**
 **Dependencies.** Use the latest stable release available for every direct
 dependency. Advance major, minor, and patch components whenever a newer stable
 release exists. Confirm the current crate API and feature flags in `docs.rs` or the
-crate's official guide. Write each direct registry dependency in `Cargo.toml` with
-the repository's open latest-first form:
+crate's official guide. Write each direct dependency in `Cargo.toml` with the one
+repository-wide form selected by the manager:
 
 | Form | Example | Contract |
 | --- | --- | --- |
-| Audited open minimum | `version = ">=0.29.0"` | Latest reviewed version is the minimum; newer versions remain eligible |
+| Explicit floor | `version = ">=0.29.0"` | Latest known version is the minimum; newer versions remain eligible |
 | Wildcard | `version = "*"` | Every stable version remains eligible |
 
 Both forms intentionally allow future major, minor, and patch releases. Application
 repositories use `Cargo.lock` as the exact tested resolution between refreshes in
-either mode. A future package intended for crates.io uses an explicit floor because
-crates.io rejects bare wildcard requirements. Caret, exact `=...`, tilde, and
-upper-bound requirements need a repository-specific exception, including its reason
-and removal condition, in [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#dependency-versions).
+either mode. A future package intended for crates.io uses the explicit-floor form
+because crates.io rejects bare wildcard requirements. Reserve an exact `=...`
+requirement for a temporary upstream constraint, and record its reason and removal
+condition
 ([Version requirement syntax](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#version-requirement-syntax)).
 
 **Refresh sequence.** `Cargo.toml` describes compatible ranges; `Cargo.lock` records
 the exact resolved graph. Keep both current:
 
-1. Keep every direct registry requirement open: retain `version = "*"` or refresh
-   each audited `>=LATEST` minimum to the latest stable version reviewed.
+1. Apply the manager-selected repository form consistently. Refresh each `>=LATEST`
+   floor to the current latest stable release; wildcard requirements stay `*`.
 2. Run `cargo update`, then review the resolved versions, release notes, and features.
 3. Run `cargo check`, `cargo test`, and `cargo clippy -- -D warnings`.
 
@@ -771,8 +770,8 @@ these should have a reason, because a derive cannot drift out of sync with the f
   performance boundary when one is affected.
 - `main` is thin, logic is in the library, and errors go to stderr.
 - The edition is current and `rust-version = "1.97.1"` states the toolchain floor.
-- Direct registry dependencies consistently use the repository's open latest-first
-  form: `*` or an audited `>=LATEST` minimum.
+- Direct dependencies consistently use the manager-selected repository form: `*` or
+  `>=LATEST`, where `LATEST` is the stable version available at refresh time.
 - `Cargo.lock` resolves the current reviewed manifest and passes dependency security checks.
 
 ## References

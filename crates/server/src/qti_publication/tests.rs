@@ -17,7 +17,7 @@ use question_model::answer::SelectionCardinality;
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::generation::RandomizationDefinition;
 use question_model::response::{ChoiceId, ChoiceOption};
-use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{
     ActivityTimestamp, AssetId, BackendCapabilities, Capability, GradingDefinition,
@@ -161,10 +161,7 @@ fn imported_qti_draft(
             },
             prompt: item.prompt.clone(),
             response: item.response.clone(),
-            attempt_policy: AttemptPolicy {
-                max_attempts: None,
-                feedback: FeedbackDisclosure::ImmediateCorrectness,
-            },
+            attempt_policy: AttemptPolicy { max_attempts: None },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },
@@ -543,10 +540,7 @@ async fn publication_reparse_refuses_legacy_staged_svg_before_candidate_copy() {
         },
         prompt: question.prompt,
         response: question.response,
-        attempt_policy: AttemptPolicy {
-            max_attempts: None,
-            feedback: FeedbackDisclosure::ImmediateCorrectness,
-        },
+        attempt_policy: AttemptPolicy { max_attempts: None },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },

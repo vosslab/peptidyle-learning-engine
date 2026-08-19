@@ -23,9 +23,11 @@ impl crate::CourseAssignmentStore for PostgresStore {
             "INSERT INTO assignment \
              (tenant_id, assignment_id, course_id, title, completion_policy, \
               completion_threshold, attempt_selection_policy, continued_practice_policy, \
-              practice_max_additional_runs, variation_policy, lifecycle, audience_kind, revision) \
+              practice_max_additional_runs, variation_policy, lifecycle, audience_kind, \
+              score_disclosure, per_item_correctness_disclosure, feedback_text_disclosure, \
+              solution_disclosure, class_statistics_disclosure, revision) \
              VALUES ($1, $2, $3, $4, $5, $6::numeric, $7, $8, $9, $10, \
-                     'published', $11, 1) \
+                     'published', $11, $12, $13, $14, $15, $16, 1) \
              ON CONFLICT (tenant_id, assignment_id) DO NOTHING \
              RETURNING revision, scoring_generation, scoring_status",
         )
@@ -40,6 +42,21 @@ impl crate::CourseAssignmentStore for PostgresStore {
         .bind(practice_limit)
         .bind(variation_policy_name(assignment.policies.variation))
         .bind(assignment_audience_kind(&assignment.audience))
+        .bind(learner_disclosure_timing_name(
+            assignment.disclosure_policy.score,
+        ))
+        .bind(learner_disclosure_timing_name(
+            assignment.disclosure_policy.per_item_correctness,
+        ))
+        .bind(learner_disclosure_timing_name(
+            assignment.disclosure_policy.feedback_text,
+        ))
+        .bind(learner_disclosure_timing_name(
+            assignment.disclosure_policy.solution,
+        ))
+        .bind(learner_disclosure_timing_name(
+            assignment.disclosure_policy.class_statistics,
+        ))
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -85,6 +102,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
             items: update.assignment.items.clone(),
             selection_groups: update.assignment.selection_groups.clone(),
             policies: update.assignment.policies,
+            disclosure_policy: update.assignment.disclosure_policy,
         };
         validate_assignment(&assignment)?;
         let (completion_policy, completion_threshold) =
@@ -119,6 +137,10 @@ impl crate::CourseAssignmentStore for PostgresStore {
                     completion_threshold = $6::numeric, attempt_selection_policy = $7, \
                     continued_practice_policy = $8, practice_max_additional_runs = $9, \
                     variation_policy = $10, audience_kind = $14, \
+                    score_disclosure = $15, \
+                    per_item_correctness_disclosure = $16, \
+                    feedback_text_disclosure = $17, solution_disclosure = $18, \
+                    class_statistics_disclosure = $19, \
                     scoring_generation = scoring_generation + CASE WHEN $11 THEN 1 ELSE 0 END, \
                     scoring_status = CASE WHEN $11 \
                         THEN CASE WHEN $12 THEN 'recalculating' ELSE 'current' END \
@@ -141,6 +163,21 @@ impl crate::CourseAssignmentStore for PostgresStore {
         .bind(has_scores)
         .bind(i64::try_from(expected_revision.value()).map_err(|_| StoreError::Conflict)?)
         .bind(assignment_audience_kind(&assignment.audience))
+        .bind(learner_disclosure_timing_name(
+            assignment.disclosure_policy.score,
+        ))
+        .bind(learner_disclosure_timing_name(
+            assignment.disclosure_policy.per_item_correctness,
+        ))
+        .bind(learner_disclosure_timing_name(
+            assignment.disclosure_policy.feedback_text,
+        ))
+        .bind(learner_disclosure_timing_name(
+            assignment.disclosure_policy.solution,
+        ))
+        .bind(learner_disclosure_timing_name(
+            assignment.disclosure_policy.class_statistics,
+        ))
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -413,7 +450,9 @@ impl crate::CourseAssignmentStore for PostgresStore {
             "SELECT assignment_id, course_id, title, completion_policy, \
                     completion_threshold::text AS completion_threshold, \
                     attempt_selection_policy, continued_practice_policy, \
-                    practice_max_additional_runs, variation_policy, audience_kind, revision, \
+                    practice_max_additional_runs, variation_policy, audience_kind, \
+                    score_disclosure, per_item_correctness_disclosure, feedback_text_disclosure, \
+                    solution_disclosure, class_statistics_disclosure, revision, \
                     scoring_generation, scoring_status \
              FROM assignment \
              WHERE tenant_id = $1 AND assignment_id = $2 FOR SHARE",
@@ -459,7 +498,9 @@ impl crate::CourseAssignmentStore for PostgresStore {
             "SELECT assignment_id, course_id, title, completion_policy, \
                     completion_threshold::text AS completion_threshold, \
                     attempt_selection_policy, continued_practice_policy, \
-                    practice_max_additional_runs, variation_policy, audience_kind \
+                    practice_max_additional_runs, variation_policy, audience_kind, \
+                    score_disclosure, per_item_correctness_disclosure, feedback_text_disclosure, \
+                    solution_disclosure, class_statistics_disclosure \
              FROM assignment \
              WHERE tenant_id = $1 AND assignment_id = $2",
         )
@@ -505,7 +546,9 @@ impl crate::CourseAssignmentStore for PostgresStore {
             "SELECT assignment_id::text AS stable_key, assignment_id, course_id, title, \
                     completion_policy, completion_threshold::text AS completion_threshold, \
                     attempt_selection_policy, continued_practice_policy, \
-                    practice_max_additional_runs, variation_policy, audience_kind \
+                    practice_max_additional_runs, variation_policy, audience_kind, \
+                    score_disclosure, per_item_correctness_disclosure, feedback_text_disclosure, \
+                    solution_disclosure, class_statistics_disclosure \
              FROM assignment \
              WHERE tenant_id = $1 AND course_id = $2 \
                AND ($3::text IS NULL OR assignment_id::text > $3) \
@@ -604,7 +647,9 @@ async fn load_fixed_item_assignment(
         "SELECT assignment_id, course_id, title, completion_policy, \
                 completion_threshold::text AS completion_threshold, \
                 attempt_selection_policy, continued_practice_policy, \
-                practice_max_additional_runs, variation_policy, audience_kind, revision, \
+                practice_max_additional_runs, variation_policy, audience_kind, \
+                score_disclosure, per_item_correctness_disclosure, feedback_text_disclosure, \
+                solution_disclosure, class_statistics_disclosure, revision, \
                 scoring_generation, scoring_status \
          FROM assignment WHERE tenant_id = $1 AND assignment_id = $2 FOR SHARE",
     )

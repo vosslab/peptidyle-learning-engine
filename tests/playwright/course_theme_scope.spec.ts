@@ -4,7 +4,9 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import type { LearnerAssignmentSummary } from "../../generated/api/LearnerAssignmentSummary";
 import { publishedProblemFixture } from "../../generated/fixtures/published_problem";
+import { respondCatalog } from "../../src/api/mock/handlers/catalog";
 import {
   COURSE_THEME_CATALOG,
   courseThemeStyle,
@@ -22,6 +24,17 @@ import {
 
 const SECONDARY_COURSE_REFERENCE = "C-2";
 const RUN_REFERENCE = "R-4";
+
+function learnerAssignment(): LearnerAssignmentSummary {
+  const {
+    tenant: _tenant,
+    courseId: _courseId,
+    disclosurePolicy: _disclosurePolicy,
+    policies: _policies,
+    ...assignment
+  } = publishedProblemFixture.assignment;
+  return assignment;
+}
 
 async function navigateWithinSpa(page: Page, pathname: string): Promise<void> {
   await page.evaluate((nextPath) => {
@@ -101,7 +114,8 @@ test("course identity and readable palette surfaces stay scoped to learner route
 
   await navigateWithinSpa(page, "/library");
   await expect(page.locator(".course-theme-scope")).toHaveCount(0);
-  await expect(page.locator('[data-route-surface="library"]')).toBeVisible();
+  await expect(page.locator('[data-route-surface="routeAccessDenied"]')).toBeVisible();
+  await expect(page.locator('[data-route-surface="library"]')).toHaveCount(0);
   await expect(header).toHaveCSS("color", globalHeader.color);
   await expect(header).toHaveCSS("background-color", globalHeader.background);
 });
@@ -205,9 +219,10 @@ test("the authorized banner and text title render only at course entry", async (
       return await json(route, appearance, 200, appearanceHeaders("1"));
     }
     if (path === `/api/courses/${COURSE_ID}/assignments`) {
-      return await json(route, { items: [assignment], nextCursor: null });
+      return await json(route, { items: [learnerAssignment()], nextCursor: null });
     }
-    if (path === `/api/assignments/${assignment.id}`) return await json(route, assignment);
+    if (path === `/api/assignments/${assignment.id}/learner`)
+      return await json(route, learnerAssignment());
     if (path === `/api/assets/${BANNER_ID}/delivery`) {
       expect(request.method()).toBe("POST");
       return await json(
@@ -537,6 +552,35 @@ test("the desktop gradebook uses human identity and composed on-demand history",
 test("the desktop problem library gives the browse task the useful screen width", async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "__PLE_USE_MOCK_API__", {
+      configurable: false,
+      get: () => false,
+      set: () => undefined,
+    });
+  });
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path === "/api/auth/session") return await json(route, session(["instructor"]));
+    if (path === "/api/auth/account/presentation") {
+      return await json(route, { contrast: "standard" });
+    }
+    if (path === "/api/problems" || path.startsWith("/api/problems/")) {
+      const response = respondCatalog(
+        new Request(request.url(), {
+          method: request.method(),
+          headers: request.headers(),
+        }),
+      );
+      return await route.fulfill({
+        status: response.status,
+        headers: Object.fromEntries(response.headers.entries()),
+        body: await response.text(),
+      });
+    }
+    return await route.fulfill({ status: 404, body: `unexpected library request ${path}` });
+  });
   await page.setViewportSize({ width: 1_280, height: 800 });
   await page.goto("/");
   await navigateWithinSpa(page, "/library");
@@ -608,7 +652,7 @@ test("the instructor workspace keeps global and course-level navigation distinct
     }
     if (path === `/api/courses/${COURSE_ID}/assignments`) {
       return await json(route, {
-        items: [publishedProblemFixture.assignment],
+        items: [learnerAssignment()],
         nextCursor: null,
       });
     }

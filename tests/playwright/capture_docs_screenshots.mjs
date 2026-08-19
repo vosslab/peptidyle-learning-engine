@@ -1,33 +1,26 @@
 #!/usr/bin/env node
-// Capture the canonical real-stack walkthrough screenshots into docs/screenshots/.
+// Capture the canonical real-stack walkthrough screenshots into role-organized corpus paths.
 
 import { spawn } from "node:child_process";
-import { chmod, copyFile, lstat, mkdtemp, readdir, rename, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import { artifactNamesForPipeline } from "./ui_corpus_manifest.ts";
-
-// The manifest is the single authority for corpus membership, so this runner validates whatever the
-// live pipeline owns rather than carrying a second copy of the name list.
-const screenshotNames = artifactNamesForPipeline("live");
-const privateTemporaryParent = "/private/tmp";
-const privateTemporaryPrefix = "ple-docs-screenshots.";
+import { runCorpusCapture } from "./helper_corpus_capture_runner.mjs";
 
 function repositoryRoot() {
-  const scriptPath = fileURLToPath(import.meta.url);
-  const root = path.resolve(path.dirname(scriptPath), "../..");
-  return root;
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 }
 
-function walkthroughArguments() {
+function parseArguments() {
   const suppliedArguments = process.argv.slice(2);
+  const verifyOnly = suppliedArguments.includes("--verify-only");
+  const walkthroughArguments = suppliedArguments.filter((argument) => argument !== "--verify-only");
   const prohibitedArguments = new Set([
     "--keep",
     "--instructor-setup-only",
     "--student-repeat-only",
   ]);
-  for (const argument of suppliedArguments) {
+  for (const argument of walkthroughArguments) {
     if (argument === "--skip-build") {
       throw new Error("--skip-build is not accepted; omit it for AUTO reuse or pass --build");
     }
@@ -35,69 +28,16 @@ function walkthroughArguments() {
       throw new Error("documentation screenshots require the full cleanup-enabled walkthrough");
     }
   }
-  const hasMasterSeed = suppliedArguments.some(
+  const hasMasterSeed = walkthroughArguments.some(
     (argument) => argument === "--master-seed" || argument.startsWith("--master-seed="),
   );
-  if (hasMasterSeed) return suppliedArguments;
-  return ["--master-seed", "42", ...suppliedArguments];
+  const seededArguments = hasMasterSeed
+    ? walkthroughArguments
+    : ["--master-seed", "42", ...walkthroughArguments];
+  return { mode: verifyOnly ? "verify" : "refresh", walkthroughArguments: seededArguments };
 }
 
-async function validatePrivateDirectory(directory) {
-  if (
-    path.dirname(directory) !== privateTemporaryParent ||
-    !path.basename(directory).startsWith(privateTemporaryPrefix)
-  ) {
-    throw new Error("documentation screenshot directory is outside the approved temporary path");
-  }
-  const metadata = await lstat(directory);
-  if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
-    throw new Error("documentation screenshot directory must be a regular directory");
-  }
-  if (metadata.uid !== process.getuid() || (metadata.mode & 0o777) !== 0o700) {
-    throw new Error("documentation screenshot directory ownership or mode is unsafe");
-  }
-}
-
-async function validateCapturedScreenshots(directory) {
-  await validatePrivateDirectory(directory);
-  const entries = await readdir(directory, { withFileTypes: true });
-  const names = entries.map((entry) => entry.name).sort();
-  const expectedNames = [...screenshotNames].sort();
-  if (
-    names.length !== expectedNames.length ||
-    names.some((name, index) => name !== expectedNames[index])
-  ) {
-    throw new Error("documentation capture did not produce exactly the expected PNG files");
-  }
-  for (const screenshotName of screenshotNames) {
-    const screenshotPath = path.join(directory, screenshotName);
-    const metadata = await lstat(screenshotPath);
-    if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size === 0) {
-      throw new Error("documentation capture produced an unsafe or empty PNG");
-    }
-  }
-}
-
-async function copyScreenshotsAtomically(repositoryRootPath, directory) {
-  const destinationDirectory = path.join(repositoryRootPath, "docs", "screenshots");
-  const destinationMetadata = await lstat(destinationDirectory);
-  if (!destinationMetadata.isDirectory() || destinationMetadata.isSymbolicLink()) {
-    throw new Error("docs/screenshots must be a regular directory");
-  }
-  for (const screenshotName of screenshotNames) {
-    const sourcePath = path.join(directory, screenshotName);
-    const destinationPath = path.join(destinationDirectory, screenshotName);
-    const temporaryPath = path.join(
-      destinationDirectory,
-      `.${screenshotName}.${process.pid}.${Date.now().toString(36)}.tmp`,
-    );
-    await copyFile(sourcePath, temporaryPath);
-    await chmod(temporaryPath, 0o644);
-    await rename(temporaryPath, destinationPath);
-  }
-}
-
-function runWalkthrough(repositoryRootPath, argumentsToPass, directory) {
+function runWalkthrough(root, argumentsToPass, directory) {
   return new Promise((resolve, reject) => {
     const child = spawn(
       "bash",
@@ -108,7 +48,8 @@ function runWalkthrough(repositoryRootPath, argumentsToPass, directory) {
         ...argumentsToPass,
       ],
       {
-        cwd: repositoryRootPath,
+        cwd: root,
+        env: { ...process.env, PLE_UI_CORPUS_CAPTURE_OWNER: "live" },
         stdio: "inherit",
       },
     );
@@ -126,19 +67,15 @@ function runWalkthrough(repositoryRootPath, argumentsToPass, directory) {
 
 async function main() {
   const root = repositoryRoot();
-  const argumentsToPass = walkthroughArguments();
-  const directory = await mkdtemp(path.join(privateTemporaryParent, privateTemporaryPrefix));
-  await chmod(directory, 0o700);
-  try {
-    await validatePrivateDirectory(directory);
-    await runWalkthrough(root, argumentsToPass, directory);
-    await validateCapturedScreenshots(directory);
-    await copyScreenshotsAtomically(root, directory);
-  } finally {
-    await validatePrivateDirectory(directory);
-    await rm(directory, { recursive: true, force: false });
-  }
-  process.stdout.write("PASS: documentation screenshots refreshed in docs/screenshots/.\n");
+  const { mode, walkthroughArguments } = parseArguments();
+  await runCorpusCapture({
+    root,
+    owner: "live",
+    pipeline: "live",
+    mode,
+    label: "documentation screenshots",
+    runCapture: async (directory) => await runWalkthrough(root, walkthroughArguments, directory),
+  });
 }
 
 main().catch((error) => {

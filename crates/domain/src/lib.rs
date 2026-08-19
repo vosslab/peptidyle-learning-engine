@@ -9,6 +9,8 @@
 pub mod attempt;
 /// Completion derivation within a run (MOD-STATE).
 pub mod completion;
+/// Pure evaluation of assignment-owned learner disclosure policy (WP-PROF-S4).
+pub mod disclosure_policy;
 /// Key-free deterministic workspace-draft prompt preview (MOD-WASM).
 pub mod draft_preview;
 /// Pure current assignment-policy resolution after S5 entitlement.

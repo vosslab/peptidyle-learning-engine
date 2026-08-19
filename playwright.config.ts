@@ -66,7 +66,7 @@ export default defineConfig({
   },
   webServer: startMockPreviewServer
     ? {
-        command: `node tools/mock_preview_server.mjs ${PORT}`,
+        command: `node --import tsx tools/mock_preview_server.mjs ${PORT}`,
         url: `http://127.0.0.1:${PORT}/`,
         reuseExistingServer: false,
         timeout: 30_000,

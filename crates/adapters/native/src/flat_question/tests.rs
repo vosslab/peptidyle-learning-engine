@@ -26,7 +26,7 @@ const FAVORITE_COLOR: &str = r#"{
     "incorrect": "Try thinking of a cool color."
   },
   "points": 1.0,
-  "attemptPolicy": {"maxAttempts": null, "feedback": "immediateFull"},
+  "attemptPolicy": {"maxAttempts": null},
   "timingPolicy": {"kind": "untimed"},
   "tags": ["example"],
   "taxonomy": [],
@@ -56,7 +56,7 @@ fn v2_source(response: Value) -> Vec<u8> {
         "response": response,
         "feedback": {"correct": "Correct.", "incorrect": "Try again."},
         "points": 2.0,
-        "attemptPolicy": {"maxAttempts": null, "feedback": "immediateFull"},
+        "attemptPolicy": {"maxAttempts": null},
         "timingPolicy": {"kind": "untimed"},
         "tags": ["fixture"],
         "taxonomy": [],
@@ -497,6 +497,16 @@ fn malformed_or_ambiguous_sources_are_refused() {
     assert!(matches!(
         FlatQuestionDocument::parse(
             &serde_json::to_vec(&nested_unknown).expect("modified fixture encodes")
+        ),
+        Err(FlatQuestionError::MalformedJson(_))
+    ));
+
+    let mut legacy_feedback: Value =
+        serde_json::from_str(FAVORITE_COLOR).expect("fixture JSON should parse");
+    legacy_feedback["attemptPolicy"]["feedback"] = Value::String("immediateFull".to_string());
+    assert!(matches!(
+        FlatQuestionDocument::parse(
+            &serde_json::to_vec(&legacy_feedback).expect("modified fixture encodes")
         ),
         Err(FlatQuestionError::MalformedJson(_))
     ));

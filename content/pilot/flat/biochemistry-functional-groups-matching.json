@@ -32,7 +32,7 @@
     "incorrect": "Compare each group's characteristic atoms with its biochemical role."
   },
   "points": 4.0,
-  "attemptPolicy": { "maxAttempts": null, "feedback": "immediateFull" },
+  "attemptPolicy": { "maxAttempts": null },
   "timingPolicy": { "kind": "untimed" },
   "tags": ["biochemistry", "functional-groups", "chapter-1", "matching"],
   "taxonomy": [

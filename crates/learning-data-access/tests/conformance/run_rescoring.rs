@@ -31,6 +31,7 @@ where
                 audience: locked_assignment.record.audience.clone(),
                 items: rescored_items.clone(),
                 selection_groups: locked_assignment.record.selection_groups.clone(),
+                disclosure_policy: locked_assignment.record.disclosure_policy,
                 policies: locked_assignment.record.policies,
             },
         )
@@ -91,6 +92,7 @@ where
                 audience: rescored.record.audience.clone(),
                 items: superseding_items.clone(),
                 selection_groups: rescored.record.selection_groups.clone(),
+                disclosure_policy: rescored.record.disclosure_policy,
                 policies: rescored.record.policies,
             },
         )
@@ -250,6 +252,7 @@ where
                     audience: superseding.record.audience.clone(),
                     items: added_items,
                     selection_groups: superseding.record.selection_groups.clone(),
+                    disclosure_policy: superseding.record.disclosure_policy,
                     policies: superseding.record.policies,
                 },
             )

@@ -42,7 +42,7 @@ function mockCourse(courseId: string | undefined): CourseSummary | undefined {
 }
 
 export function canHandleCourse(request: Request): boolean {
-  return handlesResource(request, ["courses", "assignments"]);
+  return handlesResource(request, ["courses", "assignments", "navigation"]);
 }
 
 interface MockCourseAppearanceState {
@@ -174,6 +174,16 @@ export async function respondCourse(
 ): Promise<Response> {
   const segments = pathSegments(request);
   const resource = segments[1];
+  if (resource === "navigation" && segments.length === 3 && request.method === "GET") {
+    if (segments[2] === publishedProblemFixture.assignment.reference) {
+      return jsonResponse({
+        kind: "assignment",
+        courseId: publishedProblemFixture.course.id,
+        assignmentId: publishedProblemFixture.assignment.id,
+      });
+    }
+    return routeNotFound(request);
+  }
   if (resource === "courses" && segments.length === 2) {
     if (request.method === "GET") {
       return jsonResponse({ items: [publishedProblemFixture.course], nextCursor: null });

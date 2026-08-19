@@ -41,9 +41,10 @@ browser-visible assessment transition.
 ## Security boundaries and guarantees
 
 - **Server-owned assessment authority.** Answer keys, correctness, timing
-  verdicts, feedback disclosure, completion, and grade changes remain in Rust
-  server code and durable storage. [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md)
-  and [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) define this
+  verdicts, the assignment-owned five-field learner-disclosure policy,
+  completion, and grade changes remain in Rust server code and durable storage.
+  [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) and
+  [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) define this
   boundary.
 - **Compile-time answer separation.** `crates/grading/` is outside the
   dependency closure of `crates/wasm/`. The browser bridge therefore cannot
@@ -79,19 +80,19 @@ browser-visible assessment transition.
 
 ## Major components
 
-| Component                | Location                                                                                  | Responsibility                                                                                                                          |
-| ------------------------ | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Question model           | [crates/question_model/](../crates/question_model/)                                       | Question taxonomy, typed public references, immutable public bylines, mandatory course-term values, capabilities, browser-safe presentations, and response schemas.          |
-| Domain                   | [crates/domain/](../crates/domain/)                                                       | Run state, pure effective-policy resolution after entitlement, seeded generation, timing inputs, and validation without a database or wall clock. |
-| Grading                  | [crates/grading/](../crates/grading/)                                                     | Answer-bearing checkers and correctness decisions; server-side only.                                                                    |
-| Learning data access     | [crates/learning-data-access/](../crates/learning-data-access/)                           | Store contracts, in-memory and PostgreSQL implementations, migrations, forced RLS context, capability roles, and conformance tests.     |
-| Object storage           | [crates/objects/](../crates/objects/)                                                     | Typed object keys, checksums, strict image ingress validation, and MinIO/S3-compatible implementations.                                 |
-| Native adapter           | [crates/adapters/native/](../crates/adapters/native/)                                     | First-party generated questions and static flat-question compilation.                                                                   |
-| External adapters        | [crates/adapters/](../crates/adapters/)                                                   | Bounded QTI, H5P, iMathAS, and WeBWorK integration behind declared capabilities.                                                        |
-| Server                   | [crates/server/](../crates/server/)                                                       | Axum routes, passwordless auth, authorization, adapter selection, API composition, ordinary worker, and public-asset publisher process. |
-| Browser and WebAssembly  | [src/](../src/) and [crates/wasm/](../crates/wasm/)                                       | SolidJS interaction layer and answer-free browser bridge to shared domain logic.                                                        |
-| Export and project tools | [crates/export/](../crates/export/) and [crates/project-tools/](../crates/project-tools/) | Print/export generation plus repository-only code generation, migration, fixture, pilot-content validation, and seed commands.          |
-| Deployment configuration | `deploy/opentofu/`                                                                        | AWS network, edge, compute, database, storage, IAM, observability, and WAF definitions.                                                 |
+| Component                | Location                                                                                  | Responsibility                                                                                                                                                                                    |
+| ------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Question model           | [crates/question_model/](../crates/question_model/)                                       | Question taxonomy, typed public references, immutable public bylines, mandatory course-term values, capabilities, browser-safe presentations, learner-progress projections, and response schemas. |
+| Domain                   | [crates/domain/](../crates/domain/)                                                       | Run state, pure effective-policy and learner-disclosure evaluation after entitlement, seeded generation, timing inputs, and validation without a database or wall clock.                          |
+| Grading                  | [crates/grading/](../crates/grading/)                                                     | Answer-bearing checkers and correctness decisions; server-side only.                                                                                                                              |
+| Learning data access     | [crates/learning-data-access/](../crates/learning-data-access/)                           | Store contracts, in-memory and PostgreSQL implementations, current receipt/projection boundaries, migrations, forced RLS context, capability roles, and conformance tests.                        |
+| Object storage           | [crates/objects/](../crates/objects/)                                                     | Typed object keys, checksums, strict image ingress validation, and MinIO/S3-compatible implementations.                                                                                           |
+| Native adapter           | [crates/adapters/native/](../crates/adapters/native/)                                     | First-party generated questions and static flat-question compilation.                                                                                                                             |
+| External adapters        | [crates/adapters/](../crates/adapters/)                                                   | Bounded QTI, H5P, iMathAS, and WeBWorK integration behind declared capabilities.                                                                                                                  |
+| Server                   | [crates/server/](../crates/server/)                                                       | Axum routes, passwordless auth, authorization, learner aggregate and per-item redaction, adapter selection, API composition, ordinary worker, and public-asset publisher process.                 |
+| Browser and WebAssembly  | [src/](../src/) and [crates/wasm/](../crates/wasm/)                                       | SolidJS interaction layer, strict browser decoder/editor boundary, and answer-free browser bridge to shared domain logic.                                                                         |
+| Export and project tools | [crates/export/](../crates/export/) and [crates/project-tools/](../crates/project-tools/) | Print/export generation plus repository-only code generation, migration, fixture, pilot-content validation, and seed commands.                                                                    |
+| Deployment configuration | `deploy/opentofu/`                                                                        | AWS network, edge, compute, database, storage, IAM, observability, and WAF definitions.                                                                                                           |
 
 The Cargo dependency graph is a security control: `crates/domain/` depends only
 on the question model, while `crates/wasm/` does not depend on `crates/grading/`.
@@ -119,7 +120,7 @@ authorized author publishes immutable version
   -> API issues one attempt-bound browser-safe presentation
   -> browser submits response identity and value
   -> API authorizes, validates, grades, and commits the result
-  -> API returns only feedback allowed by assignment policy
+  -> API projects only currently released score, per-item, feedback, and solution fields
 ```
 
 `crates/server/src/run/` coordinates issue, prefetch, submission, manual
@@ -152,7 +153,59 @@ decision and evaluator-approved scopes supplied by S5, then applies lifecycle, e
 authorization gates in order before resolving the base policy, approved group modifiers, and an
 individual exception. Both Store backends construct that same grant-filtered input for current
 resolution and action paths. PostgreSQL alone persists the sealed per-attempt receipt and normalized
-per-field provenance; subsequent reads use the receipt rather than mutable policy inputs.
+per-field provenance as immutable historical attempt evidence. S4 disclosure
+projections instead use the current S3-resolved effective-policy verdict with
+the current assignment-owned disclosure policy; no attempt-level receipt is a
+learner-disclosure authority.
+
+## Learner disclosure and progress projection
+
+Each assignment owns five independent learner-disclosure timings: score,
+per-item correctness, feedback text, solution, and class statistics. The
+closed timing vocabulary lives in
+[crates/question_model/src/run_policy.rs](../crates/question_model/src/run_policy.rs).
+The pure evaluator in
+[crates/domain/src/disclosure_policy.rs](../crates/domain/src/disclosure_policy.rs)
+consumes only the S3-resolved effective-policy verdict, S5-authorized inputs,
+an authoritative supplied time, and evidence that the learner submitted. It
+does not reconstruct entitlement, consult a browser clock, or treat a feedback
+release record as an unlock authority.
+
+[crates/learning-data-access/src/feedback.rs](../crates/learning-data-access/src/feedback.rs)
+forms the private current disclosure/projection boundary: after S5 entitlement,
+it combines the current S3-resolved effective-policy verdict, assignment policy,
+authoritative evaluation time, and submitted fact before server serialization.
+Both Store backends rebuild that input for current reads; PostgreSQL decodes the
+five normalized columns through `assignment_records/learner_disclosure.rs` under
+[crates/learning-data-access/src/postgres/](../crates/learning-data-access/src/postgres/).
+
+The same learner route evaluates the independently timed class-statistics
+field before it reads `CourseItemAnalysisStore`. That Store rechecks current S5
+entitlement and returns only `LearnerClassStatistics`: metric-free
+`insufficientEvidence` or `available` with a completed-learner cohort size and
+normalized assignment average. It uses the latest completed run per enrollment
+from the current course-local report and suppresses metrics below the default
+five-learner floor, during incomplete manual grading or recent rescoring, and
+when the average is absent or invalid. The browser receives the server result
+only; it never evaluates policy, timing, or aggregate evidence.
+
+Forward migration
+[schemas/migrations/2026081805_assignment_learner_disclosure_policy.sql](../schemas/migrations/2026081805_assignment_learner_disclosure_policy.sql)
+creates that one column-level authority and removes the retired coarse
+disclosure columns.
+
+The server uses the resulting decision to redact per-item run fields and to
+project aggregate scores into the browser-safe `LearnerAssignmentProgress`
+contract. `noActivity`, `withheld`, and `available` distinguish a learner with
+no submitted response from a learner whose current policy withholds score totals. A started run may
+still supply the safe last-activity timestamp while its score state remains `noActivity`.
+The browser receives neither the policy, the authoritative clock, nor tenant
+or enrollment identifiers needed to infer or bypass that decision.
+`assignment_policy.ts` under
+[src/api/decoders/](../src/api/decoders/) strictly decodes the five-field
+policy for authoring, while
+[src/pages/assignment_editor_policy_panel.tsx](../src/pages/assignment_editor_policy_panel.tsx)
+owns the instructor's native five-select editor controls.
 
 ## Catalog discovery and statistics disclosure
 
@@ -257,10 +310,10 @@ restricted to the `containers` project. A separate closed disposable-owner
 adapter (`python3 -m local_stack_control._consumer_cli`) forms
 temporary E2E targets only from a private mode-0600 manifest and a runner-held
 cleanup capability. The closed owners are `course-appearance`, `chapter-one-pilot`,
-`database-baseline`, `chapter-one-browser`, `wp-r2-host-seed-renderer`, and `replica-restart`; each fixes its
+`database-baseline`, `chapter-one-browser`, `webwork-browser`, `wp-r2-host-seed-renderer`, and `replica-restart`; each fixes its
 project namespace and Compose files before any action is formed. The adapter
-allows scoped Compose actions, diagnostics, or the one owner-specific replica
-outage action, while cleanup requires the private capability and label-derived
+allows scoped Compose actions, diagnostics, or the policy-declared outage action,
+while cleanup requires the private capability and label-derived
 snapshot. It cannot accept a caller-selected target or generic removal command.
 The canonical walkthrough imports the controller's discovery and cleanup
 primitives while retaining its separate private inputs, fixed-port checks,

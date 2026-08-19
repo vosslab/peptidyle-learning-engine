@@ -3,7 +3,8 @@ use super::*;
 #[tokio::test]
 async fn memory_rejects_missing_or_mismatched_issued_snapshots_before_mutation() {
     let store = MemoryStore::default();
-    let fixture = exercise_run_api_receipts(&store, FeedbackDisclosure::ImmediateFull).await;
+    let fixture =
+        exercise_run_api_receipts(&store, LearnerDisclosurePolicy::default(), 20_000).await;
     let run = store
         .start_or_resume_run(
             fixture.context,

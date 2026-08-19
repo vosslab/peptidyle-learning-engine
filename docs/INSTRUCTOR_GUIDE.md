@@ -11,17 +11,17 @@ placeholders.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Instructor course overview showing the Assignments page and course-management navigation](screenshots/instructor_course_overview.png)
+![Instructor course overview showing the Assignments page and course-management navigation](screenshots/instructor/instructor_course_overview.png)
 
-![Instructor roster showing Mary Fake Student and Jack Fake Student as active local course members](screenshots/instructor_roster_active_student.png)
+![Instructor roster showing Mary Fake Student and Jack Fake Student as active local course members](screenshots/instructor/instructor_roster_active_student.png)
 
-![Instructor published problem catalog showing human-readable Question IDs and Copy ID controls](screenshots/instructor_problem_catalog.png)
+![Instructor published problem catalog showing human-readable Question IDs and Copy ID controls](screenshots/instructor/instructor_problem_catalog.png)
 
-![Instructor assignment editor showing four selected Genetics Chapter 1 immutable versions and Mastery run policies](screenshots/instructor_assignment_settings.png)
+![Instructor assignment editor showing four selected Genetics Chapter 1 immutable versions and Mastery run policies](screenshots/instructor/instructor_assignment_settings.png)
 
-![Instructor Assignment created confirmation showing Genetics Chapter 1 Practice and its Open assignment link](screenshots/instructor_assignment_created.png)
+![Instructor Assignment created confirmation showing Genetics Chapter 1 Practice and its Open assignment link](screenshots/instructor/instructor_assignment_created.png)
 
-![Instructor Genetics Chapter 1 Practice gradebook showing Best and Latest at 100 percent, two completed runs, and keyboard focus on View run history](screenshots/instructor_gradebook_mastery_loop.png)
+![Instructor Genetics Chapter 1 Practice gradebook showing Best and Latest at 100 percent, two completed runs, and keyboard focus on View run history](screenshots/instructor/instructor_gradebook_mastery_loop.png)
 <!-- screenshots:end -->
 
 ## Before you begin
@@ -68,7 +68,12 @@ Production enrollment and email identity remain separate work.
 6. Confirm **All questions correct**, **Highest run score**, and **Allow unlimited practice**.
 7. In **Time limit for each practice run**, leave **Timed** selected and confirm **Minutes per
    practice run** is `15`.
-8. Activate **Create assignment** and open the resulting course assignment.
+8. In **What students can see**, choose a timing for each independent field: **Score**,
+   **Per-item correctness**, **Feedback text**, **Correct answer or solution**, and **Class
+   statistics**. Each offers During attempt, After submit, After due, After close, and Never.
+   After due and After close remain withheld when the matching boundary is not set. For the pilot,
+   use After submit for the first four fields and Never for class statistics.
+9. Activate **Create assignment** and open the resulting course assignment.
 
 Only corpus publication is arranged outside the browser. Course creation, roster activation,
 assignment reuse, Question ID lookup, timing, and assignment construction use visible instructor

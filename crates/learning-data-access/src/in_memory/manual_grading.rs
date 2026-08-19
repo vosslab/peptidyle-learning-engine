@@ -170,18 +170,19 @@ fn submit_pending_manual_question_attempt_locked(
         .get(&(base.problem, base.question_version))
         .ok_or(StoreError::NotFound)?;
     let authored_policy = published.question.timing_policy;
-    let feedback_disclosure = *state
-        .attempt_feedback_disclosures
-        .get(&(tenant, command.attempt))
-        .ok_or_else(|| {
-            StoreError::Unavailable("issued feedback disclosure is missing".to_string())
-        })?;
     let submitted_at = state.authoritative_time;
     let mut submitted = projected_attempt(state, tenant, &base);
     submitted.response = Some(command.response.clone());
     submitted.status = AttemptStatus::NeedsManualGrading;
     submitted.result = None;
     submitted.timer.submitted_at = Some(submitted_at);
+    let disclosure = super::feedback::current_disclosure_input(
+        state,
+        tenant,
+        &assignment,
+        command.attempt,
+        submitted.timer.submitted_at,
+    )?;
     let effective_policy =
         state
             .attempt_timing
@@ -220,7 +221,7 @@ fn submit_pending_manual_question_attempt_locked(
         summary: summary.clone(),
         feedback: private_feedback_record(FeedbackContent::default())?,
         presentation,
-        feedback_disclosure,
+        disclosure,
     };
     state.submissions.insert(
         (tenant, command.attempt),

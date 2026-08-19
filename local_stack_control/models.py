@@ -85,6 +85,9 @@ class DisposableOwnerPolicy:
 	removes_gateway_image: bool = False
 	removes_application_image: bool = False
 	stoppable_service: str | None = None
+	outage_service: str | None = None
+	evidence_log_service: str | None = None
+	allows_generic_compose: bool = True
 
 
 # Every disposable mutation carries one of these stable, closed identities.
@@ -127,6 +130,16 @@ DISPOSABLE_OWNER_POLICIES = (
 		project_pattern=re.compile(r"^ple-chapter-one-browser-[a-f0-9]{12}$"),
 		compose_relative_paths=(PRIMARY_COMPOSE_FILE,),
 		removes_gateway_image=True,
+	),
+	DisposableOwnerPolicy(
+		owner="webwork-browser",
+		project_prefix="ple-webwork-browser-",
+		project_pattern=re.compile(r"^ple-webwork-browser-[a-f0-9]{12}$"),
+		compose_relative_paths=(PRIMARY_COMPOSE_FILE,),
+		removes_gateway_image=True,
+		outage_service="webwork-renderer",
+		evidence_log_service="api",
+		allows_generic_compose=False,
 	),
 	DisposableOwnerPolicy(
 		owner="wp-r2-host-seed-renderer",

@@ -413,6 +413,76 @@ pub struct StudentAssignmentSummary {
     pub last_activity_at: Option<ActivityTimestamp>,
 }
 
+/// Browser-safe status of the learner's aggregate assignment score.
+///
+/// This is a presentation state, not an authorization input.  The server
+/// derives it from the current assignment disclosure policy and never sends
+/// the policy, clock, enrollment, or tenant to the browser for inference.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LearnerScoreState {
+    /// The learner has not submitted any response for this assignment.
+    NoActivity,
+    /// The learner has activity, but the current policy withholds scores.
+    Withheld,
+    /// The current policy permits score disclosure.
+    Available,
+}
+
+/// Key-free learner projection of an assignment's aggregate progress.
+///
+/// It deliberately excludes the tenant and enrollment identifiers carried by
+/// [`StudentAssignmentSummary`].  Browser routes use this type instead of the
+/// storage projection so score totals are omitted while withheld.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LearnerAssignmentProgress {
+    /// Whether aggregate score values are absent because there is no submitted
+    /// response, are currently withheld, or are available for display.
+    pub score_state: LearnerScoreState,
+    /// Score selected by the assignment's grade policy when available.
+    pub current_score: Option<f64>,
+    /// Highest completed-run score when available.
+    pub best_score: Option<f64>,
+    /// Most recently completed-run score when available.
+    pub latest_score: Option<f64>,
+    /// Number of completed runs. This is not a score total.
+    pub completed_run_count: u32,
+    /// Number of recorded responses. This is not a score total.
+    pub total_question_attempts: u64,
+    /// Latest server-recorded activity time, if any.
+    pub last_activity_at: Option<ActivityTimestamp>,
+    /// Current anonymous class statistics when the assignment policy permits
+    /// their disclosure. Absent means the server withholds this projection.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub class_statistics: Option<crate::LearnerClassStatistics>,
+}
+
+impl LearnerAssignmentProgress {
+    /// Projects the internal summary after the server has made its disclosure
+    /// decision. No-activity takes precedence over the disclosure setting.
+    pub fn from_summary(summary: &StudentAssignmentSummary, score_disclosed: bool) -> Self {
+        let score_state = if summary.total_question_attempts == 0 {
+            LearnerScoreState::NoActivity
+        } else if score_disclosed {
+            LearnerScoreState::Available
+        } else {
+            LearnerScoreState::Withheld
+        };
+        let scores = matches!(score_state, LearnerScoreState::Available);
+        Self {
+            score_state,
+            current_score: scores.then_some(summary.current_score).flatten(),
+            best_score: scores.then_some(summary.best_score).flatten(),
+            latest_score: scores.then_some(summary.latest_score).flatten(),
+            completed_run_count: summary.completed_run_count,
+            total_question_attempts: summary.total_question_attempts,
+            last_activity_at: summary.last_activity_at,
+            class_statistics: None,
+        }
+    }
+}
+
 impl StudentAssignmentSummary {
     /// Creates the empty projection for a new enrollment.
     pub fn empty(tenant: TenantId, enrollment: EnrollmentId) -> Self {
@@ -447,6 +517,38 @@ mod tests {
         };
 
         assert_eq!(enrollment.status(), EnrollmentStatus::Completed);
+    }
+
+    #[test]
+    fn learner_progress_distinguishes_no_activity_withheld_and_available_scores() {
+        let mut summary = StudentAssignmentSummary::empty(
+            TenantId::from_uuid(Uuid::from_u128(1)),
+            EnrollmentId::from_uuid(Uuid::from_u128(2)),
+        );
+        assert_eq!(
+            LearnerAssignmentProgress::from_summary(&summary, true).score_state,
+            LearnerScoreState::NoActivity
+        );
+
+        summary.total_question_attempts = 1;
+        summary.current_score = Some(0.5);
+        summary.best_score = Some(0.5);
+        summary.latest_score = Some(0.5);
+        let withheld = LearnerAssignmentProgress::from_summary(&summary, false);
+        assert_eq!(withheld.score_state, LearnerScoreState::Withheld);
+        assert_eq!(
+            (
+                withheld.current_score,
+                withheld.best_score,
+                withheld.latest_score
+            ),
+            (None, None, None)
+        );
+
+        let available = LearnerAssignmentProgress::from_summary(&summary, true);
+        assert_eq!(available.score_state, LearnerScoreState::Available);
+        assert_eq!(available.current_score, Some(0.5));
+        assert!(available.class_statistics.is_none());
     }
 
     #[test]

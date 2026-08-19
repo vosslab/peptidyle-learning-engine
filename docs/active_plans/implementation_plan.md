@@ -1017,25 +1017,24 @@ format-validator on input and shows a local, immediate hint when the shape is wr
 the browser gives a real-time answer-adjacent response, and it is safe because format validity carries
 no information about correctness.
 
-### Feedback disclosure is a fifth policy
+### Learner disclosure is assignment-owned
 
 `docs/PLAYFUL_TRAINING_GAME_STYLE.md` makes the wrong-answer screen the highest-value screen in the
 product and requires three parts in order: what the learner chose, the correct answer, and one sentence
 of why. That is pedagogically right for mastery and practice, and wrong for a quiz or exam where
 revealing the answer defeats the assessment.
 
-So feedback disclosure joins the activity model's policy set as a fifth independent policy:
+Each assignment owns five independently timed learner fields: score, per-item correctness, feedback
+text, solution, and class statistics. Each field uses one closed timing: during attempt, after
+submit, after due, after close, or never. The server evaluates the current assignment policy only
+after current S5 entitlement, using the current S3-resolved effective-policy verdict/decision,
+authoritative time, and the submission fact. When a due or close boundary is absent, the
+corresponding timing withholds the field; withheld fields are omitted from the response envelope.
 
-| Disclosure              | Shows                                         | Default for         |
-| ----------------------- | --------------------------------------------- | ------------------- |
-| `immediate_full`        | Chose, correct answer, why                    | Practice, mastery   |
-| `immediate_correctness` | Correct or not, with a hint, no answer        | Quiz with retries   |
-| `deferred`              | Nothing until the run is submitted            | Quiz single-attempt |
-| `on_release`            | Nothing until the instructor releases results | Exam                |
-
-The disclosure policy is evaluated on the server, and the response envelope carries only what the
-policy permits. A client asking for more receives no more, which keeps the answer-secrecy guarantee
-independent of UI correctness.
+The browser receives neither policy nor clock inputs and therefore cannot infer a future disclosure.
+`feedback_release` is an immutable audit receipt of an instructor action, not a learner-result
+transition or alternate authority. A client asking for more receives no more, which keeps the
+answer-secrecy guarantee independent of UI correctness.
 
 ### Timer design
 
@@ -1270,7 +1269,7 @@ substitution for a required production path.
 | MOD-UI-COURSE    | Course shell and appearance settings                                     | Course-scoped three-color theme, entry banner, instructor appearance workflow | MOD-UI-SHELL, MOD-CLIENT, MOD-API-COURSE, MOD-OBJ                     | Appearance mock repository           | Theme follows all course routes without global bleed; keyboard save/conflict flow; contrast and visual artifact gates                                                                                                               |
 | MOD-UI-WIDGETS   | Response widget set                                                      | One component per response type, with local format validation                 | MOD-WASM, WP-C9                                                       | Reference widget                     | Each widget satisfies `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`, is label-announced, and flags invalid shape without issuing a request                                                                                              |
 | MOD-UI-RENDER    | Question renderer                                                        | Envelope-to-component mapping, asset resolution, math and figure alternatives | MOD-UI-WIDGETS                                                        | Fixture envelopes                    | Every block kind renders; a sanitized-markup fixture renders without script execution; missing accessibility text surfaces as an authoring error                                                                                    |
-| MOD-UI-ATTEMPT   | Attempt loop                                                             | Submit, pending state, feedback disclosure, timer, prefetch, retry            | MOD-UI-RENDER, MOD-CLIENT                                             | Mock handlers                        | Full mastery run; long-history practice remains available; timer expiry; offline submit recovers; disclosure policy respected per mode                                                                                               |
+| MOD-UI-ATTEMPT   | Attempt loop                                                             | Submit, pending state, current learner-disclosure display, timer, prefetch, retry | MOD-UI-RENDER, MOD-CLIENT                                          | Mock handlers                        | Full mastery run; long-history practice remains available; timer expiry; offline submit recovers; server-projected disclosure respected                                                                                              |
 | MOD-UI-BROWSE    | Catalog browser                                                          | Virtualized cursor-paged list, facets, problem detail                         | MOD-CLIENT                                                            | Mock handlers                        | Ten-thousand-row synthetic list scrolls without a full fetch; facet counts come from aggregates                                                                                                                                     |
 | MOD-UI-EDITOR    | Draft and assignment editors                                             | Draft editing, WASM preview, policy controls, capability gating, publish flow | MOD-UI-RENDER, MOD-WASM                                               | Mock handlers                        | Preview generates a real variant per seed offline; a policy a backend cannot support marks the question and names the capability; publish shows the version diff                                                                    |
 | MOD-UI-GRADEBOOK | Gradebook                                                                | Summary-row views, run-history drill-down                                     | MOD-CLIENT                                                            | Mock handlers                        | Default view issues one summary query regardless of run count                                                                                                                                                                       |
@@ -1355,7 +1354,7 @@ widget exist to build against.
 
 - Depends on: M2 for live behavior; UI lanes may start after M1 against mocks.
 - Deliverables: app shell and routing; the response widget set; the question renderer; the attempt loop
-  with prefetch, timer, and feedback disclosure; catalog browser; draft and assignment editors;
+  with prefetch, timer, and server-projected learner disclosure; catalog browser; draft and assignment editors;
   gradebook; course appearance theme/banner capability and instructor settings; worker pool and jobs
   queue; print model with DOCX and PDF writers.
 - Lanes: (1) MOD-UI-SHELL, then MOD-UI-WIDGETS and MOD-UI-RENDER; (2) MOD-UI-ATTEMPT;

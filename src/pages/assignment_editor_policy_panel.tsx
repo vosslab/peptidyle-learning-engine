@@ -3,6 +3,8 @@
 import { Show, type JSX } from "solid-js";
 
 import type { RunPolicies } from "../../generated/api/RunPolicies";
+import type { LearnerDisclosurePolicy } from "../../generated/api/LearnerDisclosurePolicy";
+import type { LearnerDisclosureTiming } from "../../generated/api/LearnerDisclosureTiming";
 
 function completionFraction(policies: RunPolicies): number {
   return policies.completion.kind === "scoreAtLeast" ? policies.completion.fraction : 0.8;
@@ -37,12 +39,35 @@ function variationPolicy(value: string): RunPolicies["variation"] {
   }
 }
 
+function disclosureTiming(value: string): LearnerDisclosureTiming {
+  switch (value) {
+    case "duringAttempt":
+    case "afterSubmit":
+    case "afterDue":
+    case "afterClose":
+    case "never":
+      return value;
+    default:
+      throw new Error("Disclosure timing selection is invalid");
+  }
+}
+
+const disclosureTimingOptions: ReadonlyArray<readonly [LearnerDisclosureTiming, string]> = [
+  ["duringAttempt", "While they work"],
+  ["afterSubmit", "After they submit"],
+  ["afterDue", "After the due time"],
+  ["afterClose", "After the close time"],
+  ["never", "Never"],
+];
+
 interface AssignmentEditorPolicyPanelProps {
   readonly policies: () => RunPolicies;
+  readonly disclosurePolicy: () => LearnerDisclosurePolicy;
   readonly runTimed: () => boolean;
   readonly runMinutesText: () => string;
   readonly runTimingError: () => string | null;
   readonly onPoliciesChange: (policies: RunPolicies) => void;
+  readonly onDisclosurePolicyChange: (policy: LearnerDisclosurePolicy) => void;
   readonly onRunTimedChange: (timed: boolean) => void;
   readonly onRunMinutesInput: (value: string) => void;
   readonly onRunMinutesInputRef: (element: HTMLInputElement) => void;
@@ -59,6 +84,13 @@ export function AssignmentEditorPolicyPanel(props: AssignmentEditorPolicyPanelPr
     props.onRunTimedChange(true);
     requestAnimationFrame(() => {
       runMinutesInput?.focus();
+    });
+  }
+
+  function changeDisclosure(field: keyof LearnerDisclosurePolicy, value: string): void {
+    props.onDisclosurePolicyChange({
+      ...props.disclosurePolicy(),
+      [field]: disclosureTiming(value),
     });
   }
 
@@ -196,6 +228,58 @@ export function AssignmentEditorPolicyPanel(props: AssignmentEditorPolicyPanelPr
           </select>
         </label>
       </fieldset>
+      <fieldset class="assignment-editor-policy-set">
+        <legend>What students can see</legend>
+        <p class="assignment-editor-note">
+          Due and close choices stay withheld when that time is not set. The server applies the same
+          setting everywhere students see this assignment.
+        </p>
+        <label class="assignment-editor-field">
+          Score
+          <select
+            value={props.disclosurePolicy().score}
+            onChange={(event) => changeDisclosure("score", event.currentTarget.value)}
+          >
+            <ForDisclosureTimingOptions />
+          </select>
+        </label>
+        <label class="assignment-editor-field">
+          Per-item correctness
+          <select
+            value={props.disclosurePolicy().perItemCorrectness}
+            onChange={(event) => changeDisclosure("perItemCorrectness", event.currentTarget.value)}
+          >
+            <ForDisclosureTimingOptions />
+          </select>
+        </label>
+        <label class="assignment-editor-field">
+          Feedback text
+          <select
+            value={props.disclosurePolicy().feedbackText}
+            onChange={(event) => changeDisclosure("feedbackText", event.currentTarget.value)}
+          >
+            <ForDisclosureTimingOptions />
+          </select>
+        </label>
+        <label class="assignment-editor-field">
+          Correct answer or solution
+          <select
+            value={props.disclosurePolicy().solution}
+            onChange={(event) => changeDisclosure("solution", event.currentTarget.value)}
+          >
+            <ForDisclosureTimingOptions />
+          </select>
+        </label>
+        <label class="assignment-editor-field">
+          Class statistics
+          <select
+            value={props.disclosurePolicy().classStatistics}
+            onChange={(event) => changeDisclosure("classStatistics", event.currentTarget.value)}
+          >
+            <ForDisclosureTimingOptions />
+          </select>
+        </label>
+      </fieldset>
       <fieldset class="assignment-editor-policy-set assignment-editor-run-timing">
         <legend>Time limit for each practice run</legend>
         <label class="assignment-editor-radio">
@@ -253,5 +337,15 @@ export function AssignmentEditorPolicyPanel(props: AssignmentEditorPolicyPanelPr
         and feedback rules.
       </p>
     </section>
+  );
+}
+
+function ForDisclosureTimingOptions(): JSX.Element {
+  return (
+    <>
+      {disclosureTimingOptions.map(([value, label]) => (
+        <option value={value}>{label}</option>
+      ))}
+    </>
   );
 }

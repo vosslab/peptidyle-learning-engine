@@ -5,7 +5,7 @@ use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
-use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
+use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{
     GradingDefinition, ObjectId, ProblemId, QuestionMetadata, SourceArtifact, VersionId,
@@ -124,10 +124,7 @@ fn question_and_source() -> (QuestionDefinition, ImathasSource) {
         },
         prompt: Vec::new(),
         response: question_model::ResponseDefinition::ExternalTool {},
-        attempt_policy: AttemptPolicy {
-            max_attempts: None,
-            feedback: FeedbackDisclosure::ImmediateCorrectness,
-        },
+        attempt_policy: AttemptPolicy { max_attempts: None },
         timing_policy: TimingPolicy::Untimed,
         randomization: RandomizationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },

@@ -38,7 +38,7 @@ test.beforeAll(async () => {
             { id: "blue", text: "Blue", feedback: null },
             { id: "red", text: "Red", feedback: null },
           ], correctChoice: "blue" }, feedback: { correct: null, incorrect: null }, points: 1,
-          attemptPolicy: { maxAttempts: null, feedback: "immediateFull" },
+          attemptPolicy: { maxAttempts: null },
           timingPolicy: { kind: "untimed" }, tags: ["example"], taxonomy: [],
           license: { kind: "ccBySa" }, language: "en-US",
         };
@@ -204,6 +204,8 @@ test("instructor authors, resolves a stale draft, and publishes only the reviewe
   await fixture(page);
 
   await expect(page.getByLabel("Question title")).toHaveValue("Favorite color");
+  await expect(page.getByText("This controls retries only.")).toBeVisible();
+  await expect(page.getByLabel("Feedback disclosure")).toHaveCount(0);
   await page.getByLabel("Question title").fill("Favorite color revised");
   await page.getByLabel("Learner-facing prompt").fill("Which color do I prefer today?");
   await page.getByRole("button", { name: "Add choice" }).click();

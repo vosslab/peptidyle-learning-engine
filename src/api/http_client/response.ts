@@ -26,10 +26,11 @@ import type {
   WorkspaceDraftDetail,
 } from "../contracts";
 import { catalogProblemReferencePath, catalogSearchPath } from "../catalog_query";
+import { assignmentRouteReference } from "../../navigation/public_route";
 import {
-  decodeAssignmentPage,
+  decodeLearnerAssignmentPage,
   decodeAssignmentRun,
-  decodeAssignmentSummaryWithTiming,
+  decodeLearnerAssignmentSummary,
   decodeAttemptPage,
   decodeCatalogPage,
   decodeCatalogProblemDetail,
@@ -47,7 +48,7 @@ import {
   decodeIssuedPresentationEnvelope,
   decodeRunPage,
   decodeRunSummaryResponse,
-  decodeStudentAssignmentSummary,
+  decodeLearnerAssignmentProgress,
   decodeTaxonomyPage,
   decodeWorkspaceDraftPage,
   decodePublicationDiff,
@@ -243,22 +244,14 @@ async function activeAttempt(client: ApiClient, runId: RunId): Promise<QuestionA
   }
 }
 function verifyRunEnrollment(run: AssignmentRun, enrollment: EnrollmentView): void {
-  if (
-    enrollment.enrollment.id !== run.enrollment ||
-    enrollment.summary.enrollment !== enrollment.enrollment.id
-  )
+  if (enrollment.enrollment.id !== run.enrollment)
     throw new ApiProtocolError("Run screen enrollment records are inconsistent");
-  if (
-    run.tenant !== enrollment.enrollment.tenant ||
-    enrollment.summary.tenant !== enrollment.enrollment.tenant
-  )
+  if (run.tenant !== enrollment.enrollment.tenant)
     throw new ApiProtocolError("Run screen enrollment records cross tenant boundaries");
 }
 function verifyRunScreen(screen: RunScreenData): void {
   if (screen.run.id !== screen.attempt.run)
     throw new ApiProtocolError("Run screen attempt does not belong to the requested run");
-  if (screen.assignment.courseId !== screen.course.summary.id)
-    throw new ApiProtocolError("Run screen assignment does not belong to its course");
   if (
     screen.issuedQuestion.version !== screen.attempt.questionVersion ||
     screen.issuedQuestion.seed !== screen.attempt.seed
@@ -371,14 +364,14 @@ export function createResponseClient(
         fetchImplementation,
         basePath,
         cursorPath(`/api/courses/${encodedId(courseId)}/assignments`, cursor),
-        decodeAssignmentPage,
+        decodeLearnerAssignmentPage,
       ),
     getAssignment: (assignmentId: AssignmentId) =>
       requestJson(
         fetchImplementation,
         basePath,
-        `/api/assignments/${encodedId(assignmentId)}`,
-        decodeAssignmentSummaryWithTiming,
+        `/api/assignments/${encodedId(assignmentId)}/learner`,
+        decodeLearnerAssignmentSummary,
       ),
     getAssignmentEditor: (assignmentId) =>
       requestAssignmentEditor(
@@ -392,7 +385,7 @@ export function createResponseClient(
         fetchImplementation,
         basePath,
         `/api/assignments/${encodedId(assignmentId)}/summary`,
-        decodeStudentAssignmentSummary,
+        decodeLearnerAssignmentProgress,
       ),
     getEnrollment: (enrollmentId: EnrollmentId) =>
       requestJson(
@@ -471,7 +464,7 @@ export function createResponseClient(
         fetchImplementation,
         basePath,
         `/api/grading/summaries/${encodedId(enrollmentId)}`,
-        decodeStudentAssignmentSummary,
+        decodeLearnerAssignmentProgress,
       ),
     getRunScreen: async (runId): Promise<RunScreenData> => {
       const client = getClient();
@@ -503,9 +496,16 @@ export function createResponseClient(
       const assignment = await client.getAssignment(enrollment.enrollment.assignment);
       if (assignment.id !== enrollment.enrollment.assignment)
         throw new ApiProtocolError("Run screen assignment does not match its enrollment");
+      const assignmentRoute = await client.resolveNavigation(
+        assignmentRouteReference(assignment.reference),
+      );
+      if (assignmentRoute.kind !== "assignment")
+        throw new ApiProtocolError(
+          "Run screen assignment reference did not resolve to an assignment",
+        );
       const [summary, appearance, issuedQuestion] = await Promise.all([
-        client.getCourse(assignment.courseId),
-        client.getCourseAppearance(assignment.courseId),
+        client.getCourse(assignmentRoute.courseId),
+        client.getCourseAppearance(assignmentRoute.courseId),
         issuedQuestionForAttempt(fetchImplementation, basePath, attempt),
       ]);
       const screen: RunScreenData = {

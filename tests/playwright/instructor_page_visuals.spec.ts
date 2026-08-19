@@ -242,7 +242,7 @@ const flatQuestionSource = {
     incorrect: "Look for the bond whose electrons are shared with the carbonyl group.",
   },
   points: 1,
-  attemptPolicy: { maxAttempts: null, feedback: "immediateFull" },
+  attemptPolicy: { maxAttempts: null },
   timingPolicy: { kind: "untimed" },
   tags: ["biochemistry", "protein-structure"],
   taxonomy: [],

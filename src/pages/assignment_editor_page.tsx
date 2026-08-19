@@ -55,6 +55,7 @@ function draftFrom(detail: AssignmentEditorDetail): AssignmentEditorDraft {
     title: detail.title,
     items: detail.items,
     policies: detail.policies,
+    disclosurePolicy: detail.disclosurePolicy,
     assignmentTiming: detail.assignmentTiming,
     revision: detail.revision,
   };
@@ -719,10 +720,14 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
               <section class="assignment-editor-panel">
                 <AssignmentEditorPolicyPanel
                   policies={() => draft().policies}
+                  disclosurePolicy={() => draft().disclosurePolicy}
                   runTimed={runTimed}
                   runMinutesText={runMinutesText}
                   runTimingError={() => timing().error}
                   onPoliciesChange={(policies) => update({ ...draft(), policies })}
+                  onDisclosurePolicyChange={(disclosurePolicy) =>
+                    update({ ...draft(), disclosurePolicy })
+                  }
                   onRunTimedChange={(timed) => {
                     setRunTimed(timed);
                     if (timed && preservedRunSeconds() === null) setRunMinutesEdited(true);

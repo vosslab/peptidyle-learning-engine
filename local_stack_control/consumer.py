@@ -16,6 +16,8 @@ import local_stack_control.process
 
 MANIFEST_KEYS = ("OWNER", "PROJECT", "ENV_FILE", "CAPABILITY_FILE")
 CONTAINER_ID_PREFIX_PATTERN = re.compile(r"^[a-f0-9]{12}$")
+EVIDENCE_LOG_TAIL_LINES = 5_000
+EVIDENCE_LOG_MAX_CHARACTERS = 1_000_000
 CANONICAL_IMAGE_SELECTIONS_BY_OWNER = {
 	"course-appearance": (
 		"PLE_POSTGRES_IMAGE_SHA256",
@@ -31,6 +33,7 @@ CANONICAL_IMAGE_SELECTIONS_BY_OWNER = {
 	"wp-r2-postgres-rls": ("PLE_POSTGRES_IMAGE_SHA256",),
 	"wp-rc8-postgres-outbox": ("PLE_POSTGRES_IMAGE_SHA256",),
 	"chapter-one-browser": (),
+	"webwork-browser": (),
 	"wp-r2-host-seed-renderer": (),
 	"replica-restart": (),
 }
@@ -214,7 +217,7 @@ def lifecycle_options(
 ) -> "local_stack_control.lifecycle.LifecycleOptions":
 	"""Form the closed lifecycle request allowed to full-stack disposable owners."""
 	policy = disposable_policy(disposable)
-	launch_owners = {"chapter-one-browser", "wp-r2-host-seed-renderer"}
+	launch_owners = {"chapter-one-browser", "webwork-browser", "wp-r2-host-seed-renderer"}
 	if policy.owner not in launch_owners:
 		raise local_stack_control.models.ControllerError(
 			"closed full-stack owners may use the structured launcher"
@@ -227,6 +230,42 @@ def lifecycle_options(
 	return lifecycle.LifecycleOptions(
 		float(timeout_seconds), True, False, False
 	)
+
+
+#============================================
+def restart_options(
+	disposable: local_stack_control.models.DisposableComposeTarget,
+	timeout_seconds: int,
+) -> "local_stack_control.lifecycle.LifecycleOptions":
+	"""Form the no-build stateless-restart request for a declared outage owner."""
+	outage_service(disposable)
+	if timeout_seconds < 1 or timeout_seconds > 600:
+		raise local_stack_control.models.ControllerError(
+			"disposable restart timeout must be between 1 and 600 seconds"
+		)
+	from local_stack_control import lifecycle
+	return lifecycle.LifecycleOptions(float(timeout_seconds), False, False, False)
+
+
+#============================================
+def outage_service(disposable: local_stack_control.models.DisposableComposeTarget) -> str:
+	"""Return the one deliberate outage service owned by this browser fixture."""
+	policy = disposable_policy(disposable)
+	if policy.outage_service is None:
+		raise local_stack_control.models.ControllerError(
+			"this disposable owner cannot create a service outage"
+		)
+	return policy.outage_service
+
+
+#============================================
+def outage_stop_command(
+	disposable: local_stack_control.models.DisposableComposeTarget,
+) -> tuple[list[str], dict[str, str]]:
+	"""Form the one policy-declared outage command outside generic Compose access."""
+	service = outage_service(disposable)
+	argv = local_stack_control.compose.compose_argv(disposable.target, ["stop", service])
+	return argv, compose_environment(disposable)
 
 
 #============================================
@@ -326,10 +365,35 @@ def compose_command(
 	arguments: list[str],
 ) -> tuple[list[str], dict[str, str]]:
 	"""Form one safe generic Compose invocation for a proven target."""
+	if not disposable_policy(disposable).allows_generic_compose:
+		raise local_stack_control.models.ControllerError(
+			"this disposable owner cannot use generic Compose commands"
+		)
 	require_safe_compose_arguments(arguments)
 	argv = local_stack_control.compose.compose_argv(disposable.target, arguments)
 	environment = compose_environment(disposable)
 	return argv, environment
+
+
+#============================================
+def evidence_log_command(
+	disposable: local_stack_control.models.DisposableComposeTarget,
+) -> tuple[list[str], dict[str, str]]:
+	"""Form the one bounded evidence-log read declared by an owner policy."""
+	service = disposable_policy(disposable).evidence_log_service
+	if service is None:
+		raise local_stack_control.models.ControllerError(
+			"this disposable owner cannot read application evidence logs"
+		)
+	arguments = [
+		"logs",
+		"--no-color",
+		"--tail",
+		str(EVIDENCE_LOG_TAIL_LINES),
+		service,
+	]
+	argv = local_stack_control.compose.compose_argv(disposable.target, arguments)
+	return argv, compose_environment(disposable)
 
 
 #============================================
@@ -356,6 +420,15 @@ def require_mutating_capability(
 	disposable: local_stack_control.models.DisposableComposeTarget,
 ) -> local_stack_control.models.ProjectSnapshot:
 	"""Prove runner capability against all current labels before a mutation."""
+	return require_current_resource_capability(runner, disposable)
+
+
+#============================================
+def require_current_resource_capability(
+	runner: local_stack_control.process.CommandRunner,
+	disposable: local_stack_control.models.DisposableComposeTarget,
+) -> local_stack_control.models.ProjectSnapshot:
+	"""Prove the manifest capability against every current project resource."""
 	snapshot = local_stack_control.discovery.discover_snapshot(
 		runner,
 		disposable.target.repo_root,
@@ -411,8 +484,20 @@ def private_environment_values(env_file: pathlib.Path) -> tuple[str, ...]:
 #============================================
 def redact_diagnostics(text: str, private_values: tuple[str, ...]) -> str:
 	"""Return bounded diagnostic text without values from the private env file."""
+	return redact_private_values(text, private_values)[-4_000:]
+
+
+#============================================
+def redact_evidence_logs(text: str, private_values: tuple[str, ...]) -> str:
+	"""Return the bounded evidence log with every private environment value removed."""
+	return redact_private_values(text, private_values)[-EVIDENCE_LOG_MAX_CHARACTERS:]
+
+
+#============================================
+def redact_private_values(text: str, private_values: tuple[str, ...]) -> str:
+	"""Remove private environment values and credential-bearing PostgreSQL URLs."""
 	redacted = text
 	for value in sorted(set(private_values), key=len, reverse=True):
 		redacted = redacted.replace(value, "[redacted]")
 	redacted = re.sub(r"postgres://[^@\s]+@", "postgres://[redacted]@", redacted)
-	return redacted[-4_000:]
+	return redacted

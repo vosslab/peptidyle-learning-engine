@@ -51,3 +51,7 @@ stats.html
 # Provider binaries and module caches are platform-local generated state.
 # Keep the reviewed provider checksum lockfile under deploy/opentofu tracked.
 **/.terraform/
+
+
+
+

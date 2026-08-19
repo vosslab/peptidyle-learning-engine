@@ -111,7 +111,6 @@ fn profiled_import(
         Sha256Digest::compute(profile_report),
         [
             "PLE default applied: unlimited attempts.",
-            "PLE default applied: immediate full feedback.",
             "PLE default applied: untimed.",
             "PLE default applied: en-US.",
             "PLE default applied: allRightsReserved.",

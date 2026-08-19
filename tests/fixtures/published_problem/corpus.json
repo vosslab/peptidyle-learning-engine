@@ -106,8 +106,7 @@
       }
     },
     "attemptPolicy": {
-      "maxAttempts": null,
-      "feedback": "immediateFull"
+      "maxAttempts": null
     },
     "timingPolicy": {
       "kind": "untimed"
@@ -216,8 +215,7 @@
       }
     },
     "attemptPolicy": {
-      "maxAttempts": null,
-      "feedback": "immediateFull"
+      "maxAttempts": null
     },
     "timingPolicy": {
       "kind": "untimed"
@@ -316,6 +314,13 @@
       }
     ],
     "selectionGroups": [],
+    "disclosurePolicy": {
+      "score": "afterSubmit",
+      "perItemCorrectness": "afterSubmit",
+      "feedbackText": "afterSubmit",
+      "solution": "afterSubmit",
+      "classStatistics": "never"
+    },
     "policies": {
       "completion": {
         "kind": "allCorrect"

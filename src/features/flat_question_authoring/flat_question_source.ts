@@ -26,12 +26,8 @@ export const FLAT_QUESTION_NUMERIC_FAMILY = "flat_numeric_v2";
 export const FLAT_QUESTION_ORDERING_FAMILY = "flat_ordering_v2";
 export const FLAT_QUESTION_HOTSPOT_FAMILY = "flat_hotspot_v2";
 
-export type FlatQuestionFeedbackDisclosure =
-  "immediateFull" | "immediateCorrectness" | "deferred" | "onRelease";
-
 export type FlatQuestionAttemptPolicy = {
   readonly maxAttempts: number | null;
-  readonly feedback: FlatQuestionFeedbackDisclosure;
 };
 
 export type FlatQuestionTimingPolicy =

@@ -43,12 +43,12 @@ import {
   decodeAssignmentEditorInput,
   decodeReplaceAssignmentItemQuestionInput,
   decodeAssignmentCreateInput,
-  decodeAssignmentSummaryWithTiming,
+  decodeLearnerAssignmentSummary,
   decodeFeedbackReleaseResponse,
   decodeIssuedPresentationEnvelope,
   decodePrefetchedNextQuestion,
   decodeQuestionEnvelope,
-  decodeStudentAssignmentSummary,
+  decodeLearnerAssignmentProgress,
   decodeRunSummaryResponse,
   decodeSubmissionReceipt,
 } from "../decoders";
@@ -70,6 +70,7 @@ import type {
   PublicationResult,
 } from "../contracts";
 import { validateAssignmentConfigInMock } from "./capability_validation";
+import { fixtureLearnerAssignment, fixtureLearnerProgress } from "./fixture_contract";
 import { validateResponseFormatInMock } from "./format_validation";
 import {
   createMockFetch,
@@ -78,7 +79,6 @@ import {
   secondaryMockCourse,
   mockAttemptById,
   mockExternalToolSubmissionReceipt,
-  mockFeedbackForAttempt,
   prefetchFixtureAttempt,
   type MockFetch,
 } from "./handlers";
@@ -606,15 +606,18 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
     },
     listAssignments: (courseId: CourseId, cursor?: string) => {
       const expected = {
-        items: courseId === secondaryMockCourse.id ? [] : [publishedProblemFixture.assignment],
+        items:
+          courseId === secondaryMockCourse.id
+            ? []
+            : [fixtureLearnerAssignment(publishedProblemFixture.assignment)],
         nextCursor: null,
-      } satisfies CursorPage<(typeof publishedProblemFixture)["assignment"]>;
+      } satisfies CursorPage<ReturnType<typeof fixtureLearnerAssignment>>;
       const suffix = cursor === undefined ? "" : `?cursor=${encodeURIComponent(cursor)}`;
       return expectSerialized(mockFetch(`/api/courses/${courseId}/assignments${suffix}`), expected);
     },
     getAssignment: (assignmentId: AssignmentId) => {
-      const path = `/api/assignments/${assignmentId}`;
-      return decodeMockCatalogResponse(mockFetch(path), path, decodeAssignmentSummaryWithTiming);
+      const path = `/api/assignments/${assignmentId}/learner`;
+      return decodeMockCatalogResponse(mockFetch(path), path, decodeLearnerAssignmentSummary);
     },
     getAssignmentEditor: (assignmentId: AssignmentId) =>
       requestMockAssignment(
@@ -707,7 +710,7 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
     getEnrollment: (enrollmentId: EnrollmentId) => {
       const expected: EnrollmentView = {
         enrollment: publishedProblemFixture.enrollment,
-        summary: publishedProblemFixture.summary,
+        summary: fixtureLearnerProgress(publishedProblemFixture.summary),
       };
       return expectSerialized(mockFetch(`/api/enrollments/${enrollmentId}`), expected);
     },
@@ -849,18 +852,7 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
           expected,
         );
       }
-      const attempt = mockAttemptById(attemptId);
-      if (attempt === undefined) {
-        return Promise.reject(new Error(`Fixture has no submission receipt for ${attemptId}`));
-      }
-      const expected: SubmissionReceipt = {
-        accepted: true,
-        attempt,
-        feedback: mockFeedbackForAttempt(attempt),
-        nextIssued: null,
-        nextPending: false,
-      };
-      return expectSerialized(
+      return decodeMockSubmission(
         mockFetch(`/api/submissions/${attemptId}`, {
           method: "POST",
           headers: {
@@ -869,19 +861,19 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
           },
           body: JSON.stringify({ response }),
         }),
-        expected,
+        attemptId,
       );
     },
     getAssignmentSummary: (assignmentId: AssignmentId) =>
       decodeMockCatalogResponse(
         mockFetch(`/api/assignments/${assignmentId}/summary`),
         "assignment summary",
-        decodeStudentAssignmentSummary,
+        decodeLearnerAssignmentProgress,
       ),
     getSummary: (enrollmentId: EnrollmentId) =>
       expectSerialized(
         mockFetch(`/api/grading/summaries/${enrollmentId}`),
-        publishedProblemFixture.summary,
+        fixtureLearnerProgress(publishedProblemFixture.summary),
       ),
     releaseAttemptFeedback: (attemptId: QuestionAttemptId): Promise<FeedbackReleaseResponse> =>
       decodeMockCatalogResponse(

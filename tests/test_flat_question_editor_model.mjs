@@ -137,7 +137,7 @@ test("policy and metadata helpers are immutable and validation gives safe author
           setTimingPolicy(
             setAttemptPolicy(
               setOutcomeFeedback(base, { correct: "Good", incorrect: "Try again" }),
-              { maxAttempts: 3, feedback: "deferred" },
+              { maxAttempts: 3 },
             ),
             { kind: "perQuestion", seconds: 60, graceSeconds: 5 },
           ),
@@ -150,7 +150,7 @@ test("policy and metadata helpers are immutable and validation gives safe author
     "en",
   );
   assert.equal(base.language, "en-US");
-  assert.deepEqual(edited.attemptPolicy, { maxAttempts: 3, feedback: "deferred" });
+  assert.deepEqual(edited.attemptPolicy, { maxAttempts: 3 });
   assert.equal(edited.timingPolicy.kind, "perQuestion");
   assert.deepEqual(edited.tags, ["biology", "assessment"]);
   assert.equal(validateFlatQuestionSource(edited).valid, true);

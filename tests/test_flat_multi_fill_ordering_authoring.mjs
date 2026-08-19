@@ -23,7 +23,7 @@ function source(response) {
     response,
     feedback: { correct: null, incorrect: null },
     points: 1,
-    attemptPolicy: { maxAttempts: null, feedback: "immediateFull" },
+    attemptPolicy: { maxAttempts: null },
     timingPolicy: { kind: "untimed" },
     tags: [],
     taxonomy: [],

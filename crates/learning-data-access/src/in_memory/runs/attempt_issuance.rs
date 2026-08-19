@@ -265,7 +265,6 @@ pub(super) async fn issue_or_resume_question_attempt(
         .published
         .get(&(command.problem, command.question_version))
         .ok_or(StoreError::NotFound)?;
-    let issued_feedback_disclosure = question.question.attempt_policy.feedback;
     validate_issued_flat_grading(
         &question.question,
         presentation_capability,
@@ -501,9 +500,6 @@ pub(super) async fn issue_or_resume_question_attempt(
             .attempt_webwork_grading
             .insert((tenant, attempt.id), webwork_grading.clone());
     }
-    state
-        .attempt_feedback_disclosures
-        .insert((tenant, attempt.id), issued_feedback_disclosure);
     if let Some(replay) = webwork_replay {
         state
             .webwork_grade_replay

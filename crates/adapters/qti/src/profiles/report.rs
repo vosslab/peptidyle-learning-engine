@@ -43,7 +43,6 @@ impl QtiSafeDiagnosticLocation {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QtiSafeDiagnosticTemplate {
     PleDefaultUnlimitedAttempts,
-    PleDefaultImmediateFullFeedback,
     PleDefaultUntimed,
     PleDefaultEnglishUs,
     PleDefaultAllRightsReserved,
@@ -61,9 +60,6 @@ impl QtiSafeDiagnosticTemplate {
     fn text(self) -> &'static str {
         match self {
             Self::PleDefaultUnlimitedAttempts => "PLE default applied: unlimited attempts.",
-            Self::PleDefaultImmediateFullFeedback => {
-                "PLE default applied: immediate full feedback."
-            }
             Self::PleDefaultUntimed => "PLE default applied: untimed.",
             Self::PleDefaultEnglishUs => "PLE default applied: en-US.",
             Self::PleDefaultAllRightsReserved => "PLE default applied: allRightsReserved.",
@@ -107,9 +103,6 @@ impl QtiSafeDiagnostic {
             (
                 QtiProfileDiagnosticCode::Policy,
                 QtiSafeDiagnosticTemplate::PleDefaultUnlimitedAttempts
-            ) | (
-                QtiProfileDiagnosticCode::Policy,
-                QtiSafeDiagnosticTemplate::PleDefaultImmediateFullFeedback
             ) | (
                 QtiProfileDiagnosticCode::Policy,
                 QtiSafeDiagnosticTemplate::PleDefaultUntimed
@@ -219,7 +212,6 @@ impl QtiSafeDiagnostic {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QtiPleDefault {
     UnlimitedAttempts,
-    ImmediateFullFeedback,
     Untimed,
     EnglishUs,
     AllRightsReserved,
@@ -230,9 +222,8 @@ pub enum QtiPleDefault {
 
 #[allow(dead_code)]
 impl QtiPleDefault {
-    pub(super) const ALL: [Self; 8] = [
+    pub(super) const ALL: [Self; 7] = [
         Self::UnlimitedAttempts,
-        Self::ImmediateFullFeedback,
         Self::Untimed,
         Self::EnglishUs,
         Self::AllRightsReserved,
@@ -243,9 +234,6 @@ impl QtiPleDefault {
     pub(super) fn safe_diagnostic(self) -> QtiSafeDiagnostic {
         let template = match self {
             Self::UnlimitedAttempts => QtiSafeDiagnosticTemplate::PleDefaultUnlimitedAttempts,
-            Self::ImmediateFullFeedback => {
-                QtiSafeDiagnosticTemplate::PleDefaultImmediateFullFeedback
-            }
             Self::Untimed => QtiSafeDiagnosticTemplate::PleDefaultUntimed,
             Self::EnglishUs => QtiSafeDiagnosticTemplate::PleDefaultEnglishUs,
             Self::AllRightsReserved => QtiSafeDiagnosticTemplate::PleDefaultAllRightsReserved,

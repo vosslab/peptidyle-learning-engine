@@ -47,8 +47,6 @@ CREATE FUNCTION pg_temp.qti_profile_defaults() RETURNS jsonb
         jsonb_build_object('code', 'policy', 'location', 'item',
             'detail', 'PLE default applied: unlimited attempts.'),
         jsonb_build_object('code', 'policy', 'location', 'item',
-            'detail', 'PLE default applied: immediate full feedback.'),
-        jsonb_build_object('code', 'policy', 'location', 'item',
             'detail', 'PLE default applied: untimed.'),
         jsonb_build_object('code', 'policy', 'location', 'item',
             'detail', 'PLE default applied: en-US.'),

@@ -3,21 +3,13 @@
 import { A, createAsync, useNavigate, useParams } from "@solidjs/router";
 import { createSignal, Show, Suspense, type JSX } from "solid-js";
 
+import type { LearnerClassStatistics } from "../../generated/api/LearnerClassStatistics";
 import { useApiRuntime } from "../api/runtime";
 import { resolveAssignmentRoute } from "../navigation/resolved_route";
 import { runRouteReference } from "../navigation/public_route";
 import { courseRouteReference, assignmentRouteReference } from "../navigation/public_route";
 import { useSessionBootstrap } from "../auth/session_context";
-import { formatPercentScore } from "../score_format";
-
-function formatAssignmentTiming(seconds: number | null): string {
-  if (seconds === null) return "Untimed";
-  const minutes = Math.floor(seconds / 60);
-  const remaining = seconds % 60;
-  if (minutes === 0) return `${seconds} second${seconds === 1 ? "" : "s"}`;
-  if (remaining === 0) return `${minutes} minute${minutes === 1 ? "" : "s"}`;
-  return `${minutes} min ${remaining} second${remaining === 1 ? "" : "s"}`;
-}
+import { learnerProgressSummary, learnerScoreValue } from "../learner_progress";
 
 function formatActivity(timestamp: number | null): string {
   if (timestamp === null) {
@@ -27,6 +19,15 @@ function formatActivity(timestamp: number | null): string {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(timestamp));
+}
+
+function classStatisticsSummary(statistics: LearnerClassStatistics): string {
+  if (statistics.state === "insufficientEvidence") {
+    return "Not enough evidence to show class statistics.";
+  }
+  return `Class average: ${learnerScoreValue(
+    statistics.assignmentAverageScore,
+  )}. Based on ${statistics.completedLearnerCohortSize} completed learners.`;
 }
 
 export function AssignmentOverviewPage(): JSX.Element {
@@ -47,10 +48,9 @@ export function AssignmentOverviewPage(): JSX.Element {
     return runtime.queries.assignmentSummary(assignmentId).catch(() => undefined);
   });
   const course = createAsync(() => {
-    const assignmentId = assignment()?.courseId;
-    return assignmentId === undefined
-      ? Promise.resolve(undefined)
-      : runtime.queries.courseScope(assignmentId);
+    return resolveAssignmentRoute(runtime.client, params["assignmentRef"]).then((identity) =>
+      runtime.queries.courseScope(identity.courseId),
+    );
   });
   const mayEdit = (): boolean =>
     session.kind === "authenticated" &&
@@ -105,27 +105,29 @@ export function AssignmentOverviewPage(): JSX.Element {
                 </div>
                 <div>
                   <dt>Feedback</dt>
-                  <dd>Feedback and scores are released by the assignment settings.</dd>
-                </div>
-                <div>
-                  <dt>Run time limit</dt>
-                  <dd>{formatAssignmentTiming(current().assignmentTiming.timeLimitSeconds)}</dd>
+                  <dd>Feedback and scores are available according to the assignment settings.</dd>
                 </div>
                 <Show when={summary()}>
                   {(assignmentSummary) => (
                     <>
                       <div>
-                        <dt>Current score</dt>
-                        <dd>{formatPercentScore(assignmentSummary().currentScore)}</dd>
+                        <dt>Score status</dt>
+                        <dd role="status">{learnerProgressSummary(assignmentSummary())}</dd>
                       </div>
-                      <div>
-                        <dt>Latest score</dt>
-                        <dd>{formatPercentScore(assignmentSummary().latestScore)}</dd>
-                      </div>
-                      <div>
-                        <dt>Best score</dt>
-                        <dd>{formatPercentScore(assignmentSummary().bestScore)}</dd>
-                      </div>
+                      <Show when={assignmentSummary().scoreState === "available"}>
+                        <div>
+                          <dt>Current score</dt>
+                          <dd>{learnerScoreValue(assignmentSummary().currentScore)}</dd>
+                        </div>
+                        <div>
+                          <dt>Latest score</dt>
+                          <dd>{learnerScoreValue(assignmentSummary().latestScore)}</dd>
+                        </div>
+                        <div>
+                          <dt>Best score</dt>
+                          <dd>{learnerScoreValue(assignmentSummary().bestScore)}</dd>
+                        </div>
+                      </Show>
                       <div>
                         <dt>Completed runs</dt>
                         <dd>{assignmentSummary().completedRunCount}</dd>
@@ -138,6 +140,14 @@ export function AssignmentOverviewPage(): JSX.Element {
                         <dt>Last activity</dt>
                         <dd>{formatActivity(assignmentSummary().lastActivityAt)}</dd>
                       </div>
+                      <Show when={assignmentSummary().classStatistics}>
+                        {(statistics) => (
+                          <div>
+                            <dt>Class statistics</dt>
+                            <dd>{classStatisticsSummary(statistics())}</dd>
+                          </div>
+                        )}
+                      </Show>
                     </>
                   )}
                 </Show>

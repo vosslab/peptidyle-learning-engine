@@ -157,7 +157,21 @@ pub(crate) fn load_submission_record(
             "submission receipt presentation does not match its issued snapshot".to_string(),
         ));
     }
-    Ok(Some(stored.record.clone()))
+    let run = state
+        .runs
+        .get(&(tenant, attempt.run))
+        .ok_or(StoreError::NotFound)?;
+    let enrollment = super::super::enrollment_record(state, tenant, run.enrollment)?;
+    let assignment = super::super::assignment_record(state, tenant, enrollment.assignment)?;
+    let mut record = stored.record.clone();
+    record.disclosure = super::super::feedback::current_disclosure_input(
+        state,
+        tenant,
+        &assignment,
+        attempt.id,
+        record.attempt.timer.submitted_at,
+    )?;
+    Ok(Some(record))
 }
 
 #[cfg(test)]

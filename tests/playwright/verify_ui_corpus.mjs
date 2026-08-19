@@ -10,7 +10,9 @@ import path from "node:path";
 
 import {
   bootstrapProvenanceFromHistory,
+  contentBoundCaptureGenerationIssues,
   reconcileCorpus,
+  requiredVisualEvidenceIssues,
   summarize,
 } from "./ui_corpus_provenance.mjs";
 
@@ -35,10 +37,14 @@ async function main() {
   const summary = await summarize(root);
   process.stdout.write(`${summary}\n`);
   const { missing, unowned } = await reconcileCorpus(root);
-  if (missing.length > 0 || unowned.length > 0) {
-    process.stdout.write(
-      "FAIL: the corpus and its manifest disagree about which artifacts exist.\n",
-    );
+  const requiredIssues = await requiredVisualEvidenceIssues(root);
+  const generationIssues = await contentBoundCaptureGenerationIssues(root);
+  const allIssues = [...requiredIssues, ...generationIssues];
+  for (const issue of allIssues) {
+    process.stdout.write(`  required visual evidence failure: ${issue}\n`);
+  }
+  if (missing.length > 0 || unowned.length > 0 || allIssues.length > 0) {
+    process.stdout.write("FAIL: corpus ownership or required visual evidence is incomplete.\n");
     process.exitCode = 1;
     return;
   }
