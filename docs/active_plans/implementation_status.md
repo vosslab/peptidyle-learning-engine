@@ -10,13 +10,14 @@ documents link here instead of copying those mutable values.
 
 The active [professor capability plan](active/professor_capability_architecture_plan.md) supplements
 the release plan and does not replace it. This file is the sole global current-package handoff
-registry: WP-PROF-S4 is the single current professor package, and the release queue is PARKED at
+registry: WP-PROF-S6 is the single current professor package, and the release queue is PARKED at
 still-open WP-RC8.
 The professor and release plans own their scope and dependency queues, but defer current-handoff
-truth to this registry. WP-PROF-S1, WP-PROF-S2, WP-PROF-S3, WP-PROF-S5, and WP-PROF-S7 are accepted.
-WP-PROF-S4 is the dependency-ready lane-A disclosure package: it consumes WP-PROF-S3's one effective
-policy verdict and per-field provenance; it does not reconstruct entitlement, gates, or modifier
-precedence. WP-RC8 owns the open provider, mailbox, passkey, multi-replica, security, and HCI gates.
+truth to this registry. WP-PROF-S1, WP-PROF-S2, WP-PROF-S3, WP-PROF-S4, WP-PROF-S5, and WP-PROF-S7
+are accepted. WP-PROF-S6 is the dependency-ready lane-C course-grade-scheme package; it consumes the
+accepted term and typed-reference spine without reopening S3 policy resolution, S4 disclosure, or
+S5 entitlement authority. WP-RC8 owns the open provider, mailbox, passkey, multi-replica, security,
+and HCI gates.
 Professor pre-production work may use the shared migration ledger; it does not accept or imply
 production email authentication, mailbox delivery, onboarding, deployment, or release acceptance.
 
@@ -44,14 +45,14 @@ do not implicitly receive one.
 | `2026081802` | WP-PROF-S7 | Typed references and bylines; accepted and immutable |
 | `2026081803` | WP-PROF-S5 | Entitlement, typed group purposes, and materialization; accepted and immutable |
 | `2026081804` | WP-PROF-S3 | Effective-policy resolver; accepted and immutable |
-| `2026081805` | WP-PROF-S4 | Disclosure policy; M1 reservation |
+| `2026081805` | WP-PROF-S4 | Disclosure policy; accepted and immutable |
 | `2026081806` | WP-PROF-S6 | Course grade scheme; M1 reservation |
 
 The S3, S4, and S5 allocations were reordered before any of their migration files existed.
-Accepted S5 occupies `2026081803` and accepted S3 occupies `2026081804`; the next forward allocation
-is S4 `2026081805`. No placeholder migration, absent-file dependency, or out-of-order application is
-permitted. Numeric allocation records the forward migration sequence, while package dependency
-remains defined by the professor plan.
+Accepted S5 occupies `2026081803`, accepted S3 occupies `2026081804`, and accepted S4 occupies
+`2026081805`; the next forward allocation is S6 `2026081806`. No placeholder migration, absent-file
+dependency, or out-of-order application is permitted. Numeric allocation records the forward
+migration sequence, while package dependency remains defined by the professor plan.
 
 The actual clean-cluster baseline replacement requires both professor WP-PROF-E2 readiness and completion
 of all repository-owned release schema packages/RC12, immediately before first production data. WP-PROF-E2
@@ -129,6 +130,34 @@ Independent domain/Store, PostgreSQL/RLS, and consumer/test reviews returned ACC
 blocking finding; both diff checks passed. The sole professor handoff advances to WP-PROF-S4.
 WP-RC8 remains parked and open. This closeout does not accept provider or mailbox delivery, passkeys,
 multi-replica operation, production deployment, or release activation.
+
+WP-PROF-S4 is accepted on 2026-08-19. One assignment-owned five-field disclosure policy now governs
+score, correctness, feedback text, solution, and class statistics independently. Learner projections
+consume current S5 entitlement, the current S3-resolved effective-policy verdict, authoritative
+server time, and submission fact; they do not reconstruct those authorities. The direct cutover
+removes question-level timing and issuance snapshot columns, while `feedback_release` remains
+retention-fenced audit evidence that cannot unlock a projection. Learner assignment and progress
+transports omit policy, clock, tenant, and instructor-only inputs; class statistics use an
+identity-free closed union with the fixed five-learner privacy floor. A central fail-closed browser
+boundary denies every instructor-only route before protected components, course-theme reads, or
+transport mount.
+
+Migration `2026081805_assignment_learner_disclosure_policy.sql` is accepted and immutable. The fresh
+PostgreSQL 17 baseline applied all 41 migrations and passed migration verification/idempotence, the
+selected disclosure-policy/current-S3/RLS oracle, the class-statistics access oracle, and exact
+cleanup. Final material-tree Validation passed `./check_rust.sh`; `./check_codebase.sh` (five checks
+and 274 Node tests); `source source_me.sh && python3 -m pytest tests/` (5,418 tests and 2 subtests);
+outside-sandbox built Playwright (228 of 228, zero skips); and outside-sandbox `source source_me.sh &&
+python3 local_stack.py acceptance` with all seven ordered browser, visual, walkthrough, Chapter One,
+and isolated disposable WebWork lanes green. Both diff checks passed. The 32-artifact screenshot
+corpus includes fresh, inspected allowed-student and instructor-route-denial evidence at 1280 by 800,
+800 by 1280, 393 by 852, and 800 by 800; direct route and no-transport tests, not pixels alone, prove
+authorization. Independent architecture/security, tests/HCI, docs/legacy, student-access/HCI, and
+corpus reviews returned ACCEPT with no unresolved P0--P3 finding. The sole professor handoff advances
+to WP-PROF-S6; WP-RC8 remains parked and open. Local-development credentials and invitations were
+used because email is unavailable. This closeout does not accept provider or mailbox delivery,
+passkeys, multi-replica operation, production deployment, release activation, or an early
+clean-cluster baseline replacement.
 
 ## Working rules
 

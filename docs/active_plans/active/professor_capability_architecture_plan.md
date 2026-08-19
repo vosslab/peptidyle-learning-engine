@@ -345,7 +345,8 @@ boundary governs direct navigation and in-app links; it is not a learner project
 entitlement/policy authority.
 
 Permanent visual evidence uses the exact CSS-pixel matrix 1280 by 800 (16:10), 800 by 1280 (10:16),
-393 by 852 (iPhone Pro aspect), and 800 by 800 (square), planned at 40%, 30%, 20%, and 10%.
+393 by 852 (iPhone Pro aspect), and 800 by 800 (square), with planning weights of 40%, 30%, 20%, and
+10%.
 Professor evidence remains desktop at 1280 by 800 or larger. Student evidence includes an allowed
 student surface and the visible denial of instructor-only routes. The committed corpus is organized
 under `docs/screenshots/` by instructor, student, and the student/access boundary, with
@@ -354,8 +355,8 @@ under `docs/screenshots/` by instructor, student, and the student/access boundar
 Live evidence uses local-development credentials or invitations because email is unavailable; it
 must not claim email delivery. Fictional deterministic fixture addresses in `example.invalid` are
 permitted test data, while real email and identifying records remain prohibited. Public and private
-evidence remain separate. Screenshots become acceptance evidence only after fresh capture and
-inspection, so this plan does not claim that the new student/access captures exist or pass yet.
+evidence remain separate. The accepted S4 evidence includes fresh capture, native-size inspection,
+manifest/provenance verification, and direct no-transport route proofs for all four viewports.
 
 ### 3.4 Derived state versus durable transitions
 
@@ -895,7 +896,7 @@ P1 finding.
 | WP-PROF-S2 | Expert coder | Course term, zone, validation, migration (serial core); accepted 2026-08-18 after full Validation and independent final ACCEPT reviews | WP-PROF-S1 accepted |
 | WP-PROF-S7 | Expert coder | Typed references, shared value types, migration allocation, RLS, and immutable public bylines (serial core); accepted 2026-08-19 after full Validation and independent final ACCEPT reviews | WP-PROF-S1 |
 | WP-PROF-S3 | Expert coder | Accepted 2026-08-19: effective-policy resolver, ordered gates, grant-filtered modifiers, per-field provenance, and sealed attempt receipts (lane A); full Validation and three independent final reviews passed | WP-PROF-S2, WP-PROF-S7, WP-PROF-S5 |
-| WP-PROF-S4 | Expert coder | Disclosure policy and learner projections (lane A), including fail-closed student access evidence and the role-based visual contract; current-handoff state is in the status registry | WP-PROF-S3 |
+| WP-PROF-S4 | Expert coder | Accepted 2026-08-19: assignment-owned five-field disclosure, learner-safe projections, fail-closed student access, class-statistics privacy, and the four-viewport role-based visual contract; full Validation and independent final reviews passed | WP-PROF-S3 |
 | WP-PROF-S5 | Expert coder | Accepted 2026-08-19: entitlement authority, typed decision/reasons and applicable group-purpose scopes, derived authority, and materialization (lane B); full Validation and three independent final reviews passed | WP-PROF-S2, WP-PROF-S7 |
 | WP-PROF-S6 | Expert coder | Grade scheme, shipped modes, worked examples, export (lane C) | WP-PROF-S2, WP-PROF-S7 |
 | WP-PROF-T1 | Expert coder | Lifecycle, schedule, late policy, instructions, scoring status | WP-PROF-S3 |

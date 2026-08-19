@@ -4,6 +4,19 @@
 
 ### Additions and New Features
 
+- Accepted WP-PROF-S4 with one assignment-owned learner-disclosure policy. Score, correctness,
+  feedback text, solution, and class statistics each use an independent closed timing, while current
+  S5 entitlement, the current S3-resolved verdict, authoritative server time, and submission fact
+  remain the only projection inputs.
+- Added accepted immutable migration `2026081805_assignment_learner_disclosure_policy.sql`. It adds
+  the five required assignment fields, removes their temporary backfill defaults, and directly drops
+  the retired assignment, issued-attempt, and submission-snapshot disclosure columns without a JSON
+  shadow or compatibility reader.
+- Added the learner-safe class-statistics projection and four-viewport student access corpus. The
+  identity-free union omits withheld data, reports metric-free insufficient evidence, and exposes
+  only cohort size plus normalized average at the fixed five-learner floor. Eight allowed/denied
+  access images at 1280 by 800, 800 by 1280, 393 by 852, and 800 by 800 now live under role-based
+  screenshot subfolders within a 32-artifact manifest-owned corpus.
 - Accepted WP-PROF-S3 with one pure effective-assignment-policy resolver. Ordered lifecycle,
   entitlement, and authorization gates deny before grant-filtered group modifiers or an individual
   exception resolve per-field policy and provenance. The resolver consumes S5 authority rather than
@@ -21,6 +34,15 @@
 
 ### Behavior or Interface Changes
 
+- Learner assignment, enrollment, run, attempt, submission, feedback, and progress responses now
+  omit instructor policy, tenant, clock, and raw-storage authority inputs. Neutral score states never
+  turn withheld values into zero or promise a later release, and `feedback_release` remains audit-only
+  evidence that cannot change disclosure.
+- The browser now evaluates one central route-role contract before instructor components, course
+  theme reads, or transport mount. A student may use learner assignment, run, and account pages but
+  receives an accessible denial for every instructor-only deep link, including roster and gradebook.
+  Direct navigation/reload and no-transport tests provide the authorization proof; screenshots alone
+  do not.
 - Active roster membership no longer eagerly creates the roster-by-assignment enrollment
   cross-product. The first entitlement-bearing learner or instructor action evaluates current
   membership and audience under the action transaction, materializes exactly one receipt, and
@@ -32,6 +54,17 @@
 
 ### Fixes and Maintenance
 
+- Removed the retired question-level feedback timing type from Rust, TypeScript, authoring, imports,
+  fixtures, mocks, and maintained documentation. Browser mocks now consume static server projections
+  instead of synthesizing disclosure from legacy immediate/deferred/release labels.
+- Organized the screenshot corpus into instructor, student, student/access, and shared ownership
+  subfolders. Recursive provenance now binds each owner refresh to one generation plus per-file
+  digest and exact PNG dimensions, so mixed partial refreshes, changed bytes, wrong dimensions,
+  symlinks, and undeclared artifacts fail verification.
+- Made the required WebWork browser acceptance own a private disposable full stack instead of
+  reusing the retained default `containers` project. Its capability permits only structured launch,
+  exact renderer outage/restart, one bounded redacted API-evidence log read, and label-proven cleanup;
+  arbitrary Compose commands are rejected.
 - Made Memory and PostgreSQL compose resolver inputs from the same evaluator-approved scopes on
   resolve, start, issue, and list paths. An unrelated group modifier therefore cannot suppress a
   learner who is currently entitled to the assignment.
@@ -48,6 +81,18 @@
 
 ### Decisions and Failures
 
+- Accepted WP-PROF-S4 after independent architecture/security, tests/HCI, docs/legacy,
+  student-access/HCI, and screenshot-corpus reviews returned ACCEPT with no unresolved P0--P3
+  finding. The sole professor handoff advances to WP-PROF-S6; WP-RC8 remains parked and open.
+- Final material-tree Validation passed `./check_rust.sh`; `./check_codebase.sh` (five checks and 274
+  Node tests); `source source_me.sh && python3 -m pytest tests/` (5,418 tests and 2 subtests);
+  outside-sandbox built Playwright (228 of 228, zero skips); the fresh PostgreSQL 17 baseline (all 41
+  migrations, the S4 disclosure/current-policy/RLS and class-statistics oracles, and cleanup); all
+  seven aggregate browser, visual, walkthrough, Chapter One, and isolated disposable WebWork lanes;
+  the 32-artifact screenshot verifier; and both diff checks. Local-development credentials and
+  invitations route around unavailable email. This does not claim provider or mailbox delivery,
+  passkeys, multi-replica operation, deployment, release activation, or that screenshots alone prove
+  authorization.
 - Accepted WP-PROF-S3 after independent domain/Store, PostgreSQL/RLS, and consumer/test reviews
   returned ACCEPT with no final blocking finding. The sole professor handoff advances to WP-PROF-S4;
   WP-RC8 remains parked and open.

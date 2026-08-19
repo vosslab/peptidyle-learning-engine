@@ -1,12 +1,13 @@
-# WP-PROF-S4 Tomorrow Start Checklist
+# WP-PROF-S4 Start and Closeout Checklist
 
 ## Codebase status snapshot (2026-08-19)
 
-- WP-PROF-S3 is accepted and closed in active-plan/docs truth (legacy timing contract removed).
-- S3 1804 migration + normalized effective-policy receipts/current-pointer behavior is complete, with PG baseline pass evidence already recorded in prior handoff notes.
-- WP-PROF-S5 entitlement/membership redesign has broad in-memory/PG/store coverage and consumer cutover work largely complete, with the main remaining coordination work now to verify any final S5 acceptance/closeout handoff details if not already done in `implementation_status.md`.
+- WP-PROF-S3 and WP-PROF-S5 are accepted and closed; S4 consumes their current verdicts without
+  rebuilding policy resolution or entitlement.
+- WP-PROF-S4 is accepted on the final material tree. Migration 1805, learner projections, the central
+  student route boundary, class-statistics privacy, and the visual/access evidence are complete.
 - Multiple prior cuts were rejected until resolved where competing authority paths remained; these were repaired to enforce single-truth ownership for policy, entitlement, and course membership.
-- No new edits have been run on this turn; this file is a restart packet only.
+- This file preserves the start sequence as implementation history and records the completed closure.
 
 ## Permanent visual and access contract
 
@@ -25,10 +26,11 @@
   claiming email delivery. Fictional deterministic `example.invalid` fixture addresses are allowed,
   while real email and identifying records are prohibited. Keep public and private evidence boundaries
   separate.
-- Screenshots count as acceptance evidence only after a fresh capture and inspection. This checklist
-  does not claim that the planned student/access captures exist or pass yet.
+- The accepted corpus contains fresh, inspected allowed-student and instructor-route-denial captures
+  at all four viewports. Manifest/provenance verification covers 32 artifacts; direct route and
+  no-transport tests remain the authorization proof because pixels alone are insufficient.
 
-## Tomorrow start sequence
+## Historical start sequence and completed closure
 
 1) Startup lock-in (first 15 min)
 
@@ -36,7 +38,8 @@
   - `docs/active_plans/implementation_plan.md`
   - `docs/active_plans/implementation_status.md`
   - `docs/TEST_EVIDENCE_MODEL.md`
-- Confirm that WP-PROF-S4 is the active package and that `implementation_status.md` has the correct current/immutable package order and handoff chain.
+- Confirm that `implementation_status.md` records accepted WP-PROF-S4, immutable migration 1805, and
+  the sole handoff to dependency-ready WP-PROF-S6.
 
 2) Scope freeze (next 10 min)
 
@@ -70,8 +73,8 @@
 - `git diff --check`
 - `git diff --cached --check`
 - Playwright or live E2E suites only if S4 scope touches UI/network surfaces required by the test model.
-- Fresh student/access visual capture and human inspection at the required matrix; do not treat retained
-  images as acceptance evidence.
+- Fresh student/access visual capture and human inspection at the required matrix; the accepted run
+  produced and inspected all eight access artifacts.
 
 6) Closure steps
 

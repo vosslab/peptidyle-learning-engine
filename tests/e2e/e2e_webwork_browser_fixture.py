@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Mint the private typed stack target for WebWork browser acceptance."""
 
 import base64
